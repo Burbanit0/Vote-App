@@ -22,23 +22,24 @@ import {
 import { Trans, useTranslation } from 'react-i18next';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
-import ResponsiveTable from '../shared/ResponsiveTable';
-import SkeletonCard from '../shared/SkeletonCard';
+import ResponsiveTable from '../shared/ui/ResponsiveTable';
+import SkeletonCard from '../shared/ui/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
+import { useMethodLabels } from './simulationConstants';
 import MethodSimilarityGraph, {
   flatToMatrix,
   partialResultsToMatrix,
 } from './MethodSimilarityGraph';
-import { useSimulationWorker } from '../../hooks/useSimulationWorker';
-import MetricTooltip from '../shared/MetricTooltip';
+import MetricTooltip from '../shared/ui/MetricTooltip';
+
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { listNames } from '@/lib/listNames';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function cellStyle(rate: number, isDark: boolean): React.CSSProperties {
   if (isDark) {
@@ -65,38 +66,20 @@ interface Props {
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
-  const { dispatch: workerDispatch } = useSimulationWorker();
   const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [streamMatrix, setStreamMatrix] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
 
   const stream = useMonteCarloStream();
 
-  const METHOD_LABELS: Record<string, string> = useMemo(
-    () => ({
-      plurality: t('methods.plurality.label'),
-      two_round: t('methods.two_round.label'),
-      borda: t('methods.borda.label'),
-      approval: t('methods.approval.label'),
-      irv: t('methods.irv.label'),
-      coombs: t('methods.coombs.label'),
-      bucklin: t('methods.bucklin.label'),
-      minimax: t('methods.minimax.label'),
-      schulze: t('methods.schulze.label'),
-      simple_score: t('methods.simple_score.label'),
-      star_voting: t('methods.star_voting.label'),
-      median_voting: t('methods.median_voting.label'),
-      mean_median_hybrid: t('methods.mean_median_hybrid.label'),
-      variance_based: t('methods.variance_based.label'),
-    }),
-    [t]
-  );
+  // 14 of the 18 keys useMethodLabels() covers -- the extra entries are simply
+  // never looked up here.
+  const METHOD_LABELS = useMethodLabels();
 
   const ideologyOptions = [
     { value: 'random', label: t('ideology.random') },
@@ -137,14 +120,14 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     }
   };
 
-  // ── Offload matrix computation to worker on each streaming tick ───────
-  React.useEffect(() => {
-    const keys = Object.keys(stream.partialResults);
-    if (keys.length < 2) return;
-    workerDispatch('COMPUTE_MATRIX', { partialResults: stream.partialResults })
-      .then(({ matrix }) => setStreamMatrix(matrix))
-      .catch(() => setStreamMatrix(partialResultsToMatrix(stream.partialResults)));
-  }, [stream.partialResults, workerDispatch]);
+  // ── Agreement matrix, recomputed on each streaming tick ────────────────
+  const streamMatrix = useMemo(
+    () =>
+      Object.keys(stream.partialResults).length < 2
+        ? {}
+        : partialResultsToMatrix(stream.partialResults),
+    [stream.partialResults]
+  );
 
   // ── Derived ────────────────────────────────────────────────────────────
 
@@ -186,7 +169,8 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       methodNames
         .map((m) => {
           const s = result!.methods[m];
-          const pct = s.most_common_winner ? (s.winner_distribution[s.most_common_winner] ?? 0) : 0;
+          // The leading share, so tied winners report the share they share.
+          const pct = Math.max(0, ...Object.values(s.winner_distribution));
           return {
             method: m,
             winner: s.most_common_winner,
@@ -275,6 +259,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             </Col>
             <Col md={2}>
               <Button
+                data-testid="mc-run"
                 variant="primary"
                 size="sm"
                 className="w-full"
@@ -352,7 +337,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
       {/* Similarity graph — shown once streaming has partial results */}
       {Object.keys(stream.partialResults).length > 1 && (
-        <Card className="mb-4">
+        <Card className="mb-4" data-testid="mc-stream-graph">
           <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>{t('graph.title')}</strong>
             <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
@@ -375,7 +360,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       )}
 
       {result && (
-        <>
+        <div data-testid="mc-results">
           <Alert variant="secondary" className="py-2 mb-4">
             <Trans
               i18nKey="simulation.monteCarloSummary"
@@ -421,7 +406,10 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     interval={0}
                   />
                   <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} contentStyle={ct.tooltipStyle} />
+                  <Tooltip
+                    formatter={numericTooltipFormatter((v: number) => v.toFixed(4))}
+                    contentStyle={ct.tooltipStyle}
+                  />
                   <Bar dataKey="regret" name={t('simulation.bayesianRegret')} fill="#4e79a7">
                     {regretBarData.map((_, i) => (
                       <Cell key={i} fill="#4e79a7" />
@@ -562,14 +550,16 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     <tr key={method}>
                       <td className="font-semibold ps-2">{METHOD_LABELS[method] ?? method}</td>
                       <td className="text-center">
-                        {winner ? (
+                        {winner.length > 0 ? (
                           <Badge
                             style={{
-                              backgroundColor: colorMap[winner] ?? '#999',
+                              // A winner always has a distribution entry, so the
+                              // colour is looked up directly; a tie has no single one.
+                              backgroundColor: winner.length === 1 ? colorMap[winner[0]] : '#999',
                               fontSize: '0.75rem',
                             }}
                           >
-                            {winner}
+                            {listNames(winner)}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -605,7 +595,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
               </Table>
             </CardBody>
           </Card>
-        </>
+        </div>
       )}
     </div>
   );

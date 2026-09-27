@@ -15,35 +15,15 @@ export default defineConfig({
     'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:4434'),
   },
   resolve: {
-    // react-router v7 splits into react-router (context + hooks) and
-    // react-router-dom (re-export). Tests wrap in react-router-dom's
-    // MemoryRouter while components call react-router's useNavigate; dedupe so
-    // they share ONE module instance (else the Router context mismatches).
-    dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+    dedupe: ['react', 'react-dom', 'react-router'],
     alias: [
       // shadcn/ui convention: `@/` → src (matches vite.config.ts). Must precede the
       // regex aliases below. NB: src/lib/ is force-tracked despite the Python `lib/`
       // pattern in .gitignore — if src/lib/utils.ts is ever missing on a fresh
       // checkout, EVERY `@/lib/utils` import fails under coverage (see git history).
       { find: '@', replacement: r('./src') },
-      // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
-      // 9 files) imports. Under Vitest those resolve to two module instances →
-      // two Router contexts → "useNavigate must be inside a Router". react-router-dom@7
-      // just re-exports react-router and the app only uses shared exports, so collapse
-      // them to ONE instance for tests.
-      { find: /^react-router-dom$/, replacement: 'react-router' },
       // virtual:pwa-register/react → no-op mock (was moduleNameMapper in Jest)
       { find: /^virtual:pwa-register\/react$/, replacement: r('./src/__mocks__/pwa-register.ts') },
-      // useSimulationWorker uses `new Worker(new URL(..., import.meta.url))` →
-      // replace project-wide with the no-op mock so chart/heatmap tests work.
-      // NB: Vite regex aliases do a *substring* replace, so anchor with ^.* to
-      // swallow the whole specifier (else the `../../` prefix is kept → bad path).
-      {
-        find: /^.*hooks\/useSimulationWorker$/,
-        replacement: r('./src/__mocks__/useSimulationWorker.ts'),
-      },
-      // Static image imports → file stub.
-      { find: /^.*\.(jpg|jpeg|png|gif|webp|svg)$/, replacement: r('./src/__mocks__/fileMock.ts') },
     ],
   },
   test: {
@@ -52,9 +32,6 @@ export default defineConfig({
     // Match Jest's default testURL (http://localhost/) so history.replaceState
     // to same-origin paths like /app doesn't throw a jsdom SecurityError.
     environmentOptions: { jsdom: { url: 'http://localhost/' } },
-    // Process CSS Modules (so `import styles from './x.module.css'` has a default
-    // export of class names); plain CSS imports stay ignored (no-op).
-    css: { include: [/\.module\.css$/], modules: { classNameStrategy: 'non-scoped' } },
     setupFiles: ['./src/setupTests.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
@@ -65,19 +42,19 @@ export default defineConfig({
       // pass, `?vitest-uncovered-coverage=true`, was a rolldown-parser crash on
       // Linux). Coverage reflects only files exercised by tests — essentially the
       // whole app, since every src file is imported by a test.
-      exclude: [
-        'src/**/*.d.ts',
-        'src/index.tsx',
-        'src/reportWebVitals.ts',
-        'src/declarations.d.ts',
-        'src/**/*.test.{ts,tsx}',
-        'src/**/*.stories.{ts,tsx}',
-      ],
+      exclude: ['src/**/*.d.ts', 'src/index.tsx', 'src/**/*.test.{ts,tsx}'],
+      // Each floor sits just under what the suite actually reaches, so it locks
+      // in what exists rather than describing an aspiration nobody is working
+      // toward. Measured 2026-08-24: statements 84.57, branches 74.77,
+      // functions 75.98, lines 86.28.
+      // functions stays at 75 on purpose — the real figure is 75.98, so there is
+      // no room to ratchet without writing tests first. Raising it anyway would
+      // make the next unrelated PR fail for a reason its author cannot act on.
       thresholds: {
-        branches: 20,
-        functions: 25,
-        lines: 50,
-        statements: 50,
+        branches: 74,
+        functions: 75,
+        lines: 86,
+        statements: 84,
       },
     },
   },

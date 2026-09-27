@@ -1,12 +1,11 @@
 import js from '@eslint/js';
 import globals from 'globals';
-import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-plugin-prettier';
-import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import unusedImports from 'eslint-plugin-unused-imports';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 export default [
   js.configs.recommended,
@@ -15,12 +14,7 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
-        // jest globals cover describe/it/expect/beforeEach/…; add the Vitest
-        // helpers the migrated tests use (the `globals` pkg here has no `vitest`
-        // preset).
-        ...globals.jest,
-        vi: 'readonly',
-        vitest: 'readonly',
+        ...globals.vitest,
       },
       parser: parser,
       parserOptions: {
@@ -32,16 +26,40 @@ export default [
       },
     },
     plugins: {
-      react,
       'react-hooks': reactHooks,
-      '@typescript-eslint': tseslint,
       prettier,
       'jsx-a11y': jsxA11y,
       'unused-imports': unusedImports,
+      // Registered (not enabled -- no `sonarjs/*` entry below) purely so
+      // `// eslint-disable-next-line sonarjs/<rule>` comments resolve here
+      // too, on a file this config also lints. Without this, ESLint treats
+      // that disable comment as referencing an unknown rule and errors on
+      // it -- exactly the opposite of what a verified-false-positive
+      // suppression is for. The actual sonarjs rules stay off here; they
+      // only run informationally via eslint.sonarjs.config.js (Lot 6.6).
+      sonarjs,
     },
     rules: {
-      'react/react-in-jsx-scope': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      // The plugin was registered above but never actually wired to a rule —
+      // found while investigating PLAN_SURFACE_EXTERIEURE.md §2.J
+      // (PlaygroundController.tsx's manually-duplicated dependency array):
+      // nothing in this repo could ever catch a missing/stale hook
+      // dependency, in that file or any other. exhaustive-deps stays `warn`,
+      // not `error` — same informational status as sonarjs above, since
+      // enabling it surfaced 51 pre-existing warnings across 37 files that
+      // haven't been triaged one by one (a /code-review ultra pass on this
+      // exact enablement caught two real bugs behind PlaygroundController.tsx's
+      // own "deliberate, not a bug" serialized-key comments — see its
+      // shakeKey/leaderScKey/parlScKey — so "most are fine" cannot be
+      // assumed for the rest without the same file-by-file check).
+      // rules-of-hooks is `error`, not `warn`: unlike exhaustive-deps it had
+      // zero existing violations when enabled, and its violations (a hook
+      // called conditionally/in a loop/after an early return) are near-always
+      // real runtime crashes, not a style judgment call — the same reasoning
+      // that ratcheted jsx-a11y/unused-imports straight to `error` below once
+      // their backlogs hit zero, not to `warn` first.
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
       // TypeScript already resolves identifiers + reports unused symbols far more
       // accurately than the base rules, which false-positive on type-signature
       // params and Node/worker globals. Defer to the TS-aware rule and the compiler.
@@ -49,7 +67,6 @@ export default [
       'no-unused-vars': 'off',
       // unused-imports auto-removes dead imports (fixable); the TS rule keeps
       // flagging dead locals/params (underscore-prefixed names are intentional).
-      '@typescript-eslint/no-unused-vars': 'off',
       'unused-imports/no-unused-imports': 'error',
       // Dead local vars/params are a code smell: the backlog was burned down to
       // zero, so this now blocks (underscore-prefixed names stay intentional).
@@ -77,10 +94,16 @@ export default [
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
       'jsx-a11y/no-redundant-roles': 'error',
     },
-    settings: {
-      react: {
-        version: 'detect',
-      },
+  },
+  {
+    // Repo tooling (scripts/check-flaky.mjs …): Node, not the browser. The main
+    // block above only matches .js/.jsx/.ts/.tsx, so .mjs would otherwise fall
+    // through to js.configs.recommended with browser-only globals.
+    files: ['scripts/**/*.{mjs,cjs,js}'],
+    languageOptions: {
+      globals: { ...globals.node },
+      sourceType: 'module',
+      ecmaVersion: 'latest',
     },
   },
   {
@@ -91,6 +114,12 @@ export default [
       'playwright-report/',
       'node_modules/',
       'src/api/types.gen.ts',
+      // Stryker's instrumented sandbox copy of src/ — gitignored, so CI never
+      // sees it, but a machine that's run mutation testing locally will have
+      // one lying around. Left in, `eslint .` tries to lint the duplicate
+      // tree too and the stylish formatter overflows (RangeError: Invalid
+      // string length) trying to print the doubled-up results.
+      '.stryker-tmp/',
     ],
   },
 ];

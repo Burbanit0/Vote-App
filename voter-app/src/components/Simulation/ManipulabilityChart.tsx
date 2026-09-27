@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { errorMessage } from '../../utils/errorMessage';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
@@ -17,6 +16,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
+import { numericTickFormatter } from '@/lib/rechartsFormatters';
 import { useExpertMode } from '../../stores/useUIStore';
 import { useMethodLabels } from './simulationConstants';
 import { apiClient } from '../../api/client';
@@ -63,7 +64,7 @@ function rateLabel(rate: number): string {
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
-function ManipTooltip({ active, payload }: any) {
+function ManipTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const d: ManipResult = payload[0].payload;
   const rate = d.manipulability_rate ?? 0;
@@ -130,7 +131,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
       const results = (resp as { results: ManipResult[] }).results;
       setData(results.filter((r) => r.manipulability_rate !== null));
     } catch (e: unknown) {
-      setError(errorMessage(e, "Erreur lors de l'analyse"));
+      setError(e instanceof Error ? e.message : "Erreur lors de l'analyse");
     } finally {
       setLoading(false);
     }
@@ -254,7 +255,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
                 <XAxis
                   type="number"
                   domain={[0, 100]}
-                  tickFormatter={(v) => `${v} %`}
+                  tickFormatter={numericTickFormatter((v) => `${v} %`)}
                   tick={{ fontSize: 11 }}
                   label={{
                     value: 'Taux de manipulation (%)',
@@ -265,7 +266,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
                   }}
                 />
                 <YAxis type="category" dataKey="label" width={110} tick={{ fontSize: 12 }} />
-                <Tooltip content={<ManipTooltip />} />
+                <Tooltip content={ManipTooltip} />
 
                 {/* Threshold reference line at 5 % */}
                 <ReferenceLine

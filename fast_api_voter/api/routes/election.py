@@ -23,98 +23,96 @@ Backend layering (top to bottom):
 """
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Callable, Dict, TypeVar
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import run_typed
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
-# shared with the Flask side via the openapi-typescript pipeline.
-from api.schemas import (
+# shared with the frontend via the openapi-typescript pipeline.
+from api.schemas.election import (
     AbstentionRequest,
     AbstentionResponse,
-    AdaptiveRequest,
     AdaptiveResponse,
-    AffectivePolarizationRequest,
     AffectivePolarizationResponse,
-    BallotComplexityRequest,
+    AssemblyRequest,
+    AssemblyResponse,
+    AssemblyScorecardRequest,
+    AssemblyScorecardResponse,
     BallotComplexityResponse,
-    BehavioralBiasesRequest,
     BehavioralBiasesResponse,
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
-    CascadeRequest,
     CascadeResponse,
-    ChoiceOverloadRequest,
     ChoiceOverloadResponse,
     CoalitionRequest,
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
-    CompulsoryVotingRequest,
     CompulsoryVotingResponse,
-    ConvictionVotingRequest,
     ConvictionVotingResponse,
-    DeliberationRequest,
     DeliberationResponse,
-    DemographicTurnoutRequest,
     DemographicTurnoutResponse,
-    DistrictsRequest,
     DistrictsResponse,
-    DivergenceRequest,
     DivergenceResponse,
-    ElectoralFatigueRequest,
     ElectoralFatigueResponse,
-    GerrymanderRequest,
     GerrymanderResponse,
-    HistoricalReplayRequest,
     HistoricalReplayResponse,
-    HotellingRequest,
     HotellingResponse,
-    InterpretRequest,
     InterpretResponse,
-    JuryRequest,
-    JuryResponse,
-    LiquidDemocracyRequest,
-    LiquidDemocracyResponse,
-    MultiwinnerCompareRequest,
-    MultiwinnerCompareResponse,
-    NotaRequest,
-    NotaResponse,
-    PartyDynamicsRequest,
-    PartyDynamicsResponse,
-    PolarizationRequest,
-    PolarizationResponse,
-    PowerIndicesRequest,
-    PowerIndicesResponse,
-    PrimaryRequest,
-    PrimaryResponse,
-    QuadraticFundingRequest,
-    QuadraticFundingResponse,
-    ShyVoterRequest,
-    ShyVoterResponse,
-    SimulatePipelineRequest,
-    SimulatePipelineResponse,
-    AssemblyRequest,
-    AssemblyResponse,
-    AssemblyScorecardRequest,
-    AssemblyScorecardResponse,
-    TemporalRequest,
-    TemporalResponse,
     IssueVotingRequest,
     IssueVotingResponse,
-    StructuralFairnessRequest,
-    StructuralFairnessResponse,
+    JuryResponse,
+    LiquidDemocracyResponse,
+    MultiwinnerCompareResponse,
+    NotaResponse,
+    PartyDynamicsResponse,
+    PolarizationResponse,
+    PowerIndicesResponse,
+    PrimaryResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
+    ShyVoterResponse,
+    SimulatePipelineResponse,
     SimulateRequest,
     SimulateResponse,
-    SortitionRequest,
     SortitionResponse,
-    StvRequest,
+    StructuralFairnessRequest,
+    StructuralFairnessResponse,
     StvResponse,
 )
+from api.schemas.perturbers import (
+    AdaptiveRequest,
+    AffectivePolarizationRequest,
+    BallotComplexityRequest,
+    BehavioralBiasesRequest,
+    CascadeRequest,
+    ChoiceOverloadRequest,
+    CompulsoryVotingRequest,
+    ConvictionVotingRequest,
+    DeliberationRequest,
+    DemographicTurnoutRequest,
+    DistrictsRequest,
+    DivergenceRequest,
+    ElectoralFatigueRequest,
+    GerrymanderRequest,
+    HistoricalReplayRequest,
+    HotellingRequest,
+    InterpretRequest,
+    JuryRequest,
+    LiquidDemocracyRequest,
+    MultiwinnerCompareRequest,
+    NotaRequest,
+    PartyDynamicsRequest,
+    PolarizationRequest,
+    PowerIndicesRequest,
+    PrimaryRequest,
+    ShyVoterRequest,
+    SimulatePipelineRequest,
+    SortitionRequest,
+    StvRequest,
+)
+from api.schemas.common import WORKER_ERROR_RESPONSES
 
 from api.domain.election import (
     abstention as abstention_domain,
@@ -123,7 +121,6 @@ from api.domain.election import (
     assembly_scorecard as assembly_scorecard_domain,
     issue_voting as issue_voting_domain,
     structural_fairness as structural_fairness_domain,
-    temporal as temporal_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -152,7 +149,6 @@ from api.domain.election import (
     power_indices as power_indices_domain,
     primary as primary_domain,
     profile_simulate as profile_simulate_domain,
-    quadratic_funding as quadratic_funding_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
     simulate_pipeline as simulate_pipeline_domain,
@@ -160,63 +156,17 @@ from api.domain.election import (
     stv as stv_domain,
 )
 
-router = APIRouter(prefix="/api/v2/election", tags=["election"])
-
-_ResponseT = TypeVar("_ResponseT", bound=BaseModel)
-
-
-# ── Shared helper ───────────────────────────────────────────────────────────
-
-async def _run_typed(
-    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
-    request: BaseModel,
-    response_model: type[_ResponseT],
-) -> _ResponseT:
-    """Run a domain compute function in a worker thread and adapt its
-    (body, status) contract to FastAPI's exception-based error model.
-
-    - 200 → parse body through `response_model` and return it.
-    - 400 → raise HTTPException(400) (domain-level validation, distinct from
-            Pydantic 422 which fires BEFORE the worker is even called).
-    - other → raise HTTPException(500).
-    """
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return response_model.model_validate(body)
-
-
-async def _run_passthrough(
-    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
-    request: BaseModel,
-) -> Dict[str, Any]:
-    """Like _run_typed but returns the body dict unchanged (no response_model).
-
-    Used for endpoints where the response shape is large, loosely-typed, or
-    not worth pinning down (typical of Perturber endpoints with curves
-    and method-comparison dicts). The frontend keeps its own TypeScript
-    interface for the response.
-    """
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return body
+router = APIRouter(
+    prefix="/api/v2/election",
+    tags=["election"],
+    dependencies=[Depends(check_v2_rate_limit)],
+    # 400 (a domain worker's own status, lifted by `run_typed`), 500
+    # (api/main.py's catch-all Exception handler, same {"detail": ...} shape)
+    # and 503 (run_bounded's timeout) are reachable on every route in this
+    # router. All three were reachable-but-undocumented until Schemathesis
+    # (Lot 3) flagged them; api/schemas/common.py holds the one copy.
+    responses=WORKER_ERROR_RESPONSES,
+)
 
 
 # ── /simulate ───────────────────────────────────────────────────────────────
@@ -236,7 +186,7 @@ async def simulate_endpoint(request: SimulateRequest) -> SimulateResponse:
     `eventlet.tpool.execute(...)` pattern from the Flask side — no more
     eventlet anywhere on the v2 path.
     """
-    return await _run_typed(simulate_domain, request, SimulateResponse)
+    return await run_typed(simulate_domain, request, SimulateResponse)
 
 
 # ── /profile-simulate (Lab reshape P1) ────────────────────────────────────────
@@ -255,7 +205,7 @@ async def profile_simulate_endpoint(
     (spatial / impartial culture / Mallows / Pólya urn / handcrafted), apply the
     behaviour transform, then run all methods. The cycle_rate read-out exposes how
     conclusions are conditional on the assumptions."""
-    return await _run_typed(profile_simulate_domain, request, ProfileSimulateResponse)
+    return await run_typed(profile_simulate_domain, request, ProfileSimulateResponse)
 
 
 # ── /assembly (Lab reshape P3) ────────────────────────────────────────────────
@@ -272,7 +222,7 @@ async def assembly_endpoint(request: AssemblyRequest) -> AssemblyResponse:
     """Party-level assembly over one shared electorate. The same voters under
     PR vs FPTP vs MMP expose the proportionality/governability trade-off; the
     threshold knob shows small parties dropping off the cliff."""
-    return await _run_typed(assembly_domain, request, AssemblyResponse)
+    return await run_typed(assembly_domain, request, AssemblyResponse)
 
 
 # ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
@@ -291,25 +241,7 @@ async def assembly_scorecard_endpoint(
     """Feeds the playground's parliament scorecard + values lens. Axes are
     oriented higher-is-better with stated conventions; the lens then removes
     Pareto-dominated structures and lets user weights spotlight the frontier."""
-    return await _run_typed(assembly_scorecard_domain, request, AssemblyScorecardResponse)
-
-
-# ── /temporal (frontier FA-3) ─────────────────────────────────────────────────
-
-@router.post(
-    "/temporal",
-    response_model=TemporalResponse,
-    summary="Democracy as a repeated game: N sequential elections",
-    response_description="Per-round positions, seats, winner, ENP, Gallagher, "
-                         "polarization, alternation and congruence over N rounds of "
-                         "party adaptation + voter attachment.",
-)
-async def temporal_endpoint(request: TemporalRequest) -> TemporalResponse:
-    """A system good ONCE can degrade over repeated play. Parties chase votes
-    (Downsian local search), voters attach to their party — watch ENP,
-    polarization and alternation evolve. Duverger's law shows up over time:
-    FPTP with strategic desertion compresses the party system, PR sustains it."""
-    return await _run_typed(temporal_domain, request, TemporalResponse)
+    return await run_typed(assembly_scorecard_domain, request, AssemblyScorecardResponse)
 
 
 # ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
@@ -326,7 +258,7 @@ async def issue_voting_endpoint(request: IssueVotingRequest) -> IssueVotingRespo
     disagrees with it issue by issue (Ostrogorski / discursive dilemma).
     Spatial mode derives K issues from the shared electorate; handcrafted mode
     builds exact paradoxes."""
-    return await _run_typed(issue_voting_domain, request, IssueVotingResponse)
+    return await run_typed(issue_voting_domain, request, IssueVotingResponse)
 
 
 # ── /structural-fairness (frontier FC-2) ──────────────────────────────────────
@@ -346,7 +278,7 @@ async def structural_fairness_endpoint(
     seat-vote relationship, the efficiency gap quantifies gerrymanders, the
     Penrose √-law equalises citizen power in councils, and cumulative voting
     lets cohesive minorities win at-large seats that bloc voting denies them."""
-    return await _run_typed(structural_fairness_domain, request, StructuralFairnessResponse)
+    return await run_typed(structural_fairness_domain, request, StructuralFairnessResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────
@@ -364,7 +296,7 @@ async def combined_effects_endpoint(
     """8 simulations on the same electorate, with each model factor toggled
     independently. Identifies which factor disrupts inter-method agreement
     the most. Heaviest single endpoint (8 × full election pipeline)."""
-    return await _run_typed(
+    return await run_typed(
         combined_effects_domain, request, CombinedEffectsResponse,
     )
 
@@ -383,7 +315,7 @@ async def campaign_sensitivity_endpoint(
     """Runs the same electorate at multiple campaign snapshots (days 0, 7,
     14, 21, 28, 'final' by default) to measure how each voting method's
     winner changes over the campaign."""
-    return await _run_typed(
+    return await run_typed(
         campaign_sensitivity_domain, request, CampaignSensitivityResponse,
     )
 
@@ -402,7 +334,7 @@ async def coalition_endpoint(request: CoalitionRequest) -> CoalitionResponse:
     """For each voting method, allocates `total_seats` proportionally via
     D'Hondt then greedily picks the smallest ideologically-coherent
     coalition that crosses `government_threshold * total_seats`."""
-    return await _run_typed(coalition_domain, request, CoalitionResponse)
+    return await run_typed(coalition_domain, request, CoalitionResponse)
 
 
 # ── /abstention ─────────────────────────────────────────────────────────────
@@ -420,7 +352,7 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
     """Round 0 is sincere. From round 1 onwards, voters whose preferred
     candidate is trailing in the previous round's polls abstain with
     probability ∝ demobilization_factor × poll_influence."""
-    return await _run_typed(abstention_domain, request, AbstentionResponse)
+    return await run_typed(abstention_domain, request, AbstentionResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 3) ──────────────────────────────────
@@ -431,6 +363,7 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
 @router.post(
     "/nota",
     response_model=NotaResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="NOTA (None Of The Above) as a ballot option",
     response_description=(
         "Sincere winner, NOTA percentage, election validity per the "
@@ -443,12 +376,13 @@ async def nota_endpoint(request: NotaRequest) -> NotaResponse:
     nota_threshold. Three constitutional outcomes after NOTA wins:
     `invalidate` (null election), `runoff` (new candidates), or
     `winner_take_all` (seat NOTA, Nevada-style)."""
-    return await _run_typed(nota_domain, request, NotaResponse)
+    return await run_typed(nota_domain, request, NotaResponse)
 
 
 @router.post(
     "/ballot-complexity",
     response_model=BallotComplexityResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Null-vote rate per method as a function of ballot complexity",
     response_description=(
         "Per-method null rate, winner with and without nulls, and a "
@@ -461,7 +395,7 @@ async def ballot_complexity_endpoint(
     """P(null | method) = error_base × candidate_factor × education_factor
     × first_time_voter_factor. Complex ballots (Schulze, IRV) exclude
     more voters than simple ones (Plurality)."""
-    return await _run_typed(ballot_complexity_domain, request, BallotComplexityResponse)
+    return await run_typed(ballot_complexity_domain, request, BallotComplexityResponse)
 
 
 @router.post(
@@ -478,12 +412,13 @@ async def shy_voter_endpoint(request: ShyVoterRequest) -> ShyVoterResponse:
     `shy_candidate_idx`) declare a more acceptable preference in polls
     with probability `social_desirability_factor`, but vote sincerely
     in the booth."""
-    return await _run_typed(shy_voter_domain, request, ShyVoterResponse)
+    return await run_typed(shy_voter_domain, request, ShyVoterResponse)
 
 
 @router.post(
     "/electoral-fatigue",
     response_model=ElectoralFatigueResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Turnout decay across repeated elections",
     response_description=(
         "Per-election turnout, winner, ideology drift, and a "
@@ -498,7 +433,7 @@ async def electoral_fatigue_endpoint(
     Engaged voters (top engaged_voter_pct by max-utility) always vote;
     casual voters drop out faster each election, shifting the residual
     electorate toward partisans."""
-    return await _run_typed(electoral_fatigue_domain, request, ElectoralFatigueResponse)
+    return await run_typed(electoral_fatigue_domain, request, ElectoralFatigueResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
@@ -514,12 +449,13 @@ async def cascade_endpoint(request: CascadeRequest) -> CascadeResponse:
     """Each voter observes the last `observation_window` votes and may follow
     the public signal instead of their sincere preference with probability
     `cascade_strength`. Bikhchandani, Hirshleifer, Welch (1992)."""
-    return await _run_typed(cascade_domain, request, CascadeResponse)
+    return await run_typed(cascade_domain, request, CascadeResponse)
 
 
 @router.post(
     "/behavioral-biases",
     response_model=BehavioralBiasesResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Expressive voting + bullet voting + primacy effect",
     response_description="Sincere vs biased winner, per-method sensitivity, "
                          "and breakdown of which voters were affected.",
@@ -530,7 +466,7 @@ async def behavioral_biases_endpoint(
     """Three empirical biases stacked: expressive voting (Fiorina 1976),
     bullet voting (collapses Approval to Plurality for affected voters),
     primacy effect (Krosnick 1991, first-listed candidate bonus)."""
-    return await _run_typed(behavioral_biases_domain, request, BehavioralBiasesResponse)
+    return await run_typed(behavioral_biases_domain, request, BehavioralBiasesResponse)
 
 
 @router.post(
@@ -547,7 +483,7 @@ async def choice_overload_endpoint(
     candidates, voters use heuristics (notoriety / primacy / partisan
     affiliation) instead of their sincere preferences. Compares method
     robustness."""
-    return await _run_typed(choice_overload_domain, request, ChoiceOverloadResponse)
+    return await run_typed(choice_overload_domain, request, ChoiceOverloadResponse)
 
 
 @router.post(
@@ -561,7 +497,7 @@ async def deliberation_endpoint(request: DeliberationRequest) -> DeliberationRes
     """Voters update their ideology toward a network-weighted mean for
     `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
     amplifies polarisation; bridge / complete reduce it."""
-    return await _run_typed(deliberation_domain, request, DeliberationResponse)
+    return await run_typed(deliberation_domain, request, DeliberationResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────
@@ -578,7 +514,7 @@ async def jury_endpoint(request: JuryRequest) -> JuryResponse:
     toward the 'correct' option. Runs `num_simulations` Monte Carlo
     trials and compares plurality, IRV, Borda, Schulze, MJ on the same
     juries."""
-    return await _run_typed(jury_domain, request, JuryResponse)
+    return await run_typed(jury_domain, request, JuryResponse)
 
 
 @router.post(
@@ -592,7 +528,7 @@ async def hotelling_endpoint(request: HotellingRequest) -> HotellingResponse:
     """Each candidate iteratively moves in the direction (±x, ±y) that
     maximises their vote score under `method`. Converges when no
     candidate can improve by moving by `step_size`."""
-    return await _run_typed(hotelling_domain, request, HotellingResponse)
+    return await run_typed(hotelling_domain, request, HotellingResponse)
 
 
 @router.post(
@@ -607,7 +543,7 @@ async def polarization_endpoint(request: PolarizationRequest) -> PolarizationRes
     Esteban-Ray polarisation index and runs `num_simulations` Monte
     Carlo elections to measure how method agreement and Condorcet
     rate degrade with polarisation."""
-    return await _run_typed(polarization_domain, request, PolarizationResponse)
+    return await run_typed(polarization_domain, request, PolarizationResponse)
 
 
 @router.post(
@@ -621,7 +557,7 @@ async def sortition_endpoint(request: SortitionRequest) -> SortitionResponse:
     """Compares three assembly-selection methods on the same population:
     elected (electoral bias), sortition pure (random sample), sortition
     stratified (demographically balanced random sample)."""
-    return await _run_typed(sortition_domain, request, SortitionResponse)
+    return await run_typed(sortition_domain, request, SortitionResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
@@ -639,7 +575,7 @@ async def affective_polarization_endpoint(
     """Voters penalise candidates from the opposing political camp
     proportionally to `affect_hostility`. `camp_threshold` defines the
     x-axis distance for in/out-group splitting."""
-    return await _run_typed(affective_polarization_domain, request, AffectivePolarizationResponse)
+    return await run_typed(affective_polarization_domain, request, AffectivePolarizationResponse)
 
 
 @router.post(
@@ -656,7 +592,7 @@ async def demographic_turnout_endpoint(
     driven by differential turnout across demographic groups. The
     `correct_for_turnout` flag toggles the turnout-correction model
     on/off so the user can compare both."""
-    return await _run_typed(demographic_turnout_domain, request, DemographicTurnoutResponse)
+    return await run_typed(demographic_turnout_domain, request, DemographicTurnoutResponse)
 
 
 @router.post(
@@ -672,7 +608,7 @@ async def compulsory_voting_endpoint(
     """Voluntary turnout is right-biased (empirical pattern); compulsory
     elections add reluctant left-leaning voters who may vote null,
     randomly, or sincerely."""
-    return await _run_typed(compulsory_voting_domain, request, CompulsoryVotingResponse)
+    return await run_typed(compulsory_voting_domain, request, CompulsoryVotingResponse)
 
 
 @router.post(
@@ -689,7 +625,7 @@ async def party_dynamics_endpoint(
     `survival_threshold`, and new parties may emerge. Tactical voting
     squeezes small parties under FPTP, driving the system toward
     bipartism."""
-    return await _run_typed(party_dynamics_domain, request, PartyDynamicsResponse)
+    return await run_typed(party_dynamics_domain, request, PartyDynamicsResponse)
 
 
 # ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
@@ -707,7 +643,7 @@ async def simulate_pipeline_endpoint(
 ) -> SimulatePipelineResponse:
     """Same compute as /simulate, but emits a per-step snapshot of voter
     state and method winners so the frontend can animate the pipeline."""
-    return await _run_typed(simulate_pipeline_domain, request, SimulatePipelineResponse)
+    return await run_typed(simulate_pipeline_domain, request, SimulatePipelineResponse)
 
 
 @router.post(
@@ -721,7 +657,7 @@ async def districts_endpoint(request: DistrictsRequest) -> DistrictsResponse:
     """Each district elects its winner by FPTP from a locally biased
     electorate. Aggregates to a national parliament under FPTP (sum of
     district wins) vs D'Hondt proportional on national vote shares."""
-    return await _run_typed(districts_domain, request, DistrictsResponse)
+    return await run_typed(districts_domain, request, DistrictsResponse)
 
 
 @router.post(
@@ -736,7 +672,7 @@ async def primary_endpoint(request: PrimaryRequest) -> PrimaryResponse:
     the primary winner runs in the general election. The
     `without_primaries_winner` field reports what would have happened
     if each party centre had run directly."""
-    return await _run_typed(primary_domain, request, PrimaryResponse)
+    return await run_typed(primary_domain, request, PrimaryResponse)
 
 
 @router.post(
@@ -749,7 +685,7 @@ async def primary_endpoint(request: PrimaryRequest) -> PrimaryResponse:
 async def stv_endpoint(request: StvRequest) -> StvResponse:
     """Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
     D'Hondt and multi-seat FPTP on the same simulated ballots."""
-    return await _run_typed(stv_domain, request, StvResponse)
+    return await run_typed(stv_domain, request, StvResponse)
 
 
 # ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
@@ -765,7 +701,7 @@ async def adaptive_endpoint(request: AdaptiveRequest) -> AdaptiveResponse:
     """Each round, voters whose 1st choice polls below `strategic_threshold`
     may switch to their best viable alternative. Tracks convergence
     (winner stable for 2 consecutive rounds) and strategic drift."""
-    return await _run_typed(adaptive_domain, request, AdaptiveResponse)
+    return await run_typed(adaptive_domain, request, AdaptiveResponse)
 
 
 @router.post(
@@ -782,7 +718,7 @@ async def historical_replay_endpoint(
     """Brownian campaign simulation for 4 historical scenarios
     (France 2002, USA 1992, Germany 2021, Condorcet cycle). Drag a
     candidate's x/y position to rewrite history."""
-    return await _run_typed(historical_replay_domain, request, HistoricalReplayResponse)
+    return await run_typed(historical_replay_domain, request, HistoricalReplayResponse)
 
 
 @router.post(
@@ -796,7 +732,7 @@ async def gerrymander_endpoint(request: GerrymanderRequest) -> GerrymanderRespon
     """Voters assigned to the (smallest) overlapping district or the
     nearest one. Compares the gerrymandered FPTP parliament to a
     D'Hondt proportional reference."""
-    return await _run_typed(gerrymander_domain, request, GerrymanderResponse)
+    return await run_typed(gerrymander_domain, request, GerrymanderResponse)
 
 
 @router.post(
@@ -812,7 +748,7 @@ async def multiwinner_compare_endpoint(
     """Same electorate, 5 multi-winner methods. Reports per-method
     seat allocation, distortion against the proportional reference,
     and which method comes closest to / furthest from proportional."""
-    return await _run_typed(multiwinner_compare_domain, request, MultiwinnerCompareResponse)
+    return await run_typed(multiwinner_compare_domain, request, MultiwinnerCompareResponse)
 
 
 # ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
@@ -827,7 +763,7 @@ async def multiwinner_compare_endpoint(
 async def divergence_endpoint(request: DivergenceRequest) -> DivergenceResponse:
     """Isolates the effect of blank-vote rules on inter-method agreement
     by running the same electorate twice (without and with blank)."""
-    return await _run_typed(divergence_domain, request, DivergenceResponse)
+    return await run_typed(divergence_domain, request, DivergenceResponse)
 
 
 @router.post(
@@ -841,23 +777,7 @@ async def divergence_endpoint(request: DivergenceRequest) -> DivergenceResponse:
 async def interpret_endpoint(request: InterpretRequest) -> InterpretResponse:
     """Pure rule-based text interpretation of an existing /simulate
     response. No new simulation."""
-    return await _run_typed(interpret_domain, request, InterpretResponse)
-
-
-@router.post(
-    "/quadratic-funding",
-    response_model=QuadraticFundingResponse,
-    summary="Buterin/Hitzig/Weyl 2019 quadratic funding for public goods",
-    response_description="Per-project funding + mechanism comparison + "
-                         "Gini coefficients + pedagogical note.",
-)
-async def quadratic_funding_endpoint(
-    request: QuadraticFundingRequest,
-) -> QuadraticFundingResponse:
-    """QF amplifies projects with many small donors over those with few
-    large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
-    and proportional allocations on the same matching pool."""
-    return await _run_typed(quadratic_funding_domain, request, QuadraticFundingResponse)
+    return await run_typed(interpret_domain, request, InterpretResponse)
 
 
 @router.post(
@@ -873,7 +793,7 @@ async def liquid_democracy_endpoint(
     """Each voter votes directly or delegates. Delegation chains are
     resolved up to `max_chain_length` hops; cycles fall back to direct
     voting. Reports voting-weight Gini and a super-voter list."""
-    return await _run_typed(liquid_democracy_domain, request, LiquidDemocracyResponse)
+    return await run_typed(liquid_democracy_domain, request, LiquidDemocracyResponse)
 
 
 @router.post(
@@ -889,7 +809,7 @@ async def conviction_voting_endpoint(
     """Voters with longer locks amplify their votes (×0.1 at 0 days,
     ×6.0 at 224 days). Compares the conviction-weighted result with a
     plain 1-token-1-vote baseline."""
-    return await _run_typed(conviction_voting_domain, request, ConvictionVotingResponse)
+    return await run_typed(conviction_voting_domain, request, ConvictionVotingResponse)
 
 
 @router.post(
@@ -905,4 +825,4 @@ async def power_indices_endpoint(
     """Shapley-Shubik (pivot-in-permutation) and Banzhaf
     (critical-in-winning-coalition) power indices, accounting for
     pariah parties (cordon sanitaire) and bilateral coalition vetoes."""
-    return await _run_typed(power_indices_domain, request, PowerIndicesResponse)
+    return await run_typed(power_indices_domain, request, PowerIndicesResponse)

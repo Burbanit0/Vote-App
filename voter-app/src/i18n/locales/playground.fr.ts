@@ -32,14 +32,11 @@ const pgFr = {
   stories: {
     launch: 'Histoires',
     launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',
-    pick: 'Choisir une histoire',
-    close: 'Fermer',
     quit: 'Quitter',
     step: 'Scène {{n}} / {{total}}',
     next: 'Suivant →',
     prev: '← Précédent',
     restart: '↻ Rejouer',
-    replayHint: 'Vous reprenez la main : l’instrument reste sur la dernière scène.',
     spoiler: {
       title: 'L’effet spoiler',
       tagline: 'Un troisième candidat qui ne peut pas gagner peut quand même décider du vainqueur.',
@@ -110,6 +107,67 @@ const pgFr = {
         condorcet: 'Condorcet confirme Bayrou : c’est lui qui bat le plus d’adversaires en duel.',
         approval:
           'Le vote par approbation couronne lui aussi Bayrou. Bilan : plusieurs présidents pour un seul électorat — la méthode n’est pas neutre.',
+      },
+    },
+    clones: {
+      title: 'La stratégie du clone',
+      tagline:
+        'Un candidat peut se faire élire en alignant un allié presque identique à lui — mais pas avec n’importe quelle méthode.',
+      steps: {
+        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 54 % de l’électorat et l’emporte largement.',
+        clone:
+          'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
+        condorcet:
+          'Avec Condorcet, le clonage ne sert à rien ici : B bat toujours A ET A2 en duel, donc B reste vainqueur. Mais ce n’est pas une propriété générale des méthodes de Condorcet — Copeland elle-même reste manipulable par clonage dans d’autres configurations.',
+        irv: 'Au vote alternatif (IRV) non plus : B, toujours préféré par la majorité, l’emporte quel que soit le nombre de clones alignés en face.',
+      },
+    },
+    blank: {
+      title: 'Le vote blanc, quatre destins',
+      tagline:
+        'Les mêmes électeurs, le même bulletin — la règle qui compte le blanc décide de tout.',
+      steps: {
+        clean:
+          'Camille l’emporte avec 67 % des voix face à Farid, à 33 %. Une victoire nette — parmi ceux qui ont choisi quelqu’un.',
+        todayLaw:
+          'Activez le vote blanc : 62 % de l’électorat est trop loin des deux candidats et rejette le choix. La loi française actuelle l’exclut du décompte — Camille reste élue, à 96 % des rares voix exprimées.',
+        ifCounted:
+          'Comptez le blanc dans les exprimés : la part de Camille retombe à 36 % de l’ensemble des votants. Sous la barre des 50 %, plus de mandat clair.',
+        competitive:
+          'Traitez le blanc comme un candidat, régime uruguayen : à 62 %, il devance Camille et Farid réunis. La candidature est rouverte.',
+      },
+    },
+    monotonie: {
+      title: 'Gagner des voix, perdre l’élection',
+      tagline:
+        'Sous le vote alternatif, convaincre de nouveaux électeurs peut, dans certains cas, vous faire perdre.',
+      steps: {
+        avant:
+          'Vote alternatif (IRV), trois candidats. Premiers choix : Nora 38 %, Karim 32 %, Yanis 29 %. Yanis, le moins soutenu, est éliminé — ses voix se reportent sur Nora, qui l’emporte.',
+        apres:
+          'Un groupe d’indécis, qui plaçait Karim en tête et Nora juste derrière, se laisse convaincre par Nora et la place désormais en tête. Son score de premier choix grimpe à 49 %. Et pourtant : c’est Karim qui est maintenant le moins soutenu, il est éliminé, et son report élit Yanis. Nora a gagné des voix — et perdu l’élection.',
+      },
+    },
+    renversement: {
+      title: 'Le vote à l’envers',
+      tagline:
+        'Inversez tous les bulletins : le scrutin majoritaire peut réélire le même vainqueur.',
+      steps: {
+        avant:
+          'Malik réunit une base fidèle (39 %) ; Inès (33 %) et Sami (28 %) se partagent le reste. Au scrutin majoritaire à un tour, Malik l’emporte.',
+        inverse:
+          'Retournez chaque bulletin — le premier choix de chacun devient son dernier, et inversement. Résultat : Malik l’emporte à nouveau, cette fois avec 61 % des voix. Il était déjà le candidat le plus rejeté par le reste de l’électorat : le scrutin majoritaire ne distingue pas le plus aimé du plus détesté, il ne regarde que qui arrive en tête.',
+      },
+    },
+    soutien: {
+      title: 'Le soutien de trop',
+      tagline:
+        'Au vote par approbation, dire sincèrement du bien d’un second choix peut faire perdre votre favorite.',
+      steps: {
+        avant:
+          'Vote par approbation, trois candidats. Un bloc d’électeurs n’approuve que Léa, leur préférée — trop loin de Hugo pour l’approuver aussi. Au dépouillement : Léa 61 %, Hugo 39 %. Léa l’emporte.',
+        apres:
+          'Rien n’a changé dans leurs préférences : Léa reste leur favorite, toujours en tête de leurs choix. Mais ils trouvent désormais Hugo assez acceptable pour l’approuver aussi, sincèrement, en plus de Léa. Résultat : le score de Hugo grimpe à 72 % et il devance Léa — restée à 61 %. Approuver un choix de plus, sincèrement, a fait perdre leur favorite.',
       },
     },
     seuil: {
@@ -221,6 +279,10 @@ const pgFr = {
     mapAria: 'Carte idéologique — les candidats dérivent au cours de la campagne',
   },
   anchorBody: {
+    blank: {
+      intro:
+        'Ne pas choisir n’est pas rien : abstention, vote blanc, « aucun de ces candidats ». Un thème à part — parce que ce que la règle fait du refus peut tout changer.',
+    },
     mechanisms: {
       intro:
         'D’autres mécanismes de décision collective que l’élection classique — chacun sur le même électorat, calculé à la demande.',
@@ -271,6 +333,7 @@ const pgFr = {
     theory: {
       intro:
         'Les paradoxes du choix social et la théorie démocratique — les limites formelles que toute règle de vote doit affronter. Chaque module se calcule à la demande.',
+      arrow: '🏛️ Théorème d’impossibilité d’Arrow (1951)',
       sen: '🔓 Paradoxe de Sen (libéral parétien)',
       judgment: '🧩 Agrégation de jugements (dilemme discursif)',
       agenda: '🎚️ Manipulation d’agenda (McKelvey)',
@@ -313,6 +376,8 @@ const pgFr = {
     view3d: '🧊 Vue 3D',
     viewPlane: '▦ Plan x–y (édition)',
     svgAria: 'Carte idéologique — élire un dirigeant',
+    candidateAria:
+      '{{name}} — glisser-déposer, ou flèches pour déplacer (Maj pour un pas plus large)',
     manipCompromise: 'Tenté par le vote utile (abandonne son favori)',
     manipBurying: 'Tenté d’enterrer un rival (le classe trop bas)',
     manipSafe: 'Reste sincère (rien à gagner à tricher)',
@@ -494,6 +559,14 @@ const pgFr = {
       'Les électeurs désertent les partis non viables (FPTP : hors du top-2 de leur circonscription ; proportionnelle : sous le seuil) pour leur parti viable le plus proche — la loi de Duverger en mécanique.',
     duvergerNote:
       'La désertion comprime les partis non viables vers leur voisin viable : Duverger, en mécanique. L’effet se lit en direct sur la composition de l’assemblée →.',
+    blankTitle: 'Vote blanc (en direct)',
+    blankToggle: 'Activer le vote blanc',
+    blankHint:
+      'Les électeurs trop loin de tous les candidats déposent un bulletin vide au lieu de voter pour l’un d’eux.',
+    blankLensLabel: 'Régime constitutionnel',
+    blankRate: '{{count}} électeurs sur le total ont voté blanc ({{pct}} %).',
+    blankLabNote:
+      'Pour composer un résultat à la main et comparer les quatre régimes → fiche Vote blanc du Laboratoire.',
     svIntro:
       'Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul lourd — à la demande, hors lecture temps-réel.',
     svComputing: 'Calcul… (quelques secondes)',
@@ -512,8 +585,6 @@ const pgFr = {
   },
   vse: {
     title: 'Le coût du vote stratégique (VSE)',
-    subtitle:
-      'Combien de bien-être chaque méthode gaspille quand les électeurs cessent d’être sincères',
     intro:
       'Efficacité de satisfaction des électeurs (VSE, Quinn 2017, d’après Merrill 1984) : 1 = la méthode élit le candidat qui maximise le bien-être, 0 = elle ne fait pas mieux qu’un tirage au sort, négatif = elle fait pire. On fait varier la part d’électeurs qui votent « utile ».',
     aria: 'Courbes de VSE par méthode selon la part d’électeurs stratégiques',
@@ -537,6 +608,7 @@ const pgFr = {
     unavailable:
       '⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il prenne le nouveau schéma.',
     mapAria: 'Carte idéologique — partis et territoires',
+    partyAria: '{{name}} — glisser-déposer, ou flèches pour déplacer (Maj pour un pas plus large)',
     hemicycleAria: 'Hémicycle — sièges par parti',
     seatsLine: '{{seats}} sièges · majorité {{majority}}',
     computing: 'Calcul de l’assemblée…',
@@ -692,8 +764,7 @@ const pgFr = {
         'Tour {{round}} : pas de vainqueur de Condorcet → on élimine le plus faible ({{cand}}).',
     },
     raynaud: {
-      round:
-        'Tour {{round}} : la pire défaite est {{a}} bat {{b}} ({{av}}–{{bv}}) → {{b}} éliminé.',
+      round: 'Tour {{round}} : pire défaite ({{margin}}) → éliminé : {{cand}}.',
     },
     smith: {
       set: 'On garde le « Smith set » — le plus petit groupe qui bat tous les autres : {{cand}}.',
@@ -712,11 +783,167 @@ const pgFr = {
   },
   realElection: {
     title: '🗳 Épreuve du réel : de vrais scrutins',
-    sub: 'mêmes bulletins, méthodes différentes — scrutins réels et figés (Burlington 2009, Alaska 2022), sans rapport avec l’électorat que vous configurez sur la carte',
     pick: 'Scrutin',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
     note: 'Bulletins classés authentiques (Burlington : PrefLib 00005 ; Alaska : Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — la répartition publiée des bulletins du cast vote record de l’État). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
+  },
+  approvalExperiment: {
+    title: 'Et avec un autre bulletin ? Le vote par approbation (2017)',
+    sub: 'Même scrutin, même électorat — un bulletin d’approbation au lieu d’un seul nom. Le vainqueur tient (Macron), mais l’ordre s’effondre : Le Pen passe 2ᵉ → 5ᵉ, Mélenchon 4ᵉ → 2ᵉ. L’approbation aurait envoyé Macron au second tour face à Mélenchon, pas à Le Pen.',
+    colApproval: 'Approbation',
+    colOfficial: '1er tour',
+    caveat:
+      'Expérimentation « Voter Autrement » in situ, 1er tour 2017 : 3 894 bulletins d’approbation dans 5 communes, échantillon auto-sélectionné puis extrapolé à la France. Un taux d’approbation (on peut approuver plusieurs candidats — 2,48 en moyenne) n’est pas une part de voix : les deux colonnes se comparent par leur ordre, pas par leurs totaux.',
+    source:
+      'Approbation : Baujard et al. (rangevoting.org/France2017). Officiel : Ministère de l’Intérieur.',
+  },
+  lexique: {
+    title: '📖 Lexique',
+    intro: 'Chaque notion en une phrase simple — et un lien pour la voir à l’œuvre.',
+    search: 'Chercher un terme…',
+    seeInAction: 'Voir en action',
+    empty: 'Aucun terme ne correspond.',
+    count: '{{n}} termes',
+  },
+  blankVote: {
+    title: '⬜ Vote blanc — et après ?',
+    act1Kicker: '1 — On peut voter blanc',
+    act1Title: 'Trois silences, pas un seul',
+    act1Lede:
+      'Ne pas choisir n’est pas une seule chose. Trois gestes très différents se cachent derrière « je n’ai pas voté pour un candidat ».',
+    silences: {
+      abstention: {
+        term: 'Abstention',
+        desc: 'On ne se déplace pas, on ne dépose rien. Le bulletin n’existe pas — il sort du décompte.',
+      },
+      blanc: {
+        term: 'Vote blanc',
+        desc: 'On se déplace et on dépose une enveloppe vide. Un choix exprimé : « aucun de ceux-là », mais je suis là.',
+      },
+      nul: {
+        term: 'Vote nul',
+        desc: 'Bulletin raturé, déchiré, non conforme. Souvent une erreur, parfois une colère — mais juridiquement invalide.',
+      },
+    },
+    act2Kicker: '2 — On en fait quoi ?',
+    act2Title: 'Le blanc l’emporte. Et maintenant ?',
+    act2Lede:
+      'Construis un résultat, pousse le blanc jusqu’à ce qu’il domine, et regarde : le même vote connaît quatre destins selon la règle de comptage. Aucun n’est « le bon » — c’est la question.',
+    mixerTitle: 'Compose le résultat',
+    realToggle: 'Sur mon électorat',
+    realHint:
+      'Les parts viennent de l’électorat actuellement configuré dans le Playground (candidats, votants) — y compris ceux trop loin de tous pour choisir, comptés en blanc au même rayon que le curseur du moment Stratégie.',
+    presets: {
+      balanced: 'Équilibré',
+      blankLeads: 'Blanc en tête',
+      blankMajority: 'Blanc majoritaire',
+    },
+    blankLabel: 'Blanc',
+    redoBadge: 'On recommence',
+    electedBadge: 'Élu',
+    lens: {
+      france_today: {
+        label: 'Aujourd’hui en France (hors exprimés)',
+        mechanism:
+          'Depuis 2014, le blanc est compté et publié, mais retiré des suffrages exprimés : il ne pèse sur aucun seuil.',
+      },
+      in_exprimes: {
+        label: 'Si le blanc comptait (réforme)',
+        mechanism:
+          'On l’intègre aux exprimés : le dénominateur gonfle, et la barre des 50 % devient plus dure à franchir.',
+      },
+      competitive: {
+        label: 'Compétitif (Uruguay)',
+        mechanism:
+          'Le blanc est traité comme un candidat : s’il devance le premier, la candidature est rouverte.',
+      },
+      threshold: {
+        label: 'Seuil 50 % (Colombie)',
+        mechanism:
+          'Si le blanc dépasse la moitié des voix, l’élection est annulée et rejouée avec de nouveaux candidats.',
+      },
+    },
+    outcome: {
+      elected: '{{winner}} est élu — {{pct}} des exprimés.',
+      no_majority: '{{winner}} en tête à {{pct}}, mais sous la majorité : pas de mandat clair.',
+      blank_wins: 'Le blanc devance tout le monde ({{pct}}) : on rouvre la campagne.',
+      annulled: 'Blanc majoritaire ({{pct}}) : l’élection est annulée.',
+    },
+    reflectTitle: 'À toi de trancher',
+    reflectQ1:
+      'Un vote blanc massif, c’est un mandat pour recommencer, ou une abdication qui laisse les autres décider ?',
+    reflectQ2:
+      'Si le blanc pouvait bloquer une élection, jusqu’où : un second tour, une annulation, de nouveaux candidats ?',
+    reflectQ3: 'Et le risque de blocage sans fin — vaut-il la reconnaissance d’un refus légitime ?',
+    worldKicker: 'Ce qui existe déjà',
+    worldTitle: 'Comment le monde répond',
+    worldLede:
+      'Seize pays, seize réponses à la même question. Les deux marqués d’un point (Uruguay, Colombie) laissent réellement le blanc changer l’issue.',
+    col: {
+      country: 'Pays',
+      status: 'Statut du blanc',
+      rate: 'Taux moyen',
+      impact: 'Effet',
+    },
+    status: {
+      counted_separate: 'Compté à part',
+      symbolic: 'Symbolique',
+      competitive: 'Compétitif',
+      threshold: 'Seuil déclencheur',
+      merged_invalid: 'Fondu dans les nuls',
+    },
+    impactYes: 'Peut modifier ou annuler l’élection',
+    impactNo: 'Aucun effet sur le résultat',
+    source: 'Sources : législations électorales nationales (voir data/blankVoteRegimes).',
+  },
+  atlas: {
+    kicker: 'Atlas',
+    title: '🌍 Atlas des régimes électoraux',
+    intro:
+      'Un globe qui tourne : chaque démocratie à sa place, colorée par sa méthode de vote — ou par ce qu’elle fait du vote blanc. Fais-le tourner, ou attrape-le pour l’orienter, puis clique un pays.',
+    colorBy: 'Colorer par :',
+    byMethod: 'Méthode',
+    byBlank: 'Vote blanc',
+    dragHint: 'Clique un point pour voir le régime du pays.',
+    methodLabel: 'Méthode :',
+    blankLabel: 'Vote blanc :',
+    unknownBlank: 'Non renseigné',
+    source: 'Sources : législations électorales nationales (voir lib/electoralAtlas).',
+    method: {
+      fptp: 'Scrutin majoritaire à un tour (FPTP)',
+      two_round: 'Scrutin à deux tours',
+      irv: 'Vote alternatif (IRV)',
+      stv: 'Vote unique transférable (STV)',
+      mmp: 'Proportionnelle mixte (MMP)',
+      party_list_pr: 'Proportionnelle de liste',
+      mixed: 'Système mixte (parallèle)',
+    },
+  },
+  curiosity: {
+    kicker: 'Par curiosité',
+    title: 'Par où commencer ? Suis ta question.',
+    sub: 'Chaque question ouvre l’histoire qui y répond, dans l’instrument.',
+    q: {
+      wasted: 'Pourquoi dit-on que mon vote « ne sert à rien » ?',
+      spoiler: 'Comment un candidat sans aucune chance peut-il faire perdre mon favori ?',
+      centre: 'Le candidat que presque tout le monde accepte peut-il être éliminé ?',
+      method: 'La méthode de dépouillement peut-elle changer le vainqueur ?',
+      best: 'Le mieux placé est-il vraiment le meilleur pour tous ?',
+      small: 'Un petit parti peut-il être effacé par une simple barre ?',
+    },
+  },
+  explain: {
+    kicker: 'Pourquoi ce gagnant ?',
+    count:
+      '{{winner}} l’emporte sur le plus haut total : {{winnerVal}} contre {{runnerUpVal}} pour {{runnerUp}}.',
+    elim: '{{winner}} gagne aux reports : à mesure que les moins bien placés sont éliminés, leurs voix se reportent, et {{winner}} finit devant {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
+    pairwise:
+      '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
+    twophase:
+      '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
+    lottery:
+      '{{winner}} est tiré au sort : la probabilité de chacun était proportionnelle à ses soutiens.',
   },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
@@ -900,7 +1127,6 @@ const pgFr = {
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
     condorcet: 'Condorcet : {{name}}',
-    condorcetNone: 'aucun vainqueur de Condorcet (cycle)',
     shake: '🎲 Secouer les hypothèses',
     shakeTitle:
       "Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi.",
@@ -938,6 +1164,8 @@ const pgFr = {
     anti_plurality: 'Anti-pluralité (véto)',
     dowdall: 'Dowdall (Nauru)',
     black: 'Black (Condorcet-Borda)',
+    copeland: 'Copeland',
+    evaluative: 'Évaluatif (notes)',
     smith_irv: 'Smith-IRV (Tideman)',
     split_cycle: 'Split Cycle',
     kemeny: 'Kemeny-Young',
@@ -947,6 +1175,20 @@ const pgFr = {
     river: 'River',
     nash: 'Nash (produit d’utilités)',
     raynaud: 'Raynaud',
+  },
+  // Plain-language method labels (mode « sans jargon »). Bounded to the methods a
+  // newcomer actually meets; anything absent falls back to its technical name.
+  rulesPlain: {
+    plurality: 'Le plus de voix',
+    two_round: 'À deux tours',
+    irv: 'Élimination par tours',
+    coombs: 'Élimination du plus rejeté',
+    borda: 'Points par rang',
+    condorcet: 'Le préféré en duel',
+    approval: 'Cocher qui convient',
+    score: 'Notes moyennes',
+    star: 'Notes, puis duel',
+    cumulative: 'Points à répartir',
   },
   structures: {
     pr: 'Proportionnelle (listes)',
@@ -1074,7 +1316,7 @@ const pgFr = {
     eyebrow: 'À DÉCOUVRIR',
     title: 'Galerie des méthodes',
     intro:
-      'D’autres méthodes de vote, expliquées mais pas comparées : trop spécifiques ou trop subtiles pour le tableau de bord, mais chacune a son animation pour comprendre son fonctionnement pas à pas — sur votre électorat actuel.',
+      'Toutes les méthodes de vote sur une même page — les plus courantes d’abord, puis les plus spécifiques. Chacune avec une analogie de la vie courante, le vainqueur sur votre électorat actuel, et une animation pas à pas de son dépouillement.',
     watch: '▶ Voir le déroulé',
     liveWinner: 'Vainqueur avec votre électorat actuel',
   },
@@ -1126,13 +1368,17 @@ const pgFr = {
       title: '📚 Théorie & paradoxes du choix social',
       subtitle: 'Sen, jugement, agenda, tyrannie, apportionnement, Pol.is',
     },
+    blank: {
+      title: '⬜ Vote blanc & abstention',
+      subtitle: 'ne pas choisir, refuser l’offre — et ce que la règle en fait',
+    },
     results: {
       title: '📋 Résultats complets',
       subtitle: 'dépouillement détaillé, animation du comptage',
     },
     ballot: {
       title: '🗳️ Bulletin de vote (expression)',
-      subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
+      subtitle: 'type de bulletin, expressivité, charge cognitive',
     },
     strategy: {
       title: '🎯 Analyse stratégique approfondie',
@@ -1148,16 +1394,12 @@ const pgFr = {
       systems: 'Systèmes & mécanismes',
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
+      blank: 'Vote blanc & abstention',
     },
     compareElec: 'Comparer un électorat',
     comparePick: 'Comparer la même fiche sur :',
     compareStop: 'Fermer la comparaison',
     elecCurrent: 'Électorat actuel',
-    strip: {
-      voters: '{{n}} électeurs',
-      rule: 'Règle',
-      edit: 'Modifier l’électorat →',
-    },
     matrix: {
       title: 'Comparaison des méthodes',
       liveRow: 'Vainqueur avec votre électorat actuel',
@@ -1176,6 +1418,14 @@ const pgFr = {
         reversal: 'Symétrie de révocation',
       },
     },
+  },
+  fullResults: {
+    intro:
+      'La table complète des méthodes (vainqueur · regret bayésien · conformité Condorcet), plus la lecture narrative et la référence historique — sur l’électorat partagé.',
+    running: 'Simulation…',
+    rerun: '↻ Re-simuler',
+    run: '▶ Simuler toutes les méthodes',
+    error: 'Erreur lors de la simulation.',
   },
 };
 

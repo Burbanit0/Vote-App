@@ -10,6 +10,8 @@ Self-contained: depends only on the engine utils and ._helpers.
 from __future__ import annotations
 
 import math
+import random as _random
+from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
@@ -20,7 +22,7 @@ from api.engine.utils.profile_engine import (
     turnout_mask, community_voters, spatial_cycle_rate,
 )
 from api.engine.utils.simulation_multiwinner_utils import (
-    compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners,
+    compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners, top_k,
 )
 from ._helpers import inter_method_agreement as _inter_method_agreement
 
@@ -55,8 +57,9 @@ def _no_show_report(
     if len(ids) < 4 or len(names) < 3:
         return viol
     groups: Dict[str, List[int]] = {}
+    by_name = sorted(names)  # a voter's tied favourites: the first by name, not by listing
     for vid in ids:
-        fav = max(names, key=lambda n: matrix[vid][n])
+        fav = max(by_name, key=lambda n: matrix[vid][n])
         groups.setdefault(fav, []).append(vid)
     for gids in groups.values():
         if len(gids) >= len(ids):
@@ -78,6 +81,14 @@ def _no_show_report(
     return viol
 
 
+# compute_strategic re-runs every method per sampled voter, then once more per
+# favourite group (_no_show_report), so it scales with the electorate: at 8
+# candidates it measured ~101s for 1000 voters -- over half the 180s
+# WORKER_TIMEOUT_SECONDS with no contention -- and ~50s for 500. Same cap and
+# reasoning as /api/v1's _STRATEGIC_NUM_VOTERS_CAP (domain/public.py).
+_STRATEGIC_NUM_VOTERS_CAP = 500
+
+
 def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /profile-simulate (Lab reshape P1).
 
@@ -90,7 +101,12 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     behavior     = str(data.get("behavior", "sincere"))
     dims         = max(1, min(3, int(data.get("dims", 2))))
     valence      = bool(data.get("valence", False))
-    num_voters   = max(10, min(1000, int(data.get("num_voters", 300))))
+    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
+    # strategic-vulnerability pass is skipped by default; the on-demand strategic
+    # module opts in via compute_strategic=True.
+    want_strategic = bool(data.get("compute_strategic", False))
+    voter_cap    = _STRATEGIC_NUM_VOTERS_CAP if want_strategic else 1000
+    num_voters   = max(10, min(voter_cap, int(data.get("num_voters", 300))))
     seed         = int(data.get("seed", 42))
     source_params: Dict[str, float] = {
         k: float(v) for k, v in (data.get("source_params") or {}).items()
@@ -109,6 +125,10 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
             return {"error": "handcrafted source requires a non-empty matrix"}, 400
         if any(len(row) != len(names_in) for row in handcrafted):
             return {"error": "each handcrafted row must match the candidate count"}, 400
+        if len(handcrafted) > voter_cap:
+            # Each row is a voter the caller wrote; drop none of them silently.
+            return {"error": f"at most {voter_cap} handcrafted rows "
+                             f"(500 with compute_strategic)"}, 400
 
     electorate = data.get("electorate")
     composed = bool(electorate and electorate.get("mode") == "composed"
@@ -144,10 +164,6 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         return {"error": str(exc)}, 400
 
     compat = compatible_methods(ballot_type)
-    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
-    # strategic-vulnerability pass is skipped by default; the on-demand strategic
-    # module opts in via compute_strategic=True.
-    want_strategic = bool(data.get("compute_strategic", False))
     result = compare_all_methods(
         voters, candidates, [], override_utilities=projected,
         compute_strategic=want_strategic,
@@ -175,7 +191,8 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     winner_flips: List[str] = []
     if ballot_type != "full":
         full_run = compare_all_methods(
-            voters, candidates, [], override_utilities=matrix, compute_strategic=False
+            voters, candidates, [], override_utilities=project_ballot(matrix, names, "full"),
+            compute_strategic=False,
         )
         full_methods = full_run.get("methods", {})
         winner_flips = sorted(
@@ -189,7 +206,7 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         score_levels=score_lv,
     )
     first_vid = next(iter(projected))
-    sample_ballot = {n: round(float(v), 3) for n, v in projected[first_vid].items()}
+    sample_ballot = {n: round(v, 3) for n, v in projected[first_vid].items()}
 
     # Paradox rate: for a COMPOSED spatial electorate, compute a real spatial
     # cycle rate by re-sampling the mixture (a multimodal electorate can produce
@@ -274,9 +291,23 @@ def _minimal_winning_coalitions(
             for j in range(i + 1, len(members)):
                 a, b = positions[members[i]], positions[members[j]]
                 span = max(span, math.hypot(a[0] - b[0], a[1] - b[1]))
-        out.append({"parties": sorted(members), "seats": total, "span": round(span, 4)})
-    out.sort(key=lambda c: (c["span"], -c["seats"]))
-    return out[:12]
+        out.append({"parties": sorted(members), "seats": total, "span": span})
+    # Ranked on the span to 9 places, rounded to 4 only for output: 4 places
+    # made spans 1e-5 apart tie, and a tie kept the mask's listing order; 9
+    # still lets equal spans that differ by float noise (0.3-0.1 vs 0.5-0.3)
+    # reach the seat count. Equal coalitions end by name.
+    out.sort(key=lambda c: (round(c["span"], 9), -c["seats"], c["parties"]))
+    return [{**c, "span": round(c["span"], 4)} for c in out[:12]]
+
+
+def _district_winner(counts: "_np.ndarray", names: List[str], lots: "_np.random.Generator") -> str:
+    """The party with the most votes in one single-member district. An exact tie
+    is drawn by lot, as real FPTP elections settle one. With a handful of voters
+    per district ties are common, and `argmax` gave every one of them to the
+    party listed first: 11-20% of the seats at default settings. Drawing among
+    the tied names sorted keeps the result independent of listing order."""
+    top = [names[i] for i in _np.flatnonzero(counts == counts.max())]
+    return top[0] if len(top) == 1 else str(lots.choice(sorted(top)))
 
 
 def _allocate_assembly(
@@ -289,6 +320,7 @@ def _allocate_assembly(
     threshold: float,
     appt: str,
     desertion: bool,
+    lot_seed: int,
 ) -> Dict[str, Any]:
     """Core votes→seats allocation, shared by /assembly and /assembly-scorecard.
 
@@ -304,6 +336,8 @@ def _allocate_assembly(
     # Duverger (P4): voters iteratively abandon non-viable parties for the
     # nearest viable one (FPTP: district top-2; PR/MMP lists: above-threshold).
     if desertion:
+        # Its own generator: a lot here must not shift the PR or district lots.
+        desertion_lots = _random.Random(lot_seed)
         order_b = _np.argsort(band_axis, kind="stable")
         d_bands = _np.array_split(order_b, seats_total) if structure == "fptp" else []
         for _ in range(3):  # a few best-response rounds reach a near fixed point
@@ -313,10 +347,15 @@ def _allocate_assembly(
                     if len(band) < 2:
                         continue
                     counts = _np.bincount(choice[band], minlength=len(names))
-                    viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
+                    # The district's top two; a tie for second is drawn, not
+                    # left to argsort's listing order. Weaker first, as argsort
+                    # had it: an equidistant deserter's argmin below picks it.
+                    viable = [names.index(n) for n in reversed(top_k(
+                        {n: int(counts[i]) for i, n in enumerate(names) if counts[i] > 0},
+                        2, desertion_lots))]
                     if len(viable) < 2:
                         continue
-                    sub = d2[_np.ix_(band, viable)]  # type: ignore[arg-type]
+                    sub = d2[_np.ix_(band, viable)]
                     nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
                     movers = ~_np.isin(choice[band], viable)
                     new_choice[band[movers]] = nearest_viable[movers]
@@ -336,6 +375,7 @@ def _allocate_assembly(
     votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
     vote_share = {n: votes[n] / num_voters for n in names}
     allocate = get_sainte_lague_winners if appt == "sainte_lague" else get_dhondt_winners
+    pr_tie_break = _random.Random(lot_seed)   # PR seat ties only; district ties use `lots` below
 
     def _pr_alloc(n_seats: int) -> tuple[Dict[str, int], List[str], bool]:
         """Threshold-filtered proportional allocation. Returns (seats, excluded, waived)."""
@@ -344,12 +384,13 @@ def _allocate_assembly(
         if not eligible:  # nobody passes → waive the threshold rather than fail
             eligible = {n: votes[n] for n in names if votes[n] > 0}
             waived = True
-        alloc = allocate({k: float(v) for k, v in eligible.items()}, n_seats)
+        alloc = allocate({k: float(v) for k, v in eligible.items()}, n_seats, rng=pr_tie_break)
         seats = {n: int(alloc.get(n, 0)) for n in names}
         excluded = [n for n in names if n not in eligible]
         return seats, excluded, waived
 
     district_seats = {n: 0 for n in names}
+    lots = _np.random.default_rng(lot_seed)   # district ties only
     excluded: List[str] = []
     threshold_waived = False
     wasted = 0
@@ -363,9 +404,8 @@ def _allocate_assembly(
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            win = int(counts.argmax())
-            seats[names[win]] += 1
-            wasted += int(len(band) - counts[win])  # votes for district losers
+            seats[_district_winner(counts, names, lots)] += 1
+            wasted += int(len(band) - counts.max())  # votes for district losers
         assembly_size = seats_total
     elif structure == "mmp":
         n_districts = max(1, seats_total // 2)
@@ -375,7 +415,7 @@ def _allocate_assembly(
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            district_seats[names[int(counts.argmax())]] += 1
+            district_seats[_district_winner(counts, names, lots)] += 1
         target, excluded, threshold_waived = _pr_alloc(seats_total)
         # Compensatory top-up; overhang (district wins beyond target) is kept.
         seats = {n: max(target[n], district_seats[n]) for n in names}
@@ -438,7 +478,7 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     alloc = _allocate_assembly(
         d2, voters[:, 0], names, sincere, structure, seats_total,
-        threshold, appt, bool(data.get("strategic_desertion", False)),
+        threshold, appt, bool(data.get("strategic_desertion", False)), seed,
     )
     votes            = alloc["votes"]
     vote_share       = {n: votes[n] / num_voters for n in names}
@@ -587,7 +627,7 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
 
         for structure in _SCORECARD_STRUCTURES:
             a = _allocate_assembly(d2, voters[:, 0], names, sincere, structure,
-                                   seats_total, threshold, appt, desertion)
+                                   seats_total, threshold, appt, desertion, seed + 101 * k)
             votes, seats = a["votes"], a["seats"]
             size = max(1, a["assembly_size"])
 
@@ -611,7 +651,7 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                 gerry = 1.0  # no districts → redistricting cannot move seats
             else:
                 b = _allocate_assembly(d2, voters[:, 1], names, sincere, structure,
-                                       seats_total, threshold, appt, desertion)
+                                       seats_total, threshold, appt, desertion, seed + 101 * k)
                 size_b = max(1, b["assembly_size"])
                 tv = 0.5 * sum(abs(seats[n] / size - b["seats"][n] / size_b) for n in names)
                 gerry = max(0.0, 1.0 - tv)
@@ -678,8 +718,7 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # can be below the request — use the actual count for the district splits and
     # the vote shares (otherwise over-scaled cuts leave empty trailing districts).
     num_voters = int(voters.shape[0])
-    d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-    choice = d2.argmin(axis=1)
+    choice = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
     order = _np.argsort(voters[:, 0], kind="stable")
 
     # ── District splits: equal vs skewed populations (bands along x) ───────
@@ -694,14 +733,19 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     def _fptp(bands: List["_np.ndarray"]) -> Dict[str, int]:
         seats = {n: 0 for n in names}
+        lots = _np.random.default_rng(seed)   # district ties only
         for band in bands:
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            seats[names[int(counts.argmax())]] += 1
+            seats[_district_winner(counts, names, lots)] += 1
         return seats
 
     votes_nat = {n: int((choice == i).sum()) for i, n in enumerate(names)}
+    # One national ranking for everything below that needs "the largest": most
+    # votes first, a tie drawn -- so the efficiency gap's pair, the at-large
+    # sweep and the cumulative cutoff agree, and none follows listing order.
+    ranked = top_k(votes_nat, len(names), _random.Random(seed))
     seats_eq, seats_sk = _fptp(bands_eq), _fptp(bands_sk)
     g_eq = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_eq)
     g_sk = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_sk)
@@ -721,8 +765,7 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     }
 
     # ── Efficiency gap (two largest parties, skewed districting) ───────────
-    top2 = sorted(range(len(names)), key=lambda i: -votes_nat[names[i]])[:2]
-    a_i, b_i = top2
+    a_i, b_i = names.index(ranked[0]), names.index(ranked[1])
     wasted_a = wasted_b = two_party_total = 0
     for band in bands_sk:
         counts = _np.bincount(choice[band], minlength=len(names))
@@ -732,9 +775,12 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         if va > vb:
             wasted_a += va - win_threshold
             wasted_b += vb
-        else:
+        elif vb > va:
             wasted_b += vb - win_threshold
             wasted_a += va
+        else:  # a tied district elects neither: it used to count as B's win
+            wasted_a += va
+            wasted_b += vb
     efficiency_gap_out = {
         "party_a": names[a_i],
         "party_b": names[b_i],
@@ -761,18 +807,19 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     # ── Cumulative vs bloc voting, M seats at large ─────────────────────────
     shares = _np.array([votes_nat[n] for n in names], dtype=float) / num_voters
-    sweep = names[int(shares.argmax())]
+    sweep = ranked[0]
     seats_bloc = {n: (m_seats if n == sweep else 0) for n in names}
     # Cumulative with poll-informed nomination: party i fields k_i candidates,
     # voters spread their M votes evenly → per-candidate strength share/k.
     k = _np.maximum(1, _np.round(shares * m_seats).astype(int))
-    candidates = []
-    for i, n in enumerate(names):
-        if shares[i] <= 0:
-            continue
-        for _c in range(int(k[i])):
-            candidates.append((shares[i] / k[i], n))
-    candidates.sort(key=lambda t: -t[0])
+    # Strength as an exact fraction (votes/k orders as share/k does): equal
+    # strengths tie exactly, and a tie at the cutoff goes by the national ranking.
+    candidates = [
+        (Fraction(votes_nat[n], int(k[i])), n)
+        for i, n in enumerate(names) if shares[i] > 0
+        for _c in range(int(k[i]))
+    ]
+    candidates.sort(key=lambda t: (-t[0], ranked.index(t[1])))
     seats_cum = {n: 0 for n in names}
     for _strength, n in candidates[:m_seats]:
         seats_cum[n] += 1
@@ -856,8 +903,7 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     n_voters = stances.shape[0]
     # Bundled vote: closest platform by issue agreement (ties → first party).
-    agreement = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2)
-    choice = agreement.argmax(axis=1)
+    choice = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2).argmax(axis=1)
     votes = _np.bincount(choice, minlength=len(names))
     winner_idx = int(votes.argmax())
 
@@ -899,149 +945,5 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Temporal mode (frontier FA-3): democracy as a repeated game ───────────────
 
-def _temporal_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /temporal (frontier FA-3).
-
-    Runs N SEQUENTIAL elections on one starting electorate. Between rounds
-    (stated, documented dynamics — knobs, not hidden assumptions):
-      · parties ADAPT: myopic local search — each party tries 8 compass moves of
-        `adaptation_step` and keeps the one maximising its own sincere support,
-        others held fixed (vote-seeking Downsian dynamics);
-      · voters ATTACH: each voter drifts `loyalty_drift` of the way toward the
-        party they voted for (partisan identification → endogenous polarization).
-    Tracked per round: positions, vote/seat shares, largest-party winner,
-    ENP(votes/seats), Gallagher, polarization (vote-weighted dispersion of party
-    positions), alternation (largest party changed), congruence gap (distance
-    between the seat-weighted assembly position and the voter median).
-    Reproducible by seed. The question it answers: is the system still good
-    AFTER repeated play?
-    """
-    parties_in  = (data.get("parties") or [])[:8]
-    num_voters  = max(10, min(1000, int(data.get("num_voters", 400))))
-    ideology    = str(data.get("ideology", "random"))
-    seed        = int(data.get("seed", 42))
-    structure   = str(data.get("structure", "pr"))
-    seats_total = max(10, min(500, int(data.get("seats", 100))))
-    threshold   = max(0.0, min(0.15, float(data.get("threshold", 0.05))))
-    appt        = str(data.get("apportionment", "dhondt"))
-    desertion   = bool(data.get("strategic_desertion", False))
-    rounds      = max(2, min(30, int(data.get("rounds", 20))))
-    adapt_step  = max(0.0, min(0.2, float(data.get("adaptation_step", 0.06))))
-    loyalty     = max(0.0, min(0.2, float(data.get("loyalty_drift", 0.05))))
-
-    if len(parties_in) < 2:
-        return {"error": "At least 2 parties required"}, 400
-
-    names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
-    pts = _np.array(
-        [[float(p.get("x", 0.0)), float(p.get("y", 0.0))] for p in parties_in],
-        dtype=float,
-    )
-    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
-
-    compass = _np.array(
-        [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],
-        dtype=float,
-    )
-    compass /= _np.linalg.norm(compass, axis=1, keepdims=True)
-
-    rounds_out: List[Dict[str, Any]] = []
-    prev_winner: Optional[str] = None
-    alternations = 0
-
-    for r in range(rounds):
-        d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-        sincere = d2.argmin(axis=1)
-        alloc = _allocate_assembly(
-            d2, voters[:, 0], names, sincere, structure,
-            seats_total, threshold, appt, desertion,
-        )
-        votes, seats = alloc["votes"], alloc["seats"]
-        size = max(1, alloc["assembly_size"])
-        shares = _np.array([votes[n] for n in names], dtype=float) / num_voters
-        seat_shares = _np.array([seats[n] for n in names], dtype=float) / size
-
-        metrics = compute_proportionality_metrics(
-            {n: float(votes[n]) for n in names}, seats
-        )
-        # Vote-weighted dispersion of party positions (the polarization index).
-        pbar = (shares[:, None] * pts).sum(axis=0) / max(1e-9, shares.sum())
-        polarization = float(_np.sqrt((shares * ((pts - pbar) ** 2).sum(axis=1)).sum()))
-        # Assembly position (seat-weighted) vs the voter median.
-        assembly_pos = (seat_shares[:, None] * pts).sum(axis=0)
-        median_pt = _np.median(voters, axis=0)
-        congruence_gap = float(_np.linalg.norm(assembly_pos - median_pt))
-
-        winner = names[int(_np.argmax([seats[n] for n in names]))]
-        alternation = prev_winner is not None and winner != prev_winner
-        if alternation:
-            alternations += 1
-        prev_winner = winner
-
-        rounds_out.append({
-            "round": r,
-            "parties": [
-                {"name": n, "x": round(float(pts[i, 0]), 4), "y": round(float(pts[i, 1]), 4),
-                 "vote_share": round(float(shares[i]), 4), "seats": seats[n]}
-                for i, n in enumerate(names)
-            ],
-            "winner":         winner,
-            "enp_votes":      metrics["effective_parties_votes"],
-            "enp_seats":      metrics["effective_parties_seats"],
-            "gallagher":      metrics["gallagher_index"],
-            "polarization":   round(polarization, 4),
-            "alternation":    alternation,
-            "congruence_gap": round(congruence_gap, 4),
-        })
-
-        if r == rounds - 1:
-            break
-
-        # ── Party adaptation: myopic vote-seeking local search ──────────────
-        # Campaign resources follow EXPRESSED votes (stated convention): a
-        # party starved by strategic desertion cannot reposition, while the
-        # well-funded ones optimise freely — the second half of Duverger's
-        # squeeze. Under PR with no threshold expressed = sincere, so all
-        # parties adapt at full strength and the system sustains itself.
-        if adapt_step > 0:
-            expressed = _np.array([votes[n] for n in names], dtype=float)
-            max_votes = expressed.max() or 1.0
-            for i in range(len(names)):
-                step_i = adapt_step * (expressed[i] / max_votes)
-                if step_i <= 0:
-                    continue
-                others = _np.delete(_np.arange(len(names)), i)
-                others_min = d2[:, others].min(axis=1)
-                best_pos = pts[i].copy()
-                best_support = int((d2[:, i] < others_min).sum())
-                for step_dir in compass:
-                    trial = _np.clip(pts[i] + step_i * step_dir, -1.0, 1.0)
-                    trial_d2 = ((voters - trial) ** 2).sum(axis=1)
-                    support = int((trial_d2 < others_min).sum())
-                    if support > best_support:
-                        best_support = support
-                        best_pos = trial
-                pts[i] = best_pos
-                # keep d2 fresh for the next party's evaluation
-                d2[:, i] = ((voters - pts[i]) ** 2).sum(axis=1)
-
-        # ── Voter attachment: drift toward the party they VOTED for ─────────
-        # The expressed vote (post-desertion), not the sincere favourite: a
-        # deserter attaches to the viable party they chose — this realignment
-        # is precisely how Duverger's squeeze compounds over repeated play.
-        if loyalty > 0:
-            voters = _np.clip(
-                voters + loyalty * (pts[alloc["choice"]] - voters), -1.0, 1.0
-            )
-
-    first, last = rounds_out[0], rounds_out[-1]
-    return {
-        "rounds":               rounds_out,
-        "alternation_rate":     round(alternations / max(1, rounds - 1), 4),
-        "enp_votes_initial":    first["enp_votes"],
-        "enp_votes_final":      last["enp_votes"],
-        "polarization_initial": first["polarization"],
-        "polarization_final":   last["polarization"],
-    }, 200
 
 

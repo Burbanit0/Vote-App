@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/apps/jscpd/src/config.schema.json",
+  "minLines": 15,
+  "minTokens": 70,
+  "reporters": ["console"],
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/*.gen.ts",
+    "**/dist/**",
+    "**/build/**",
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "fast_api_voter/api/tests/**",
+    "voter-app/src/**/__tests__/**",
+    "voter-app/src/**/*.test.ts",
+    "voter-app/src/**/*.test.tsx",
+    "**/i18n/locales/**",
+    "**/__fixtures__/**"
+  ]
+}

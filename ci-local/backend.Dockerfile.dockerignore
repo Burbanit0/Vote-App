@@ -6,6 +6,7 @@ voter-app
 **/node_modules
 **/__pycache__
 **/*.pyc
+fast_api_voter/.venv
 fast_api_voter/.pytest_cache
 fast_api_voter/.mypy_cache
 fast_api_voter/htmlcov

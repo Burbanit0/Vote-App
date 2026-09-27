@@ -45,14 +45,14 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     behavior,
     strategicOutcome,
     youPos,
-    setYouPos,
+    moveYou,
     showYou,
     composed,
     electorate,
     voters,
     voterColors,
     leaderCandidates,
-    votingVoters,
+    expressedVoters,
     sampleAtSeed,
     baseSeed,
     moveCandidate,
@@ -135,7 +135,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
               {isSpatialSource(prefSource) ? (
                 <LeaderCanvas
                   candidates={leaderCandidates}
-                  voters={votingVoters}
+                  voters={expressedVoters}
                   rule={leaderRule}
                   dims={dims}
                   sampleAtSeed={sampleAtSeed}
@@ -144,7 +144,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
                   youMarker={showYou ? youPos : null}
                   lens={lens}
                   onLensChange={setLens}
-                  onMoveYou={(x, y) => setYouPos((p) => ({ ...p, x, y }))}
+                  onMoveYou={moveYou}
                   onRuleChange={setLeaderRule}
                   onMoveCandidate={moveCandidate}
                   showRuleUi={forceShowRuleUi || activeMoment !== 'electorate'}

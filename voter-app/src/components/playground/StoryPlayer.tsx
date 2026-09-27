@@ -10,13 +10,18 @@ import {
   Scissors,
   Landmark,
   Divide,
+  Copy,
+  Ban,
+  TrendingUp,
+  Repeat,
+  ThumbsUp,
   BookOpen,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { usePlaygroundCtx } from './PlaygroundController';
+import { useStoreCtx, useJourneyCtx } from './PlaygroundController';
 import { storiesForMode, storyById, type Story, type StoryStep } from '../../lib/stories';
 import { track } from '../../lib/analytics';
 import type {
@@ -43,6 +48,11 @@ const ICONS: Record<string, LucideIcon> = {
   Scissors,
   Landmark,
   Divide,
+  Copy,
+  Ban,
+  TrendingUp,
+  Repeat,
+  ThumbsUp,
 };
 
 interface Snapshot {
@@ -53,7 +63,12 @@ interface Snapshot {
 }
 
 const StoryPlayer: React.FC = () => {
-  const ctx = usePlaygroundCtx();
+  // Only the store + journey slices: a story patches settings, the rule and
+  // the moment, never live spatial data -- so it isn't re-rendered by every
+  // candidate drag or scorecard recompute. `ctx` is only ever read property
+  // by property below (never as a whole object/dependency), so a fresh
+  // spread per render is harmless.
+  const ctx = { ...useStoreCtx(), ...useJourneyCtx() };
   const { t } = useTranslation('playground');
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [active, setActive] = React.useState<Story | null>(null);

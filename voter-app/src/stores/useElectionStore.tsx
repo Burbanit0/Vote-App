@@ -6,12 +6,17 @@
  * is now a thin shim over this store so every `useElection()` consumer + the
  * <ElectionProvider> in App.tsx keep working until 5.5 deletes the shim.
  *
- * Persistence: localStorage['votelab_election_config'] (written on each mutation,
- * re-read by hydrate() on mount).
+ * Persistence: localStorage['votelab_election_config'] (and
+ * ['votelab_playground'] for the playground slice below), re-read by
+ * hydrate()/loadPlayground() on mount. The in-memory `set()` is always
+ * synchronous; the localStorage WRITE is debounced (see `debouncedWriter`
+ * below) so a drag gesture or slider drag produces one write, not one per
+ * frame.
  */
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import type { Community } from '../lib/playgroundElectorate';
+import type { BlankLens } from '../lib/blankVote';
 import { track } from '../lib/analytics';
 
 export type { Community };
@@ -311,6 +316,10 @@ export interface PlaygroundState {
   ballot: { type: BallotType; truncate_at: number; score_levels: number };
   /** Electorate realism: differential turnout (Downsian abstention). */
   turnout: { model: 'full' | 'alienation' | 'indifference'; intensity: number };
+  /** Live blank-vote lever (leader mode): voters too far from every candidate
+   *  spoil their ballot instead of voting; `lens` picks the constitutional
+   *  regime (lib/blankVote.ts) that decides what that does to the result. */
+  blank: { enabled: boolean; intensity: number; lens: BlankLens };
   /** Composable electorate (community mixture); 'simple' = the ideology Gaussian. */
   electorate: ElectorateComposition;
   assembly: {
@@ -435,6 +444,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   prefParams: {},
   ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
   turnout: { model: 'full', intensity: 0.5 },
+  blank: { enabled: false, intensity: 0.5, lens: 'france_today' },
   electorate: {
     mode: 'simple',
     correlation: ELECTORATE_PRESETS.three_poles.correlation,
@@ -627,12 +637,63 @@ function loadConfig(): ElectionConfig {
   }
 }
 
-function saveConfig(config: ElectionConfig): void {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(config));
-  } catch {
-    /* ignore */
+// ── Debounced persistence ────────────────────────────────────────────────────
+//
+// The in-memory `set()` in every action below is always synchronous — the UI
+// must react on the very next frame. The localStorage WRITE doesn't need to be:
+// only the final value after a gesture ends is ever read back (on next hydrate/
+// mount), so writing it on every intermediate frame is pure I/O cost with no
+// benefit. A candidate drag fires ~dozens of mousemove frames/sec (LeaderCanvas,
+// ParliamentCanvas) and a `type="range"` slider fires just as often while its
+// thumb moves (ElectorateComposer); both used to call `saveConfig`/
+// `savePlayground` — a synchronous `JSON.stringify` + `localStorage.setItem` —
+// on every single one of those. `debouncedWriter` coalesces a whole gesture into
+// ONE trailing write, DEBOUNCE_MS after the last mutation. `flush()` is wired to
+// `beforeunload`/`pagehide` so a tab closed (or navigated away) mid-gesture still
+// persists the final value instead of silently dropping it.
+const DEBOUNCE_MS = 250;
+
+function debouncedWriter<T>(key: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pending: T | undefined;
+  let hasPending = false;
+
+  const flush = (): void => {
+    if (!hasPending) return;
+    hasPending = false;
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+    try {
+      localStorage.setItem(key, JSON.stringify(pending));
+    } catch {
+      /* ignore */
+    }
+    pending = undefined;
+  };
+
+  if (typeof window !== 'undefined') {
+    // pagehide covers mobile Safari, which doesn't reliably fire beforeunload.
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
   }
+
+  return {
+    write(value: T): void {
+      pending = value;
+      hasPending = true;
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(flush, DEBOUNCE_MS);
+    },
+    flush,
+  };
+}
+
+const configWriter = debouncedWriter<ElectionConfig>(LS_KEY);
+
+function saveConfig(config: ElectionConfig): void {
+  configWriter.write(config);
 }
 
 function loadPlayground(): PlaygroundState {
@@ -648,6 +709,7 @@ function loadPlayground(): PlaygroundState {
       space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
       ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
       turnout: { ...DEFAULT_PLAYGROUND.turnout, ...(parsed.turnout ?? {}) },
+      blank: { ...DEFAULT_PLAYGROUND.blank, ...(parsed.blank ?? {}) },
       electorate: { ...DEFAULT_PLAYGROUND.electorate, ...(parsed.electorate ?? {}) },
       assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
     };
@@ -656,28 +718,28 @@ function loadPlayground(): PlaygroundState {
   }
 }
 
+const playgroundWriter = debouncedWriter<PlaygroundState>(LS_PLAYGROUND_KEY);
+
 function savePlayground(pg: PlaygroundState): void {
-  try {
-    localStorage.setItem(LS_PLAYGROUND_KEY, JSON.stringify(pg));
-  } catch {
-    /* ignore */
-  }
+  playgroundWriter.write(pg);
+}
+
+// Test-only: force both debounced writers to flush synchronously (e.g. to
+// assert on localStorage without waiting out DEBOUNCE_MS in real time, or to
+// simulate the beforeunload/pagehide flush path). Not used by app code.
+export function __flushPersistedStoreForTests(): void {
+  configWriter.flush();
+  playgroundWriter.flush();
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────
-
-export const SCENARIO_NAMES = Object.keys(SCENARIOS);
 
 interface ElectionState {
   config: ElectionConfig;
   scenarioMeta: ScenarioMeta | null;
   playground: PlaygroundState;
   setConfig: (patch: Partial<ElectionConfig>) => void;
-  setConfigDeep: (path: string, value: unknown) => void;
-  replaceConfig: (next: ElectionConfig) => void;
-  resetConfig: () => void;
   applyScenario: (name: string) => void;
-  clearScenarioMeta: () => void;
   setMode: (mode: PlaygroundMode) => void;
   setPlayground: (patch: Partial<PlaygroundState>) => void;
   setPlaygroundDeep: (path: string, value: unknown) => void;
@@ -702,23 +764,6 @@ export const useElectionStore = create<ElectionState>((set) => ({
       return { config, scenarioMeta: null };
     }),
 
-  setConfigDeep: (path, value) =>
-    set((s) => {
-      const config = deepSet(s.config, path, value) as ElectionConfig;
-      saveConfig(config);
-      return { config, scenarioMeta: null };
-    }),
-
-  replaceConfig: (next) => {
-    saveConfig(next);
-    set({ config: next, scenarioMeta: null });
-  },
-
-  resetConfig: () => {
-    saveConfig(DEFAULT_CONFIG);
-    set({ config: DEFAULT_CONFIG, scenarioMeta: null });
-  },
-
   applyScenario: (name) => {
     const scenario = SCENARIOS[name];
     if (!scenario) return;
@@ -735,8 +780,6 @@ export const useElectionStore = create<ElectionState>((set) => ({
         : null,
     });
   },
-
-  clearScenarioMeta: () => set({ scenarioMeta: null }),
 
   // ── Playground actions ──────────────────────────────────────────────────
   setMode: (mode) =>
@@ -845,13 +888,8 @@ export const useElectionStore = create<ElectionState>((set) => ({
 export interface ElectionContextValue {
   config: ElectionConfig;
   setConfig: (patch: Partial<ElectionConfig>) => void;
-  setConfigDeep: (path: string, value: unknown) => void;
-  replaceConfig: (next: ElectionConfig) => void;
-  resetConfig: () => void;
   applyScenario: (name: string) => void;
-  scenarioNames: string[];
   scenarioMeta: ScenarioMeta | null;
-  clearScenarioMeta: () => void;
 }
 
 /**
@@ -900,36 +938,17 @@ export function useElection(): ElectionContextValue {
   const override = React.useContext(ElectorateOverrideContext);
   const config = useElectionStore((s) => s.config);
   const setConfig = useElectionStore((s) => s.setConfig);
-  const setConfigDeep = useElectionStore((s) => s.setConfigDeep);
-  const replaceConfig = useElectionStore((s) => s.replaceConfig);
-  const resetConfig = useElectionStore((s) => s.resetConfig);
   const applyScenario = useElectionStore((s) => s.applyScenario);
   const scenarioMeta = useElectionStore((s) => s.scenarioMeta);
-  const clearScenarioMeta = useElectionStore((s) => s.clearScenarioMeta);
   if (override) {
     return {
       config: override.config,
       setConfig: _noop,
-      setConfigDeep: _noop,
-      replaceConfig: _noop,
-      resetConfig: _noop,
       applyScenario: _noop,
-      scenarioNames: SCENARIO_NAMES,
       scenarioMeta: null,
-      clearScenarioMeta: _noop,
     };
   }
-  return {
-    config,
-    setConfig,
-    setConfigDeep,
-    replaceConfig,
-    resetConfig,
-    applyScenario,
-    scenarioNames: SCENARIO_NAMES,
-    scenarioMeta,
-    clearScenarioMeta,
-  };
+  return { config, setConfig, applyScenario, scenarioMeta };
 }
 
 // ── Playground convenience hook ───────────────────────────────────────────────

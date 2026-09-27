@@ -13,17 +13,18 @@ when the routes themselves move to FastAPI.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .common import (
     BlankVoteConfig,
     CampaignConfig,
     CandidateSnapshot,
-    CandidateSpec,
     InformationModelConfig,
     MethodResult,
+    UniqueCandidates,
+    reject_duplicate_names,
     VoterSnapshot,
 )
 
@@ -116,10 +117,15 @@ class ProfileSimulateRequest(BaseModel):
                     "Plackett-Luce {quality}, DiDi {concentration}, stratification {weight}.",
     )
     handcrafted_matrix: Optional[List[List[float]]] = Field(
-        None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
+        None, max_length=1000,
+        description="Rows = voters, cols = candidates (aligned), for source=handcrafted. "
+                    "At most 500 rows with compute_strategic.",
     )
-    ballot: BallotConfig = Field(default_factory=BallotConfig)
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
+    ballot: BallotConfig = Field(default_factory=BallotConfig)  # pyright: ignore[reportArgumentType]
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); shapes the spatial "
                           "voter cloud and the paradox rate when mode='composed'.",
@@ -127,7 +133,8 @@ class ProfileSimulateRequest(BaseModel):
     compute_strategic: bool = Field(
         False,
         description="Compute the per-method Gibbard–Satterthwaite individual "
-                    "manipulability rate (slow; opt-in). Off for the live read-out.",
+                    "manipulability rate (slow; opt-in). Off for the live read-out. "
+                    "Caps num_voters at 500 (the response's num_voters says how many ran).",
     )
     seed: int = Field(42, ge=0)
 
@@ -170,6 +177,19 @@ class AssemblyPartySpec(BaseModel):
     y:    float = Field(0.0, ge=-1.0, le=1.0)
 
 
+def _reject_duplicate_names(parties: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+    """Shared validator for the `parties` field of Assembly/Scorecard/Temporal
+    requests below. `workers_playground.py`'s seat allocation tallies votes
+    into a `{name: count}` dict keyed by party name — two parties sharing a
+    name silently collapse into one dict key (last write wins), discarding
+    the other's votes. In the worst case every real vote lands on the
+    discarded key, `votes` ends up all-zero, and `get_dhondt_winners`
+    crashes on `max()` of an empty dict (found by Schemathesis, Lot 3).
+    Rejecting the duplicate at the boundary is simpler and safer than making
+    every downstream dict keyed by name tolerate collisions."""
+    return cast(List[AssemblyPartySpec], reject_duplicate_names(list(parties), "party"))
+
+
 class AssemblyRequest(BaseModel):
     """POST /api/v2/election/assembly — votes → seats under PR / FPTP / MMP.
 
@@ -194,10 +214,15 @@ class AssemblyRequest(BaseModel):
                     "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
                     "for their nearest viable party.",
     )
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
+
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
 
 
 class AssemblyPartyResult(BaseModel):
@@ -284,11 +309,16 @@ class AssemblyScorecardRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
     replications: int = Field(24, ge=8, le=40)
+
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
 
 
 class AssemblyScorecardResponse(BaseModel):
@@ -302,65 +332,6 @@ class AssemblyScorecardResponse(BaseModel):
 
 # ── /temporal (frontier FA-3) ─────────────────────────────────────────────────
 
-class TemporalRequest(BaseModel):
-    """POST /api/v2/election/temporal — N sequential elections on one starting
-    electorate. Between rounds, parties local-search toward vote-maximising
-    positions (`adaptation_step`) and voters drift toward the party they voted
-    for (`loyalty_drift`). Stated dynamics; reproducible by seed."""
-    model_config = ConfigDict(extra="forbid")
-
-    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
-    num_voters: int = Field(400, ge=10, le=1000)
-    ideology:   str = Field("random")
-    seed:       int = Field(42, ge=0)
-    structure: Literal["pr", "fptp", "mmp"] = Field("pr")
-    seats:     int   = Field(100, ge=10, le=500)
-    threshold: float = Field(0.05, ge=0.0, le=0.15)
-    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
-    strategic_desertion: bool = Field(False)
-    electorate: Optional[ElectorateConfig] = Field(
-        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
-    )
-    rounds: int = Field(20, ge=2, le=30)
-    adaptation_step: float = Field(0.06, ge=0.0, le=0.2,
-                                   description="Party vote-seeking step per round.")
-    loyalty_drift: float = Field(0.05, ge=0.0, le=0.2,
-                                 description="Voter drift toward their party per round.")
-
-
-class TemporalPartyState(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    x: float
-    y: float
-    vote_share: float = Field(..., ge=0.0, le=1.0)
-    seats: int
-
-
-class TemporalRound(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    round: int
-    parties: List[TemporalPartyState]
-    winner: str = Field(..., description="Largest party this round.")
-    enp_votes: Optional[float] = Field(None)
-    enp_seats: Optional[float] = Field(None)
-    gallagher: Optional[float] = Field(None)
-    polarization: float = Field(..., description="Vote-weighted dispersion of party positions.")
-    alternation: bool = Field(..., description="Largest party changed vs the previous round.")
-    congruence_gap: float = Field(..., description="Distance between the seat-weighted assembly position and the voter median.")
-
-
-class TemporalResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    rounds: List[TemporalRound]
-    alternation_rate:     float = Field(..., ge=0.0, le=1.0)
-    enp_votes_initial:    Optional[float] = Field(None)
-    enp_votes_final:      Optional[float] = Field(None)
-    polarization_initial: float
-    polarization_final:   float
 
 
 # ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
@@ -443,6 +414,11 @@ class StructuralFairnessRequest(BaseModel):
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
 
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
+
 
 class MalapportionmentOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -493,20 +469,20 @@ class SimulateRequest(BaseModel):
     """POST /api/election/simulate — full pipeline run."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(
+    candidates: UniqueCandidates = Field(
         ...,
         min_length=2,
         max_length=8,
-        description="2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.",
+        description="2 to 8 candidates. Every rule is exact over that whole range.",
     )
     num_voters: int   = Field(300, ge=10, le=1000)
     ideology:   str   = Field("random",
                               description="Voter distribution: 'random' | 'centrist' | 'polarized' | 'left_skewed' | 'right_skewed'.")
     seed:       int   = Field(42, ge=0, description="PRNG seed for reproducibility.")
 
-    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)
-    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)
-    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)
+    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)  # pyright: ignore[reportArgumentType]
+    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class SimulateResponse(BaseModel):
@@ -530,14 +506,14 @@ class CombinedEffectsRequest(BaseModel):
     """Same shape as SimulateRequest but with a tighter num_voters cap (2³=8 simulations)."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
 
-    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)
-    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)
-    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)
+    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)  # pyright: ignore[reportArgumentType]
+    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class CombinedEffectsCombination(BaseModel):
@@ -569,20 +545,29 @@ class CombinedEffectsResponse(BaseModel):
 
 # ── /campaign-sensitivity ───────────────────────────────────────────────────
 
+# Typed separately (not inline in the Field(default_factory=lambda: [...])
+# below): a bare list literal mixing int and str infers as list[object] to
+# mypy, which doesn't match List[Union[int, Literal["final"]]].
+_DEFAULT_SNAPSHOT_DAYS: List[Union[int, Literal["final"]]] = [0, 7, 14, 21, 28, "final"]
+
+
 class CampaignSensitivityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
-    snapshot_days: List[Any] = Field(
-        default_factory=lambda: [0, 7, 14, 21, 28, "final"],
+    # List[Any] (matching only the docstring, not enforcing it) let through
+    # dicts/floats/null that crashed _campaign_sensitivity_worker's `int(d)`
+    # with a raw TypeError instead of a 422 (found by Schemathesis, Lot 3).
+    snapshot_days: List[Union[int, Literal["final"]]] = Field(
+        default_factory=_DEFAULT_SNAPSHOT_DAYS.copy,
         description="Days at which to snapshot — strings ('final') and ints are both accepted.",
     )
 
-    blank_vote: BlankVoteConfig = Field(default_factory=BlankVoteConfig)
-    campaign:   CampaignConfig  = Field(default_factory=CampaignConfig)
+    blank_vote: BlankVoteConfig = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    campaign:   CampaignConfig  = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class CampaignSnapshot(BaseModel):
@@ -612,7 +597,7 @@ class CampaignSensitivityResponse(BaseModel):
 class AbstentionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int   = Field(200, ge=10, le=1000)
     ideology:   str   = Field("random")
     seed:       int   = Field(42, ge=0)
@@ -663,7 +648,7 @@ class CoalitionRequest(BaseModel):
     """Per-method D'Hondt seat allocation + greedy coalition formation."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=10, le=1000)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
@@ -722,8 +707,9 @@ class JuryResponse(BaseModel):
 
     theoretical_accuracy: float
     methods:              Dict[str, JuryMethodResult]
-    best_method:          str
-    worst_method:         str
+    # Every method tied at the top / bottom; empty when all tie (tied_extremes).
+    best_method:          List[str]
+    worst_method:         List[str]
     voter_competence:     float
     num_voters:           int
     # Curve points carry dynamic per-method keys alongside competence/theoretical,
@@ -849,8 +835,10 @@ class ChoiceOverloadResponse(BaseModel):
 
     results_by_n:        List[Dict[str, Any]]
     regret_curve:        List[Dict[str, Any]]
-    most_robust_method:  Optional[str]
-    least_robust_method: Optional[str]
+    # Every method tied at the highest / lowest sincere-match rate; empty when
+    # all tie (tied_extremes).
+    most_robust_method:  List[str]
+    least_robust_method: List[str]
     overload_threshold:  int
     heuristic_weights:   Dict[str, float]
     pedagogical_note:    str
@@ -1072,8 +1060,10 @@ class DistrictsResponse(BaseModel):
     national_vote_share:        Dict[str, float]
     distortion:                 float
     condorcet_winner_national:  Optional[str] = None
-    fptp_winner:                str
-    proportional_winner:        str
+    # Every party tied on seats; the client compares the two sets rather than
+    # claiming divergence from two arbitrary picks.
+    fptp_winner:                List[str]
+    proportional_winner:        List[str]
     num_districts:              int
 
 
@@ -1088,7 +1078,7 @@ class PrimaryResponse(BaseModel):
     general_winner:           Optional[str] = None
     general_runner_up:        Optional[str] = None
     general_vote_shares:      Dict[str, Any]
-    median_voter_distance:    Any
+    median_voter_distance:    Optional[float] = None   # None when the general election ties
     without_primaries_winner: Optional[str] = None
 
 
@@ -1217,8 +1207,10 @@ class GerrymanderResponse(BaseModel):
     parliament_proportional: Dict[str, Any]
     national_vote_share:     Dict[str, Any]
     distortion:              float
-    gerrymander_index:       float
-    winner:                  Optional[str] = None
+    # None when parties tie on seats: no single leading party, so no distance
+    # from proportional to report for one.
+    gerrymander_index:       Optional[float] = None
+    winner:                  List[str] = Field(default_factory=list)
     candidates:              List[str]
     num_seats:               int
 
@@ -1234,8 +1226,9 @@ class MultiwinnerCompareResponse(BaseModel):
     proportional_reference: Dict[str, Any]
     num_seats:              int
     candidates:             List[str]
-    best_method:            str
-    worst_method:           str
+    # Every method tied at the least / most distortion; empty when all tie.
+    best_method:            List[str]
+    worst_method:           List[str]
 
 
 # ── /divergence ───────────────────────────────────────────────────────────────
@@ -1254,18 +1247,6 @@ class DivergenceResponse(BaseModel):
 
 # ── /quadratic-funding ────────────────────────────────────────────────────────
 
-class QuadraticFundingResponse(BaseModel):
-    """Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics."""
-    model_config = ConfigDict(extra="allow")
-
-    projects:             List[Dict[str, Any]]
-    winner:               Optional[str] = None
-    mechanism_comparison: Dict[str, Any]
-    gini_coefficients:    Dict[str, Any]
-    vote_shares:          Dict[str, float]
-    matching_pool:        Any
-    budget_per_voter:     Any
-    pedagogical_note:     str
 
 
 # ── /power-indices ────────────────────────────────────────────────────────────
@@ -1303,8 +1284,8 @@ class InterpretResponse(BaseModel):
     condorcet_analysis: Any
     divergence_reason:  Any
     method_groups:      Any
-    best_by_regret:     Any
-    worst_by_regret:    Any
+    best_by_regret:     List[str]
+    worst_by_regret:    List[str]
     blank_analysis:     Any
     pedagogical_note:   str
     key_facts:          Any

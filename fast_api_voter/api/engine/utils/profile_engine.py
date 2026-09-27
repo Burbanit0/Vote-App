@@ -37,7 +37,7 @@ def _utils_from_rankings(rankings: List[List[str]], names: List[str]) -> Utility
     for i, ranking in enumerate(rankings):
         pos = {name: r for r, name in enumerate(ranking)}
         if m > 1:
-            matrix[i] = {name: float((m - 1 - pos[name]) / (m - 1)) for name in names}
+            matrix[i] = {name: (m - 1 - pos[name]) / (m - 1) for name in names}
         else:
             matrix[i] = {names[0]: 1.0}
     return matrix
@@ -203,7 +203,7 @@ def polya_urn_profile(
     rankings: List[List[str]] = []
     for _ in range(num_voters):
         if drawn and rng.random() < len(drawn) / (len(drawn) + alpha):
-            rankings.append(list(drawn[int(rng.integers(len(drawn)))]))
+            rankings.append(drawn[int(rng.integers(len(drawn)))].copy())
         else:
             fresh = list(rng.permutation(names))
             drawn.append(fresh)
@@ -291,9 +291,10 @@ def stratification_profile(
 def handcrafted_profile(matrix_in: List[List[float]], names: List[str]) -> UtilityMatrix:
     """Accept a directly-supplied utility matrix (rows = voters, cols = candidates,
     aligned with `names`). Builds exact paradoxes by hand."""
-    matrix: UtilityMatrix = {}
-    for i, row in enumerate(matrix_in):
-        matrix[i] = {names[j]: float(row[j]) for j in range(len(names))}
+    matrix: UtilityMatrix = {
+        i: {names[j]: row[j] for j in range(len(names))}
+        for i, row in enumerate(matrix_in)
+    }
     return matrix
 
 
@@ -320,13 +321,15 @@ BALLOT_TYPES = (
 
 # Method slugs (compare_all_methods keys) that need CARDINAL intensity.
 _CARDINAL_METHODS = {
-    "evaluative", "majority_judgment", "mean_median_hybrid", "median_voting",
-    "quadratic", "simple_score", "star_voting", "variance_based",
+    "cumulative", "evaluative", "majority_judgment", "maximin",
+    "mean_median_hybrid", "median_voting", "nash", "quadratic",
+    "simple_score", "star_voting", "variance_based",
 }
 _ORDINAL_METHODS = {
-    "baldwin", "borda", "bucklin", "coombs", "copeland", "irv", "kemeny_young",
-    "minimax", "nanson", "plurality", "ranked_pairs", "random_ballot",
-    "schulze", "two_round",
+    "anti_plurality", "baldwin", "benham", "black", "borda", "bucklin",
+    "coombs", "copeland", "dowdall", "irv", "kemeny_young", "minimax",
+    "nanson", "plurality", "ranked_pairs", "random_ballot", "raynaud",
+    "river", "schulze", "smith_irv", "split_cycle", "two_round",
 }
 _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 
@@ -334,15 +337,15 @@ _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 def compatible_methods(ballot_type: str) -> set[str]:
     """Which counting rules can HONESTLY run on this ballot's information."""
     if ballot_type in ("full", "score", "grade", "cumulative"):
-        return set(_ALL_METHODS)
+        return _ALL_METHODS.copy()
     if ballot_type in ("rank_full", "rank_truncated"):
-        return set(_ORDINAL_METHODS)
+        return _ORDINAL_METHODS.copy()
     if ballot_type == "approve":
         return {"approval"}
     if ballot_type == "choose_one":
         # Random ballot needs only each voter's single top choice.
         return {"plurality", "two_round", "random_ballot"}
-    return set(_ALL_METHODS)
+    return _ALL_METHODS.copy()
 
 
 def _normalise_row(utils: Dict[str, float]) -> Dict[str, float]:
@@ -360,9 +363,13 @@ def project_ballot(
     score_levels: int = 6,
 ) -> UtilityMatrix:
     """Project true utilities onto the expressed ballot (as an effective
-    utility matrix consumable by compare_all_methods unchanged)."""
+    utility matrix consumable by compare_all_methods unchanged).
+
+    "full" is normalised per voter to [0, 1] like every other type (and the
+    client's computeScores): raw -distance utilities, all <= 0, made every
+    score rule tie and elect the first-listed candidate."""
     if ballot_type == "full":
-        return matrix
+        return {vid: _normalise_row(utils) for vid, utils in matrix.items()}
     k = max(1, min(len(names), truncate_at or 3))
     levels = max(2, min(10, score_levels))
     out: UtilityMatrix = {}
@@ -448,7 +455,7 @@ def turnout_mask(
     electorate (caller falls back to full turnout if <2 remain).
     """
     n = voter_pts.shape[0]
-    if model == "full" or intensity <= 0 or cand_pts.shape[0] == 0 or n == 0:
+    if model == "full" or intensity <= 0 or 0 in (cand_pts.shape[0], n):
         return np.ones(n, dtype=bool)
     k = float(min(max(intensity, 0.0), 1.0))
     d = np.linalg.norm(voter_pts[:, None, :] - cand_pts[None, :, :], axis=2)
@@ -499,12 +506,14 @@ def apply_behavior(
         if not act:
             out[vid] = utils
             continue
-        new = dict(utils)
-        hi, lo = max(utils.values()), min(utils.values())
-        if utils[f1] >= utils[f2]:
-            new[f1], new[f2] = hi, lo
-        else:
-            new[f2], new[f1] = hi, lo
+        # Swap, don't overwrite: setting the frontrunner to exactly the top value
+        # tied it with the sincere favourite still holding it, and the ballot
+        # builder then broke that invented tie by listing order.
+        new = utils.copy()
+        pref, other = (f1, f2) if utils[f1] >= utils[f2] else (f2, f1)
+        for cand, extreme in ((pref, max), (other, min)):
+            holder = extreme(new, key=new.__getitem__)
+            new[cand], new[holder] = new[holder], new[cand]
         out[vid] = new
     return out
 
@@ -654,15 +663,6 @@ def candidate_centroids(
         s = float(w.sum())
         out.append((w @ pts / s).tolist() if s > 1e-9 and n else [0.0, 0.0])
     return out
-
-
-def gallagher_index(vote_shares: List[float], seat_shares: List[float]) -> float:
-    """Gallagher (least-squares) disproportionality index, in percent:
-    sqrt( 0.5 * Σ (vᵢ − sᵢ)² ). Shares are fractions in [0, 1]. Pure math, reused by
-    the assembly playground (P3)."""
-    v = np.array(vote_shares, dtype=float) * 100.0
-    s = np.array(seat_shares, dtype=float) * 100.0
-    return round(float(np.sqrt(0.5 * np.sum((v - s) ** 2))), 4)
 
 
 # ── Top-level builder ─────────────────────────────────────────────────────────

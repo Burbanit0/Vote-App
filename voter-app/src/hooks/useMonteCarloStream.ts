@@ -10,7 +10,8 @@ const SOCKET_PATH = '/api/v2/socket.io';
 
 export interface MethodStreamStats {
   winner_distribution: Record<string, number>;
-  most_common_winner: string | null;
+  /** Every candidate tied for most iterations won. */
+  most_common_winner: string[];
 }
 
 export interface StreamProgress {

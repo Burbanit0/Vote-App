@@ -16,28 +16,32 @@ from typing import Any, Dict, List, Optional, Tuple  # noqa: F401
 
 import numpy as _np
 
-from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
+from api.engine.utils.logger import get_logger
+from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
-    get_borda_winner, get_schulze_winner, get_approval_winner_sincere,
+    get_borda_winner, get_schulze_winner, get_approval_winner, get_approval_winner_sincere,
 )
 from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
-    get_equal_shares_result, check_justified_representation,
+    get_equal_shares_result, check_justified_representation, top_k,
 )
-from ._electorate import _build_base_electorate
-from ._helpers import dhondt as _dhondt
+from ._electorate import _build_electorate_from_seed
+from ._helpers import dhondt as _dhondt, modal_keys, prose_list, tied_extremes
+
+log = get_logger(__name__)
 
 
 # ── Adaptive voting endpoint ──────────────────────────────────────────────────
 
-_METHOD_WINNERS: Dict[str, Any] = {
-    "plurality": get_plurality_winner,
-    "irv":       get_irv_winner,
-    "borda":     get_borda_winner,
-    "schulze":   get_schulze_winner,
-}
+# The rules /adaptive offers (the Lab panel's dropdown lists exactly these).
+# Anything else is a caller error, not a cue to fall back to plurality: this
+# table used to end in `.get(method, get_plurality_winner)`, so `kemeny_young`,
+# `minimax`, `star_voting` and the literal string `not_a_method` all returned
+# plurality's winner under the requested name.
+ADAPTIVE_METHODS = ("plurality", "irv", "borda", "schulze", "approval")
 
 
 def _compute_winner(
@@ -45,12 +49,15 @@ def _compute_winner(
     utilities: Dict[Any, Dict[str, float]],
     method: str,
 ) -> Optional[str]:
-    """Dispatch to the correct winner function for the given method."""
+    """The winner under `method`, which `_adaptive_worker` has already checked
+    against ADAPTIVE_METHODS (it answers a bad name with a 400). An unlisted
+    name reaching here raises UnknownMethod from the registry rather than
+    quietly returning plurality's winner, which is what this used to do."""
     if method == "approval":
+        # Sincere approval reads utilities (approve above your own mean), which
+        # rankings cannot express.
         return get_approval_winner_sincere(utilities)
-    fn = _METHOD_WINNERS.get(method, get_plurality_winner)
-    result: Optional[str] = fn(rankings)
-    return result
+    return rule_winner(method, rankings)
 
 
 def _tactical_vote(
@@ -90,6 +97,9 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_voters          = max(50, min(1000, int(data.get("num_voters",          300))))
     ideology            = str(data.get("ideology",            "random"))
     seed                = int(data.get("seed",                 42))
+    # seed + 1, not seed: `seed` builds the electorate, and a roll must not be
+    # the same draw that set the voter's own attributes.
+    rng                 = _random.Random(seed + 1)
     num_rounds          = max(1,  min(10,  int(data.get("num_rounds",           5))))
     method              = str(data.get("method",              "plurality"))
     strategic_threshold = max(0.0, min(1.0, float(data.get("strategic_threshold", 0.15))))
@@ -101,13 +111,14 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if method not in ADAPTIVE_METHODS:
+        return {
+            "error": f"unknown voting method {method!r} -- "
+                     f"supported: {', '.join(ADAPTIVE_METHODS)}"
+        }, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Each voter's sincere ranking (fixed for the whole simulation)
@@ -141,7 +152,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for v in voters:
             uid       = v["id"]
             propensity: float = float(v.get("strategic_propensity", 0.2))
-            roll: float = float(_random.random())
+            roll: float = rng.random()
             if rnd > 0 and propensity > roll:
                 tactical = _tactical_vote(
                     uid, sincere_rankings[uid], true_utilities[uid], polls, strategic_threshold
@@ -294,7 +305,7 @@ _REPLAY_SCENARIOS: Dict[str, Dict[str, Any]] = {
 
 
 def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /historical-replay — extracted for FastAPI v2."""
+    """/historical-replay — Day-by-day historical replay with candidate overrides."""
     scenario_id = str(data.get("scenario_id", "france2002"))
     overrides   = data.get("overrides") or []
     num_days    = max(1, min(60, int(data.get("num_days", 30))))
@@ -304,9 +315,10 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if not cfg:
         return {"error": f"Unknown scenario: {scenario_id}"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
+    # After the scenario check: RandomState rejects a seed above 2**32-1, and the
+    # schema only bounds it below, so building it earlier turned a 400 into a 500.
+    # seed + 1 keeps the daily shocks off the electorate's own draws.
+    np_rng      = _np.random.RandomState((seed + 1) % 2**32)
 
     # Apply user overrides to candidate positions
     override_map: Dict[str, Dict[str, float]] = {
@@ -318,21 +330,20 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for c in cfg["candidates"]
     ]
 
-    candidates, voters, base_utilities, cand_names = _build_base_electorate(
-        cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed, issues
+    candidates, voters, base_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed
     )
 
     # ── Day-by-day Brownian campaign simulation ────────────────────────────
     sigma = 0.018
     current_u: Dict[Any, Dict[str, float]] = {
-        v["id"]: dict(base_utilities[v["id"]]) for v in voters
+        v["id"]: base_utilities[v["id"]].copy() for v in voters
     }
-    n_cands   = len(cand_names)
     days_out: list[Dict[str, Any]] = []
 
     for day in range(num_days + 1):
         if day > 0:
-            shocks = {n: float(_np.random.normal(0, sigma)) for n in cand_names}
+            shocks = {n: float(np_rng.normal(0, sigma)) for n in cand_names}
             for v in voters:
                 uid = v["id"]
                 for n in cand_names:
@@ -358,12 +369,8 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             )
 
         condorcet_w  = get_condorcet_winner(rankings)
-        winner_fptp  = max(vote_shares, key=lambda k: vote_shares[k])
-        borda_scores: Dict[str, float] = {n: 0.0 for n in cand_names}
-        for r in rankings:
-            for i, name in enumerate(r):
-                borda_scores[name] += n_cands - 1 - i
-        winner_borda = max(borda_scores, key=lambda k: borda_scores[k])
+        winner_fptp  = get_plurality_winner(rankings)
+        winner_borda = get_borda_winner(rankings)
 
         days_out.append({
             "day":              day,
@@ -448,7 +455,7 @@ def _generate_jury_ballots(
     ballots: List[List[str]] = []
 
     for _ in range(num_voters):
-        rest = list(options)
+        rest = options.copy()
         if rng.random() < competence:
             first = correct
         else:
@@ -460,20 +467,7 @@ def _generate_jury_ballots(
     return ballots
 
 
-def _jury_approval_winner(
-    ballots: List[List[str]],
-    num_options: int,
-) -> Optional[str]:
-    """Approval: each voter approves top ceil(num_options/2) of their ranking."""
-    top_k = max(1, (num_options + 1) // 2)
-    counts: Counter[str] = Counter()
-    for b in ballots:
-        for opt in b[:top_k]:
-            counts[opt] += 1
-    return counts.most_common(1)[0][0] if counts else None
-
-
-_JURY_METHODS = ["plurality", "borda", "irv", "approval", "schulze"]
+_JURY_METHODS = ("plurality", "borda", "irv", "approval", "schulze")
 
 
 def _run_jury_simulation(
@@ -493,24 +487,32 @@ def _run_jury_simulation(
 
     for _ in range(num_sims):
         ballots = _generate_jury_ballots(num_voters, options, correct_idx, competence, rng)
+        # Every rule breaks an exact tie by name, and the options are named in
+        # index order, so a tie always went to option 0 -- the default correct
+        # answer -- inflating every method's accuracy. A fresh random relabelling
+        # per trial sends a tie to each tied option equally often.
+        relabel = dict(zip(options, rng.sample(options, len(options))))
+        ballots = [[relabel[o] for o in b] for b in ballots]
+        truth   = relabel[correct]
 
         winners = {
             "plurality": get_plurality_winner(ballots),
             "borda":     get_borda_winner(ballots),
             "irv":       get_irv_winner(ballots),
-            "approval":  _jury_approval_winner(ballots, len(options)),
+            # Each juror approves the top half of its ranking.
+            "approval":  get_approval_winner(ballots, max(1, (len(options) + 1) // 2)),
             "schulze":   get_schulze_winner(ballots),
         }
 
         for m, w in winners.items():
-            if w == correct:
+            if w == truth:
                 successes[m] += 1
 
     return {m: round(successes[m] / num_sims, 4) for m in _JURY_METHODS}
 
 
 def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /jury — extracted for FastAPI v2 reuse."""
+    """/jury — Condorcet Jury Theorem: P(majority correct | per-voter competence p)."""
     num_voters        = max(10, min(500, int(data.get("num_voters",        100))))
     num_options       = max(2,  min(5,   int(data.get("num_options",         2))))
     correct_idx       = max(0,  min(num_options - 1,
@@ -530,16 +532,17 @@ def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     theoretical = _jury_theoretical(num_voters, voter_competence)
     majority_acc = accuracies.get("plurality", 0.0)
 
-    methods_out: Dict[str, Any] = {}
-    for m, acc in accuracies.items():
-        methods_out[m] = {
+    methods_out: Dict[str, Any] = {
+        m: {
             "accuracy":       acc,
             "beats_majority": acc > majority_acc or m == "plurality",
             "beats_theory":   acc > theoretical,
         }
+        for m, acc in accuracies.items()
+    }
 
-    best_method  = max(accuracies, key=lambda k: accuracies[k])
-    worst_method = min(accuracies, key=lambda k: accuracies[k])
+    # Higher accuracy is better, so the high end is the best.
+    worst_method, best_method = tied_extremes(accuracies)
 
     # ── Competence curve (20 points, 100 sims each for speed) ────────────
     curve_rng = _random.Random(seed + 1)
@@ -559,22 +562,33 @@ def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Pedagogical note ──────────────────────────────────────────────────
     pct_theory = round(theoretical * 100, 1)
-    pct_best   = round(accuracies[best_method] * 100, 1)
-    delta      = round((accuracies[best_method] - theoretical) * 100, 1)
+    top_acc    = max(accuracies.values())
+    pct_best   = round(top_acc * 100, 1)
+    delta      = round((top_acc - theoretical) * 100, 1)
     if delta > 0:
+        # Name every method at the top, not one of them: 4 or 5 of the 5 tie on
+        # most runs. An empty best list means all five tie.
+        if not best_method:
+            who_fr, who_en = "Toutes les méthodes atteignent", "Every method reaches"
+        elif len(best_method) == 1:
+            who_fr = f"{best_method[0].capitalize()} atteint"
+            who_en = f"{best_method[0].capitalize()} reaches"
+        else:
+            fr = prose_list(best_method)
+            en = prose_list(best_method, conj="and", others="others")
+            who_fr = f"{fr[0].upper()}{fr[1:]} atteignent"
+            who_en = f"{en[0].upper()}{en[1:]} reach"
         note_fr = (
             f"Avec P={voter_competence} et {num_voters} électeurs, "
             f"la théorie prédit {pct_theory}%. "
-            f"{best_method.capitalize()} atteint {pct_best}% "
-            f"(+{delta}% vs théorie) — il agrège mieux l'information collective "
-            f"que la simple majorité."
+            f"{who_fr} {pct_best}% (+{delta}% vs théorie) — une agrégation qui "
+            f"exploite mieux l'information collective que la simple majorité."
         )
         note_en = (
             f"With P={voter_competence} and {num_voters} voters, "
             f"theory predicts {pct_theory}%. "
-            f"{best_method.capitalize()} reaches {pct_best}% "
-            f"(+{delta}% vs theory) — it aggregates collective information "
-            f"better than simple majority."
+            f"{who_en} {pct_best}% (+{delta}% vs theory) — aggregating collective "
+            f"information better than simple majority."
         )
     else:
         note_fr = (
@@ -636,11 +650,12 @@ def _abstention_prob(
 
 
 def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /abstention — extracted for FastAPI v2 reuse."""
+    """/abstention — Iterated abstention model with poll-feedback over N rounds."""
 
     num_voters             = max(50,  min(1000, int(data.get("num_voters", 300))))
     ideology               = str(data.get("ideology", "random"))
     seed                   = int(data.get("seed", 42))
+    rng                    = _random.Random(seed + 1)   # not the electorate's own draws
     demobilization_factor  = max(0.0, min(1.0, float(data.get("demobilization_factor", 0.5))))
     poll_influence         = max(0.0, min(1.0, float(data.get("poll_influence", 0.8))))
     num_rounds             = max(1, min(5, int(data.get("num_rounds", 3))))
@@ -653,12 +668,8 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Voter positions for the abstention_map (SVG ideology overlay)
@@ -684,7 +695,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_fptp(active_voters: list[Dict[str, Any]]) -> str:
         fc: Counter[str] = Counter(voter_preferred[v["id"]] for v in active_voters)
-        return max(fc, key=lambda k: fc[k]) if fc else cand_names[0]
+        return min(fc, key=lambda k: (-fc[k], k)) if fc else cand_names[0]
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
@@ -716,7 +727,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 p        = _abstention_prob(poll_gap, util_gap,
                                              demobilization_factor, poll_influence)
                 abs_probs[uid] = round(p, 4)
-                if _random.random() < p:
+                if rng.random() < p:
                     abstained.add(uid)
             active = [v for v in voters if v["id"] not in abstained]
 
@@ -733,8 +744,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         # Build abstention_map (max 300 voters for performance)
         snap_indices = list(range(min(300, len(voters))))
         abs_map = [
-            {
-                **voter_positions[i],
+            voter_positions[i] | {
                 "preferred":        voter_preferred[voters[i]["id"]],
                 "abstained":        voters[i]["id"] in abstained,
                 "prob_abstention":  abs_probs.get(voters[i]["id"], 0.0),
@@ -774,20 +784,22 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Per-method winners (with and without abstention) ──────────────────
     # Enables the LabCentralView pinned matrix to show how abstention
     # affects every voting method, not just plurality.
-    try:
+    def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         sincere_compare = compare_all_methods(voters, candidates, issues)
-        final_compare   = compare_all_methods(active, candidates, issues)
-        sincere_winners_by_method = {
-            m: data.get("winner")
-            for m, data in sincere_compare.get("methods", {}).items()
-        }
-        winners_by_method = {
-            m: data.get("winner")
-            for m, data in final_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        sincere_winners_by_method = {}
-        winners_by_method = {}
+        # num_rounds >= 0 is enforced by Pydantic validation before this runs,
+        # so the loop above always executes >= 1 time and `active` is always
+        # assigned; not provable locally by pyright (PLAN_SOLIDITE_TECHNIQUE.md
+        # Lot 14.5)
+        final_compare = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
+        return (
+            {m: data.get("winner") for m, data in sincere_compare.get("methods", {}).items()},
+            {m: data.get("winner") for m, data in final_compare.get("methods", {}).items()},
+        )
+
+    sincere_winners_by_method, winners_by_method = safe_call(
+        _compute_winners_by_method, lambda: ({}, {}),
+        log=log, event="workers_mechanisms.abstention_winners_by_method_failed",
+    )
 
     return {
         "rounds":          rounds_out,
@@ -803,31 +815,55 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── STV endpoint ──────────────────────────────────────────────────────────────
 
+# Shared by /stv and /multiwinner_compare — the default 4-candidate field and
+# the two-candidate-checks validation used to be copy-pasted between the two
+# workers (jscpd-flagged, CODE_AUDIT.md §4/§7).
+#
+# A tuple, not a list — matching `_LD_DEFAULT_CANDIDATES`/`_DT_DEFAULT_CANDIDATES`
+# elsewhere in this file family: a module-level mutable default is a landmine for
+# a future edit that normalises a `cand_spec` in place (it would silently and
+# permanently corrupt this shared default for the life of the process). Nothing
+# downstream mutates it today, but a tuple fails fast (TypeError) instead.
+_MULTIWINNER_DEFAULT_CANDIDATES = (
+    {"name": "Alice", "x": -0.5, "y": -0.2},
+    {"name": "Bob",   "x":  0.5, "y":  0.2},
+    {"name": "Carol", "x":  0.0, "y":  0.3},
+    {"name": "Dave",  "x": -0.2, "y":  0.5},
+)
+
+
+def _validate_multiwinner_candidates(
+    cand_specs: List[Dict[str, Any]], num_seats: int
+) -> Optional[tuple[Dict[str, Any], int]]:
+    """At least 2 candidates, and fewer seats than candidates.
+
+    Returns the (body, status) error tuple to return immediately, or None
+    when the input is valid.
+    """
+    if len(cand_specs) < 2:
+        return {"error": "At least 2 candidates required"}, 400
+    if num_seats >= len(cand_specs):
+        return {"error": "num_seats must be less than number of candidates"}, 400
+    return None
+
+
 def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /stv — extracted for FastAPI v2."""
+    """/stv — Single Transferable Vote + D'Hondt + FPTP comparison."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
     num_seats  = max(2,  min(10,  int(data.get("num_seats",     5))))
     quota_type = str(data.get("quota_type", "droop"))
-    cand_specs = data.get("candidates", [
-        {"name": "Alice", "x": -0.5, "y": -0.2},
-        {"name": "Bob",   "x":  0.5, "y":  0.2},
-        {"name": "Carol", "x":  0.0, "y":  0.3},
-        {"name": "Dave",  "x": -0.2, "y":  0.5},
-    ])[:8]
+    cand_specs = data.get("candidates", _MULTIWINNER_DEFAULT_CANDIDATES)[:8]
+    if quota_type not in ("droop", "hare"):  # over HTTP the schema's Literal is a 422
+        return {"error": f"unknown quota_type {quota_type!r} -- supported: droop, hare"}, 400
 
-    if len(cand_specs) < 2:
-        return {"error": "At least 2 candidates required"}, 400
-    if num_seats >= len(cand_specs):
-        return {"error": "num_seats must be less than number of candidates"}, 400
+    error = _validate_multiwinner_candidates(cand_specs, num_seats)
+    if error is not None:
+        return error
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Build full ranked ballots (sincere, by utility)
@@ -845,10 +881,14 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     first_choice: Counter[str] = Counter(r[0] for r in rankings if r)
     total = len(rankings) or 1
     vote_shares = {n: first_choice.get(n, 0) / total for n in cand_names}
-    dhondt_seats = get_dhondt_winners(vote_shares, num_seats)
+    # seed + 1, not seed: `seed` builds the electorate, and a lot must not be the
+    # same draw that set the first voter's attributes.
+    dhondt_seats = get_dhondt_winners(vote_shares, num_seats, rng=_random.Random(seed + 1))
 
-    # ── FPTP multi-seat (top-N by first-choice votes) ─────────────────────
-    top_n    = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+    # ── FPTP multi-seat (top-N by first-choice votes, a tie at the cutoff by lot) ──
+    # Its own generator, as in /multiwinner_compare: the two panels post the same
+    # config, so the same votes must elect the same FPTP committee on both.
+    top_n    = top_k({c: first_choice.get(c, 0) for c in cand_names}, num_seats, _random.Random(seed + 1))
     fptp_seats: Dict[str, int] = {c: (1 if c in top_n else 0) for c in cand_names}
 
     # ── Distortion metrics ────────────────────────────────────────────────
@@ -866,7 +906,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         },
         "dhondt": {
             "seats":    dhondt_seats,
-            "elected":  [c for c, s in sorted(dhondt_seats.items(), key=lambda kv: -kv[1]) if s > 0],
+            "elected":  [c for c, s in sorted(dhondt_seats.items(), key=lambda kv: (-kv[1], kv[0])) if s > 0],
         },
         "fptp": {
             "seats":    fptp_seats,
@@ -903,7 +943,7 @@ def _closest_district(
 
 
 def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /gerrymander — extracted for FastAPI v2."""
+    """/gerrymander — Voters assigned to user-drawn rectangular districts."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
@@ -918,12 +958,8 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if not districts_raw:
         return {"error": "At least 1 district required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Map each voter's 2-D position
@@ -991,7 +1027,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         fc: Counter[str] = Counter(voter_preferred[uid] for uid in members)
         total = len(members)
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
-        winner = max(fc, key=lambda k: fc[k])
+        winner = min(fc, key=lambda k: (-fc[k], k))
 
         district_results.append({
             "id":          d["id"],
@@ -1009,7 +1045,12 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for n in cand_names
     }
     num_total_seats = len(districts_raw)
-    parliament_prop  = _dhondt(national_shares, num_total_seats)
+    # Allocated on the counts, not `national_shares`: rounding a share to 4 places
+    # both destroys exact ties (250 vs 50 over 5 seats) and invents ones.
+    parliament_prop  = _dhondt(
+        {n: national_fc.get(n, 0) for n in cand_names}, num_total_seats,
+        rng=_random.Random(seed + 1),
+    )
 
     # ── Distortion & gerrymander index ────────────────────────────────────
     distortion_vals = [
@@ -1018,15 +1059,20 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     ]
     distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
 
-    # Gerrymander index: how far from proportional is the leading party?
-    leading         = max(parliament_gerry, key=lambda k: parliament_gerry[k])
-    gerry_seat_pct  = parliament_gerry.get(leading, 0) / max(num_total_seats, 1)
-    gerry_vote_pct  = national_shares.get(leading, 0)
-    # Normalise to [0, 1]: 0 = seat% == vote%, 1 = seat% >> vote%
-    gerrymander_index = round(
-        max(0.0, min(1.0, (gerry_seat_pct - gerry_vote_pct) / max(gerry_vote_pct, 0.01))),
-        4,
-    )
+    # Gerrymander index: how far from proportional is the leading party? With
+    # parties tied on seats there is no single leading party and so no index --
+    # it used to be computed for whichever was listed first, whose own vote share
+    # then set the number, so reordering the array moved the headline metric.
+    leading = modal_keys(parliament_gerry)
+    gerrymander_index: Optional[float] = None
+    if len(leading) == 1:
+        gerry_seat_pct = parliament_gerry.get(leading[0], 0) / max(num_total_seats, 1)
+        gerry_vote_pct = national_shares.get(leading[0], 0)
+        # Normalise to [0, 1]: 0 = seat% == vote%, 1 = seat% >> vote%
+        gerrymander_index = round(
+            max(0.0, min(1.0, (gerry_seat_pct - gerry_vote_pct) / max(gerry_vote_pct, 0.01))),
+            4,
+        )
 
     # Voter snapshot for the map (capped at 500 for performance)
     snap_voters = [
@@ -1061,24 +1107,14 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
     num_seats  = max(2,  min(10,  int(data.get("num_seats",    5))))
-    cand_specs = data.get("candidates", [
-        {"name": "Alice", "x": -0.5, "y": -0.2},
-        {"name": "Bob",   "x":  0.5, "y":  0.2},
-        {"name": "Carol", "x":  0.0, "y":  0.3},
-        {"name": "Dave",  "x": -0.2, "y":  0.5},
-    ])[:8]
+    cand_specs = data.get("candidates", _MULTIWINNER_DEFAULT_CANDIDATES)[:8]
 
-    if len(cand_specs) < 2:
-        return {"error": "At least 2 candidates required"}, 400
-    if num_seats >= len(cand_specs):
-        return {"error": "num_seats must be less than number of candidates"}, 400
+    error = _validate_multiwinner_candidates(cand_specs, num_seats)
+    if error is not None:
+        return error
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── Build ballots ──────────────────────────────────────────────────────
@@ -1107,12 +1143,18 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     vote_shares   = {n: first_choice.get(n, 0) / total_voters for n in cand_names}
 
     # ── Run all methods ────────────────────────────────────────────────────
+    # One tie-break generator for the D'Hondt and SPAV lots below, so a seat tie
+    # doesn't silently go to whichever party this dict lists first. seed + 1,
+    # not seed: `seed` builds the electorate. Equal Shares and FPTP each draw
+    # from a fresh one, so their lots don't shift with how many the others used,
+    # and FPTP matches /stv's for the same votes.
+    tie_break  = _random.Random(seed + 1)
     stv_raw    = get_stv_result(rankings, num_seats, "droop")
-    dhondt_raw = get_dhondt_winners(vote_shares, num_seats)
-    spav_raw   = get_spav_result(approval_ballots, num_seats)
+    dhondt_raw = get_dhondt_winners(vote_shares, num_seats, rng=tie_break)
+    spav_raw   = get_spav_result(approval_ballots, num_seats, rng=tie_break)
     phrag_raw  = get_phragmen_result(approval_ballots, num_seats)
-    mes_raw    = get_equal_shares_result(approval_ballots, num_seats)
-    top_n      = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+    mes_raw    = get_equal_shares_result(approval_ballots, num_seats, rng=_random.Random(seed + 1))
+    top_n      = top_k({c: first_choice.get(c, 0) for c in cand_names}, num_seats, _random.Random(seed + 1))
 
     def _to_seat_dict(elected: List[str]) -> Dict[str, int]:
         d: Dict[str, int] = {c: 0 for c in cand_names}
@@ -1120,7 +1162,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             d[c] = d.get(c, 0) + 1
         return d
 
-    dhondt_elected = [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: -kv[1]) if s > 0]
+    dhondt_elected = [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: (-kv[1], kv[0])) if s > 0]
     methods: Dict[str, Dict[str, Any]] = {
         "stv":          {"seats": _to_seat_dict(stv_raw["elected"]),   "elected": stv_raw["elected"]},
         "dhondt":       {"seats": dhondt_raw,                          "elected": dhondt_elected},
@@ -1137,9 +1179,11 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         )
 
     # ── Distortion metrics ─────────────────────────────────────────────────
-    prop_seats = _dhondt(vote_shares, num_seats)   # proportional reference
+    # The D'Hondt row itself: a second D'Hondt run on the same shares would draw
+    # its own lot and could disagree with the row printed beside it.
+    prop_seats = {c: dhondt_raw.get(c, 0) for c in cand_names}   # proportional reference
 
-    for method_name, mdata in methods.items():
+    for mdata in methods.values():
         seat_dict = mdata["seats"]
         dist_vals = [
             abs(seat_dict.get(c, 0) / num_seats - vote_shares.get(c, 0))
@@ -1156,8 +1200,9 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             for c in cand_names
         }
 
-    best_method  = min(methods, key=lambda m: methods[m]["distortion"])
-    worst_method = max(methods, key=lambda m: methods[m]["distortion"])
+    best_method, worst_method = tied_extremes(
+        {name: md["distortion"] for name, md in methods.items()}
+    )
 
     return {
         "methods":      methods,

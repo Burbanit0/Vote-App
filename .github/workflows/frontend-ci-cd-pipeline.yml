@@ -1,26 +1,72 @@
 name: Frontend CI
 
+# No top-level `paths:` filter (moved to the `changes` job below, on purpose):
+# this workflow is a required status check, and a required check scoped by
+# `paths:` at trigger level never even creates a check run on a PR that
+# doesn't touch those paths — which blocks that PR's merge FOREVER (a required
+# check that never reports can't be satisfied). That's exactly what happened
+# to PR #205 (a docs/CI-only change) before this workflow was added to
+# required checks. The workflow now always triggers; the real job is skipped
+# instead, which GitHub treats as a passing required check.
 on:
   push:
     branches: [develop, main]
-    paths:
-      - 'voter-app/**'
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'voter-app/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: Tests + Coverage + Security
+  changes:
+    name: Detect frontend changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'voter-app/**'
+              - '.github/workflows/frontend-ci-cd-pipeline.yml'
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    # Prefixed to disambiguate from Backend CI's identically-named job: GitHub
+    # matches required status checks on this literal name, and two check-runs
+    # sharing one name are indistinguishable to branch protection.
+    name: "Frontend: Tests + Coverage + Security"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      # fetch-depth: 0 (full history) — needed by the diff-cover step below,
+      # which diffs against the PR's base branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
-          node-version: '20'
+          fetch-depth: 0
+
+      # diff-cover compares HEAD against this local branch (see below); a
+      # plain `origin/<base_ref>` isn't guaranteed to exist as a
+      # remote-tracking ref after actions/checkout's own fetch.
+      - name: Fetch base branch (for diff-cover)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -35,8 +81,42 @@ jobs:
         run: npm run lint
         working-directory: ./voter-app
 
+      # Lot 14 (PLAN_SOLIDITE_TECHNIQUE.md): package.json's `typeCoverage.atLeast`
+      # is the ratchet -- type-coverage reads it itself (no CLI flag needed) and
+      # fails below it. Was informational-only (§6.4) until the 280 real `any`s
+      # measured there were actually reduced (238 by the time this gate was
+      # added); gating an unreduced baseline would have meant enforcing debt, not
+      # preventing it. A genuine future improvement is locked in with
+      # `npx type-coverage --update-if-higher`, committing the new package.json
+      # value -- never hand-edit the number down to make a red run green.
+      - name: Type coverage — no regression (blocking)
+        run: npm run type-coverage
+        working-directory: ./voter-app
+
+      # Frontend equivalent of the backend's import-linter layering contract
+      # (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md) — see .dependency-cruiser.json for
+      # exactly what's enforced (src/lib must stay framework-agnostic, per
+      # CLAUDE.md's Playground architecture section) and why type-only
+      # imports are exempt.
+      - name: Architecture boundaries (dependency-cruiser — blocking)
+        run: npm run depcruise
+        working-directory: ./voter-app
+
       - name: Security — npm audit (high CVEs block)
         run: npm audit --audit-level=high
+        working-directory: ./voter-app
+
+      - name: License compliance — production dependencies (gating)
+        # --production scopes to what's actually shipped, excluding
+        # devDependencies (eslint plugins, type-coverage, etc. never reach a
+        # user); --excludePackages drops voter-app's own package.json entry,
+        # which the tool otherwise reports as "UNLICENSED" despite its real
+        # "license": "MIT" field. See PLAN_SOLIDITE_TECHNIQUE.md §6.7.
+        run: |
+          SELF="$(node -p "require('./package.json').name")@$(node -p "require('./package.json').version")"
+          npx license-checker-rseidelsohn --production \
+            --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC" \
+            --excludePackages "$SELF"
         working-directory: ./voter-app
 
       - name: Tests with coverage
@@ -46,6 +126,41 @@ jobs:
         working-directory: ./voter-app
         env:
           CI: 'true'
+
+      # Codecov (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): PR coverage comment +
+      # trend over time. Purely informational — see codecov.yml
+      # (informational: true on both statuses); diff-cover below is the
+      # actual enforced gate. Runs on push too (not just pull_request), so
+      # the develop-branch trend graph stays populated. Raw lcov.info (not
+      # the diff-cover step's voter-app/-prefixed copy) — Codecov resolves
+      # paths against its own uploaded-from directory, unlike diff-cover's
+      # git-diff-path matching.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: voter-app/coverage/lcov.info
+          flags: frontend
+
+      # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
+      # *changed* by this PR — far more mordant than vitest.config.ts's global
+      # thresholds, which a large already-tested codebase dilutes.
+      - name: diff-cover — 100% coverage on changed lines
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # vitest writes lcov.info with SF: paths relative to voter-app/ (its
+          # own cwd), but `git diff` (and diff-cover's lcov reader) expects
+          # paths relative to the repo root — prefix them so the two line up.
+          sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
+          # pipx ships on the ubuntu runner, so no Python setup step just for this.
+          # diff-cover and its dependencies come from the backend's dev lockfile,
+          # the one place the version is pinned (Dependabot keeps it current).
+          pipx run --pip-args='-c fast_api_voter/requirements-dev.lock.txt' --spec diff-cover \
+            diff-cover voter-app/coverage/lcov-diffcover.info \
+            --compare-branch="$BASE_REF" \
+            --fail-under=100
 
       - name: Build
         run: npm run build

@@ -1,0 +1,37 @@
+# docker-compose.observability-tracing.yml — Jaeger, for OpenTelemetry traces
+# (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md — "Observabilité"). See
+# docs/exploration/EXP-014 for the full Jaeger-vs-hosted-APM reasoning: this
+# repo just adopted self-hosted GlitchTip for error tracking over any SaaS
+# option (a separate, concurrent piece of work) — this stays consistent with
+# that already-stated preference. Self-hosted, zero-account, free, local,
+# reversible.
+#
+# `jaegertracing/all-in-one`, NOT used here despite being the well-known name
+# for "just try OTel locally": verified live against Docker Hub that image is
+# effectively frozen (last pushed ~9 months before this file was written).
+# Jaeger v2 replaced it with a single unified binary published as
+# `jaegertracing/jaeger`, which still runs "all-in-one" (collector + query +
+# in-memory storage in one process) when given no special config — this file
+# runs that image instead of the deprecated name.
+#
+# Kept separate from docker-compose.yml (api + redis): opt-in, only needed
+# when actually looking at traces, not on every `docker compose up`.
+#
+# Usage:
+#   docker compose -f docker-compose.observability-tracing.yml up -d
+#   # then in .env (or the shell): OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+#   # run the API, hit any route, open http://localhost:16686
+#
+# No api/redis services here (unlike docker-compose.llm.yml's similar
+# opt-in-addon shape) — the backend already runs directly on the host in most
+# local dev flows (`uvicorn api.main:app --port 4434`), and OTLP/HTTP works
+# the same over localhost either way.
+
+services:
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    container_name: jaeger
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC receiver (unused by this repo's exporter, exposed for completeness)
+      - "4318:4318"     # OTLP HTTP receiver — what api/core/tracing.py's exporter talks to

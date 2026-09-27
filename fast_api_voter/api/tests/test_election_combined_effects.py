@@ -4,15 +4,7 @@ The heavy 2³-factorial endpoint: same electorate run 8 times with all
 combinations of blank/campaign/info ON-OFF. Pins behavioural parity with
 the Flask /api/election/combined-effects.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _payload(**overrides) -> dict:
@@ -80,3 +72,13 @@ class TestCombinedEffects:
     def test_caps_num_voters_at_200(self, client):
         r = client.post("/api/v2/election/combined-effects", json=_payload(num_voters=201))
         assert r.status_code == 422
+
+    def test_contagion_enabled_still_returns_200(self, client):
+        # _combined_effects_worker applies contagion to its own "blank
+        # voters" copy whenever contagion.enabled is set, independent of
+        # blank_vote.enabled (which only gates the constitutional rule
+        # applied inside the 8-combination matrix itself).
+        r = client.post("/api/v2/election/combined-effects", json=_payload(
+            blank_vote={"contagion": {"enabled": True}},
+        ))
+        assert r.status_code == 200, r.text

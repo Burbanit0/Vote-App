@@ -1,22 +1,8 @@
 """Tests for Phase 3 batch 9 (final):
 /api/v2/election/{divergence, interpret, quadratic-funding, liquid-democracy,
                   conviction-voting, power-indices}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /divergence ─────────────────────────────────────────────────────────────
@@ -44,6 +30,17 @@ class TestDivergence:
         bad = {**self.payload, "candidates": [CANDS[0]]}
         assert client.post("/api/v2/election/divergence",
                            json=bad).status_code == 422
+
+    def test_contagion_enabled_still_returns_200(self, client):
+        # _divergence_worker applies contagion whenever `contagion.enabled`
+        # is set, independent of blank_vote.enabled itself.
+        with_contagion = {
+            **self.payload,
+            "blank_vote": {"enabled": True, "rule": "symbolic",
+                           "contagion": {"enabled": True}},
+        }
+        r = client.post("/api/v2/election/divergence", json=with_contagion)
+        assert r.status_code == 200, r.text
 
 
 # ── /interpret ──────────────────────────────────────────────────────────────
@@ -76,33 +73,114 @@ class TestInterpret:
         r = client.post("/api/v2/election/interpret", json=bad)
         assert r.status_code == 400, r.text
 
+    def test_no_condorcet_winner_uses_arrow_pedagogical_note(self, client):
+        # Cyclical preferences (Arrow's paradox): no Condorcet winner exists.
+        # Exercises the "not condorcet_exists" branch shared by the
+        # condorcet-analysis, divergence-reason and pedagogical-note steps.
+        bad = {
+            **self.payload,
+            "methods": {"plurality": {"winner": "Alice"}, "borda": {"winner": "Bob"}},
+            "condorcet_winner": None,
+            "condorcet_exists": False,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "n'existe pas de vainqueur de Condorcet" in body["condorcet_analysis"]
+        assert body["divergence_reason"] == body["condorcet_analysis"]
+        assert "Arrow" in body["pedagogical_note"]
 
-# ── /quadratic-funding ──────────────────────────────────────────────────────
+    def test_condorcet_spoiler_when_plurality_differs(self, client):
+        # Condorcet winner and plurality winner disagree: classic spoiler
+        # effect. Exercises the spoiler branch in both condorcet-analysis
+        # and divergence-reason.
+        bad = {
+            **self.payload,
+            "methods": {"plurality": {"winner": "Bob"}, "borda": {"winner": "Alice"}},
+            "condorcet_winner": "Alice",
+            "condorcet_exists": True,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "spoiler" in body["condorcet_analysis"].lower()
+        assert body["divergence_reason"] == body["condorcet_analysis"]
 
-class TestQuadraticFunding:
-    payload = {
-        "projects": [
-            {"name": "Education", "x": -0.4},
-            {"name": "Health",    "x":  0.0},
-            {"name": "Infra",     "x":  0.5},
-        ],
-        "num_voters": 80, "seed": 42,
-        "budget_per_voter": 100.0, "matching_pool": 5000.0,
+    def test_high_blank_rate_flags_analysis(self, client):
+        bad = {**self.payload, "blank_rate": 0.35}
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert body["blank_analysis"] is not None
+        assert "35" in body["blank_analysis"]
+
+    def test_high_agreement_uses_consensus_pedagogical_note(self, client):
+        bad = {**self.payload, "inter_method_agreement": 0.9}
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "Condorcet" in body["pedagogical_note"]
+        assert "Arrow" not in body["pedagogical_note"]
+
+    def test_full_consensus_reuses_condorcet_analysis_as_divergence_reason(self, client):
+        # All methods agree on the same winner: a single method_group, so
+        # divergence_reason short-circuits to the condorcet_analysis text
+        # rather than recomputing a spoiler check.
+        bad = {
+            **self.payload,
+            "methods": {
+                "plurality": {"winner": "Alice"},
+                "borda":     {"winner": "Alice"},
+                "irv":       {"winner": "Alice"},
+            },
+            "inter_method_agreement": 1.0,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert len(body["method_groups"]) == 1
+        assert body["divergence_reason"] == body["condorcet_analysis"]
+
+    REGRET_METHODS = {
+        "plurality": {"winner": "Alice", "bayesian_regret": 0.10},
+        "borda":     {"winner": "Bob",   "bayesian_regret": 0.30},
+        "irv":       {"winner": "Alice", "bayesian_regret": 0.10},
+        "approval":  {"winner": "Bob",   "bayesian_regret": 0.30},
+        "schulze":   {"winner": "Alice", "bayesian_regret": 0.10},
     }
 
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/election/quadratic-funding", json=self.payload)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        for k in ("projects", "winner", "mechanism_comparison",
-                  "gini_coefficients", "vote_shares", "matching_pool",
-                  "budget_per_voter", "pedagogical_note"):
-            assert k in body
+    def test_regret_names_every_tied_method_whatever_the_order(self, client):
+        forward = client.post("/api/v2/election/interpret",
+                              json={**self.payload, "methods": self.REGRET_METHODS}).json()
+        backward = client.post("/api/v2/election/interpret", json={
+            **self.payload, "methods": dict(reversed(self.REGRET_METHODS.items())),
+        }).json()
+        assert forward["best_by_regret"] == ["plurality", "irv", "schulze"]
+        assert forward["worst_by_regret"] == ["borda", "approval"]
+        # Membership cannot depend on the order the methods arrive in -- which
+        # is exactly what a single min()/max() pick did.
+        assert set(backward["best_by_regret"]) == set(forward["best_by_regret"])
+        assert set(backward["worst_by_regret"]) == set(forward["worst_by_regret"])
 
-    def test_rejects_single_project(self, client):
-        bad = {**self.payload, "projects": [self.payload["projects"][0]]}
-        assert client.post("/api/v2/election/quadratic-funding",
-                           json=bad).status_code == 422
+    def test_the_key_fact_names_the_outcome_not_one_method(self, client):
+        body = client.post("/api/v2/election/interpret",
+                           json={**self.payload, "methods": self.REGRET_METHODS}).json()
+        fact = next(f for f in body["key_facts"] if "gret" in f)   # régret / Regret
+        assert "Alice" in fact and "3" in fact and "5" in fact
+        for method in ("plurality", "irv", "schulze"):
+            assert method not in fact
+
+    def test_no_best_or_worst_when_every_method_ties(self, client):
+        tied = {m: {"winner": "Alice", "bayesian_regret": 0.1}
+                for m in ("plurality", "borda", "irv")}
+        body = client.post("/api/v2/election/interpret",
+                           json={**self.payload, "methods": tied}).json()
+        assert body["best_by_regret"] == [] and body["worst_by_regret"] == []
+        assert not any("gret" in f for f in body["key_facts"])
+
+    def test_two_winners_tied_on_regret_are_both_named(self, client):
+        methods = {
+            "plurality": {"winner": "Alice", "bayesian_regret": 0.1},
+            "borda":     {"winner": "Carol", "bayesian_regret": 0.1},
+            "irv":       {"winner": "Bob",   "bayesian_regret": 0.4},
+        }
+        body = client.post("/api/v2/election/interpret",
+                           json={**self.payload, "lang": "en", "methods": methods}).json()
+        fact = next(f for f in body["key_facts"] if "Regret" in f)
+        assert "Alice / Carol" in fact
+
+
+# ── /quadratic-funding ──────────────────────────────────────────────────────
 
 
 # ── /liquid-democracy ──────────────────────────────────────────────────────

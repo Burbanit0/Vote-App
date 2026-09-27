@@ -1,53 +1,149 @@
 name: E2E Tests
 
 on:
+  workflow_dispatch:
+  # Called from release.yml as the release gate.
+  workflow_call:
+  # …and on every PR touching either side of the app. It used to be release-only
+  # ("exhaustive and slow"), which let the specs rot against a UI that had moved
+  # on for two months without anyone noticing. The suite now runs in ~1 min, so
+  # it belongs where the drift happens.
+  #
+  # No `paths:` filter here (moved to the `changes` job below, on purpose): this
+  # workflow is a required status check, and a required check scoped by `paths:`
+  # at trigger level never even creates a check run on a PR that doesn't touch
+  # those paths — which blocks that PR's merge FOREVER (a required check that
+  # never reports can't be satisfied). That's exactly what happened to PR #205
+  # (a docs/CI-only change) before this workflow was added to required checks.
+  # The workflow now always triggers; the real job is skipped instead, which
+  # GitHub treats as a passing required check.
   pull_request:
+    branches: [develop, main]
+  push:
     branches: [develop]
 
+# A newer push to the same branch cancels the previous e2e run.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    name: Detect e2e-relevant changes
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'voter-app/**'
+              - 'fast_api_voter/**'
+              - '.github/workflows/e2e.yml'
+
+  playwright-image-sync:
+    needs: changes
+    # Same always-runs-but-skips-fast pattern as the two jobs below: a required
+    # check that never reports blocks the PR forever (see the top-of-file
+    # comment on `pull_request` triggers, PR #205's real incident).
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.outputs.relevant == 'true')
+    name: Playwright/Docker image version sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      # Dependabot's `docker` ecosystem only parses `Dockerfile`s — it has no
+      # visibility into a `container: image:` field inline in a workflow, so a
+      # routine `@playwright/test` bump (a patch/minor Dependabot groups and
+      # merges on its own) can silently desync the two without Dependabot ever
+      # knowing there was anything to keep in sync. This already happened for
+      # real: PR #469 bumped @playwright/test 1.62.1 -> 1.63.0 and broke
+      # `visual-regression` on `develop` (`Executable doesn't exist at
+      # /ms-playwright/chromium_headless_shell-1243/...`), only caught and
+      # fixed afterwards in hotfix PR #478. This job turns that same class of
+      # break into a fast, explicit failure on the PR that introduces it,
+      # instead of a cryptic missing-browser error discovered later.
+      - name: Assert @playwright/test matches the visual-regression image tag
+        run: |
+          # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
+          # so a non-matching grep (exit 1) would otherwise abort the script
+          # right here -- before the explicit empty-value
+          # diagnostic below ever gets a chance to run.
+          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
+          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)
+          if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
+            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image_version='$image_version') -- this check itself needs fixing, not just the versions it compares."
+            exit 1
+          fi
+          if [ "$pkg_version" != "$image_version" ]; then
+            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble."
+            exit 1
+          fi
+          echo "OK: @playwright/test and the visual-regression Docker image both pinned to $pkg_version"
+
   e2e:
+    needs: changes
+    # Always run for a manual dispatch or the release-gate call (no paths to
+    # filter on); otherwise only when the changes job found something relevant.
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.outputs.relevant == 'true')
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       # ── Python / Flask backend ────────────────────────────────────────────────
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: fast_api_voter/requirements.txt
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: pip install -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.txt
 
-      - name: Start FastAPI backend (testing mode — SQLite, no Redis)
+      # The backend is a fixture here (Assemblée mode and two Laboratoire fiches
+      # call /api/v2/*); it is stateless — no DB, no JWT since auth was removed.
+      - name: Start FastAPI backend (testing mode)
         run: |
           cd fast_api_voter
           FLASK_ENV=testing \
-          JWT_SECRET_KEY=ci-e2e-secret-key \
           uvicorn api.main:app --host 0.0.0.0 --port 4434 &
           # Poll until the backend responds (max 30s)
-          python - <<'EOF'
-          import urllib.request, time, sys
-          for _ in range(30):
-              try:
-                  urllib.request.urlopen('http://localhost:4434/api/v2/health')
-                  print('Backend is ready')
-                  sys.exit(0)
-              except Exception:
-                  time.sleep(1)
-          print('Backend did not start in time', file=sys.stderr)
-          sys.exit(1)
-          EOF
+          # Retries every error for ~30 attempts (like the loop it replaced); each
+          # attempt is capped at 5s so a server that accepts but never answers can't
+          # hold the step until the job timeout.
+          if curl -sSfL -o /dev/null --max-time 5 --retry 30 --retry-delay 1 --retry-all-errors \
+              http://localhost:4434/api/v2/health; then
+            echo 'Backend is ready'
+          else
+            echo 'Backend did not start in time' >&2
+            exit 1
+          fi
 
       # ── Node / Frontend ───────────────────────────────────────────────────────
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -56,8 +152,19 @@ jobs:
         working-directory: ./voter-app
 
       # ── Playwright ────────────────────────────────────────────────────────────
+      # Browser binaries keyed on package-lock.json, where the Playwright
+      # version is pinned — a version bump naturally invalidates the cache.
+      # `playwright install` still runs unconditionally below: it already
+      # skips re-downloading browsers present in this cache dir, but still
+      # needs to run apt for --with-deps' system libraries either way.
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./voter-app
 
       - name: Run E2E tests
@@ -66,11 +173,117 @@ jobs:
         env:
           CI: 'true'
 
+      # A test that only passes on its retry is reported green by Playwright.
+      # Runs even when the suite failed: the flaky list is useful either way.
+      - name: Fail on flaky tests
+        if: always()
+        run: node scripts/check-flaky.mjs
+        working-directory: ./voter-app
+
       # ── Artifacts ─────────────────────────────────────────────────────────────
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: voter-app/playwright-report/
+          retention-days: 7
+
+  visual-regression:
+    # Waits on playwright-image-sync (not just changes): this job is the one
+    # actually at risk from a desynced image tag, and a fast, explicit
+    # version-mismatch failure here is the whole point of that job -- running
+    # them in parallel would still spend the full ~15 minutes on this job's
+    # real container pull + Playwright run before its own cryptic
+    # missing-browser error, right alongside the fast one.
+    needs: [changes, playwright-image-sync]
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.outputs.relevant == 'true')
+    name: Visual regression (screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Pixel comparisons are only meaningful when the baseline PNGs (committed to
+    # the repo) and this run render with byte-identical fonts/AA/rasterization —
+    # the host runner's own OS image isn't a strong enough guarantee of that on
+    # its own (it can and does drift between CI runs with zero code change; see
+    # docs/exploration/EXP-004). Pinning the *exact* Playwright Docker image tag
+    # matching voter-app/package.json's @playwright/test version sidesteps that
+    # entirely: this job's rendering environment is the same byte-for-byte every
+    # time it runs, regardless of what `ubuntu-latest` itself resolves to. Keep
+    # this tag in lockstep with @playwright/test — a mismatch either fails to
+    # find the pre-installed browsers or silently compares against a different
+    # renderer than the one that generated the committed baselines.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # ── Python / backend ───────────────────────────────────────────────────
+      # Verified by hand before wiring this: without a live backend,
+      # ParliamentCanvas doesn't render a *slightly different* hemicycle, it
+      # renders its own "hémicycle indisponible" fallback banner instead of one
+      # — baselining that would lock in a permanently-broken-looking state that
+      # can never fail again, exactly the blind spot this item exists to close.
+      # (LeaderCanvas's default view was checked too and is unaffected — its
+      # win-region overlay isn't computed eagerly — but the assembly one
+      # genuinely needs this.) See docs/exploration/EXP-004.
+      #
+      # Same setup-python + setup-uv pairing as the `e2e` job above, same
+      # reason (`--system` rejects a uv-managed interpreter, so setup-python
+      # provides the real one uv installs into) — even though the container
+      # image ships its own python3.12, pinning 3.14 here keeps the backend's
+      # runtime identical to every other job that runs it.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install Python dependencies
+        run: uv pip install --system -r fast_api_voter/requirements.txt
+
+      - name: Start FastAPI backend (testing mode)
+        run: |
+          cd fast_api_voter
+          FLASK_ENV=testing \
+          uvicorn api.main:app --host 0.0.0.0 --port 4434 &
+          # Retries every error for ~30 attempts (like the loop it replaced); each
+          # attempt is capped at 5s so a server that accepts but never answers can't
+          # hold the step until the job timeout.
+          if curl -sSfL -o /dev/null --max-time 5 --retry 30 --retry-delay 1 --retry-all-errors \
+              http://localhost:4434/api/v2/health; then
+            echo 'Backend is ready'
+          else
+            echo 'Backend did not start in time' >&2
+            exit 1
+          fi
+
+      # No setup-node step: the pinned image already ships the Node/npm it was
+      # built with, and browsers are pre-installed to match — installing a
+      # different Node here wouldn't change that pairing, only risk drifting it.
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./voter-app
+
+      # No `playwright install` needed either — browsers are already present in
+      # the image at the exact version this config's @playwright/test expects.
+      - name: Run visual regression tests
+        run: npx playwright test --config=playwright.visual.config.ts
+        working-directory: ./voter-app
+        env:
+          CI: 'true'
+
+      - name: Upload visual regression report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-visual
+          path: voter-app/playwright-report-visual/
           retention-days: 7

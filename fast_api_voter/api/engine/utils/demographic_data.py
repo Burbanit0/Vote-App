@@ -1,4 +1,5 @@
 import random
+
 import numpy as np
 
 # French census data: voting-age population by year of age (18–85).
@@ -79,16 +80,54 @@ _age_probabilities = [count / _total_population for count in age_data.values()]
 _ages = list(age_data.keys())
 
 
-def sample_age() -> int:
-    return int(random.choices(_ages, weights=_age_probabilities, k=1)[0])
+def _seeded_rng_pair(seed: int) -> tuple[random.Random, np.random.RandomState]:
+    """Build a call-scoped `(random.Random, np.random.RandomState)` pair from
+    *seed*.
+
+    Centralises the `rng = random.Random(seed); np_rng =
+    np.random.RandomState(seed)` block that was duplicated verbatim across
+    several call sites (`_electorate.py::_build_base_electorate`,
+    `election_service.py::simulate`, `simulation_voting_utils.py::
+    run_simulation`) — flagged by a `/code-review ultra` pass as a real
+    drift risk, not just style: the same
+    class of bug (a reseeded shared singleton instead of a local instance)
+    was found independently on three separate review rounds in this file's
+    history, and hand-copying this block to a new site would silently
+    reintroduce it if a future edit touched the copy but not the original.
+    See PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum for the full writeup.
+
+    Deliberately `np.random.RandomState(seed)`, not `np.random.default_rng
+    (seed)` — different algorithm (MT19937 vs PCG64), so the same seed
+    produces different values; see `create_voter()` in
+    `simulation_voting_utils.py` for the concrete incident this caused.
+
+    Placed here rather than in `simulation_voting_utils.py`: this module has
+    no internal-package imports, so every call site — including
+    `simulation_voting_utils.py` — can import this without risking a
+    circular import.
+    """
+    # numpy rejects a seed above 2**32-1 while every schema bounds it only
+    # below, so a large seed used to be a 500. Wrapping keeps it reproducible.
+    return random.Random(seed), np.random.RandomState(seed % 2**32)
 
 
-def sample_region() -> str:
-    return str(np.random.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05]))
+def unseeded_rng_pair() -> tuple[random.Random, np.random.RandomState]:
+    """A fresh, entropy-seeded `(random.Random, RandomState)` pair for a worker
+    with no seed: its numbers are random either way, but it must not draw from
+    the process-wide singletons other requests are drawing from."""
+    return random.Random(), np.random.RandomState()
 
 
-def sample_income() -> str:
-    income_score = np.random.gamma(shape=2, scale=0.2)
+def sample_age(rng: random.Random) -> int:
+    return rng.choices(_ages, weights=_age_probabilities, k=1)[0]
+
+
+def sample_region(np_rng: np.random.RandomState) -> str:
+    return str(np_rng.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05]))
+
+
+def sample_income(np_rng: np.random.RandomState) -> str:
+    income_score = np_rng.gamma(shape=2, scale=0.2)
     if income_score < 0.3:
         return "low"
     elif income_score < 0.7:
@@ -96,66 +135,60 @@ def sample_income() -> str:
     return "high"
 
 
-def sample_likelihood_to_vote(age: int) -> float:
+def sample_likelihood_to_vote(age: int, np_rng: np.random.RandomState) -> float:
     base = 0.5
     age_effect = min(age / 100, 0.4)
-    income_effect = 0.1 if sample_income() == "high" else 0
+    income_effect = 0.1 if sample_income(np_rng) == "high" else 0
     return base + age_effect + income_effect
 
 
-def sample_political_lean() -> float:
-    if np.random.random() < 0.5:
-        return np.random.normal(-0.5, 0.3)
-    return np.random.normal(0.5, 0.3)
-
-
-def sample_employment_status() -> str:
-    return random.choices(
+def sample_employment_status(rng: random.Random) -> str:
+    return rng.choices(
         population=["employed", "unemployed", "self_employed", "retired"],
         weights=[0.6, 0.1, 0.1, 0.2],
         k=1,
     )[0]
 
 
-def sample_family_status() -> str:
-    return random.choices(
+def sample_family_status(rng: random.Random) -> str:
+    return rng.choices(
         population=["single", "with_children", "retired"],
         weights=[0.3, 0.4, 0.3],
         k=1,
     )[0]
 
 
-def sample_ethnicity_immigration() -> str:
-    return random.choices(
+def sample_ethnicity_immigration(rng: random.Random) -> str:
+    return rng.choices(
         population=["native", "immigrant"],
         weights=[0.8, 0.2],
         k=1,
     )[0]
 
 
-def sample_religion() -> str:
-    return random.choices(
+def sample_religion(rng: random.Random) -> str:
+    return rng.choices(
         population=["religious", "non_religious"],
         weights=[0.6, 0.4],
         k=1,
     )[0]
 
 
-def sample_gender() -> str:
-    return str(np.random.choice(["male", "female"], p=[0.49, 0.51]))
+def sample_gender(np_rng: np.random.RandomState) -> str:
+    return str(np_rng.choice(["male", "female"], p=[0.49, 0.51]))
 
 
-def sample_education(age: int) -> str:
+def sample_education(age: int, np_rng: np.random.RandomState) -> str:
     if age < 22:
-        return str(np.random.choice(["high_school", "bachelor"], p=[0.7, 0.3]))
+        return str(np_rng.choice(["high_school", "bachelor"], p=[0.7, 0.3]))
     if age < 25:
-        return str(np.random.choice(["high_school", "bachelor", "master"], p=[0.3, 0.6, 0.1]))
+        return str(np_rng.choice(["high_school", "bachelor", "master"], p=[0.3, 0.6, 0.1]))
     if age < 30:
-        return str(np.random.choice(
+        return str(np_rng.choice(
             ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.35, 0.05]
         ))
     if age < 40:
-        return str(np.random.choice(
+        return str(np_rng.choice(
             ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.3, 0.1]
         ))
 
@@ -169,4 +202,4 @@ def sample_education(age: int) -> str:
     adjusted = {k: base_probs[k] * multipliers[k] for k in base_probs}
     total = sum(adjusted.values())
     probs = [v / total for v in adjusted.values()]
-    return str(np.random.choice(list(adjusted.keys()), p=probs))
+    return str(np_rng.choice(list(adjusted.keys()), p=probs))

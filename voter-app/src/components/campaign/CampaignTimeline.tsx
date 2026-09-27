@@ -17,7 +17,7 @@ import {
 } from '../../lib/campaignTimeline';
 import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO, driftOf } from '../../lib/campaignScenarios';
 import CampaignMap from './CampaignMap';
-import Instrument from '../ui/instrument';
+import { Instrument } from '../ui/instrument';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 
 // CampaignTimeline — the /campagne instrument. A scenario rail on the left; a

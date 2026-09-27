@@ -93,6 +93,9 @@ export const LEADER_RULES: Rule[] = [
   'score',
   'star',
   'majority_judgment',
+  'cumulative',
+  'maximin',
+  'nash',
   'bucklin',
   'coombs',
   'condorcet',
@@ -101,25 +104,21 @@ export const LEADER_RULES: Rule[] = [
   'nanson',
   'baldwin',
   'ranked_pairs',
+  'kemeny',
+  'black',
+  'anti_plurality',
+  'dowdall',
+  'raynaud',
+  'benham',
+  'river',
+  'smith_irv',
+  'split_cycle',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
-export const EXTRA_RULES: Rule[] = [
-  'anti_plurality',
-  'dowdall',
-  'black',
-  'smith_irv',
-  'split_cycle',
-  'kemeny',
-  'cumulative',
-  'maximin',
-  'benham',
-  'river',
-  'nash',
-  'raynaud',
-];
+export const EXTRA_RULES: Rule[] = [];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
@@ -200,7 +199,7 @@ export function compressRanks(
   m: number
 ): { ranks: number[][]; scores: number[][] } {
   // Frontrunners = top-2 by sincere first preferences.
-  const firsts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
   for (const r of ranks) firsts[r[0]] += 1;
   const order = firsts.map((_, i) => i).sort((a, b) => firsts[b] - firsts[a]);
   const [f1, f2] = [order[0], order[1]];
@@ -319,62 +318,40 @@ export interface ManipProbe {
   backfired: boolean;
 }
 
-export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref: string }> = {
-  plurality: { hard: false, label: 'P (calcul trivial)', ref: 'compromission directe' },
-  approval: { hard: false, label: 'P (calcul trivial)', ref: 'approuver le challenger' },
-  score: { hard: false, label: 'P (calcul trivial)', ref: 'note maximale au challenger' },
-  star: { hard: false, label: 'P (note + finale)', ref: 'STAR — note puis duel' },
-  majority_judgment: { hard: false, label: 'P (médiane)', ref: 'Balinski–Laraki 2010' },
-  borda: {
-    hard: false,
-    label: 'P pour un manipulateur · NP-difficile en coalition',
-    ref: 'Bartholdi–Tovey–Trick 1989 ; Betzler et al. / Davies et al. 2011',
-  },
-  two_round: { hard: false, label: 'P (un manipulateur)', ref: 'Conitzer–Sandholm–Lang 2007' },
-  condorcet: { hard: false, label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
-  minimax: { hard: false, label: 'P (paires)', ref: 'minimax — calcul polynomial' },
-  schulze: { hard: false, label: 'P (chemin le plus fort)', ref: 'Schulze 2011' },
-  bucklin: { hard: false, label: 'P (calcul direct)', ref: 'Xia et al. 2009' },
-  coombs: { hard: false, label: 'P (élimination par derniers)', ref: 'élimination, cf. IRV' },
-  nanson: {
-    hard: true,
-    label: 'NP-difficile à manipuler',
-    ref: 'Narodytska–Walsh–Xia 2011',
-  },
-  baldwin: {
-    hard: true,
-    label: 'NP-difficile à manipuler',
-    ref: 'Narodytska–Walsh–Xia 2011',
-  },
-  irv: {
-    hard: true,
-    label: 'NP-difficile, même pour un seul manipulateur',
-    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
-  },
-  ranked_pairs: {
-    hard: false,
-    label: 'P (paires ordonnées)',
-    ref: 'Tideman 1987 — calcul polynomial',
-  },
-  random_ballot: {
-    hard: true,
-    label: 'Inmanipulable — la stratégie n’apporte rien',
-    ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
-  },
-  // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
-  // a compared method, so these strings are placeholders.
-  anti_plurality: { hard: false, label: '', ref: '' },
-  dowdall: { hard: false, label: '', ref: '' },
-  black: { hard: false, label: '', ref: '' },
-  smith_irv: { hard: true, label: '', ref: '' },
-  split_cycle: { hard: false, label: '', ref: '' },
-  kemeny: { hard: true, label: '', ref: '' },
-  cumulative: { hard: false, label: '', ref: '' },
-  maximin: { hard: false, label: '', ref: '' },
-  benham: { hard: true, label: '', ref: '' },
-  river: { hard: false, label: '', ref: '' },
-  nash: { hard: false, label: '', ref: '' },
-  raynaud: { hard: false, label: '', ref: '' },
+// Is the rule NP-hard to manipulate? The complexity class shown to the reader
+// and its reference live in i18n (`manip.<rule>.label` / `.ref`); this map used
+// to carry a French copy of both, which `useVotingLabels` replaced with the
+// translated ones on every read.
+export const MANIP_COMPLEXITY: Record<Rule, boolean> = {
+  plurality: false,
+  approval: false,
+  score: false,
+  star: false,
+  majority_judgment: false,
+  borda: false,
+  two_round: false,
+  condorcet: false,
+  minimax: false,
+  schulze: false,
+  bucklin: false,
+  coombs: false,
+  nanson: true,
+  baldwin: true,
+  irv: true,
+  ranked_pairs: false,
+  random_ballot: true,
+  kemeny: true,
+  black: false,
+  anti_plurality: false,
+  dowdall: false,
+  cumulative: false,
+  maximin: false,
+  nash: false,
+  raynaud: false,
+  benham: true,
+  river: false,
+  smith_irv: true,
+  split_cycle: false,
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
@@ -397,7 +374,7 @@ export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): M
   if (w < 0) return { minCoalitionShare: null, backfired: false };
 
   // Two strongest challengers by first preferences (excluding the winner).
-  const firsts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
   for (const r of ranks) firsts[r[0]] += 1;
   const challengers = firsts
     .map((_, i) => i)

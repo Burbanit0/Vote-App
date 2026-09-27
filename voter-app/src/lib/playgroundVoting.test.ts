@@ -2,12 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   ruleWinner,
   ruleWinnerFromRanks,
+  condorcetWinnerIdx,
   fieldWinnerName,
   winRegionGrid,
   randomBallotShares,
   randomBallotProbGrid,
   sampleVoters,
   applyTurnout,
+  applyBlankVote,
   smithSet,
   RULE_LABELS,
   type NamedPt,
@@ -176,7 +178,7 @@ describe('Tier B extras (client-only)', () => {
   });
 });
 
-describe('extended method set (17 rules)', () => {
+describe('extended method set (29 rules)', () => {
   it('every rule has a label and resolves to a winner', () => {
     const cands: NamedPt[] = [
       { name: 'A', x: -0.5, y: 0 },
@@ -406,6 +408,51 @@ describe('applyTurnout (electorate realism)', () => {
   });
 });
 
+describe('applyBlankVote (live blank-vote lever)', () => {
+  const cands: NamedPt[] = [
+    { name: 'L', x: -0.6, y: 0 },
+    { name: 'R', x: 0.6, y: 0 },
+  ];
+
+  it('disabled or zero intensity is a no-op passthrough', () => {
+    const voters = sampleVoters(100, 3, 'random');
+    const off = applyBlankVote(voters, cands, false, 0.8);
+    expect(off.blankCount).toBe(0);
+    expect(off.blankShare).toBe(0);
+    expect(off.expressed).toBe(voters);
+    const zero = applyBlankVote(voters, cands, true, 0);
+    expect(zero.blankCount).toBe(0);
+    expect(zero.expressed).toBe(voters);
+  });
+
+  it('blanks out voters far from every candidate, more as intensity rises', () => {
+    const voters = sampleVoters(400, 5, 'random');
+    const mild = applyBlankVote(voters, cands, true, 0.3).blankShare;
+    const harsh = applyBlankVote(voters, cands, true, 0.9).blankShare;
+    expect(harsh).toBeGreaterThan(mild);
+  });
+
+  it('never blanks out the whole electorate (falls back to no-op)', () => {
+    const voters = sampleVoters(50, 1, 'random');
+    const out = applyBlankVote(voters, cands, true, 1);
+    expect(out.expressed.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a large blank bloc can flip the winner among the expressed ballots', () => {
+    // R leads on raw plurality, but its voters are far from both candidates
+    // (protest bloc) and go blank at high intensity, handing it to L.
+    const voters: Pt[] = [
+      ...Array.from({ length: 45 }, () => ({ x: 0.95, y: 0.9 })), // far from both → blank
+      ...Array.from({ length: 40 }, () => ({ x: -0.55, y: 0 })), // close to L
+    ];
+    const full = fieldWinnerName(voters, cands, 'plurality');
+    const { expressed } = applyBlankVote(voters, cands, true, 0.95);
+    const withBlank = fieldWinnerName(expressed, cands, 'plurality');
+    expect(full).toBe('R');
+    expect(withBlank).toBe('L');
+  });
+});
+
 describe('sampleVoters', () => {
   it('is deterministic for a fixed seed and stays in [-1,1]²', () => {
     const a = sampleVoters(50, 7, 'random');
@@ -421,5 +468,540 @@ describe('sampleVoters', () => {
     expect(spread(sampleVoters(400, 1, 'polarized'))).toBeGreaterThan(
       spread(sampleVoters(400, 1, 'centrist'))
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The spatial helpers, asserted on VALUES rather than on shape.
+//
+// The tests above already covered these — but only as "returns 64 cells" and
+// "every value is in [0, 1]". Mutation testing showed what that buys: 46 mutants
+// survive across randomBallotProbGrid (21), applyTurnout (10), winRegionGrid (9)
+// and applyBlankVote (6), because you can flip the sign of a coordinate, invert
+// a comparison or change a radius and still return a correctly-shaped grid of
+// in-range numbers.
+//
+// These fix the geometry to hand-computable answers instead.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('spatial helpers — exact values', () => {
+  // With n = 2 the cell centres are the four points (±0.5, ±0.5):
+  //   x = ((c + 0.5) / n) * 2 - 1   →  c=0 → -0.5,  c=1 → +0.5
+  //   y = 1 - ((r + 0.5) / n) * 2   →  r=0 → +0.5,  r=1 → -0.5   (y descends)
+  // so row-major order is  (-0.5,+0.5) (+0.5,+0.5) (-0.5,-0.5) (+0.5,-0.5).
+  const CELL_CENTRES: Pt[] = [
+    { x: -0.5, y: 0.5 },
+    { x: 0.5, y: 0.5 },
+    { x: -0.5, y: -0.5 },
+    { x: 0.5, y: -0.5 },
+  ];
+
+  it('randomBallotProbGrid places cells on the exact grid centres', () => {
+    // One voter sitting on cell 0's centre, one candidate on cell 1's centre.
+    // The voter is 1.0 from the candidate, so a hypothetical entrant is its
+    // nearest option in every cell except the far diagonal (distance √2).
+    const voters: Pt[] = [CELL_CENTRES[0]];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0.5 }];
+
+    const grid = randomBallotProbGrid(voters, cands, 2, 2);
+
+    // Flipping either axis, or transposing row-major to column-major, permutes
+    // this vector — which is the point of asserting it rather than its length.
+    expect(grid.cells).toEqual([1, 1, 1, 0]);
+    expect(grid.rows).toBe(2);
+    expect(grid.n).toBe(2);
+  });
+
+  it('randomBallotProbGrid ties go to the entrant (strictly-nearer wins)', () => {
+    // Cell 1's centre IS the candidate's position: the entrant ties, and the
+    // rule is dist(v, cand) < dh — strict, so a tie leaves H nearest.
+    const voters: Pt[] = [CELL_CENTRES[0]];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0.5 }];
+
+    expect(randomBallotProbGrid(voters, cands, 2, 2).cells[1]).toBe(1);
+  });
+
+  it('randomBallotProbGrid divides by the electorate, not the cell count', () => {
+    // Three voters on cell 0's centre, one far away and firmly the candidate's.
+    // Cell 0 therefore wins exactly 3 of 4 first preferences.
+    const voters: Pt[] = [CELL_CENTRES[0], CELL_CENTRES[0], CELL_CENTRES[0], { x: 0.99, y: -0.99 }];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.95, y: -0.95 }];
+
+    expect(randomBallotProbGrid(voters, cands, 2, 2).cells[0]).toBeCloseTo(0.75, 12);
+  });
+
+  it('a 1-D grid is a single row, not an n x n square', () => {
+    const voters = sampleVoters(20, 3, 'random', 1);
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0 }];
+
+    const prob = randomBallotProbGrid(voters, cands, 6, 1);
+    expect(prob.rows).toBe(1);
+    expect(prob.cells).toHaveLength(6);
+
+    const win = winRegionGrid(voters, cands, 'plurality', 6, 1);
+    expect(win.rows).toBe(1);
+    expect(win.cells).toHaveLength(6);
+  });
+
+  it('the win region and the probability field share one cell geometry', () => {
+    // Head-to-head against a single incumbent, an entrant wins a cell under
+    // plurality exactly when it holds more than half the first preferences
+    // there — which is what randomBallotProbGrid reports for the same cell.
+    //
+    // Asserting the two agree cell-for-cell pins BOTH grids to the same
+    // coordinate mapping. Shifting a half-cell in one of them (the mutation
+    // that a "the entrant wins everywhere" assertion cannot see, because it
+    // stays true wherever the cells are) desynchronises the pair.
+    const voters = sampleVoters(101, 7, 'random'); // odd: no 50/50 cell
+    const cands: NamedPt[] = [{ name: 'A', x: 0.4, y: -0.3 }];
+
+    const win = winRegionGrid(voters, cands, 'plurality', 6, 2);
+    const prob = randomBallotProbGrid(voters, cands, 6, 2);
+
+    expect(win.cells).toHaveLength(prob.cells.length);
+    const entrant = cands.length;
+    win.cells.forEach((w, i) => {
+      expect(w === entrant).toBe(prob.cells[i] > 0.5);
+    });
+    // …and the entrant genuinely wins somewhere and loses somewhere, so the
+    // invariant above is not satisfied by a constant grid.
+    expect(win.cells.some((w) => w === entrant)).toBe(true);
+    expect(win.cells.some((w) => w !== entrant)).toBe(true);
+  });
+
+  it('randomBallotShares break a distance tie toward the first candidate', () => {
+    // The voter is exactly equidistant from A and B. The scan keeps the best
+    // seen so far on d < bd, so the earlier index wins.
+    const voters: Pt[] = [{ x: 0, y: 0 }];
+    const cands: NamedPt[] = [
+      { name: 'A', x: -1, y: 0 },
+      { name: 'B', x: 1, y: 0 },
+    ];
+
+    expect(randomBallotShares(voters, cands)).toEqual([1, 0]);
+  });
+});
+
+describe('turnout and blank vote — exact thresholds', () => {
+  const oneCandidate: NamedPt[] = [{ name: 'A', x: 0, y: 0 }];
+
+  // alienation radius = (1 - k) * 1.5 + 0.2, so k = 1 gives exactly 0.2.
+  const nearAndFar: Pt[] = [
+    { x: 0.1, y: 0 },
+    { x: 0.15, y: 0 },
+    { x: 0.9, y: 0 },
+    { x: 0.9, y: 0 },
+  ];
+
+  it('alienation abstains beyond the radius the intensity sets', () => {
+    const out = applyTurnout(nearAndFar, oneCandidate, 'alienation', 1);
+
+    expect(out.voters).toHaveLength(2);
+    expect(out.rate).toBe(0.5);
+    expect(out.voters.every((v) => v.x <= 0.2)).toBe(true);
+  });
+
+  it('alienation keeps a voter sitting exactly on the radius', () => {
+    // ds[0] <= radius is inclusive; at k = 1 the radius is 0.2 and this voter
+    // is at 0.2. Two more inside, so the "never empty the electorate" floor
+    // does not mask the result.
+    const onTheLine: Pt[] = [
+      { x: 0.2, y: 0 },
+      { x: 0.05, y: 0 },
+      { x: 0.05, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    expect(applyTurnout(onTheLine, oneCandidate, 'alienation', 1).voters).toHaveLength(3);
+  });
+
+  it('indifference abstains when the top two are too close together', () => {
+    // margin = k * 0.4, so 0.2 at k = 0.5. A voter votes only when the gap
+    // between its two nearest candidates EXCEEDS the margin.
+    const cands: NamedPt[] = [
+      { name: 'L', x: -1, y: 0 },
+      { name: 'R', x: 1, y: 0 },
+    ];
+    const voters: Pt[] = [
+      { x: -0.9, y: 0 }, // gap 1.8  -> votes
+      { x: 0.9, y: 0 }, //  gap 1.8  -> votes
+      { x: 0, y: 0 }, //    gap 0    -> abstains, perfectly torn
+      { x: 0.05, y: 0 }, // gap 0.1  -> abstains, under the margin
+    ];
+
+    const out = applyTurnout(voters, cands, 'indifference', 0.5);
+
+    expect(out.voters).toHaveLength(2);
+    expect(out.rate).toBe(0.5);
+
+    // NOTE: `ds[1] - ds[0] > margin` versus `>= margin` is an EQUIVALENT mutant
+    // here, and deliberately left alive. Separating them needs a voter whose gap
+    // equals the margin exactly, and the margin is k * 0.4 — a value with no
+    // exact binary representation. A voter placed to sit "on the line" lands at
+    // 0.20000000000000007 against a margin of 0.2 and votes either way. The
+    // boundary is unreachable with real inputs, so a test that appeared to cover
+    // it would only be testing floating-point noise.
+  });
+
+  it('turnout never empties the electorate', () => {
+    // Only one voter survives the radius, so the model hands the full
+    // electorate back rather than running an election on a single ballot.
+    const mostlyFar: Pt[] = [
+      { x: 0.1, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    const out = applyTurnout(mostlyFar, oneCandidate, 'alienation', 1);
+
+    expect(out.voters).toHaveLength(4);
+    expect(out.rate).toBe(1);
+  });
+
+  it('a full-turnout model leaves the electorate untouched', () => {
+    const out = applyTurnout(nearAndFar, oneCandidate, 'full', 1);
+
+    expect(out.voters).toBe(nearAndFar);
+    expect(out.rate).toBe(1);
+  });
+
+  it('zero intensity leaves the electorate untouched', () => {
+    expect(applyTurnout(nearAndFar, oneCandidate, 'alienation', 0).rate).toBe(1);
+  });
+
+  it('blank vote splits on the same radius and reports its share', () => {
+    const out = applyBlankVote(nearAndFar, oneCandidate, true, 1);
+
+    expect(out.expressed).toHaveLength(2);
+    expect(out.blankCount).toBe(2);
+    expect(out.blankShare).toBe(0.5);
+  });
+
+  it('blank vote never blanks out the whole electorate', () => {
+    const mostlyFar: Pt[] = [
+      { x: 0.1, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    const out = applyBlankVote(mostlyFar, oneCandidate, true, 1);
+
+    expect(out.expressed).toHaveLength(4);
+    expect(out.blankCount).toBe(0);
+    expect(out.blankShare).toBe(0);
+  });
+
+  it('a disabled blank vote expresses everyone', () => {
+    const out = applyBlankVote(nearAndFar, oneCandidate, false, 1);
+
+    expect(out.expressed).toBe(nearAndFar);
+    expect(out.blankCount).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// The branches no test reached.
+//
+// Stryker reported nine mutants with NO covering test at all, in a file whose
+// line coverage sits above 85%. Every one of them guards a degenerate or
+// defensive case: the electorate is empty, the field is empty, or an
+// elimination round wipes out every remaining candidate at once.
+//
+// These are the cases a real user hits by dragging the last candidate off the
+// map, or by loading a saved URL whose rule no longer exists. Leaving them
+// unasserted means the app's behaviour there is whatever the code happens to do.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('degenerate cases — no winner, empty field, unknown rule', () => {
+  // A perfect 3-way Condorcet cycle: every candidate is first once, last once,
+  // and beaten by exactly one other. Nothing distinguishes them, so an
+  // elimination round condemns all three at the same time.
+  const CYCLE = ranksOf([
+    [1, [0, 1, 2]], // A > B > C
+    [1, [1, 2, 0]], // B > C > A
+    [1, [2, 0, 1]], // C > A > B
+  ]);
+
+  // All four rules guard the same case (`if (doomed.length >= remaining) ...`,
+  // without it they'd eliminate the whole field and index into an empty set),
+  // but resolve it two different ways, matching their respective backend
+  // twins exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md — an exhaustive
+  // small-profile parity check against the backend found and fixed a
+  // frontend/backend divergence here for smith_irv/benham).
+  //
+  // irv/coombs: `return -1` — -1 is the file's "no winner" sentinel, matching
+  // get_irv_winner/get_coombs_winner's own `return None` in this case.
+  it.each(['irv', 'coombs'] as const)(
+    '%s reports no winner when a round would eliminate every survivor',
+    (rule) => {
+      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(-1);
+    }
+  );
+
+  // smith_irv/benham: `break` out of the loop instead, falling through to the
+  // alphabetically-first (lowest-index) survivor — matching
+  // get_smith_irv_winner/get_benham_winner's own documented alphabetical
+  // fallback on a total tie, which is NOT "no winner".
+  it.each(['smith_irv', 'benham'] as const)(
+    '%s falls back to the alphabetically-first survivor when a round would eliminate everyone',
+    (rule) => {
+      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(0);
+    }
+  );
+
+  // NOTE: `doomed.length >= remaining` versus `> remaining` is an EQUIVALENT
+  // mutant for all four rules above. doomed is a subset of the alive set, so
+  // `>` is never true; without the early exit the round eliminates everyone,
+  // remaining falls to 0, the while loop exits, and findIndex finds no
+  // survivor either way. The guard is a short-circuit and a piece of
+  // documentation, not a behaviour. No test can separate the two, and one
+  // that appeared to would be asserting something else.
+
+  it('a cycle has no Condorcet winner, but the condorcet RULE still elects one', () => {
+    // The premise of the four cases above: none of them can short-circuit to a
+    // Condorcet winner, because the cycle has none.
+    expect(condorcetWinnerIdx(CYCLE, 3)).toBe(-1);
+
+    // The rule the UI labels "condorcet" is Copeland — pairwise wins minus
+    // losses, Borda as tie-break — so it always resolves a cycle rather than
+    // reporting no winner. Worth pinning: the helper and the rule share a name
+    // and answer different questions.
+    expect(ruleWinnerFromRanks(CYCLE, 3, 'condorcet')).toBeGreaterThanOrEqual(0);
+  });
+
+  it('an empty field has no winner', () => {
+    expect(ruleWinnerFromRanks([], 0, 'plurality')).toBe(-1);
+    expect(ruleWinnerFromRanks(CYCLE, 0, 'plurality')).toBe(-1);
+  });
+
+  it('an empty ballot box has no winner', () => {
+    expect(ruleWinnerFromRanks([], 3, 'plurality')).toBe(-1);
+  });
+
+  it('a spatial election with no candidates has no winner', () => {
+    const voters: Pt[] = [{ x: 0, y: 0 }];
+    expect(ruleWinner(voters, [], 'plurality')).toBe(-1);
+  });
+
+  it('a spatial election with no voters has no winner', () => {
+    const cands: NamedPt[] = [{ name: 'A', x: 0, y: 0 }];
+    expect(ruleWinner([], cands, 'plurality')).toBe(-1);
+  });
+
+  // The guards above answer "is this degenerate?". Asserting only the
+  // degenerate side lets the threshold slip by one and still return -1 for an
+  // empty field — because an empty field returns -1 further down anyway. These
+  // pin the SMALLEST valid election, which a slipped guard would wrongly call
+  // degenerate.
+  it('the smallest valid election still elects its only candidate', () => {
+    const oneBallot = ranksOf([[1, [0]]]);
+    expect(ruleWinnerFromRanks(oneBallot, 1, 'plurality')).toBe(0);
+
+    const oneVoter: Pt[] = [{ x: 0, y: 0 }];
+    const oneCand: NamedPt[] = [{ name: 'A', x: 0.2, y: 0 }];
+    expect(ruleWinner(oneVoter, oneCand, 'plurality')).toBe(0);
+  });
+
+  it('an unknown rule id falls back to plurality rather than crashing', () => {
+    // The dispatch switch covers every member of the Rule union, so this branch
+    // is unreachable through the type system — but rule ids also arrive from
+    // saved URLs and stored state, where nothing checks them. The fallback is a
+    // runtime guard, and this pins what it does instead of leaving it to chance.
+    const clear = ranksOf([
+      [3, [0, 1, 2]],
+      [1, [1, 0, 2]],
+      [1, [2, 1, 0]],
+    ]);
+
+    const fallback = ruleWinnerFromRanks(clear, 3, 'not_a_real_rule' as Rule);
+
+    expect(fallback).toBe(ruleWinnerFromRanks(clear, 3, 'plurality'));
+    expect(fallback).toBe(0); // A, on 3 of 5 first preferences
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Anonymity: shuffling the ballots must never change the winner.
+//
+// The result must depend on WHICH ballots were cast, never on the ORDER they
+// were counted in. The backend engine failed this on 13 of its 26 rules (see
+// fast_api_voter/api/tests/test_anonymity.py); the client failed it on one —
+// winDowdall, where summing 1/(rank+1) as floats is not associative, so two
+// candidates who tie exactly could land ~1e-16 apart and argmax would pick by
+// ballot order.
+//
+// The parity harness cannot catch this: strict_winner() detects the instability
+// and DISCARDS the scenario rather than reporting it.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('anonymity — ballot order must not decide', () => {
+  const ALL_RULES: Rule[] = [
+    'plurality',
+    'two_round',
+    'borda',
+    'irv',
+    'coombs',
+    'condorcet',
+    'minimax',
+    'schulze',
+    'bucklin',
+    'nanson',
+    'baldwin',
+    'ranked_pairs',
+    'kemeny',
+    'black',
+    'anti_plurality',
+    'dowdall',
+    'raynaud',
+    'benham',
+    'river',
+    'smith_irv',
+    'split_cycle',
+  ];
+
+  /** Deterministic PRNG so a failure is reproducible from the seed alone. */
+  function lcg(seed: number): () => number {
+    let s = seed;
+    return () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      return s / 0x7fffffff;
+    };
+  }
+
+  it.each(ALL_RULES)('%s elects the same winner whatever the ballot order', (rule) => {
+    const rnd = lcg(20260824);
+    const shuffle = <T>(a: T[]): T[] => {
+      const out = a.slice();
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    };
+
+    // Small electorates, where exact ties are common enough to hit.
+    for (let trial = 0; trial < 60; trial++) {
+      const ranks = Array.from({ length: 3 + Math.floor(rnd() * 4) }, () => shuffle([0, 1, 2]));
+      const expected = ruleWinnerFromRanks(ranks, 3, rule);
+      for (let s = 0; s < 15; s++) {
+        expect(ruleWinnerFromRanks(shuffle(ranks), 3, rule)).toBe(expected);
+      }
+    }
+  });
+
+  it('dowdall keeps an exact tie exactly tied', () => {
+    // A and B swap the top two seats once each: their Dowdall totals are equal
+    // to the last bit only if the 1/(rank+1) shares are summed exactly. As
+    // floats the two orders differ by ~1e-16 and argmax follows the noise.
+    const tied = ranksOf([
+      [1, [0, 1, 2]],
+      [1, [1, 0, 2]],
+    ]);
+
+    expect(ruleWinnerFromRanks(tied, 3, 'dowdall')).toBe(0);
+    expect(ruleWinnerFromRanks(tied.slice().reverse(), 3, 'dowdall')).toBe(0);
+  });
+});
+
+/**
+ * Kemeny-Young's exact path is a DP over candidate subsets, replacing a brute
+ * force over the m! orderings. The parity fixture checks it against the backend,
+ * but only up to 3 candidates where ties are concerned: its sampled blocks drop
+ * every profile whose winner moves under relabelling — every tied optimum, which
+ * is where a DP tie-break goes wrong — and its exhaustive block, which keeps
+ * them, stops at 3 candidates. This checks the DP against brute force up to 7,
+ * ties included.
+ */
+describe('kemeny exact DP', () => {
+  /** Brute-force Kemeny over all m! orderings, returning the first element of
+   *  the index-lexicographically smallest optimal ordering. */
+  function bruteKemeny(ranks: number[][], m: number): number {
+    const b: number[][] = Array.from({ length: m }, () => new Array(m).fill(0));
+    for (const r of ranks) {
+      const pos = new Array(m).fill(0);
+      r.forEach((c, rank) => (pos[c] = rank));
+      for (let i = 0; i < m; i++)
+        for (let j = i + 1; j < m; j++) {
+          if (pos[i] < pos[j]) b[i][j] += 1;
+          else b[j][i] += 1;
+        }
+    }
+    let best: number[] | null = null;
+    let bestScore = -1;
+    const permute = (chosen: number[], left: number[]): void => {
+      if (left.length === 0) {
+        let s = 0;
+        for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) s += b[chosen[i]][chosen[j]];
+        // `>` only, and `left` is walked in ascending order, so the first
+        // maximum found is the index-lexicographically smallest optimum.
+        if (s > bestScore) {
+          bestScore = s;
+          best = chosen.slice();
+        }
+        return;
+      }
+      for (const c of left)
+        permute(
+          [...chosen, c],
+          left.filter((x) => x !== c)
+        );
+    };
+    permute(
+      [],
+      Array.from({ length: m }, (_, i) => i)
+    );
+    return best![0];
+  }
+
+  // A mulberry32 PRNG: seeded so a failure is reproducible, unlike Math.random.
+  function rng(seed: number): () => number {
+    let a = seed;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  it('agrees with brute force over the m! orderings, ties included', () => {
+    const rand = rng(20260918);
+    let tiedProfiles = 0;
+    for (let m = 2; m <= 7; m++) {
+      for (let trial = 0; trial < 12; trial++) {
+        const nb = 1 + Math.floor(rand() * 7);
+        const ranks: number[][] = [];
+        for (let v = 0; v < nb; v++) {
+          const perm = Array.from({ length: m }, (_, i) => i);
+          for (let i = m - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [perm[i], perm[j]] = [perm[j], perm[i]];
+          }
+          ranks.push(perm);
+        }
+        // Mirroring every ballot ties every ordering, so the tie-break decides.
+        if (trial % 3 === 0) {
+          tiedProfiles += 1;
+          ranks.push(...ranks.map((r) => r.slice().reverse()));
+        }
+        expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(bruteKemeny(ranks, m));
+      }
+    }
+    expect(tiedProfiles).toBeGreaterThan(0);
+  });
+
+  it('elects the Condorcet winner when one exists, at every width up to the cap', () => {
+    // 3 ballots A>B>...>rest against 2 reversed: candidate 0 wins every duel 3-2,
+    // so Kemeny, being Condorcet-consistent, must elect it.
+    for (let m = 2; m <= 10; m++) {
+      const asc = Array.from({ length: m }, (_, i) => i);
+      const ranks = [asc, asc, asc, asc.slice().reverse(), asc.slice().reverse()];
+      expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(0);
+    }
+  });
+
+  it('returns no winner for an empty field instead of candidate 0', () => {
+    // The DP's mask loop never runs at m = 0, so a zero-filled lead array would
+    // have made this a confident-looking index 0.
+    expect(ruleWinnerFromRanks([], 0, 'kemeny')).toBe(-1);
   });
 });

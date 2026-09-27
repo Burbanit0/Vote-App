@@ -13,7 +13,11 @@ const ctx: BestResponseCtx = {
   dims: 2,
   strength: 0.6,
 };
-const drift = (id: string) => driftOf(CAMPAIGN_SCENARIOS.find((s) => s.id === id)!, ctx)!;
+const drift = (id: string) =>
+  driftOf(
+    CAMPAIGN_SCENARIOS.find((s) => s.id === id)!,
+    ctx
+  )!;
 
 describe('campaignScenarios', () => {
   it('passes its self-check (J0 identity, derive inward, harden outward)', () => {

@@ -29,14 +29,11 @@ const pgEn: PlaygroundKeys = {
     launch: 'Stories',
     launchHint:
       'Guided narratives that make a phenomenon surface in front of you, inside the instrument.',
-    pick: 'Pick a story',
-    close: 'Close',
     quit: 'Quit',
     step: 'Scene {{n}} / {{total}}',
     next: 'Next →',
     prev: '← Back',
     restart: '↻ Replay',
-    replayHint: 'You have the controls back: the instrument stays on the last scene.',
     spoiler: {
       title: 'The spoiler effect',
       tagline: 'A third candidate who cannot win can still decide who does.',
@@ -107,6 +104,66 @@ const pgEn: PlaygroundKeys = {
           'Condorcet confirms Bayrou: he is the one who beats the most rivals head-to-head.',
         approval:
           'Approval voting crowns Bayrou too. Bottom line: several possible presidents for one electorate — the method is not neutral.',
+      },
+    },
+    clones: {
+      title: 'The clone strategy',
+      tagline:
+        'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
+      steps: {
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        clone:
+          'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
+        condorcet:
+          'Under Condorcet, cloning is pointless here: B still beats both A AND A2 head-to-head, so B stays the winner. But that’s not a general property of Condorcet methods — Copeland itself stays manipulable by cloning in other configurations.',
+        irv: 'Under instant-runoff (IRV) too: B, still preferred by the majority, wins no matter how many clones the other camp lines up.',
+      },
+    },
+    blank: {
+      title: 'The blank vote, four fates',
+      tagline:
+        'The same voters, the same ballot — the rule that counts the blank decides everything.',
+      steps: {
+        clean:
+          'Camille wins with 67% of the vote against Farid’s 33%. A clean win — among those who picked someone.',
+        todayLaw:
+          'Enable the blank vote: 62% of the electorate is too far from both candidates and rejects the choice. Current French law excludes it from the count — Camille stays elected, on 96% of the few expressed votes.',
+        ifCounted:
+          'Count the blank among the expressed votes: Camille’s share drops to 36% of all voters. Below the 50% mark, there’s no clear mandate anymore.',
+        competitive:
+          'Treat the blank as a candidate, Uruguayan-style: at 62%, it outpolls Camille and Farid combined. The race reopens.',
+      },
+    },
+    monotonie: {
+      title: 'Winning votes, losing the election',
+      tagline:
+        'Under the alternative vote, winning new voters over can, in some cases, make you lose.',
+      steps: {
+        avant:
+          'Alternative vote (IRV), three candidates. First choices: Nora 38%, Karim 32%, Yanis 29%. Yanis, the least supported, is eliminated — his votes transfer to Nora, who wins.',
+        apres:
+          'A group of undecided voters, who ranked Karim first and Nora right behind, are won over by Nora and now rank her first. Her first-choice share climbs to 49%. And yet: it’s now Karim who is least supported, he is eliminated, and his transfer elects Yanis. Nora gained votes — and lost the election.',
+      },
+    },
+    renversement: {
+      title: 'The vote upside down',
+      tagline: 'Reverse every ballot: plurality can re-elect the very same winner.',
+      steps: {
+        avant:
+          'Malik holds a loyal base (39%); Inès (33%) and Sami (28%) split the rest. Under first-past-the-post, Malik wins.',
+        inverse:
+          'Flip every ballot — each voter’s first choice becomes their last, and vice versa. Result: Malik wins again, this time with 61% of the vote. He was already the candidate most rejected by everyone else: plurality can’t tell beloved from despised, it only ever looks at who comes first.',
+      },
+    },
+    soutien: {
+      title: 'One approval too many',
+      tagline:
+        'Under approval voting, sincerely endorsing a second choice can defeat your favourite.',
+      steps: {
+        avant:
+          'Approval voting, three candidates. A bloc of voters approves only Léa, their favourite — Hugo is too far off for them to approve him too. Tally: Léa 61%, Hugo 39%. Léa wins.',
+        apres:
+          'Nothing changed in their preferences: Léa is still their favourite, still their top choice. But they now find Hugo acceptable enough to approve him too, sincerely, alongside Léa. Result: Hugo’s score climbs to 72% and overtakes Léa — still at 61%. Sincerely approving one more choice cost them their favourite.',
       },
     },
     seuil: {
@@ -218,6 +275,10 @@ const pgEn: PlaygroundKeys = {
     mapAria: 'Ideology map — candidates drift over the campaign',
   },
   anchorBody: {
+    blank: {
+      intro:
+        'Not choosing is not nothing: abstention, the blank vote, "none of these candidates". A theme of its own — because what the rule makes of a refusal can change everything.',
+    },
     mechanisms: {
       intro:
         'Other collective-decision mechanisms than the classic election — each on the same electorate, computed on demand.',
@@ -268,6 +329,7 @@ const pgEn: PlaygroundKeys = {
     theory: {
       intro:
         'The paradoxes of social choice and democratic theory — the formal limits every voting rule must face. Each module computes on demand.',
+      arrow: '🏛️ Arrow’s impossibility theorem (1951)',
       sen: '🔓 Sen’s paradox (liberal paretian)',
       judgment: '🧩 Judgment aggregation (discursive dilemma)',
       agenda: '🎚️ Agenda manipulation (McKelvey)',
@@ -310,6 +372,7 @@ const pgEn: PlaygroundKeys = {
     view3d: '🧊 3D view',
     viewPlane: '▦ x–y plane (edit)',
     svgAria: 'Ideology map — electing a leader',
+    candidateAria: '{{name}} — drag, or use arrow keys to move (Shift for a bigger step)',
     manipCompromise: 'Tempted to vote tactically (drops their favourite)',
     manipBurying: 'Tempted to bury a rival (ranks them too low)',
     manipSafe: 'Stays sincere (nothing to gain by gaming)',
@@ -486,6 +549,14 @@ const pgEn: PlaygroundKeys = {
       'Voters desert non-viable parties (FPTP: outside their district’s top 2; PR: below the threshold) for their nearest viable party — Duverger’s law as mechanics.',
     duvergerNote:
       'Desertion squeezes non-viable parties toward their viable neighbour: Duverger, as mechanics. The effect reads live on the assembly’s composition →.',
+    blankTitle: 'Blank vote (live)',
+    blankToggle: 'Enable the blank vote',
+    blankHint:
+      'Voters too far from every candidate spoil their ballot instead of voting for one of them.',
+    blankLensLabel: 'Constitutional regime',
+    blankRate: '{{count}} voters out of the total cast a blank ballot ({{pct}} %).',
+    blankLabNote:
+      'To hand-compose a result and compare all four regimes → the Blank Vote sheet in the Lab.',
     svIntro:
       'Share of voters who could improve their outcome by voting insincerely (Gibbard–Satterthwaite, brute force). The lower, the more resistant the method. Heavy compute — on demand, outside the real-time read-out.',
     svComputing: 'Computing… (a few seconds)',
@@ -504,7 +575,6 @@ const pgEn: PlaygroundKeys = {
   },
   vse: {
     title: 'The welfare cost of strategic voting (VSE)',
-    subtitle: 'How much welfare each method throws away once voters stop being sincere',
     intro:
       'Voter Satisfaction Efficiency (VSE, Quinn 2017, after Merrill 1984): 1 = the method elects the welfare-maximising candidate, 0 = it does no better than drawing a name from a hat, negative = it does worse. We sweep the share of voters who vote tactically.',
     aria: 'VSE curves per method against the share of strategic voters',
@@ -528,6 +598,7 @@ const pgEn: PlaygroundKeys = {
     unavailable:
       '⚠ Hemicycle unavailable: the assembly computation did not complete. If you just updated, restart the backend server (uvicorn) so it picks up the new schema.',
     mapAria: 'Ideology map — parties and territories',
+    partyAria: '{{name}} — drag, or use arrow keys to move (Shift for a bigger step)',
     hemicycleAria: 'Hemicycle — seats per party',
     seatsLine: '{{seats}} seats · majority {{majority}}',
     computing: 'Computing the assembly…',
@@ -673,8 +744,7 @@ const pgEn: PlaygroundKeys = {
       round: 'Round {{round}}: no Condorcet winner → eliminate the weakest ({{cand}}).',
     },
     raynaud: {
-      round:
-        'Round {{round}}: the heaviest defeat is {{a}} over {{b}} ({{av}}–{{bv}}) → {{b}} out.',
+      round: 'Round {{round}}: worst pairwise loss ({{margin}}) → eliminated: {{cand}}.',
     },
     smith: {
       set: 'Keep the Smith set — the smallest group that beats everyone else: {{cand}}.',
@@ -693,11 +763,166 @@ const pgEn: PlaygroundKeys = {
   },
   realElection: {
     title: '🗳 Reality check: real elections',
-    sub: 'same ballots, different methods — fixed real elections (Burlington 2009, Alaska 2022), unrelated to the electorate you configure on the map',
     pick: 'Ballot box',
     headlinePre: 'On the very same ballots,',
     headlineEnd: 'different winners by method alone.',
     note: 'Genuine ranked ballots (Burlington: PrefLib 00005; Alaska: Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — the published ballot-type breakdown of the state’s cast vote record). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
+  },
+  approvalExperiment: {
+    title: 'What if the ballot changed? Approval voting (2017)',
+    sub: 'Same election, same electorate — an approval ballot instead of one name. The winner holds (Macron), but the order collapses: Le Pen drops 2nd → 5th, Mélenchon climbs 4th → 2nd. Approval would have sent Macron into the runoff against Mélenchon, not Le Pen.',
+    colApproval: 'Approval',
+    colOfficial: 'Official 1st round',
+    caveat:
+      '“Voter Autrement” in-situ experiment, 2017 first round: 3,894 approval ballots across 5 municipalities, a self-selected sample extrapolated to France. An approval rate (a voter may approve several candidates — 2.48 on average) is not a vote share: compare the two columns by their order, not their totals.',
+    source:
+      'Approval: Baujard et al. (rangevoting.org/France2017). Official: Ministère de l’Intérieur.',
+  },
+  lexique: {
+    title: '📖 Glossary',
+    intro: 'Every notion in one plain sentence — and a link to see it at work.',
+    search: 'Search a term…',
+    seeInAction: 'See it in action',
+    empty: 'No term matches.',
+    count: '{{n}} terms',
+  },
+  blankVote: {
+    title: '⬜ Blank vote — then what?',
+    act1Kicker: '1 — You can vote blank',
+    act1Title: 'Three silences, not one',
+    act1Lede:
+      'Not choosing is not a single thing. Three very different gestures hide behind "I did not vote for a candidate".',
+    silences: {
+      abstention: {
+        term: 'Abstention',
+        desc: 'You stay home, you cast nothing. The ballot never exists — it drops out of the count.',
+      },
+      blanc: {
+        term: 'Blank vote',
+        desc: 'You show up and drop an empty envelope. An expressed choice: "none of these", but I am here.',
+      },
+      nul: {
+        term: 'Spoiled vote',
+        desc: 'A crossed-out, torn or non-compliant ballot. Often a mistake, sometimes anger — but legally invalid.',
+      },
+    },
+    act2Kicker: '2 — What do we do with it?',
+    act2Title: 'The blank wins. Now what?',
+    act2Lede:
+      'Build a result, push the blank until it dominates, and watch: the same vote meets four fates depending on the counting rule. None is "the right one" — that is the question.',
+    mixerTitle: 'Compose the result',
+    realToggle: 'Use my electorate',
+    realHint:
+      'These shares come from the electorate currently configured in the Playground (candidates, voters) — including those too far from all of them to pick one, counted as blank at the same radius as the Strategy moment’s own slider.',
+    presets: {
+      balanced: 'Balanced',
+      blankLeads: 'Blank leads',
+      blankMajority: 'Blank majority',
+    },
+    blankLabel: 'Blank',
+    redoBadge: 'Do it again',
+    electedBadge: 'Elected',
+    lens: {
+      france_today: {
+        label: 'France today (outside the expressed votes)',
+        mechanism:
+          'Since 2014 the blank is counted and published, but removed from the expressed votes: it weighs on no threshold.',
+      },
+      in_exprimes: {
+        label: 'If the blank counted (reform)',
+        mechanism:
+          'Fold it into the expressed votes: the denominator grows, and the 50% majority bar gets harder to clear.',
+      },
+      competitive: {
+        label: 'Competitive (Uruguay)',
+        mechanism:
+          'The blank is treated as a candidate: if it beats the front-runner, the field reopens.',
+      },
+      threshold: {
+        label: '50% threshold (Colombia)',
+        mechanism:
+          'If the blank passes half the votes, the election is annulled and rerun with new candidates.',
+      },
+    },
+    outcome: {
+      elected: '{{winner}} is elected — {{pct}} of the expressed votes.',
+      no_majority: '{{winner}} leads at {{pct}}, but below a majority: no clear mandate.',
+      blank_wins: 'The blank beats everyone ({{pct}}): the campaign reopens.',
+      annulled: 'Blank majority ({{pct}}): the election is annulled.',
+    },
+    reflectTitle: 'Your call',
+    reflectQ1:
+      'A massive blank vote — is it a mandate to start over, or an abdication that lets others decide?',
+    reflectQ2:
+      'If the blank could block an election, how far: a runoff, an annulment, new candidates?',
+    reflectQ3: 'And the risk of endless deadlock — is it worth recognising a legitimate refusal?',
+    worldKicker: 'What already exists',
+    worldTitle: 'How the world answers',
+    worldLede:
+      'Sixteen countries, sixteen answers to the same question. The two marked with a dot (Uruguay, Colombia) actually let the blank change the outcome.',
+    col: {
+      country: 'Country',
+      status: 'Blank status',
+      rate: 'Typical rate',
+      impact: 'Effect',
+    },
+    status: {
+      counted_separate: 'Counted separately',
+      symbolic: 'Symbolic',
+      competitive: 'Competitive',
+      threshold: 'Trigger threshold',
+      merged_invalid: 'Merged with spoiled',
+    },
+    impactYes: 'Can change or annul the election',
+    impactNo: 'No effect on the result',
+    source: 'Sources: national electoral legislation (see data/blankVoteRegimes).',
+  },
+  atlas: {
+    kicker: 'Atlas',
+    title: '🌍 Atlas of electoral regimes',
+    intro:
+      'A spinning globe: every democracy in its place, coloured by its voting method — or by what it does with the blank vote. Let it turn, or grab it to orient it, then click a country.',
+    colorBy: 'Colour by:',
+    byMethod: 'Method',
+    byBlank: 'Blank vote',
+    dragHint: 'Click a dot to see the country’s regime.',
+    methodLabel: 'Method:',
+    blankLabel: 'Blank vote:',
+    unknownBlank: 'Not recorded',
+    source: 'Sources: national electoral legislation (see lib/electoralAtlas).',
+    method: {
+      fptp: 'First-past-the-post (FPTP)',
+      two_round: 'Two-round runoff',
+      irv: 'Instant-runoff (IRV)',
+      stv: 'Single transferable vote (STV)',
+      mmp: 'Mixed-member proportional (MMP)',
+      party_list_pr: 'Party-list proportional',
+      mixed: 'Mixed (parallel) system',
+    },
+  },
+  curiosity: {
+    kicker: 'Out of curiosity',
+    title: 'Where to start? Follow your question.',
+    sub: 'Each question opens the story that answers it, inside the instrument.',
+    q: {
+      wasted: 'Why do people say my vote is “wasted”?',
+      spoiler: 'How can a no-hope candidate make my favourite lose?',
+      centre: 'Can the candidate almost everyone accepts still be eliminated?',
+      method: 'Can the counting method change who wins?',
+      best: 'Is the front-runner really the best for everyone?',
+      small: 'Can a small party be wiped out by a single threshold?',
+    },
+  },
+  explain: {
+    kicker: 'Why this winner?',
+    count: '{{winner}} wins on the highest total: {{winnerVal}} to {{runnerUp}}’s {{runnerUpVal}}.',
+    elim: '{{winner}} wins on transfers: as the lowest-placed are eliminated their votes flow on, and {{winner}} ends ahead of {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
+    pairwise:
+      '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
+    twophase:
+      '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
+    lottery:
+      '{{winner}} is drawn by lot: each candidate’s chance was proportional to their support.',
   },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
@@ -881,7 +1106,6 @@ const pgEn: PlaygroundKeys = {
     paradoxTitle:
       'Share of resampled electorates with no Condorcet winner — a high rate signals the result depends heavily on the assumptions.',
     condorcet: 'Condorcet: {{name}}',
-    condorcetNone: 'no Condorcet winner (cycle)',
     shake: '🎲 Shake the assumptions',
     shakeTitle:
       'Resamples the electorate 60 times (same assumptions, new draws) — separates a structural property from a chosen setting.',
@@ -919,6 +1143,8 @@ const pgEn: PlaygroundKeys = {
     anti_plurality: 'Anti-plurality (veto)',
     dowdall: 'Dowdall (Nauru)',
     black: 'Black (Condorcet-Borda)',
+    copeland: 'Copeland',
+    evaluative: 'Evaluative (scores)',
     smith_irv: 'Smith-IRV (Tideman)',
     split_cycle: 'Split Cycle',
     kemeny: 'Kemeny-Young',
@@ -928,6 +1154,20 @@ const pgEn: PlaygroundKeys = {
     river: 'River',
     nash: 'Nash (product of utilities)',
     raynaud: 'Raynaud',
+  },
+  // Plain-language method labels (plain-language mode). Bounded to the methods a
+  // newcomer actually meets; anything absent falls back to its technical name.
+  rulesPlain: {
+    plurality: 'Most votes',
+    two_round: 'Two rounds',
+    irv: 'Round-by-round',
+    coombs: 'Drop the most-rejected',
+    borda: 'Points by rank',
+    condorcet: 'Best in duels',
+    approval: 'Tick who’s OK',
+    score: 'Average ratings',
+    star: 'Rate, then duel',
+    cumulative: 'Points to spread',
   },
   structures: {
     pr: 'Proportional (lists)',
@@ -1055,7 +1295,7 @@ const pgEn: PlaygroundKeys = {
     eyebrow: 'TO DISCOVER',
     title: 'Method gallery',
     intro:
-      'More voting methods, explained but not compared: too niche or too subtle for the dashboard, but each has its own animation to see how it works step by step — on your current electorate.',
+      'Every voting method on one page — the common ones first, then the more niche. Each with a real-life analogy, the winner on your current electorate, and a step-by-step animation of how it is counted.',
     watch: '▶ Watch it unfold',
     liveWinner: 'Winner on your current electorate',
   },
@@ -1107,13 +1347,17 @@ const pgEn: PlaygroundKeys = {
       title: '📚 Social choice theory & paradoxes',
       subtitle: 'Sen, judgment, agenda, tyranny, apportionment, Pol.is',
     },
+    blank: {
+      title: '⬜ Blank vote & abstention',
+      subtitle: 'not choosing, rejecting the field — and what the rule makes of it',
+    },
     results: {
       title: '📋 Full results',
       subtitle: 'detailed tally, animated count',
     },
     ballot: {
       title: '🗳️ Ballot configuration (expression)',
-      subtitle: 'ballot type, expressiveness, cognitive load, blank-vote divergence',
+      subtitle: 'ballot type, expressiveness, cognitive load',
     },
     strategy: {
       title: '🎯 Deep strategic analysis',
@@ -1129,16 +1373,12 @@ const pgEn: PlaygroundKeys = {
       systems: 'Systems & mechanisms',
       dynamics: 'Dynamics',
       theory: 'Theory & analysis',
+      blank: 'Blank vote & abstention',
     },
     compareElec: 'Compare an electorate',
     comparePick: 'Compare the same fiche on:',
     compareStop: 'Close the comparison',
     elecCurrent: 'Current electorate',
-    strip: {
-      voters: '{{n}} voters',
-      rule: 'Rule',
-      edit: 'Edit the electorate →',
-    },
     matrix: {
       title: 'Method comparison',
       liveRow: 'Winner with your current electorate',
@@ -1157,6 +1397,14 @@ const pgEn: PlaygroundKeys = {
         reversal: 'Reversal symmetry',
       },
     },
+  },
+  fullResults: {
+    intro:
+      'The full method table (winner · Bayesian regret · Condorcet compliance), plus the narrative read and the historical reference — on the shared electorate.',
+    running: 'Simulating…',
+    rerun: '↻ Re-run',
+    run: '▶ Simulate every method',
+    error: 'Simulation failed.',
   },
 };
 

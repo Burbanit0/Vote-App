@@ -172,7 +172,7 @@ function condorcet(el: RealElection, pair: number[][]): MethodResult {
 // Minimax: the candidate whose worst pairwise defeat (by margin) is least bad.
 function minimax(el: RealElection, pair: number[][]): MethodResult {
   const m = el.candidates.length;
-  const worstDefeat = new Array(m).fill(-Infinity);
+  const worstDefeat: number[] = new Array(m).fill(-Infinity);
   for (let a = 0; a < m; a++)
     for (let b = 0; b < m; b++)
       if (a !== b) worstDefeat[a] = Math.max(worstDefeat[a], pair[b][a] - pair[a][b]);

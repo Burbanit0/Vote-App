@@ -11,6 +11,7 @@
 import {
   computeRanks,
   computeScores,
+  pairwise,
   ruleWinnerFromRanks,
   fieldWinnerName,
   ruleWinner,
@@ -147,23 +148,6 @@ const RANDOM_BALLOT_PROPS: Record<CriterionId, CritResult> = {
   iia: true,
 };
 
-/** Local pairwise tally pw[i][j] = ballots ranking i above j. */
-function pairwise(ranks: number[][], m: number): number[][] {
-  const pw = Array.from({ length: m }, () => new Array(m).fill(0));
-  for (const r of ranks) {
-    const pos = new Array(m).fill(0);
-    r.forEach((c, i) => {
-      pos[c] = i;
-    });
-    for (let i = 0; i < m; i++)
-      for (let j = i + 1; j < m; j++) {
-        if (pos[i] < pos[j]) pw[i][j] += 1;
-        else pw[j][i] += 1;
-      }
-  }
-  return pw;
-}
-
 export interface CriteriaRow {
   rule: Rule;
   winner: string | null;
@@ -191,8 +175,8 @@ export function criteriaMatrix(voters: Pt[], cands: NamedPt[]): CriteriaRow[] {
   const cw = condorcetFromRanks(baseRanks, m);
 
   // Majority favourite (first for >50%) and majority loser (last for >50%).
-  const firsts = new Array(m).fill(0);
-  const lasts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
+  const lasts: number[] = new Array(m).fill(0);
   for (const r of baseRanks) {
     firsts[r[0]] += 1;
     lasts[r[r.length - 1]] += 1;

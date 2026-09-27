@@ -32,6 +32,7 @@ or ±0.045 (high_info) shift on the perceived utility.
 from __future__ import annotations
 
 import random
+from contextlib import suppress
 
 # ── Segment configuration ────────────────────────────────────────────────────
 
@@ -102,10 +103,8 @@ def apply_information_asymmetry(
     # ── Parse and clamp media bias ────────────────────────────────────────
     bias: dict[int, float] = {}
     for k, v in media_bias.items():
-        try:
+        with suppress(ValueError, TypeError):
             bias[int(k)] = max(-1.0, min(1.0, float(v)))
-        except (ValueError, TypeError):
-            pass
 
     # ── Apply noise + media effect per voter ──────────────────────────────
     perceived: list[list[float]] = []
@@ -128,19 +127,3 @@ def apply_information_asymmetry(
     return perceived
 
 
-def compute_information_gap(
-    true_utilities: list[list[float]],
-    perceived_utilities: list[list[float]],
-) -> float:
-    """
-    Mean absolute difference between true and perceived utilities.
-
-    Returns a value in [0, 1]: 0 = perfect information, 1 = maximum distortion.
-    """
-    total = 0.0
-    count = 0
-    for true_row, perc_row in zip(true_utilities, perceived_utilities):
-        for t, p in zip(true_row, perc_row):
-            total += abs(t - p)
-            count += 1
-    return round(total / count, 4) if count > 0 else 0.0

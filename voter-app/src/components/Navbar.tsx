@@ -6,12 +6,14 @@ import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
 import { Container } from '@/components/ui/grid';
 import { useTheme } from '../stores/useUIStore';
 import { useExpertMode } from '../stores/useUIStore';
+import { usePlainLanguage } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Two destinations only: Playground (do) → Laboratoire (go deeper). Everything
-// theory/mechanism/system lives inside the Laboratoire's anchors now.
+// Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
+// → À vous de jouer (cast one ballot yourself). Everything theory/mechanism/system
+// lives inside the Laboratoire's fiches now.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -62,6 +64,7 @@ const SettingRow: React.FC<{
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { expertMode, setExpertMode } = useExpertMode();
+  const { plainLanguage, setPlainLanguage } = usePlainLanguage();
   const { t } = useTranslation();
   const [navExpanded, setNavExpanded] = useState(false);
 
@@ -96,10 +99,15 @@ const Navbar: React.FC = () => {
           </Badge>
         </BootstrapNavbar.Brand>
 
-        <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
+        <BootstrapNavbar.Toggle
+          aria-controls="votelab-nav"
+          aria-expanded={navExpanded}
+          aria-label={t('nav.toggleLabel')}
+          data-testid="navbar-toggle"
+        />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
-          {/* ── Main nav — two destinations: Playground → Laboratoire ── */}
+          {/* ── Main nav — Playground → Laboratoire → À vous de jouer ── */}
           <Nav className="mr-auto lg:items-center gap-1">
             {/* Playground — hero link */}
             <Nav.Link
@@ -132,6 +140,21 @@ const Navbar: React.FC = () => {
             >
               🔬 {t('nav.laboratoire')}
             </Nav.Link>
+
+            {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
+            <Nav.Link
+              href="/a-vous-de-jouer"
+              className="font-semibold px-3 py-1 rounded"
+              active={currentPath === '/a-vous-de-jouer'}
+              onClick={() => setNavExpanded(false)}
+              style={{
+                color: currentPath === '/a-vous-de-jouer' ? 'var(--bs-primary)' : 'inherit',
+                fontSize: '0.88rem',
+                transition: 'all 0.15s',
+              }}
+            >
+              ✍️ {t('nav.play')}
+            </Nav.Link>
           </Nav>
 
           {/* ── Right side ── */}
@@ -157,11 +180,10 @@ const Navbar: React.FC = () => {
             </Nav.Link>
 
             {/* ── User / Settings dropdown ── */}
-            <Dropdown align="end">
+            <Dropdown>
               <Dropdown.Toggle
                 variant="outline-secondary"
                 size="sm"
-                caret={false}
                 className="flex items-center gap-2"
                 style={{ border: '1px solid var(--bs-border-color)' }}
                 id="user-settings-dropdown"
@@ -202,6 +224,13 @@ const Navbar: React.FC = () => {
                     label={expertMode ? t('nav.expert') : t('nav.beginner')}
                     checked={expertMode}
                     onToggle={() => setExpertMode(!expertMode)}
+                  />
+
+                  <SettingRow
+                    icon="🔤"
+                    label={t('nav.plain')}
+                    checked={plainLanguage}
+                    onToggle={() => setPlainLanguage(!plainLanguage)}
                   />
                 </div>
 

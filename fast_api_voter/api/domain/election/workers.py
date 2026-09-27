@@ -1,34 +1,29 @@
 """
-election.py — Unified election simulation endpoint.
+workers.py — the core election workers.
 
-POST /api/election/simulate orchestrates all existing models in the correct
-logical order:
-
-  1. Build electorate (voters + candidates from explicit x/y positions)
-  2. Campaign dynamics   — if campaign.enabled, adjust vote intentions
-  3. Blank-vote contagion — if blank_vote.contagion.enabled, lower blank thresholds
-  4. Information model   — if information_model.enabled, distort perceived utilities
-  5. All voting methods  — compare_all_methods with possibly overridden utilities
-  6. Blank-vote rules    — if blank_vote.enabled, apply constitutional rule to each winner
+Divergence, campaign sensitivity, combined effects, interpret, the stepped
+pipeline, coalition, districts and primary. The unified /simulate pipeline this
+docstring used to describe lives in `election_service.py`; only a two-line
+delegator remained here, and nothing imported it.
 """
 from __future__ import annotations
 
+import math as _math
 import random as _random
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Dict, Optional
 
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
+from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
-    get_irv_winner,
-    get_approval_winner_sincere,
 )
 from api.engine.utils.blank_vote_rules        import BlankVoteRule
-from api.engine.utils.blank_contagion         import simulate_blank_contagion
 from api.engine.utils.campaign_dynamics       import simulate_campaign
 from api.engine.utils.information_model       import apply_information_asymmetry
 from api.engine.utils.cache import cache_result
@@ -36,44 +31,29 @@ from api.engine.utils.cache import cache_result
 # Generic helpers extracted to _helpers.py during the incremental split of
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
+from api.engine.utils.method_registry import winner_from_utilities
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 from ._helpers import (
-    build_candidate_from_xy as _build_candidate_from_xy,
-    inter_method_agreement  as _inter_method_agreement,
-    dhondt                  as _dhondt,
+    build_candidate_from_xy       as _build_candidate_from_xy,
+    inter_method_agreement        as _inter_method_agreement,
+    dhondt                        as _dhondt,
+    parse_optional_election_configs as _parse_optional_election_configs,
+    modal_keys,
+    reject_unknown_methods        as _reject_unknown_methods,
+    tied_extremes,
 )
 from ._electorate import (
     _build_base_electorate,
     _run_methods_on_electorate,
     _snapshot_election_winners,
+    _apply_blank_contagion,
 )
-
-
-
-# ── Endpoint ──────────────────────────────────────────────────────────────────
-
-@cache_result("election:simulate", ttl_seconds=3600)
-def _simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Thin route worker: delegates to ElectionService (pure orchestration).
-
-    The cache + tpool wrappers stay at this layer (cross-cutting HTTP concern).
-    The service is callable from anywhere — tests, CLIs, future entry points.
-
-    Cached via Redis: identical input dicts (same seed = same result) return
-    in ~5 ms instead of 200-500 ms. Cache is keyed by SHA-256 of the JSON-
-    serialised data with a 1h TTL.
-    """
-    from api.domain.election.election_service import ElectionService
-    return ElectionService.simulate(data)
-
-
-
-
 
 
 # ── Divergence endpoint ───────────────────────────────────────────────────────
 
 def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /divergence — extracted for FastAPI v2."""
+    """/divergence — Same electorate, with vs without blank vote."""
     num_voters  = max(10, min(500, int(data.get("num_voters", 200))))
     ideology    = str(data.get("ideology", "random"))
     seed        = int(data.get("seed", 42))
@@ -96,10 +76,9 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
 
-    # ── Seed (same electorate for both runs) ──────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
-
+    # _build_base_electorate() below seeds its own local RNG pair from `seed`
+    # (same electorate for both runs) instead of reseeding the shared
+    # random/np.random singletons — see election_service.py for why.
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -117,18 +96,7 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters_b = copy.deepcopy(voters)
 
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters_b:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters_b, contagion_cfg, num_voters, seed)
 
     run_b = _run_methods_on_electorate(
         voters_b, candidates, true_utilities, issues,
@@ -209,10 +177,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
 
-    # ── Seed and build base electorate ────────────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
-
+    # ── Build base electorate (local RNG pair, seeded from `seed`) ─────────
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -220,23 +185,11 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
 
     # ── Apply blank-vote contagion once (threshold adjustments) ───────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
 
     # ── Run campaign to get day-by-day polling shares ─────────────────────
     camp       = simulate_campaign(
         num_candidates=len(candidates),
-        num_voters=num_voters,
         num_days=num_days,
         events=[],
         seed=seed,
@@ -244,10 +197,17 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
     daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
 
-    # Resolve snapshot days (convert "final" → num_days)
-    resolved: list[int] = []
-    for d in raw_snaps:
-        resolved.append(num_days if d == "final" else min(int(d), num_days))
+    # Resolve snapshot days (convert "final" → num_days). Clamped on BOTH
+    # ends: min() alone only caps the upper bound, so an out-of-range
+    # negative day (schema only constrains the type, not the value) stayed
+    # negative and reached `shares_list[min(day, ...)]` below as a raw
+    # negative index — for a large enough magnitude that overflows CPython's
+    # ssize_t, crashing with IndexError instead of wrapping or 400ing
+    # (found by Schemathesis, Lot 3).
+    resolved: list[int] = [
+        num_days if d == "final" else max(0, min(int(d), num_days))
+        for d in raw_snaps
+    ]
     snapshot_days = sorted(set(resolved))
 
     # ── Snapshot loop ─────────────────────────────────────────────────────
@@ -315,8 +275,8 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
 
 @cache_result("election:combined-effects", ttl_seconds=3600)
 def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure-compute worker for /combined-effects. Runs in eventlet.tpool via
-    @heavy_endpoint so the matrix of 8 simulations doesn't block the event loop.
+    """Pure-compute worker for /combined-effects. Runs in a worker thread via
+    run_typed so the matrix of 8 simulations doesn't block the event loop.
 
     Cached via Redis (1h TTL) — the factorial 2³ matrix is fully deterministic,
     so re-running the same input is a guaranteed cache hit.
@@ -352,9 +312,6 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -363,7 +320,6 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Pre-compute campaign-adjusted utilities ────────────────────────────
     camp       = simulate_campaign(
         num_candidates=len(candidates),
-        num_voters=num_voters,
         num_days=num_days,
         events=[],
         seed=seed,
@@ -414,18 +370,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Pre-compute blank-vote adjusted voters ────────────────────────────
     blank_voters = copy.deepcopy(voters)
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in blank_voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(blank_voters, contagion_cfg, num_voters, seed)
 
     # (campaign_on, info_on) → utilities dict
     utility_map: Dict[tuple[bool, bool], Dict[Any, Dict[str, float]]] = {
@@ -496,7 +441,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     most_disruptive  = min(factor_deltas, key=lambda k: factor_deltas[k])
     least_disruptive = max(factor_deltas, key=lambda k: factor_deltas[k])
     max_disrup_combo = min(
-        combinations, key=lambda c: c["inter_method_agreement"]
+        combinations, key=itemgetter("inter_method_agreement")
     )["id"]
 
     return {
@@ -521,15 +466,13 @@ _T: Dict[str, Dict[str, str]] = {
         "condorcet_exists":  "{winner} est le vainqueur de Condorcet — il bat tous les autres candidats en duel direct.",
         "condorcet_spoiler": "Le vainqueur de Condorcet ({cw}) diffère du vainqueur à la pluralité ({pw}) : c'est un effet spoiler classique où la fragmentation du vote défavorise le candidat préféré par la majorité.",
         "high_blank":        "Le vote blanc élevé ({pct}%) fragilise la légitimité du vainqueur. Sous la règle '{rule}', ce taux peut invalider l'élection.",
-        "best_regret":       "La méthode {method} minimise le régret bayésien ({score:.4f}) : elle maximise le bien-être collectif.",
-        "worst_regret":      "La méthode {method} présente le régret bayésien le plus élevé ({score:.4f}) : elle 'rate' davantage le vrai consensus.",
         "ped_condorcet":     "Ce résultat illustre le critère de Condorcet (1785) : une méthode 'conforme' élit toujours le candidat préféré par la majorité en comparaison binaire. La pluralité ne respecte pas ce critère.",
         "ped_arrow":         "Ce résultat illustre le théorème d'impossibilité d'Arrow (1951) : avec des préférences cycliques, aucune méthode ne peut produire un résultat socialement cohérent sans sacrifier un critère de fairness.",
         "ped_consensus":     "Ce résultat illustre un cas idéal : quand un vainqueur de Condorcet existe et que l'électorat est peu polarisé, la plupart des méthodes convergent vers le même résultat.",
         "fact_pct":          "{pct}% des méthodes ({n}/{total}) élisent {winner}.",
         "fact_condorcet_y":  "Le vainqueur de Condorcet est {winner}.",
         "fact_condorcet_n":  "Il n'existe pas de vainqueur de Condorcet (cycle de préférences).",
-        "fact_best":         "La méthode la plus 'juste' (régret bayésien minimal) : {method}.",
+        "fact_best":         "Régret bayésien minimal : l'élection de {winner}, retenue par {n} méthode(s) sur {total}.",
         "team":              "Équipe {winner}",
     },
     "en": {
@@ -540,41 +483,29 @@ _T: Dict[str, Dict[str, str]] = {
         "condorcet_exists":  "{winner} is the Condorcet winner — they beat every other candidate in direct head-to-head matchups.",
         "condorcet_spoiler": "The Condorcet winner ({cw}) differs from the plurality winner ({pw}): a classic spoiler effect where vote fragmentation hurts the majority's preferred candidate.",
         "high_blank":        "The high blank-vote rate ({pct}%) undermines the winner's legitimacy. Under the '{rule}' rule, this rate may invalidate the election.",
-        "best_regret":       "Method {method} minimises Bayesian Regret ({score:.4f}): it maximises collective welfare.",
-        "worst_regret":      "Method {method} has the highest Bayesian Regret ({score:.4f}): it deviates most from the true consensus.",
         "ped_condorcet":     "This result illustrates the Condorcet criterion (1785): a 'compliant' method always elects the candidate preferred by the majority in pairwise comparisons. Plurality does not satisfy this criterion.",
         "ped_arrow":         "This result illustrates Arrow's impossibility theorem (1951): with cyclical preferences, no method can produce a socially coherent result without sacrificing a fairness criterion.",
         "ped_consensus":     "This result illustrates an ideal case: when a Condorcet winner exists and the electorate is not highly polarised, most methods converge on the same outcome.",
         "fact_pct":          "{pct}% of methods ({n}/{total}) elect {winner}.",
         "fact_condorcet_y":  "The Condorcet winner is {winner}.",
         "fact_condorcet_n":  "No Condorcet winner exists (preference cycle).",
-        "fact_best":         "Most 'fair' method (minimal Bayesian Regret): {method}.",
+        "fact_best":         "Lowest Bayesian Regret: electing {winner}, the outcome of {n} of {total} methods.",
         "team":              "Team {winner}",
     },
 }
 
 
-def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /interpret — extracted for FastAPI v2."""
-    lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
-    T    = _T[lang]
-
-    methods_raw        = data.get("methods") or {}
-    condorcet_winner   = data.get("condorcet_winner")
-    condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
-    inter_agreement    = float(data.get("inter_method_agreement", 0.0))
-    blank_rate         = float(data.get("blank_rate", 0.0))
-    blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
-
-    if not methods_raw:
-        return {"error": "No methods data provided"}, 400
-
-    # ── 1. Group methods by effective winner ──────────────────────────────
+def _interpret_group_methods(
+    methods_raw: Dict[str, Any],
+) -> tuple[list[Dict[str, Any]], Optional[str]]:
+    """Step 1 — group methods by effective winner (`winner_after_rule` takes
+    priority over `winner` when a blank-vote rule was applied), then resolve
+    the plurality winner specifically (needed by Condorcet-spoiler detection
+    in later steps)."""
     winner_to_methods: Dict[str, list[str]] = {}
     for method_name, md in methods_raw.items():
         if not isinstance(md, dict):
             continue
-        # Prefer winner_after_rule if blank vote applied
         effective = md.get("winner_after_rule") or md.get("winner")
         if not effective:
             continue
@@ -601,7 +532,13 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     pl_md = methods_raw.get("plurality", {})
     plurality_winner = pl_md.get("winner_after_rule") or pl_md.get("winner") if pl_md else None
 
-    # ── 2. Headline ───────────────────────────────────────────────────────
+    return method_groups, plurality_winner
+
+
+def _interpret_headline(
+    T: Dict[str, str], inter_agreement: float, method_groups: list[Dict[str, Any]],
+) -> tuple[str, str]:
+    """Step 2 — headline, plus the resolved top winner name reused by later steps."""
     pct_int = round(inter_agreement * 100)
     top_group = method_groups[0] if method_groups else None
     top_winner = top_group["winner"] if top_group else "?"
@@ -613,58 +550,83 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     else:
         headline = T["strong_diverg"].format(pct=pct_int)
 
-    # ── 3. Condorcet analysis ─────────────────────────────────────────────
-    if not condorcet_exists:
-        condorcet_analysis = T["no_condorcet"]
-    elif condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
-        condorcet_analysis = T["condorcet_spoiler"].format(
-            cw=condorcet_winner, pw=plurality_winner
-        )
-    else:
-        condorcet_analysis = T["condorcet_exists"].format(
-            winner=condorcet_winner or top_winner
-        )
+    return headline, top_winner
 
-    # ── 4. Divergence reason ──────────────────────────────────────────────
+
+def _interpret_condorcet_analysis(
+    T: Dict[str, str], condorcet_exists: bool, condorcet_winner: Optional[str],
+    plurality_winner: Optional[str], top_winner: str,
+) -> str:
+    """Step 3 — Condorcet analysis (spoiler detection vs. plain existence)."""
+    if not condorcet_exists:
+        return T["no_condorcet"]
+    if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
+        return T["condorcet_spoiler"].format(cw=condorcet_winner, pw=plurality_winner)
+    return T["condorcet_exists"].format(winner=condorcet_winner or top_winner)
+
+
+def _interpret_divergence_reason(
+    T: Dict[str, str], method_groups: list[Dict[str, Any]], condorcet_exists: bool,
+    condorcet_winner: Optional[str], plurality_winner: Optional[str],
+    condorcet_analysis: str,
+) -> str:
+    """Step 4 — divergence reason (reuses the Condorcet analysis text where
+    it already answers the question, otherwise a dedicated spoiler message)."""
     if len(method_groups) <= 1:
-        divergence_reason = condorcet_analysis
-    elif not condorcet_exists:
-        divergence_reason = T["no_condorcet"]
-    else:
-        divergence_reason = T["condorcet_spoiler"].format(
-            cw=condorcet_winner or "?", pw=plurality_winner or "?"
-        ) if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner \
-          else condorcet_analysis
-
-    # ── 5. Best / worst method by Bayesian Regret ─────────────────────────
-    regrets: Dict[str, float] = {}
-    for m, md in methods_raw.items():
-        if isinstance(md, dict) and md.get("bayesian_regret") is not None:
-            regrets[m] = float(md["bayesian_regret"])
-
-    best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
-    worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
-
-    # ── 6. Blank analysis ─────────────────────────────────────────────────
-    blank_analysis: Optional[str] = None
-    if blank_rate > 0.2:
-        blank_analysis = T["high_blank"].format(
-            pct=round(blank_rate * 100, 1), rule=blank_rule
-        )
-
-    # ── 7. Pedagogical note ───────────────────────────────────────────────
+        return condorcet_analysis
     if not condorcet_exists:
-        pedagogical_note = T["ped_arrow"]
-    elif inter_agreement > 0.85:
-        pedagogical_note = T["ped_consensus"]
-    else:
-        pedagogical_note = T["ped_condorcet"]
+        return T["no_condorcet"]
+    if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
+        return T["condorcet_spoiler"].format(
+            cw=condorcet_winner or "?", pw=plurality_winner or "?"
+        )
+    return condorcet_analysis
 
-    # ── 8. Key facts ──────────────────────────────────────────────────────
+
+def _interpret_best_worst_by_regret(
+    methods_raw: Dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    """Step 5 — every method tied at the lowest, and at the highest, Bayesian
+    Regret. Regret is a property of the winner, so methods electing the same
+    candidate tie; see `tied_extremes`."""
+    return tied_extremes({
+        m: float(md["bayesian_regret"])
+        for m, md in methods_raw.items()
+        if isinstance(md, dict) and md.get("bayesian_regret") is not None
+    })
+
+
+def _interpret_blank_analysis(
+    T: Dict[str, str], blank_rate: float, blank_rule: str,
+) -> Optional[str]:
+    """Step 6 — blank-vote analysis, only when the rate is high enough to matter."""
+    if blank_rate > 0.2:
+        return T["high_blank"].format(pct=round(blank_rate * 100, 1), rule=blank_rule)
+    return None
+
+
+def _interpret_pedagogical_note(
+    T: Dict[str, str], condorcet_exists: bool, inter_agreement: float,
+) -> str:
+    """Step 7 — pedagogical note (Arrow / Condorcet / consensus)."""
+    if not condorcet_exists:
+        return T["ped_arrow"]
+    if inter_agreement > 0.85:
+        return T["ped_consensus"]
+    return T["ped_condorcet"]
+
+
+def _interpret_key_facts(
+    T: Dict[str, str], method_groups: list[Dict[str, Any]], n_methods: int,
+    condorcet_exists: bool, condorcet_winner: Optional[str],
+    methods_raw: Dict[str, Any], best_by_regret: list[str],
+) -> list[str]:
+    """Step 8 — key facts, a short bulleted summary of the steps above."""
     key_facts: list[str] = []
+    top_group = method_groups[0] if method_groups else None
     if top_group:
-        top_pct:     float     = top_group["pct"]      # type: ignore[assignment]
-        top_methods: list[str] = top_group["methods"]  # type: ignore[assignment]
+        top_pct:     float     = top_group["pct"]
+        top_methods: list[str] = top_group["methods"]
         key_facts.append(T["fact_pct"].format(
             pct=int(round(top_pct * 100, 0)),
             n=len(top_methods),
@@ -676,7 +638,52 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     else:
         key_facts.append(T["fact_condorcet_n"])
     if best_by_regret:
-        key_facts.append(T["fact_best"].format(method=best_by_regret))
+        # The tied methods practically always share one winner, but two winners
+        # can score an identical regret; name every winner the tie covers.
+        winners = dict.fromkeys(str(methods_raw[m].get("winner")) for m in best_by_regret)
+        key_facts.append(T["fact_best"].format(
+            winner=" / ".join(winners), n=len(best_by_regret), total=n_methods,
+        ))
+    return key_facts
+
+
+def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /interpret — extracted for FastAPI v2.
+
+    Each numbered step below used to be inlined here; they're now private
+    `_interpret_*` helpers (one per step) so this function is a short,
+    low-complexity sequence of calls instead of one large branchy block —
+    same names, same computation, same order as before (CODE_AUDIT.md §5/§8
+    complexity decomposition)."""
+    lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
+    T    = _T[lang]
+
+    methods_raw        = data.get("methods") or {}
+    condorcet_winner   = data.get("condorcet_winner")
+    condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
+    inter_agreement    = float(data.get("inter_method_agreement", 0.0))
+    blank_rate         = float(data.get("blank_rate", 0.0))
+    blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
+
+    if not methods_raw:
+        return {"error": "No methods data provided"}, 400
+
+    method_groups, plurality_winner = _interpret_group_methods(methods_raw)
+    headline, top_winner = _interpret_headline(T, inter_agreement, method_groups)
+    condorcet_analysis = _interpret_condorcet_analysis(
+        T, condorcet_exists, condorcet_winner, plurality_winner, top_winner,
+    )
+    divergence_reason = _interpret_divergence_reason(
+        T, method_groups, condorcet_exists, condorcet_winner, plurality_winner,
+        condorcet_analysis,
+    )
+    best_by_regret, worst_by_regret = _interpret_best_worst_by_regret(methods_raw)
+    blank_analysis = _interpret_blank_analysis(T, blank_rate, blank_rule)
+    pedagogical_note = _interpret_pedagogical_note(T, condorcet_exists, inter_agreement)
+    key_facts = _interpret_key_facts(
+        T, method_groups, len(methods_raw), condorcet_exists, condorcet_winner,
+        methods_raw, best_by_regret,
+    )
 
     return {
         "headline":           headline,
@@ -734,25 +741,14 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         {"name": "Carol", "x":  0.0, "y":  0.3},
     ])[:6]
 
-    blank_cfg      = data.get("blank_vote", {}) or {}
-    blank_enabled  = bool(blank_cfg.get("enabled", False))
-    str(blank_cfg.get("rule", "symbolic"))
-    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
-    contagion_on   = bool(contagion_cfg.get("enabled", False))
-
-    info_cfg       = data.get("information_model", {}) or {}
-    info_enabled   = bool(info_cfg.get("enabled", False))
-
-    campaign_cfg   = data.get("campaign", {}) or {}
-    campaign_on    = bool(campaign_cfg.get("enabled", False))
-    num_days       = max(7,  min(60, int(campaign_cfg.get("num_days",        30))))
-    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+    (
+        blank_enabled, _, contagion_cfg, contagion_on,
+        info_cfg, info_enabled, campaign_cfg, campaign_on,
+        num_days, polling_effect,
+    ) = _parse_optional_election_configs(data)
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
-
-    _random.seed(seed)
-    _np.random.seed(seed)
 
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
@@ -771,7 +767,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     steps:    list[Dict[str, Any]] = []
     prev_snap: list[Dict[str, Any]] = []
-    current_utilities: Dict[Any, Dict[str, float]] = dict(true_utilities)
+    current_utilities: Dict[Any, Dict[str, float]] = true_utilities.copy()
 
     # ── Step 1: Base electorate ───────────────────────────────────────────
     base_snap = _voter_snap(voters, true_utilities, blank_enabled)
@@ -788,7 +784,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     # ── Step 2: Campaign ──────────────────────────────────────────────────
     if campaign_on:
         camp         = simulate_campaign(
-            num_candidates=len(candidates), num_voters=num_voters,
+            num_candidates=len(candidates),
             num_days=num_days, events=[], seed=seed,
         )
         camp_cands   = camp.get("candidates", [])
@@ -824,19 +820,10 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # ── Step 3: Blank-vote contagion ──────────────────────────────────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        cont_r  = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        final_blank = cont_r.get("final_blank_rate", 0.05)
-        reduction   = final_blank * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        contagion_info = _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
+        beta        = contagion_info["beta"]
+        gamma       = contagion_info["gamma"]
+        final_blank = contagion_info["final_blank_rate"]
 
         cont_snap   = _voter_snap(voters, current_utilities, blank_enabled=True)
         blank_count = sum(1 for s in cont_snap if s["is_blank"])
@@ -940,15 +927,33 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Coalition endpoint ────────────────────────────────────────────────────────
 
+def _nearest(
+    parties: list[str], positions: Dict[str, float], seats: Dict[str, int],
+    centre: float, rng: _random.Random,
+) -> str:
+    """The party closest to `centre`; among equally close ones the larger, and
+    only a tie on both is drawn -- a 0-seat party must not win a draw against
+    one that brings seats."""
+    dist = {p: abs(positions[p] - centre) for p in parties}
+    nearest = min(dist.values())
+    return break_tie(
+        {p: seats[p] for p in parties if _math.isclose(dist[p], nearest, rel_tol=1e-9, abs_tol=1e-12)},
+        rng,
+    )
+
+
 def _greedy_coalition(
     seats: Dict[str, int],
     positions: Dict[str, float],
     threshold: int,
+    rng: _random.Random,
 ) -> Dict[str, Any]:
     """
     Greedy coalition formation starting from the plurality party.
     Iteratively adds the ideologically closest available party until the
-    coalition reaches `threshold` seats.
+    coalition reaches `threshold` seats. A tie for the most seats is drawn by
+    lot (`break_tie`), not given to the first-listed; so is a tie for closest,
+    after the larger of the equally close parties (`_nearest`).
 
     Returns {parties, seats, coalition_spread, government_possible}.
     """
@@ -956,15 +961,14 @@ def _greedy_coalition(
     if total == 0:
         return {"parties": [], "seats": 0, "coalition_spread": 0.0, "government_possible": False}
 
-    sorted_parties = sorted(seats.keys(), key=lambda p: -seats[p])
-    coalition: list[str] = [sorted_parties[0]]
-    coalition_seats = seats[sorted_parties[0]]
-    remaining = [p for p in sorted_parties[1:]]
+    anchor = break_tie(seats, rng)
+    coalition: list[str] = [anchor]
+    coalition_seats = seats[anchor]
+    remaining = [p for p in seats if p != anchor]
 
     while coalition_seats < threshold and remaining:
-        # Closest ideologically to current coalition centre
         centre = sum(positions[p] for p in coalition) / len(coalition)
-        closest = min(remaining, key=lambda p: abs(positions[p] - centre))
+        closest = _nearest(remaining, positions, seats, centre, rng)
         coalition.append(closest)
         coalition_seats += seats[closest]
         remaining.remove(closest)
@@ -1001,9 +1005,6 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -1015,12 +1016,11 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in candidates
     }
 
-    result_mc = compare_all_methods(
+    methods_data: Dict[str, Any] = compare_all_methods(
         voters, candidates, issues,
         blank_vote=False,
         override_utilities=true_utilities,
-    )
-    methods_data: Dict[str, Any] = result_mc.get("methods", {})
+    ).get("methods", {})
 
     seat_threshold = int(_np.ceil(total_seats * government_threshold))
 
@@ -1039,8 +1039,11 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             vote_shares = {name: (0.6 if name == winner else 0.4 / max(n - 1, 1))
                            for name in cand_names}
 
-        seats_alloc = _dhondt(vote_shares, total_seats)
-        coal        = _greedy_coalition(seats_alloc, positions, seat_threshold)
+        # seed + 1, not seed: `seed` builds the electorate, and a lot must not be
+        # the same draw that set the first voter's attributes. The coalition's
+        # own generator, so its lot doesn't shift with how many D'Hondt used.
+        seats_alloc = _dhondt(vote_shares, total_seats, rng=_random.Random(seed + 1))
+        coal        = _greedy_coalition(seats_alloc, positions, seat_threshold, _random.Random(seed + 1))
 
         methods_out.append({
             "method":             method_name,
@@ -1069,9 +1072,10 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "seat_threshold":        seat_threshold,
         "most_centrist_method":  most_centrist_method,
         "most_divergent_method": most_divergent_method,
+        # Each method's own winner (none skipped), not its coalition's anchor:
+        # a winnerless method's tied parliament has its anchor drawn by lot.
         "inter_method_agreement": _inter_method_agreement(
-            {m["method"]: {"winner": m["coalition_parties"][0] if m["coalition_parties"] else ""}
-             for m in methods_out}
+            {m["method"]: {"winner": m["winner"]} for m in methods_out}
         ),
     }, 200
 
@@ -1093,17 +1097,29 @@ def _run_district_fptp(
     ideology_center shifts the entire voter distribution along the x axis
     by displacing economy-related issue positions.  Returns winner (FPTP)
     and raw first-choice vote counts that can be turned into shares.
+
+    Uses a local RNG pair seeded from *seed* (a per-district seed passed by
+    the caller) instead of reseeding the shared random/np.random singletons,
+    so concurrent districts/runs can't perturb each other's output.
     """
-    _random.seed(seed)
-    _np.random.seed(seed)
+    # `seed` is a required `int` here — every caller of this worker derives a
+    # concrete per-district seed. A caller with no seed at all uses
+    # unseeded_rng_pair() instead, not this function.
+    rng, np_rng = _seeded_rng_pair(seed)
 
-    voters = [create_voter(issues, i, ideology_distribution="random") for i in range(num_voters)]
+    voters = [
+        create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
+        for i in range(num_voters)
+    ]
 
-    # Shift every voter's economy position by ideology_center (clamped to [0,1])
-    shift = ideology_center * 0.3          # max shift ≈ 0.3 to keep results legible
+    # Shift every voter's economy position by ideology_center, plus per-voter
+    # noise scaled by ideology_variance (intra-district spread around that
+    # center — same 0.3 scale already used for the center shift itself).
+    base_shift = ideology_center * 0.3     # max shift ≈ 0.3 to keep results legible
     for v in voters:
+        voter_shift = base_shift + np_rng.normal(0, ideology_variance) * 0.3
         old_econ = v["issue_positions"].get("economy", 0.5)
-        v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + shift))
+        v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + voter_shift))
 
     utilities: Dict[Any, Dict[str, float]] = {
         v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
@@ -1125,11 +1141,13 @@ def _run_district_fptp(
     vote_shares = {n: round(first_choice.get(n, 0) / total, 4) for n in cand_names}
     winner = get_plurality_winner(rankings)
 
-    return {"winner": winner, "vote_shares": vote_shares}
+    # `vote_shares` is rounded for display; the raw counts are what an exact
+    # proportional allocation must add up.
+    return {"winner": winner, "vote_shares": vote_shares, "first_choice": first_choice}
 
 
 def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /districts — extracted for FastAPI v2."""
+    """/districts — N districts with locally shifted ideology, FPTP vs proportional."""
     num_districts            = max(5,   min(50,  int(data.get("num_districts",            10))))
     voters_per_district      = max(50,  min(500, int(data.get("voters_per_district",      100))))
     district_ideology_variance = max(0.0, min(1.0, float(data.get("district_ideology_variance", 0.3))))
@@ -1144,8 +1162,6 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     issues = DEFAULT_ISSUES
-    _random.seed(seed)
-    _np.random.seed(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
     candidates = [
@@ -1159,13 +1175,17 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for i, s in enumerate(cand_specs)
     ]
 
-    # Generate district ideology centers: N samples from N(0, variance)
-    _np.random.seed(seed)
-    ideology_centers = _np.random.normal(0.0, district_ideology_variance, num_districts).tolist()
+    # Generate district ideology centers: N samples from N(0, variance).
+    # Local generator seeded from `seed` — each district's own simulation
+    # below (_run_district_fptp) reseeds independently from seed+i+1, so this
+    # never needs to touch the shared np.random singleton.
+    np_rng = _np.random.RandomState(seed)
+    ideology_centers = np_rng.normal(0.0, district_ideology_variance, num_districts).tolist()
 
     # ── Per-district simulation ────────────────────────────────────────────
     district_results: list[Dict[str, Any]] = []
     national_vote_totals: Dict[str, float] = {n: 0.0 for n in cand_names}
+    national_counts: Dict[str, int] = {n: 0 for n in cand_names}
 
     for i, center in enumerate(ideology_centers):
         res = _run_district_fptp(
@@ -1181,6 +1201,7 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         })
         for n in cand_names:
             national_vote_totals[n] += res["vote_shares"].get(n, 0.0)
+            national_counts[n] += res["first_choice"][n]
 
     # ── FPTP parliament: count district wins ───────────────────────────────
     parliament_fptp: Dict[str, int] = {n: 0 for n in cand_names}
@@ -1194,8 +1215,15 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         n: round(national_vote_totals[n] / num_districts, 4) for n in cand_names
     }
 
-    # ── Proportional parliament: D'Hondt on national shares ───────────────
-    parliament_proportional = _dhondt(national_vote_share, num_districts)
+    # ── Proportional parliament: D'Hondt on national first-choice counts ───
+    # Counts, not `national_vote_share`: rounding a share to 4 places both
+    # destroys exact ties (250 vs 50 over 5 seats) and invents ones, and so does
+    # the 4-place rounding of each district's `vote_shares` that the shares are
+    # built from. (`seed`, not `seed + 1`: district i's electorate is seeded
+    # `seed + i + 1`.)
+    parliament_proportional = _dhondt(
+        national_counts, num_districts, rng=_random.Random(seed),
+    )
 
     # ── National Condorcet: quick pairwise from aggregated vote shares ─────
     # Build a representative ranking from national vote shares (sorted desc)
@@ -1225,8 +1253,13 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     ]
     distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
 
-    fptp_winner         = max(parliament_fptp,         key=lambda k: parliament_fptp[k])
-    proportional_winner = max(parliament_proportional, key=lambda k: parliament_proportional[k])
+    # Every party tied on seats, not the first-listed one. The client compares the
+    # two lists to claim "same electorate, different parliament", and a tie on
+    # either side used to make that claim out of two arbitrary picks: at seed 3
+    # with candidates at -0.4 / -0.38, FPTP gave Bob 5-1 while PR tied 3-3 and
+    # reported Alice.
+    fptp_winner         = modal_keys(parliament_fptp)
+    proportional_winner = modal_keys(parliament_proportional)
 
     return {
         "districts":              district_results,
@@ -1247,8 +1280,7 @@ def _build_primary_candidate(
     i: int, name: str, ideology_pos: float, issues: list[str]
 ) -> Dict[str, Any]:
     """Build a candidate dict from a 1-D ideology position in [-1, 1]."""
-    x = float(ideology_pos)
-    return _build_candidate_from_xy(i, name, x, 0.0, issues)
+    return _build_candidate_from_xy(i, name, ideology_pos, 0.0, issues)
 
 
 def _run_primary(
@@ -1256,6 +1288,7 @@ def _run_primary(
     party_voters: list[Dict[str, Any]],
     utilities: Dict[Any, Dict[str, float]],
     method: str,
+    lots: "_np.random.Generator",
 ) -> Dict[str, Any]:
     """
     Run a single party primary among party_voters.
@@ -1277,16 +1310,20 @@ def _run_primary(
     total = len(party_voters) or 1
     vote_shares = {n: round(first.get(n, 0) / total, 4) for n in cand_names}
 
-    if method == "irv":
-        winner = get_irv_winner(rankings)
-    elif method == "approval":
-        uid_utilities = {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
-                         for v in party_voters}
-        winner = get_approval_winner_sincere(uid_utilities)
-    else:  # plurality (default)
-        winner = get_plurality_winner(rankings)
+    winner = winner_from_utilities(
+        method,
+        {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
+         for v in party_voters},
+        party_voters,
+    )
 
-    winner = winner or (cand_names[0] if cand_names else "")
+    # A party must field a nominee even when its rule elects nobody (an IRV
+    # dead tie). The nominee used to be the first-listed candidate; it is now
+    # drawn by lot among those tied for the most first preferences, sorted so
+    # listing order doesn't matter.
+    if not winner:
+        top = max(vote_shares.values())
+        winner = str(lots.choice(sorted(n for n in cand_names if vote_shares[n] == top)))
 
     sorted_by_share = sorted(cand_names, key=lambda n: -vote_shares.get(n, 0))
     runner_up = next((n for n in sorted_by_share if n != winner), None)
@@ -1294,14 +1331,20 @@ def _run_primary(
     return {"winner": winner, "runner_up": runner_up, "vote_shares": vote_shares}
 
 
+#: The rules /primary's three elections (primaries, general, no-primaries) run.
+PRIMARY_METHODS = ("plurality", "irv", "approval")
+
+
 def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /primary — extracted for FastAPI v2."""
+    """/primary — Internal primaries + general election."""
     parties_raw        = data.get("parties", [])
     general_num_voters = max(50, min(2000, int(data.get("general_num_voters", 500))))
     general_ideology   = str(data.get("general_ideology", "random"))
     primary_method     = str(data.get("primary_method", "plurality"))
     general_method     = str(data.get("general_method",  "plurality"))
     seed               = int(data.get("seed", 42))
+    if err := _reject_unknown_methods([primary_method, general_method], PRIMARY_METHODS):
+        return err
 
     if len(parties_raw) < 2:
         return {"error": "At least 2 parties required"}, 400
@@ -1310,8 +1353,6 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if len(p.get("primary_candidates", [])) < 2:
             return {"error": f"Party '{p.get('name')}' needs at least 2 primary candidates"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
     issues = DEFAULT_ISSUES
 
     # ── Build all primary candidates (flat list, per party) ───────────────
@@ -1343,11 +1384,10 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         })
         cand_offset += len(prim_specs)
 
-    # ── Build the general electorate ──────────────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
+    # ── Build the general electorate (local RNG pair) ───────────────────────
+    rng, np_rng = _seeded_rng_pair(seed)
     general_voters = [
-        create_voter(issues, i, ideology_distribution=general_ideology)
+        create_voter(issues, i, ideology_distribution=general_ideology, rng=rng, np_rng=np_rng)
         for i in range(general_num_voters)
     ]
 
@@ -1364,6 +1404,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     primaries_out: list[Dict[str, Any]] = []
     general_ballot_cands: list[Dict[str, Any]] = []
 
+    lots = _np.random.default_rng(seed)   # tied primaries only
     for pm in party_meta:
         pcenter = pm["center"]
 
@@ -1378,7 +1419,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         n_primary = max(2, int(len(general_voters) * pm["voters_pct"]))
         party_voters = sorted_voters[:n_primary]
 
-        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method)
+        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method, lots)
         winner_name = prim_result["winner"]
 
         # Find winner candidate object
@@ -1423,25 +1464,24 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in general_ballot_cands
     }
 
-    if general_method == "irv":
-        general_winner_name = get_irv_winner(gen_rankings)
-    elif general_method == "approval":
-        general_winner_name = get_approval_winner_sincere(gen_utils)
-    else:
-        general_winner_name = get_plurality_winner(gen_rankings)
-    general_winner_name = general_winner_name or general_ballot_cands[0]["name"]
+    # None on an exact tie. It used to become the first candidate on the
+    # ballot, who then also got a runner-up and a median-voter distance.
+    general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters)
 
     sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
-    general_runner_up = next((c["name"] for c in sorted_gen if c["name"] != general_winner_name), None)
+    general_runner_up = next(
+        (c["name"] for c in sorted_gen if c["name"] != general_winner_name), None,
+    ) if general_winner_name else None
 
     # ── Median voter distance ─────────────────────────────────────────────
     winner_cand_obj = next(
-        (c for c in general_ballot_cands if c["name"] == general_winner_name),
-        general_ballot_cands[0],
+        (c for c in general_ballot_cands if c["name"] == general_winner_name), None,
     )
-    winner_econ = winner_cand_obj["ideology_position"]
     median_econ = float(_np.median([v["issue_positions"].get("economy", 0.5) for v in general_voters]))
-    median_voter_distance = round(abs(winner_econ - median_econ), 4)
+    median_voter_distance = (
+        round(abs(winner_cand_obj["ideology_position"] - median_econ), 4)
+        if winner_cand_obj else None
+    )
 
     # ── Without-primaries: party centres run directly ─────────────────────
     center_cands = [
@@ -1459,12 +1499,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             sorted(center_utils[uid].keys(), key=lambda n: -center_utils[uid][n])
         )
 
-    if general_method == "irv":
-        no_primary_winner = get_irv_winner(center_rankings)
-    elif general_method == "approval":
-        no_primary_winner = get_approval_winner_sincere(center_utils)
-    else:
-        no_primary_winner = get_plurality_winner(center_rankings)
+    no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters)
 
     # Map back from "PartyNameCentre" → party name
     if no_primary_winner:

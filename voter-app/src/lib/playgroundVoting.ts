@@ -42,25 +42,22 @@ export type Rule =
   | 'nanson'
   | 'baldwin'
   | 'ranked_pairs'
+  | 'kemeny'
+  | 'black'
+  | 'anti_plurality'
+  | 'dowdall'
+  | 'raynaud'
+  | 'benham'
+  | 'river'
+  | 'smith_irv'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
   | 'score'
-  // ── Tier B: "explained, not compared" — client-only extras. Available in the
-  // method gallery + replay animation, but excluded from the comparison surfaces
-  // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
-  | 'anti_plurality'
-  | 'dowdall'
-  | 'black'
-  | 'smith_irv'
-  | 'split_cycle'
-  | 'kemeny'
   | 'cumulative'
   | 'maximin'
-  | 'benham'
-  | 'river'
   | 'nash'
-  | 'raynaud';
+  | 'split_cycle';
 
 export const RULE_LABELS: Record<Rule, string> = {
   plurality: 'Pluralité (1 tour)',
@@ -105,7 +102,8 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
   'nash',
 ]);
 
-const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+export const dist = (a: Pt, b: Pt): number =>
+  Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
 // Voter utility for a candidate: closer is better, lifted by the candidate's
 // valence. Higher utility = preferred. Valence defaults to 0 (positional model).
@@ -122,7 +120,7 @@ export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
 
 const rankings = computeRanks;
 
-function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
+export function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
   const counts = new Array(m).fill(0);
   for (const r of ranks) {
     const top = r.find((i) => alive[i]);
@@ -131,7 +129,7 @@ function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number
   return counts;
 }
 
-function argmax(arr: number[]): number {
+export function argmax(arr: number[]): number {
   let best = 0;
   for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
   return best;
@@ -165,11 +163,16 @@ function winTwoRound(ranks: number[][], m: number): number {
       }
     }
   }
-  return av >= bv ? a : b;
+  // A second-round tie breaks alphabetically (lowest index), not by who led
+  // round one -- matches get_two_round_winner exactly (Lot 4.3,
+  // PLAN_SOLIDITE_TECHNIQUE.md: `av >= bv ? a : b` used to silently favour
+  // the round-one leader on a genuine tie).
+  if (av !== bv) return av > bv ? a : b;
+  return Math.min(a, b);
 }
 
 function winIRV(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const counts = pluralityCounts(ranks, alive, m);
@@ -222,7 +225,7 @@ function winApproval(scores: number[][], m: number): number {
 }
 
 /** Pairwise tally: beats[i][j] = number of voters ranking i above j. */
-function pairwise(ranks: number[][], m: number): number[][] {
+export function pairwise(ranks: number[][], m: number): number[][] {
   const beats = Array.from({ length: m }, () => new Array(m).fill(0));
   for (const r of ranks) {
     const pos = new Array(m).fill(0);
@@ -239,21 +242,38 @@ function pairwise(ranks: number[][], m: number): number[][] {
   return beats;
 }
 
+/**
+ * Copeland: pairwise wins − losses; ties broken by total wins (descending),
+ * then alphabetically (candidate index order) -- matches the backend's
+ * get_copeland_winner exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md: an
+ * exhaustive small-profile comparison found this rule's tie-break used to
+ * be Borda here but total-wins-then-alpha on the backend, a real, frequent
+ * divergence on tied profiles).
+ */
 function winCondorcet(ranks: number[][], m: number): number {
-  // Copeland: pairwise wins − losses; ties broken by Borda.
   const beats = pairwise(ranks, m);
   const copeland = new Array(m).fill(0);
+  const totalWins = new Array(m).fill(0);
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < m; j++) {
       if (i === j) continue;
-      if (beats[i][j] > beats[j][i]) copeland[i] += 1;
-      else if (beats[i][j] < beats[j][i]) copeland[i] -= 1;
+      if (beats[i][j] > beats[j][i]) {
+        copeland[i] += 1;
+        totalWins[i] += 1;
+      } else if (beats[i][j] < beats[j][i]) {
+        copeland[i] -= 1;
+      }
     }
   }
-  const best = Math.max(...copeland);
-  const tied = copeland.map((c, i) => (c === best ? i : -1)).filter((i) => i >= 0);
-  if (tied.length === 1) return tied[0];
-  return winBorda(ranks, m); // tie-break
+  let best = 0;
+  for (let i = 1; i < m; i++) {
+    if (
+      copeland[i] > copeland[best] ||
+      (copeland[i] === copeland[best] && totalWins[i] > totalWins[best])
+    )
+      best = i;
+  }
+  return best;
 }
 
 /** Minimax (margins): elect the candidate whose worst pairwise defeat is least. */
@@ -314,11 +334,11 @@ function winBucklin(ranks: number[][], m: number): number {
 
 /** Coombs: IRV but eliminate the candidate with the most LAST-place votes. */
 function winCoombs(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
-    const first = new Array(m).fill(0);
-    const last = new Array(m).fill(0);
+    const first: number[] = new Array(m).fill(0);
+    const last: number[] = new Array(m).fill(0);
     for (const r of ranks) {
       const top = r.find((i) => alive[i]);
       if (top !== undefined) first[top] += 1;
@@ -347,7 +367,7 @@ function winCoombs(ranks: number[][], m: number): number {
 }
 
 /** Borda scores counting only candidates still alive. */
-function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
+export function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
   const k = alive.filter(Boolean).length;
   const score = new Array(m).fill(0);
   for (const r of ranks) {
@@ -363,7 +383,7 @@ function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
 
 /** Nanson: iteratively eliminate every candidate with below-average Borda. */
 function winNanson(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
@@ -380,17 +400,31 @@ function winNanson(ranks: number[][], m: number): number {
   return alive.findIndex((a) => a);
 }
 
-/** Baldwin: iteratively eliminate the single lowest-Borda candidate. */
+/**
+ * Baldwin: iteratively eliminate EVERY candidate tied for the lowest Borda
+ * score (not just one) -- matches get_irv_winner/get_nanson_winner/
+ * get_smith_irv_winner's convention of eliminating all round-ties at once.
+ * Eliminating a single tied-lowest candidate was a bug: two different
+ * candidates tied for lowest should leave together, since keeping one
+ * around changes the Borda scores the next round recomputes with, which
+ * can change the eventual winner (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md,
+ * caught cross-checking the backend twin of this function against the
+ * independent `pref_voting` library).
+ */
 function winBaldwin(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
-    let worst = -1;
-    for (let i = 0; i < m; i++)
-      if (alive[i] && (worst === -1 || score[i] < score[worst])) worst = i;
-    alive[worst] = false;
-    remaining -= 1;
+    let min = Infinity;
+    for (let i = 0; i < m; i++) if (alive[i] && score[i] < min) min = score[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && score[i] === min) doomed.push(i);
+    if (doomed.length >= remaining) break;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   }
   return alive.findIndex((a) => a);
 }
@@ -446,7 +480,7 @@ function winRankedPairs(ranks: number[][], m: number): number {
 
 /** STAR: score, then an automatic runoff between the two highest totals. */
 function winStar(scores: number[][], m: number): number {
-  const total = new Array(m).fill(0);
+  const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
   const order = total.map((_, i) => i).sort((a, b) => total[b] - total[a]);
   const [a, b] = [order[0], order[1]];
@@ -480,12 +514,10 @@ function winMajorityJudgment(scores: number[][], m: number): number {
 
 /** Score / evaluative: highest summed cardinal score. */
 function winScore(scores: number[][], m: number): number {
-  const total = new Array(m).fill(0);
+  const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
   return argmax(total);
 }
-
-// ── Tier B rules (client-only) ────────────────────────────────────────────────
 
 /** Anti-plurality (veto): elect whoever is ranked LAST the fewest times. */
 function winAntiPlurality(ranks: number[][], m: number): number {
@@ -498,8 +530,21 @@ function winAntiPlurality(ranks: number[][], m: number): number {
 
 /** Dowdall (Nauru): harmonic positional weights — rank k scores 1/(k+1). */
 function winDowdall(ranks: number[][], m: number): number {
+  // Dowdall gives 1/(rank+1) per ballot. Summed as floats that is not
+  // associative, so two candidates who tie EXACTLY can end up ~1e-16 apart
+  // depending on the order the ballots were counted — and argmax then picks a
+  // winner by ballot order. Scale every share by lcm(1..m) so the whole sum is
+  // integer and exact, which keeps genuine ties genuinely tied and leaves
+  // argmax's lowest-index convention to settle them.
+  let lcm = 1;
+  for (let k = 2; k <= m; k++) {
+    let a = lcm;
+    let b = k;
+    while (b) [a, b] = [b, a % b];
+    lcm = (lcm / a) * k;
+  }
   const s = new Array(m).fill(0);
-  for (const r of ranks) r.forEach((c, rank) => (s[c] += 1 / (rank + 1)));
+  for (const r of ranks) r.forEach((c, rank) => (s[c] += lcm / (rank + 1)));
   return argmax(s);
 }
 
@@ -529,10 +574,19 @@ function winBlack(ranks: number[][], m: number): number {
 }
 
 /**
- * The Smith set (GETCHA): the smallest non-empty set of candidates that each
- * beat-or-tie everyone outside it. Restrict to `alive` to compute it on a
- * subprofile. Pairwise margins are ballot-fixed, so the same tally serves any
- * subset. Returns member indices ascending. Exported for the replay animation.
+ * The Smith set (GETCHA): the smallest non-empty set S of candidates such
+ * that every member of S strictly beats every member outside S. Restrict to
+ * `alive` to compute it on a subprofile. Pairwise margins are ballot-fixed,
+ * so the same tally serves any subset. Returns member indices ascending.
+ * Exported for the replay animation.
+ *
+ * Requiring a strict beat (not beat-or-tie) matters: a candidate that only
+ * TIES everyone outside a smaller set does not make that smaller set
+ * dominant on its own -- checking merely "no outsider beats this set" (the
+ * previous, buggy version) passes vacuously on ties and can return a Smith
+ * set that's too small. Cross-checked against the independent `pref_voting`
+ * Python library's `smith_set` (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md), which
+ * caught this on the backend twin of this function.
  */
 export function smithSet(ranks: number[][], m: number, alive?: boolean[]): number[] {
   const live = alive ?? new Array(m).fill(true);
@@ -553,45 +607,49 @@ export function smithSet(ranks: number[][], m: number, alive?: boolean[]): numbe
   // Grow the smallest Copeland-ordered prefix until it dominates everyone below.
   const order = [...members].sort((x, y) => copeland.get(y)! - copeland.get(x)!);
   for (let k = 1; k <= order.length; k++) {
-    const S = new Set(order.slice(0, k));
-    let dominant = true;
-    for (const i of S) {
-      for (const j of members)
-        if (!S.has(j) && b[j][i] > b[i][j]) {
-          dominant = false;
-          break;
-        }
-      if (!dominant) break;
-    }
-    if (dominant) return order.slice(0, k).sort((a, c) => a - c);
+    const S = order.slice(0, k);
+    const outside = members.filter((j) => !S.includes(j));
+    const dominant = S.every((i) => outside.every((j) => b[i][j] > b[j][i]));
+    if (dominant) return [...S].sort((a, c) => a - c);
   }
   return members;
 }
 
 /**
- * Smith-IRV (Tideman's Alternative): restrict to the Smith set, eliminate the
- * plurality loser, repeat. Condorcet-consistent and clone-independent.
+ * Smith-IRV (Tideman's Alternative): restrict to the Smith set ONCE, then run
+ * ordinary IRV (eliminate the candidate(s) tied for fewest first-preferences,
+ * and repeat) within that fixed set. Condorcet-consistent and clone-independent.
+ *
+ * The Smith set must be computed once from the full field, not recomputed
+ * after each elimination round -- recomputing it against a shrinking
+ * candidate set is a different (non-standard) procedure and was this
+ * function's original bug, caught cross-checking the backend twin of this
+ * function against the independent `pref_voting` library (Lot 4.2,
+ * PLAN_SOLIDITE_TECHNIQUE.md).
  */
 function winSmithIRV(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
+  const S = smithSet(ranks, m);
+  if (S.length === 1) return S[0];
+  const inS = new Set(S);
+  for (let i = 0; i < m; i++)
+    if (!inS.has(i)) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   while (remaining > 1) {
-    const S = smithSet(ranks, m, alive);
-    if (S.length === 1) return S[0];
-    const inS = new Set(S);
-    for (let i = 0; i < m; i++)
-      if (alive[i] && !inS.has(i)) {
-        alive[i] = false;
-        remaining -= 1;
-      }
-    if (remaining === 1) return alive.findIndex((a) => a);
     // IRV step: eliminate ALL alive candidates tied for the fewest first-prefs.
     const fp = pluralityCounts(ranks, alive, m);
     let min = Infinity;
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    if (doomed.length >= remaining) return -1;
+    // A total tie (everyone left is tied for fewest) falls back to the
+    // alphabetically-first survivor, matching get_smith_irv_winner's
+    // documented tie-break -- not "no winner" (Lot 4.3,
+    // PLAN_SOLIDITE_TECHNIQUE.md).
+    if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;
@@ -637,35 +695,64 @@ function winSplitCycle(ranks: number[][], m: number): number {
 }
 
 /**
+ * Exact Kemeny is a DP over candidate subsets, so the cap is what the DP can
+ * afford rather than what m! could: 10 covers every field the backend's request
+ * schemas admit (8 candidates, plus one spliced blank). Must stay equal to
+ * `_KY_EXACT_CAP` in simulation_ranked_utils.py — above the cap the two engines
+ * deliberately differ (Borda here, KwikSort there), so a one-sided change
+ * reintroduces a silent cross-engine disagreement. The parity fixture carries
+ * the backend's value and the parity test asserts this matches it.
+ */
+export const KEMENY_EXACT_CAP = 10;
+
+/** Ballots ranking `i` above every candidate still left in `rest`. */
+function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
+  let gain = 0;
+  for (let j = 0; j < m; j++) if ((rest >> j) & 1) gain += b[i][j];
+  return gain;
+}
+
+/**
  * Kemeny-Young: the consensus ranking that most agrees with every ballot (fewest
- * pairwise disagreements). Brute-forces the m! orderings — fine for a handful of
- * candidates; falls back to Borda beyond 8 to avoid factorial blow-up.
+ * pairwise disagreements).
+ *
+ * Exact by DP over candidate subsets, mirroring the backend's
+ * `_kemeny_exact_winner`: `f(S)` is the best score achievable ranking exactly
+ * the candidates in `S`, choosing which of them goes FIRST. O(2^m · m²) against
+ * the m! this used to enumerate.
+ *
+ * This replaced a brute force that ran to m = 8 and fell back to Borda above.
+ * It was exact, but the backend approximated (KwikSort) above 6 candidates, so
+ * the two engines answered 7- and 8-candidate fields — both inside every request
+ * schema's limit, and reachable from the France 2002 preset's 8 candidates —
+ * with different algorithms, disagreeing on about a quarter of profiles. The
+ * parity fixture could not see it: its scenarios stopped at 5 candidates.
+ *
+ * Ties follow the convention on `ruleWinnerFromRanks`: improving only on a
+ * strict `>` while `i` ascends returns the index-smallest optimal ordering,
+ * where the backend returns the name-smallest.
  */
 function winKemeny(ranks: number[][], m: number): number {
-  if (m > 8) return winBorda(ranks, m);
+  if (m < 1) return -1;
+  if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m);
   const b = pairwise(ranks, m);
-  let bestFirst = 0;
-  let bestScore = -Infinity;
-  const perm = Array.from({ length: m }, (_, i) => i);
-  const permute = (k: number): void => {
-    if (k === m) {
-      // Kemeny score of this ordering = agreements over all ordered pairs.
-      let score = 0;
-      for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) score += b[perm[i]][perm[j]];
-      if (score > bestScore) {
-        bestScore = score;
-        bestFirst = perm[0];
+  const full = (1 << m) - 1;
+  const score = new Int32Array(full + 1); // score[0] = 0: the empty set
+  let lead = -1;
+  for (let mask = 1; mask <= full; mask++) {
+    let bestScore = -1;
+    for (let i = 0; i < m; i++) {
+      if (!((mask >> i) & 1)) continue;
+      const rest = mask ^ (1 << i); // always < mask, so already solved
+      const total = score[rest] + kemenyGain(b, i, rest, m);
+      if (total > bestScore) {
+        bestScore = total;
+        if (mask === full) lead = i; // only the full set names the winner
       }
-      return;
     }
-    for (let i = k; i < m; i++) {
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-      permute(k + 1);
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-    }
-  };
-  permute(0);
-  return bestFirst;
+    score[mask] = bestScore;
+  }
+  return lead;
 }
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion
@@ -693,7 +780,7 @@ function winMaximin(scores: number[][], m: number): number {
  * method with IRV's clone-resistance.
  */
 function winBenham(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const cw = condorcetWinnerIdx(ranks, m, alive);
@@ -703,7 +790,10 @@ function winBenham(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    if (doomed.length >= remaining) return -1;
+    // A total tie (everyone left is tied for fewest) falls back to the
+    // alphabetically-first survivor, matching get_benham_winner's documented
+    // tie-break -- not "no winner" (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;
@@ -730,7 +820,7 @@ function winRiver(ranks: number[][], m: number): number {
   majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
 
   const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
-  const inLock = new Array(m).fill(false); // does l already have an incoming lock?
+  const inLock: boolean[] = new Array(m).fill(false); // does l already have an incoming lock?
   const reaches = (src: number, dst: number): boolean => {
     const stack = [src];
     const seen = new Array(m).fill(false);
@@ -764,34 +854,77 @@ function winNash(scores: number[][], m: number): number {
   return argmax(acc);
 }
 
-/** Raynaud: repeatedly eliminate the candidate on the losing end of the single
- *  largest pairwise defeat, until one remains. Condorcet-consistent. */
+/**
+ * Raynaud's worst-loss score per active candidate: the biggest margin by
+ * which any single opponent beats them (-1 if undefeated among `alive`).
+ * Shared between winRaynaud and its replay trace (voteTrace.ts) so the two
+ * can never drift apart.
+ */
+export function raynaudWorstLoss(b: number[][], alive: boolean[], m: number): number[] {
+  const worstLoss = new Array(m).fill(-1);
+  for (let c = 0; c < m; c++) {
+    if (!alive[c]) continue;
+    let worst = -1;
+    for (let o = 0; o < m; o++) {
+      if (o === c || !alive[o]) continue;
+      const margin = b[o][c] - b[c][o];
+      if (margin > 0 && margin > worst) worst = margin;
+    }
+    worstLoss[c] = worst;
+  }
+  return worstLoss;
+}
+
+/**
+ * Raynaud: each round, compute every active candidate's WORST pairwise loss
+ * (the biggest margin by which any single opponent beats them; undefeated
+ * candidates have none), then eliminate every candidate whose worst loss
+ * ties for biggest across the whole active set -- not just the loser of the
+ * single largest-margin pair. Repeat until one remains. Condorcet-consistent.
+ *
+ * Eliminating only one candidate per round was a bug: two different
+ * candidates can each be someone else's worst-loss victim by the same
+ * margin, via different opponents, and should leave together (Lot 4.2,
+ * PLAN_SOLIDITE_TECHNIQUE.md, caught cross-checking the backend twin of
+ * this function against the independent `pref_voting` library).
+ */
 function winRaynaud(ranks: number[][], m: number): number {
   const b = pairwise(ranks, m);
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
-    let worstMargin = -Infinity;
-    let loser = -1;
+    const worstLoss = raynaudWorstLoss(b, alive, m);
+    let maxWorstLoss = -1;
     for (let i = 0; i < m; i++)
-      for (let j = 0; j < m; j++)
-        if (i !== j && alive[i] && alive[j] && b[i][j] - b[j][i] > worstMargin) {
-          worstMargin = b[i][j] - b[j][i];
-          loser = j;
-        }
-    if (loser < 0) break;
-    alive[loser] = false;
-    remaining -= 1;
+      if (alive[i] && worstLoss[i] > maxWorstLoss) maxWorstLoss = worstLoss[i];
+    if (maxWorstLoss < 0) break;
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && worstLoss[i] === maxWorstLoss) doomed.push(i);
+    if (doomed.length >= remaining) break;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   }
   return alive.findIndex((a) => a);
 }
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Winning candidate INDEX under the given rule from pre-computed ballots —
  * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
  * manipulation probe). `scores` is required for 'approval' (cardinal rule).
+ *
+ * Ties, for the ordinal rules: each runs the same procedure as its backend twin,
+ * keyed on candidate INDEX where the backend keys on candidate NAME (Python
+ * code-point order, not a locale sort). The two therefore agree on a tied
+ * profile whenever index order and name order coincide on the candidates
+ * involved — always, for an array sorted that way, which every parity scenario
+ * is. With an authored array they can name different, equally valid winners:
+ * on B>A, A>B with ['B', 'A'], the 19 ordinal rules that have a deterministic
+ * backend twin and return a winner all answer B here and A there. The key can
+ * act at an intermediate step (two_round's runoff pair, ranked_pairs' and
+ * river's lock order), so the tied winner is not always the lowest index. The
+ * exhaustive parity block pins this, ties included, at up to 3 candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],
@@ -810,7 +943,6 @@ export function ruleWinnerFromRanks(
       return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
     case 'score':
       return scores ? winScore(scores, m) : winPlurality(ranks, m);
-    // Ordinal rules.
     case 'plurality':
       return winPlurality(ranks, m);
     case 'two_round':
@@ -840,31 +972,30 @@ export function ruleWinnerFromRanks(
     // (i.e. the plurality winner). The full distribution drives the probability lens.
     case 'random_ballot':
       return winPlurality(ranks, m);
-    // Tier B extras (client-only; no backend parity).
+    case 'black':
+      return winBlack(ranks, m);
     case 'anti_plurality':
       return winAntiPlurality(ranks, m);
     case 'dowdall':
       return winDowdall(ranks, m);
-    case 'black':
-      return winBlack(ranks, m);
-    case 'smith_irv':
-      return winSmithIRV(ranks, m);
-    case 'split_cycle':
-      return winSplitCycle(ranks, m);
     case 'kemeny':
       return winKemeny(ranks, m);
-    case 'cumulative':
-      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
-    case 'maximin':
-      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
+    case 'raynaud':
+      return winRaynaud(ranks, m);
     case 'benham':
       return winBenham(ranks, m);
     case 'river':
       return winRiver(ranks, m);
+    case 'smith_irv':
+      return winSmithIRV(ranks, m);
+    case 'cumulative':
+      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
+    case 'maximin':
+      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
     case 'nash':
       return scores ? winNash(scores, m) : winPlurality(ranks, m);
-    case 'raynaud':
-      return winRaynaud(ranks, m);
+    case 'split_cycle':
+      return winSplitCycle(ranks, m);
     default:
       return winPlurality(ranks, m);
   }
@@ -975,7 +1106,7 @@ export function randomBallotProbGrid(
  */
 export function randomBallotShares(voters: Pt[], cands: NamedPt[]): number[] {
   const m = cands.length;
-  const counts = new Array(m).fill(0);
+  const counts: number[] = new Array(m).fill(0);
   if (m === 0) return counts;
   for (const v of voters) {
     let best = -1;
@@ -1035,9 +1166,44 @@ export function applyTurnout(
   return { voters: votes, rate: votes.length / voters.length };
 }
 
+// ── Blank vote (leader mode only) ────────────────────────────────────────────
+//
+// Distinct from turnout: a blank voter still shows up (counts toward the
+// electorate's headcount) but rejects every candidate outright, so their
+// ballot carries no preference at all. Modelled the same way as alienation
+// turnout — beyond a shrinking radius of every candidate — the same Downsian
+// trigger with a different behavioural response (spoil the ballot rather than
+// stay home). `intensity` ∈ [0,1] dials how readily voters reach for blank.
+
+export interface BlankSplit {
+  /** Voters whose ballot counts toward a candidate. */
+  expressed: Pt[];
+  blankCount: number;
+  /** Blank share of ALL participating voters (expressed + blank). */
+  blankShare: number;
+}
+
+export function applyBlankVote(
+  voters: Pt[],
+  cands: NamedPt[],
+  enabled: boolean,
+  intensity: number
+): BlankSplit {
+  if (!enabled || intensity <= 0 || cands.length === 0 || !voters.length) {
+    return { expressed: voters, blankCount: 0, blankShare: 0 };
+  }
+  const k = Math.max(0, Math.min(1, intensity));
+  const radius = (1 - k) * 1.5 + 0.2;
+  const expressed = voters.filter((v) => Math.min(...cands.map((c) => dist(v, c))) <= radius);
+  const blankCount = voters.length - expressed.length;
+  // Keep the demo sane: never blank out the whole electorate.
+  if (expressed.length < 2) return { expressed: voters, blankCount: 0, blankShare: 0 };
+  return { expressed, blankCount, blankShare: blankCount / voters.length };
+}
+
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0;
@@ -1049,7 +1215,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** Standard normal via Box–Muller from a uniform PRNG. */
-function gauss(rng: () => number, mu: number, sigma: number): number {
+export function gauss(rng: () => number, mu: number, sigma: number): number {
   const u = Math.max(rng(), 1e-9);
   const v = rng();
   return mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);

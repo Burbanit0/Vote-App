@@ -1,10 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from './PlaygroundController';
-import { Field, selectCls, AnchorFallback } from './playgroundFields';
-import Collapsible from './Collapsible';
-
-const BlankVoteDivergencePanel = React.lazy(() => import('../shared/BlankVoteDivergencePanel'));
+import { useStoreCtx, useScorecardCtx } from './PlaygroundController';
+import { Field, selectCls } from './playgroundFields';
 
 const BALLOT_TYPES = [
   'full',
@@ -19,7 +16,8 @@ const BALLOT_TYPES = [
 
 const BallotConfigPanel: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { config, playground, setPlaygroundDeep, result } = usePlaygroundCtx();
+  const { config, playground, setPlaygroundDeep } = useStoreCtx();
+  const { result } = useScorecardCtx();
 
   return (
     <div className="flex flex-col gap-3">
@@ -127,15 +125,6 @@ const BallotConfigPanel: React.FC = () => {
           {t('method.incompatible', { count: result.incompatible_methods.length })}
         </p>
       )}
-      <Collapsible
-        title={t('method.blankAnchorTitle')}
-        subtitle={t('method.blankAnchorSub')}
-        testid="anchor-blank"
-      >
-        <React.Suspense fallback={<AnchorFallback />}>
-          <BlankVoteDivergencePanel />
-        </React.Suspense>
-      </Collapsible>
     </div>
   );
 };

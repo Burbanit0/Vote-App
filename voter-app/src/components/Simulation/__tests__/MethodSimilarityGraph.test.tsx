@@ -45,8 +45,15 @@ describe('flatToMatrix', () => {
   it('converts flat keys to nested matrix', () => {
     const flat = { 'plurality|borda': 0.8, 'borda|irv': 0.65 };
     const mat = flatToMatrix(flat);
+    // flatToMatrix does a pure key-split-and-copy (no arithmetic on the
+    // values at all -- see its implementation), so the output is the exact
+    // same float value/reference that went in; toBeCloseTo would accept a
+    // spurious near-match that a passthrough should never produce.
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['plurality']['borda']).toBe(0.8);
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['borda']['plurality']).toBe(0.8);
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['borda']['irv']).toBe(0.65);
   });
 
@@ -58,8 +65,8 @@ describe('flatToMatrix', () => {
 describe('partialResultsToMatrix', () => {
   it('computes agreement as overlap of winner distributions', () => {
     const pr = {
-      plurality: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: 'Alice' },
-      borda: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: 'Alice' },
+      plurality: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: ['Alice'] },
+      borda: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: ['Alice'] },
     };
     const mat = partialResultsToMatrix(pr);
     expect(mat['plurality']['borda']).toBeCloseTo(1.0, 1); // identical distributions
@@ -68,8 +75,8 @@ describe('partialResultsToMatrix', () => {
 
   it('gives 0 when distributions are disjoint', () => {
     const pr = {
-      plurality: { winner_distribution: { Alice: 1.0 }, most_common_winner: 'Alice' },
-      borda: { winner_distribution: { Bob: 1.0 }, most_common_winner: 'Bob' },
+      plurality: { winner_distribution: { Alice: 1.0 }, most_common_winner: ['Alice'] },
+      borda: { winner_distribution: { Bob: 1.0 }, most_common_winner: ['Bob'] },
     };
     const mat = partialResultsToMatrix(pr);
     expect(mat['plurality']['borda']).toBe(0);
@@ -137,5 +144,46 @@ describe('MethodSimilarityGraph', () => {
     expect(circle).not.toBeNull();
     fireEvent.pointerEnter(circle as Element);
     expect(container.querySelector('[data-testid="hover-tooltip"]')).toBeInTheDocument();
+  });
+
+  it('dragging a node sets the grabbing cursor and clears it on release', () => {
+    // The drag handlers mutate the D3 simulation's node objects directly
+    // (fx/fy) via simRef.current.nodes().find(...) — jsdom never runs a real
+    // animation frame (requestAnimationFrame is stubbed above), so the only
+    // observable, non-internal effect is the ref-driven cursor style that
+    // the SVG recomputes on every re-render.
+    const { container } = renderGraph();
+    const svg = screen.getByTestId('similarity-graph');
+    svg.getBoundingClientRect = () =>
+      ({
+        width: 500,
+        height: 400,
+        top: 0,
+        left: 0,
+        right: 500,
+        bottom: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      }) as DOMRect;
+
+    const dragged = container.querySelector(
+      '[data-testid="graph-node"] circle'
+    ) as SVGCircleElement & {
+      setPointerCapture?: (id: number) => void;
+    };
+    dragged.setPointerCapture = vi.fn();
+
+    expect(svg.style.cursor).toBe('default');
+
+    fireEvent.pointerDown(dragged, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 60, clientY: 40 });
+    // Force a re-render (hover is unrelated state) to observe the drag ref.
+    fireEvent.pointerEnter(dragged);
+    expect(svg.style.cursor).toBe('grabbing');
+
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+    fireEvent.pointerLeave(dragged);
+    expect(svg.style.cursor).toBe('default');
   });
 });

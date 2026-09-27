@@ -2,11 +2,9 @@
 api.domain.theory — pure theory compute, no Flask, no FastAPI, no DB.
 
 All functions accept a `data: dict` and return `(body, http_status)`.
-Re-exports the pure workers extracted from `app.routes.theory` so the
-FastAPI side can import them without touching the Flask blueprint.
-
-When Phase 4 retires Flask, these aliases will be replaced with the
-canonical implementations moved here for real.
+The worker implementations live in the sibling `workers.py` module; this
+`__init__.py` re-exports them under the `api.domain.theory` namespace and
+wraps each one in a small typed function for the FastAPI routes to call.
 """
 from typing import Any
 
@@ -24,7 +22,6 @@ from api.domain.theory.workers import (
     _judgment_aggregation_worker,
     _majority_tyranny_worker,
     _manipulation_analysis_worker,
-    _plott_chaos_worker,
     _sen_paradox_worker,
 )
 
@@ -37,11 +34,6 @@ def arrow(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
 def iia_rate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Empirical IIA violation rate vs number of candidates."""
     return _iia_rate_worker(data)
-
-
-def plott_chaos(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Plott's Chaos Theorem in 2-D policy space."""
-    return _plott_chaos_worker(data)
 
 
 def judgment_aggregation(data: dict[str, Any]) -> tuple[dict[str, Any], int]:

@@ -1,0 +1,490 @@
+# polity_config.yaml — source unique de vérité des paramètres de simulation
+#
+# Principe : aucune constante institutionnelle en dur dans le code.
+# Tout ce qui définit "les règles du jeu" se déclare ici, pour pouvoir
+# comparer deux configurations constitutionnelles à graine identique.
+#
+# Les paramètres marqués [v0] sont actifs dès le premier palier ;
+# les [v1]..[v8] sont ignorés tant que le palier correspondant n'est pas
+# atteint (cf. §13 de polity-simulation-design-v2.md).
+#
+# Version du plan de référence : révision 2c.
+
+# =============================================================================
+# RUN — cadre temporel et déterminisme
+# =============================================================================
+run:
+  seed: 42                    # [v0] graine unique de tout le run
+  ticks_per_year: 4           # [v0] TRANCHÉ : 1 tick = 1 trimestre
+  duration_years: 30          # [v0] => 120 ticks au total
+  population_size: 100        # [v0] 100 en v0-v2, 1000 en v3 (§11.1)
+  run_label: "baseline"       # étiquette libre, pour comparer des runs
+
+# =============================================================================
+# INSTITUTIONS — le cœur paramétrable
+# =============================================================================
+institutions:
+
+  # --- Calendrier (§6) ---
+  president_term_years: 4     # [v0] durée du mandat présidentiel
+  assembly_term_years: 4      # [v0] durée du mandat parlementaire
+  assembly_offset_years: 2    # [v0] décalage entre les deux calendriers
+                              #      0 = élections concurrentes (Shugart & Carey)
+                              #      dimension de comparaison Monte Carlo (§6bis.4)
+  president_term_limit: null  # [v4] null = illimité, sinon nb de mandats max
+  assembly_term_limit: null   # [v4] cf. effet lame duck (§6bis.1)
+
+  # --- Élection présidentielle (un seul vainqueur) ---
+  presidential_method: two_round
+  # Options disponibles dans engine/utils (méthodes à vainqueur unique) :
+  #   plurality | two_round | borda | irv | coombs | bucklin
+  #   minimax | schulze | kemeny_young | copeland | nanson | baldwin
+  #   approval | simple_score | star | median | majority_judgment
+
+  # --- Élection parlementaire ---
+  assembly_seats: 100         # [v0] nombre de sièges
+  assembly_mode: party_list   # [v0] party_list | candidate_multiwinner
+  # party_list            => les électeurs votent pour un parti, sièges répartis
+  #                          par seat_allocation (code NOUVEAU à écrire)
+  # candidate_multiwinner => réutilise SPAV / Phragmén existants
+  seat_allocation: dhondt     # [v0] dhondt | sainte_lague | largest_remainder
+  electoral_threshold: 0.05   # [v0] seuil d'accès aux sièges (0 = aucun seuil)
+
+  # --- Vote blanc (§1.3 THEORY.md, §6bis.2) ---
+  # v4 Lot 9: ce mécanisme est désormais VIVANT (présidentielle uniquement --
+  # voir _hold_presidential_election). blank_share(t) = part des bulletins
+  # dont le PREMIER choix est Blanc (simple_rules.blank_share).
+  blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ?
+  blank_vote_competitive: false   # [v4] le blanc peut-il invalider le scrutin ?
+                                  #      (requiert blank_vote_enabled: true)
+  blank_invalidation_threshold: 0.5   # [v4] part des exprimés déclenchant
+                                      #      l'invalidation (comparaison
+                                      #      stricte, ">")
+  reelection_delay_ticks: 1           # [v4] délai avant le nouveau scrutin
+                                      #      (doit être > 0)
+  reelection_max_attempts: 2          # [v4] au-delà, un résultat est forcé
+  barred_from_immediate_rerun: true   # [v4] les candidats de l'élection
+                                      #      invalidée ne peuvent pas se
+                                      #      représenter immédiatement — sans
+                                      #      ça le mécanisme n'a aucun effet.
+                                      #      Bascule indépendante de
+                                      #      blank_vote_competitive.
+
+# =============================================================================
+# PARTIS (§A2 de l'audit)
+# =============================================================================
+parties:
+  initial_count: 5            # [v0] nombre de partis à t=0
+  init_strategy: kmeans_on_citizens
+  # kmeans_on_citizens => plateformes initialisées sur les clusters d'opinion
+  # random             => plateformes tirées uniformément
+  # manual             => voir 'manual_platforms' ci-dessous
+  manual_platforms: []        # [v0] si init_strategy = manual
+  birth_enabled: false        # [v1] un parti peut-il naître en cours de run ?
+  death_enabled: false        # [v1] un parti disparaît-il après N échecs ?
+  split_enabled: false        # [v1] scission (point ouvert n°4)
+
+  # --- Formation de coalition (A5, §3.6.8) ---
+  coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
+  coalition_tiebreak: [seats, votes, party_id]
+                              # [v0] ordre de départage EXPLICITE — obligatoire
+                              #      pour la reproductibilité octet-pour-octet :
+                              #      jamais de max() ou de tri instable
+  coalition_majority_ratio: 0.5   # [v0] seuil de majorité à atteindre
+
+# =============================================================================
+# CITOYENS (§2)
+# =============================================================================
+citizens:
+  issue_count: 20             # [v0] dimensions de l'espace des enjeux
+  position_dist: factor_structure  # [v0] uniform | factor_structure. Adopted as the shipped
+                               #      default 2026-08-25 (plan-distribution-positions-seeds.md,
+                               #      Phase 3): uniform has no natural center of mass on 20
+                               #      independent dimensions, which combined with per-voter
+                               #      dirichlet priorities let Blank win the two_round runoff
+                               #      on 68% of 60 seeds tested (THEORY.md §10.10). Phase 2's
+                               #      40-seed sweep against the real pipeline showed
+                               #      factor_structure at 0.0% Blank wins vs uniform's 27.5%,
+                               #      with issue-dimension correlation (a plain per-dimension
+                               #      Gaussian would not have this) and marginal spread both
+                               #      preserved, not collapsed into an artificial consensus.
+                               #      Every acceptance run published before this date (v4 Lot 8
+                               #      through the composite cascade run) used uniform at
+                               #      seed=42 -- not retroactively changed, not re-baselined.
+  priority_dist: dirichlet    # [v0] distribution des poids d'enjeux
+  blank_threshold_dist: "beta(3,5)"   # [v0] §1.3 THEORY.md
+  ambition_dist: "beta(2,8)"  # [v0] la plupart des citoyens sont peu ambitieux
+  base_threshold_dist: "beta(3,5)"    # [v4] seuil d'éveil (§7bis.9d) — bare
+                              #      scalaire par citoyen, pas encore un
+                              #      persona (§9 différé, voir Lot 1 v4)
+  static_population: true     # [v0] pas de mortalité/natalité (D1 de l'audit)
+  memory_window_terms: 2      # [v1] mémoire rétrospective (mandat courant + 1)
+
+# =============================================================================
+# CANDIDATURE (§2.3, §2.4 — contradiction C1 résolue ici)
+# =============================================================================
+candidacy:
+  ambition_threshold: 0.30            # [v0] seuil du chemin dominant
+  # CALIBRÉ le 2026-08-29 (ADR-002 clos). Valeur précédente : 0.7, qui ne
+  # rendait éligible que 0,03 citoyen sur 100 — 39 graines sur 40 ne
+  # produisaient AUCUN candidat et aucune élection n'était tenue.
+  # 0.30 n'est pas la valeur qui fait disparaître le symptôme le plus vite
+  # (ce serait 0.0) : c'est la valeur dérivée de ce que le mécanisme doit
+  # rendre vivant. §2.3 confie au parti l'arbitrage entre PLUSIEURS
+  # prétendants internes (et §3.6.3 en fait un point de décision LLM), donc
+  # il faut >= 2 éligibles par parti en moyenne ; à 5 partis et 100 citoyens
+  # cela impose >= 10 % d'éligibles. Au-delà de ~40 % le seuil ne discrimine
+  # plus et tout le poids bascule sur le départage de select_party_nominee
+  # — le régime 0.0, dont THEORY.md §10.10 a mesuré le coût.
+  # Mesuré à 0.30, 40 graines, pipeline réel, durée livrée (320 élections) :
+  # 20,0 % d'éligibles, 4,0 prétendants par parti, 0 élection à champ vide,
+  # 100 % des élections avec >= 4 partis présentant un nominee. Reproduit sur
+  # un bloc de graines indépendant (41..80) : 20,4 %, 0 champ vide, 100 %.
+  # Critère pré-enregistré AVANT le sweep, voir plan-calibration-ambition.md
+  # §2.2 ; résultats §2.4 ; décision et coûts docs/adr/ADR-002-*.md.
+  # À savoir avant de lire un résultat publié : les scripts d'acceptance
+  # forcent toujours `ambition_threshold=0.0` via `dataclasses.replace`, et
+  # c'est désormais un choix de CONTINUITÉ (garder THEORY.md §10.4-§10.9
+  # comparables entre eux), plus une condition d'existence de l'élection.
+  independent_signature_ratio: 0.01   # [v0] % de la population à réunir
+  # ⚠ PARSÉ ET VALIDÉ, JAMAIS LU PAR LE CODE DE DOMAINE. Aucun chemin de
+  # candidature indépendante n'existe : toute candidature est soit une
+  # nomination de parti, soit une déclaration de rupture. Voir ADR-003.
+  rupture_path_enabled: false         # [v1] chemin rare (§2.4)
+  rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
+  rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,
+                                      #      pas d'exemption totale
+  # CORRIGÉ le 2026-08-29 (ADR-003, option 1). Ce seuil compare désormais
+  # `simple_rules.ballot_access_signature_ratio`, PAS `sympathizer_ratio` :
+  # cette nouvelle fonction exclut le citoyen de son propre compte de
+  # signatures (une signature qu'on se donne à soi-même n'en est pas une),
+  # là où `sympathizer_ratio` — inchangée, toujours utilisée pour le signal
+  # « soutien perçu » envoyé au LLM ailleurs — le comptait toujours, ce qui
+  # rendait ce seuil structurellement infranchissable à population_size <= 200
+  # (plancher à 1/population_size) et l'inversait silencieusement au-delà.
+  # Mesuré le 2026-08-29 (40 graines, durée livrée, rupture activée, AVANT et
+  # APRÈS correctif, aux deux distributions livrées) : ZÉRO rejet dans les
+  # deux formules, à population_size=100 ET à population_size=1000 — le
+  # correctif ne change donc AUCUN comportement observé dans les
+  # configurations livrées ; c'est un correctif de justesse structurelle
+  # (personne d'isolé ne devrait jamais passer), pas une réponse à un
+  # symptôme observé. Confirmé directement sur un citoyen isolé construit à
+  # la main : l'ancienne formule l'acceptait quand même (1/101 ≈ 0,0099 ≥
+  # 0,005), la nouvelle le rejette (0,0 < 0,005). Voir
+  # docs/adr/ADR-003-ballot-access-filter-is-inert.md.
+  max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
+
+# =============================================================================
+# CAMPAGNE (§3.1, §3.6.2->3.6.8) — positionnement stratégique du candidat
+# =============================================================================
+campaign:
+  max_positioning_delta: 0.3   # [v2] amplitude max d'un déplacement, par
+                                #      dimension déplacée (positions dans [0,1])
+  max_positioning_shifts: 3    # [v2] nombre max de dimensions déplacées par
+                                #      décision — "delta borné", pas un vecteur
+                                #      complet à issue_count dimensions
+
+# =============================================================================
+# LÉGITIMITÉ ET RAPPEL (§7)
+# =============================================================================
+legitimacy:
+  enabled: false              # [v4] désactivé jusqu'au palier v4
+  decay: 0.9                  # [v4] L(t) = decay·L(t-1) + support − écart
+  recall_floor: 0.2           # [v4] plancher dur (§7.2)
+  recall_floor_indexed_on_L0: false   # [v4] TRANCHÉ : plancher fixe
+  recall_cooldown_ticks: 4    # [v4] délai minimal entre deux rappels
+  passive_erosion_weight: 0.0 # [v4] 0.0 = modèle purement actionnel (§7bis.6)
+                              #      > 0 = mandate_deviation érode L(t) même
+                              #      sans action citoyenne. À n'activer
+                              #      qu'avec justification explicite.
+
+# =============================================================================
+# PRESSION CITOYENNE (§7bis) — inactive avant v4
+# =============================================================================
+pressure_menu:
+  # Le concepteur fixe le MENU, le LLM choisit DANS le menu (§7bis.1).
+  # Variable expérimentale à 4 modalités, pas deux booléens indépendants
+  # (§7bis.8) — sinon le plan d'expérience devient combinatoire.
+  petition_enabled: false     # [v4] lancer / signer une pétition de défiance
+  mobilization_enabled: false # [v4] participer à une mobilisation publique
+  electoral_only: true        # [v4] true => aucun levier entre deux scrutins.
+                              #      GROUPE DE CONTRÔLE principal du modèle.
+
+mandate:
+  # Information, pas levier (§7bis.5) : alimente la décision du citoyen
+  # et sert de métrique, mais personne ne l'"actionne".
+  enabled: false              # [v4]
+  pledge_scope: top_k_priorities   # [v4] top_k_priorities | full_platform
+  pledge_top_k: 5             # [v4]
+  deviation_metric: weighted_euclidean   # [v4]
+  deviation_log_threshold: 0.1     # [v4] en deçà, non journalisé (§16.3)
+  max_response_delta: 0.3     # [v4] borne dt=6 (§3.6.5) — distincte de
+                              #      campaign.max_positioning_delta : dérive
+                              #      de mandat et stratégie de campagne
+                              #      doivent rester analytiquement séparables
+  max_response_shifts: 3      # [v4] idem, nombre de dimensions déplacées
+
+petition:
+  enabled: false              # [v4]
+  signature_threshold: 0.25   # [v4] part de la population déclenchant le
+                              #      vote de confiance
+  cooldown_ticks: 4           # [v4] pas de relance immédiate contre le même élu
+  petition_lifespan_ticks: 4  # [v4] expire si le seuil n'est jamais atteint
+  confidence_vote_format: binary   # [v4] oui/non, pas de multi-candidats
+  concurrent_allowed: false   # [v4] plusieurs pétitions simultanées contre un
+                              #      même élu ? (point ouvert n°18)
+  weight_in_ecart: 0.5        # [v4] w_pet (§7bis.6)
+
+street_pressure:
+  enabled: false              # [v4]
+  decay: 0.85                 # [v4]
+  weight_in_ecart: 0.5        # [v4] w_mob — complète w_pet (somme = 1.0)
+  visible_to_representative: true   # [v4] signal injecté au prompt (§3.6.5)
+
+awakening:
+  # Seuil d'éveil : PORTE d'échantillonnage, jamais une décision (§7bis.9d).
+  # Détermine qui est consulté, pas ce qui est décidé.
+  enabled: false              # [v4]
+  source: persona_base_threshold   # [v4] dérivé du persona (§9)
+  context_modulation:
+    mandate_deviation: true   # [v4] la dérive visible abaisse le seuil
+    ticks_to_election: true   # [v4] la proximité du scrutin l'élève
+    neighbors_acting: false   # [v6] SEULEMENT en régime de contagion.
+                              #      false en v4 => pression atomisée,
+                              #      cascade impossible par construction
+                              #      (§7bis.9f)
+    event_salience: false     # [v5] un choc exogène abaisse le seuil —
+                              #      requis (true) si events.enabled (§8)
+  modulation_amplitude: 0.5   # [v4] f(contexte) borné à [1-amp, 1+amp]
+                              #      (§7bis.9c) — amp=0 réduit f à 1 (bras
+                              #      de contrôle pour l'analyse de sensibilité)
+  no_consultation_cap: true   # [v4] TRANCHÉ : aucun plafonnement du nombre
+                              #      de consultations par tick (§15bis.1) —
+                              #      en auto-hébergement un pic coûte du
+                              #      temps, pas de l'argent
+
+# =============================================================================
+# CHAMBRE DE TIRAGE AU SORT (§6bis.3) — v6b, MVP groupe de contrôle
+# =============================================================================
+sortition_chamber:
+  enabled: false              # [v6b]
+  seats: 30                   # [v6b]
+  term_years: 1               # [v6b]
+  renewable: false            # [v6b] par construction : pas de réélection,
+                              #      donc insensible à toute pression
+                              #      électorale => groupe de contrôle.
+                              #      TRANCHÉ (v6b Lot 1) : true rejeté au
+                              #      chargement, la sélection est conçue
+                              #      pour une éligibilité stricte à usage
+                              #      unique
+  selection: uniform_random   # [v6b] uniform_random | stratified_demographic
+                              #      (stratified_demographic rejeté au
+                              #      chargement — non implémenté)
+  overlaps_with_assembly: false    # [v6b] chambre séparée — TRANCHÉ (v6b
+                                    #       Lot 1) : true rejeté au
+                                    #       chargement, aucun député
+                                    #       individuel n'est suivi dans ce
+                                    #       code (Office.DEPUTY réservé,
+                                    #       jamais assigné)
+  veto_power: suspensive_limited   # [v6b] suspensive_limited | consultative_only
+                                    #       ANALYSÉ, NON CONSOMMÉ en v6b —
+                                    #       le pouvoir de veto (point ouvert
+                                    #       n°11) exige un mécanisme de loi
+                                    #       qui n'existe nulle part dans ce
+                                    #       code ; différé à un palier futur
+                                    #       distinct, non encore autorisé
+  veto_delay_ticks: 2         # [v6b] (point ouvert n°11, différé — voir ci-dessus)
+  max_deliberation_delta: 0.3 # [v6b] borne dt=11 (§6bis.3, Lot 3) — même valeur que
+                              #      mandate.max_response_delta, DÉLIBÉRÉMENT : la
+                              #      comparaison élu/tiré-au-sort du Lot 4 isole ainsi
+                              #      l'effet de l'isolement aux canaux de pression, pas
+                              #      un plafond de dérive différent
+  max_deliberation_shifts: 3  # [v6b] idem, nombre de dimensions déplacées par tick
+                              #      (== mandate.max_response_shifts)
+
+# =============================================================================
+# ÉVÉNEMENTS EXOGÈNES (§8)
+# =============================================================================
+events:
+  enabled: false               # [v5] == (scandal_enabled or economic_shock_enabled),
+                                #      cross-validated in load_config
+  scandal_enabled: false       # [v5] processus de Poisson (§8)
+  scandal_rate_per_tick: 0.05  # [v5] intensité du processus de Poisson
+  scandal_magnitude: 0.3       # [v5] amplitude de la bascule event_salience
+                                #      sur une élection de scandale (Lot 3)
+  economic_shock_enabled: false    # [v5] AR(1) léger (§8)
+  economy_ar1_phi: 0.8         # [v5] persistance du cycle économique
+  economy_ar1_sigma: 0.1       # [v5] amplitude du bruit
+  economy_shock_threshold: 0.5 # [v5] |x(t)| au-delà duquel un choc est
+                                #      "majeur" — journalisé (anti-saturation,
+                                #      §16.3) et le déclencheur du point
+                                #      ouvert n°5 (régénération des personas)
+  salience_decay: 0.85         # [v5] decroissance d'event_salience, miroir
+                                #      de street_pressure.decay (§7bis.4b)
+  max_reaction_delta: 0.3      # [v5] borne de salience_delta par réaction
+                                #      (dt=8, Lot 4) — mandate.max_response_delta
+                                #      / campaign.max_positioning_delta ne
+                                #      sont PAS réutilisés : séparabilité
+                                #      analytique (v4 Lot 6)
+
+# =============================================================================
+# RÉSEAU SOCIAL (§5)
+# =============================================================================
+social_graph:
+  enabled: false              # [v6]
+  topology: watts_strogatz    # [v6] watts_strogatz | erdos_renyi | barabasi_albert
+  mean_degree: 8              # [v6]
+  rewiring_prob: 0.1          # [v6]
+  evolving: false             # [v6] homophilie évolutive — parsé et REJETÉ
+                               #      si true (Lot 1) ; le point ouvert lui-
+                               #      même reste ouvert (§5)
+
+# =============================================================================
+# COUCHE LLM (§3, §12) — inactive avant v2
+# =============================================================================
+llm:
+  enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
+  provider: ollama            # [v2] ollama | vllm | api ("api" épelable,
+                              #      non implémenté — hors périmètre §12)
+                              #      BASCULE vers vllm dès v4 (§15bis.6) :
+                              #      le facteur de charge est le nombre de
+                              #      décisions PAR TICK, pas la population
+                              #      v4 (vLLM switch) : VllmJsonClient est
+                              #      écrit et testé hors-ligne (llm_client.py),
+                              #      mais "ollama" reste le défaut — aucune
+                              #      vérification live n'a pu être faite
+                              #      (pas de GPU dans cet environnement),
+                              #      §15bis.5 n'a jamais tourné contre vLLM
+                              # pour basculer :
+                              #   1. base_url: "http://localhost:8000/v1"
+                              #   2. docker compose -f docker-compose.llm.yml up
+                              #   3. le serveur vLLM DOIT être lancé avec
+                              #      --served-model-name qwen3:8b (sinon le
+                              #      pinning de llm.model échoue, cf. plus bas)
+                              #      et --reasoning-parser qwen3 (sinon
+                              #      think=True devient un no-op silencieux)
+                              # ⚠ poids différents : qwen3:8b sur Ollama est
+                              #   un GGUF quantisé, Qwen/Qwen3-8B sur vLLM
+                              #   serait en bf16 — les résultats live commités
+                              #   (ollama_structured_output_results.md, etc.)
+                              #   décrivent Ollama et ne se transposent pas
+                              # ⚠ ollama-polity DOIT etre lance avec
+                              #   OLLAMA_CONTEXT_LENGTH>=16384 (env var au
+                              #   niveau du conteneur -- num_ctx par requete
+                              #   est ignore silencieusement sur l'endpoint
+                              #   OpenAI-compat que think=True utilise).
+                              #   Sans ca : troncature silencieuse rare mais
+                              #   reelle (finish_reason='length'), cf.
+                              #   scripts/ollama_context_window_results.md
+  # base_url: "http://localhost:8000/v1"  # vllm
+  base_url: "http://localhost:11434/v1"
+  model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)
+                              #      identique pour vllm : lancer le serveur
+                              #      avec --served-model-name qwen3:8b
+                              #      plutôt que d'assouplir ce pinning — un
+                              #      id HF nu ("Qwen/Qwen3-8B") est rejeté
+                              #      (pas de ':', cf. config.py) et un id
+                              #      sans révision épinglée équivaut à
+                              #      'latest' par un autre nom
+  temperature: 0.0            # [v2] OBLIGATOIRE pour le déterminisme (B2)
+                              #      ⚠ POTENTIELLEMENT INSUFFISANT — cf.
+                              #      protocole §15bis.5 à exécuter avant v2
+  max_batch_size: 25          # [v2] taille de cohorte (B3)
+  batch_sharding: static      # [v2] static (citizen_id % N) | dynamic
+                              #      dynamic CASSE la reproductibilité
+                              #      (§15bis.4a) — ne pas changer
+  cache_backend: redis        # [v2] redis | sqlite | none
+                              #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
+                              #      incrément 1 appelle le LLM sans cache ;
+                              #      la justesse vient de temperature=0 +
+                              #      modèle épinglé + appels sérialisés
+                              #      (§15bis.5), le cache n'est qu'une
+                              #      optimisation de replay (§4.2)
+  cache_url: "redis://localhost:6379/0"  # ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1)
+  rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
+                              #      TRANCHÉ : codes partout + texte libre
+                              #      borné aux événements pivots (§3.6.9)
+  codebook_version: "1.6"     # [v2/v4/v5/v6/v6b] artefact figé, archivé avec le run (§3.7)
+                              #      bump 1.1->1.2 en v4 Lot 1 : réservation
+                              #      de dt=6/dt=10, BallotFormat.BINARY, et
+                              #      des motifs 300-399 (encore inactifs tant
+                              #      que legitimacy.enabled=false)
+                              #      bump 1.2->1.3 en v4 Lot 8 : VoteMotif
+                              #      gagne 105 ACCEPTABLE_MATCH (voir codebook.py)
+  personas_count: 30          # [v2] 20-50 archétypes (§9)
+                              #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
+                              #      incrément 1 décrit les citoyens par
+                              #      leurs champs bruts, pas une persona ;
+                              #      le lotissement (§3.5) retombe sur des
+                              #      lots contigus de max_batch_size, pas
+                              #      un groupement par archetype_id
+  max_batch_replays: 0        # [v4] §3.6.10 — 0 = pas de rejeu (comportement
+                              #      historique) ; relevé pour le run
+                              #      d'acceptation (Lot 8), jamais en défaut
+  recycle_after_n_calls: null # null = désactivé (défaut). Force un
+                              #      unload/reload du modèle Ollama (via
+                              #      keep_alive=0 sur l'endpoint natif —
+                              #      pas un redémarrage de conteneur) tous
+                              #      les N appels complete_json, pour
+                              #      réinitialiser le cache de prompts
+                              #      llama.cpp avant qu'il n'approche sa
+                              #      capacité mesurée (bug 4 investigation,
+                              #      2026-08-19/20) : sur ce conteneur, à
+                              #      capacité ~8 prompts, le taux d'échec
+                              #      par troncature est nul sous 7 prompts
+                              #      en cache (0/24 mesurés) et domine à
+                              #      7-8 (12/28, ratio ≥2x confirmé). Une
+                              #      valeur de 5-6 reste prudente sous ce
+                              #      seuil. Vérifié directement : l'unload
+                              #      réinitialise bien "cache state" à 0,
+                              #      même effet qu'un redémarrage complet.
+                              #      Seuil mesuré sur un prompt shape précis
+                              #      (campaign_positioning, think=True,
+                              #      grand budget) — pas prouvé général à
+                              #      tout mélange de types de décision ;
+                              #      voir llm_batching_determinism_results_gpu.md
+
+# =============================================================================
+# JOURNAL ET DONNÉES (§16)
+# =============================================================================
+journal:
+  enabled: true               # [v0]
+  format: jsonl               # [v0] jsonl | parquet
+  output_dir: "runs/"         # [v0] un sous-dossier par run_id
+  snapshot_every_ticks: 4     # [v0] snapshot complet = 1x par année simulée
+  log_non_events: true        # [v0] journaliser aussi les candidatures
+                              #      envisagées puis abandonnées (§16.3),
+                              #      et en v4 les inactions (act = 0)
+  index_after_run: true       # [v0] compaction DuckDB en post-traitement
+  decode_codebook_on_index: true   # [v2] le journal brut reste EN CODES ;
+                                   #      décodage uniquement à l'indexation
+                                   #      post-run (§3.7.4)
+
+# =============================================================================
+# MÉTRIQUES (§10)
+# =============================================================================
+metrics:
+  compute_every_ticks: 1      # [v0] métriques agrégées à chaque tick
+  effective_parties: true     # [v0] Laakso & Taagepera (1979)
+  cohabitation_rate: true     # [v0]
+  coalition_lifespan: true    # [v0]
+  platform_convergence: false # [v2] nécessite les plateformes dynamiques — pas implémenté, refuse `true`
+  mandate_deviation: true     # [v4] §7bis.5 — indexer.py (Lot 8)
+  lame_duck_deviation_delta: true    # [v4] §6bis.1 — indexer.py (Lot 8)
+  inaction_rate: true         # [v4] part des mécontents avec act = 0 — indexer.py (Lot 8)
+  pressure_lever_mix: true    # [v4] répartition des leviers actionnés — indexer.py (Lot 8)
+  petition_success_rate: true # [v4] indexer.py (Lot 8)
+  stance_distribution: true   # [v4] §3.6.5 — indexer.py (Lot 8)
+  mobilization_nonlinearity: false   # [v6] détection de basculement (§7bis.9f) — pas implémenté, refuse `true`
+  polarization: false         # [v6] nécessite le graphe social — pas implémenté, refuse `true`
+
+# =============================================================================
+# PARALLÉLISATION (§15bis)
+# =============================================================================
+parallel:
+  runs_in_parallel: 1         # [v2] parallélisme ENTRE runs — sans risque
+                              #      pour la reproductibilité, c'est le
+                              #      levier recommandé (§15bis.3)
+  intra_run_workers: 1        # [v2] sharding INTRA-run — ne pas augmenter
+                              #      avant validation du point ouvert n°20
+                              #      (déterminisme vLLM sous batching)

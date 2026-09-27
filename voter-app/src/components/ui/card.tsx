@@ -26,37 +26,12 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn('font-display font-semibold leading-none tracking-tight', className)}
-      {...props}
-    />
-  )
-);
-CardTitle.displayName = 'CardTitle';
-
-const CardDescription = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
-  )
-);
-CardDescription.displayName = 'CardDescription';
-
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
   )
 );
 CardContent.displayName = 'CardContent';
-
-const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex items-center p-6 pt-0', className)} {...props} />
-  )
-);
-CardFooter.displayName = 'CardFooter';
 
 // Bootstrap-faithful card-body (1rem padding, block flow) — the migration target
 // for react-bootstrap's <Card.Body> (whereas shadcn's CardContent uses p-6 pt-0,
@@ -66,4 +41,4 @@ const CardBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
 );
 CardBody.displayName = 'CardBody';
 
-export { Card, CardHeader, CardBody, CardFooter, CardTitle, CardDescription, CardContent };
+export { Card, CardHeader, CardBody, CardContent };

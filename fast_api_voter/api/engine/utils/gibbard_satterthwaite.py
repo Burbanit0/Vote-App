@@ -23,6 +23,11 @@ from __future__ import annotations
 import random
 from typing import Any, Callable, Optional
 
+from api.engine.utils.error_handling import safe_call
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 
 # ── Method dispatch ──────────────────────────────────────────────────────────
 
@@ -64,6 +69,8 @@ def compute_manipulability_index(
     method_name: str,
     ballots: list[list[str]],
     num_trials: int = 200,
+    *,
+    rng: random.Random,
 ) -> dict[str, Any]:
     """
     Estimate the manipulability rate of a voting method.
@@ -87,6 +94,10 @@ def compute_manipulability_index(
     num_trials : int
         Maximum number of voters to sample.  Use a smaller value for speed;
         larger values give more accurate estimates at the cost of time.
+    rng : random.Random
+        Draws the voter sample.  The caller compares methods against each other,
+        so pass one seeded the same way per method: every method must see the
+        same sample, and a worker must not draw from the process-wide generator.
 
     Returns
     -------
@@ -122,13 +133,13 @@ def compute_manipulability_index(
     # ── Sample voters ──────────────────────────────────────────────────────
     sample_indices = list(range(n_voters))
     if n_voters > num_trials:
-        sample_indices = random.sample(sample_indices, num_trials)
+        sample_indices = rng.sample(sample_indices, num_trials)
 
     # ── Compute sincere winner (all ballots, no manipulation) ──────────────
-    try:
-        sincere_winner: Optional[str] = method_fn(ballots)
-    except Exception:
-        sincere_winner = None
+    sincere_winner: Optional[str] = safe_call(
+        lambda: method_fn(ballots), lambda: None,
+        log=log, event="gibbard_satterthwaite.sincere_winner_failed", method=method_name,
+    )
 
     # ── Test each sampled voter ────────────────────────────────────────────
     num_manipulators = 0
@@ -148,20 +159,21 @@ def compute_manipulability_index(
         # Generate alternative ballots (up to 3) by swapping adjacent pairs.
         manipulated = False
         for swap_pos in range(min(3, len(sincere_ballot) - 1)):
-            alt_ballot = list(sincere_ballot)
+            alt_ballot = sincere_ballot.copy()
             alt_ballot[swap_pos], alt_ballot[swap_pos + 1] = (
                 alt_ballot[swap_pos + 1],
                 alt_ballot[swap_pos],
             )
 
             # Replace voter's ballot and re-run the election.
-            test_ballots = list(ballots)
+            test_ballots = ballots.copy()
             test_ballots[voter_idx] = alt_ballot
 
-            try:
-                new_winner: Optional[str] = method_fn(test_ballots)
-            except Exception:
-                continue
+            new_winner: Optional[str] = safe_call(
+                lambda: method_fn(test_ballots), lambda: None,
+                log=log, event="gibbard_satterthwaite.manipulated_winner_failed",
+                method=method_name, voter_idx=voter_idx, swap_pos=swap_pos,
+            )
 
             if new_winner is None or new_winner == sincere_winner:
                 continue

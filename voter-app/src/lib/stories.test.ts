@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { STORIES, storiesForMode, storyById, type StoryStep } from './stories';
-import { sampleVoters, fieldWinnerName, type NamedPt, type Dims } from './playgroundVoting';
+import {
+  sampleVoters,
+  fieldWinnerName,
+  applyBlankVote,
+  computeRanks,
+  computeScores,
+  ruleWinnerFromRanks,
+  type NamedPt,
+  type Dims,
+} from './playgroundVoting';
 import { composeElectorate } from './playgroundElectorate';
+import { blankVerdict, type BlankVerdict } from './blankVote';
 import type { PlaygroundState } from '../stores/useElectionStore';
 import pgEn from '../i18n/locales/playground.en';
 import pgFr from '../i18n/locales/playground.fr';
@@ -21,6 +31,7 @@ function stateAt(storyId: string, stepId: string) {
   let valence = false;
   let rule = 'plurality';
   let electorate: PlaygroundState['electorate'] | null = null;
+  let blank: PlaygroundState['blank'] | null = null;
   for (const s of story.steps) {
     if (s.config?.candidates) candidates = s.config.candidates as NamedPt[];
     if (s.config?.num_voters != null) num_voters = s.config.num_voters;
@@ -31,6 +42,7 @@ function stateAt(storyId: string, stepId: string) {
       valence = s.playground.space.valenceEnabled;
     }
     if (s.playground?.electorate) electorate = s.playground.electorate;
+    if (s.playground?.blank) blank = s.playground.blank;
     if (s.rule) rule = s.rule;
     if (s.id === stepId) break;
   }
@@ -51,8 +63,26 @@ function stateAt(storyId: string, stepId: string) {
     z: dims >= 3 ? (c.z ?? 0) : 0,
     valence: valence ? (c.valence ?? 0) : 0,
   }));
-  return { voters, cands, rule };
+  return { voters, cands, rule, blank };
 }
+
+// Mirrors PlaygroundController's blank-vote derivation: split the electorate,
+// re-run the rule on the expressed ballots only, then judge the RULE's winner
+// (not the plurality leader) against the chosen constitutional regime.
+const blankVerdictAt = (storyId: string, stepId: string): BlankVerdict | null => {
+  const { voters, cands, rule, blank } = stateAt(storyId, stepId);
+  if (!blank?.enabled) return null;
+  const { expressed, blankCount } = applyBlankVote(voters, cands, true, blank.intensity);
+  const m = cands.length;
+  const ranks = computeRanks(expressed, cands);
+  const scores = computeScores(expressed, cands);
+  const w = ruleWinnerFromRanks(ranks, m, rule as never, scores);
+  const firstPrefCounts = new Array(m).fill(0);
+  for (const r of ranks) firstPrefCounts[r[0]] += 1;
+  const total = expressed.length + blankCount;
+  const shares = firstPrefCounts.map((c) => c / total);
+  return blankVerdict(shares, blankCount / total, blank.lens, w);
+};
 
 const winnerAt = (storyId: string, stepId: string): string | null => {
   const { voters, cands, rule } = stateAt(storyId, stepId);
@@ -164,5 +194,73 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     const rules = ['plurality', 'irv', 'borda', 'condorcet', 'approval'];
     const winners = new Set(rules.map((r) => winnerWithRule('five', 'plurality', r)));
     expect(winners.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('clones: B wins the duel; a clone of A flips Borda to A; Condorcet and IRV resist the trick', () => {
+    expect(winnerAt('clones', 'duel')).toBe('B');
+    expect(winnerAt('clones', 'clone')).toBe('A');
+    expect(winnerAt('clones', 'condorcet')).toBe('B');
+    expect(winnerAt('clones', 'irv')).toBe('B');
+  });
+
+  it('blank: Camille wins cleanly among those who picked someone', () => {
+    expect(winnerAt('blank', 'clean')).toBe('Camille');
+  });
+
+  it("blank: today's law elects Camille anyway — blank excluded from the count", () => {
+    const v = blankVerdictAt('blank', 'todayLaw');
+    expect(v?.outcome).toBe('elected');
+    expect(v?.redo).toBe(false);
+    // Most of the electorate went blank, yet the law elects Camille regardless.
+    expect(v?.winnerShareOfExprimes).toBeGreaterThan(0.9);
+  });
+
+  it('blank: counting it in the exprimés strips the majority — no clear mandate', () => {
+    const v = blankVerdictAt('blank', 'ifCounted');
+    expect(v?.outcome).toBe('no_majority');
+    expect(v?.redo).toBe(true);
+    expect(v?.winnerShareOfExprimes).toBeLessThan(0.5);
+  });
+
+  it('blank: under the competitive (Uruguay) regime, the blank outpolls everyone and the field reopens', () => {
+    const v = blankVerdictAt('blank', 'competitive');
+    expect(v?.outcome).toBe('blank_wins');
+    expect(v?.winner).toBeNull();
+    expect(v?.redo).toBe(true);
+  });
+
+  it('monotonie: Nora wins IRV; once the swing bloc promotes her to 1st choice, Yanis wins instead', () => {
+    expect(winnerAt('monotonie', 'avant')).toBe('Nora');
+    expect(winnerAt('monotonie', 'apres')).toBe('Yanis');
+  });
+
+  it('monotonie: Nora truly gains first-preference support between the two beats', () => {
+    const firstPrefShare = (stepId: string, name: string) => {
+      const { voters, cands } = stateAt('monotonie', stepId);
+      const ranks = computeRanks(voters, cands);
+      const idx = cands.findIndex((c) => c.name === name);
+      return ranks.filter((r) => r[0] === idx).length / ranks.length;
+    };
+    expect(firstPrefShare('apres', 'Nora')).toBeGreaterThan(firstPrefShare('avant', 'Nora'));
+  });
+
+  it('renversement: Malik wins plurality both as cast and with every ballot reversed', () => {
+    expect(winnerAt('renversement', 'avant')).toBe('Malik');
+    expect(winnerAt('renversement', 'inverse')).toBe('Malik');
+  });
+
+  it('soutien: Léa wins approval; once the swing bloc sincerely also approves Hugo, he overtakes her', () => {
+    expect(winnerAt('soutien', 'avant')).toBe('Léa');
+    expect(winnerAt('soutien', 'apres')).toBe('Hugo');
+  });
+
+  it('soutien: the swing bloc’s favourite (first preference) never changes across the two beats', () => {
+    const firstPrefShare = (stepId: string, name: string) => {
+      const { voters, cands } = stateAt('soutien', stepId);
+      const ranks = computeRanks(voters, cands);
+      const idx = cands.findIndex((c) => c.name === name);
+      return ranks.filter((r) => r[0] === idx).length / ranks.length;
+    };
+    expect(firstPrefShare('apres', 'Léa')).toBeCloseTo(firstPrefShare('avant', 'Léa'), 1);
   });
 });

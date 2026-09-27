@@ -38,7 +38,7 @@ export interface MethodEntry {
 }
 
 // Result-table / backend ids → canonical registry key.
-export const METHOD_ALIASES: Record<string, string> = {
+const METHOD_ALIASES: Record<string, string> = {
   copeland: 'condorcet',
   star_voting: 'star',
   simple_score: 'score',
@@ -48,6 +48,103 @@ export const METHOD_ALIASES: Record<string, string> = {
 
 export function methodKey(id: string): string {
   return METHOD_ALIASES[id] ?? id;
+}
+
+// "Au quotidien" — one everyday analogy per method, the Phase-6 polish that
+// grounds an abstract rule in a situation anyone has lived. A parallel bilingual
+// map (like METHOD_ALIASES) rather than a field on every entry: bounded to the
+// methods a newcomer actually meets; MethodInfo shows it only when present. Keyed
+// by canonical id (via methodKey), so aliases resolve for free.
+export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
+  plurality: {
+    fr: 'Comme choisir un resto à plusieurs en criant chacun un seul nom : le plus crié gagne, même si personne d’autre ne l’aime.',
+    en: 'Like picking a restaurant by everyone shouting one name: the most-shouted wins, even if no one else likes it.',
+  },
+  two_round: {
+    fr: 'Comme une demi-finale puis une finale : on garde les deux favoris, puis on tranche entre eux.',
+    en: 'Like a semi-final then a final: keep the top two, then decide between them.',
+  },
+  irv: {
+    fr: 'Comme un jeu d’élimination : à chaque tour le dernier sort, et ses supporters reportent leur voix sur qui leur reste.',
+    en: 'Like a knockout game: each round the last-placed is out, and their fans move their vote to whoever’s left.',
+  },
+  coombs: {
+    fr: 'Comme éliminer d’abord le plat que le plus de gens refusent, jusqu’à ce qu’il n’en reste qu’un.',
+    en: 'Like removing the dish the most people reject first, until only one is left.',
+  },
+  borda: {
+    fr: 'Comme un podium qui donne des points : 3 pour un 1er, 2 pour un 2e, 1 pour un 3e — le plus grand total gagne.',
+    en: 'Like a podium awarding points: 3 for a 1st, 2 for a 2nd, 1 for a 3rd — the biggest total wins.',
+  },
+  condorcet: {
+    fr: 'Comme un championnat toutes-rondes : le vainqueur est celui qui bat chaque adversaire en match direct.',
+    en: 'Like a round-robin league: the winner is the one who beats every rival in a head-to-head match.',
+  },
+  approval: {
+    fr: 'Comme cocher tous les restos qui te vont : celui que le plus de gens acceptent l’emporte.',
+    en: 'Like ticking every restaurant that works for you: the one most people find acceptable wins.',
+  },
+  score: {
+    fr: 'Comme des notes de film en étoiles : chacun note tout le monde, la meilleure moyenne gagne.',
+    en: 'Like star-rating films: everyone rates everyone, the best average wins.',
+  },
+  star: {
+    fr: 'Comme noter en étoiles, puis départager les deux mieux notés par un duel direct.',
+    en: 'Like star-rating, then settling the top two with a direct head-to-head.',
+  },
+  cumulative: {
+    fr: 'Comme un budget de jetons à répartir : tout sur un candidat, ou étalé sur plusieurs.',
+    en: 'Like a budget of tokens to spread: all on one candidate, or split across several.',
+  },
+  kemeny_young: {
+    fr: 'Comme trancher un débat en essayant tous les classements possibles et en gardant celui qui contredit le moins de monde.',
+    en: 'Like settling an argument by trying every possible ranking and keeping the one that contradicts the fewest people.',
+  },
+  black: {
+    fr: 'Comme un tournoi toutes-rondes : s’il y a un champion qui bat tout le monde, il gagne ; sinon, on tranche au podium (Borda).',
+    en: 'Like a round-robin tournament: if someone beats everyone, they win; otherwise, the podium points (Borda) decide.',
+  },
+  anti_plurality: {
+    fr: 'Comme choisir un film en demandant à chacun celui qu’il refuse de voir : celui rejeté par le moins de monde passe.',
+    en: 'Like picking a movie by asking everyone which one they refuse to watch: the least-rejected one plays.',
+  },
+  dowdall: {
+    fr: 'Comme un podium où le 1er vaut deux 2e et trois 3e : un vrai favori pèse bien plus qu’avec Borda.',
+    en: 'Like a podium where 1st is worth two 2nds and three 3rds: a real favourite counts for much more than under Borda.',
+  },
+  maximin: {
+    fr: 'Comme choisir le resto où même la personne la moins servie n’est pas malheureuse, plutôt que la moyenne la plus haute.',
+    en: 'Like picking the restaurant where even the least-happy person isn’t miserable, rather than the highest average.',
+  },
+  nash: {
+    fr: 'Comme un budget partagé où mettre zéro sur un candidat l’élimine d’office — impossible de compenser un seul avis à zéro.',
+    en: 'Like a shared budget where rating one option zero rules it out entirely — no other score can make up for a single zero.',
+  },
+  raynaud: {
+    fr: 'Comme un tournoi à élimination directe entre équipes : celle qui perd le plus large est éliminée à chaque tour.',
+    en: 'Like a knockout tournament between teams: whoever loses by the widest margin is eliminated each round.',
+  },
+  benham: {
+    fr: 'Comme un tournoi à élimination, sauf qu’on vérifie d’abord si quelqu’un a déjà battu tout le monde — il gagne alors sans attendre la suite.',
+    en: 'Like a knockout tournament, except first checking if someone has already beaten everyone — if so, they win without playing out the rest.',
+  },
+  river: {
+    fr: 'Comme les paires ordonnées, mais chaque candidat n’accepte qu’un seul patron — un arbre généalogique plutôt qu’un réseau de dettes.',
+    en: 'Like ranked pairs, but each candidate only answers to one boss — a family tree rather than a web of debts.',
+  },
+  smith_irv: {
+    fr: 'Comme un tournoi à élimination, mais restreint d’abord au petit groupe de tête qui bat tout le reste — les autres ne jouent même pas.',
+    en: 'Like a knockout tournament, but first narrowed to the small top group that beats everyone else — the rest never even play.',
+  },
+  split_cycle: {
+    fr: 'Comme effacer la dette la plus faible d’une chaîne de dettes circulaire — une fois la plus petite annulée, il reste toujours quelqu’un à qui personne ne doit rien.',
+    en: 'Like erasing the smallest debt in a circular chain of debts — once the weakest link is cancelled, someone always ends up owing nothing to anyone.',
+  },
+};
+
+/** Everyday analogy for a method in one language, or null if none. */
+export function methodAnalogy(id: string, lang: Lang): string | null {
+  return METHOD_ANALOGY[methodKey(id)]?.[lang] ?? null;
 }
 
 export const METHOD_INFO: Record<string, MethodEntry> = {
@@ -454,18 +551,22 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       summary: 'Cherche le classement global le plus « d’accord » avec tous les bulletins.',
       how: 'On choisit l’ordre qui minimise le total des désaccords par paires (distance de Kendall).',
       strength: 'Respecte Condorcet et donne un classement complet, pas seulement un gagnant.',
-      weakness: 'Coût combinatoire (O(n!)) : exact seulement jusqu’à ~6 candidats, sinon approché.',
+      weakness:
+        'Coût combinatoire : exact jusqu’à 10 candidats (programmation dynamique sur les sous-ensembles), approché au-delà.',
       criterion: 'Respecte Condorcet et la réversibilité ; optimum de « consensus médian ».',
-      example: 'Le playground bascule en approximation (KwikSort) au-delà de 6 candidats.',
+      example:
+        'Jusqu’à 10 candidats, le gagnant est l’optimum exact ; au-delà, le playground bascule sur une approximation.',
     },
     en: {
       name: 'Kemeny-Young',
       summary: 'Finds the overall ranking that best agrees with every ballot.',
       how: 'Pick the order minimising total pairwise disagreement (Kendall-tau distance).',
       strength: 'Satisfies Condorcet and yields a full ranking, not just a winner.',
-      weakness: 'Combinatorial cost (O(n!)): exact only up to ~6 candidates, else approximated.',
+      weakness:
+        'Combinatorial cost: exact up to 10 candidates (DP over candidate subsets), approximated beyond.',
       criterion: 'Satisfies Condorcet and reversal symmetry; a “median consensus” optimum.',
-      example: 'The playground switches to a KwikSort approximation beyond 6 candidates.',
+      example:
+        'Up to 10 candidates the winner is the exact optimum; beyond that the playground falls back to an approximation.',
     },
   },
   median_voting: {

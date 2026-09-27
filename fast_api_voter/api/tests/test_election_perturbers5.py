@@ -1,21 +1,10 @@
 """Tests for Phase 3 batch 7:
 /api/v2/election/{simulate-pipeline, districts, primary, stv}."""
+
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.domain.election.workers_mechanisms import _stv_worker
+from api.tests.conftest import CANDS
 
 
 # ── /simulate-pipeline ──────────────────────────────────────────────────────
@@ -46,6 +35,19 @@ class TestSimulatePipeline:
         bad = {**self.payload, "num_voters": 999}
         assert client.post("/api/v2/election/simulate-pipeline",
                            json=bad).status_code == 422
+
+    def test_contagion_enabled_adds_contagion_step(self, client):
+        # _simulate_pipeline_worker's own "Step 3" only runs when both
+        # blank_vote.enabled and contagion.enabled are set.
+        ok = {
+            **self.payload,
+            "blank_vote": {"enabled": True, "rule": "symbolic",
+                           "contagion": {"enabled": True}},
+        }
+        r = client.post("/api/v2/election/simulate-pipeline", json=ok)
+        assert r.status_code == 200, r.text
+        step_ids = [s["id"] for s in r.json()["steps"]]
+        assert "contagion" in step_ids
 
     def test_rejects_single_candidate(self, client):
         bad = {**self.payload, "candidates": [CANDS[0]]}
@@ -81,6 +83,38 @@ class TestDistricts:
         bad = {**self.payload, "num_districts": 99}
         assert client.post("/api/v2/election/districts",
                            json=bad).status_code == 422
+
+    def test_ideology_variance_is_wired_into_the_district_simulation(self):
+        """ideology_variance must actually perturb intra-district voter
+        positions, not just be silently dropped (regression for a dead
+        parameter found by the code audit)."""
+        from api.domain.election.workers import _run_district_fptp
+        from api.engine.constants import DEFAULT_ISSUES
+        from api.domain.election._helpers import build_candidate_from_xy
+
+        issues = DEFAULT_ISSUES
+        candidates = [
+            build_candidate_from_xy(0, "Alice", -0.5, -0.2, issues),
+            build_candidate_from_xy(1, "Bob",    0.5,  0.2, issues),
+        ]
+        args = (["Alice", "Bob"], candidates, 200, 0.1)
+
+        # variance=0 must reduce to the old deterministic (noise-free) shift,
+        # so repeating it with the same seed is exactly reproducible.
+        no_variance_a = _run_district_fptp(*args, 0.0, issues, seed=7)
+        no_variance_b = _run_district_fptp(*args, 0.0, issues, seed=7)
+        assert no_variance_a == no_variance_b
+
+        # A nonzero variance must, for at least some seeds, actually move the
+        # outcome relative to the noise-free run — otherwise the parameter is
+        # still being ignored. Checked over several seeds since any single
+        # seed's per-voter noise can coincidentally net out to the same shares.
+        differs = any(
+            _run_district_fptp(*args, 1.0, issues, seed=s)["vote_shares"]
+            != _run_district_fptp(*args, 0.0, issues, seed=s)["vote_shares"]
+            for s in range(1, 6)
+        )
+        assert differs
 
 
 # ── /primary ────────────────────────────────────────────────────────────────
@@ -184,3 +218,16 @@ class TestStv:
         bad = {**self.payload, "num_voters": 10}
         assert client.post("/api/v2/election/stv",
                            json=bad).status_code == 422
+
+    @pytest.mark.parametrize("quota", ["imperiali", "bogus"])
+    def test_rejects_a_quota_it_does_not_compute(self, client, quota):
+        """Both used to run Droop and echo the name back."""
+        assert client.post("/api/v2/election/stv",
+                           json={**self.payload, "quota_type": quota}).status_code == 422
+        body, status = _stv_worker({**self.payload, "quota_type": quota})
+        assert status == 400 and "droop, hare" in body["error"]
+
+    def test_hare_and_droop_are_different_quotas(self, client):
+        quotas = {q: client.post("/api/v2/election/stv", json={**self.payload, "quota_type": q}).json()["quota"]
+                  for q in ("droop", "hare")}
+        assert quotas["hare"] > quotas["droop"]

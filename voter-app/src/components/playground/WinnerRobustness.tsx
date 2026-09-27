@@ -43,7 +43,27 @@ const WinnerRobustness: React.FC<Props> = ({
     };
   }, [sampleAtSeed, candidates, rule, baseSeed]);
 
-  if (!dist || dist.total === 0 || !dist.modal) return null;
+  // Until the first draws land, hold the strip's place with an invisible copy of
+  // it. Popping in 180 ms+ after the moment opens, it pushed the lens switch just
+  // below it down by more than a button's height: a lens click already in
+  // progress (pressed on one button, released after the shift) never reached
+  // the button. Seen as playground-method.spec.ts's "the four lenses..." flake
+  // on Firefox, the screenshot keeping Méthode's default lens.
+  if (!dist) {
+    return (
+      <div
+        data-testid="winner-robustness-pending"
+        aria-hidden="true"
+        className="invisible mt-1 flex flex-col gap-1"
+      >
+        <div className="h-1.5 w-full" />
+        <p className="font-mono text-[0.68rem]">
+          {t('robustness.summary', { name: winner ?? '—', pct: 100, n: DRAWS })}
+        </p>
+      </div>
+    );
+  }
+  if (dist.total === 0 || !dist.modal) return null;
 
   const colorOf = (name: string): string => {
     const i = candidates.findIndex((c) => c.name === name);

@@ -1,0 +1,8 @@
+{
+  "_comment": "Sample `pull_request` event payload for `act` (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md — see ci-local/README.md). act's default event has no pull_request.number, which every path-filtered `changes` job (dorny/paths-filter) needs. Swap `number` for a real, existing PR on this repo before running a job that reads file lists — dorny/paths-filter queries the GitHub API for that PR's changed files rather than diffing locally, so a fake number just returns 0 files.",
+  "pull_request": {
+    "number": 1,
+    "base": { "ref": "develop" },
+    "head": { "ref": "act-local-test" }
+  }
+}

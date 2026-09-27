@@ -27,6 +27,18 @@ describe('RealElectionPanel', () => {
     expect(panel).toHaveTextContent('arXiv:2303.00108');
   });
 
+  it('shows the France 2017 approval experiment — the format reshuffles the field', () => {
+    render(<RealElectionPanel />);
+    const block = screen.getByTestId('approval-experiment');
+    // Same winner as the official runoff, but the order collapses underneath.
+    expect(block).toHaveTextContent('Macron');
+    expect(block).toHaveTextContent('Mélenchon');
+    // Le Pen falls three places (2nd → 5th) under approval.
+    expect(block).toHaveTextContent('▼3');
+    // Provenance on screen, not just in code.
+    expect(block).toHaveTextContent('Voter Autrement');
+  });
+
   it('marks the selected ballot box for assistive tech', () => {
     render(<RealElectionPanel />);
     const ak = screen.getByTestId('real-election-ak-2022-special');

@@ -22,13 +22,13 @@ responses are best-effort — expect an acknowledgement within a week or two.
 
 ## Scope
 
-In scope: authentication/JWT handling, the FastAPI endpoints, dependency CVEs,
-and anything that could affect someone running this code locally.
+In scope: the FastAPI endpoints, rate-limit bypass, dependency CVEs, and anything
+that could affect someone running this code locally.
 
 Out of scope: findings that require an unrealistic deployment (the project ships
 no production instance with real data), denial-of-service against your own local
-instance, and the documented local-dev defaults (e.g. the `myuser/mypassword`
-Postgres credentials in `docker-compose.yml`, which exist only for local use).
+instance, and the documented local-dev defaults (e.g. the CORS/Redis defaults in
+`docker-compose.yml` and `.env.example`, which exist only for local use).
 
 ## Automated security tooling
 
@@ -37,3 +37,8 @@ This repository is continuously scanned (see `.github/workflows/audit.yml` and
 (dependencies/containers/misconfig), **CodeQL** (code scanning), plus **bandit**,
 **pip-audit** and **npm audit** in the CI pipelines. Semgrep findings, Trivy
 HIGH/CRITICAL, and any detected secret fail the build.
+
+The production image (the repo-root `Dockerfile`, which `fly.toml` deploys) is
+built from the committed lockfiles and scanned weekly and on every push to
+`develop`, with an SPDX SBOM kept as a workflow artifact. It is never pushed to a
+registry from CI.

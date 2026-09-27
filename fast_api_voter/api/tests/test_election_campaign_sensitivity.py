@@ -3,15 +3,7 @@
 Snapshot endpoint: runs the same electorate at N campaign days and
 measures method-by-method winner stability over time.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _payload(**overrides) -> dict:
@@ -66,6 +58,15 @@ class TestCampaignSensitivity:
         r = client.post("/api/v2/election/campaign-sensitivity",
                         json=_payload(candidates=many))
         assert r.status_code == 422
+
+    def test_blank_vote_contagion_enabled_returns_200(self, client):
+        # _campaign_sensitivity_worker only applies contagion when both
+        # blank_vote.enabled and contagion.enabled are set.
+        r = client.post("/api/v2/election/campaign-sensitivity", json=_payload(
+            blank_vote={"enabled": True, "rule": "symbolic",
+                        "contagion": {"enabled": True}},
+        ))
+        assert r.status_code == 200, r.text
 
     def test_accepts_mixed_int_and_string_snapshot_days(self, client):
         """Worker behaviour: 'final' may be deduplicated with the last int day

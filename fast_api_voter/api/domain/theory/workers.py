@@ -7,8 +7,27 @@ theory.py — Arrow's Impossibility Theorem interactive explorer.
 from __future__ import annotations
 
 import random as _rnd
-from collections import Counter
-from typing import Any, Dict, List, Optional
+from operator import itemgetter
+from typing import Any, Callable, Dict, List, Optional
+
+from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
+from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
+from api.engine.utils.simulation_multiwinner_utils import break_tie
+from api.engine.utils.simulation_ranked_utils import (
+    get_approval_winner,
+    get_black_winner,
+    get_borda_winner,
+    get_condorcet_winner,
+    get_irv_winner,
+    get_kemeny_young_winner,
+    get_minimax_winner,
+    get_plurality_winner,
+    get_schulze_winner,
+)
+from api.engine.utils.simulation_score_utils import (
+    get_median_voting_winner,
+    get_star_voting_winner,
+)
 
 
 
@@ -85,19 +104,16 @@ _TRADEOFF_TYPE: Dict[str, str] = {
 }
 
 
-def _plurality_winner(profile: List[List[str]]) -> Optional[str]:
-    tally: Counter[Any] = Counter(v[0] for v in profile if v)
-    return tally.most_common(1)[0][0] if tally else None
-
-
 # ── /api/theory/arrow ─────────────────────────────────────────────────────────
 
 def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /arrow — extracted for FastAPI v2."""
-    method = str(data.get("method", "plurality")).lower().replace("-", "_")
+    method = str(data.get("method", "plurality"))
     _      = int(data.get("seed", 42))
+    if err := reject_unknown_methods([method], tuple(_VIOLATIONS)):
+        return err
 
-    viols = _VIOLATIONS.get(method, _VIOLATIONS["plurality"])
+    viols = _VIOLATIONS[method]
 
     violations: Dict[str, Any] = {}
 
@@ -123,27 +139,22 @@ def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     violations["non_dictatorship"] = {"violated": viols["non_dictatorship"], "counterexample": None}
 
     # ── Summary ──────────────────────────────────────────────────────────
-    violated_list   = [ax for ax, v in viols.items() if v]
-    satisfied_list  = [ax for ax, v in viols.items() if not v]
-
-    if "transitivity" in violated_list:
+    if viols["transitivity"]:
         summary = (
             f"'{method}' peut produire des cycles de préférences collectives "
             "(paradoxe de Condorcet) : le vainqueur dépend de l'agenda."
         )
-    elif "iia" in violated_list:
+    else:  # every rule in _VIOLATIONS violates IIA: that is Arrow's theorem
         summary = (
             f"'{method}' satisfait Pareto et la transitivité mais sacrifie l'IIA. "
             "Un candidat non-gagnant peut changer qui remporte l'élection (effet spoiler)."
         )
-    else:
-        summary = f"'{method}' satisfait {', '.join(satisfied_list)}."
 
     return {
         "method":        method,
         "violations":    violations,
         "arrow_summary": summary,
-        "tradeoff_type": _TRADEOFF_TYPE.get(method, "majority_focus"),
+        "tradeoff_type": _TRADEOFF_TYPE[method],
     }, 200
 
 
@@ -151,12 +162,25 @@ def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/theory/iia-rate ──────────────────────────────────────────────────────
 
+#: The rules /iia-rate measures. It used to measure plurality only and return
+#: every other name as plurality's rate times a constant (borda 0.60, schulze
+#: 0.35, ...). Majority judgment is absent: these profiles are rankings, and MJ
+#: needs grades, so its rate cannot be measured here.
+IIA_METHODS = (
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval", "kemeny_young",
+)
+
+
 def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /iia-rate — extracted for FastAPI v2."""
-    method         = str(data.get("method", "plurality")).lower()
+    method         = str(data.get("method", "plurality"))
     max_candidates = max(2, min(8, int(data.get("max_candidates", 8))))
     n_trials       = max(20, min(500, int(data.get("num_trials", 100))))
     seed           = int(data.get("seed", 42))
+    if err := reject_unknown_methods([method], IIA_METHODS):
+        return err
+    # "condorcet" is the app's "Condorcet (Copeland)", as on the client.
+    rule = PUBLIC_METHOD_ALIASES.get(method, method)
 
     def _empirical_rate(n: int) -> float:
         rng  = _rnd.Random(seed + n * 100)
@@ -165,7 +189,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for _ in range(n_trials):
             n_voters = rng.randint(3, 7)
             profile = [rng.sample(cands, n) for _ in range(n_voters)]
-            winner_full = _plurality_winner(profile)
+            winner_full = rule_winner(rule, profile)
             if winner_full is None:
                 continue
             others = [c for c in cands if c != winner_full]
@@ -173,26 +197,15 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 continue
             removed = rng.choice(others)
             reduced = [[c for c in v if c != removed] for v in profile]
-            winner_red = _plurality_winner(reduced)
+            winner_red = rule_winner(rule, reduced)
             if winner_full != winner_red:
                 hits += 1
         return round(hits / n_trials, 4)
 
-    # Compute for plurality; scale for other methods
-    _SCALE: Dict[str, float] = {
-        "plurality": 1.00, "borda": 0.60, "irv": 0.75,
-        "schulze": 0.35, "condorcet": 0.30, "kemeny_young": 0.28,
-        "approval": 0.55, "majority_judgment": 0.50,
-    }
-    scale = _SCALE.get(method, 1.0)
-
-    curve = []
-    for n in range(2, max_candidates + 1):
-        base_rate = 0.0 if n <= 2 else _empirical_rate(n)
-        curve.append({
-            "n_candidates":   n,
-            "violation_rate": round(min(1.0, base_rate * scale), 4),
-        })
+    curve = [
+        {"n_candidates": n, "violation_rate": 0.0 if n <= 2 else _empirical_rate(n)}
+        for n in range(2, max_candidates + 1)
+    ]
 
     return {"method": method, "curve": curve}, 200
 
@@ -202,7 +215,6 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 # ── Plott Chaos Theorem ───────────────────────────────────────────────────────
 
 import numpy as _np_t
-from collections import deque as _deque_t
 
 # Manipulation analysis + judgment aggregation imports (lazy, inside endpoints)
 
@@ -277,213 +289,6 @@ _JA_SCENARIOS: Dict[str, Any] = {
 
 
 
-def _majority_beats(dists: "_np_t.ndarray", num_voters: int) -> "_np_t.ndarray":
-    """beats[j,k] = True if policy j beats policy k in majority vote."""
-    # dists shape: (n_voters, n_policies)
-    # beats_count[j,k] = #{v: dists[v,j] < dists[v,k]}
-    beats_count = _np_t.sum(dists[:, :, None] < dists[:, None, :], axis=0)
-    return _np_t.asarray(beats_count > num_voters / 2)
-
-
-def _top_cycle_scc(n: int, beats: "_np_t.ndarray") -> set[Any]:
-    """Find the Smith set (top SCC) using Kosaraju's algorithm."""
-    adj  = [[k for k in range(n) if k != j and beats[j, k]] for j in range(n)]
-    radj = [[k for k in range(n) if k != j and beats[k, j]] for j in range(n)]
-
-    visited = [False] * n
-    order: List[int] = []
-
-    def dfs1(v: int) -> None:
-        stack = [(v, iter(adj[v]))]
-        visited[v] = True
-        while stack:
-            v, it = stack[-1]
-            try:
-                u = next(it)
-                if not visited[u]:
-                    visited[u] = True
-                    stack.append((u, iter(adj[u])))
-            except StopIteration:
-                order.append(v)
-                stack.pop()
-
-    for i in range(n):
-        if not visited[i]:
-            dfs1(i)
-
-    visited2 = [False] * n
-    components: List[List[int]] = []
-
-    def dfs2(v: int, comp: List[int]) -> None:
-        stack = [(v, iter(radj[v]))]
-        visited2[v] = True
-        comp.append(v)
-        while stack:
-            v, it = stack[-1]
-            try:
-                u = next(it)
-                if not visited2[u]:
-                    visited2[u] = True
-                    comp.append(u)
-                    stack.append((u, iter(radj[u])))
-            except StopIteration:
-                stack.pop()
-
-    for v in reversed(order):
-        if not visited2[v]:
-            comp: List[int] = []
-            dfs2(v, comp)
-            components.append(comp)
-
-    # Build condensation & find SCCs with no incoming edges → top set
-    comp_of = [0] * n
-    for ci, comp in enumerate(components):
-        for v in comp:
-            comp_of[v] = ci
-
-    in_edges: list[set[Any]] = [set() for _ in range(len(components))]
-    for j in range(n):
-        for k in adj[j]:
-            if comp_of[j] != comp_of[k]:
-                in_edges[comp_of[k]].add(comp_of[j])
-
-    top_comps = [ci for ci in range(len(components)) if not in_edges[ci]]
-    top_set: set[Any] = set()
-    for ci in top_comps:
-        top_set.update(components[ci])
-    return top_set
-
-
-def _bfs_path(from_i: int, to_i: int, beats: "_np_t.ndarray",
-               max_depth: int, n: int) -> Optional[List[int]]:
-    """BFS: path from from_i to to_i where each step k beats predecessor."""
-    if from_i == to_i:
-        return [from_i]
-    visited: Dict[int, Optional[int]] = {from_i: None}
-    queue = _deque_t([(from_i, 0)])
-    while queue:
-        cur, depth = queue.popleft()
-        if depth >= max_depth:
-            continue
-        for k in range(n):
-            if k != cur and beats[k, cur] and k not in visited:
-                visited[k] = cur
-                if k == to_i:
-                    path: List[int] = []
-                    c: Optional[int] = to_i
-                    while c is not None:
-                        path.append(c)
-                        c = visited[c]
-                    path.reverse()
-                    return path
-                queue.append((k, depth + 1))
-    return None
-
-
-def _plott_chaos_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /plott-chaos — extracted for FastAPI v2."""
-    num_voters     = max(3, min(21, int(data.get("num_voters",    5))))
-    num_dims       = max(1, min(2,  int(data.get("num_dimensions", 2))))
-    seed           = int(data.get("seed",    42))
-    target_raw     = data.get("target_policy", [0.6, 0.6])
-    start_raw      = data.get("start_policy",  [-0.6, -0.6])
-    max_steps      = max(1, min(30, int(data.get("max_steps", 15))))
-
-    target_policy = [float(_np_t.clip(target_raw[d] if d < len(target_raw) else 0.0, -1, 1))
-                     for d in range(num_dims)]
-    start_policy  = [float(_np_t.clip(start_raw[d]  if d < len(start_raw)  else 0.0, -1, 1))
-                     for d in range(num_dims)]
-
-    _np_t.random.seed(seed)
-
-    # ── Voter ideal points ────────────────────────────────────────────────
-    voter_ideals = _np_t.random.uniform(-1, 1, (num_voters, num_dims))
-
-    # ── Policy grid ───────────────────────────────────────────────────────
-    grid_n = 10       # 10 per dim; 100 or 10 policies total
-    ax     = _np_t.linspace(-1, 1, grid_n)
-    if num_dims == 1:
-        policies = ax[:, None]
-    else:
-        XX, YY   = _np_t.meshgrid(ax, ax)
-        policies = _np_t.column_stack([XX.ravel(), YY.ravel()])
-
-    n_pol = len(policies)
-
-    # ── Distance matrix: dists[v, p] = ||voter_v - policy_p||² ──────────
-    dists = _np_t.sum(
-        (voter_ideals[:, None, :] - policies[None, :, :]) ** 2, axis=2
-    )   # shape: (n_voters, n_policies)
-
-    # ── Majority beats matrix ─────────────────────────────────────────────
-    beats = _majority_beats(dists, num_voters)
-
-    # ── Condorcet winner ──────────────────────────────────────────────────
-    tmp = beats.copy()
-    _np_t.fill_diagonal(tmp, True)
-    cw_mask = _np_t.all(tmp, axis=1)
-    condorcet_winner_exists = bool(_np_t.any(cw_mask))
-
-    # ── Top cycle ─────────────────────────────────────────────────────────
-    top_set = _top_cycle_scc(n_pol, beats)
-    top_cycle_size   = len(top_set)
-    top_cycle_center = policies[list(top_set)].mean(axis=0).tolist() if top_set else [0.0] * num_dims
-
-    # ── Nearest grid indices ──────────────────────────────────────────────
-    def nearest(pt: List[float]) -> int:
-        arr = _np_t.array(pt[:num_dims])
-        return int(_np_t.argmin(_np_t.sum((policies - arr) ** 2, axis=1)))
-
-    si = nearest(start_policy)
-    ti = nearest(target_policy)
-    alt_target = [-target_policy[d] for d in range(num_dims)]
-    ai = nearest(alt_target)
-
-    # ── BFS paths ─────────────────────────────────────────────────────────
-    chaos_path_idx = _bfs_path(si, ti, beats, max_steps, n_pol)
-    alt_path_idx   = _bfs_path(si, ai, beats, max_steps, n_pol)
-
-    def to_coords(idx: Optional[List[int]]) -> List[List[float]]:
-        return [policies[i].tolist() for i in idx] if idx else []
-
-    chaos_steps = to_coords(chaos_path_idx)
-    alt_steps   = to_coords(alt_path_idx)
-
-    # ── Pedagogical note ──────────────────────────────────────────────────
-    if condorcet_winner_exists:
-        note = (
-            "Un gagnant de Condorcet existe — le chaos de Plott ne s'applique pas ici. "
-            "Essayez avec num_dimensions=2 et des positions d'électeurs moins régulières."
-        )
-    else:
-        n_path = len(chaos_steps) - 1 if chaos_steps else 0
-        note = (
-            f"Aucun gagnant de Condorcet. Le top cycle couvre {top_cycle_size}/{n_pol} politiques. "
-            f"En {n_path} votes successifs l'agenda peut conduire depuis {start_policy} "
-            f"vers {target_policy}. Avec un agenda différent, la même séquence atteint "
-            f"{alt_target} — résultats diamétralement opposés, même électorat."
-        )
-
-    return {
-        "condorcet_winner_exists": condorcet_winner_exists,
-        "top_cycle": {"size": top_cycle_size, "center": top_cycle_center},
-        "chaos_path": {
-            "from":      policies[si].tolist(),
-            "to":        policies[ti].tolist(),
-            "steps":     chaos_steps,
-            "num_steps": max(0, len(chaos_steps) - 1),
-        },
-        "alternative_path": {
-            "to":    policies[ai].tolist(),
-            "steps": alt_steps,
-        },
-        "voter_ideal_points": voter_ideals.tolist(),
-        "pedagogical_note":   note,
-    }, 200
-
-
-
-
 # ── Judgment Aggregation ──────────────────────────────────────────────────────
 
 def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -518,7 +323,6 @@ def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     yes_pcts       = [c / num_voters for c in yes_counts]
     collective: List[bool] = [pct > 0.5 for pct in yes_pcts]
 
-    # ── Constraint check helper ───────────────────────────────────────────
     def _check(votes: List[bool], cstr: tuple[Any, ...]) -> bool:
         """Return True if votes satisfy the constraint."""
         prem_ids, conc_id, rule = cstr
@@ -638,11 +442,11 @@ def _agenda_manipulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     if target not in alternatives:
         target = alternatives[0]
 
-    _np_t.random.seed(seed)
+    np_rng = _np_t.random.RandomState(seed)
     alt_idx = {a: i for i, a in enumerate(alternatives)}
 
     # ── Random voter utilities ────────────────────────────────────────────
-    utils: _np_t.ndarray = _np_t.random.uniform(0, 1, (num_voters, n))
+    utils: _np_t.ndarray = np_rng.uniform(0, 1, (num_voters, n))
 
     # ── Pairwise matrix ───────────────────────────────────────────────────
     pairwise: Dict[str, Dict[str, float]] = {}
@@ -745,50 +549,57 @@ import math as _math_ap
 
 def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
     total = sum(votes.values())
-    if total == 0 or n == 0:
+    if 0 in (total, n):
         return {p: 0 for p in votes}
-    quotas = {p: v * n / total for p, v in votes.items()}
-    seats  = {p: int(q) for p, q in quotas.items()}
-    rem    = n - sum(seats.values())
-    by_rem = sorted(((q - seats[p], p) for p, q in quotas.items()), key=lambda x: (-x[0], x[1]))
-    for i in range(rem):
-        seats[by_rem[i][1]] += 1
+    # Integer quota and remainder (the remainder in units of 1/total): with
+    # float quotas 4*10/6 - 6 and 1*10/6 - 1 differ in the last bit, so an
+    # exact remainder tie was decided by rounding, not by name.
+    seats = {p: v * n // total for p, v in votes.items()}
+    rem   = {p: v * n % total for p, v in votes.items()}
+    for p in sorted(votes, key=lambda p: (-rem[p], p))[: n - sum(seats.values())]:
+        seats[p] += 1
+    return seats
+
+
+# The four divisor methods below break an exact quotient tie by name -- the
+# first party in sorted order, as `_hamilton`'s (-remainder, name) key does -- by
+# keeping each round's quotients in sorted order, so the order a request lists
+# its parties in never decides a seat. Not a random lot: this endpoint has no
+# seed field, and the paradox detectors below re-run a method on a perturbed
+# input and compare, which a lot would make noisy. Each quotient is a ratio of
+# integers (Huntington-Hill compares v^2/(s(s+1)), which orders the same as
+# v/sqrt(s(s+1)) but stays exact), so equal ones are bit-identical floats and a
+# real tie is seen as one.
+
+def _divisor_method(
+    votes: Dict[str, int], n: int, quotient: Callable[[int, int], float], start: int = 0,
+) -> Dict[str, int]:
+    seats = {p: start for p in votes}
+    quotients = {p: quotient(votes[p], start) for p in sorted(votes)}
+    for _ in range(n):
+        winner = break_tie(quotients)
+        seats[winner] += 1
+        quotients[winner] = quotient(votes[winner], seats[winner])
     return seats
 
 
 def _jefferson(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
-    for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (seats[p] + 1))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n, lambda v, s: v / (s + 1))
 
 
 def _webster(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
-    for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (2 * seats[p] + 1))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n, lambda v, s: v / (2 * s + 1))
 
 
 def _adams_m(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
-    for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / max(1, 2 * seats[p] - 1))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n, lambda v, s: v / max(1, 2 * s - 1))
 
 
 def _huntington(votes: Dict[str, int], n: int) -> Dict[str, int]:
     nv = len(votes)
     if nv > n:
         return {p: 0 for p in votes}
-    seats = {p: 1 for p in votes}
-    for _ in range(n - nv):
-        best = max(votes, key=lambda p: votes[p] / _math_ap.sqrt(seats[p] * (seats[p] + 1)))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n - nv, lambda v, s: v * v / (s * (s + 1)), start=1)
 
 
 def _quota_violation(votes: Dict[str, int], seats: Dict[str, int], n: int) -> bool:
@@ -813,7 +624,7 @@ def _population_paradox(votes: Dict[str, int], fn: Any, n: int) -> bool:
     for p in votes:
         if votes[p] == 0:
             continue
-        nv = dict(votes)
+        nv = votes.copy()
         nv[p] = int(votes[p] * 1.01) + 1
         sn = fn(nv, n)
         if sn.get(p, 0) < s0.get(p, 0):
@@ -887,7 +698,7 @@ def _apportionment_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Sen's Impossibility of a Paretian Liberal ────────────────────────────────
 
-_SEN_ALTS = ["x", "y", "z"]
+_SEN_ALTS = ("x", "y", "z")
 _SEN_ALT_NAMES = {
     "x": "Personne 1 lit le livre",
     "y": "Personne 2 lit le livre",
@@ -906,7 +717,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
     # ── Liberal order from private spheres ────────────────────────────────
     lib: Dict[tuple[Any, ...], bool] = {}   # (a, b): a ≻L b
 
-    for (a, b), pref in [(sphere1, pref1), (sphere2, pref2)]:
+    for (a, b), pref in ((sphere1, pref1), (sphere2, pref2)):
         if pref.index(a) < pref.index(b):
             lib[(a, b)] = True
         else:
@@ -1035,7 +846,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     paradox_examples  = ([canon_example] if canon_res["conflict"] else []) + rand_examples
 
     # ── Resolution options ────────────────────────────────────────────────
-    resolution_options = [
+    resolution_options = (
         {
             "name":     "Pareto prioritaire",
             "outcome":  "Efficacité collective garantie",
@@ -1060,7 +871,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "cost":     "Nécessite une définition précise des droits inviolables",
             "theorist": "Sugden (1978)",
         },
-    ]
+    )
 
     note = (
         f"Sen (1970) prouve qu'il est impossible de satisfaire simultanément "
@@ -1088,16 +899,14 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Gibbard-Satterthwaite Manipulation Analysis ───────────────────────────────
 
+#: The rules /manipulation-analysis runs. "two_round" used to be computed as
+#: IRV, "approval" as plurality, and any other name as plurality.
+MA_METHODS = ("plurality", "borda", "irv", "schulze", "two_round")
+
+
 def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
-    import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
     from api.domain.election.workers import _build_base_electorate  # type: ignore[attr-defined]
-    from api.engine.utils.simulation_ranked_utils import (
-        get_plurality_winner as _plur,
-        get_borda_winner     as _bord,
-        get_irv_winner       as _irv_,
-        get_schulze_winner   as _sch_,
-    )
     from api.engine.constants import DEFAULT_ISSUES as _DI
 
     cand_specs = data.get("candidates", [
@@ -1109,6 +918,8 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     ideology    = str(data.get("ideology",      "random"))
     seed        = int(data.get("seed",           42))
     method      = str(data.get("method",        "plurality"))
+    if err := reject_unknown_methods([method], MA_METHODS):
+        return err
     strategies  = data.get("manipulation_strategies",
                            ["compromising", "burying", "pushover", "truncating"])
 
@@ -1130,8 +941,6 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             ),
         }, 200
 
-    _np_t.random.seed(seed)
-    _rnd.seed(seed)
     issues = _DI
 
     candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
@@ -1154,14 +963,12 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     # ── Election runner ───────────────────────────────────────────────────
     def _run(rnks: List[List[str]]) -> Optional[str]:
-        full = [r + [c for c in cand_names if c not in r] for r in rnks]
-        if method == "borda":
-            return _bord(full) or cand_names[0]
-        if method in ("irv", "two_round"):
-            return _irv_(full) or cand_names[0]
-        if method == "schulze":
-            return _sch_(full) or cand_names[0]
-        return _plur(full) or cand_names[0]
+        # Ballots go in as cast. They used to be padded back to full rankings
+        # in candidate-list order first, which undid the "truncating" strategy
+        # before IRV ever saw it. And an exact tie stays None: `or
+        # cand_names[0]` used to elect the first-listed candidate instead, so a
+        # tied sincere result became "manipulated" by any ballot that decided it.
+        return rule_winner(method, rnks)
 
     sincere_winner = _run(sincere_rankings)
 
@@ -1172,11 +979,10 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     def _burying(sr: List[str]) -> List[tuple[Any, ...]]:
         # Push each non-top candidate to the bottom
-        res = []
-        for to_bury in cand_names:
-            if to_bury != sr[0]:
-                res.append(([c for c in sr if c != to_bury] + [to_bury], "burying"))
-        return res
+        return [
+            ([c for c in sr if c != to_bury] + [to_bury], "burying")
+            for to_bury in cand_names if to_bury != sr[0]
+        ]
 
     def _pushover(sr: List[str]) -> List[tuple[Any, ...]]:
         # Elevate the weakest (last) candidate to second place to create spoiler
@@ -1190,12 +996,9 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         return res
 
     def _truncating(sr: List[str]) -> List[tuple[Any, ...]]:
-        if method not in ("irv", "two_round", "approval"):
+        if method not in ("irv", "two_round"):
             return []
-        res = []
-        for length in range(1, len(sr)):  # partial rankings
-            res.append((sr[:length], "truncating"))
-        return res
+        return [(sr[:length], "truncating") for length in range(1, len(sr))]  # partial rankings
 
     _strat_fns: Dict[str, Any] = {
         "compromising": _compromising,
@@ -1208,7 +1011,9 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     manipulators: List[Dict[str, Any]] = []
     strat_counts: Dict[str, int] = {s: 0 for s in strategies}
 
-    for v_idx, v in enumerate(voters):
+    # No sincere winner (an exact tie the rule cannot break): there is no
+    # outcome to manipulate away from.
+    for v_idx, v in enumerate(voters if sincere_winner is not None else []):
         vid    = v["id"]
         sr     = sincere_rankings[v_idx]
         u_sinc = sincere_utilities[vid].get(sincere_winner or "", 0)
@@ -1222,7 +1027,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             for alt_r, s_type in gen(sr):
                 if alt_r == sr:
                     continue
-                mod     = list(sincere_rankings)
+                mod     = sincere_rankings.copy()
                 mod[v_idx] = alt_r
                 strat_w = _run(mod)
 
@@ -1240,7 +1045,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
                         "strategy_type":   s_type,
                         "sincere_result":  sincere_winner,
                         "strategic_result": strat_w,
-                        "utility_gain":    round(gain, 4),
+                        "utility_gain":    gain,
                     }
 
         if best_m:
@@ -1250,18 +1055,26 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     # ── Key manipulator ───────────────────────────────────────────────────
     key_m: Optional[Dict[str, Any]] = None
     if manipulators:
-        km = max(manipulators, key=lambda m: m["utility_gain"])
+        km = max(manipulators, key=itemgetter("utility_gain"))
         key_m = {"voter_id": km["voter_id"],
                  "strategy": km["strategy_type"],
                  "gain":     km["utility_gain"]}
+    # Chosen and counted on the exact gain; 4 significant figures for display,
+    # not 4 places -- a real gain of 8e-6 must not print as 0.0.
+    for m in manipulators:
+        m["utility_gain"] = float(f"{m['utility_gain']:.4g}")
+    if key_m:
+        key_m["gain"] = float(f"{key_m['gain']:.4g}")
 
     n_used = len(voters)
     note = (
         f"G-S : avec {n_cands} candidats et '{method}', "
         f"{len(manipulators)}/{n_used} électeurs ont intérêt à manipuler. "
     )
-    if key_m:
-        note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3f})."
+    if sincere_winner is None:
+        note += "Le vote sincère ne départage pas les candidats : rien à manipuler."
+    elif key_m:
+        note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3g})."
     else:
         note += "Aucune manipulation profitable sur ce profil."
 
@@ -1282,6 +1095,12 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
 import math as _math_t  # noqa: E402
 
+#: The decision rules /majority-tyranny models. An unknown name used to be
+#: resolved as simple majority -- and could then be named the best protector.
+MT_RULES = (
+    "simple_majority", "supermajority_2_3", "supermajority_3_4", "unanimous", "qv", "mj",
+)
+
 def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /majority-tyranny — extracted for FastAPI v2."""
     num_voters:        int   = max(10, min(int(data.get("num_voters", 100)), 500))
@@ -1289,12 +1108,9 @@ def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     minority_intensity: float = max(1.0, min(float(data.get("minority_intensity", 3.0)), 10.0))
     num_decisions:     int   = max(10, min(int(data.get("num_decisions", 50)), 200))
     seed:              int   = int(data.get("seed", 42))
-    rules: List[str]         = data.get("decision_rules") or [
-        "simple_majority", "supermajority_2_3", "supermajority_3_4",
-        "unanimous", "qv", "mj",
-    ]
-
-    _rnd.Random(seed)
+    rules: List[str]         = data.get("decision_rules") or list(MT_RULES)
+    if err := reject_unknown_methods(rules, MT_RULES):
+        return err
 
     n_majority = int(round(num_voters * majority_pct))
     n_minority = num_voters - n_majority
@@ -1475,8 +1291,209 @@ import numpy as _np_bs  # noqa: E402
 
 _POINT_OF_NO_RETURN = 0.45   # democratic quality below which recovery is very unlikely
 
+def _backsliding_base_vote_shares(
+    candidates_raw: List[Dict[str, Any]], ideology: str, nv: int, seed_local: int,
+) -> Dict[str, float]:
+    """Simulate base vote shares via a 1D spatial model: each voter's position
+    is drawn from the ideology distribution, and votes for the nearest
+    candidate by distance."""
+    rng_l = _np_bs.random.default_rng(seed_local)
+    if ideology == "polarized":
+        voter_positions = rng_l.normal(0, 0.4, nv)
+        voter_positions = _np_bs.clip(voter_positions, -1, 1)
+    else:
+        voter_positions = rng_l.uniform(-1, 1, nv)
+
+    shares: Dict[str, float] = {c["name"]: 0 for c in candidates_raw}
+    for vp in voter_positions:
+        distances = {
+            c["name"]: float((vp - c.get("x", 0.0)) ** 2)
+            for c in candidates_raw
+        }
+        winner_name = min(distances, key=distances.get)  # type: ignore[arg-type]
+        shares[winner_name] += 1
+    return {k: v / nv for k, v in shares.items()}
+
+
+def _run_one_backsliding_election(
+    n: int, num_voters: int, seed: int, candidates_raw: List[Dict[str, Any]],
+    ideology: str, incumbent_name: str, method_bs: str, guardrails: Dict[str, bool],
+    effective_intensity: float, rng: "_rnd.Random", state: Dict[str, Any],
+) -> Dict[str, Any]:
+    """One election cycle: base vote shares -> apply the chosen backsliding
+    mechanism + guardrail resistance -> determine the winner -> update the
+    democratic-quality index and cumulative advantages -> detect autocracy.
+
+    Mutates `state` in place (keys: gerry_bonus, media_bias,
+    suppression_rate, democratic_quality, consecutive_incumbent_wins,
+    autocracy_reached, autocracy_at_election); returns the per-election
+    record dict to append to `elections`."""
+    guardrails_triggered: List[str] = []
+
+    # ── Base vote shares ──────────────────────────────────────────────────
+    shares = _backsliding_base_vote_shares(candidates_raw, ideology, num_voters, seed + n)
+
+    # ── Apply backsliding mechanisms ──────────────────────────────────────
+    if method_bs == "gerrymandering":
+        # Gerrymandering: directly boosts incumbent share
+        bonus = state["gerry_bonus"]
+        if guardrails["constitutional_court"] and bonus > 0.05:
+            bonus = max(0.05, bonus * 0.6)
+            guardrails_triggered.append("constitutional_court")
+        shares[incumbent_name] = min(0.95, shares[incumbent_name] + bonus)
+        # Renormalize
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    elif method_bs == "media_capture":
+        # Media capture: shift perceived utility toward incumbent
+        bias = state["media_bias"]
+        if guardrails["opposition_media"] and bias > 0.1:
+            bias = max(0.1, bias * 0.55)
+            guardrails_triggered.append("opposition_media")
+        noise = rng.gauss(0, 0.02)
+        shares[incumbent_name] = min(0.95, shares[incumbent_name] + bias + noise)
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    elif method_bs == "voter_suppression":
+        # Voter suppression: reduce effective opposition turnout
+        suppression = state["suppression_rate"]
+        if guardrails["supermajority_required"] and suppression > 0.1:
+            suppression = max(0.1, suppression * 0.5)
+            guardrails_triggered.append("supermajority_required")
+        for cname, c in zip([c["name"] for c in candidates_raw], candidates_raw):
+            if cname != incumbent_name:
+                shares[cname] = max(0.01, shares[cname] * (1.0 - suppression))
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    # ── International pressure — soft resistance ───────────────────────
+    if guardrails["international_pressure"] and state["democratic_quality"] < 0.7:
+        shares[incumbent_name] = max(0.0, shares[incumbent_name] - 0.03)
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+        guardrails_triggered.append("international_pressure")
+
+    # ── Determine election winner ─────────────────────────────────────────
+    election_winner = max(shares, key=shares.get)  # type: ignore[arg-type]
+    incumbent_won = (election_winner == incumbent_name)
+
+    # ── Update democratic quality index ───────────────────────────────────
+    # Quality declines by intensity × per-mechanism rate each time incumbent wins
+    per_election_decay_base = effective_intensity * 0.12
+
+    if incumbent_won:
+        state["consecutive_incumbent_wins"] += 1
+        # Decay accelerates with each consecutive win (compounding)
+        decay = per_election_decay_base * (1.0 + state["consecutive_incumbent_wins"] * 0.15)
+        state["democratic_quality"] = max(0.0, state["democratic_quality"] - decay)
+    else:
+        state["consecutive_incumbent_wins"] = 0
+        # Opposition win slightly restores quality (institutional memory)
+        state["democratic_quality"] = min(1.0, state["democratic_quality"] + 0.05)
+
+    # Noise for realism
+    state["democratic_quality"] += rng.gauss(0, 0.01)
+    state["democratic_quality"] = max(0.0, min(1.0, state["democratic_quality"]))
+
+    # ── Update cumulative advantages for next election ────────────────────
+    if incumbent_won:
+        per_step = effective_intensity * 0.06
+        if method_bs == "gerrymandering":
+            state["gerry_bonus"] = min(0.40, state["gerry_bonus"] + per_step)
+        elif method_bs == "media_capture":
+            state["media_bias"]  = min(0.40, state["media_bias"] + per_step)
+        elif method_bs == "voter_suppression":
+            state["suppression_rate"] = min(0.60, state["suppression_rate"] + per_step)
+    else:
+        # Partial rollback when opposition wins
+        state["gerry_bonus"]      = max(0.0, state["gerry_bonus"] - 0.02)
+        state["media_bias"]       = max(0.0, state["media_bias"] - 0.02)
+        state["suppression_rate"] = max(0.0, state["suppression_rate"] - 0.02)
+
+    # ── Autocracy detection ───────────────────────────────────────────────
+    point_of_no_return = state["democratic_quality"] <= _POINT_OF_NO_RETURN
+    if not state["autocracy_reached"] and state["democratic_quality"] <= 0.20:
+        state["autocracy_reached"]     = True
+        state["autocracy_at_election"] = n
+
+    return {
+        "election_n":         n,
+        "winner":             election_winner,
+        "vote_shares":        {k: round(v, 4) for k, v in shares.items()},
+        "democratic_quality": round(state["democratic_quality"], 4),
+        "advantages": {
+            "gerrymandering_bonus": round(state["gerry_bonus"], 4),
+            "media_bias":           round(state["media_bias"], 4),
+            "suppression_rate":     round(state["suppression_rate"], 4),
+        },
+        "guardrails_triggered": guardrails_triggered,
+        "point_of_no_return":   point_of_no_return,
+    }
+
+
+def _backsliding_guardrail_effectiveness(
+    guardrails: Dict[str, bool], guardrail_quality_saved: float,
+) -> Dict[str, float]:
+    """Split the rough counterfactual quality-saved estimate across the
+    active guardrails, weighted by their nominal resistance contribution."""
+    guardrail_effectiveness: Dict[str, float] = {}
+    weights = {
+        "constitutional_court":   0.30,
+        "opposition_media":       0.20,
+        "international_pressure": 0.15,
+        "supermajority_required": 0.25,
+    }
+    for gr, active in guardrails.items():
+        if active:
+            guardrail_effectiveness[gr] = round(
+                guardrail_quality_saved * weights[gr] / max(sum(weights[g] for g, a in guardrails.items() if a), 0.01),
+                4,
+            )
+        else:
+            guardrail_effectiveness[gr] = 0.0
+    return guardrail_effectiveness
+
+
+def _backsliding_pedagogical_note(
+    guardrails: Dict[str, bool], autocracy_reached: bool,
+    autocracy_at_election: Optional[int], elections: List[Dict[str, Any]],
+    final_quality: float, num_elections: int, guardrail_quality_saved: float,
+) -> str:
+    """Popper's paradox pedagogical note, plus a guardrail-savings sentence
+    when at least one guardrail is active."""
+    active_gr = [k for k, v in guardrails.items() if v]
+    if autocracy_reached:
+        assert autocracy_at_election is not None
+        note = (
+            f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
+            f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
+        )
+    else:
+        note = (
+            f"Qualité démocratique finale : {final_quality:.2f} après {num_elections} élections. "
+        )
+    if active_gr:
+        note += (
+            f"Les garde-fous actifs ({', '.join(active_gr)}) ont sauvé "
+            f"≈{guardrail_quality_saved:.2f} unités de qualité démocratique. "
+        )
+    note += (
+        "Paradoxe de Popper (1945) : une démocratie sans droits non-dérogeables "
+        "peut voter légalement pour sa propre destruction."
+    )
+    return note
+
+
 def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /democratic-backsliding — extracted for FastAPI v2."""
+    """Pure worker for /democratic-backsliding — extracted for FastAPI v2.
+
+    The per-election loop body, the base-vote-shares model, the guardrail-
+    effectiveness split and the pedagogical note are now private
+    `_backsliding_*`/`_run_one_backsliding_election` helpers — same names,
+    same computation, same order as before (CODE_AUDIT.md §5/§8 complexity
+    decomposition)."""
     candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "Incumbent", "x": 0.2, "y": 0.0},
         {"name": "Opposition", "x": -0.4, "y": 0.0},
@@ -1506,25 +1523,6 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
         ]
     incumbent_name = candidates_raw[0]["name"]
 
-    # ── Simulate base vote shares via spatial model ───────────────────────────
-    def _base_vote_shares(nv: int, seed_local: int) -> Dict[str, float]:
-        rng_l = _np_bs.random.default_rng(seed_local)
-        if ideology == "polarized":
-            voter_positions = rng_l.normal(0, 0.4, nv)
-            voter_positions = _np_bs.clip(voter_positions, -1, 1)
-        else:
-            voter_positions = rng_l.uniform(-1, 1, nv)
-
-        shares: Dict[str, float] = {c["name"]: 0 for c in candidates_raw}
-        for vp in voter_positions:
-            distances = {
-                c["name"]: float((vp - c.get("x", 0.0)) ** 2)
-                for c in candidates_raw
-            }
-            winner_name = min(distances, key=distances.get)  # type: ignore[arg-type]
-            shares[winner_name] += 1
-        return {k: v / nv for k, v in shares.items()}
-
     # ── Guardrail effectiveness parameters ───────────────────────────────────
     # Each guardrail reduces the effective intensity multiplier
     guardrail_resistance = 0.0
@@ -1540,142 +1538,31 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     effective_intensity = max(0.0, intensity * (1.0 - guardrail_resistance))
 
     # ── Cumulative advantage state ────────────────────────────────────────────
-    gerry_bonus:      float = 0.0   # cumulative gerrymandering bonus (vote share add)
-    media_bias:       float = 0.0   # cumulative media capture (utility shift)
-    suppression_rate: float = 0.0   # opposition turnout reduction
-
-    democratic_quality = 1.0
-    consecutive_incumbent_wins = 0
-    autocracy_reached = False
-    autocracy_at_election: Optional[int] = None
+    state: Dict[str, Any] = {
+        "gerry_bonus":               0.0,   # cumulative gerrymandering bonus (vote share add)
+        "media_bias":                0.0,   # cumulative media capture (utility shift)
+        "suppression_rate":          0.0,   # opposition turnout reduction
+        "democratic_quality":        1.0,
+        "consecutive_incumbent_wins": 0,
+        "autocracy_reached":         False,
+        "autocracy_at_election":     None,
+    }
 
     elections: List[Dict[str, Any]] = []
-
     for n in range(1, num_elections + 1):
-        guardrails_triggered: List[str] = []
-
-        # ── Base vote shares ──────────────────────────────────────────────────
-        shares = _base_vote_shares(num_voters, seed + n)
-
-        # ── Apply backsliding mechanisms ──────────────────────────────────────
-        if method_bs == "gerrymandering":
-            # Gerrymandering: directly boosts incumbent share
-            bonus = gerry_bonus
-            if guardrails["constitutional_court"] and bonus > 0.05:
-                bonus = max(0.05, bonus * 0.6)
-                guardrails_triggered.append("constitutional_court")
-            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bonus)
-            # Renormalize
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        elif method_bs == "media_capture":
-            # Media capture: shift perceived utility toward incumbent
-            bias = media_bias
-            if guardrails["opposition_media"] and bias > 0.1:
-                bias = max(0.1, bias * 0.55)
-                guardrails_triggered.append("opposition_media")
-            noise = rng.gauss(0, 0.02)
-            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bias + noise)
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        elif method_bs == "voter_suppression":
-            # Voter suppression: reduce effective opposition turnout
-            suppression = suppression_rate
-            if guardrails["supermajority_required"] and suppression > 0.1:
-                suppression = max(0.1, suppression * 0.5)
-                guardrails_triggered.append("supermajority_required")
-            for cname, c in zip([c["name"] for c in candidates_raw], candidates_raw):
-                if cname != incumbent_name:
-                    shares[cname] = max(0.01, shares[cname] * (1.0 - suppression))
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        # ── International pressure — soft resistance ───────────────────────
-        if guardrails["international_pressure"] and democratic_quality < 0.7:
-            shares[incumbent_name] = max(0.0, shares[incumbent_name] - 0.03)
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-            guardrails_triggered.append("international_pressure")
-
-        # ── Determine election winner ─────────────────────────────────────────
-        election_winner = max(shares, key=shares.get)  # type: ignore[arg-type]
-        incumbent_won = (election_winner == incumbent_name)
-
-        # ── Update democratic quality index ───────────────────────────────────
-        # Quality declines by intensity × per-mechanism rate each time incumbent wins
-        per_election_decay_base = effective_intensity * 0.12
-
-        if incumbent_won:
-            consecutive_incumbent_wins += 1
-            # Decay accelerates with each consecutive win (compounding)
-            decay = per_election_decay_base * (1.0 + consecutive_incumbent_wins * 0.15)
-            democratic_quality = max(0.0, democratic_quality - decay)
-        else:
-            consecutive_incumbent_wins = 0
-            # Opposition win slightly restores quality (institutional memory)
-            democratic_quality = min(1.0, democratic_quality + 0.05)
-
-        # Noise for realism
-        democratic_quality += rng.gauss(0, 0.01)
-        democratic_quality = max(0.0, min(1.0, democratic_quality))
-
-        # ── Update cumulative advantages for next election ────────────────────
-        if incumbent_won:
-            per_step = effective_intensity * 0.06
-            if method_bs == "gerrymandering":
-                gerry_bonus = min(0.40, gerry_bonus + per_step)
-            elif method_bs == "media_capture":
-                media_bias  = min(0.40, media_bias + per_step)
-            elif method_bs == "voter_suppression":
-                suppression_rate = min(0.60, suppression_rate + per_step)
-        else:
-            # Partial rollback when opposition wins
-            gerry_bonus      = max(0.0, gerry_bonus - 0.02)
-            media_bias       = max(0.0, media_bias - 0.02)
-            suppression_rate = max(0.0, suppression_rate - 0.02)
-
-        # ── Autocracy detection ───────────────────────────────────────────────
-        point_of_no_return = democratic_quality <= _POINT_OF_NO_RETURN
-        if not autocracy_reached and democratic_quality <= 0.20:
-            autocracy_reached     = True
-            autocracy_at_election = n
-
-        elections.append({
-            "election_n":         n,
-            "winner":             election_winner,
-            "vote_shares":        {k: round(v, 4) for k, v in shares.items()},
-            "democratic_quality": round(democratic_quality, 4),
-            "advantages": {
-                "gerrymandering_bonus": round(gerry_bonus, 4),
-                "media_bias":           round(media_bias, 4),
-                "suppression_rate":     round(suppression_rate, 4),
-            },
-            "guardrails_triggered": guardrails_triggered,
-            "point_of_no_return":   point_of_no_return,
-        })
+        elections.append(_run_one_backsliding_election(
+            n, num_voters, seed, candidates_raw, ideology, incumbent_name,
+            method_bs, guardrails, effective_intensity, rng, state,
+        ))
 
     # ── Guardrail effectiveness: compare with/without ─────────────────────────
     final_quality = elections[-1]["democratic_quality"]
     # Rough counterfactual: without guardrails, extra decay per election ≈
     # guardrail_resistance × intensity × 0.12 × num_elections
     guardrail_quality_saved = guardrail_resistance * intensity * 0.12 * num_elections
-    guardrail_effectiveness: Dict[str, float] = {}
-    weights = {
-        "constitutional_court":   0.30,
-        "opposition_media":       0.20,
-        "international_pressure": 0.15,
-        "supermajority_required": 0.25,
-    }
-    for gr, active in guardrails.items():
-        if active:
-            guardrail_effectiveness[gr] = round(
-                guardrail_quality_saved * weights[gr] / max(sum(weights[g] for g, a in guardrails.items() if a), 0.01),
-                4,
-            )
-        else:
-            guardrail_effectiveness[gr] = 0.0
+    guardrail_effectiveness = _backsliding_guardrail_effectiveness(
+        guardrails, guardrail_quality_saved,
+    )
 
     # ── Tipping points ────────────────────────────────────────────────────────
     tipping_points = [
@@ -1684,32 +1571,15 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     ]
     tipping_points = [min(tp, 1.0) for tp in tipping_points]
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    active_gr = [k for k, v in guardrails.items() if v]
-    if autocracy_reached:
-        assert autocracy_at_election is not None
-        note = (
-            f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
-            f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
-        )
-    else:
-        note = (
-            f"Qualité démocratique finale : {final_quality:.2f} après {num_elections} élections. "
-        )
-    if active_gr:
-        note += (
-            f"Les garde-fous actifs ({', '.join(active_gr)}) ont sauvé "
-            f"≈{guardrail_quality_saved:.2f} unités de qualité démocratique. "
-        )
-    note += (
-        "Paradoxe de Popper (1945) : une démocratie sans droits non-dérogeables "
-        "peut voter légalement pour sa propre destruction."
+    note = _backsliding_pedagogical_note(
+        guardrails, state["autocracy_reached"], state["autocracy_at_election"],
+        elections, final_quality, num_elections, guardrail_quality_saved,
     )
 
     return {
         "elections":                elections,
-        "autocracy_reached":        autocracy_reached,
-        "autocracy_at_election":    autocracy_at_election,
+        "autocracy_reached":        state["autocracy_reached"],
+        "autocracy_at_election":    state["autocracy_at_election"],
         "guardrails_effectiveness": guardrail_effectiveness,
         "tipping_points":           tipping_points,
         "pedagogical_note":         note,
@@ -1751,14 +1621,15 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     pct_young, pct_adult, pct_senior = age_dist
 
     # Validate decisions
-    decisions: List[Dict[str, Any]] = []
-    for d in raw_decisions[:8]:
-        decisions.append({
+    decisions: List[Dict[str, Any]] = [
+        {
             "name":               str(d.get("name", "?")),
             "cost_present":       max(-1.0, min(1.0, float(d.get("cost_present", 0.0)))),
             "benefit_future":     max(-1.0, min(1.0, float(d.get("benefit_future", 0.0)))),
             "time_horizon_years": max(1, min(50, int(d.get("time_horizon_years", 10)))),
-        })
+        }
+        for d in raw_decisions[:8]
+    ]
 
     # ── Voter population ──────────────────────────────────────────────────────
     # For each cohort, base preference = f(cost_present, benefit_future, age)
@@ -1906,7 +1777,7 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         future_welfare_gain = avg_w_future - avg_w_fut_none
 
         # Intergenerational Gini: inequality between present & future welfare
-        incomes = [avg_w_present, avg_w_future]
+        incomes = (avg_w_present, avg_w_future)
         mean_i  = sum(incomes) / 2 or 1.0
         gini    = sum(abs(a - b) for a in incomes for b in incomes) / (2 * 2 * mean_i)
 
@@ -2006,7 +1877,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for c in competences
         ]
     else:
-        biased_competences = list(competences)
+        biased_competences = competences.copy()
 
     actual_mean        = _stats_ep.mean(competences)
     biased_mean        = _stats_ep.mean(biased_competences)
@@ -2021,7 +1892,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Simulate multiple elections per scheme across many trials ─────────────
     n_trials = 40   # Monte Carlo over voter preference noise
 
-    schemes = ["equal", "competence_weighted", "epistocratic", "lottery"]
+    schemes = ("equal", "competence_weighted", "epistocratic", "lottery")
     results: Dict[str, Any] = {}
 
     for scheme in schemes:
@@ -2156,32 +2027,11 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/theory/identity-voting ───────────────────────────────────────────────
 
-def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /identity-voting — extracted for FastAPI v2."""
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
-        {"name": "Alice", "x": -0.5, "y": 0.0},
-        {"name": "Bob",   "x":  0.0, "y": 0.0},
-        {"name": "Carol", "x":  0.5, "y": 0.0},
-    ]
-    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
-    seed:            int   = int(data.get("seed", 42))
-    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
-    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
-
-    default_groups = [
-        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
-         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
-        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
-         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
-        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
-         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
-    ]
-    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
-
-    rng = _rnd.Random(seed)
-    cand_names = [c["name"] for c in candidates_raw]
-
-    # ── Normalise groups ──────────────────────────────────────────────────────
+def _identity_normalise_groups(
+    groups_raw: List[Dict[str, Any]], cand_names: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 1 — normalise identity groups (percentages renormalised to sum to
+    1, unknown candidate affiliations fall back to the first candidate)."""
     groups: List[Dict[str, Any]] = []
     total_pct = sum(float(g.get("pct", 0.33)) for g in groups_raw) or 1.0
     for g in groups_raw:
@@ -2195,8 +2045,17 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":               max(0.0, min(float(g.get("loyalty", 0.6)), 1.0)),
             "candidate_affiliation": affil,
         })
+    return groups
 
-    # ── Generate voters ───────────────────────────────────────────────────────
+
+def _identity_generate_voters(
+    groups: List[Dict[str, Any]], candidates_raw: List[Dict[str, Any]],
+    num_voters: int, rng: "_rnd.Random", cross_pressure: bool,
+    identity_weight: float,
+) -> List[Dict[str, Any]]:
+    """Step 2 — generate voters: each draws an ideology position from their
+    group, votes ideologically vs. by identity affiliation, may abstain when
+    cross-pressured, and casts a final vote blending both."""
     voters: List[Dict[str, Any]] = []
     group_sizes = [max(1, round(g["pct"] * num_voters)) for g in groups]
     # Adjust last group to hit exactly num_voters
@@ -2241,22 +2100,19 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "is_cross_pressured": is_cross_pressured,
                 "abstains":           abstains,
             })
+    return voters
 
-    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
-    def _plurality(votes: List[str]) -> str:
-        from collections import Counter as _C
-        return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
 
-    sincere_votes  = [v["ideo_vote"]     for v in voters]
-    identity_votes = [v["identity_vote"] for v in voters]
-    mixed_votes    = [v["final_vote"]    for v in voters
-                      if not (cross_pressure and v["abstains"])]
+def _identity_plurality(votes: List[str], cand_names: List[str]) -> str:
+    from collections import Counter as _C
+    vc = _C(votes)
+    return min(vc, key=lambda c: (-vc[c], c)) if votes else cand_names[0]
 
-    sincere_winner  = _plurality(sincere_votes)
-    identity_winner = _plurality(identity_votes)
-    mixed_winner    = _plurality(mixed_votes)
 
-    # ── Group results ─────────────────────────────────────────────────────────
+def _identity_group_results(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Step 5 — per-group breakdown of identity-vote and ideology-match rates."""
     group_results: List[Dict[str, Any]] = []
     for gidx, group in enumerate(groups):
         members = [v for v in voters if v["group"] == gidx]
@@ -2273,14 +2129,16 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":        round(group["loyalty"], 4),
             "size_pct":       round(group["pct"], 4),
         })
+    return group_results
 
-    # ── Cross-pressured stats ─────────────────────────────────────────────────
-    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
-    n_cross = len(cross_pressured_voters)
-    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
-    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
 
-    # ── Identity-weight curve ─────────────────────────────────────────────────
+def _identity_weight_curve(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+    cand_names: List[str], seed: int, cross_pressure: bool,
+    sincere_votes: List[str], identity_votes: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 7 — re-simulate the final vote at 11 identity-weight steps
+    (0%..100%) to trace how the winner and inter-scenario agreement shift."""
     curve: List[Dict[str, Any]] = []
     for w_pct in range(0, 105, 10):
         w = w_pct / 100.0
@@ -2294,7 +2152,7 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             vote_c  = v["identity_vote"] if use_id else v["ideo_vote"]
             if not (cross_pressure and v["abstains"]):
                 curve_votes.append(vote_c)
-        w_winner = _plurality(curve_votes)
+        w_winner = _identity_plurality(curve_votes, cand_names)
         # Agreement: fraction who would vote same under both identity=0 and identity=1
         ideo_tally   = {n: sincere_votes.count(n) for n in cand_names}
         id_tally     = {n: identity_votes.count(n) for n in cand_names}
@@ -2306,9 +2164,14 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "winner":         w_winner,
             "agreement_rate": round(agreement, 4),
         })
+    return curve
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    n_cross_total = len(cross_pressured_voters)
+
+def _identity_pedagogical_note(
+    identity_weight: float, mixed_winner: str, sincere_winner: str,
+    n_cross_total: int, num_voters: int, abstention_rate: float,
+) -> str:
+    """Step 8 — pedagogical note (Green/Palmquist/Schickler + cross-pressure stats)."""
     note = (
         f"Green, Palmquist & Schickler (2002) : les électeurs adoptent les positions "
         f"de leur camp, ils ne choisissent pas leur camp selon leurs positions. "
@@ -2322,6 +2185,73 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"'cross-pressured' (identité ≠ idéologie) ; "
             f"taux d'abstention dans ce groupe : {round(abstention_rate*100)}%."
         )
+    return note
+
+
+def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /identity-voting — extracted for FastAPI v2.
+
+    Each numbered step below used to be inlined here; they're now private
+    `_identity_*` helpers (one per step) so this function is a short,
+    low-complexity sequence of calls instead of one large branchy block —
+    same names, same computation, same order as before (CODE_AUDIT.md §5/§8
+    complexity decomposition)."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
+        {"name": "Alice", "x": -0.5, "y": 0.0},
+        {"name": "Bob",   "x":  0.0, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ]
+    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
+    seed:            int   = int(data.get("seed", 42))
+    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
+    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
+
+    default_groups = [
+        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
+         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
+        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
+         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
+        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
+         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
+    ]
+    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
+
+    rng = _rnd.Random(seed)
+    cand_names = [c["name"] for c in candidates_raw]
+
+    groups = _identity_normalise_groups(groups_raw, cand_names)
+    voters = _identity_generate_voters(
+        groups, candidates_raw, num_voters, rng, cross_pressure, identity_weight,
+    )
+
+    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
+    sincere_votes  = [v["ideo_vote"]     for v in voters]
+    identity_votes = [v["identity_vote"] for v in voters]
+    mixed_votes    = [v["final_vote"]    for v in voters
+                      if not (cross_pressure and v["abstains"])]
+
+    sincere_winner  = _identity_plurality(sincere_votes, cand_names)
+    identity_winner = _identity_plurality(identity_votes, cand_names)
+    mixed_winner    = _identity_plurality(mixed_votes, cand_names)
+
+    group_results = _identity_group_results(voters, groups)
+
+    # ── Cross-pressured stats ─────────────────────────────────────────────────
+    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
+    n_cross = len(cross_pressured_voters)
+    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
+    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
+
+    curve = _identity_weight_curve(
+        voters, groups, cand_names, seed, cross_pressure,
+        sincere_votes, identity_votes,
+    )
+
+    n_cross_total = len(cross_pressured_voters)
+    note = _identity_pedagogical_note(
+        identity_weight, mixed_winner, sincere_winner, n_cross_total,
+        num_voters, abstention_rate,
+    )
 
     return {
         "sincere_winner":  sincere_winner,
@@ -2383,15 +2313,10 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                  for c in candidates_raw}
         return str(min(dists, key=lambda d: dists[d]))
 
-    def _plurality_winner(votes: List[str]) -> Optional[str]:
-        from collections import Counter as _C
-        c = _C(votes)
-        return c.most_common(1)[0][0] if c else None
-
     # ── Baseline: standard spatial model ─────────────────────────────────────
     base_positions = _voter_positions(seed, num_voters, ideology)
     baseline_votes = [_nearest(p, {}) for p in base_positions]
-    baseline_winner = _plurality_winner(baseline_votes) or cand_names[0]
+    baseline_winner = _identity_plurality(baseline_votes, cand_names)
 
     # ── Simulate each assumption violation ───────────────────────────────────
     relaxed_results: Dict[str, Any] = {}
@@ -2407,7 +2332,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
             positions = _voter_positions(seed + t, num_voters, ideology)
             votes: List[str] = []
 
-            for i, pos in enumerate(positions):
+            for pos in positions:
                 if assumption == "stable_preferences":
                     # Add noise: preference drifts ±0.2 between poll and vote
                     noisy_pos = pos + t_rng.gauss(0, 0.15)
@@ -2444,22 +2369,22 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                 else:
                     votes.append(_nearest(pos, {}))
 
-            w = _plurality_winner(votes)
-            if w:
-                trial_winners.append(w)
-
-        if not trial_winners:
-            trial_winners = [baseline_winner]
+            trial_winners.append(_identity_plurality(votes, cand_names))
 
         # Statistics across trials
         from collections import Counter as _Ctr
         winner_counts = _Ctr(trial_winners)
-        most_common   = winner_counts.most_common(1)[0][0]
         n_t           = len(trial_winners)
+        # Every candidate tied for most trials won. `most_common(1)` returned
+        # whichever won the FIRST trial, and at 20 voters with 2 candidates a
+        # 15-15 split is ordinary: seed 10 below reported this scenario fragile
+        # because that coin flip landed on the candidate the baseline did not pick.
+        leaders = modal_keys(winner_counts)
 
         # Fraction of trials where winner differs from baseline
         pct_changed = sum(1 for w in trial_winners if w != baseline_winner) / n_t
-        winner_changed = most_common != baseline_winner
+        # A tie the baseline still leads has not changed the winner.
+        winner_changed = baseline_winner not in leaders
 
         # Variance proxy: entropy of winner distribution
         probs      = [cnt / n_t for cnt in winner_counts.values()]
@@ -2467,13 +2392,13 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         max_ent    = _math_t.log2(n_cands)
         result_var = round(entropy / max_ent if max_ent > 0 else 0.0, 4)
 
-        # 95% CI for the leading candidate's win rate
-        p_lead = winner_counts[most_common] / n_t
+        # 95% CI for the leading win rate — the count, so tied leaders share it.
+        p_lead = max(winner_counts.values(), default=0) / n_t
         margin = 1.96 * _math_t.sqrt(p_lead * (1 - p_lead) / max(n_t, 1))
-        ci     = [round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4)]
+        ci     = (round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4))
 
         relaxed_results[assumption] = {
-            "winner":              most_common,
+            "winner":              leaders,
             "winner_changed":      winner_changed,
             "pct_trials_changed":  round(pct_changed, 4),
             "result_variance":     result_var,
@@ -2548,9 +2473,12 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Voting methods pool (subset used based on num_methods)
     _method_pool = [
         "plurality", "borda", "irv", "approval",
-        "schulze", "minimax", "kemeny_young", "star", "median", "condorcet"
+        "schulze", "minimax", "kemeny_young", "star", "median", "black",
     ]
     methods_used = _method_pool[:min(num_methods, len(_method_pool))]
+    # Approve the top ~40% of the field, at least one: plurality at 2 candidates,
+    # 2 at 3-4, 3 at 5-7, 4 at 8.
+    _approval_threshold = max(1, int(n_cands * 0.4) + 1)
 
     rng = _rnd.Random(seed)
 
@@ -2582,104 +2510,67 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for i in range(num_voters)
     ]
 
-    # ── Plurality tally helper ─────────────────────────────────────────────────
-    def _plurality(rankings: List[List[str]]) -> str:
-        from collections import Counter as _C
-        return _C(r[0] for r in rankings if r).most_common(1)[0][0]
-
-    # ── Borda helper ──────────────────────────────────────────────────────────
-    def _borda(rankings: List[List[str]]) -> str:
-        scores: Dict[str, float] = {c: 0.0 for c in cand_names}
-        for ranking in rankings:
-            for pos, cand in enumerate(ranking):
-                scores[cand] += n_cands - 1 - pos
-        return max(scores, key=scores.get)  # type: ignore[arg-type]
-
-    # ── Condorcet helper ──────────────────────────────────────────────────────
-    def _condorcet_winner(rankings: List[List[str]]) -> Optional[str]:
-        n_v = len(rankings)
-        for cand in cand_names:
-            beats_all = True
-            for other in cand_names:
-                if other == cand:
-                    continue
-                prefer_cand = sum(
-                    1 for r in rankings
-                    if r.index(cand) < r.index(other)
-                    if cand in r and other in r
-                )
-                if prefer_cand <= n_v / 2:
-                    beats_all = False
-                    break
-            if beats_all:
-                return str(cand)
-        return None
-
-    # ── IRV helper ────────────────────────────────────────────────────────────
-    def _irv(rankings: List[List[str]]) -> str:
-        remaining = list(cand_names)
-        current   = [list(r) for r in rankings]
-        while len(remaining) > 1:
-            from collections import Counter as _C2
-            tally = _C2(
-                next((c for c in r if c in remaining), None)
-                for r in current
-            )
-            tally.pop(None, None)
-            if not tally:
-                break
-            total = sum(tally.values())
-            # Check majority
-            leader = tally.most_common(1)[0][0]
-            if leader is not None and tally[leader] > total / 2:
-                return leader
-            # Eliminate last
-            last = tally.most_common()[-1][0]
-            remaining.remove(last)
-        return str(remaining[0]) if remaining else cand_names[0]
-
-    # ── Minimax helper ────────────────────────────────────────────────────────
-    def _minimax(rankings: List[List[str]]) -> str:
-        len(rankings)
-        worst_loss: Dict[str, int] = {}
-        for cand in cand_names:
-            losses = []
-            for other in cand_names:
-                if other == cand:
-                    continue
-                prefer_other = sum(
-                    1 for r in rankings
-                    if cand in r and other in r and r.index(other) < r.index(cand)
-                )
-                losses.append(prefer_other)
-            worst_loss[cand] = max(losses) if losses else 0
-        return min(worst_loss, key=worst_loss.get)  # type: ignore[arg-type]
+    # ── Score ballots (0-5), the convention every score rule in the engine
+    # expects. The panel's raw utility is a negative squared distance, so the
+    # matrix is min-maxed first -- globally, not per voter, so a voter who
+    # dislikes everyone still scores everyone low (that intensity is what a score
+    # rule is meant to read). Built per electorate, and only when `star` or
+    # `median` is in the pool: they sit at indices 7 and 8, and num_methods
+    # defaults to 5, so the deployed panel never asks for them.
+    def _score_votes(util_matrix: List[List[float]]) -> List[Dict[str, int]]:
+        flat = [u for row in util_matrix for u in row]
+        lo, hi = min(flat), max(flat)
+        span = (hi - lo) or 1.0
+        return [
+            {cand_names[j]: round(5 * (util_matrix[i][j] - lo) / span) for j in range(n_cands)}
+            for i in range(len(util_matrix))
+        ]
 
     # ── Method dispatcher ─────────────────────────────────────────────────────
-    def _run_method(method: str, rankings: List[List[str]]) -> str:
-        if method == "plurality":
-            return _plurality(rankings)
-        if method == "borda":
-            return _borda(rankings)
-        if method == "irv":
-            return _irv(rankings)
-        if method == "approval":
-            # Approve top 40% of candidates
-            threshold = max(1, int(n_cands * 0.4) + 1)
-            scores: Dict[str, int] = {c: 0 for c in cand_names}
-            for r in rankings:
-                for c in r[:threshold]:
-                    scores[c] += 1
-            return max(scores, key=scores.get)  # type: ignore[arg-type]
-        if method in ("schulze", "kemeny_young", "condorcet"):
-            cw = _condorcet_winner(rankings)
-            return cw if cw else _borda(rankings)
-        if method == "minimax":
-            return _minimax(rankings)
-        if method in ("star", "median"):
-            # Score-based: use borda as proxy
-            return _borda(rankings)
-        return _plurality(rankings)
+    # Every rule here is the engine's own implementation. This worker used to
+    # carry hand-rolled copies of plurality/Borda/IRV/minimax/Condorcet and, for
+    # schulze, kemeny_young, star and median, returned something else entirely:
+    # the first two fell back to Borda whenever there was no Condorcet winner --
+    # i.e. exactly in the cycles this panel exists to show -- and the last two
+    # were Borda outright ("use borda as proxy"). Those four agreeing by
+    # construction inflated the rousseau_score the panel reports.
+    _RANKED: Dict[str, Callable[..., Optional[str]]] = {
+        "plurality":    get_plurality_winner,
+        "borda":        get_borda_winner,
+        "irv":          get_irv_winner,
+        # The engine's default threshold is 2, which at 2 candidates approves the
+        # whole field -- a dead tie it then breaks alphabetically, so approval
+        # would stop reading the votes at all. The panel's own rule (top ~40%,
+        # at least 1) is kept, which is also plurality at 2 candidates.
+        "approval":     lambda r: get_approval_winner(r, _approval_threshold),
+        "schulze":      get_schulze_winner,
+        "minimax":      get_minimax_winner,
+        "kemeny_young": get_kemeny_young_winner,
+        # Condorcet alone has no winner when the top pair ties, and the schema
+        # promises a name per method. Black's method IS "Condorcet winner, else
+        # Borda" -- which is what the old `condorcet` entry computed, under a
+        # name that claimed more than it did.
+        "black":        get_black_winner,
+    }
+    _SCORED: Dict[str, Callable[..., Dict[str, Any]]] = {
+        "star":   get_star_voting_winner,
+        "median": get_median_voting_winner,
+    }
+
+    def _run_method(
+        method: str, rankings: List[List[str]], util_matrix: List[List[float]]
+    ) -> Optional[str]:
+        """The winner, or None when the rule genuinely elects nobody (an exact
+        tie IRV cannot break). Reporting a name there is what this worker used to
+        do for four methods; `winner_by_method` omits the method instead.
+
+        `util_matrix` must be the one the rankings came from: a score rule reads
+        it rather than the rankings, and the multi-simulation loop below hands
+        both a re-drawn electorate."""
+        if method in _SCORED:
+            winner = _SCORED[method](_score_votes(util_matrix))["winner"]
+            return str(winner) if winner else None
+        return _RANKED[method](rankings)
 
     # ── Binary elimination for agenda comparison ───────────────────────────────
     def _binary_elim(agenda_order: List[str], pair_matrix: Dict[str, Dict[str, float]]) -> str:
@@ -2715,9 +2606,12 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     winner_by_agenda: Dict[str, str]   = {}
 
     for method in methods_used:
-        w = _run_method(method, sincere_rankings)
-        winner_by_method[method] = w
-        all_results.append(w)
+        w = _run_method(method, sincere_rankings, utilities)
+        # A rule that elects nobody (IRV on an exact tie) is reported by its
+        # absence rather than by a name it did not choose.
+        if w is not None:
+            winner_by_method[method] = w
+            all_results.append(w)
 
     for perm, label in zip(selected_perms, agenda_labels):
         w = _binary_elim(list(perm), pair_matrix)
@@ -2743,8 +2637,13 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                              key=lambda k, sp=sp: -_utility(sp, candidates_raw[k]))]  # type: ignore
             for sp in sim_pos
         ]
-        for method in methods_used[:3]:  # lightweight: top 3 methods only
-            all_results.append(_run_method(method, sim_rankings))
+        sim_utilities = [[_utility(sp, c) for c in candidates_raw] for sp in sim_pos]
+        # lightweight: top 3 methods only
+        all_results.extend(
+            w
+            for method in methods_used[:3]
+            if (w := _run_method(method, sim_rankings, sim_utilities)) is not None
+        )
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     from collections import Counter as _Cfinal
@@ -2752,10 +2651,14 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     unique_winners = list(winner_counts.keys())
     n_unique       = len(unique_winners)
 
-    most_frequent        = winner_counts.most_common(1)[0][0]
-    most_frequent_pct    = winner_counts[most_frequent] / len(all_results)
+    # Every winner tied for most procedures won. The default run aggregates only
+    # ~9 procedures, so a 4-4 split is routine, and `most_common(1)` named
+    # whichever came first in the method list.
+    most_frequent        = modal_keys(winner_counts)
+    most_frequent_pct    = max(winner_counts.values(), default=0) / len(all_results)
     rousseau_score       = round(1 / n_unique, 4) if n_unique > 0 else 1.0
-    condorcet_w          = _condorcet_winner(sincere_rankings)
+    # get_black_winner computes this internally too; once is enough.
+    condorcet_w          = get_condorcet_winner(sincere_rankings)
     condorcet_exists     = condorcet_w is not None
 
     # ── Philosophical conclusion ──────────────────────────────────────────────
@@ -2767,7 +2670,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         )
     elif n_unique == 1:
         philos = (
-            f"'{most_frequent}' domine toutes les procédures testées (sans vainqueur "
+            f"'{most_frequent[0]}' domine toutes les procédures testées (sans vainqueur "
             f"de Condorcet). Schumpeter dirait : la procédure est consensuelle ici, "
             f"mais ce n'est pas universel."
         )
@@ -2778,10 +2681,13 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"instable — Arrow a probablement raison pour ce scénario."
         )
     else:
+        # Several winners can tie for most-frequent, so the verb agrees with the set.
+        quoted = prose_list([f"'{w}'" for w in most_frequent])
+        gagne  = "gagne" if len(most_frequent) == 1 else "gagnent"
         philos = (
             f"{n_unique} vainqueurs différents — Schumpeter (1942) avait raison : "
             f"le résultat est un artefact procédural. "
-            f"'{most_frequent}' gagne le plus souvent ({round(most_frequent_pct*100)}%), "
+            f"{quoted} {gagne} le plus souvent ({round(most_frequent_pct*100)}%), "
             f"mais changer la méthode change le vainqueur."
         )
 

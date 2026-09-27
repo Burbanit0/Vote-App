@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { usePlaygroundCtx } from './PlaygroundController';
+import { useJourneyCtx } from './PlaygroundController';
 import { MOMENTS, type MomentId } from './MomentRail';
 
 // GuidedFooter — the guided fil. Walks the moments in order (simple → complex),
@@ -12,7 +12,7 @@ import { MOMENTS, type MomentId } from './MomentRail';
 const ORDER: MomentId[] = MOMENTS.map((m) => m.id);
 
 const GuidedFooter: React.FC = () => {
-  const { activeMoment, setActiveMoment } = usePlaygroundCtx();
+  const { activeMoment, setActiveMoment } = useJourneyCtx();
   const { t } = useTranslation('playground');
   const idx = ORDER.indexOf(activeMoment);
   const current = MOMENTS[idx];

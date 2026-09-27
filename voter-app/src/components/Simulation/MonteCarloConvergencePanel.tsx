@@ -21,6 +21,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
 
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
+
 // ── WCAG-AA accessible palette for method lines ───────────────────────────────
 const METHOD_COLORS = [
   '#005CAB', // blue
@@ -98,11 +100,11 @@ const RegretConvergenceChart: React.FC<{
         <YAxis
           tick={{ fontSize: 10, fill: ct.tickFill }}
           width={52}
-          tickFormatter={(v) => v.toFixed(3)}
+          tickFormatter={numericTickFormatter((v) => v.toFixed(3))}
         />
         <Tooltip
           contentStyle={ct.tooltipStyle}
-          formatter={(v: number, name: string) => [v.toFixed(5), name]}
+          formatter={numericTooltipFormatter((v: number, name: string) => [v.toFixed(5), name])}
           labelFormatter={(l) => `${t('simulation.convergenceIter')} ${l}`}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -163,7 +165,10 @@ const AgreementChart: React.FC<{
         <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} domain={[0, 100]} unit="%" width={40} />
         <Tooltip
           contentStyle={ct.tooltipStyle}
-          formatter={(v: number) => [`${v}%`, t('simulation.methodAgreement')]}
+          formatter={numericTooltipFormatter((v: number) => [
+            `${v}%`,
+            t('simulation.methodAgreement'),
+          ])}
           labelFormatter={(l) => `${t('simulation.convergenceIter')} ${l}`}
         />
         <ReferenceLine
@@ -221,7 +226,7 @@ const CIStabilityChart: React.FC<{
         <XAxis
           type="number"
           tick={{ fontSize: 10, fill: ct.tickFill }}
-          tickFormatter={(v) => v.toFixed(3)}
+          tickFormatter={numericTickFormatter((v) => v.toFixed(3))}
         />
         <YAxis
           type="category"
@@ -231,7 +236,10 @@ const CIStabilityChart: React.FC<{
         />
         <Tooltip
           contentStyle={ct.tooltipStyle}
-          formatter={(v: number) => [v.toFixed(5), t('simulation.ciHalfWidth')]}
+          formatter={numericTooltipFormatter((v: number) => [
+            v.toFixed(5),
+            t('simulation.ciHalfWidth'),
+          ])}
         />
         <Bar
           dataKey="ci"

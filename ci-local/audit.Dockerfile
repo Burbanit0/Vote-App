@@ -3,7 +3,7 @@
 # aren't in the lint/type/test pipelines (Semgrep, Gitleaks, Trivy) into one image,
 # the same way frontend/backend.Dockerfile bundle their checks. Mirrors
 # .github/workflows/audit.yml so failures surface locally before a push.
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 ARG GITLEAKS_VERSION=8.18.4
 ARG TRIVY_VERSION=0.71.2
@@ -30,6 +30,6 @@ WORKDIR /repo
 # .semgrepignore + ci-local/audit.Dockerfile.dockerignore keep the context lean.
 COPY . .
 
-# Gitleaks BLOCKS on secrets; Semgrep + Trivy are informational (printed, non-gating)
-# — same posture as the GitHub workflow.
+# Semgrep, Trivy and Gitleaks all GATE (see audit-ci.sh) — same posture as the
+# GitHub workflow's required Semgrep/Trivy/Gitleaks jobs.
 CMD ["bash", "ci-local/audit-ci.sh"]

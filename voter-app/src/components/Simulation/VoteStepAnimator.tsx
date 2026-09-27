@@ -20,7 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { VoteStepsResult, IRVRound, BordaStep } from '../../types';
 import { getVoteSteps, VoteStepsParams } from '../../services/simulationCompareApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
-import { useAnimationBroadcast } from '../../stores/useLabStore';
+
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,82 @@ function candidateColor(name: string, all: string[], eliminated?: string | null)
   return CANDIDATE_COLORS[all.indexOf(name) % CANDIDATE_COLORS.length];
 }
 
+// ── Shared bar chart ──────────────────────────────────────────────────────────
+
+type PercentRow = { name: string; pct: number };
+
+// The horizontal percentage bars three of the five methods draw (IRV rounds,
+// plurality first choices, approval rates). They used to be three copies of the
+// same 35-line chart whose only real difference was the bar colour; the axis is
+// fixed at 0-100 with quarter ticks in all three cases.
+function PercentBars<T extends PercentRow>({
+  data,
+  fill,
+  ct,
+  label = '',
+  animated = true,
+}: {
+  data: T[];
+  /** Bar colour per row. */
+  fill: (row: T) => string;
+  ct: ReturnType<typeof useChartTheme>;
+  /** Tooltip series label; the value is always a percentage. */
+  label?: string;
+  animated?: boolean;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <BarChart data={data} layout="vertical" margin={{ left: 10, right: 50, top: 4, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} horizontal={false} />
+        <XAxis
+          type="number"
+          domain={[0, 100]}
+          unit="%"
+          ticks={[0, 25, 50, 75, 100]}
+          tick={{ fontSize: 10, fill: ct.tickFill }}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          tick={{ fontSize: 11, fill: ct.tickFill }}
+          width={60}
+        />
+        <Tooltip
+          contentStyle={ct.tooltipStyle}
+          formatter={numericTooltipFormatter((v: number) => [`${v}%`, label])}
+        />
+        <Bar
+          dataKey="pct"
+          radius={[0, 4, 4, 0]}
+          isAnimationActive={animated}
+          animationDuration={500}
+        >
+          <LabelList
+            dataKey="pct"
+            position="right"
+            style={{ fontSize: 11, fill: ct.tickFill }}
+            formatter={(v) => `${v}%`}
+          />
+          {data.map((row) => (
+            <Cell key={row.name} fill={fill(row)} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** The "🏆 <winner> — winner" line under a finished chart. */
+const WinnerLine: React.FC<{ winner: string; t: (k: string) => string; className?: string }> = ({
+  winner,
+  t,
+  className = 'mt-1',
+}) => (
+  <div className={`text-center ${className}`} style={{ fontSize: '0.78rem', color: C.green }}>
+    🏆 {winner} — {t('animation.winner')}
+  </div>
+);
+
 // ── IRV chart ─────────────────────────────────────────────────────────────────
 
 const IRVChart: React.FC<{
@@ -53,6 +130,13 @@ const IRVChart: React.FC<{
   ct: ReturnType<typeof useChartTheme>;
   t: (k: string) => string;
 }> = ({ round, allCandidates, ct, t }) => {
+  if (round.winner === null) {
+    return (
+      <div className="text-center py-4" data-testid="irv-dead-tie">
+        <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{t('common.tie')}</div>
+      </div>
+    );
+  }
   if (round.winner) {
     return (
       <div className="text-center py-4">
@@ -82,38 +166,11 @@ const IRVChart: React.FC<{
             ))}
         </div>
       )}
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 40, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} horizontal={false} />
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            unit="%"
-            tick={{ fontSize: 10, fill: ct.tickFill }}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11, fill: ct.tickFill }}
-            width={60}
-          />
-          <Tooltip contentStyle={ct.tooltipStyle} formatter={(v: number) => [`${v}%`, '']} />
-          <Bar dataKey="pct" radius={[0, 4, 4, 0]} isAnimationActive animationDuration={400}>
-            <LabelList
-              dataKey="pct"
-              position="right"
-              style={{ fontSize: 11, fill: ct.tickFill }}
-              formatter={(v) => `${v}%`}
-            />
-            {data.map((entry) => (
-              <Cell
-                key={entry.name}
-                fill={candidateColor(entry.name, allCandidates, round.eliminated)}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <PercentBars
+        data={data}
+        fill={(row) => candidateColor(row.name, allCandidates, round.eliminated)}
+        ct={ct}
+      />
       {scores && Object.values(scores).some((v) => v > 0.5) && (
         <div className="text-center mt-1" style={{ fontSize: '0.78rem', color: C.green }}>
           ✓ {t('animation.majority')}
@@ -155,7 +212,7 @@ const BordaChart: React.FC<{
           <YAxis domain={[0, maxTally * 1.1]} tick={{ fontSize: 10, fill: ct.tickFill }} />
           <Tooltip
             contentStyle={ct.tooltipStyle}
-            formatter={(v: number) => [v, t('animation.borda_total')]}
+            formatter={numericTooltipFormatter((v: number) => [v, t('animation.borda_total')])}
           />
           <Bar dataKey="points" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={400}>
             <LabelList
@@ -176,11 +233,7 @@ const BordaChart: React.FC<{
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      {isLast && winner && (
-        <div className="text-center mt-1" style={{ fontSize: '0.78rem', color: C.green }}>
-          🏆 {winner} — {t('animation.winner')}
-        </div>
-      )}
+      {isLast && winner && <WinnerLine winner={winner} t={t} />}
     </div>
   );
 };
@@ -201,43 +254,12 @@ const PluralityChart: React.FC<{
 
   return (
     <div>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 50, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} horizontal={false} />
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            unit="%"
-            tick={{ fontSize: 10, fill: ct.tickFill }}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11, fill: ct.tickFill }}
-            width={60}
-          />
-          <Tooltip contentStyle={ct.tooltipStyle} formatter={(v: number) => [`${v}%`, '']} />
-          <Bar dataKey="pct" radius={[0, 4, 4, 0]} isAnimationActive animationDuration={600}>
-            <LabelList
-              dataKey="pct"
-              position="right"
-              style={{ fontSize: 11 }}
-              formatter={(v) => `${v}%`}
-            />
-            {data.map((entry) => (
-              <Cell
-                key={entry.name}
-                fill={entry.name === winner ? C.green : candidateColor(entry.name, allCandidates)}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-      {winner && (
-        <div className="text-center mt-1" style={{ fontSize: '0.78rem', color: C.green }}>
-          🏆 {winner} — {t('animation.winner')}
-        </div>
-      )}
+      <PercentBars
+        data={data}
+        fill={(row) => (row.name === winner ? C.green : candidateColor(row.name, allCandidates))}
+        ct={ct}
+      />
+      {winner && <WinnerLine winner={winner} t={t} />}
     </div>
   );
 };
@@ -360,44 +382,13 @@ const ApprovalChart: React.FC<{
       <div className="text-muted-foreground text-sm mb-1">
         {t('animation.threshold')}: <strong>{thresholdPct}%</strong>
       </div>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 50, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} horizontal={false} />
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            unit="%"
-            tick={{ fontSize: 10, fill: ct.tickFill }}
-            ticks={[0, 25, 50, 75, 100]}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11, fill: ct.tickFill }}
-            width={60}
-          />
-          <Tooltip
-            contentStyle={ct.tooltipStyle}
-            formatter={(v: number) => [`${v}%`, t('animation.approval_rate')]}
-          />
-          <Bar
-            dataKey="pct"
-            radius={[0, 4, 4, 0]}
-            isAnimationActive={animated}
-            animationDuration={800}
-          >
-            <LabelList
-              dataKey="pct"
-              position="right"
-              style={{ fontSize: 11 }}
-              formatter={(v) => `${v}%`}
-            />
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.approved ? C.green : C.red} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <PercentBars
+        data={data}
+        fill={(row) => (row.approved ? C.green : C.red)}
+        ct={ct}
+        label={t('animation.approval_rate')}
+        animated={animated}
+      />
       {/* Threshold legend */}
       <div className="flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.75rem' }}>
         <span className="flex items-center gap-1">
@@ -425,11 +416,7 @@ const ApprovalChart: React.FC<{
           {t('animation.not_approved')}
         </span>
       </div>
-      {winner && (
-        <div className="text-center mt-1" style={{ fontSize: '0.78rem', color: C.green }}>
-          🏆 {winner} — {t('animation.winner')}
-        </div>
-      )}
+      {winner && <WinnerLine winner={winner} t={t} />}
     </div>
   );
 };
@@ -456,7 +443,6 @@ const VoteStepAnimator: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
-  const { publish: publishFrame, clear: clearFrame } = useAnimationBroadcast();
 
   const [method, setMethod] = useState<(typeof ANIMATED_METHODS)[number]>('irv');
   const [speed, setSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
@@ -493,7 +479,6 @@ const VoteStepAnimator: React.FC<Props> = ({
     }
   })();
 
-  // ── Fetch data
   const fetchSteps = useCallback(
     async (m: string, cands: VoteStepsParams['candidates']) => {
       if (cands.length < 2) return;
@@ -528,74 +513,8 @@ const VoteStepAnimator: React.FC<Props> = ({
     fetchSteps(method, apiCandidates);
   }, [method, apiCandsKey, numVoters, ideology, seed]);
 
-  // Clear central-view broadcast when the animator unmounts (user switches tab)
-  useEffect(
-    () => () => {
-      clearFrame();
-    },
-    [clearFrame]
-  );
-
   // Reveal approval animation on first show
   useEffect(() => {
-    // Broadcast current frame to the central view (so the main matrix and
-    // map can highlight the active method/round/eliminated candidate).
-    if (stepData) {
-      let eliminated: string | null | undefined = null;
-      let currentWinner: string | null | undefined = null;
-      let isFinal = false;
-      let eliminatedSet: string[] = [];
-      let transfers: Record<string, number> | undefined;
-
-      switch (stepData.method) {
-        case 'irv': {
-          // Accumulate every candidate eliminated up to and including the
-          // current round, so the central map can grey them out cumulatively
-          // (rd.eliminated may contain "Bob + Carol" when there's a tie).
-          for (let i = 0; i <= currentStep; i++) {
-            const r = stepData.rounds[i];
-            if (r && 'eliminated' in r && r.eliminated) {
-              for (const name of r.eliminated.split(' + ')) {
-                const trimmed = name.trim();
-                if (trimmed) eliminatedSet.push(trimmed);
-              }
-            }
-          }
-          const rd = stepData.rounds[currentStep];
-          if (rd) {
-            if ('winner' in rd && rd.winner) {
-              currentWinner = rd.winner;
-              isFinal = true;
-            } else if ('eliminated' in rd) {
-              eliminated = rd.eliminated ?? null;
-              if (rd.transfers) transfers = rd.transfers;
-            }
-          }
-          break;
-        }
-        case 'plurality':
-        case 'approval':
-        case 'schulze':
-        case 'borda':
-          if (currentStep === totalSteps - 1) {
-            currentWinner = stepData.winner ?? null;
-            isFinal = true;
-          }
-          break;
-      }
-
-      publishFrame({
-        method: stepData.method,
-        step: currentStep + 1,
-        totalSteps,
-        eliminated,
-        eliminatedSet,
-        transfers,
-        currentWinner,
-        final: isFinal,
-      });
-    }
-
     if (stepData?.method === 'approval' && currentStep === 0 && !approvalAnimated) {
       setTimeout(() => setApprovalAnimated(true), 100);
     }
@@ -684,9 +603,7 @@ const VoteStepAnimator: React.FC<Props> = ({
             showWinner={!isDuel}
           />
           {!isDuel && stepData.winner && (
-            <div className="text-center mt-2" style={{ fontSize: '0.78rem', color: C.green }}>
-              🏆 {stepData.winner} — {t('animation.winner')}
-            </div>
+            <WinnerLine winner={stepData.winner} t={t} className="mt-2" />
           )}
         </div>
       );

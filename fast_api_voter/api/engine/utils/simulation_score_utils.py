@@ -1,13 +1,11 @@
 from collections import defaultdict
+from operator import itemgetter
 from typing import Any, Dict, List, Optional
 import math
 import statistics
 
 
 def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using simple score sum/average method.
-    """
     candidate_scores: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0}
     )
@@ -24,7 +22,7 @@ def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Simple Score",
@@ -53,7 +51,7 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     # Take top two candidates for runoff
     if len(averages) < 2:
@@ -106,10 +104,71 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
     }
 
 
+def _score_candidates(all_scores: Any) -> List[Any]:
+    """Candidates in first-encountered order (deterministic tie-break, matching
+    the client's argmax-over-index convention)."""
+    candidates: List[Any] = []
+    seen: set = set()
+    for vote in all_scores:
+        for c in vote:
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
+    return candidates
+
+
+def get_cumulative_winner(all_scores: Any) -> Optional[str]:
+    """
+    Cumulative voting: each voter splits ONE point across candidates in
+    proportion to their scores (favourites get more, but the budget is
+    shared). Most points wins.
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    tally: "defaultdict[Any, float]" = defaultdict(float)
+    for vote in all_scores:
+        total = sum(vote.values())
+        if total > 0:
+            for c, s in vote.items():
+                tally[c] += s / total
+    return str(max(candidates, key=lambda c: tally[c]))
+
+
+def get_maximin_score_winner(all_scores: Any) -> Optional[str]:
+    """
+    Maximin (Rawlsian): elect the candidate whose WORST rating across voters
+    is highest — the least-bad option for the most disadvantaged voter.
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    worst = {c: math.inf for c in candidates}
+    for vote in all_scores:
+        for c, s in vote.items():
+            worst[c] = min(worst[c], s)
+    return str(max(candidates, key=lambda c: worst[c]))
+
+
+def get_nash_winner(all_scores: Any) -> Optional[str]:
+    """
+    Nash (proportional welfare): maximise the PRODUCT of voter utilities —
+    summed in log-space to stay numerically stable. Rating a candidate 0
+    crushes it, so Nash sits between the utilitarian sum (score) and the
+    Rawlsian min (maximin).
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    eps = 1e-6
+    acc: "defaultdict[Any, float]" = defaultdict(float)
+    for vote in all_scores:
+        for c, s in vote.items():
+            acc[c] += math.log(max(s, eps))
+    return str(max(candidates, key=lambda c: acc[c]))
+
+
 def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using median score method.
-    """
     candidate_scores: "defaultdict[Any, list[Any]]" = defaultdict(list)
 
     for vote in all_scores:
@@ -122,7 +181,7 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
         medians.append((candidate, median))
 
     # Sort by median score (descending)
-    medians.sort(key=lambda x: x[1], reverse=True)
+    medians.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Median Voting",
@@ -132,9 +191,6 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using a combination of mean and median scores.
-    """
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0, "scores": []}
     )
@@ -162,8 +218,7 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    # Sort by combined score (descending)
-    results.sort(key=lambda x: x["combined"], reverse=True)
+    results.sort(key=itemgetter("combined"), reverse=True)
 
     return {
         "method": "Mean-Median Hybrid",
@@ -173,9 +228,6 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner considering both average score and variance.
-    """
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "sum_sq": 0, "count": 0}
     )
@@ -210,110 +262,12 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    # Sort by weighted score (descending)
-    results.sort(key=lambda x: x["weighted_score"], reverse=True)
+    results.sort(key=itemgetter("weighted_score"), reverse=True)
 
     return {
         "method": "Variance-Based",
         "winner": results[0]["candidate"] if results else None,
         "details": results,
-    }
-
-
-def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
-    """
-    Analyze the distribution of scores for each candidate.
-    """
-    # Define score bins (0-0.5, 0.5-1, ..., 4.5-5)
-    bins = [i * 0.5 for i in range(0, 11)]  # 0, 0.5, 1, ..., 5
-    candidate_distributions: "defaultdict[Any, list[int]]" = defaultdict(
-        lambda: [0] * (len(bins) - 1)
-    )
-
-    for vote in all_scores:
-        for candidate, score in vote.items():
-            # Find the appropriate bin
-            for i in range(len(bins) - 1):
-                if bins[i] <= score < bins[i + 1]:
-                    candidate_distributions[candidate][i] += 1
-                    break
-
-    results = []
-    for candidate, distribution in candidate_distributions.items():
-        total = sum(distribution)
-        percentages = [count / total if total > 0 else 0 for count in distribution]
-
-        # Find mode (most common score range)
-        max_index = max(range(len(distribution)), key=lambda i: distribution[i])
-        mode_range = f"{bins[max_index]}-{bins[max_index + 1]}"
-
-        results.append(
-            {
-                "candidate": candidate,
-                "distribution": distribution,
-                "percentages": percentages,
-                "total": total,
-                "mode_range": mode_range,
-            }
-        )
-
-    # Sort by total votes (descending)
-    results.sort(key=lambda x: x["total"], reverse=True)
-
-    return {"method": "Score Distribution Analysis", "details": results}
-
-
-def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
-    """
-    Calculate Bayesian regret for each candidate.
-    """
-    candidate_set: set[Any] = set()
-    for vote in all_scores:
-        candidate_set.update(vote.keys())
-    candidates = list(candidate_set)
-
-    # Calculate utilities (normalized scores)
-    utilities: "defaultdict[Any, list[Any]]" = defaultdict(list)
-    for vote in all_scores:
-        for candidate, score in vote.items():
-            # Normalize to 0-1 range
-            utilities[candidate].append(score / 5)
-
-    # Calculate expected regret for each candidate
-    regrets = []
-    for candidate in candidates:
-        total_regret = 0
-
-        for vote in all_scores:
-            # Find the utility of the voter's most preferred candidate
-            best_utility = max(vote.values()) / 5
-            current_utility = vote.get(candidate, 0) / 5
-
-            # Regret is the difference between best possible and current
-            total_regret += best_utility - current_utility
-
-        avg_regret = total_regret / len(all_scores)
-        avg_utility = (
-            sum(utilities[candidate]) / len(utilities[candidate])
-            if utilities[candidate]
-            else 0
-        )
-
-        regrets.append(
-            {
-                "candidate": candidate,
-                "avg_utility": avg_utility,
-                "avg_regret": avg_regret,
-            }
-        )
-
-    # Sort by average regret (ascending - lower regret is better)
-    regrets.sort(key=lambda x: x["avg_regret"])
-
-    return {
-        "method": "Bayesian Regret",
-        "winner": regrets[0]["candidate"] if regrets else None,
-        "details": regrets,
     }
 
 
@@ -340,27 +294,91 @@ def _utility_to_grade(utility: float) -> int:
     return 0
 
 
-def _mj_median_grade(grade_list: List[int]) -> int:
+def _mj_lower_median_index(n: int) -> int:
     """
-    Majority Judgment median: the grade at index ceil(n/2) - 1 when sorted.
-    For odd n: exact middle.  For even n: lower median (conservative choice).
+    Majority Judgment median index: ceil(n/2) - 1 into a SORTED list of n
+    grades. For odd n: the exact middle. For even n: the lower of the two
+    middles (conservative choice) — a median must stay a real grade, never
+    an interpolated average of two.
     """
-    if not grade_list:
-        return 0
-    n = len(grade_list)
-    sorted_grades = sorted(grade_list)
-    return sorted_grades[(n - 1) // 2]
+    return (n - 1) // 2
 
 
-def _mj_majority_gauge(grade_list: List[int], median: int) -> tuple[float, float]:
+def _mj_lower_median(grades: List[int]) -> int:
+    # -1 (not 0 / "À Rejeter") for an empty list: a candidate that has run
+    # out of grades to strip must never look tied with one still holding a
+    # real grade of 0, only with another equally exhausted candidate. Real
+    # candidates never hit this branch (see `_mj_winner`'s `true_medians`) —
+    # only a candidate the tie-break has stripped down to nothing can.
+    return grades[_mj_lower_median_index(len(grades))] if grades else -1
+
+
+def _mj_strip_to_winner(pool: List[str], work: Dict[str, List[int]]) -> str:
     """
-    Compute p (fraction strictly above median) and q (fraction strictly below).
-    Used for tiebreaking: if p > q the candidate has a "superior majority".
+    The actual Balinski-Laraki (2010) tie-break: repeatedly strip one
+    occurrence of the tied top median grade from every candidate still tied
+    for first, and recompare, until one candidate stands alone or there is
+    no more data to strip. `work` is mutated in place (each candidate's
+    private, already-sorted copy — see `_mj_winner`).
+
+    This used to be approximated by a majority-gauge shortcut (compare p -
+    q, the fraction of grades above vs. below the median) with a single
+    extra strip step if that didn't decide it either. Both were wrong: on
+    fixture scenarios where the top two shared a median, p - q picked a
+    different winner than the real procedure on several profiles (the gauge
+    is not equivalent to repeated stripping in general), it only ever
+    compared the top TWO candidates even when three or more were tied, and
+    it compared p and q as floats, so an exact tie between two candidates'
+    gauges could be decided by rounding noise. This is a direct port of
+    winMajorityJudgment (playgroundVoting.ts), the client's implementation,
+    which the parity harness (gen_engine_parity.py) checks this against —
+    not an attempt to derive an equivalent closed-form comparator.
     """
-    n = len(grade_list) or 1
-    p = sum(1 for g in grade_list if g > median) / n
-    q = sum(1 for g in grade_list if g < median) / n
-    return p, q
+    # Any pool member still holding a grade, not just the first — candidates
+    # can have unequal grade-list lengths (a voter who didn't rate everyone),
+    # and checking only pool[0] let an exhausted-but-first-encountered
+    # candidate win by default over a rival who still had a real, better
+    # grade left to compare (found by /code-review max on this branch: same
+    # votes, only the candidates' dict-insertion order differed, and the
+    # winner changed with it — see
+    # test_majority_judgment_tie_survives_a_shorter_grade_list's repro).
+    while len(pool) > 1 and any(work[c] for c in pool):
+        best_median = max(_mj_lower_median(work[c]) for c in pool)
+        top = [c for c in pool if _mj_lower_median(work[c]) == best_median]
+        if len(top) == 1:
+            return top[0]
+        for c in top:
+            work[c].pop(_mj_lower_median_index(len(work[c])))
+        pool = top
+    return pool[0]
+
+
+def _mj_winner(
+    candidate_names: List[str], all_grades: Dict[str, List[int]]
+) -> tuple[Optional[str], Dict[str, int]]:
+    """
+    The Majority Judgment winner (see `_mj_strip_to_winner` for the actual
+    tie-break), plus each candidate's TRUE (un-stripped) median — computed
+    here, once, from the same sorted copy the tie-break itself needs, so the
+    caller never has to re-sort `all_grades` just to report it.
+
+    Operates on a private copy of each candidate's grades. Never mutates
+    `all_grades`: the returned medians, and everything the caller reports
+    from `all_grades` afterwards (distribution, score), stay the TRUE
+    values, so a tie-break that had to look past the headline median never
+    changes what gets reported for the candidates it compared.
+    """
+    if not candidate_names:
+        return None, {}
+
+    work: Dict[str, List[int]] = {c: sorted(all_grades[c]) for c in candidate_names}
+    # Every real candidate has at least one grade (a candidate only enters
+    # `candidate_names` by being rated by some voter — see the caller's
+    # `_score_candidates` union), so this is always a real grade, never -1.
+    true_medians: Dict[str, int] = {c: _mj_lower_median(work[c]) for c in candidate_names}
+
+    winner = _mj_strip_to_winner(list(candidate_names), work)
+    return winner, true_medians
 
 
 def get_majority_judgment_winner(
@@ -371,11 +389,11 @@ def get_majority_judgment_winner(
     Majority Judgment (Balinski & Laraki, 2010).
 
     Each voter grades each candidate on a 6-level ordinal scale derived
-    from their utility score in [0, 1].  The winner is the candidate with
-    the highest median grade.  Ties are broken by the majority-gauge rule:
-    the candidate whose "superior majority" (fraction above median) exceeds
-    their "inferior majority" (fraction below median) wins.  If still tied,
-    one median is removed from each tied candidate and the process repeats.
+    from their utility score in [0, 1]. The winner is the candidate with
+    the highest median grade; ties are broken by repeatedly stripping one
+    occurrence of the tied median grade from every candidate still tied for
+    first and recomparing (see `_mj_winner`), not by a majority-gauge
+    shortcut.
 
     Parameters
     ----------
@@ -398,52 +416,39 @@ def get_majority_judgment_winner(
         return {"winner": None, "grades": {}, "medians": {}, "scores": {},
                 "grade_distributions": {}}
 
-    candidate_names: List[str] = list(utility_scores[0].keys())
+    # Union of every voter's candidates, not just voter 0's: a later voter
+    # rating a candidate voter 0 didn't (e.g. a candidate who entered the
+    # race after voter 0's ballot was cast) used to KeyError on
+    # `all_grades[c]` below, since that dict was only ever pre-seeded with
+    # voter 0's own keys. `_score_candidates` already implements this same
+    # "first-encountered order across every voter" union for the other
+    # cardinal rules in this file. Found fuzzing this function with atheris
+    # (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    candidate_names: List[str] = _score_candidates(utility_scores)
 
-    # 1. Build grade lists per candidate
+    # 1. Build grade lists per candidate. This is the canonical, NEVER
+    # mutated source for every field reported below (distributions, scores)
+    # as well as for winner determination — `_mj_winner` works on its own
+    # private copy.
     all_grades: Dict[str, List[int]] = {c: [] for c in candidate_names}
     for voter_utils in utility_scores:
         for c, u in voter_utils.items():
             all_grades[c].append(_utility_to_grade(u))
 
-    # 2. Compute median + gauge for each candidate
-    medians: Dict[str, int]           = {}
-    gauges:  Dict[str, tuple[float, float]] = {}
-    for c in candidate_names:
-        med         = _mj_median_grade(all_grades[c])
-        medians[c]  = med
-        gauges[c]   = _mj_majority_gauge(all_grades[c], med)
+    # 2. Determine the winner. `medians` here are the TRUE, un-stripped
+    # medians `_mj_winner` computed as a side effect of running the
+    # tie-break — not read from `all_grades` a second time, so ties don't
+    # cost an extra sort per candidate. A real past bug lived here: the old
+    # top-2-only tiebreak mutated `all_grades` in place while deciding a
+    # tie, so a tied pair's own reported median/distribution came back one
+    # ballot short (and, when both truly shared the same median, wrongly
+    # reported as unequal) — see `_mj_winner`'s docstring.
+    winner: Optional[str]
+    medians: Dict[str, int]
+    winner, medians = _mj_winner(candidate_names, all_grades)
 
-    # 3. Rank candidates: primary = median (desc), secondary = p-q (desc)
-    def _sort_key(c: str) -> tuple[int, float]:
-        p, q = gauges[c]
-        return (medians[c], p - q)
-
-    ranking = sorted(candidate_names, key=_sort_key, reverse=True)
-
-    # 4. Iterative tiebreak if top-2 are still equal after gauge
-    if len(ranking) >= 2:
-        a, b = ranking[0], ranking[1]
-        if _sort_key(a) == _sort_key(b):
-            # Drop one median grade from each and retry (single step suffices
-            # for almost all practical cases)
-            for cand in (a, b):
-                g = all_grades[cand]
-                med = medians[cand]
-                idx = next((i for i, x in enumerate(sorted(g)) if x == med), None)
-                if idx is not None:
-                    g_sorted = sorted(g)
-                    g_sorted.pop(idx)
-                    all_grades[cand] = g_sorted
-            for c in (a, b):
-                medians[c] = _mj_median_grade(all_grades[c])
-                gauges[c]  = _mj_majority_gauge(all_grades[c], medians[c])
-            if _sort_key(b) > _sort_key(a):
-                ranking[0], ranking[1] = b, a
-
-    winner: Optional[str] = ranking[0] if ranking else None
-
-    # 5. Build grade distribution dicts for frontend visualisation
+    # 3. Build grade distribution and continuous-score dicts for the
+    # frontend, read from the TRUE, un-stripped grades.
     n_grades = len(grade_labels)
     grade_distributions: Dict[str, List[int]] = {}
     grades_labeled:      Dict[str, Dict[str, int]] = {}
@@ -503,7 +508,14 @@ def get_evaluative_winner(
     if not utility_scores:
         return {"winner": None, "scores": {}, "distribution": {}}
 
-    candidates = list(utility_scores[0].keys())
+    # Union of every voter's candidates, not just voter 0's -- same fix and
+    # same reason as get_majority_judgment_winner just above: deriving this
+    # from voter 0 alone doesn't crash here (the loop below already reads
+    # `voter_utils.get(c, 0.0)`), but it silently drops any candidate a
+    # LATER voter rated and voter 0 didn't from every result entirely.
+    # Found alongside the majority-judgment KeyError while fuzzing this
+    # file with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    candidates = _score_candidates(utility_scores)
     if not candidates:
         return {"winner": None, "scores": {}, "distribution": {}}
 
@@ -528,20 +540,3 @@ def get_evaluative_winner(
 
     winner = min(candidates, key=lambda c: (-net[c], c))  # alpha tie-break
     return {"winner": winner, "scores": net, "distribution": dist}
-
-
-def run_all_score_voting_methods(all_scores: Any) -> Dict[str, Any]:
-    """
-    Run all score voting methods and return the results.
-    """
-    results = {
-        "simple_score": get_simple_score_winner(all_scores),
-        "star_voting": get_star_voting_winner(all_scores),
-        "median_voting": get_median_voting_winner(all_scores),
-        "mean_median_hybrid": get_mean_median_hybrid_winner(all_scores),
-        "variance_based": get_variance_based_winner(all_scores),
-        "score_distribution": get_score_distribution_analysis(all_scores),
-        "bayesian_regret": calculate_bayesian_regret(all_scores),
-    }
-
-    return results

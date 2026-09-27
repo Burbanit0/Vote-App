@@ -843,28 +843,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/election/quadratic-funding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Buterin/Hitzig/Weyl 2019 quadratic funding for public goods
-         * @description QF amplifies projects with many small donors over those with few
-         *     large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
-         *     and proportional allocations on the same matching pool.
-         */
-        post: operations["quadratic_funding_endpoint_api_v2_election_quadratic_funding_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/election/shy-voter": {
         parameters: {
             query?: never;
@@ -1000,67 +978,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/election/temporal": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Democracy as a repeated game: N sequential elections
-         * @description A system good ONCE can degrade over repeated play. Parties chase votes
-         *     (Downsian local search), voters attach to their party — watch ENP,
-         *     polarization and alternation evolve. Duverger's law shows up over time:
-         *     FPTP with strategic desertion compresses the party system, PR sustains it.
-         */
-        post: operations["temporal_endpoint_api_v2_election_temporal_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/export/simulation-dataset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Export a reproducible research dataset as CSV
-         * @description Same compute as the JSON variant, but emitted as RFC-4180 CSV with
-         *     an attachment Content-Disposition so the browser triggers a download.
-         */
-        post: operations["export_csv_api_v2_export_simulation_dataset_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/export/simulation-dataset-json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export a reproducible research dataset as JSON */
-        post: operations["export_json_api_v2_export_simulation_dataset_json_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/health": {
         parameters: {
             query?: never;
@@ -1072,6 +989,12 @@ export interface paths {
          * Health
          * @description Return 200 when healthy, 503 when degraded — same contract as
          *     `/api/health` on the Flask side.
+         *
+         *     Kept exactly as-is (fly.toml's [[http_service.checks]] hits this exact
+         *     path). `/health/live` and `/health/ready` below are ADDITIVE — a
+         *     conflated liveness+readiness signal on one endpoint is exactly the "reste
+         *     binaire" gap Lot 10 names, but this one has a real deploy dependency, so
+         *     it isn't worth rewriting when adding beside it is just as effective.
          */
         get: operations["health_api_v2_health_get"];
         put?: never;
@@ -1082,238 +1005,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/simulations": {
+    "/api/v2/metrics": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Legacy form-based vote simulation (deprecated) */
-        post: operations["legacy_simulate_api_v2_simulations_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/arrow-criteria": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Empirically check Arrow's criteria */
-        post: operations["arrow_criteria_api_v2_simulations_arrow_criteria_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/bandwagon": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cascading social-influence simulation */
-        post: operations["bandwagon_api_v2_simulations_bandwagon_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/blank-contagion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** SIS blank-vote contagion simulation */
-        post: operations["blank_contagion_api_v2_simulations_blank_contagion_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/blank-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Blank-vote time series for a country */
-        get: operations["blank_history_api_v2_simulations_blank_history_get"];
+        /**
+         * Metrics
+         * @description Endpoint that serves Prometheus metrics.
+         */
+        get: operations["metrics_api_v2_metrics_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/calculate_utility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compute utility for a single voter × candidate */
-        post: operations["calculate_utility_api_v2_simulations_calculate_utility_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/campaign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Day-by-day electoral campaign simulation */
-        post: operations["campaign_api_v2_simulations_campaign_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Per-method metrics on a fresh population */
-        post: operations["compare_api_v2_simulations_compare_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/condorcet-matrix": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Full pairwise duel matrix */
-        post: operations["condorcet_matrix_api_v2_simulations_condorcet_matrix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/constitutional-scenario": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Constitutional aftermath of a blank-vote victory */
-        post: operations["constitutional_scenario_api_v2_simulations_constitutional_scenario_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_closest_candidate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Assign voters to their nearest candidate (2-D spatial) */
-        post: operations["get_closest_candidate_api_v2_simulations_get_closest_candidate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_utility_matrix": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Full utility matrix + vote-share stats */
-        post: operations["get_utility_matrix_api_v2_simulations_get_utility_matrix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_voter_segments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Per-demographic-segment utility & top-candidate breakdown */
-        post: operations["get_voter_segments_api_v2_simulations_get_voter_segments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/ideology-map": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 2-D ideological map of voter preferences */
-        post: operations["ideology_map_api_v2_simulations_ideology_map_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1354,159 +1059,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/simulations/multiwinner": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compare proportional multi-winner methods */
-        post: operations["multiwinner_api_v2_simulations_multiwinner_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/real-election": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Analyse a real historical election */
-        post: operations["real_election_api_v2_simulations_real_election_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/real-elections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List available historical elections */
-        get: operations["real_elections_api_v2_simulations_real_elections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/scenario": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Citizen-configured scenario, with/without blank vote */
-        post: operations["scenario_api_v2_simulations_scenario_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/sensitivity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Vary one parameter, track winners & regret */
-        post: operations["sensitivity_api_v2_simulations_sensitivity_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate synthetic candidates across parties */
-        post: operations["simulate_candidates_api_v2_simulations_simulate_candidates_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_utility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compute utility for every voter × candidate pair */
-        post: operations["simulate_utility_api_v2_simulations_simulate_utility_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_voters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate a synthetic voter population */
-        post: operations["simulate_voters_api_v2_simulations_simulate_voters_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/strategic-impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Regret vs proportion of strategic voters */
-        post: operations["strategic_impact_api_v2_simulations_strategic_impact_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/simulations/vote-steps": {
         parameters: {
             query?: never;
@@ -1524,40 +1076,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/simulations/what-if": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Vary one parameter and compare method winners across values */
-        post: operations["what_if_api_v2_simulations_what_if_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/tech/e2e-demo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** End-to-end verifiable voting pedagogical simulation */
-        post: operations["e2e_demo_endpoint_api_v2_tech_e2e_demo_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/tech/polis": {
         parameters: {
             query?: never;
@@ -1569,23 +1087,6 @@ export interface paths {
         put?: never;
         /** Pol.is clustering + classical election cross-comparison */
         post: operations["polis_with_candidates_endpoint_api_v2_tech_polis_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/tech/polis-simulation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pol.is consensus clustering on a statement set */
-        post: operations["polis_simulation_endpoint_api_v2_tech_polis_simulation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1885,28 +1386,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v2/theory/plott-chaos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Plott's Chaos Theorem in 2-D policy space
-         * @description In ≥2-D policy space with ≥3 voters, a Condorcet winner almost
-         *     never exists, and from any starting point the agenda-setter can
-         *     reach ANY other point via a sequence of majority votes.
-         */
-        post: operations["plott_chaos_endpoint_api_v2_theory_plott_chaos_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v2/theory/sen-paradox": {
         parameters: {
             query?: never;
@@ -2086,8 +1565,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "irv" | "borda" | "schulze" | "approval";
             /**
              * Num Rounds
              * @default 5
@@ -2309,13 +1789,6 @@ export interface components {
             /** Pedagogical Note */
             pedagogical_note: string;
         };
-        /** AlternativePath */
-        AlternativePath: {
-            /** Steps */
-            steps: number[][];
-            /** To */
-            to: number[];
-        };
         /** ApportionmentMethodResult */
         ApportionmentMethodResult: {
             /** Alabama Paradox */
@@ -2380,47 +1853,16 @@ export interface components {
             };
         };
         /**
-         * ArrowCriteriaRequest
-         * @description POST /simulations/arrow-criteria.
-         */
-        ArrowCriteriaRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-        };
-        /** ArrowCriteriaResponse */
-        ArrowCriteriaResponse: {
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Summary */
-            summary: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * ArrowRequest
          * @description Per-method Arrow axiom violation analysis.
          */
         ArrowRequest: {
             /**
              * Method
-             * @description One of plurality | borda | irv | schulze | condorcet | approval | majority_judgment | kemeny_young | minimax | star_voting | two_round.
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "condorcet" | "approval" | "majority_judgment" | "kemeny_young" | "minimax" | "star_voting" | "two_round";
             /**
              * Seed
              * @default 42
@@ -2711,7 +2153,7 @@ export interface components {
             /** Result Variance */
             result_variance: number;
             /** Winner */
-            winner: string;
+            winner: string[];
             /** Winner Changed */
             winner_changed: boolean;
             /** Winner Distribution */
@@ -2818,7 +2260,7 @@ export interface components {
              * Methods To Compare
              * @description Voting methods to compare. If None, uses the server default set.
              */
-            methods_to_compare?: string[] | null;
+            methods_to_compare?: ("plurality" | "approval" | "irv" | "borda" | "star_voting" | "majority_judgment" | "schulze" | "two_round")[] | null;
             /**
              * Num Voters
              * @default 200
@@ -2876,53 +2318,6 @@ export interface components {
              */
             type: "full" | "choose_one" | "approve" | "rank_full" | "rank_truncated" | "score" | "grade" | "cumulative";
         };
-        /**
-         * BandwagonRequest
-         * @description POST /simulations/bandwagon.
-         */
-        BandwagonRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Influence Strength
-             * @default 0.3
-             */
-            influence_strength: number;
-            /**
-             * Num Rounds
-             * @default 5
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** BandwagonResponse */
-        BandwagonResponse: {
-            /** Amplification By Method */
-            amplification_by_method: {
-                [key: string]: unknown;
-            };
-            /** Convergence Round */
-            convergence_round?: number | null;
-            /** Influence Strength */
-            influence_strength?: unknown;
-            /** Num Rounds */
-            num_rounds: number;
-            /** Rounds */
-            rounds: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
         /** BaselineResult */
         BaselineResult: {
             /** Regret */
@@ -2962,8 +2357,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "star_voting" | "majority_judgment";
             /**
              * Num Voters
              * @default 200
@@ -3008,76 +2404,6 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * BlankContagionRequest
-         * @description POST /simulations/blank-contagion.
-         */
-        BlankContagionRequest: {
-            /**
-             * Contagion Rate
-             * @default 0.3
-             */
-            contagion_rate: number;
-            /**
-             * Initial Blank Rate
-             * @default 0.1
-             */
-            initial_blank_rate: number;
-            /**
-             * Network Type
-             * @default random
-             */
-            network_type: string;
-            /**
-             * Num Rounds
-             * @default 15
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Recovery Rate
-             * @default 0.15
-             */
-            recovery_rate: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** BlankContagionResponse */
-        BlankContagionResponse: {
-            /** Blank Rate By Round */
-            blank_rate_by_round: unknown[];
-            /** Epidemic Threshold */
-            epidemic_threshold?: unknown;
-            /** Final Blank Rate */
-            final_blank_rate: number;
-            /** Network Type */
-            network_type: string;
-            /** R0 */
-            r0?: unknown;
-            /** Reached Equilibrium */
-            reached_equilibrium: boolean;
-            /** Rounds */
-            rounds: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** BlankHistoryResponse */
-        BlankHistoryResponse: {
-            /** Country */
-            country: string;
-            /** Display Name */
-            display_name: string;
-            /** Note */
-            note: string;
-            /** Series */
-            series: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * BlankVoteConfig
          * @description Constitutional blank-vote rule + optional contagion.
          */
@@ -3116,35 +2442,6 @@ export interface components {
             y: number;
         };
         /**
-         * CalculateUtilityRequest
-         * @description POST /simulations/calculate_utility (single voter × candidate).
-         */
-        CalculateUtilityRequest: {
-            /** Candidate */
-            candidate?: {
-                [key: string]: unknown;
-            };
-            /** Issues */
-            issues?: string[];
-            /** Voter */
-            voter?: {
-                [key: string]: unknown;
-            };
-        };
-        /** CalculateUtilityResponse */
-        CalculateUtilityResponse: {
-            /** Message */
-            message: string;
-            /** Result */
-            result: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * CampaignConfig
          * @description Polling-bandwagon dynamics over a few days.
          */
@@ -3167,74 +2464,6 @@ export interface components {
              * @default 0.3
              */
             polling_effect: number;
-        };
-        /** CampaignEventResult */
-        CampaignEventResult: {
-            /** Candidate */
-            candidate: number;
-            /** Day */
-            day: number;
-            /** Magnitude */
-            magnitude: number;
-            /** Measured Impact */
-            measured_impact: number;
-            /** Type */
-            type: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CampaignRequest
-         * @description POST /simulations/campaign (day-by-day campaign simulation).
-         */
-        CampaignRequest: {
-            /** Events */
-            events?: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Days
-             * @default 30
-             */
-            num_days: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** CampaignResponse */
-        CampaignResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Daily Leader */
-            daily_leader: string[];
-            /** Daily Scores */
-            daily_scores: {
-                [key: string]: number[];
-            };
-            /** Days */
-            days: number[];
-            /** Events */
-            events: components["schemas"]["CampaignEventResult"][];
-            /** Final Winner */
-            final_winner?: string | null;
-            /** Lead Changes */
-            lead_changes: number;
-        } & {
-            [key: string]: unknown;
         };
         /** CampaignSensitivityRequest */
         CampaignSensitivityRequest: {
@@ -3261,7 +2490,7 @@ export interface components {
              * Snapshot Days
              * @description Days at which to snapshot — strings ('final') and ints are both accepted.
              */
-            snapshot_days?: unknown[];
+            snapshot_days?: (number | "final")[];
         };
         /** CampaignSensitivityResponse */
         CampaignSensitivityResponse: {
@@ -3411,17 +2640,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** ChaosPath */
-        ChaosPath: {
-            /** From */
-            from: number[];
-            /** Num Steps */
-            num_steps: number;
-            /** Steps */
-            steps: number[][];
-            /** To */
-            to: number[];
-        };
         /**
          * ChoiceOverloadRequest
          * @description Schwartz 2004 paradox: heuristics dominate beyond overload_threshold candidates.
@@ -3442,7 +2660,7 @@ export interface components {
              * Methods
              * @description Voting methods to compare.
              */
-            methods?: string[] | null;
+            methods?: ("plurality" | "approval" | "borda" | "majority_judgment" | "irv" | "schulze")[] | null;
             /**
              * Num Voters
              * @default 150
@@ -3470,9 +2688,9 @@ export interface components {
                 [key: string]: number;
             };
             /** Least Robust Method */
-            least_robust_method: string | null;
+            least_robust_method: string[];
             /** Most Robust Method */
-            most_robust_method: string | null;
+            most_robust_method: string[];
             /** Overload Threshold */
             overload_threshold: number;
             /** Pedagogical Note */
@@ -3485,23 +2703,6 @@ export interface components {
             results_by_n: {
                 [key: string]: unknown;
             }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ClosestCandidateRequest
-         * @description POST /simulations/get_closest_candidate (2-D spatial assignment).
-         */
-        ClosestCandidateRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /** Voters */
-            voters?: unknown[];
-        };
-        /** ClosestCandidateResponse */
-        ClosestCandidateResponse: {
-            /** Result */
-            result: unknown;
         } & {
             [key: string]: unknown;
         };
@@ -3652,7 +2853,7 @@ export interface components {
             /** Most Frequent Pct */
             most_frequent_pct: number;
             /** Most Frequent Winner */
-            most_frequent_winner: string;
+            most_frequent_winner: string[];
             /** Pedagogical Note */
             pedagogical_note: string;
             /** Philosophical Conclusion */
@@ -3785,53 +2986,6 @@ export interface components {
              */
             z: number;
         };
-        /**
-         * CompareMethodsRequest
-         * @description POST /simulations/compare.
-         */
-        CompareMethodsRequest: {
-            /**
-             * Blank Rule
-             * @default symbolic
-             */
-            blank_rule: string;
-            /**
-             * Blank Vote
-             * @default false
-             */
-            blank_vote: boolean;
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /** Information Model */
-            information_model?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /** CompareMethodsResponse */
-        CompareMethodsResponse: {
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Information Model */
-            information_model: {
-                [key: string]: unknown;
-            };
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
         /** CompetenceParams */
         CompetenceParams: {
             /**
@@ -3875,8 +3029,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Voters
              * @default 300
@@ -3926,69 +3081,6 @@ export interface components {
             };
             /** Winner Changed */
             winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CondorcetMatrixRequest
-         * @description POST /simulations/condorcet-matrix.
-         */
-        CondorcetMatrixRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /** CondorcetMatrixResponse */
-        CondorcetMatrixResponse: {
-            /** Candidates */
-            candidates: unknown[];
-            /** Condorcet Cycles */
-            condorcet_cycles?: unknown;
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Matrix */
-            matrix: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ConstitutionalScenarioRequest
-         * @description POST /simulations/constitutional-scenario.
-         */
-        ConstitutionalScenarioRequest: {
-            /** Initial Election */
-            initial_election?: {
-                [key: string]: unknown;
-            };
-            /** Params */
-            params?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Scenario Type
-             * @default new_election
-             */
-            scenario_type: string;
-        };
-        /**
-         * ConstitutionalScenarioResponse
-         * @description Polymorphic by scenario_type (new_election/provisional/dissolution);
-         *     `scenario_type` + `conclusion` are common to every branch.
-         */
-        ConstitutionalScenarioResponse: {
-            /** Conclusion */
-            conclusion: string;
-            /** Scenario Type */
-            scenario_type: string;
         } & {
             [key: string]: unknown;
         };
@@ -4159,8 +3251,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Network Type
              * @description 'random' | 'echo_chamber' | 'bridge' | 'complete'.
@@ -4306,8 +3399,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze";
             /**
              * Num Voters
              * @default 300
@@ -4419,7 +3513,7 @@ export interface components {
             /** Districts */
             districts: components["schemas"]["DistrictResult"][];
             /** Fptp Winner */
-            fptp_winner: string;
+            fptp_winner: string[];
             /** National Vote Share */
             national_vote_share: {
                 [key: string]: number;
@@ -4435,7 +3529,7 @@ export interface components {
                 [key: string]: number;
             };
             /** Proportional Winner */
-            proportional_winner: string;
+            proportional_winner: string[];
         } & {
             [key: string]: unknown;
         };
@@ -4487,54 +3581,6 @@ export interface components {
             without_blank: {
                 [key: string]: unknown;
             };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * E2EDemoRequest
-         * @description End-to-end verifiable voting pedagogical demo.
-         */
-        E2EDemoRequest: {
-            /** Candidates */
-            candidates?: string[];
-            /** Num Demo Voters */
-            num_demo_voters?: number | null;
-            /** Num Voters */
-            num_voters?: number | null;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * User Vote
-             * @description If non-empty and present in candidates, voter #1's vote.
-             * @default
-             */
-            user_vote: string;
-        };
-        /** E2EDemoResponse */
-        E2EDemoResponse: {
-            /** Aggregate Result */
-            aggregate_result: unknown;
-            /** Audit Proof */
-            audit_proof: unknown;
-            /** Candidates */
-            candidates: unknown[];
-            /** Encrypted Ballots */
-            encrypted_ballots: unknown;
-            /** Num Voters */
-            num_voters: number;
-            /** Privacy Guarantee */
-            privacy_guarantee: unknown;
-            /** Public Bulletin Board */
-            public_bulletin_board: unknown;
-            /** Verification Demonstration */
-            verification_demonstration: unknown;
-            /** Voters */
-            voters: unknown[];
-            /** Winner */
-            winner?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -4600,8 +3646,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "two_round" | "approval" | "majority_judgment" | "star_voting";
             /**
              * Num Elections
              * @default 6
@@ -4743,63 +3790,25 @@ export interface components {
             winner: string;
         };
         /**
-         * ExportDatasetJSON
-         * @description Body of the JSON export endpoint.
+         * ErrorDetail
+         * @description Shape of a domain-level error response.
+         *
+         *     `api.core.worker_dispatch.raise_for_status` lifts a domain worker's
+         *     `(body, status_code)` tuple into `HTTPException(detail=body["error"])`
+         *     when `status_code != 200` (400 and 503 keep their code, anything else
+         *     becomes 500); FastAPI serializes that as `{"detail": "<message>"}`.
+         *     `api/main.py`'s catch-all `Exception` handler uses the same shape for any
+         *     uncaught error, so it's also the 500 contract for every route in the app,
+         *     not just the ones that reach for it explicitly. Referenced via each
+         *     router's `responses=` (Schemathesis, Lot 3 of the plan, found these
+         *     codes were reachable but undocumented).
          */
-        ExportDatasetJSON: {
-            /** Columns */
-            columns: string[];
-            meta: components["schemas"]["ExportDatasetMeta"];
-            /** Rows */
-            rows: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** ExportDatasetMeta */
-        ExportDatasetMeta: {
-            /** Ideology */
-            ideology: string;
-            /** Num Candidates */
-            num_candidates: number;
-            /** Num Scenarios */
-            num_scenarios: number;
-            /** Num Voters */
-            num_voters: number;
-            /** Seed */
-            seed: number;
-            /** Total Rows */
-            total_rows: number;
-        };
-        /**
-         * ExportDatasetRequest
-         * @description Shared body for both /simulation-dataset and /simulation-dataset-json.
-         */
-        ExportDatasetRequest: {
+        ErrorDetail: {
             /**
-             * Ideology
-             * @default random
+             * Detail
+             * @description Human-readable error message.
              */
-            ideology: string;
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Scenarios
-             * @default 100
-             */
-            num_scenarios: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
+            detail: string;
         };
         /**
          * GerrymanderRequest
@@ -4840,7 +3849,7 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /** Gerrymander Index */
-            gerrymander_index: number;
+            gerrymander_index?: number | null;
             /** National Vote Share */
             national_vote_share: {
                 [key: string]: unknown;
@@ -4860,7 +3869,7 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /** Winner */
-            winner?: string | null;
+            winner?: string[];
         } & {
             [key: string]: unknown;
         };
@@ -5004,8 +4013,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "approval";
             /**
              * Num Iterations
              * @default 10
@@ -5115,8 +4125,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "condorcet" | "approval" | "kemeny_young";
             /**
              * Num Trials
              * @default 100
@@ -5182,8 +4193,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Voters
              * @default 200
@@ -5221,68 +4233,6 @@ export interface components {
             initial_x: number;
             /** Party */
             party: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * IdeologyMapRequest
-         * @description POST /simulations/ideology-map.
-         */
-        IdeologyMapRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method A
-             * @default plurality
-             */
-            method_a: string;
-            /**
-             * Method B
-             * @default schulze
-             */
-            method_b: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** IdeologyMapResponse */
-        IdeologyMapResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Method A */
-            method_a: string;
-            /** Method B */
-            method_b: string;
-            /** Pct Better Off With A */
-            pct_better_off_with_a: number;
-            /** Pct Better Off With B */
-            pct_better_off_with_b: number;
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-            /** Winner A */
-            winner_a?: string | null;
-            /** Winner B */
-            winner_b?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -5413,7 +4363,7 @@ export interface components {
          */
         InterpretResponse: {
             /** Best By Regret */
-            best_by_regret: unknown;
+            best_by_regret: string[];
             /** Blank Analysis */
             blank_analysis: unknown;
             /** Condorcet Analysis */
@@ -5429,7 +4379,7 @@ export interface components {
             /** Pedagogical Note */
             pedagogical_note: string;
             /** Worst By Regret */
-            worst_by_regret: unknown;
+            worst_by_regret: string[];
         } & {
             [key: string]: unknown;
         };
@@ -5661,7 +4611,7 @@ export interface components {
          */
         JuryResponse: {
             /** Best Method */
-            best_method: string;
+            best_method: string[];
             /** Competence Curve */
             competence_curve: {
                 [key: string]: number;
@@ -5681,7 +4631,7 @@ export interface components {
             /** Voter Competence */
             voter_competence: number;
             /** Worst Method */
-            worst_method: string;
+            worst_method: string[];
         } & {
             [key: string]: unknown;
         };
@@ -5693,33 +4643,6 @@ export interface components {
             strategy: string;
             /** Voter Id */
             voter_id: number;
-        };
-        /**
-         * LegacySimulateRequest
-         * @description POST /simulations (legacy form-based simulation).
-         */
-        LegacySimulateRequest: {
-            /** Formdata */
-            formData: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * LegacySimulateResponse
-         * @description POST /simulations (legacy). Conditional vote/ranked/score blocks +
-         *     dynamic per-method winners ride through on `extra="allow"`.
-         */
-        LegacySimulateResponse: {
-            /** Deprecation Warning */
-            deprecation_warning: string;
-            /** Metadata */
-            metadata: {
-                [key: string]: unknown;
-            };
-            /** Simulation Type */
-            simulation_type: string;
-        } & {
-            [key: string]: unknown;
         };
         /**
          * LiquidDemocracyRequest
@@ -5813,7 +4736,7 @@ export interface components {
              * Decision Rules
              * @description Defaults to all 6 rules.
              */
-            decision_rules?: string[] | null;
+            decision_rules?: ("simple_majority" | "supermajority_2_3" | "supermajority_3_4" | "unanimous" | "qv" | "mj")[] | null;
             /**
              * Majority Pct
              * @default 0.6
@@ -5915,8 +4838,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "two_round";
             /**
              * Num Voters
              * @default 30
@@ -6102,7 +5026,7 @@ export interface components {
          */
         MultiwinnerCompareResponse: {
             /** Best Method */
-            best_method: string;
+            best_method: string[];
             /** Candidates */
             candidates: string[];
             /** Methods */
@@ -6120,56 +5044,7 @@ export interface components {
                 [key: string]: number;
             };
             /** Worst Method */
-            worst_method: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MultiwinnerRequest
-         * @description POST /simulations/multiwinner.
-         */
-        MultiwinnerRequest: {
-            /**
-             * Mode
-             * @default proportional
-             */
-            mode: string;
-            /**
-             * Num Seats
-             * @default 10
-             */
-            num_seats: number;
-            /** Party Votes */
-            party_votes?: {
-                [key: string]: unknown;
-            };
-        };
-        /** MultiwinnerResponse */
-        MultiwinnerResponse: {
-            /** Comparison */
-            comparison: {
-                [key: string]: unknown;
-            };
-            /** Dhondt */
-            dhondt?: {
-                [key: string]: unknown;
-            } | null;
-            /** Largest Remainder Droop */
-            largest_remainder_droop?: {
-                [key: string]: unknown;
-            } | null;
-            /** Largest Remainder Hare */
-            largest_remainder_hare?: {
-                [key: string]: unknown;
-            } | null;
-            /** Sainte Lague */
-            sainte_lague?: {
-                [key: string]: unknown;
-            } | null;
-            /** Stv */
-            stv?: {
-                [key: string]: unknown;
-            } | null;
+            worst_method: string[];
         } & {
             [key: string]: unknown;
         };
@@ -6187,10 +5062,11 @@ export interface components {
             ideology: string;
             /**
              * Method
-             * @description Primary method to display in the curve ('plurality' | 'irv' | 'borda' | 'schulze' | ...).
+             * @description Primary method to display in the curve.
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "approval" | "borda" | "irv" | "schulze" | "majority_judgment";
             /**
              * Nota Rule
              * @description Constitutional response when NOTA wins: 'invalidate' | 'runoff' | 'winner_take_all'.
@@ -6281,8 +5157,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "proportional";
             /**
              * Num Elections
              * @default 10
@@ -6368,48 +5245,6 @@ export interface components {
             primary_voters_pct: number;
         };
         /**
-         * PlottChaosRequest
-         * @description Plott's Chaos Theorem in 2-D policy space.
-         */
-        PlottChaosRequest: {
-            /**
-             * Max Steps
-             * @default 15
-             */
-            max_steps: number;
-            /**
-             * Num Dimensions
-             * @default 2
-             */
-            num_dimensions: number;
-            /**
-             * Num Voters
-             * @default 5
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /** Start Policy */
-            start_policy?: number[];
-            /** Target Policy */
-            target_policy?: number[];
-        };
-        /** PlottChaosResponse */
-        PlottChaosResponse: {
-            alternative_path: components["schemas"]["AlternativePath"];
-            chaos_path: components["schemas"]["ChaosPath"];
-            /** Condorcet Winner Exists */
-            condorcet_winner_exists: boolean;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            top_cycle: components["schemas"]["TopCycle"];
-            /** Voter Ideal Points */
-            voter_ideal_points: number[][];
-        };
-        /**
          * PolarizationRequest
          * @description Per-ideology distribution: Esteban-Ray index + method robustness scan.
          */
@@ -6450,54 +5285,6 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * PolisSimulationRequest
-         * @description Pol.is consensus clustering on a fresh statement set.
-         */
-        PolisSimulationRequest: {
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Clusters
-             * @default 3
-             */
-            num_clusters: number;
-            /**
-             * Num Participants
-             * @default 100
-             */
-            num_participants: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Statements
-             * @description Defaults to the built-in 10-statement battery.
-             */
-            statements?: string[] | null;
-        };
-        /** PolisSimulationResponse */
-        PolisSimulationResponse: {
-            /** Clusters */
-            clusters: unknown;
-            /** Consensus Statements */
-            consensus_statements: unknown;
-            /** Num Clusters */
-            num_clusters: number;
-            /** Num Participants */
-            num_participants: number;
-            /** Participant Positions */
-            participant_positions: unknown;
-            /** Polarizing Statements */
-            polarizing_statements: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * PolisWithCandidatesRequest
          * @description Pol.is clustering + classical election cross-comparison.
          */
@@ -6512,8 +5299,9 @@ export interface components {
             /**
              * Method To Compare
              * @default plurality
+             * @constant
              */
-            method_to_compare: string;
+            method_to_compare: "plurality";
             /**
              * Min Consensus Threshold
              * @default 0.8
@@ -6642,8 +5430,9 @@ export interface components {
             /**
              * General Method
              * @default plurality
+             * @enum {string}
              */
-            general_method: string;
+            general_method: "plurality" | "irv" | "approval";
             /**
              * General Num Voters
              * @default 500
@@ -6654,8 +5443,9 @@ export interface components {
             /**
              * Primary Method
              * @default plurality
+             * @enum {string}
              */
-            primary_method: string;
+            primary_method: "plurality" | "irv" | "approval";
             /**
              * Seed
              * @default 42
@@ -6678,7 +5468,7 @@ export interface components {
             /** General Winner */
             general_winner?: string | null;
             /** Median Voter Distance */
-            median_voter_distance: unknown;
+            median_voter_distance?: number | null;
             /** Primaries */
             primaries: unknown;
             /** Without Primaries Winner */
@@ -6739,7 +5529,7 @@ export interface components {
             candidates: components["schemas"]["ProfileCandidateSpec"][];
             /**
              * Compute Strategic
-             * @description Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out.
+             * @description Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out. Caps num_voters at 500 (the response's num_voters says how many ran).
              * @default false
              */
             compute_strategic: boolean;
@@ -6752,7 +5542,7 @@ export interface components {
             electorate?: components["schemas"]["ElectorateConfig"] | null;
             /**
              * Handcrafted Matrix
-             * @description Rows = voters, cols = candidates (aligned), for source=handcrafted.
+             * @description Rows = voters, cols = candidates (aligned), for source=handcrafted. At most 500 rows with compute_strategic.
              */
             handcrafted_matrix?: number[][] | null;
             /**
@@ -6871,6 +5661,11 @@ export interface components {
              */
             blank_rule: string;
             /**
+             * Compute Strategic
+             * @default false
+             */
+            compute_strategic: boolean;
+            /**
              * Ideology Distribution
              * @default random
              */
@@ -6938,6 +5733,11 @@ export interface components {
          */
         PublicSimulateRequest: {
             /**
+             * Compute Strategic
+             * @default false
+             */
+            compute_strategic: boolean;
+            /**
              * Ideology Distribution
              * @default random
              */
@@ -6969,140 +5769,6 @@ export interface components {
             methods: {
                 [key: string]: unknown;
             };
-        } & {
-            [key: string]: unknown;
-        };
-        /** QFProject */
-        QFProject: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-        };
-        /**
-         * QuadraticFundingRequest
-         * @description Buterin/Hitzig/Weyl 2019 quadratic funding for public goods.
-         */
-        QuadraticFundingRequest: {
-            /**
-             * Budget Per Voter
-             * @default 100
-             */
-            budget_per_voter: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Matching Pool
-             * @default 10000
-             */
-            matching_pool: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /** Projects */
-            projects: components["schemas"]["QFProject"][];
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * QuadraticFundingResponse
-         * @description Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics.
-         */
-        QuadraticFundingResponse: {
-            /** Budget Per Voter */
-            budget_per_voter: unknown;
-            /** Gini Coefficients */
-            gini_coefficients: {
-                [key: string]: unknown;
-            };
-            /** Matching Pool */
-            matching_pool: unknown;
-            /** Mechanism Comparison */
-            mechanism_comparison: {
-                [key: string]: unknown;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Projects */
-            projects: {
-                [key: string]: unknown;
-            }[];
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner */
-            winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * RealElectionRequest
-         * @description POST /simulations/real-election.
-         */
-        RealElectionRequest: {
-            /**
-             * Blank Vote
-             * @default false
-             */
-            blank_vote: boolean;
-            /**
-             * Election Name
-             * @default
-             */
-            election_name: string;
-            /**
-             * Num Voters
-             * @default 1000
-             */
-            num_voters: number;
-        };
-        /** RealElectionResponse */
-        RealElectionResponse: {
-            /** Blank Vote Analysis */
-            blank_vote_analysis?: unknown;
-            /** Divergences */
-            divergences?: unknown;
-            /** Election */
-            election: unknown;
-            /** First Round Results */
-            first_round_results?: unknown;
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Methods With Blank */
-            methods_with_blank?: {
-                [key: string]: unknown;
-            } | null;
-            /** Plurality Winner */
-            plurality_winner?: string | null;
-            /** Summary */
-            summary?: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * RealElectionSummary
-         * @description One item of GET /simulations/real-elections (a list).
-         */
-        RealElectionSummary: {
-            /** Country */
-            country: string;
-            /** Key */
-            key: string;
-            /** Name */
-            name: string;
-            /** Year */
-            year: unknown;
         } & {
             [key: string]: unknown;
         };
@@ -7161,40 +5827,6 @@ export interface components {
             name: string;
             /** Real Winner */
             real_winner: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ScenarioRequest
-         * @description POST /simulations/scenario.
-         */
-        ScenarioRequest: {
-            /**
-             * Blank Rule
-             * @default symbolic
-             */
-            blank_rule: string;
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Electorate */
-            electorate?: {
-                [key: string]: unknown;
-            };
-            /** Methods */
-            methods?: string[] | null;
-        };
-        /** ScenarioResponse */
-        ScenarioResponse: {
-            /** With Blank */
-            with_blank: {
-                [key: string]: unknown;
-            };
-            /** Without Blank */
-            without_blank: {
-                [key: string]: unknown;
-            };
         } & {
             [key: string]: unknown;
         };
@@ -7268,36 +5900,6 @@ export interface components {
             outcome: string;
             /** Theorist */
             theorist: string;
-        };
-        /**
-         * SensitivityRequest
-         * @description POST /simulations/sensitivity.
-         */
-        SensitivityRequest: {
-            /** Base Config */
-            base_config?: {
-                [key: string]: unknown;
-            };
-            /** Values */
-            values?: unknown[];
-            /**
-             * Variable
-             * @default ideology_distribution
-             */
-            variable: string;
-        };
-        /** SensitivityResponse */
-        SensitivityResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-            /** Values */
-            values: unknown[];
-            /** Variable */
-            variable: string;
-        } & {
-            [key: string]: unknown;
         };
         /**
          * ShyVoterRequest
@@ -7378,34 +5980,6 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * SimulateCandidatesRequest
-         * @description POST /simulations/simulate_candidates.
-         */
-        SimulateCandidatesRequest: {
-            /** Issues */
-            issues?: string[];
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /** Parties */
-            parties?: string[];
-        };
-        /** SimulateCandidatesResponse */
-        SimulateCandidatesResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Message */
-            message: string;
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * SimulatePipelineRequest
          * @description Step-by-step pipeline animation for the simulation hub.
          */
@@ -7467,7 +6041,7 @@ export interface components {
             campaign?: components["schemas"]["CampaignConfig"];
             /**
              * Candidates
-             * @description 2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.
+             * @description 2 to 8 candidates. Every rule is exact over that whole range.
              */
             candidates: components["schemas"]["CandidateSpec"][];
             /**
@@ -7526,53 +6100,6 @@ export interface components {
             voters_snapshot: components["schemas"]["VoterSnapshot"][];
         };
         /**
-         * SimulateUtilityRequest
-         * @description POST /simulations/simulate_utility.
-         */
-        SimulateUtilityRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** SimulateUtilityResponse */
-        SimulateUtilityResponse: {
-            /** Success */
-            success: boolean;
-            /** Utility Results */
-            utility_results: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SimulateVotersRequest
-         * @description POST /simulations/simulate_voters.
-         */
-        SimulateVotersRequest: {
-            /**
-             * Num Voters
-             * @default 1000
-             */
-            num_voters: number;
-        };
-        /** SimulateVotersResponse */
-        SimulateVotersResponse: {
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * SortitionRequest
          * @description Compare elected vs sortition pure vs sortition stratified assembly selection.
          */
@@ -7592,8 +6119,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Simulations
              * @default 20
@@ -7641,35 +6169,6 @@ export interface components {
             winner_by_method: {
                 [key: string]: unknown;
             };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * StrategicImpactRequest
-         * @description POST /simulations/strategic-impact.
-         */
-        StrategicImpactRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /** Strategic Percentages */
-            strategic_percentages?: unknown[];
-        };
-        /** StrategicImpactResponse */
-        StrategicImpactResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
         } & {
             [key: string]: unknown;
         };
@@ -7769,10 +6268,11 @@ export interface components {
             num_voters: number;
             /**
              * Quota Type
-             * @description STV quota: 'droop' | 'hare' | 'imperiali'.
+             * @description STV quota.
              * @default droop
+             * @enum {string}
              */
-            quota_type: string;
+            quota_type: "droop" | "hare";
             /**
              * Seed
              * @default 42
@@ -7815,146 +6315,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** TemporalPartyState */
-        TemporalPartyState: {
-            /** Name */
-            name: string;
-            /** Seats */
-            seats: number;
-            /** Vote Share */
-            vote_share: number;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /**
-         * TemporalRequest
-         * @description POST /api/v2/election/temporal — N sequential elections on one starting
-         *     electorate. Between rounds, parties local-search toward vote-maximising
-         *     positions (`adaptation_step`) and voters drift toward the party they voted
-         *     for (`loyalty_drift`). Stated dynamics; reproducible by seed.
-         */
-        TemporalRequest: {
-            /**
-             * Adaptation Step
-             * @description Party vote-seeking step per round.
-             * @default 0.06
-             */
-            adaptation_step: number;
-            /**
-             * Apportionment
-             * @default dhondt
-             * @enum {string}
-             */
-            apportionment: "dhondt" | "sainte_lague";
-            /** @description Composed electorate (community mixture); overrides `ideology` when mode='composed'. */
-            electorate?: components["schemas"]["ElectorateConfig"] | null;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Loyalty Drift
-             * @description Voter drift toward their party per round.
-             * @default 0.05
-             */
-            loyalty_drift: number;
-            /**
-             * Num Voters
-             * @default 400
-             */
-            num_voters: number;
-            /** Parties */
-            parties: components["schemas"]["AssemblyPartySpec"][];
-            /**
-             * Rounds
-             * @default 20
-             */
-            rounds: number;
-            /**
-             * Seats
-             * @default 100
-             */
-            seats: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Strategic Desertion
-             * @default false
-             */
-            strategic_desertion: boolean;
-            /**
-             * Structure
-             * @default pr
-             * @enum {string}
-             */
-            structure: "pr" | "fptp" | "mmp";
-            /**
-             * Threshold
-             * @default 0.05
-             */
-            threshold: number;
-        };
-        /** TemporalResponse */
-        TemporalResponse: {
-            /** Alternation Rate */
-            alternation_rate: number;
-            /** Enp Votes Final */
-            enp_votes_final?: number | null;
-            /** Enp Votes Initial */
-            enp_votes_initial?: number | null;
-            /** Polarization Final */
-            polarization_final: number;
-            /** Polarization Initial */
-            polarization_initial: number;
-            /** Rounds */
-            rounds: components["schemas"]["TemporalRound"][];
-        };
-        /** TemporalRound */
-        TemporalRound: {
-            /**
-             * Alternation
-             * @description Largest party changed vs the previous round.
-             */
-            alternation: boolean;
-            /**
-             * Congruence Gap
-             * @description Distance between the seat-weighted assembly position and the voter median.
-             */
-            congruence_gap: number;
-            /** Enp Seats */
-            enp_seats?: number | null;
-            /** Enp Votes */
-            enp_votes?: number | null;
-            /** Gallagher */
-            gallagher?: number | null;
-            /** Parties */
-            parties: components["schemas"]["TemporalPartyState"][];
-            /**
-             * Polarization
-             * @description Vote-weighted dispersion of party positions.
-             */
-            polarization: number;
-            /** Round */
-            round: number;
-            /**
-             * Winner
-             * @description Largest party this round.
-             */
-            winner: string;
-        };
-        /** TopCycle */
-        TopCycle: {
-            /** Center */
-            center: number[];
-            /** Size */
-            size: number;
-        };
         /**
          * TurnoutConfig
          * @description Electorate realism: differential turnout (Downsian abstention).
@@ -7981,41 +6341,12 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /**
-         * UtilityMatrixRequest
-         * @description POST /simulations/get_utility_matrix.
-         */
-        UtilityMatrixRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** UtilityMatrixResponse */
-        UtilityMatrixResponse: {
-            /** Matrix */
-            matrix: {
-                [key: string]: unknown;
-            };
-            /** Message */
-            message: string;
-            /** Stats */
-            stats: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
@@ -8038,8 +6369,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "approval";
             /**
              * Num Voters
              * @default 100
@@ -8072,37 +6404,6 @@ export interface components {
             mean: number;
         };
         /**
-         * VoterSegmentsRequest
-         * @description POST /simulations/get_voter_segments.
-         */
-        VoterSegmentsRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Segments */
-            segments?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** VoterSegmentsResponse */
-        VoterSegmentsResponse: {
-            /** Message */
-            message: string;
-            /** Segments */
-            segments: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
          * VoterSnapshot
          * @description One voter row in the ideology map.
          */
@@ -8115,34 +6416,6 @@ export interface components {
             x: number;
             /** Y */
             y: number;
-        };
-        /**
-         * WhatIfRequest
-         * @description POST /simulations/what-if (vary one parameter, compare methods).
-         */
-        WhatIfRequest: {
-            /** Base */
-            base?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Variant Param
-             * @default num_voters
-             */
-            variant_param: string;
-            /** Variant Values */
-            variant_values?: unknown[];
-        };
-        /** WhatIfResponse */
-        WhatIfResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-            /** Variant Param */
-            variant_param: string;
-        } & {
-            [key: string]: unknown;
         };
     };
     responses: never;
@@ -8175,6 +6448,15 @@ export interface operations {
                     "application/json": components["schemas"]["PublicCompareResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8182,6 +6464,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8197,13 +6497,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Catalogue of 16+ methods with name, family, and ref. */
+            /** @description Catalogue of 34 methods with name, family, and ref. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PublicMethodsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -8213,6 +6522,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8237,6 +6564,33 @@ export interface operations {
                     };
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     real_elections_api_v1_real_elections_get: {
@@ -8255,6 +6609,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicRealElectionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8281,6 +6662,15 @@ export interface operations {
                     "application/json": components["schemas"]["PublicSimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8288,6 +6678,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8336,6 +6744,15 @@ export interface operations {
                     "application/json": components["schemas"]["AbstentionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8343,6 +6760,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8369,6 +6804,15 @@ export interface operations {
                     "application/json": components["schemas"]["AdaptiveResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8376,6 +6820,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8402,6 +6864,15 @@ export interface operations {
                     "application/json": components["schemas"]["AffectivePolarizationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8409,6 +6880,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8435,6 +6924,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssemblyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8442,6 +6940,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8468,6 +6984,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssemblyScorecardResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8475,6 +7000,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8501,6 +7044,15 @@ export interface operations {
                     "application/json": components["schemas"]["BallotComplexityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8508,6 +7060,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8534,6 +7104,15 @@ export interface operations {
                     "application/json": components["schemas"]["BehavioralBiasesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8541,6 +7120,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8567,6 +7164,15 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignSensitivityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8574,6 +7180,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8600,6 +7224,15 @@ export interface operations {
                     "application/json": components["schemas"]["CascadeResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8607,6 +7240,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8633,6 +7284,15 @@ export interface operations {
                     "application/json": components["schemas"]["ChoiceOverloadResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8640,6 +7300,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8666,6 +7344,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoalitionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8673,6 +7360,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8699,6 +7404,15 @@ export interface operations {
                     "application/json": components["schemas"]["CombinedEffectsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8706,6 +7420,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8732,6 +7464,15 @@ export interface operations {
                     "application/json": components["schemas"]["CompulsoryVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8739,6 +7480,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8765,6 +7524,15 @@ export interface operations {
                     "application/json": components["schemas"]["ConvictionVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8772,6 +7540,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8798,6 +7584,15 @@ export interface operations {
                     "application/json": components["schemas"]["DeliberationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8805,6 +7600,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8831,6 +7644,15 @@ export interface operations {
                     "application/json": components["schemas"]["DemographicTurnoutResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8838,6 +7660,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8864,6 +7704,15 @@ export interface operations {
                     "application/json": components["schemas"]["DistrictsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8871,6 +7720,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8897,6 +7764,15 @@ export interface operations {
                     "application/json": components["schemas"]["DivergenceResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8904,6 +7780,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8930,6 +7824,15 @@ export interface operations {
                     "application/json": components["schemas"]["ElectoralFatigueResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8937,6 +7840,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8963,6 +7884,15 @@ export interface operations {
                     "application/json": components["schemas"]["GerrymanderResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8970,6 +7900,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8996,6 +7944,15 @@ export interface operations {
                     "application/json": components["schemas"]["HistoricalReplayResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9003,6 +7960,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9029,6 +8004,15 @@ export interface operations {
                     "application/json": components["schemas"]["HotellingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9036,6 +8020,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9062,6 +8064,15 @@ export interface operations {
                     "application/json": components["schemas"]["InterpretResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9069,6 +8080,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9095,6 +8124,15 @@ export interface operations {
                     "application/json": components["schemas"]["IssueVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9102,6 +8140,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9128,6 +8184,15 @@ export interface operations {
                     "application/json": components["schemas"]["JuryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9135,6 +8200,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9161,6 +8244,15 @@ export interface operations {
                     "application/json": components["schemas"]["LiquidDemocracyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9168,6 +8260,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9194,6 +8304,15 @@ export interface operations {
                     "application/json": components["schemas"]["MultiwinnerCompareResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9201,6 +8320,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9227,6 +8364,15 @@ export interface operations {
                     "application/json": components["schemas"]["NotaResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9234,6 +8380,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9260,6 +8424,15 @@ export interface operations {
                     "application/json": components["schemas"]["PartyDynamicsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9267,6 +8440,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9293,6 +8484,15 @@ export interface operations {
                     "application/json": components["schemas"]["PolarizationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9300,6 +8500,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9326,6 +8544,15 @@ export interface operations {
                     "application/json": components["schemas"]["PowerIndicesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9333,6 +8560,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9359,6 +8604,15 @@ export interface operations {
                     "application/json": components["schemas"]["PrimaryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9366,6 +8620,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9392,37 +8664,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProfileSimulateResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    quadratic_funding_endpoint_api_v2_election_quadratic_funding_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuadraticFundingRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-project funding + mechanism comparison + Gini coefficients + pedagogical note. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuadraticFundingResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -9432,6 +8680,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9458,6 +8724,15 @@ export interface operations {
                     "application/json": components["schemas"]["ShyVoterResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9465,6 +8740,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9491,6 +8784,15 @@ export interface operations {
                     "application/json": components["schemas"]["SimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9498,6 +8800,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9524,6 +8844,15 @@ export interface operations {
                     "application/json": components["schemas"]["SimulatePipelineResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9531,6 +8860,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9557,6 +8904,15 @@ export interface operations {
                     "application/json": components["schemas"]["SortitionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9564,6 +8920,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9590,6 +8964,15 @@ export interface operations {
                     "application/json": components["schemas"]["StructuralFairnessResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9597,6 +8980,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9623,37 +9024,13 @@ export interface operations {
                     "application/json": components["schemas"]["StvResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    temporal_endpoint_api_v2_election_temporal_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TemporalRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-round positions, seats, winner, ENP, Gallagher, polarization, alternation and congruence over N rounds of party adaptation + voter attachment. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemporalResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -9665,70 +9042,22 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-        };
-    };
-    export_csv_api_v2_export_simulation_dataset_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportDatasetRequest"];
-            };
-        };
-        responses: {
-            /** @description One row per (scenario × voting method). */
-            200: {
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": unknown;
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_json_api_v2_export_simulation_dataset_json_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportDatasetRequest"];
-            };
-        };
-        responses: {
-            /** @description { meta, columns, rows } — drop-in for pandas/dplyr. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExportDatasetJSON"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9753,146 +9082,21 @@ export interface operations {
                     };
                 };
             };
+            /** @description Degraded — one or more subsystem checks failed. Same body shape as 200 (status='degraded'), not an ErrorDetail. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
-    legacy_simulate_api_v2_simulations_post: {
+    metrics_api_v2_metrics_get: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LegacySimulateRequest"];
+            header?: {
+                authorization?: string | null;
             };
-        };
-        responses: {
-            /** @description Per-method winners + voter samples. Carries an X-Deprecation-Warning header — prefer the spatial pipeline or /api/v2/election/simulate. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegacySimulateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    arrow_criteria_api_v2_simulations_arrow_criteria_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArrowCriteriaRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArrowCriteriaResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    bandwagon_api_v2_simulations_bandwagon_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BandwagonRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BandwagonResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    blank_contagion_api_v2_simulations_blank_contagion_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BlankContagionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BlankContagionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    blank_history_api_v2_simulations_blank_history_get: {
-        parameters: {
-            query?: {
-                country?: string;
-            };
-            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9904,304 +9108,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BlankHistoryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    calculate_utility_api_v2_simulations_calculate_utility_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CalculateUtilityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalculateUtilityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    campaign_api_v2_simulations_campaign_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CampaignRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CampaignResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    compare_api_v2_simulations_compare_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompareMethodsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompareMethodsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    condorcet_matrix_api_v2_simulations_condorcet_matrix_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CondorcetMatrixRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CondorcetMatrixResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    constitutional_scenario_api_v2_simulations_constitutional_scenario_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConstitutionalScenarioRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConstitutionalScenarioResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_closest_candidate_api_v2_simulations_get_closest_candidate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ClosestCandidateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClosestCandidateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_utility_matrix_api_v2_simulations_get_utility_matrix_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UtilityMatrixRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UtilityMatrixResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_voter_segments_api_v2_simulations_get_voter_segments_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoterSegmentsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoterSegmentsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ideology_map_api_v2_simulations_ideology_map_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IdeologyMapRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdeologyMapResponse"];
+                    "application/json": unknown;
+                    "text/plain; version=1.0.0; charset=utf-8": string;
                 };
             };
             /** @description Validation Error */
@@ -10239,6 +9147,15 @@ export interface operations {
                     "application/json": components["schemas"]["ManipulabilityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10246,6 +9163,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10272,37 +9207,13 @@ export interface operations {
                     "application/json": components["schemas"]["MonteCarloResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    multiwinner_api_v2_simulations_multiwinner_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MultiwinnerRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MultiwinnerResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -10314,255 +9225,22 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-        };
-    };
-    real_election_api_v2_simulations_real_election_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RealElectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RealElectionResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    real_elections_api_v2_simulations_real_elections_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RealElectionSummary"][];
-                };
-            };
-        };
-    };
-    scenario_api_v2_simulations_scenario_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScenarioRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sensitivity_api_v2_simulations_sensitivity_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SensitivityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensitivityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_candidates_api_v2_simulations_simulate_candidates_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateCandidatesRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateCandidatesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_utility_api_v2_simulations_simulate_utility_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateUtilityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateUtilityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_voters_api_v2_simulations_simulate_voters_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateVotersRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateVotersResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    strategic_impact_api_v2_simulations_strategic_impact_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StrategicImpactRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StrategicImpactResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10589,37 +9267,13 @@ export interface operations {
                     "application/json": components["schemas"]["VoteStepsResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    what_if_api_v2_simulations_what_if_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WhatIfRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhatIfResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -10631,37 +9285,22 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-        };
-    };
-    e2e_demo_endpoint_api_v2_tech_e2e_demo_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["E2EDemoRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-voter encrypted ballots + shuffled bulletin board + homomorphic aggregate + audit proof. */
-            200: {
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["E2EDemoResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10688,37 +9327,13 @@ export interface operations {
                     "application/json": components["schemas"]["PolisWithCandidatesResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    polis_simulation_endpoint_api_v2_tech_polis_simulation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PolisSimulationRequest"];
-            };
-        };
-        responses: {
-            /** @description PCA-2D coords + k-means cluster labels + per-cluster vote rates + consensus / polarising statements. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolisSimulationResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -10728,6 +9343,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10754,6 +9387,15 @@ export interface operations {
                     "application/json": components["schemas"]["AgendaManipulationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10761,6 +9403,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10787,6 +9447,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApportionmentResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10794,6 +9463,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10820,6 +9507,15 @@ export interface operations {
                     "application/json": components["schemas"]["ArrowResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10827,6 +9523,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10853,6 +9567,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssumptionTestingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10860,6 +9583,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10886,6 +9627,15 @@ export interface operations {
                     "application/json": components["schemas"]["CollectiveWillResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10893,6 +9643,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10919,6 +9687,15 @@ export interface operations {
                     "application/json": components["schemas"]["DemocraticBacksliddingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10926,6 +9703,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10952,6 +9747,15 @@ export interface operations {
                     "application/json": components["schemas"]["EpistocracyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10959,6 +9763,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10985,6 +9807,15 @@ export interface operations {
                     "application/json": components["schemas"]["IdentityVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10992,6 +9823,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11018,6 +9867,15 @@ export interface operations {
                     "application/json": components["schemas"]["IIARateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11025,6 +9883,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11051,6 +9927,15 @@ export interface operations {
                     "application/json": components["schemas"]["IntergenerationalResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11058,6 +9943,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11084,6 +9987,15 @@ export interface operations {
                     "application/json": components["schemas"]["JudgmentAggregationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11091,6 +10003,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11117,6 +10047,15 @@ export interface operations {
                     "application/json": components["schemas"]["MajorityTyrannyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11124,6 +10063,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11150,37 +10107,13 @@ export interface operations {
                     "application/json": components["schemas"]["ManipulationAnalysisResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    plott_chaos_endpoint_api_v2_theory_plott_chaos_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlottChaosRequest"];
-            };
-        };
-        responses: {
-            /** @description Condorcet-winner flag, top cycle (Smith set), and two BFS paths showing the agenda-setter can reach diametrically opposite outcomes from the same start. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlottChaosResponse"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
             /** @description Validation Error */
@@ -11190,6 +10123,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11216,6 +10167,15 @@ export interface operations {
                     "application/json": components["schemas"]["SenParadoxResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11223,6 +10183,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };

@@ -2,7 +2,7 @@
 #
 # Fidelity choices that matter:
 #  - ubuntu:24.04 == GitHub `ubuntu-latest` (same distro, case-SENSITIVE filesystem).
-#  - Node 20 via NodeSource (== actions/setup-node node-version 20).
+#  - Node 24 via NodeSource (== actions/setup-node node-version 24).
 #  - Source is COPYed in (native ext4), NOT bind-mounted from the Windows host —
 #    a Windows bind-mount masked the `@/` coverage-resolve bug we were chasing.
 #  - `npm ci` from the committed lockfile (== the CI install step).
@@ -15,7 +15,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive CI=true
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates git \
- && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && node --version && npm --version \
  && rm -rf /var/lib/apt/lists/*
@@ -32,7 +32,9 @@ COPY voter-app/ ./
 # Mirror the workflow steps in order. All steps are GATING (matches GitHub CI).
 CMD ["bash","-euo","pipefail","-c","\
 echo '=== Lint (gating — 0 errors) ===';   npm run lint; \
+echo '=== Architecture boundaries (dependency-cruiser) ===';   npm run depcruise; \
 echo '=== npm audit (high blocks) ===';    npm audit --audit-level=high; \
+echo '=== License compliance (gating) ==='; SELF=\"$(node -p \"require('./package.json').name\")@$(node -p \"require('./package.json').version\")\"; npx license-checker-rseidelsohn --production --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC\" --excludePackages \"$SELF\"; \
 echo '=== Tests + coverage ===';           npm run test:coverage; \
 echo '=== Build ===';                       npm run build; \
 echo '=== Frontend CI: PASS ==='"]

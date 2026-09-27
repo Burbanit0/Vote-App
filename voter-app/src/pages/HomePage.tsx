@@ -5,7 +5,7 @@ import { SlidersHorizontal, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
-import OnboardingTour from '../components/shared/OnboardingTour';
+import OnboardingTour from '../components/shared/common/OnboardingTour';
 import HeroInstrument from '../components/home/HeroInstrument';
 import { MOMENTS } from '../components/playground/MomentRail';
 import { STORIES } from '../lib/stories';
@@ -18,6 +18,7 @@ const FOOTER_LINKS = [
   { href: '/decouvrir', key: 'home.ctaDiscover' },
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
+  { href: '/laboratoire?exp=lexique', key: 'nav.lexique' },
 ];
 
 const HomePage: React.FC = () => {

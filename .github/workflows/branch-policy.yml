@@ -5,18 +5,30 @@ on:
     branches: [develop, main]
     types: [opened, synchronize, reopened, edited]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   validate-source:
     name: Validate branch source and naming
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Check branch naming (PRs to develop)
-        if: github.base_ref == 'develop'
+        # Mergify's own speculative merge-queue checks run against a
+        # synthetic `mergify/merge-queue/<hash>` branch it creates itself
+        # (see .mergify.yml) — that branch never goes through a real PR's
+        # naming convention and shouldn't be held to it.
+        if: github.base_ref == 'develop' && !startsWith(github.head_ref, 'mergify/merge-queue/')
         env:
           SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
         run: |
-          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf)/.+"
+          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf|dependabot)/.+"
 
           echo "Source branch : $SOURCE"
           echo "Target branch : develop"
@@ -32,6 +44,7 @@ jobs:
             echo "  refactor/ chore/    → refactoring / maintenance"
             echo "  docs/     test/     → documentation / tests"
             echo "  ci/       perf/     → CI/CD / performance"
+            echo "  dependabot/         → mises à jour automatiques (Dependabot)"
             echo ""
             echo "Exemple : feature/vote-blanc-toggle"
             exit 1
@@ -62,6 +75,10 @@ jobs:
           echo "✅  Source autorisée pour main : $SOURCE"
 
       - name: Validate PR title format
+        # Same exemption as the naming check above — Mergify's synthetic
+        # queue-check PR gets an auto-generated title ("merge queue:
+        # checking #N on develop (<sha>)"), not a real contributor's title.
+        if: ${{ !startsWith(github.head_ref, 'mergify/merge-queue/') }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -91,7 +108,7 @@ jobs:
             echo "  feat(blank-vote): add competitive rule to scenario builder"
             echo "  fix(navbar): dark mode background not adapting to theme"
             echo "  ci: add pre-commit hooks and coverage thresholds"
-            # Warning only — does not block (remove 'exit 1' to enforce)
+            exit 1
           else
             echo "✅  Titre de PR valide."
           fi

@@ -1,0 +1,208 @@
+name: Mutation Testing
+
+# Separate from Backend CI on purpose (see prompt-mutation-testing.md §3): this
+# does not run on pull requests, so it never gates a merge. It DOES gate itself —
+# mutmut fails on any real drop from its own recorded baseline (see
+# scripts/check_mutation_score.sh; a hand-maintained floor lived here until
+# 2026-09-13), Stryker fails below its hand-set `thresholds.break`. A score
+# nobody can fail is a score nobody reads.
+#
+# Two jobs, one per engine, because the project keeps TWO implementations of the
+# voting rules in sync (CLAUDE.md, "the dual voting engine"): mutmut mutates the
+# Python side, Stryker the TypeScript side. Measuring only one half would leave
+# the other free to accumulate tests that execute without asserting — the exact
+# blind spot line coverage already has.
+on:
+  # HISTORICAL NOTE — fixed as of 2026-09, see PLAN_REMEDIATION_CI_CD.md §2.5.
+  # This workflow went unrun for months because GitHub resolves `schedule` and
+  # `workflow_dispatch` against the repo's DEFAULT branch only, and that used
+  # to be `main` — hundreds of commits behind the `develop` this file lives
+  # on, so GitHub was looking for a version of the file that, from `main`,
+  # didn't exist. The weekly cron never fired and `gh workflow run` answered
+  # 404. A workflow can be configured, plausible and completely inert, which
+  # is the same failure mode as the dead simulation worker: the config
+  # looked right, nothing ran. Kept below as the lesson, not a live problem —
+  # the repo's default branch is now `develop` (`gh api repos/.../Vote-App
+  # --jq .default_branch`), and sibling workflows' schedule/workflow_dispatch
+  # triggers have since fired for real: flaky-check-backend.yml's cron on
+  # 2026-09-12, atheris-fuzzing.yml's dispatch on 2026-09-11.
+  #
+  # `push` and `pull_request` never had this problem — they use the workflow
+  # file from the ref being pushed, not the default branch. Scoped by `paths`
+  # to the two engines: a mutation score can only move when the mutated code
+  # moves, so this runs exactly when it has something new to say — which is
+  # a better rule than "every Monday" anyway.
+  push:
+    branches: [develop]
+    paths:
+      - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
+      - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
+      - 'voter-app/src/lib/playgroundVoting.ts'
+      - 'fast_api_voter/pyproject.toml'        # [tool.mutmut] scope + test selection
+      - 'voter-app/stryker.config.json'
+      - 'voter-app/vitest.stryker.config.ts'
+      - '.github/workflows/mutation-testing.yml'
+  workflow_dispatch: {}
+  schedule:
+    - cron: '17 4 * * 1'  # Monday 04:17 UTC — off-peak, arbitrary offset to avoid the shared :00 rush
+
+# A full pass is ~40 min per engine. Two engine merges in quick succession would
+# otherwise queue two runs whose only difference is the older one being obsolete.
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutmut:
+    name: Backend mutation score (mutmut, no regression)
+    runs-on: ubuntu-latest
+    # CONTRIBUTING.md: ~40min-3h depending on how much the incremental cache
+    # (if any) covers — matches the margin stryker's own 240min timeout gives.
+    timeout-minutes: 210
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install production + dev dependencies
+        run: |
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
+
+      # Scope (which files get mutated, which tests run) lives entirely in
+      # fast_api_voter/pyproject.toml's [tool.mutmut] — this step just runs it.
+      # continue-on-error: mutmut exits non-zero whenever any mutant survives,
+      # which is always. The score is what matters, and the floor below is what
+      # judges it — so the run reports, and the next step decides.
+      # The log is tee'd because the score is not recoverable from
+      # `mutmut results`, which lists only the survivors.
+      - name: Run mutmut
+        id: mutmut
+        continue-on-error: true
+        run: |
+          cd fast_api_voter
+          python -m mutmut run --max-children 4 2>&1 | tee mutmut-run.log
+
+      # A hand-maintained percentage floor sat here until 2026-09-13: nobody
+      # remembered to raise it as the score improved, and it was already
+      # sitting well below the real score by the time anyone looked (see
+      # pyproject.toml's [tool.mutmut] UPDATE notes for the mutmut 3.8.0
+      # migration that made the old number meaningless anyway). Replaced
+      # with the same ratchet idiom check_quality_ratchet.sh already uses:
+      # .github/mutation-baseline.json records the last accepted score,
+      # this step fails only on a real drop from it (a small noise
+      # tolerance absorbs mutmut's own run-to-run timeout variance), and
+      # `./scripts/check_mutation_score.sh <log> --update` accepts a
+      # genuine improvement -- see that script's own header for why this
+      # one doesn't also fail on improvements the way the quality ratchet
+      # does.
+      - name: Mutation score (no regression from baseline)
+        if: always()
+        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log
+
+      - name: Mutation results (survivors + score)
+        if: always()
+        run: |
+          cd fast_api_voter
+          {
+            echo "## Mutation testing results"
+            echo ""
+            echo '```'
+            python -m mutmut results
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload mutmut cache (survivor details, for local mutmut show)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutmut-cache
+          path: fast_api_voter/.mutmut-cache
+          retention-days: 30
+
+  stryker:
+    name: Frontend mutation score (Stryker, floor 80%)
+    runs-on: ubuntu-latest
+    # Stryker's `concurrency` isn't pinned in stryker.config.json, so it
+    # defaults to cpuCount - 1: 4 workers on this runner vs 15 on a 16-core
+    # dev machine, so a full pass genuinely takes ~2h-2h30 here (~38min
+    # locally). Confirmed 2026-08-25 by letting a run go to 71% (1128/1501
+    # mutants, Stryker's own ETA ~42min remaining) before cancelling it —
+    # not a hang, just less parallelism. This timeout exists so a REAL hang
+    # (stuck mutant, runner fault) fails loudly instead of running silently
+    # toward GitHub's 360-minute job default and looking identical to "just
+    # slow" for hours.
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # @stryker-mutator/core@10.0.0 hard-requires Node >=22 (it throws before
+      # running a single mutant otherwise) -- satisfied by the project-wide
+      # Node 24 below (2026-09: every workflow bumped off Node 20, which hit
+      # its official end-of-life 2026-04-30). This job needed its own,
+      # newer-than-everyone-else version until that bump; now it's the same
+      # pin as every other workflow, kept explicit here rather than implied.
+      # Discovered because this gate had never actually passed in CI: it went
+      # straight from continue-on-error to a hard `thresholds.break` fail on its
+      # very first scheduled/push run, and both looked identical to a genuine
+      # mutation-score regression until the log was read.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./voter-app
+
+      # Rolling cache for Stryker's --incremental state: a full pass mutates
+      # and re-tests every mutant on every run even when most of the mutated
+      # file is unchanged since last time. Keyed uniquely per commit so it
+      # never "hits" exactly (forcing a fresh save each run) but always
+      # restores the nearest prior state via restore-keys — a cache miss just
+      # means "fall back to a full run," never a wrong incremental result.
+      - name: Cache Stryker incremental state
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: voter-app/.stryker-tmp/incremental.json
+          key: stryker-incremental-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-
+
+      # Scope (which file gets mutated, which tests run) lives entirely in
+      # voter-app/stryker.config.json + vitest.stryker.config.ts — this step
+      # just runs it — including `thresholds.break`, which Stryker enforces
+      # natively (no continue-on-error, so a drop below the floor fails the job).
+      # Set to 76 against a measured 80.82%: under the measure, to lock in what
+      # exists rather than to aspire. Target 85 once the spatial-helper and
+      # tie-break chantiers land.
+      #
+      # --incremental skips re-mutating files unchanged since the cached state
+      # above. --concurrency is pinned explicitly here (CI-only, via flag, not
+      # in stryker.config.json) rather than left at the implicit cpuCount - 1
+      # default: this job already measured 4 workers on this runner class vs
+      # 15 locally (see the timeout-minutes comment above) — pinning only the
+      # CI invocation keeps that number honest here without slowing down local
+      # runs, which should keep using all available cores.
+      - name: Run Stryker (fails under thresholds.break)
+        run: npx stryker run --incremental --concurrency 4
+        working-directory: ./voter-app
+
+      - name: Upload HTML mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: stryker-report
+          path: voter-app/reports/mutation
+          retention-days: 30

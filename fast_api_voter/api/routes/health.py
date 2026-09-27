@@ -12,6 +12,11 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Response
 
+from api.engine.utils.error_handling import safe_call
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 router = APIRouter(prefix="/api/v2", tags=["meta"])
 
 _BOOT = time.time()
@@ -29,21 +34,41 @@ def _check_redis() -> Dict[str, Any]:
         # gate on /health, e.g. Fly.io single-container deploys).
         return {"ok": True, "configured": False}
     t0 = time.perf_counter()
-    try:
+
+    def _ping() -> Dict[str, Any]:
         import redis
         client = redis.StrictRedis.from_url(url)
         client.ping()
         return {"ok": True, "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
-    except Exception:
-        # Don't surface the raw exception text to callers (info exposure); the
-        # health contract only needs ok/not-ok. Details stay in server logs.
-        return {"ok": False, "error": "unreachable"}
+
+    # Don't surface the raw exception text to callers (info exposure); the
+    # health contract only needs ok/not-ok. Details stay in server logs.
+    return safe_call(
+        _ping, lambda: {"ok": False, "error": "unreachable"},
+        log=log, event="health.redis_check_failed",
+    )
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    responses={
+        503: {
+            "description": (
+                "Degraded — one or more subsystem checks failed. Same body "
+                "shape as 200 (status='degraded'), not an ErrorDetail."
+            ),
+        },
+    },
+)
 def health(response: Response) -> Dict[str, Any]:
     """Return 200 when healthy, 503 when degraded — same contract as
-    `/api/health` on the Flask side."""
+    `/api/health` on the Flask side.
+
+    Kept exactly as-is (fly.toml's [[http_service.checks]] hits this exact
+    path). `/health/live` and `/health/ready` below are ADDITIVE — a
+    conflated liveness+readiness signal on one endpoint is exactly the "reste
+    binaire" gap Lot 10 names, but this one has a real deploy dependency, so
+    it isn't worth rewriting when adding beside it is just as effective."""
     checks = {"redis": _check_redis()}
     all_ok = all(c.get("ok") for c in checks.values())
     if not all_ok:
@@ -55,3 +80,5 @@ def health(response: Response) -> Dict[str, Any]:
         "uptime_s": round(time.time() - _BOOT, 1),
         "checks":   checks,
     }
+
+

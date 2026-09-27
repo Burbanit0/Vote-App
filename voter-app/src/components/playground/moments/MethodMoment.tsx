@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from '../PlaygroundController';
+import { useStoreCtx, useMethodSelection } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import { type Rule } from '../../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../../lib/scorecard';
@@ -11,16 +11,35 @@ interface RuleFamily {
 }
 
 const FAMILIES: RuleFamily[] = [
-  { key: 'majoritarian', rules: ['plurality', 'two_round', 'irv', 'coombs'] },
-  { key: 'positional', rules: ['borda', 'bucklin', 'nanson', 'baldwin'] },
-  { key: 'condorcet', rules: ['condorcet', 'minimax', 'schulze', 'ranked_pairs'] },
-  { key: 'cardinal', rules: ['approval', 'score', 'star', 'majority_judgment'] },
+  { key: 'majoritarian', rules: ['plurality', 'two_round', 'irv', 'coombs', 'anti_plurality'] },
+  { key: 'positional', rules: ['borda', 'bucklin', 'nanson', 'baldwin', 'dowdall'] },
+  {
+    key: 'condorcet',
+    rules: [
+      'condorcet',
+      'minimax',
+      'schulze',
+      'ranked_pairs',
+      'kemeny',
+      'black',
+      'raynaud',
+      'benham',
+      'river',
+      'smith_irv',
+      'split_cycle',
+    ],
+  },
+  {
+    key: 'cardinal',
+    rules: ['approval', 'score', 'star', 'majority_judgment', 'cumulative', 'maximin', 'nash'],
+  },
   { key: 'other', rules: ['random_ballot'] },
 ];
 
 const MethodMoment: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { setPlaygroundDeep, mode, assembly, enabledRules, setEnabledRules } = usePlaygroundCtx();
+  const { setPlaygroundDeep, mode, assembly } = useStoreCtx();
+  const { enabledRules, setEnabledRules } = useMethodSelection();
 
   const toggle = (rule: Rule) =>
     setEnabledRules((prev) => {

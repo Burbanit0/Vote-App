@@ -3,7 +3,8 @@
  *
  * Nodes = voting methods, coloured by family.
  * Edges  = inter-method agreement above the threshold slider.
- * Physics: forceLink (strength ∝ agreement) + forceManyBody + forceCenter + forceCollide.
+ * Physics: forceLink (strength ∝ agreement) + forceManyBody + forceCenter + forceCollide,
+ * plus forceX/forceY pulling nodes toward per-family centers when "group by family" is on.
  * D3 runs the simulation; React renders every tick via setState.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,8 +16,8 @@ import {
   forceSimulation,
   forceX,
   forceY,
+  Simulation,
   SimulationNodeDatum,
-  SimulationLinkDatum,
 } from 'd3';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,29 @@ const FAMILY: Record<string, 'ranked' | 'score' | 'special'> = {
   variance_based: 'score',
   approval: 'special',
   quadratic: 'special',
+  // The rules the simulation surfaces only started reporting once
+  // /monte-carlo answered the engine's full registry instead of 14 of it.
+  // Without these, `FAMILY[id] ?? 'ranked'` drew every score and lottery rule
+  // in the ranked colour and, with "group by family" on, pulled them to the
+  // ranked centre -- so the legend asserted a split the graph did not show.
+  copeland: 'ranked',
+  nanson: 'ranked',
+  baldwin: 'ranked',
+  ranked_pairs: 'ranked',
+  black: 'ranked',
+  anti_plurality: 'ranked',
+  dowdall: 'ranked',
+  raynaud: 'ranked',
+  benham: 'ranked',
+  river: 'ranked',
+  smith_irv: 'ranked',
+  split_cycle: 'ranked',
+  cumulative: 'score',
+  maximin: 'score',
+  nash: 'score',
+  majority_judgment: 'special',
+  evaluative: 'score',
+  random_ballot: 'special',
 };
 
 const FAMILY_COLOR: Record<string, string> = {
@@ -68,7 +92,12 @@ interface NodeDatum extends SimulationNodeDatum {
   family: 'ranked' | 'score' | 'special';
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+interface LinkDatum {
+  source: string | NodeDatum;
+  target: string | NodeDatum;
+  value: number;
+  index?: number;
+}
 
 /** Convert flat "A|B" → value map to a symmetric nested matrix. */
 export function flatToMatrix(flat: Record<string, number>): Record<string, Record<string, number>> {
@@ -128,7 +157,7 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
-  const simRef = useRef<any>(null);
+  const simRef = useRef<Simulation<NodeDatum, undefined> | null>(null);
   const dragRef = useRef<{ id: string | null; ox: number; oy: number }>({ id: null, ox: 0, oy: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -141,7 +170,7 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
       id,
       family: FAMILY[id] ?? 'ranked',
     }));
-    const links: { source: string; target: string; value: number }[] = [];
+    const links: LinkDatum[] = [];
     for (let i = 0; i < methodNames.length; i++) {
       for (let j = i + 1; j < methodNames.length; j++) {
         const a = methodNames[i];
@@ -176,10 +205,10 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
     const sim = forceSimulation<NodeDatum>(initialised)
       .force(
         'link',
-        forceLink<NodeDatum, SimulationLinkDatum<NodeDatum>>(links as any)
+        forceLink<NodeDatum, LinkDatum>(links)
           .id((d) => d.id)
-          .strength((d: any) => d.value * 0.4)
-          .distance((d: any) => 120 - d.value * 60)
+          .strength((d) => d.value * 0.4)
+          .distance((d) => 120 - d.value * 60)
       )
       .force('charge', forceManyBody().strength(-90))
       .force('center', forceCenter(W / 2, H / 2))
@@ -234,10 +263,10 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
         oy: e.clientY * scaleY - (p?.y ?? 0),
       };
       // Fix node in simulation
-      const node = (simRef.current?.nodes() as NodeDatum[] | undefined)?.find((n) => n.id === id);
+      const node = simRef.current?.nodes().find((n) => n.id === id);
       if (node) {
-        (node as any).fx = p?.x ?? 0;
-        (node as any).fy = p?.y ?? 0;
+        node.fx = p?.x ?? 0;
+        node.fy = p?.y ?? 0;
       }
       simRef.current?.alphaTarget(0.3).restart();
     },
@@ -252,20 +281,20 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
     const scaleY = H / rect.height;
     const nx = e.clientX * scaleX - ox;
     const ny = e.clientY * scaleY - oy;
-    const node = (simRef.current?.nodes() as NodeDatum[] | undefined)?.find((n) => n.id === id);
+    const node = simRef.current?.nodes().find((n) => n.id === id);
     if (node) {
-      (node as any).fx = nx;
-      (node as any).fy = ny;
+      node.fx = nx;
+      node.fy = ny;
     }
   }, []);
 
   const handleSvgMouseUp = useCallback(() => {
     const { id } = dragRef.current;
     if (id) {
-      const node = (simRef.current?.nodes() as NodeDatum[] | undefined)?.find((n) => n.id === id);
+      const node = simRef.current?.nodes().find((n) => n.id === id);
       if (node) {
-        (node as any).fx = undefined;
-        (node as any).fy = undefined;
+        node.fx = undefined;
+        node.fy = undefined;
       }
       simRef.current?.alphaTarget(0);
     }
@@ -277,8 +306,8 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
   // Links with resolved positions
   const resolvedLinks = useMemo(() => {
     return links.map((l) => {
-      const src = typeof l.source === 'string' ? l.source : (l.source as any).id;
-      const tgt = typeof l.target === 'string' ? l.target : (l.target as any).id;
+      const src = typeof l.source === 'string' ? l.source : l.source.id;
+      const tgt = typeof l.target === 'string' ? l.target : l.target.id;
       return { src, tgt, value: l.value };
     });
   }, [links, nodes]);

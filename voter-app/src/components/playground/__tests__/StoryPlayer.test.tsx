@@ -16,19 +16,25 @@ const SNAP_PLAYGROUND = { ...DEFAULT_PLAYGROUND, behavior: 'strategic' as const 
 // Mutable so a test can flip the Dirigeant/Assemblée toggle between renders.
 const ctxState = { mode: 'leader' as 'leader' | 'parliament' };
 
+// StoryPlayer composes useStoreCtx() + useJourneyCtx(); it only reads its own
+// fields from each, so one flat fixture serves both. A factory (not a const) so
+// `mode` is re-read on every render after a test flips ctxState.mode.
+const ctxFixture = () => ({
+  config: SNAP_CONFIG,
+  playground: SNAP_PLAYGROUND,
+  mode: ctxState.mode,
+  leaderRule: 'borda',
+  activeMoment: 'campaign',
+  setConfig,
+  setPlayground,
+  setMode,
+  setLeaderRule,
+  setActiveMoment,
+});
+
 vi.mock('../PlaygroundController', () => ({
-  usePlaygroundCtx: () => ({
-    config: SNAP_CONFIG,
-    playground: SNAP_PLAYGROUND,
-    mode: ctxState.mode,
-    leaderRule: 'borda',
-    activeMoment: 'campaign',
-    setConfig,
-    setPlayground,
-    setMode,
-    setLeaderRule,
-    setActiveMoment,
-  }),
+  useStoreCtx: () => ctxFixture(),
+  useJourneyCtx: () => ctxFixture(),
 }));
 
 import StoryPlayer from '../StoryPlayer';

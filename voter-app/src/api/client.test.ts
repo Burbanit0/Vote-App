@@ -1,0 +1,75 @@
+// openapi-fetch's createClient() captures `globalThis.fetch` as a default
+// parameter at call time (see node_modules/openapi-fetch/dist/index.mjs),
+// and client.ts creates its `apiClient` singleton at module-eval time — a
+// plain `global.fetch = mockFetch` after a static `import './client'` is
+// already too late, since the import's module graph evaluates first and
+// binds the real fetch. Stub the global, then re-import fresh per test via
+// vi.resetModules() so the client is (re)created against the current stub.
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+async function freshClient() {
+  vi.resetModules();
+  return import('./client');
+}
+
+function jsonResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('apiPost', () => {
+  it('resolves with the parsed body on a 2xx response', async () => {
+    const { apiPost } = await freshClient();
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, { winner: 'Alice' }));
+    const result = await apiPost<{ winner: string }>('/api/v2/simulations/monte-carlo', {});
+    expect(result).toEqual({ winner: 'Alice' });
+  });
+
+  it('throws an ApiError carrying the status and detail message on a 4xx response', async () => {
+    const { apiPost } = await freshClient();
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(422, { detail: 'num_voters must be between 10 and 1000' })
+    );
+    await expect(apiPost('/api/v2/simulations/vote-steps', {})).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 422,
+      message: 'num_voters must be between 10 and 1000',
+    });
+  });
+
+  it('falls back to a generic message when the error body has no detail string', async () => {
+    const { apiPost, ApiError } = await freshClient();
+    mockFetch.mockResolvedValueOnce(jsonResponse(500, { error: 'boom' }));
+    const err: unknown = await apiPost('/api/v2/simulations/monte-carlo', {}).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    const apiErr = err as InstanceType<typeof ApiError>;
+    expect(apiErr.status).toBe(500);
+    expect(apiErr.message).toBe('Request failed with status 500');
+    expect(apiErr.body).toEqual({ error: 'boom' });
+  });
+});
+
+describe('apiClient', () => {
+  it('turns an empty-body error into an error, not a success', async () => {
+    const { apiClient } = await freshClient();
+    mockFetch.mockResolvedValueOnce(new Response('', { status: 502 }));
+    const { data, error, response } = await apiClient.GET('/api/v1/methods');
+    expect(data).toBeUndefined();
+    expect(response.status).toBe(502);
+    expect(error).toEqual({ detail: 'Request failed with status 502' });
+  });
+
+  it('leaves an error body that has content alone', async () => {
+    const { apiClient } = await freshClient();
+    mockFetch.mockResolvedValueOnce(jsonResponse(422, { detail: 'bad' }));
+    const { error } = await apiClient.GET('/api/v1/methods');
+    expect(error).toEqual({ detail: 'bad' });
+  });
+});

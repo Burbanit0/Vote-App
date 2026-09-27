@@ -11,21 +11,32 @@ heterogeneous (e.g. axiom counterexamples), we keep it as
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── /arrow ──────────────────────────────────────────────────────────────────
 
+# What each worker computes; any other name is a 422 here and a 400 from the
+# worker. `test_theory_method_literals_match_workers` fails if either drifts.
+ArrowMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval",
+    "majority_judgment", "kemeny_young", "minimax", "star_voting", "two_round",
+]
+IIAMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval", "kemeny_young",
+]
+ManipulationMethod = Literal["plurality", "borda", "irv", "schulze", "two_round"]
+TyrannyRule = Literal[
+    "simple_majority", "supermajority_2_3", "supermajority_3_4", "unanimous", "qv", "mj",
+]
+
 class ArrowRequest(BaseModel):
     """Per-method Arrow axiom violation analysis."""
     model_config = ConfigDict(extra="forbid")
 
-    method: str = Field("plurality",
-                        description="One of plurality | borda | irv | schulze | "
-                                    "condorcet | approval | majority_judgment | "
-                                    "kemeny_young | minimax | star_voting | two_round.")
+    method: ArrowMethod = Field("plurality")
     seed:   int = Field(42, ge=0)
 
 
@@ -57,7 +68,7 @@ class IIARateRequest(BaseModel):
     """Empirical IIA violation rate vs number of candidates."""
     model_config = ConfigDict(extra="forbid")
 
-    method:         str = Field("plurality")
+    method:         IIAMethod = Field("plurality")
     max_candidates: int = Field(8, ge=2, le=8)
     num_trials:     int = Field(100, ge=20, le=500)
     seed:           int = Field(42, ge=0)
@@ -75,46 +86,6 @@ class IIARateResponse(BaseModel):
 
 # ── /plott-chaos ────────────────────────────────────────────────────────────
 
-class PlottChaosRequest(BaseModel):
-    """Plott's Chaos Theorem in 2-D policy space."""
-    model_config = ConfigDict(extra="forbid")
-
-    num_voters:     int   = Field(5, ge=3, le=21)
-    num_dimensions: int   = Field(2, ge=1, le=2)
-    seed:           int   = Field(42, ge=0)
-    target_policy:  List[float] = Field(default_factory=lambda: [0.6, 0.6],
-                                        min_length=1, max_length=2)
-    start_policy:   List[float] = Field(default_factory=lambda: [-0.6, -0.6],
-                                        min_length=1, max_length=2)
-    max_steps:      int   = Field(15, ge=1, le=30)
-
-
-class TopCycle(BaseModel):
-    size:   int
-    center: List[float]
-
-
-class ChaosPath(BaseModel):
-    from_:     List[float] = Field(..., alias="from")
-    to:        List[float]
-    steps:     List[List[float]]
-    num_steps: int
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AlternativePath(BaseModel):
-    to:    List[float]
-    steps: List[List[float]]
-
-
-class PlottChaosResponse(BaseModel):
-    condorcet_winner_exists: bool
-    top_cycle:               TopCycle
-    chaos_path:              ChaosPath
-    alternative_path:        AlternativePath
-    voter_ideal_points:      List[List[float]]
-    pedagogical_note:        str
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────
@@ -294,7 +265,7 @@ class ManipulationAnalysisRequest(BaseModel):
     num_voters:               int = Field(30, ge=10, le=100)
     ideology:                 str = Field("random")
     seed:                     int = Field(42, ge=0)
-    method:                   str = Field("plurality")
+    method:                   ManipulationMethod = Field("plurality")
     manipulation_strategies:  List[str] = Field(
         default_factory=lambda: ["compromising", "burying", "pushover", "truncating"],
     )
@@ -338,7 +309,7 @@ class MajorityTyrannyRequest(BaseModel):
     minority_intensity: float = Field(3.0, ge=1.0, le=10.0)
     num_decisions:      int   = Field(50, ge=10, le=200)
     seed:               int   = Field(42, ge=0)
-    decision_rules:     Optional[List[str]] = Field(None,
+    decision_rules:     Optional[List[TyrannyRule]] = Field(None,
                                                     description="Defaults to all 6 rules.")
 
 
@@ -385,10 +356,13 @@ class DemocraticBacksliddingRequest(BaseModel):
     """Path toward autocracy across successive elections."""
     model_config = ConfigDict(extra="forbid")
 
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
     candidates:             List[BacksliddingCandidate] = Field(
         default_factory=lambda: [
-            BacksliddingCandidate(name="Incumbent",  x=0.2),
-            BacksliddingCandidate(name="Opposition", x=-0.4),
+            BacksliddingCandidate(name="Incumbent",  x=0.2),  # pyright: ignore[reportCallIssue]
+            BacksliddingCandidate(name="Opposition", x=-0.4),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )
@@ -399,7 +373,7 @@ class DemocraticBacksliddingRequest(BaseModel):
     backsliding_method:     str   = Field("gerrymandering",
                                           description="gerrymandering | media_capture | voter_suppression.")
     backsliding_intensity:  float = Field(0.5, ge=0.0, le=1.0)
-    guardrails:             Optional[Guardrails] = Field(default_factory=Guardrails)
+    guardrails:             Optional[Guardrails] = Field(default_factory=Guardrails)  # pyright: ignore[reportArgumentType]
 
 
 class BacksliddingElection(BaseModel):
@@ -485,9 +459,9 @@ class EpistocracyRequest(BaseModel):
 
     candidates:                      List[EpistCandidate] = Field(
         default_factory=lambda: [
-            EpistCandidate(name="A", x=-0.5),
-            EpistCandidate(name="B", x= 0.0),
-            EpistCandidate(name="C", x= 0.5),
+            EpistCandidate(name="A", x=-0.5),  # pyright: ignore[reportCallIssue]
+            EpistCandidate(name="B", x= 0.0),  # pyright: ignore[reportCallIssue]
+            EpistCandidate(name="C", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )
@@ -499,7 +473,7 @@ class EpistocracyRequest(BaseModel):
                                                  description="Currently always reports all 4 schemes "
                                                              "(equal/competence_weighted/epistocratic/lottery).")
     epistocracy_threshold:           float = Field(0.7, ge=0.1, le=0.99)
-    competence_params:               Optional[CompetenceParams] = Field(default_factory=CompetenceParams)
+    competence_params:               Optional[CompetenceParams] = Field(default_factory=CompetenceParams)  # pyright: ignore[reportArgumentType]
 
 
 class EpistocracySchemeResult(BaseModel):
@@ -553,17 +527,23 @@ class IdentityVotingRequest(BaseModel):
 
     candidates:       List[IDCandidate] = Field(
         default_factory=lambda: [
-            IDCandidate(name="Alice", x=-0.5),
-            IDCandidate(name="Bob",   x= 0.0),
-            IDCandidate(name="Carol", x= 0.5),
+            IDCandidate(name="Alice", x=-0.5),  # pyright: ignore[reportCallIssue]
+            IDCandidate(name="Bob",   x= 0.0),  # pyright: ignore[reportCallIssue]
+            IDCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
-        min_length=2, max_length=8,
+        # min_length=3, not 2: the worker's default identity groups (Groupe
+        # A/B/C) each pin to one of candidates[0..2] unconditionally — found
+        # by Schemathesis (Lot 3) sending exactly 2 candidates and crashing
+        # the worker with IndexError on candidates_raw[2].
+        min_length=3, max_length=8,
     )
     num_voters:       int   = Field(200, ge=20, le=2000)
     seed:             int   = Field(42, ge=0)
     identity_weight:  float = Field(0.5, ge=0.0, le=1.0)
     cross_pressure:   bool  = Field(True)
-    method:           str   = Field("plurality")
+    # Identity voting casts single choices, counted by plurality; the field was
+    # never read.
+    method:           Literal["plurality"] = Field("plurality")
     identity_groups:  Optional[List[IdentityGroup]] = Field(None,
                                                             description="Defaults to 3 groups derived from candidates.")
 
@@ -612,9 +592,9 @@ class ATBaseSimulation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     candidates: List[ATBaseCandidate] = Field(
         default_factory=lambda: [
-            ATBaseCandidate(name="Alice", x=-0.4),
-            ATBaseCandidate(name="Bob",   x= 0.1),
-            ATBaseCandidate(name="Carol", x= 0.5),
+            ATBaseCandidate(name="Alice", x=-0.4),  # pyright: ignore[reportCallIssue]
+            ATBaseCandidate(name="Bob",   x= 0.1),  # pyright: ignore[reportCallIssue]
+            ATBaseCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=6,
     )
@@ -627,7 +607,7 @@ class AssumptionTestingRequest(BaseModel):
     """Test model robustness by relaxing core spatial-model assumptions."""
     model_config = ConfigDict(extra="forbid")
 
-    base_simulation:       Optional[ATBaseSimulation] = Field(default_factory=ATBaseSimulation)
+    base_simulation:       Optional[ATBaseSimulation] = Field(default_factory=ATBaseSimulation)  # pyright: ignore[reportArgumentType]
     assumptions_to_relax:  Optional[List[str]] = Field(None,
                                                        description="Subset of single_peaked / "
                                                                    "stable_preferences / "
@@ -637,7 +617,9 @@ class AssumptionTestingRequest(BaseModel):
 
 
 class AssumptionResult(BaseModel):
-    winner:              str
+    # Every candidate tied for most trials won; a 15-15 split over the 30 trials
+    # is ordinary, and `winner_changed` is False while the baseline is among them.
+    winner:              List[str]
     winner_changed:      bool
     pct_trials_changed:  float
     result_variance:     float
@@ -673,9 +655,9 @@ class CollectiveWillRequest(BaseModel):
 
     candidates:      List[CWCandidate] = Field(
         default_factory=lambda: [
-            CWCandidate(name="Alice", x=-0.4),
-            CWCandidate(name="Bob",   x= 0.1),
-            CWCandidate(name="Carol", x= 0.5),
+            CWCandidate(name="Alice", x=-0.4),  # pyright: ignore[reportCallIssue]
+            CWCandidate(name="Bob",   x= 0.1),  # pyright: ignore[reportCallIssue]
+            CWCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )
@@ -693,7 +675,8 @@ class CollectiveWillResponse(BaseModel):
     winner_by_method:         Dict[str, str]
     winner_by_agenda:         Dict[str, str]
     rousseau_score:           float
-    most_frequent_winner:     str
+    # Every winner tied for most procedures won (modal_keys).
+    most_frequent_winner:     List[str]
     most_frequent_pct:        float
     condorcet_exists:         bool
     condorcet_winner:         Optional[str] = None

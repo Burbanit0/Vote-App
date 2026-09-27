@@ -8,7 +8,7 @@
 # per finding), never the whole codebase — keeps token usage minimal.
 #
 # Scope note: the project's BLOCKING gates already live in CI + the local commands
-# (flake8, mypy, pytest, eslint, tsc, bandit, pip-audit). This script is a
+# (ruff, mypy, pytest, eslint, tsc, bandit, pip-audit). This script is a
 # SUPPLEMENTARY pass whose new value is the SAST / secret / CVE scanners the repo
 # doesn't otherwise run locally (Semgrep, Gitleaks, Trivy). Everything degrades
 # gracefully when a tool isn't installed.
@@ -79,14 +79,39 @@ if [ "$MODE" != "quality" ]; then
     note "⚠️ gitleaks not installed — runs in CI (.github/workflows/audit.yml)."
   fi
 
+  # --- Secrets, verified-active only: TruffleHog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md
+  # — complements Gitleaks above: live credential verification against the
+  # provider's own API, not just a regex match. Output is NDJSON, one finding
+  # per line, hence `wc -l` rather than the jq-based `count` helper.) ---
+  section "Secrets — verified-active only (TruffleHog, informational)"
+  if have trufflehog; then
+    trufflehog filesystem --no-update --results=verified --json \
+      "$PY_DIRS/api" "$PY_DIRS/scripts" "$TS_DIR/src" "$TS_DIR/tests" scripts docs \
+      > "$REPORT_DIR/trufflehog.json" 2> "$REPORT_DIR/trufflehog.log"
+    TH_COUNT=$(wc -l < "$REPORT_DIR/trufflehog.json" 2>/dev/null | tr -d ' ')
+    if [ "${TH_COUNT:-0}" = "0" ]; then
+      note "✅ No verified-active secrets. See \`$REPORT_DIR/trufflehog.json\` (empty)."
+    else
+      note "🔴 $TH_COUNT verified-active secret(s). See \`$REPORT_DIR/trufflehog.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9."
+    fi
+  else
+    note "⚠️ trufflehog not installed — runs in CI. Local: https://github.com/trufflesecurity/trufflehog#installation."
+  fi
+
   # --- SAST: Semgrep (multi-lang security rulesets) ---
   section "SAST (Semgrep)"
   if have semgrep; then
     SEMGREP_TARGET="."
-    [ -n "$CHANGED_FILES" ] && SEMGREP_TARGET="$CHANGED_FILES"
+    if [ -n "$CHANGED_FILES" ]; then
+      SEMGREP_TARGET=""
+      for f in $CHANGED_FILES; do [ -e "$f" ] && SEMGREP_TARGET="$SEMGREP_TARGET $f"; done
+      [ -z "$SEMGREP_TARGET" ] && SEMGREP_TARGET="."
+    fi
+    rm -f "$REPORT_DIR/semgrep.json" "$REPORT_DIR/semgrep.sarif"
     semgrep --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
+            --config=.semgrep/vote-app-rules.yml \
             --sarif-output="$REPORT_DIR/semgrep.sarif" \
             --json-output="$REPORT_DIR/semgrep.json" \
             --metrics=off --quiet $SEMGREP_TARGET 2>/dev/null
@@ -105,11 +130,49 @@ if [ "$MODE" != "quality" ]; then
   section "Dependencies, containers & misconfig (Trivy)"
   if have trivy; then
     trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
+         --skip-dirs voter-app/node_modules,.claude,graphify-out,fast_api_voter/.venv,fast_api_voter/mutants,voter-app/coverage,audit-reports \
+         --ignorefile .trivyignore.yaml \
          --format json --output "$REPORT_DIR/trivy.json" --quiet . 2>/dev/null
     [ -f "$REPORT_DIR/trivy.json" ] && \
-      note "🔴 $(count '[.Results[]?.Vulnerabilities[]?]|length' "$REPORT_DIR/trivy.json") HIGH/CRITICAL vuln(s). See \`$REPORT_DIR/trivy.json\`."
+      note "🔴 $(count '[.Results[]? | (.Vulnerabilities // [])[], (.Misconfigurations // [])[], (.Secrets // [])[]] | length' "$REPORT_DIR/trivy.json") HIGH/CRITICAL finding(s) (vulns, misconfig, secrets — CI gates on all three). See \`$REPORT_DIR/trivy.json\`."
   else
     note "⚠️ trivy not installed — runs in CI."
+  fi
+
+  # --- Malicious packages (not just known CVEs): GuardDog (Lot 9,
+  # PLAN_SOLIDITE_TECHNIQUE.md — typosquatting, hostile install scripts; a
+  # blind spot of pip-audit/Trivy above, which only see already-
+  # disclosed CVEs). NOT in requirements-dev.txt: guarddog pins
+  # pygit2<1.19,>=1.11, and pygit2 only started shipping cp314 wheels at
+  # 1.19.0 (verified against PyPI's file index: 1.18.2 and earlier have
+  # none) — so guarddog can never resolve a cp314-compatible pygit2 build
+  # no matter which version pygit2 publishes next; the real, permanent
+  # ceiling is guarddog's own pin, not pygit2's wheel history. Installing
+  # it into this repo's actual 3.14-pinned backend venv would force a
+  # from-source pygit2 build (needs libgit2 headers, not guaranteed
+  # present) or fail outright.
+  # `have` (PATH binary), not `have_py`, matches the Semgrep pattern above:
+  # install guarddog into its own venv (Python <=3.13) or via `pipx`, not
+  # into fast_api_voter/.venv. Scoped to requirements.txt (production) only
+  # for the local run — requirements-dev.txt roughly doubles the wall time
+  # for lower-priority (non-shipped) risk; CI's own job covers both.
+  # guarddog's requirements parser silently drops any line whose inline `#`
+  # comment follows extra whitespace (this repo's convention for documenting
+  # *why* a version is pinned, e.g. a CVE ID -- see any line of
+  # requirements.txt) -- verified: 11/15 lines of this repo's real
+  # requirements.txt were silently ignored before this fix. Feed it a
+  # comment-stripped TEMP copy instead of editing the real file (those
+  # comments are load-bearing documentation, not scanned).
+  section "Malicious packages (GuardDog, informational)"
+  if have guarddog; then
+    GUARDDOG_TMP="$(mktemp)"
+    sed -E 's/[[:space:]]+#.*$//' "$PY_DIRS/requirements.txt" > "$GUARDDOG_TMP"
+    guarddog pypi verify "$GUARDDOG_TMP" --output-format json \
+      > "$REPORT_DIR/guarddog-pypi.json" 2> "$REPORT_DIR/guarddog-pypi.log"
+    rm -f "$GUARDDOG_TMP"
+    note "See \`$REPORT_DIR/guarddog-pypi.json\` (\`$REPORT_DIR/guarddog-pypi.log\` for any requirements lines it still couldn't parse). Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9. Slow (real per-package download + static analysis, not a local pattern match) — expect at least a couple of minutes even for the ~15 production deps."
+  else
+    note "⚠️ guarddog not installed — runs in CI. Local (Python <=3.13 only, see comment above): \`pip install guarddog\` or \`pipx install guarddog\`."
   fi
 
   # --- Python-specific SAST: Bandit (same invocation as backend CI) ---
@@ -117,9 +180,21 @@ if [ "$MODE" != "quality" ]; then
   if have_py bandit; then
     python -m bandit -r "$PY_PKG" -ll --skip B104,B311 \
       -f json -o "$REPORT_DIR/bandit.json" -q 2>/dev/null
-    note "🔴 $(count '[.results[]|select(.issue_severity=="HIGH")]|length' "$REPORT_DIR/bandit.json") HIGH-severity issue(s). See \`$REPORT_DIR/bandit.json\`."
+    note "🔴 $(count '.results|length' "$REPORT_DIR/bandit.json") MEDIUM+ issue(s) (CI gates on these). See \`$REPORT_DIR/bandit.json\`."
   else
     note "⚠️ bandit not installed — \`pip install bandit\` (already in backend CI)."
+  fi
+
+  # --- License compliance: production dependencies (same gate as backend CI) ---
+  section "Python license compliance — production deps (same invocation as backend CI, gating)"
+  if [ -x "$PY_DIRS/scripts/check_license_compliance.sh" ] && have python3; then
+    if bash "$PY_DIRS/scripts/check_license_compliance.sh" > "$REPORT_DIR/license-py.txt" 2>&1; then
+      note "✅ All production dependency licenses allow-listed. See \`$REPORT_DIR/license-py.txt\`."
+    else
+      note "🔴 A production dependency license is NOT allow-listed — this gates CI. See \`$REPORT_DIR/license-py.txt\`. Not a Lot-6-informational item; see PLAN_SOLIDITE_TECHNIQUE.md §6.7."
+    fi
+  else
+    note "⚠️ $PY_DIRS/scripts/check_license_compliance.sh not found or not executable."
   fi
 
   # --- CodeQL: deep semantic analysis ---
@@ -134,13 +209,13 @@ fi
 # =====================================================================
 if [ "$MODE" != "security" ]; then
 
-  # --- Python lint: Flake8 (project .flake8 — E9 + pyflakes, the blocking gate) ---
-  section "Python lint (Flake8)"
-  if have_py flake8; then
-    python -m flake8 --config="$PY_DIRS/.flake8" "$PY_DIRS" > "$REPORT_DIR/flake8.txt" 2>&1
-    note "Issues: $(grep -c ':' "$REPORT_DIR/flake8.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/flake8.txt\`."
+  # --- Python lint: Ruff (pyproject.toml [tool.ruff], the blocking gate) ---
+  section "Python lint (Ruff)"
+  if have_py ruff; then
+    ( cd "$PY_DIRS" && python -m ruff check . ) > "$REPORT_DIR/ruff.txt" 2>&1
+    note "$(grep -m1 -E '^(Found [0-9]+ errors?\.|All checks passed!)' "$REPORT_DIR/ruff.txt" 2>/dev/null || echo 'see report') See \`$REPORT_DIR/ruff.txt\`."
   else
-    note "⚠️ flake8 not installed — \`pip install flake8\`."
+    note "⚠️ ruff not installed — \`pip install ruff\` (in requirements-dev.txt)."
   fi
 
   # --- Python types: mypy (strict, on api/, with the project's config) ---
@@ -167,8 +242,155 @@ if [ "$MODE" != "security" ]; then
       ( cd "$TS_DIR" && npx --no-install tsc --noEmit > "../$REPORT_DIR/tsc.txt" 2>&1 )
       note "Type errors: $(grep -c 'error TS' "$REPORT_DIR/tsc.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/tsc.txt\`."
     fi
+
+    # --- TS/React cognitive complexity + bug patterns: eslint-plugin-sonarjs ---
+    section "TypeScript cognitive complexity & bug patterns (sonarjs, informational)"
+    if [ -f "$TS_DIR/eslint.sonarjs.config.js" ] && ( cd "$TS_DIR" && npx --no-install eslint --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install eslint -c eslint.sonarjs.config.js . --format json -o "../$REPORT_DIR/sonarjs.json" 2>/dev/null )
+      note "Findings: $(count '[.[].messages[]]|length' "$REPORT_DIR/sonarjs.json"). See \`$REPORT_DIR/sonarjs.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.6 (dominated by cognitive-load style suggestions, not correctness bugs)."
+    else
+      note "⚠️ eslint.sonarjs.config.js not found in $TS_DIR (run \`npm install\` there)."
+    fi
   else
     note "⚠️ No package.json in $TS_DIR/."
+  fi
+
+  # =====================================================================
+  # DEAD CODE, DUPLICATION & COMPLEXITY — informational only (see
+  # CODE_AUDIT.md). None of these gate the script or CI: they're new (added
+  # alongside the audit) and the repo hasn't done its first cleanup pass yet.
+  # Once findings settle near zero, promote them to blocking gates like the
+  # linters above.
+  # =====================================================================
+
+  # --- Python dead code: vulture ---
+  section "Python dead code (vulture, informational)"
+  if have_py vulture; then
+    ( cd "$PY_DIRS" && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml ) \
+      > "$REPORT_DIR/vulture.txt" 2>&1
+    note "Findings: $(grep -c ':' "$REPORT_DIR/vulture.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/vulture.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ vulture not installed — \`pip install vulture\` (in requirements-dev.txt)."
+  fi
+
+  # --- Python modernization: refurb ---
+  section "Python modernization (refurb, informational)"
+  if have_py refurb; then
+    ( cd "$PY_DIRS" && python -m refurb api/ ) \
+      > "$REPORT_DIR/refurb.txt" 2>&1
+    note "Findings: $(grep -c '^api/' "$REPORT_DIR/refurb.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/refurb.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3."
+  else
+    note "⚠️ refurb not installed — on demand: \`uv pip install refurb==2.3.1\` (config: pyproject.toml [tool.refurb])."
+  fi
+
+  # --- Python performance anti-patterns: perflint (pylint plugin) ---
+  section "Python performance anti-patterns (perflint, informational)"
+  if have_py pylint; then
+    ( cd "$PY_DIRS" && python -m pylint api/ --ignore=tests ) \
+      > "$REPORT_DIR/perflint.txt" 2>&1
+    note "Findings: $(grep -cE '^api/.*\(use-|\(loop-|\(dotted-|\(memoryview-|\(unnecessary-|\(incorrect-' "$REPORT_DIR/perflint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/perflint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3 (loop-invariant-statement disabled — too noisy at whole-repo scale, see [tool.pylint] in pyproject.toml)."
+  else
+    note "⚠️ pylint/perflint not installed — on demand: \`uv pip install perflint==0.8.1 'pylint<4'\` (config: pyproject.toml [tool.pylint])."
+  fi
+
+  # --- Python second type-checker opinion: basedpyright ---
+  section "Python second type-checker opinion (basedpyright, informational)"
+  if have_py basedpyright; then
+    ( cd "$PY_DIRS" && python -m basedpyright ) \
+      > "$REPORT_DIR/basedpyright.txt" 2>&1
+    note "$(grep -m1 -E '^[0-9]+ errors?, [0-9]+ warnings?' "$REPORT_DIR/basedpyright.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/basedpyright.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.2 (baseline is ~32 known pydantic/pyright false positives, not zero)."
+  else
+    note "⚠️ basedpyright not installed — on demand: \`uv pip install basedpyright==1.40.1\` (config: pyproject.toml [tool.basedpyright])."
+  fi
+
+  # --- Python unused/undeclared deps: deptry ---
+  section "Python unused/undeclared deps (deptry, informational)"
+  if have_py deptry; then
+    ( cd "$PY_DIRS" && python -m deptry . ) \
+      > "$REPORT_DIR/deptry.txt" 2>&1
+    note "Findings: $(grep -cE 'DEP[0-9]{3}' "$REPORT_DIR/deptry.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/deptry.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ deptry not installed — \`pip install deptry\` (in requirements-dev.txt)."
+  fi
+
+  # --- TS/React dead code + unused exports + unused deps: knip ---
+  if [ -f "$TS_DIR/package.json" ]; then
+    section "TypeScript dead code & unused deps (knip, informational)"
+    if ( cd "$TS_DIR" && npx --no-install knip --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install knip --no-progress --reporter json > "../$REPORT_DIR/knip.json" 2>/dev/null )
+      note "Unused files: $(count '[.issues[]|select(.files|length>0)]|length' "$REPORT_DIR/knip.json"). See \`$REPORT_DIR/knip.json\`. Not gated — see CODE_AUDIT.md."
+    else
+      note "⚠️ knip not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
+    # --- TS/React hardcoded strings & i18n key hygiene: i18next-cli lint ---
+    section "TypeScript i18n hardcoded strings (i18next-cli lint, informational)"
+    if [ -f "$TS_DIR/i18next.config.ts" ] && ( cd "$TS_DIR" && npx --no-install i18next-cli --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install i18next-cli lint ) \
+        > "$REPORT_DIR/i18next-lint.txt" 2>&1
+      note "Findings: $(grep -c 'Error: Found hardcoded' "$REPORT_DIR/i18next-lint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/i18next-lint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §7 (baseline is dominated by internal method-key literals like \"fptp\"/\"irv\", not user-facing text)."
+    else
+      note "⚠️ i18next-cli not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
+    # --- TS/React type coverage: type-coverage ---
+    section "TypeScript type coverage (type-coverage, gated in CI via package.json's typeCoverage.atLeast)"
+    if ( cd "$TS_DIR" && npx --no-install type-coverage --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install type-coverage --detail ) \
+        > "$REPORT_DIR/type-coverage.txt" 2>&1
+      note "$(grep -oE '\([0-9]+ / [0-9]+\) [0-9.]+%' "$REPORT_DIR/type-coverage.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/type-coverage.txt\`. Ratchet gate lives in frontend-ci-cd-pipeline.yml, not here — see PLAN_SOLIDITE_TECHNIQUE.md §6.4/Lot 14 (run via project node_modules, not bare \`npx type-coverage\` — the isolated npx cache resolves its own mismatched typescript and crashes)."
+    else
+      note "⚠️ type-coverage not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
+    # --- License compliance: production dependencies (same gate as frontend CI) ---
+    section "TypeScript license compliance — production deps (same invocation as frontend CI, gating)"
+    # `--version` alone exits 1 on this tool regardless of success (checked
+    # directly) -- detect via the installed binary instead of exit code.
+    if [ -x "$TS_DIR/node_modules/.bin/license-checker-rseidelsohn" ]; then
+      SELF="$( (cd "$TS_DIR" && node -p "require('./package.json').name") )@$( (cd "$TS_DIR" && node -p "require('./package.json').version") )"
+      if ( cd "$TS_DIR" && npx --no-install license-checker-rseidelsohn --production \
+            --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC" \
+            --excludePackages "$SELF" ) > "$REPORT_DIR/license-ts.txt" 2>&1; then
+        note "✅ All production dependency licenses allow-listed. See \`$REPORT_DIR/license-ts.txt\`."
+      else
+        note "🔴 A production dependency license is NOT allow-listed — this gates CI. See \`$REPORT_DIR/license-ts.txt\`. Not a Lot-6-informational item; see PLAN_SOLIDITE_TECHNIQUE.md §6.7."
+      fi
+    else
+      note "⚠️ license-checker-rseidelsohn not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+  fi
+
+  # --- Cross-language duplication: jscpd ---
+  section "Code duplication (jscpd, informational)"
+  if have npx; then
+    npx --yes jscpd --config .jscpd.json "$PY_PKG" "$TS_DIR/src" \
+      --reporters json --output "$REPORT_DIR/jscpd" > "$REPORT_DIR/jscpd.txt" 2>&1
+    JSCPD_STATS="$REPORT_DIR/jscpd/jscpd-report.json"
+    note "$(count '.statistics.total|"\(.clones) clone(s), \(.duplicatedLines) duplicated line(s) (\((.percentage*100|round)/100)%)"' "$JSCPD_STATS"). Full report: \`$JSCPD_STATS\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ npx not available — can't run jscpd."
+  fi
+
+  # --- Python cyclomatic complexity: radon/xenon ---
+  section "Python cyclomatic complexity (radon/xenon, informational)"
+  if have_py radon; then
+    ( cd "$PY_DIRS" && python -m radon cc api/ -e "api/tests/*" -n C -s ) \
+      > "$REPORT_DIR/radon.txt" 2>&1
+    note "Blocks ranked C or worse: $(grep -c '^\s*[A-Z] ' "$REPORT_DIR/radon.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/radon.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ radon not installed — \`pip install radon\` (in requirements-dev.txt)."
+  fi
+  if have_py xenon; then
+    # Same thresholds as CI's gating step: the repo-wide average must stay rank A.
+    if ( cd "$PY_DIRS" && python -m xenon api/ -e "api/tests/*" -b F -m F -a A ) \
+        > "$REPORT_DIR/xenon.txt" 2>&1; then
+      note "✅ Average complexity rank A (CI gate passes)."
+    else
+      note "🔴 Average complexity below rank A — CI's Code Quality job will fail. See \`$REPORT_DIR/xenon.txt\`."
+    fi
+  else
+    note "⚠️ xenon not installed — \`pip install xenon\` (in requirements-dev.txt)."
   fi
 fi
 

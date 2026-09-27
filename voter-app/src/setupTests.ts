@@ -1,8 +1,5 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
-import { TextEncoder, TextDecoder } from 'util';
-
-Object.assign(global, { TextDecoder, TextEncoder });
 
 // @testing-library/react auto-advances fake timers inside `waitFor()` by calling
 // a GLOBAL `jest.advanceTimersByTime(...)`. Vitest exposes `vi`, not `jest`, so
@@ -36,8 +33,8 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 
 // jsdom also lacks ResizeObserver — used by recharts <ResponsiveContainer>
 // and any component that watches its own size.
-if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
-  (window as any).ResizeObserver = class {
+if (typeof window !== 'undefined' && !window.ResizeObserver) {
+  window.ResizeObserver = class {
     observe() {}
     unobserve() {}
     disconnect() {}

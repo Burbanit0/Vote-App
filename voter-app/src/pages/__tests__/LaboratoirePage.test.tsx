@@ -166,15 +166,65 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('the électorat strip shows the shared candidates and the live rule select', () => {
-    renderLab();
-    const strip = screen.getByTestId('lab-electorate-strip');
-    expect(strip).toHaveTextContent('Alice');
-    expect(strip).toHaveTextContent('Carol');
-    expect(strip).toHaveTextContent('300 voters');
-    fireEvent.change(screen.getByTestId('lab-rule-select'), { target: { value: 'irv' } });
-    expect((screen.getByTestId('lab-rule-select') as HTMLSelectElement).value).toBe('irv');
-  });
+  it('the blank-vote fiche opens the reflection: three silences + the four-regime verdicts', async () => {
+    renderLab('/laboratoire?exp=thy-blank');
+    await waitFor(() => expect(screen.getByTestId('blank-vote-panel')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // Act 1 — the three silences.
+    expect(screen.getByTestId('silence-blanc')).toBeInTheDocument();
+    // Act 2 — one verdict card per regime, and the "blank wins" preset flips
+    // the competitive regime to a re-run.
+    fireEvent.click(screen.getByTestId('blank-preset-blankLeads'));
+    expect(screen.getByTestId('lens-card-competitive')).toHaveTextContent(/reopens|Do it again/);
+  }, 20000);
+
+  it('the blank-vote fiche can switch to the real Playground electorate instead of the hand-set mixer', async () => {
+    renderLab('/laboratoire?exp=thy-blank');
+    await waitFor(() => expect(screen.getByTestId('blank-vote-panel')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // Manual mode: abstract A/B/C sliders, editable.
+    expect(screen.getByTestId('blank-cand-0')).toBeInTheDocument();
+    expect(screen.queryByText(DEFAULT_CONFIG.candidates[0].name)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('blank-real-toggle'));
+
+    // Real mode: the actual Playground candidates, read-only (no more sliders),
+    // plus a computed blank share for whoever's too far from all of them.
+    expect(screen.getByTestId('blank-real-toggle')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('blank-cand-0')).not.toBeInTheDocument();
+    for (const c of DEFAULT_CONFIG.candidates) {
+      expect(screen.getByText(c.name)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('blank-real-share')).toHaveTextContent(/%$/);
+
+    // Toggling back restores the hand-set mixer untouched.
+    fireEvent.click(screen.getByTestId('blank-real-toggle'));
+    expect(screen.getByTestId('blank-cand-0')).toBeInTheDocument();
+  }, 20000);
+
+  it('the regime atlas globe renders dots and toggles its colour lens', async () => {
+    renderLab('/laboratoire?exp=sys-atlas');
+    await waitFor(() => expect(screen.getByTestId('regime-globe')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // At least some regimes are plotted on the front hemisphere.
+    expect(screen.getAllByTestId(/^atlas-dot-/).length).toBeGreaterThan(0);
+    // The lens toggle flips from method to blank.
+    expect(screen.getByTestId('atlas-lens-method')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByTestId('atlas-lens-blank'));
+    expect(screen.getByTestId('atlas-lens-blank')).toHaveAttribute('aria-pressed', 'true');
+  }, 20000);
+
+  it('the method gallery now covers common methods too, each with its everyday analogy', async () => {
+    renderLab('/laboratoire?exp=lab-gallery');
+    // A common method (IRV) — previously absent from the gallery — now has a card…
+    const card = await waitFor(() => screen.getByTestId('gallery-irv'), { timeout: 15000 });
+    // …carrying the "comme dans la vie" analogy line (tests run in English).
+    expect(card).toHaveTextContent('Like real life:');
+    expect(card).toHaveTextContent(/knockout game/);
+  }, 20000);
 
   // Ported from the old accordion suite: the values panel's Lijphart dial must
   // survive the redesign (it now lives behind Règles & stratégie → Valeurs).

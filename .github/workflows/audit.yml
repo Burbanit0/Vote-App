@@ -1,12 +1,12 @@
 name: Security Audit
 
 # Supplementary SECURITY scanning only. The repo's lint/type/test gates already
-# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (ruff, mypy,
 # pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
 # coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
 #
 # PUBLIC-REPO MODE: code scanning is free, so each scanner uploads SARIF to the
-# GitHub Security tab (in addition to the downloadable artifact), and a CodeQL job
+# GitHub Security tab, and a CodeQL job
 # runs the native analysis. The strict gates still fail the build: Semgrep findings,
 # Trivy HIGH/CRITICAL, and any detected secret.
 
@@ -17,21 +17,34 @@ on:
     branches: [main, develop]
   schedule:
     - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
+  # No merge_group trigger: that event only fires under GitHub's own native
+  # merge queue, which this repo can't use (personal-account repos get a 422
+  # trying to enable it — see PLAN_SOLIDITE_TECHNIQUE.md Lot 1). `develop`'s
+  # actual merge queue is Mergify (a third-party app that rebases and
+  # re-tests via ordinary push/pull_request events), so a merge_group trigger
+  # here would never fire — confirmed via `gh run list --event merge_group`
+  # returning zero runs, ever. Re-add this only if the repo migrates to a
+  # GitHub-native merge queue (requires an org-owned repo).
 
 permissions:
   contents: read
   security-events: write # upload SARIF to the Security tab (Semgrep, Trivy, CodeQL)
   actions: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ---------------------------------------------------------------
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with: { python-version: "3.11" }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.14", cache: "pip" }
       - run: pip install semgrep
       # Strict: --error makes Semgrep exit non-zero on any finding → the job fails.
       # The report is still uploaded (if: always()) so findings are downloadable.
@@ -41,9 +54,10 @@ jobs:
             --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
+            --config=.semgrep/vote-app-rules.yml \
             --sarif-output=semgrep.sarif --json-output=semgrep.json \
             --error --metrics=off
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: semgrep-report
@@ -56,7 +70,7 @@ jobs:
       - name: Upload Semgrep SARIF
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -65,43 +79,39 @@ jobs:
   gitleaks:
     name: Secret Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml # default ruleset + triaged FP allowlist
+      # TruffleHog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): complements Gitleaks'
+      # pattern match with LIVE credential verification against the
+      # provider's own API — a secret that doesn't actually work is a much
+      # lower-priority finding than one that does. Non-gating on purpose
+      # (Solidité rating in the plan is the lowest of this Lot's four items):
+      # `continue-on-error` rather than the action's own default `--fail`
+      # behavior, matching the informational framing of the item.
+      - name: TruffleHog (verified-active secrets, informational)
+        if: always()
+        continue-on-error: true
+        uses: trufflesecurity/trufflehog@f714bf454f350590f4a24c3ddb1aef02c35bf5b6 # v3.97.5
+        with:
+          extra_args: --results=verified
 
   # ---------------------------------------------------------------
   trivy:
     name: Dependencies, Containers & Misconfig
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      # 1) Non-gating JSON report → uploaded as an artifact (always).
-      - name: Trivy (JSON report artifact)
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
-        with:
-          scan-type: fs
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          format: json
-          output: trivy.json
-          exit-code: "0"
-          skip-dirs: voter-app/node_modules,.claude,graphify-out
-          trivyignores: .trivyignore.yaml
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: trivy-report
-          path: trivy.json
-          if-no-files-found: ignore
-      # 1b) SARIF report → Security tab (non-gating).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      # 1) SARIF report → Security tab (non-gating).
       - name: Trivy (SARIF report)
-        if: always()
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -114,7 +124,7 @@ jobs:
       - name: Upload Trivy SARIF
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         with:
           sarif_file: trivy.sarif
           category: trivy
@@ -122,7 +132,7 @@ jobs:
       #    `if: always()` so the gate runs even if the best-effort upload above hiccups.
       - name: Trivy (gating)
         if: always()
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -133,24 +143,293 @@ jobs:
           trivyignores: .trivyignore.yaml
 
   # ---------------------------------------------------------------
+  # GuardDog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): detects MALICIOUS packages
+  # (typosquatting, hostile install scripts) — a blind spot of every CVE
+  # scanner above, which only sees already-disclosed vulnerabilities.
+  # Own job, own setup-python: guarddog pins pygit2<1.19,>=1.11, and pygit2
+  # only started shipping cp314 wheels at 1.19.0 (verified against PyPI's own
+  # file index: 1.18.2 and earlier have none) — so guarddog can never resolve
+  # a cp314-compatible pygit2 build regardless of how new pygit2 itself gets;
+  # the real, permanent ceiling is guarddog's own pin, not pygit2's wheel
+  # history. Installing it against this repo's real 3.14-pinned backend venv
+  # would force a from-source pygit2 build. 3.13 is the newest version with a
+  # compatible pygit2 wheel.
+  # Cron + push-to-develop only, same reasoning as the image-scan job below:
+  # a real per-package download + static-analysis pass (not a local pattern
+  # match, unlike everything else in this file) — verified locally at ~90s
+  # wall-clock for 4 packages via its own 16-way worker-thread concurrency,
+  # but that run only succeeded after working around an IPv6 connectivity
+  # hang specific to the sandboxed dev session that found this (a stuck TCP
+  # SYN to pypi.org's IPv6 address, confirmed via /proc; GitHub Actions
+  # runners are not expected to hit this). Real per-PR timing on this repo's
+  # full dependency set is unmeasured from that session — kept off the
+  # normal PR loop out of the same caution as EXP-004's container: recommend
+  # observing a clean scheduled/develop-push run before ever considering it
+  # for the PR path. Non-gating regardless.
+  guarddog:
+    name: Malicious packages (GuardDog, informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.13", cache: "pip" }
+      - run: pip install guarddog
+      # guarddog's requirements parser silently drops any line whose inline
+      # `#` comment follows extra whitespace (this repo's convention for
+      # documenting *why* a version is pinned — see any line of
+      # requirements.txt) -- verified: 11/15 lines were silently ignored
+      # before this fix (scripts/audit.sh does the same, kept in sync).
+      # Comment-stripped TEMP copy, never the real file (those comments are
+      # load-bearing documentation, not scanned).
+      - name: GuardDog (PyPI, production deps)
+        continue-on-error: true
+        run: |
+          sed -E 's/[[:space:]]+#.*$//' fast_api_voter/requirements.txt > /tmp/requirements-stripped.txt
+          guarddog pypi verify /tmp/requirements-stripped.txt \
+            --output-format json > guarddog-pypi.json
+      - name: GuardDog (npm, production deps)
+        continue-on-error: true
+        run: |
+          guarddog npm verify voter-app/package.json \
+            --output-format json > guarddog-npm.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: guarddog-report
+          path: |
+            guarddog-pypi.json
+            guarddog-npm.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
+  # Built-image scan + SBOM of the production image (the repo-root Dockerfile
+  # fly.toml deploys). No other workflow builds it — the `trivy` job above only
+  # scans the filesystem, never a built image, so the runtime base image
+  # (python:3.14-slim) and the Python packages installed on it would otherwise
+  # be unscanned. The Node build stage isn't in the final image, and the
+  # bundled JS carries no package manifest, so npm dependencies are covered by
+  # the filesystem scan and `npm audit` instead, not by this SBOM.
+  #
+  # Building + scanning the image adds several minutes, so this stays off the
+  # normal PR loop on purpose — only the weekly cron and pushes to `develop`
+  # pay for it (a code review or a hotfix PR shouldn't wait on a Node/Python
+  # base-image scan that has nothing to do with the diff).
+  #
+  # NON-GATING for now, unlike the filesystem trivy job above: a first run
+  # would immediately surface whatever base-image CVEs exist today, most of
+  # them the upstream image's problem, not something a single PR can fix —
+  # gating on day one would just block develop indefinitely. Findings land in
+  # the Security tab; promote to gating once a triage pass + .trivyignore
+  # entries (mirroring the fs job's existing pattern) clears the backlog.
+  image-scan:
+    name: Docker image scan & SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # GHA-backed layer cache (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): this job
+      # only runs on the weekly cron + push-to-develop (see the job comment
+      # above), so a cold cache would otherwise redownload base images and
+      # reinstall every dependency on every run regardless of how little the
+      # Dockerfile changed week to week. `load: true` keeps the image in the
+      # local daemon (needed by Trivy/SBOM below) since this job only scans,
+      # it never pushes.
+      - name: Build production image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          tags: votelab:scan
+          load: true
+          cache-from: type=gha,scope=votelab
+          cache-to: type=gha,mode=max,scope=votelab
+
+      - name: Trivy (image scan, non-gating for now — see job comment)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: votelab:scan
+          scan-type: image
+          trivyignores: .trivyignore.yaml
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+      - name: Upload Trivy image SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Generate SBOM (SPDX)
+        if: always()
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: votelab:scan
+          format: spdx-json
+          output-file: sbom.spdx.json
+      # sbom-action uploads the SBOM as a workflow artifact itself.
+
+  # ---------------------------------------------------------------
+  # Code Quality — dead code, unused deps, cross-language duplication,
+  # cyclomatic complexity.
+  # The tools themselves stay NON-GATING (the repo never did a full cleanup
+  # pass, and failing on the existing backlog would just get the job disabled).
+  # What gates is the RATCHET at the end: scripts/check_quality_ratchet.sh reads
+  # the .txt files tee'd below and fails if any count grew. Debt may shrink,
+  # never grow — a signal that can never fail is a signal nobody reads.
+  code-quality:
+    name: Code Quality (dead code, duplication & complexity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.14" }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: voter-app/package-lock.json
+
+      # xenon (the final gate) comes from requirements-dev.txt, installed below.
+      - name: Install vulture, radon
+        run: pip install vulture==2.16 radon==6.0.1
+
+      - name: Python dead code (vulture)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m vulture api/ .vulture_whitelist.py --config pyproject.toml | tee vulture.txt
+
+      - name: Python cyclomatic complexity (radon)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m radon cc api/ -e "api/tests/*" -n C -s | tee radon.txt
+
+      # deptry needs the actual dependencies installed (it maps import names
+      # to installed package metadata) — unlike vulture/radon above,
+      # which only need the source. Same install this job already runs, just
+      # for a different tool; not needed until this step.
+      - name: Install backend dependencies (for deptry)
+        working-directory: fast_api_voter
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Python unused/undeclared dependencies (deptry)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m deptry . | tee deptry.txt
+
+      - name: Install frontend deps
+        working-directory: voter-app
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript dead code & unused deps (knip)
+        working-directory: voter-app
+        continue-on-error: true
+        run: npx knip --no-progress | tee knip.txt
+
+      # eslint-plugin-sonarjs (Lot 6.6, PLAN_SOLIDITE_TECHNIQUE.md): none of its
+      # rules run in the blocking eslint.config.js (see that file's own comment
+      # on why the plugin is still registered there) -- this is the separate,
+      # informational-only config (eslint.sonarjs.config.js) with the full
+      # recommended ruleset on. Same non-blocking-per-tool, ratcheted-overall
+      # pattern as vulture/radon/deptry/knip above: PLAN_CI_STRUCTURAL_GAPS.md
+      # item 2.B closed the gap where this count lived only in a memory file,
+      # not an actual gate.
+      - name: Frontend sonarjs findings, informational overlay (eslint-plugin-sonarjs)
+        working-directory: voter-app
+        continue-on-error: true
+        # Direct binary invocation, not `npm run lint:sonarjs` -- matches every
+        # sibling tool's own convention in this job (`npx knip`, `npx jscpd`,
+        # `python -m vulture`, ...) and keeps sonarjs.txt free of npm's own
+        # "> voter-app@... lint:sonarjs" banner line, which would otherwise be
+        # the only thing distinguishing "eslint ran" from "eslint never got
+        # invoked" if this step's config ever breaks.
+        run: npx eslint -c eslint.sonarjs.config.js . --ext .js,.jsx,.ts,.tsx | tee sonarjs.txt
+
+      - name: Cross-language duplication (jscpd)
+        continue-on-error: true
+        run: npx --yes jscpd --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
+
+      # THE gating step of this job. Every tool above stays non-blocking; this
+      # compares their counts to .github/quality-baseline.json and fails only on
+      # an INCREASE. Existing debt is grandfathered, new debt is not — see the
+      # header of the script. `if: always()` so it still runs when a tool step
+      # above exited non-zero (they all do, that's what continue-on-error means).
+      - name: Quality ratchet (debt may shrink, never grow)
+        if: always()
+        run: ./scripts/check_quality_ratchet.sh
+
+      # The second gating step, and deliberately only the AVERAGE. -a A passes
+      # today (measured), so this locks the codebase-wide average at rank A for
+      # free: the repo can no longer drift complex as a whole, even while
+      # individual functions stay bad.
+      # -b and -m stay at F (never fail) on purpose — 9 functions are rank F and
+      # 20 rank E, so a per-block gate would fail on the existing backlog and get
+      # switched off within a week, which is how a gate becomes decoration.
+      # -b tightens to D once those are decomposed; until then the radon count in
+      # the ratchet above is what stops new complex functions being added.
+      # Runs at the end, after the reporting steps, so a failure here cannot skip
+      # the tool steps the ratchet reads.
+      - name: Complexity gate (xenon — average must stay rank A)
+        if: always()
+        working-directory: fast_api_voter
+        run: python -m xenon api/ -e "api/tests/*" -b F -m F -a A
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "### Code Quality (raw tool output — the ratchet step is what gates)"
+            for f in fast_api_voter/vulture.txt fast_api_voter/radon.txt voter-app/knip.txt \
+                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt; do
+              echo; echo "<details><summary>$f</summary>"; echo; echo '```'
+              cat "$f" 2>/dev/null || echo "(no output)"
+              echo '```'; echo "</details>"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: code-quality-report
+          path: |
+            fast_api_voter/vulture.txt
+            fast_api_voter/radon.txt
+            voter-app/knip.txt
+            voter-app/sonarjs.txt
+            fast_api_voter/deptry.txt
+            jscpd.txt
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
   # CodeQL — GitHub's native code scanning (free on public repos). Results land
   # in the Security tab. Non-gating by itself; severities show up as alerts.
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         language: [javascript-typescript, python]
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         with:
           languages: ${{ matrix.language }}
       - name: Autobuild
-        uses: github/codeql-action/autobuild@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/autobuild@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
       - name: Analyze
-        uses: github/codeql-action/analyze@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         with:
           category: "/language:${{ matrix.language }}"

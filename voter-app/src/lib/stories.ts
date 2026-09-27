@@ -12,7 +12,7 @@
 // than silently lying to the visitor.
 
 import type { ElectionConfig, PlaygroundMode, PlaygroundState } from '../stores/useElectionStore';
-import type { Rule } from './playgroundVoting';
+import type { NamedPt, Rule } from './playgroundVoting';
 import type { Community } from './playgroundElectorate';
 import type { MomentId } from '../components/playground/MomentRail';
 
@@ -142,6 +142,266 @@ const FIVE = [
   { name: 'Besancenot', x: -0.8, y: -0.5 },
 ];
 const FIVE_ELECTORATE = { num_voters: 500, seed: 2002, ideology: 'polarized' };
+
+// ── Story 7 — the clone strategy (Borda's Achilles heel) ────────────────────
+// A camp can steal an election by fielding a near-identical ally. Borda hands
+// out partial credit for being someone's second choice; the clone siphons that
+// credit away from the true majority winner. Condorcet (pairwise) and IRV
+// (first-choice transfers) never look at "second choice" that way, so the same
+// trick does nothing to them — a clean demonstration of independence of clones.
+const CLONE_A = { name: 'A', x: -0.5, y: 0 };
+const CLONE_A2 = { name: 'A2', x: -0.65, y: 0 };
+const CLONE_B = { name: 'B', x: 0.5, y: 0 };
+const clonesBloc = (id: string, x: number, weight: number): Community => ({
+  id,
+  label: id,
+  x,
+  y: 0,
+  z: 0,
+  spread: 0.12,
+  weight,
+  turnout: 1,
+});
+const CLONES_ELECTORATE = { num_voters: 500, seed: 42, ideology: 'random' };
+const CLONES_COMPOSED: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [clonesBloc('P', CLONE_A.x, 0.46), clonesBloc('Q', CLONE_B.x, 0.54)],
+};
+
+// ── Story 7 — the blank vote: same result, four fates ──────────────────────
+// Camille wins comfortably among those who picked someone — but most of the
+// electorate is far from BOTH candidates and rejects the whole field. Three
+// constitutional regimes read the identical result three different ways:
+// today's law elects Camille anyway (blank excluded from the count); count
+// the blank and the mandate evaporates; treat it as a candidate and it wins
+// outright. Same voters, same ballots — the regime alone decides.
+const REJET_CANDS = [
+  { name: 'Camille', x: -0.15, y: 0 },
+  { name: 'Farid', x: 0.15, y: 0 },
+];
+const REJET_ELECTORATE = { num_voters: 300, seed: 42, ideology: 'random' };
+const rejetBloc = (
+  id: string,
+  label: string,
+  x: number,
+  y: number,
+  spread: number,
+  weight: number
+): Community => ({ id, label, x, y, z: 0, spread, weight, turnout: 1 });
+const REJET_COMPOSED: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    rejetBloc('main', 'Grand public', -0.25, 0, 0.08, 0.35),
+    rejetBloc('rejet', 'Rejettent tout le monde', 0, -0.9, 0.12, 0.65),
+  ],
+};
+// setPlayground merges shallowly, so `blank` must be a full object each time.
+const BLANK = (lens: 'france_today' | 'in_exprimes' | 'competitive'): PlaygroundState['blank'] => ({
+  enabled: true,
+  intensity: 0.7,
+  lens,
+});
+
+// ── Story 8 — non-monotonicity: winning support, losing the election ────────
+// A phenomenon internal to a SINGLE rule (unlike every story above, which
+// compares rules on one electorate): under IRV, a swing bloc that promotes a
+// candidate from their 2nd choice to their 1st can cause that SAME candidate
+// to lose. Built from exact permutation blocs (an "anchor" point per full
+// ranking, tight spread) rather than a free-form spatial field, so first-
+// preference counts are exact and hand-verifiable:
+//   base (34): Nora>Yanis>Karim · yanisBase (27): Yanis>Nora>Karim
+//   karimBase (20): Karim>Yanis>Nora · swing (10): Karim>Nora>Yanis → Nora>Karim>Yanis
+// Before: Yanis fewest (29%) is eliminated, transfers to Nora (61% vs Karim's
+// 30%) → Nora wins. After the swing bloc promotes Nora to 1st (her first-place
+// share rises 38%→49%), Karim becomes fewest instead and HIS transfer goes to
+// Yanis (his 2nd choice) → Yanis wins. Nora gained votes and lost the election.
+const MONO_NORA: NamedPt = { name: 'Nora', x: 0.0, y: 0.8 };
+const MONO_KARIM: NamedPt = { name: 'Karim', x: 0.7, y: -0.5 };
+const MONO_YANIS: NamedPt = { name: 'Yanis', x: -0.7, y: -0.5 };
+const MONO_CANDS = [MONO_NORA, MONO_KARIM, MONO_YANIS];
+// Anchor a bloc so its ballot is exactly X≻Y≻Z (closest to X, then Y, then Z).
+const permAnchor = (X: NamedPt, Y: NamedPt, Z: NamedPt) => ({
+  x: 0.75 * X.x + 0.2 * Y.x + 0.05 * Z.x,
+  y: 0.75 * X.y + 0.2 * Y.y + 0.05 * Z.y,
+});
+const permBloc = (
+  id: string,
+  label: string,
+  pos: { x: number; y: number },
+  weight: number
+): Community => ({
+  id,
+  label,
+  x: pos.x,
+  y: pos.y,
+  z: 0,
+  spread: 0.02,
+  weight,
+  turnout: 1,
+});
+const MONO_ELECTORATE = { num_voters: 6000, seed: 123, ideology: 'random' };
+const MONO_BASE = permBloc(
+  'base',
+  'Base de Nora (Nora≻Yanis≻Karim)',
+  permAnchor(MONO_NORA, MONO_YANIS, MONO_KARIM),
+  34
+);
+const MONO_YANIS_BASE = permBloc(
+  'yanisBase',
+  'Base de Yanis (Yanis≻Nora≻Karim)',
+  permAnchor(MONO_YANIS, MONO_NORA, MONO_KARIM),
+  27
+);
+const MONO_KARIM_BASE = permBloc(
+  'karimBase',
+  'Base de Karim (Karim≻Yanis≻Nora)',
+  permAnchor(MONO_KARIM, MONO_YANIS, MONO_NORA),
+  20
+);
+const MONO_SWING_BEFORE = permBloc(
+  'swing',
+  'Indécis (Karim≻Nora≻Yanis)',
+  permAnchor(MONO_KARIM, MONO_NORA, MONO_YANIS),
+  10
+);
+const MONO_SWING_AFTER = permBloc(
+  'swing',
+  'Indécis, convaincus (Nora≻Karim≻Yanis)',
+  permAnchor(MONO_NORA, MONO_KARIM, MONO_YANIS),
+  10
+);
+const MONO_BEFORE: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [MONO_BASE, MONO_YANIS_BASE, MONO_KARIM_BASE, MONO_SWING_BEFORE],
+};
+const MONO_AFTER: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [MONO_BASE, MONO_YANIS_BASE, MONO_KARIM_BASE, MONO_SWING_AFTER],
+};
+
+// ── Story 9 — reversal symmetry: the same winner, upside down ───────────────
+// A candidate adored by a large loyal base but ranked LAST by everyone else
+// wins plurality both ways: as cast, and with EVERY ballot flipped end to end.
+// Reversing a ballot turns each voter's last choice into their first, so a
+// candidate who was already the most-rejected elsewhere becomes the new
+// front-runner of the reversed field too — plurality only ever looks at
+// whoever is "first", so it cannot tell "beloved" from "despised" apart.
+//   avant:   Malik≻Sami≻Inès (40) · Inès≻Sami≻Malik (32) · Sami≻Inès≻Malik (28)
+//   inverse: Inès≻Sami≻Malik (40) · Malik≻Sami≻Inès (32) · Malik≻Inès≻Sami (28)
+// (the "inverse" blocs are literally each "avant" bloc's ranking reversed)
+const REV_MALIK: NamedPt = { name: 'Malik', x: 0.0, y: 0.75 };
+const REV_INES: NamedPt = { name: 'Inès', x: 0.65, y: -0.45 };
+const REV_SAMI: NamedPt = { name: 'Sami', x: -0.65, y: -0.45 };
+const REV_CANDS = [REV_MALIK, REV_INES, REV_SAMI];
+const REV_AVANT: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    permBloc(
+      'base',
+      'Base de Malik (Malik≻Sami≻Inès)',
+      permAnchor(REV_MALIK, REV_SAMI, REV_INES),
+      40
+    ),
+    permBloc(
+      'centreInes',
+      'Centre (Inès≻Sami≻Malik)',
+      permAnchor(REV_INES, REV_SAMI, REV_MALIK),
+      32
+    ),
+    permBloc(
+      'centreSami',
+      'Centre (Sami≻Inès≻Malik)',
+      permAnchor(REV_SAMI, REV_INES, REV_MALIK),
+      28
+    ),
+  ],
+};
+const REV_INVERSE: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    permBloc(
+      'base-rev',
+      'Base de Malik, bulletin renversé',
+      permAnchor(REV_INES, REV_SAMI, REV_MALIK),
+      40
+    ),
+    permBloc(
+      'centreInes-rev',
+      'Centre, bulletin renversé',
+      permAnchor(REV_MALIK, REV_SAMI, REV_INES),
+      32
+    ),
+    permBloc(
+      'centreSami-rev',
+      'Centre, bulletin renversé',
+      permAnchor(REV_MALIK, REV_INES, REV_SAMI),
+      28
+    ),
+  ],
+};
+
+// ── Story 10 — later-no-harm: the approval that costs you your favourite ────
+// Under approval voting, a bloc's TRUE favourite never changes — but sincerely
+// approving of an acceptable second choice, on top of their favourite (never
+// instead of), can hand the win to that second choice. Later-no-harm says
+// ranking/approving a later preference should never hurt an earlier one;
+// approval voting is one of the well-known methods that fails it (unlike IRV,
+// which is later-no-harm-safe by construction — see `monotonie`'s IRV twist
+// for a different single-rule self-contradiction).
+//   Léa -0.6 · Hugo 0.3 · Zoé 0.9 (a line). Fixed blocs: K -0.85 (25, only
+//   ever approves Léa) · H 0.4 (35, only ever approves Hugo/Zoé). Swing bloc
+//   G moves -0.7 → -0.3 (still strictly closer to Léa than to Hugo both
+//   times — their FIRST preference never moves) but crosses the 50 %
+//   normalised-utility approval line for Hugo on the way: 0 %→100 % of G
+//   approves Hugo too. Léa's own approval share never changes (61 %); Hugo's
+//   rises 39 %→72 % on G's extra approvals alone and overtakes her.
+const LNH_LEA: NamedPt = { name: 'Léa', x: -0.6, y: 0 };
+const LNH_HUGO: NamedPt = { name: 'Hugo', x: 0.3, y: 0 };
+const LNH_ZOE: NamedPt = { name: 'Zoé', x: 0.9, y: 0 };
+const LNH_CANDS = [LNH_LEA, LNH_HUGO, LNH_ZOE];
+const lnhBloc = (
+  id: string,
+  label: string,
+  x: number,
+  spread: number,
+  weight: number
+): Community => ({
+  id,
+  label,
+  x,
+  y: 0,
+  z: 0,
+  spread,
+  weight,
+  turnout: 1,
+});
+const LNH_ELECTORATE = { num_voters: 6000, seed: 88, ideology: 'random' };
+const LNH_K = lnhBloc('K', 'Base de Léa', -0.85, 0.06, 25);
+const LNH_H = lnhBloc('H', 'Sympathisants de Hugo et Zoé', 0.4, 0.15, 35);
+const LNH_AVANT: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [LNH_K, LNH_H, lnhBloc('G', 'Indécis, n’approuvent que Léa', -0.7, 0.04, 30)],
+};
+const LNH_APRES: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [LNH_K, LNH_H, lnhBloc('G', 'Les mêmes, approuvent aussi Hugo', -0.3, 0.04, 30)],
+};
 
 // ── Parliament stories (mode: 'parliament') ──────────────────────────────────
 // Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
@@ -374,6 +634,156 @@ export const STORIES: Story[] = [
         beatKey: 'stories.five.steps.approval',
         rule: 'approval',
         config: { candidates: FIVE, ...FIVE_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'clones',
+    titleKey: 'stories.clones.title',
+    taglineKey: 'stories.clones.tagline',
+    icon: 'Copy',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'duel',
+        beatKey: 'stories.clones.steps.duel',
+        mode: 'leader',
+        rule: 'borda',
+        moment: 'method',
+        playground: { ...LINE('Gauche–Droite'), electorate: CLONES_COMPOSED },
+        config: { candidates: [CLONE_A, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'clone',
+        beatKey: 'stories.clones.steps.clone',
+        rule: 'borda',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'condorcet',
+        beatKey: 'stories.clones.steps.condorcet',
+        rule: 'condorcet',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'irv',
+        beatKey: 'stories.clones.steps.irv',
+        rule: 'irv',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'blank',
+    titleKey: 'stories.blank.title',
+    taglineKey: 'stories.blank.tagline',
+    icon: 'Ban',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'clean',
+        beatKey: 'stories.blank.steps.clean',
+        mode: 'leader',
+        rule: 'plurality',
+        moment: 'method',
+        playground: { space: PLANE.space, electorate: REJET_COMPOSED },
+        config: { candidates: REJET_CANDS, ...REJET_ELECTORATE },
+      },
+      {
+        id: 'todayLaw',
+        beatKey: 'stories.blank.steps.todayLaw',
+        moment: 'strategy',
+        playground: { blank: BLANK('france_today') },
+      },
+      {
+        id: 'ifCounted',
+        beatKey: 'stories.blank.steps.ifCounted',
+        playground: { blank: BLANK('in_exprimes') },
+      },
+      {
+        id: 'competitive',
+        beatKey: 'stories.blank.steps.competitive',
+        playground: { blank: BLANK('competitive') },
+      },
+    ],
+  },
+
+  {
+    id: 'monotonie',
+    titleKey: 'stories.monotonie.title',
+    taglineKey: 'stories.monotonie.tagline',
+    icon: 'TrendingUp',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.monotonie.steps.avant',
+        mode: 'leader',
+        rule: 'irv',
+        moment: 'method',
+        playground: { space: PLANE.space, electorate: MONO_BEFORE },
+        config: { candidates: MONO_CANDS, ...MONO_ELECTORATE },
+      },
+      {
+        id: 'apres',
+        beatKey: 'stories.monotonie.steps.apres',
+        rule: 'irv',
+        playground: { electorate: MONO_AFTER },
+        config: { candidates: MONO_CANDS, ...MONO_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'renversement',
+    titleKey: 'stories.renversement.title',
+    taglineKey: 'stories.renversement.tagline',
+    icon: 'Repeat',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.renversement.steps.avant',
+        mode: 'leader',
+        rule: 'plurality',
+        moment: 'bilan',
+        playground: { space: PLANE.space, electorate: REV_AVANT },
+        config: { candidates: REV_CANDS, num_voters: 6000, seed: 55, ideology: 'random' },
+      },
+      {
+        id: 'inverse',
+        beatKey: 'stories.renversement.steps.inverse',
+        rule: 'plurality',
+        playground: { electorate: REV_INVERSE },
+        config: { candidates: REV_CANDS, num_voters: 6000, seed: 55, ideology: 'random' },
+      },
+    ],
+  },
+
+  {
+    id: 'soutien',
+    titleKey: 'stories.soutien.title',
+    taglineKey: 'stories.soutien.tagline',
+    icon: 'ThumbsUp',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.soutien.steps.avant',
+        mode: 'leader',
+        rule: 'approval',
+        moment: 'method',
+        playground: { space: LINE('Gauche–Droite').space, electorate: LNH_AVANT },
+        config: { candidates: LNH_CANDS, ...LNH_ELECTORATE },
+      },
+      {
+        id: 'apres',
+        beatKey: 'stories.soutien.steps.apres',
+        rule: 'approval',
+        playground: { electorate: LNH_APRES },
+        config: { candidates: LNH_CANDS, ...LNH_ELECTORATE },
       },
     ],
   },

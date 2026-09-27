@@ -7,9 +7,10 @@ methods satisfy different axiomatic properties and are designed to ensure
 representational proportionality rather than a single collective choice.
 """
 import math
+import random
 from collections import defaultdict
-from itertools import combinations
-from typing import Callable, Dict, List, Optional, Any
+from itertools import combinations, chain
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -19,94 +20,52 @@ def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
     return {p: float(v) for p, v in party_votes.items() if float(v) > 0}
 
 
+def break_tie(scores: Mapping[str, float], rng: Optional[random.Random] = None) -> str:
+    """The key with the highest value.
+
+    Without `rng` -- the default -- this is exactly `max(scores, key=...)`:
+    whichever tied name is listed first, the behaviour every quotient loop
+    here had before a tie-break was threaded in, so a caller that doesn't opt
+    in (polity, which shares these allocators) sees no change at all.
+
+    With one, an exact tie draws uniformly among the tied names sorted,
+    matching `_district_winner` in workers_playground.py ("drawing among the
+    tied names sorted keeps the result independent of listing order").
+    Quotient ties are not exotic -- 100/2 equals 50/1, so any two parties in
+    a 2:1 vote ratio tie on a seat -- and scores built from shares or
+    accumulated weights carry float noise (0.3/3 != 0.1), so "tied" means
+    within 1e-9 relative (1e-12 absolute), not `==`.
+    """
+    best = max(scores, key=lambda k: scores[k])
+    if rng is None:
+        return best
+    top = scores[best]
+    tied = [k for k, v in scores.items()
+            if k == best or math.isclose(v, top, rel_tol=1e-9, abs_tol=1e-12)]
+    return best if len(tied) == 1 else rng.choice(sorted(tied))
+
+
+def _highest_averages(
+    party_votes: Dict[str, float],
+    num_seats: int,
+    divisor: Callable[[int], int],
+    rng: Optional[random.Random],
+) -> Dict[str, int]:
+    """Highest-averages allocation: each seat goes to the party with the
+    largest votes / divisor(seats already won). Only the winner's quotient
+    changes each round, so it is the only one recomputed."""
+    pv = _normalise_votes(party_votes)
+    seats: Dict[str, int] = {p: 0 for p in pv}
+    quotients = {p: pv[p] / divisor(0) for p in pv}
+    for _ in range(num_seats):
+        winner = break_tie(quotients, rng)
+        seats[winner] += 1
+        quotients[winner] = pv[winner] / divisor(seats[winner])
+    return seats
+
+
 # ── Single Transferable Vote ───────────────────────────────────────────────
 
-def get_stv_winners(votes: list[Any], num_winners: int) -> List[str]:
-    """
-    Single Transferable Vote with Droop quota and fractional surplus transfer.
-
-    Each vote is either a list of candidate names (ranking) or a dict with a
-    'ranking' key (same format as simulation_ranked_utils).
-
-    Returns the ordered list of elected candidates.
-    """
-    if not votes or num_winners <= 0:
-        return []
-
-    # Normalise input
-    ballots: List[List[str]] = []
-    for v in votes:
-        if isinstance(v, dict):
-            ballots.append(list(v.get("ranking", [])))
-        else:
-            ballots.append(list(v))
-
-    n = len(ballots)
-    droop_quota = n // (num_winners + 1) + 1
-
-    # Pool: list of (weight, remaining_ranking)
-    pool: List[tuple[float, List[str]]] = [(1.0, r[:]) for r in ballots]
-
-    elected: List[str] = []
-    eliminated: set[str] = set()
-
-    def _first_active(ranking: List[str], excl: set[str]) -> Optional[str]:
-        return next((c for c in ranking if c not in excl), None)
-
-    while len(elected) < num_winners:
-        excluded = eliminated | set(elected)
-
-        # Tally first active choices
-        counts: Dict[str, float] = defaultdict(float)
-        for w, r in pool:
-            c = _first_active(r, excluded)
-            if c:
-                counts[c] += w
-
-        if not counts:
-            break
-
-        remaining_seats = num_winners - len(elected)
-
-        # If ≤ remaining seats left, elect them all
-        if len(counts) <= remaining_seats:
-            elected.extend(sorted(counts, key=lambda c: -counts[c]))
-            break
-
-        # Any candidate at or above quota?
-        above_quota = [(c, v) for c, v in counts.items() if v >= droop_quota]
-
-        if above_quota:
-            above_quota.sort(key=lambda x: -x[1])
-            winner, winner_votes = above_quota[0]
-
-            surplus = winner_votes - droop_quota
-            transfer_factor = surplus / winner_votes if winner_votes > 0 else 0.0
-
-            # Rebuild pool: ballots going to winner get multiplied by transfer_factor
-            prev_excluded = eliminated | set(elected)  # state BEFORE electing winner
-            new_pool: List[tuple[float, List[str]]] = []
-            for w, r in pool:
-                first = _first_active(r, prev_excluded)
-                new_r = [c for c in r if c != winner]
-                if not new_r:
-                    continue  # exhausted ballot
-                if first == winner:
-                    new_pool.append((w * transfer_factor, new_r))
-                else:
-                    new_pool.append((w, new_r))
-
-            pool = new_pool
-            elected.append(winner)
-
-        else:
-            # Eliminate candidate with fewest first-choice votes (tie-break: alphabetical)
-            min_v = min(counts.values())
-            loser = min(c for c, v in counts.items() if v == min_v)
-            eliminated.add(loser)
-            # Ballots referencing loser will skip them via _first_active
-
-    return elected[:num_winners]
 
 
 # ── STV with full round-by-round detail ──────────────────────────────────────
@@ -151,7 +110,7 @@ def get_stv_result(
         quota = n // (num_seats + 1) + 1
 
     # Pool: each entry is (weight: float, ranking: List[str])
-    pool: List[tuple[float, List[str]]] = [(1.0, list(r)) for r in votes]
+    pool: List[tuple[float, List[str]]] = [(1.0, r.copy()) for r in votes]
 
     elected:   List[str] = []
     eliminated: set[str] = set()
@@ -177,7 +136,7 @@ def get_stv_result(
         remaining_seats = num_seats - len(elected)
 
         # All active candidates (with or without current votes)
-        all_candidate_names = sorted({c for r in votes for c in r})
+        all_candidate_names = sorted(set(chain.from_iterable(votes)))
         active_candidates   = [c for c in all_candidate_names if c not in excluded]
 
         # Auto-elect when active candidates ≤ remaining seats
@@ -188,7 +147,7 @@ def get_stv_result(
                         "round":     round_num,
                         "action":    "auto_elect",
                         "candidate": c,
-                        "tallies":   dict(counts),
+                        "tallies":   counts.copy(),
                         "transfers": {},
                     })
                     elected.append(c)
@@ -231,7 +190,7 @@ def get_stv_result(
                 "round":     round_num,
                 "action":    "elect",
                 "candidate": winner,
-                "tallies":   dict(new_counts),
+                "tallies":   new_counts.copy(),
                 "transfers": dict(transfers),
             })
             round_num += 1
@@ -247,7 +206,7 @@ def get_stv_result(
                 "round":     round_num,
                 "action":    "eliminate",
                 "candidate": loser,
-                "tallies":   dict(new_counts),
+                "tallies":   new_counts.copy(),
                 "transfers": {},
             })
             round_num += 1
@@ -257,46 +216,67 @@ def get_stv_result(
 
 # ── Party-list methods ─────────────────────────────────────────────────────
 
-def get_dhondt_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+def get_dhondt_winners(
+    party_votes: Dict[str, float], num_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """
     D'Hondt highest averages method.
     Divisor sequence: 1, 2, 3, 4, …  → favours larger parties slightly.
     Used for French European elections, Spanish general elections, etc.
+
+    `rng`: see `break_tie`. Polity imports this and passes none, so its seat
+    ties keep going to the first-listed party.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        winner = max(pv, key=lambda p: pv[p] / (seats[p] + 1))
-        seats[winner] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: s + 1, rng)
 
 
-def get_sainte_lague_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+def get_sainte_lague_winners(
+    party_votes: Dict[str, float], num_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """
     Sainte-Laguë highest averages method.
     Divisor sequence: 1, 3, 5, 7, …  → more proportional than D'Hondt,
     especially for small parties. Used in Norway, Sweden, New Zealand.
+
+    `rng`: see `get_dhondt_winners`.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        winner = max(pv, key=lambda p: pv[p] / (2 * seats[p] + 1))
-        seats[winner] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: 2 * s + 1, rng)
+
+
+def top_k(
+    scores: Mapping[str, float], k: int, rng: Optional[random.Random],
+) -> List[str]:
+    """The `k` highest-scoring keys, best first. Ties keep listing order, unless
+    `rng` is given: then each pick is the highest remaining score with ties
+    drawn by `break_tie`, so a tied group -- including one straddling the
+    cutoff -- no longer depends on how the keys were listed, and "tied" means
+    the same thing it does for every other allocator here. (Largest remainder
+    passes no `rng` only for polity, its sole caller.)"""
+    if rng is None:
+        return sorted(scores, key=lambda p: scores[p], reverse=True)[:k]
+    pool = dict(scores)
+    chosen: List[str] = []
+    for _ in range(min(k, len(pool))):
+        chosen.append(break_tie(pool, rng))
+        del pool[chosen[-1]]
+    return chosen
 
 
 def get_largest_remainder_winners(
     party_votes: Dict[str, float],
     num_seats: int,
     quota: str = "hare",
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, int]:
     """
     Largest remainder method.
     - Hare quota  = total_votes / num_seats       (used in Israel, Ukraine)
     - Droop quota = floor(total / (seats+1)) + 1  (used in some countries)
 
-    Each party gets floor(votes / quota) automatic seats; remaining seats
-    go to parties with the largest fractional remainders.
+    Each party gets floor(votes / quota) automatic seats; remaining seats go
+    to parties with the largest fractional remainders (see `top_k`
+    for the `rng` tie-break at the cutoff).
     """
     pv = _normalise_votes(party_votes)
     total = sum(pv.values())
@@ -309,7 +289,7 @@ def get_largest_remainder_winners(
     remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
 
     remaining = num_seats - sum(auto.values())
-    for p in sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]:
+    for p in top_k(remainders, remaining, rng):
         auto[p] += 1
 
     return auto
@@ -330,7 +310,7 @@ def compute_proportionality_metrics(
     total_votes = sum(party_votes.values())
     total_seats = sum(seats_won.values())
 
-    if total_votes == 0 or total_seats == 0:
+    if 0 in (total_votes, total_seats):
         return {
             "gallagher_index": None,
             "largest_deviation": None,
@@ -368,62 +348,6 @@ def compute_proportionality_metrics(
 
 # ── Main comparison function ───────────────────────────────────────────────
 
-def compare_multiwinner_methods(
-    party_votes: Dict[str, float],
-    num_seats: int,
-    voter_rankings: Optional[List[Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Run all proportional methods on the same vote distribution and return
-    seats + proportionality metrics for each, plus a ranking by Gallagher index.
-
-    party_votes  — {party_name: vote_count_or_pct}
-    num_seats    — total seats to fill
-    voter_rankings — optional ranked ballots for STV (same format as
-                     simulation_ranked_utils; candidates used as proxies)
-    """
-    pv = _normalise_votes(party_votes)
-    results: Dict[str, Any] = {}
-
-    # Party-list methods
-    party_list_methods: List[tuple[str, Callable[[], Any]]] = [
-        ("dhondt",                  lambda: get_dhondt_winners(pv, num_seats)),
-        ("sainte_lague",            lambda: get_sainte_lague_winners(pv, num_seats)),
-        ("largest_remainder_hare",  lambda: get_largest_remainder_winners(pv, num_seats, "hare")),
-        ("largest_remainder_droop", lambda: get_largest_remainder_winners(pv, num_seats, "droop")),
-    ]
-    for key, fn in party_list_methods:
-        seats = fn()
-        results[key] = {
-            "seats": seats,
-            "metrics": compute_proportionality_metrics(pv, seats),
-        }
-
-    # STV (individual rankings)
-    if voter_rankings:
-        stv_elected = get_stv_winners(voter_rankings, num_seats)
-        results["stv"] = {
-            "winners": stv_elected,
-            "seats": {},  # no party mapping without external lookup
-        }
-
-    # Comparison: rank by Gallagher index (lower = more proportional)
-    ranked = sorted(
-        [
-            (key, results[key]["metrics"]["gallagher_index"])
-            for key in ("dhondt", "sainte_lague", "largest_remainder_hare", "largest_remainder_droop")
-            if results[key]["metrics"].get("gallagher_index") is not None
-        ],
-        key=lambda x: x[1],
-    )
-
-    results["comparison"] = {
-        "most_proportional":  ranked[0][0]  if ranked else None,
-        "least_proportional": ranked[-1][0] if ranked else None,
-        "gallagher_ranking":  [m for m, _ in ranked],
-    }
-
-    return results
 
 
 # ── SPAV ──────────────────────────────────────────────────────────────────────
@@ -431,6 +355,8 @@ def compare_multiwinner_methods(
 def get_spav_result(
     approval_ballots: List[List[str]],
     num_seats:        int,
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
     """
     Sequential Proportional Approval Voting (SPAV).
@@ -440,6 +366,9 @@ def get_spav_result(
     is divided by (1 + number_of_elected_already_approved_by_that_ballot).
 
     Satisfies Proportional Justified Representation (PJR).
+
+    `rng`: see `get_dhondt_winners` -- an exact score tie goes to whichever
+    candidate is listed first in the ballots unless a generator is passed.
 
     Returns
     -------
@@ -475,7 +404,7 @@ def get_spav_result(
                 if c in remaining:
                     scores[c] += weights[i]
 
-        winner = max(remaining, key=lambda c: (scores[c], -all_cands.index(c)))
+        winner = break_tie(scores, rng)
         elected.append(winner)
 
         rounds.append({
@@ -537,7 +466,7 @@ def get_phragmen_result(
 
         best_candidate: Optional[str] = None
         best_max_load  = math.inf
-        best_new_loads: List[float] = loads[:]
+        best_new_loads: List[float] = loads.copy()
 
         for c in remaining:
             supporters = [i for i, b in enumerate(approval_ballots) if c in b]
@@ -557,7 +486,7 @@ def get_phragmen_result(
             ):
                 best_max_load   = new_max
                 best_candidate  = c
-                best_new_loads  = loads[:]
+                best_new_loads  = loads.copy()
                 for i in supporters:
                     best_new_loads[i] += load_increment
 
@@ -599,6 +528,8 @@ def _mes_rho(budgets_sorted: List[float]) -> float:
 def get_equal_shares_result(
     approval_ballots: List[List[str]],
     num_seats:        int,
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
     """
     Method of Equal Shares / Rule X (Peters & Skowron, 2020) for an equal-size
@@ -609,7 +540,8 @@ def get_equal_shares_result(
     among affordable candidates we pick the one with the smallest per-voter price
     rho (the most "equally cheap"), and its supporters pay min(budget_i, rho).
     When no candidate is affordable, the committee is completed by approval score
-    (a stated completion rule). Satisfies Extended Justified Representation (EJR).
+    (a stated completion rule; a tie there is drawn by `top_k` when `rng` is
+    given, else goes by name). Satisfies Extended Justified Representation (EJR).
 
     Returns
     -------
@@ -633,7 +565,7 @@ def get_equal_shares_result(
 
     elected: List[str] = []
     rounds: List[Dict[str, Any]] = []
-    remaining = list(all_cands)
+    remaining = all_cands.copy()
 
     while len(elected) < k:
         best_c: Optional[str] = None
@@ -659,11 +591,12 @@ def get_equal_shares_result(
         rounds.append({"round": len(elected) - 1, "winner": best_c, "rho": round(best_rho, 4)})
 
     # Completion (budget exhausted): fill remaining seats by raw approval score.
+    # A tie used to go to whichever ballot named the candidate first.
     if len(elected) < k:
         appro = {c: len(supporters[c]) for c in remaining}
-        for c in sorted(remaining, key=lambda x: (-appro[x], all_cands.index(x))):
-            if len(elected) >= k:
-                break
+        fill = top_k(appro, k - len(elected), rng) if rng else \
+            sorted(remaining, key=lambda x: (-appro[x], x))[: k - len(elected)]
+        for c in fill:
             elected.append(c)
             rounds.append({"round": len(elected) - 1, "winner": c, "rho": None})
 
@@ -696,7 +629,7 @@ def check_justified_representation(
     W = set(committee)
     quota = n / k
     sets = [set(b) for b in approval_ballots]
-    cands = sorted({c for b in approval_ballots for c in b} | W)
+    cands = sorted(set(chain.from_iterable(approval_ballots)) | W)
     max_l = min(k, len(cands))
 
     jr = pjr = ejr = True
