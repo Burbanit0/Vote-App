@@ -5261,3 +5261,28 @@ def test_run_simulation_refuses_a_client_injected_into_a_deterministic_config(tm
     # would otherwise silently turn the LLM path on.
     with pytest.raises(PolityConfigError, match="'llm.enabled' is false"):
         run_simulation(_config_with_output_dir(tmp_path), run_id="mismatch", llm_client=_FakeLlmClient())
+
+
+def test_each_legislative_election_draws_its_seat_ties_from_its_own_seeded_lot(tmp_path, monkeypatch):
+    """A seat tie used to go to the lowest party_id. Each election now gets a
+    lot seeded from (run seed, tick): reproducible, and independent of every
+    checkpointed stream."""
+    import random
+
+    real = run_polity_simulation_module.allocate_seats
+    draws = []
+
+    def spy(*args, rng=None, **kwargs):
+        probe = random.Random()
+        probe.setstate(rng.getstate())  # read the lot without consuming it
+        draws.append(probe.random())
+        return real(*args, rng=rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "allocate_seats", spy)
+    config = _config_with_output_dir(tmp_path)
+    journal_path = run_simulation(config, run_id="seat-lot")
+
+    ticks = [e["tick"] for e in _events(journal_path) if e["event_type"] == "legislative_result"]
+    assert ticks and len(draws) == len(ticks)
+    expected = [random.Random(f"legislative-seats:{config.run.seed}:{t}").random() for t in ticks]
+    assert draws == expected

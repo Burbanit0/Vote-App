@@ -1249,3 +1249,23 @@ alone.
 seed and pre-/post-merge commits, would show whether any election outcome changed. Only needed if such a run is cited.
 
 *Status: recorded (engine change, not a bug).*
+
+### OBS-027
+
+**A legislative seat tie now goes to a seeded lot, not to the lowest `party_id`.**
+
+*Seen.* Not in a run: a change. `allocate_seats` used to hand an exact quotient or remainder tie to the first-listed
+party, which in `_hold_legislative_election` is the lowest `party_id`: a structural edge for the party created first,
+invisible in any single run. That edge is removed at the seat stage only: polity's own configured rules still break
+ties by `party_id` upstream and downstream, namely `choose_party` (`simple_rules.py`, an equidistant or equal-utility
+voter picks the lowest `party_id`) and the formateur tie in `form_coalition`. Those are left as they are on purpose. Each legislative election now draws its ties from `random.Random("legislative-seats:<seed>:<tick>")`,
+the same seeded-lot rule as the rest of the app (#638, #643, #659).
+
+The golden references (`gen_polity_golden.py --check`) and the explorer fixture regenerate unchanged, so no recorded run
+hit an exact seat tie; results before and after this change differ only in a run that does.
+
+*Suspected cause.* Not an anomaly: the fix for E1 of the 2026-09 audit plan.
+
+*What would settle it.* Nothing to settle. If a past run is re-run and its seats differ, check this entry first.
+
+*Status: recorded (behaviour change).*
