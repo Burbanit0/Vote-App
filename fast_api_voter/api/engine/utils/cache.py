@@ -28,6 +28,7 @@ import hashlib
 import json
 import logging
 import os
+import uuid
 from functools import wraps
 from typing import Any, Callable, Dict, Tuple
 
@@ -76,8 +77,11 @@ def _get_redis_client() -> Any:
 #: previous build. The voting rules are the highest-blast-radius surface in the
 #: repo; without this, fixing one and shipping it leaves /simulate answering
 #: with the pre-fix winner for up to a full TTL, and no gate can see it (the
-#: parity harness tests the engine, not what Redis returns).
-_BUILD = os.environ.get("GIT_SHA", "dev")[:12]
+#: parity harness tests the engine, not what Redis returns). Nothing in the
+#: repo sets GIT_SHA, so without it each process gets its own namespace: a
+#: restart or ``--reload`` (the compose stack mounts the source) starts cold
+#: instead of reading the previous code's answers.
+_BUILD = os.environ.get("GIT_SHA", "")[:12] or uuid.uuid4().hex[:12]
 
 
 def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], WorkerFn]:
