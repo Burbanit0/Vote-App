@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random as _random
+from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
@@ -21,7 +22,7 @@ from api.engine.utils.profile_engine import (
     turnout_mask, community_voters, spatial_cycle_rate,
 )
 from api.engine.utils.simulation_multiwinner_utils import (
-    compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners,
+    compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners, top_k,
 )
 from ._helpers import inter_method_agreement as _inter_method_agreement
 
@@ -56,8 +57,9 @@ def _no_show_report(
     if len(ids) < 4 or len(names) < 3:
         return viol
     groups: Dict[str, List[int]] = {}
+    by_name = sorted(names)  # a voter's tied favourites: the first by name, not by listing
     for vid in ids:
-        fav = max(names, key=lambda n: matrix[vid][n])
+        fav = max(by_name, key=lambda n: matrix[vid][n])
         groups.setdefault(fav, []).append(vid)
     for gids in groups.values():
         if len(gids) >= len(ids):
@@ -289,9 +291,13 @@ def _minimal_winning_coalitions(
             for j in range(i + 1, len(members)):
                 a, b = positions[members[i]], positions[members[j]]
                 span = max(span, math.hypot(a[0] - b[0], a[1] - b[1]))
-        out.append({"parties": sorted(members), "seats": total, "span": round(span, 4)})
-    out.sort(key=lambda c: (c["span"], -c["seats"]))
-    return out[:12]
+        out.append({"parties": sorted(members), "seats": total, "span": span})
+    # Ranked on the span to 9 places, rounded to 4 only for output: 4 places
+    # made spans 1e-5 apart tie, and a tie kept the mask's listing order; 9
+    # still lets equal spans that differ by float noise (0.3-0.1 vs 0.5-0.3)
+    # reach the seat count. Equal coalitions end by name.
+    out.sort(key=lambda c: (round(c["span"], 9), -c["seats"], c["parties"]))
+    return [{**c, "span": round(c["span"], 4)} for c in out[:12]]
 
 
 def _district_winner(counts: "_np.ndarray", names: List[str], lots: "_np.random.Generator") -> str:
@@ -330,6 +336,8 @@ def _allocate_assembly(
     # Duverger (P4): voters iteratively abandon non-viable parties for the
     # nearest viable one (FPTP: district top-2; PR/MMP lists: above-threshold).
     if desertion:
+        # Its own generator: a lot here must not shift the PR or district lots.
+        desertion_lots = _random.Random(lot_seed)
         order_b = _np.argsort(band_axis, kind="stable")
         d_bands = _np.array_split(order_b, seats_total) if structure == "fptp" else []
         for _ in range(3):  # a few best-response rounds reach a near fixed point
@@ -339,7 +347,12 @@ def _allocate_assembly(
                     if len(band) < 2:
                         continue
                     counts = _np.bincount(choice[band], minlength=len(names))
-                    viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
+                    # The district's top two; a tie for second is drawn, not
+                    # left to argsort's listing order. Weaker first, as argsort
+                    # had it: an equidistant deserter's argmin below picks it.
+                    viable = [names.index(n) for n in reversed(top_k(
+                        {n: int(counts[i]) for i, n in enumerate(names) if counts[i] > 0},
+                        2, desertion_lots))]
                     if len(viable) < 2:
                         continue
                     sub = d2[_np.ix_(band, viable)]
@@ -729,6 +742,10 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         return seats
 
     votes_nat = {n: int((choice == i).sum()) for i, n in enumerate(names)}
+    # One national ranking for everything below that needs "the largest": most
+    # votes first, a tie drawn -- so the efficiency gap's pair, the at-large
+    # sweep and the cumulative cutoff agree, and none follows listing order.
+    ranked = top_k(votes_nat, len(names), _random.Random(seed))
     seats_eq, seats_sk = _fptp(bands_eq), _fptp(bands_sk)
     g_eq = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_eq)
     g_sk = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_sk)
@@ -748,8 +765,7 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     }
 
     # ── Efficiency gap (two largest parties, skewed districting) ───────────
-    top2 = sorted(range(len(names)), key=lambda i: -votes_nat[names[i]])[:2]
-    a_i, b_i = top2
+    a_i, b_i = names.index(ranked[0]), names.index(ranked[1])
     wasted_a = wasted_b = two_party_total = 0
     for band in bands_sk:
         counts = _np.bincount(choice[band], minlength=len(names))
@@ -759,9 +775,12 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         if va > vb:
             wasted_a += va - win_threshold
             wasted_b += vb
-        else:
+        elif vb > va:
             wasted_b += vb - win_threshold
             wasted_a += va
+        else:  # a tied district elects neither: it used to count as B's win
+            wasted_a += va
+            wasted_b += vb
     efficiency_gap_out = {
         "party_a": names[a_i],
         "party_b": names[b_i],
@@ -788,17 +807,19 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     # ── Cumulative vs bloc voting, M seats at large ─────────────────────────
     shares = _np.array([votes_nat[n] for n in names], dtype=float) / num_voters
-    sweep = names[int(shares.argmax())]
+    sweep = ranked[0]
     seats_bloc = {n: (m_seats if n == sweep else 0) for n in names}
     # Cumulative with poll-informed nomination: party i fields k_i candidates,
     # voters spread their M votes evenly → per-candidate strength share/k.
     k = _np.maximum(1, _np.round(shares * m_seats).astype(int))
+    # Strength as an exact fraction (votes/k orders as share/k does): equal
+    # strengths tie exactly, and a tie at the cutoff goes by the national ranking.
     candidates = [
-        (shares[i] / k[i], n)
+        (Fraction(votes_nat[n], int(k[i])), n)
         for i, n in enumerate(names) if shares[i] > 0
         for _c in range(int(k[i]))
     ]
-    candidates.sort(key=lambda t: -t[0])
+    candidates.sort(key=lambda t: (-t[0], ranked.index(t[1])))
     seats_cum = {n: 0 for n in names}
     for _strength, n in candidates[:m_seats]:
         seats_cum[n] += 1
