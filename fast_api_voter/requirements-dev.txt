@@ -38,7 +38,7 @@ pytest-randomly==5.0.0  # Randomizes test order every run (Lot 5, PLAN_SOLIDITE_
 defusedxml==0.7.1       # Safe (non-XXE) JUnit XML parsing in scripts/check_flaky_backend.py --
                         # was already present transitively (py-serializable), declared directly
                         # now that this repo's own code imports it.
-syrupy==6.0.0           # Snapshot testing (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md) -- readable,
+syrupy==6.1.1           # Snapshot testing (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md) -- readable,
                         # reviewable diffs for compare_all_methods' rich nested output instead
                         # of hand-written field-by-field assertions. See
                         # api/tests/test_compare_all_methods_snapshot.py.
@@ -63,7 +63,7 @@ mutmut==3.8.0  # 3.7.0 crashed under numpy>=2.4 (numpy/numpy#29030's new
                # by gathering coverage in a separate process (#528, #566).
 
 # Code quality
-ruff==0.16.7         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
+ruff==0.16.8         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
                      # fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint]
                      # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
@@ -74,7 +74,7 @@ deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.m
                        # Python equivalent, informational; see pyproject.toml [tool.deptry])
 import-linter==2.15    # Blocking routes -> domain -> engine layering (Lot 2,
                        # PLAN_SOLIDITE_TECHNIQUE.md; see pyproject.toml [tool.importlinter])
-schemathesis==4.27.0   # OpenAPI contract fuzzing (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md;
+schemathesis==4.27.3   # OpenAPI contract fuzzing (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md;
                        # see api/tests/test_schema_contract.py + schemathesis.yml)
 z3-solver==5.1.0.0     # SMT proofs over symbolic vote counts, ALL electorates at once
                        # rather than sampled ones (Lot 4.6, PLAN_SOLIDITE_TECHNIQUE.md;
