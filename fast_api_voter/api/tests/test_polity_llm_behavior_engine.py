@@ -4639,3 +4639,13 @@ def test_no_entry_point_overrides_sampling_on_a_successful_first_attempt(label, 
 
     assert client.temperatures == [None] * client.calls
     assert client.seeds == [None] * client.calls
+
+
+def test_toon_pressure_call_constants_rejects_a_null_ticks_to_election():
+    from types import SimpleNamespace
+
+    from api.domain.polity.llm_behavior_engine import _toon_pressure_call_constants
+
+    ctx = SimpleNamespace(target=1, mandate_dev=0.2, ticks_to_election=None)
+    with pytest.raises(ValueError, match="null ticks_to_election"):
+        _toon_pressure_call_constants([ctx, ctx])
