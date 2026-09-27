@@ -575,3 +575,137 @@ class TestMultiwinnerCompare:
             for _ in range(12)
         }
         assert len(runs) == 1
+
+
+# ── Playground (/assembly, /assembly-scorecard, /structural-fairness, /profile-simulate) ──
+
+_FOUR_PARTIES = [
+    {"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
+    {"name": "Droite", "x": 0.6, "y": 0.0}, {"name": "Verts", "x": -0.3, "y": 0.6},
+]
+
+
+def _by_name(rows, *keys):
+    return sorted((tuple(r[k] for k in ("name", *keys)) for r in rows))
+
+
+class TestPlaygroundListingOrder:
+    """Each seed below gave a different answer with the parties listed in
+    reverse before this change (a district's tied second place under strategic
+    desertion; a tied national ranking for the efficiency-gap pair, the at-large
+    sweep and the cumulative cutoff; a tied district in the efficiency gap)."""
+
+    @pytest.mark.parametrize("seed", [2, 3, 4])
+    def test_assembly_with_strategic_desertion(self, seed):
+        req = {"num_voters": 60, "structure": "fptp", "seats": 10, "threshold": 0.0,
+               "strategic_desertion": True, "seed": seed}
+        a = play_mod._assembly_worker({**req, "parties": _FOUR_PARTIES})[0]
+        b = play_mod._assembly_worker({**req, "parties": _FOUR_PARTIES[::-1]})[0]
+        assert _by_name(a["parties"], "votes", "seats") == _by_name(b["parties"], "votes", "seats")
+        assert a["coalitions"] == b["coalitions"] and a["congruence"] == b["congruence"]
+
+    @pytest.mark.parametrize("seed", [0, 15, 22])
+    def test_structural_fairness(self, seed):
+        req = {"num_voters": 50, "districts": 5, "at_large_seats": 5, "seed": seed}
+        a = play_mod._structural_fairness_worker({**req, "parties": _FOUR_PARTIES})[0]
+        b = play_mod._structural_fairness_worker({**req, "parties": _FOUR_PARTIES[::-1]})[0]
+        assert a["efficiency_gap"] == b["efficiency_gap"]
+        assert a["cumulative"] == b["cumulative"]
+
+
+def test_desertion_without_a_count_tie_is_unchanged():
+    """No district ties on votes here, but voters sit exactly on y = x, so some
+    deserters are equidistant from both viable parties and argmin takes the
+    first of `viable`. It must stay weaker-first, as argsort had it: best-first
+    moved seats (P 6 / Q 4) with no tie in any count."""
+    body = play_mod._assembly_worker({
+        "parties": [{"name": "P", "x": 0.2, "y": 0.6}, {"name": "Q", "x": 0.6, "y": 0.2},
+                    {"name": "R", "x": 0.7, "y": 0.7}],
+        "electorate": {"mode": "composed", "correlation": 1.0, "communities": [
+            {"id": "a", "x": 0.3, "y": 0.3, "spread": 0.3, "weight": 2},
+            {"id": "b", "x": 0.48, "y": -0.3, "spread": 0.3, "weight": 1}]},
+        "structure": "fptp", "seats": 10, "threshold": 0.0, "strategic_desertion": True,
+        "num_voters": 400, "seed": 0,
+    })[0]
+    assert {p["name"]: p["seats"] for p in body["parties"]} == {"P": 7, "Q": 3, "R": 0}
+
+
+def test_a_tied_district_is_nobodys_win_in_the_efficiency_gap(monkeypatch):
+    """Every district split exactly 10-10 between A and B. A tie used to count
+    as B's win, wasting -1 of B's votes per district and reporting a 0.55 gap
+    for a perfectly even map; now nobody wins a tied district."""
+    import numpy as np
+
+    def pairs(n, seed, ideology, electorate):  # an A voter and a B voter at each x
+        return np.column_stack([np.repeat(np.linspace(-0.9, 0.9, n // 2), 2), np.tile([-0.5, 0.5], n // 2)])
+
+    monkeypatch.setattr(play_mod, "_assembly_voters", pairs)
+    gap = play_mod._structural_fairness_worker({
+        "num_voters": 100, "districts": 5, "malapportionment": 0.0, "seed": 1,
+        "parties": [{"name": "A", "x": 0.0, "y": -0.5}, {"name": "B", "x": 0.0, "y": 0.5}],
+    })[0]["efficiency_gap"]
+    assert (gap["gap"], gap["wasted_a"], gap["wasted_b"]) == (0.0, 50, 50)
+
+
+def test_cumulative_strengths_are_compared_exactly(monkeypatch):
+    """6 at-large seats; A 7 votes on 1 candidate, B 21 on 3, C 22 on 3. A's
+    and each of B's candidates are worth exactly 7 votes, but as floats
+    0.14/1 sat above 0.42/3 (0.13999999999999999), so A took the seat the
+    tie-break (national ranking: B has more votes) gives B."""
+    import numpy as np
+
+    def blocs(n, seed, ideology, electorate):
+        return np.array([[-0.6, 0.0]] * 7 + [[0.0, 0.0]] * 21 + [[0.6, 0.0]] * 22)
+
+    monkeypatch.setattr(play_mod, "_assembly_voters", blocs)
+    cum = play_mod._structural_fairness_worker({
+        "num_voters": 50, "districts": 5, "at_large_seats": 6, "seed": 1,
+        "parties": [{"name": "A", "x": -0.6, "y": 0.0}, {"name": "B", "x": 0.0, "y": 0.0},
+                    {"name": "C", "x": 0.6, "y": 0.0}],
+    })[0]["cumulative"]
+    assert cum["seats_cumulative"] == {"A": 0, "B": 3, "C": 3}
+
+
+class TestMinimalWinningCoalitions:
+    SEATS = {"A": 40, "B": 40, "C": 40}
+
+    def test_equal_spans_end_by_name_whatever_the_listing(self):
+        positions = {"A": (0.0, 0.0), "B": (1.0, 0.0), "C": (0.0, 1.0)}  # AB = AC = 1
+        for seats in (self.SEATS, dict(reversed(list(self.SEATS.items())))):
+            got = [c["parties"] for c in play_mod._minimal_winning_coalitions(seats, positions, 61)]
+            assert got == [["A", "B"], ["A", "C"], ["B", "C"]]
+
+    def test_spans_apart_by_less_than_the_output_rounding_still_rank_by_span(self):
+        """1.00001 and 1.0 both print as 1.0, but A-C is the narrower: it comes
+        first, where rounding first sent the tie to A-B by name."""
+        positions = {"A": (0.0, 0.0), "B": (1.00001, 0.0), "C": (0.0, 1.0)}
+        for seats in ({"C": 40, "B": 40, "A": 40}, self.SEATS):
+            got = play_mod._minimal_winning_coalitions(seats, positions, 61)
+            assert [c["parties"] for c in got][:2] == [["A", "C"], ["A", "B"]]
+            assert got[0]["span"] == got[1]["span"] == 1.0
+
+    def test_equal_spans_that_differ_by_float_noise_still_go_to_the_larger(self):
+        """0.3-0.1 is 0.19999999999999998 and 0.5-0.3 is 0.2: the same span,
+        so B+C's 64 seats beat A+B's 56 -- as they do shifted by +0.2."""
+        seats = {"A": 26, "B": 30, "C": 34}
+        for shift in (0.0, 0.2):
+            positions = {"A": (0.1 + shift, 0.0), "B": (0.3 + shift, 0.0), "C": (0.5 + shift, 0.0)}
+            assert play_mod._minimal_winning_coalitions(seats, positions, 51)[0]["parties"] == ["B", "C"]
+
+
+def test_no_show_groups_a_tied_favourite_by_name_not_listing():
+    from api.engine.utils.simulation_metrics import compare_all_methods
+
+    names = ["A", "B", "C", "D"]
+    rows = [[1.0, 0.0, 1.0, 0.5], [0.5, 1.0, 0.5, 0.0], [1.0, 0.0, 0.0, 1.0],
+            [0.5, 1.0, 1.0, 1.0], [0.0, 1.0, 0.5, 0.5], [0.0, 1.0, 0.5, 1.0],
+            [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.5], [0.0, 0.0, 0.5, 1.0]]
+    matrix = {i: dict(zip(names, r)) for i, r in enumerate(rows)}
+
+    def report(order):
+        cands = [{"name": n} for n in order]
+        base = compare_all_methods([{"id": i} for i in matrix], cands, [], override_utilities=matrix)
+        winners = {m: md.get("winner") for m, md in base["methods"].items()}
+        return play_mod._no_show_report(cands, matrix, winners)
+
+    assert report(names) == report(names[::-1])
