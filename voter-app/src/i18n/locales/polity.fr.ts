@@ -165,6 +165,15 @@ const polityFr = {
     censusOffice: 'Fonction',
     censusParty: 'Parti',
     roles: 'Rôles et mandat',
+    turns: 'Tours d’agent',
+    turn: {
+      speech: 'Discours',
+      moves: 'Positions',
+      bill: 'Projet de loi',
+      rationale: 'Raisonnement',
+      note: 'Note pour soi',
+      initiative: 'Tenté hors des règles',
+    },
     candidacies: 'Candidatures',
     votes: 'Bulletins',
     pressureActs: 'Actes de pression',
@@ -190,6 +199,7 @@ const polityFr = {
       depute: 'député',
     },
     eventNames: {
+      agent_turn: 'tour',
       candidacy_considered: 'candidature envisagée',
       candidacy_declared: 'candidature déclarée',
       nomination_lost: 'investiture perdue',

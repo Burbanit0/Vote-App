@@ -186,6 +186,7 @@ class PolityBiographyEntry(_Model):
 
 class PolityBiographySections(_Model):
     roles: List[PolityBiographyEntry]
+    turns: List[PolityBiographyEntry] = Field(..., description="An agent's turns (ADR-014): speech, moves, bill, note to self.")
     candidacies: List[PolityBiographyEntry]
     votes: List[PolityBiographyEntry]
     pressure_acts: List[PolityBiographyEntry]

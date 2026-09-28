@@ -161,6 +161,15 @@ const polityEn: PolityKeys = {
     censusOffice: 'Office',
     censusParty: 'Party',
     roles: 'Roles and office',
+    turns: 'Turns as an agent',
+    turn: {
+      speech: 'Speech',
+      moves: 'Positions',
+      bill: 'Bill',
+      rationale: 'Reasoning',
+      note: 'Note to self',
+      initiative: 'Tried outside the rules',
+    },
     candidacies: 'Candidacies',
     votes: 'Ballots',
     pressureActs: 'Pressure acts',
@@ -186,6 +195,7 @@ const polityEn: PolityKeys = {
       depute: 'deputy',
     },
     eventNames: {
+      agent_turn: 'turn',
       candidacy_considered: 'candidacy considered',
       candidacy_declared: 'candidacy declared',
       nomination_lost: 'nomination lost',

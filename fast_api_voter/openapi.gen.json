@@ -8335,6 +8335,14 @@
             "title": "Roles",
             "type": "array"
           },
+          "turns": {
+            "description": "An agent's turns (ADR-014): speech, moves, bill, note to self.",
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Turns",
+            "type": "array"
+          },
           "votes": {
             "items": {
               "$ref": "#/components/schemas/PolityBiographyEntry"
@@ -8345,6 +8353,7 @@
         },
         "required": [
           "roles",
+          "turns",
           "candidacies",
           "votes",
           "pressure_acts",

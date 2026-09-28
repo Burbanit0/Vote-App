@@ -177,6 +177,18 @@ def test_a_rationale_is_cut_short_and_an_unknown_motif_stays_undecoded(runs: dic
     assert [(e.event_type, e.motif, e.rationale) for e in others] == [("scandal_occurred", None, "short"), ("future_event", None, None)]
 
 
+def test_an_agent_s_turns_make_a_diary_with_its_moves_in_words(runs: dict[str, Path], tmp_path: Path) -> None:
+    run_dir = Path(shutil.copytree(runs["deterministic"], tmp_path / "run"))
+    turn = {"speech": "We build.", "rationale": "housing first", "note_to_self": "watch the assembly", "other_initiative": "",
+            "shifts": [{"dimension": 9, "delta": 0.1}], "bill": [{"dimension": 0, "delta": -0.05}],
+            "llm_fallback": 0, "retry_sampling_varied": 0, "llm_call_id": "c"}
+    with (run_dir / "events.jsonl").open("a") as handle:
+        handle.write(json.dumps({"event_id": 10**6, "tick": 12, "citizen_id": 2, "event_type": "agent_turn", "payload": turn}) + "\n")
+    [entry] = build_biography(RunView.load(run_dir), 2).sections["turns"]
+    assert entry.details["speech"] == "We build." and entry.details["note_to_self"] == "watch the assembly"
+    assert (entry.details["moves"], entry.details["bill"]) == ("housing +0.10", "taxation -0.05")
+
+
 # ── catalog ───────────────────────────────────────────────────────────────
 
 def test_run_roots_are_label_path_pairs() -> None:

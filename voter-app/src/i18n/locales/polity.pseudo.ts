@@ -165,6 +165,15 @@ const polityPseudo: PolityKeys = {
     censusOffice: '⟦Fóñçtíóñ~~~⟧',
     censusParty: '⟦Pártí~~⟧',
     roles: '⟦Rôlés~~ ét~ máñdát~~~⟧',
+    turns: '⟦Tóúrs~~ d’ágéñt~~~⟧',
+    turn: {
+      speech: '⟦Dísçóúrs~~~⟧',
+      moves: '⟦Pósítíóñs~~~~⟧',
+      bill: '⟦Prójét~~~ dé~ lóí~~⟧',
+      rationale: '⟦Ráísóññéméñt~~~~~⟧',
+      note: '⟦Nóté~~ póúr~~ sóí~~⟧',
+      initiative: '⟦Téñté~~ hórs~~ dés~~ règlés~~~⟧',
+    },
     candidacies: '⟦Cáñdídátúrés~~~~~⟧',
     votes: '⟦Búllétíñs~~~~⟧',
     pressureActs: '⟦Áçtés~~ dé~ préssíóñ~~~⟧',
@@ -190,6 +199,7 @@ const polityPseudo: PolityKeys = {
       depute: '⟦dépúté~~~⟧',
     },
     eventNames: {
+      agent_turn: '⟦tóúr~~⟧',
       candidacy_considered: '⟦çáñdídátúré~~~~ éñvíságéé~~~~⟧',
       candidacy_declared: '⟦çáñdídátúré~~~~ déçláréé~~~⟧',
       nomination_lost: '⟦íñvéstítúré~~~~ pérdúé~~~⟧',
