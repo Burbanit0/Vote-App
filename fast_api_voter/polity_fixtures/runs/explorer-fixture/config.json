@@ -1,6 +1,8 @@
 {
   "agents": {
     "amendments": false,
+    "forum": false,
+    "forum_size": 30,
     "nominees": false,
     "president": false,
     "turn_temperature": 0.0

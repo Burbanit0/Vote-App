@@ -160,8 +160,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 
 | PR | Deliverable |
 |---|---|
-| 3.1 | **Citizen promotion.** A citizen consulted in at least 3 of the last 4 ticks, or who launches a petition, becomes an agent. The number of agents is capped at `agents.max_full`, and an agent is demoted after 8 idle ticks. Agent ids go into the checkpoint, the tier's first piece of stored state. |
-| 3.2 | **One forum.** A `post` intent produces a `forum_post` event. The feed is the last N posts from graph neighbours and officeholders. Chamber deliberation is the same forum filtered to the chamber, so the chamber finally deliberates (OBS-004). |
+| 3.1 + 3.2 | **The forum** (`feat/polity-citizen-agents`, ADR-016). The agent set is derived from the journal rather than promoted: the sortition chamber's members and the citizens who launched a petition in the last 8 ticks (`agents.forum_size` caps them). Each takes one turn a tick, in parallel and blind, and posts or stays silent (`forum_post` event). The feed is the last 8 posts of their graph neighbours, the president and nominees, and, for a chamber member, the other members. No promotion counter, `agents.max_full` or checkpoint field: the window runs out by itself. |
 | 3.3 | **Opinion change.** Reflection returns a bounded `stance_update` on the latent factors, and ADR-012 dynamics are turned ON. Agents are already nodes of the social graph, so their movement reaches the crowd with no new code. |
 | 3.4 | **Explorer.** A forum reader. |
 

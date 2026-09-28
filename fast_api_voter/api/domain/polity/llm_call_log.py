@@ -61,6 +61,7 @@ _DECISION_TYPE_BY_TITLE = {
         (llm_schemas.LEADER_TURN_JSON_SCHEMA, "president_turn"),
         (llm_schemas.AMENDING_LEADER_TURN_JSON_SCHEMA, "president_turn"),
         (llm_schemas.AMENDMENT_BALLOT_JSON_SCHEMA, "amendment_vote"),
+        (llm_schemas.FORUM_TURN_JSON_SCHEMA, "forum_post"),
     )
 }
 

@@ -37,9 +37,11 @@ from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, _d
 from api.domain.polity.llm_schemas import (
     AMENDING_LEADER_TURN_JSON_SCHEMA,
     AMENDMENT_BALLOT_JSON_SCHEMA,
+    FORUM_TURN_JSON_SCHEMA,
     LEADER_TURN_JSON_SCHEMA,
     AmendingLeaderTurn,
     AmendmentBallot,
+    ForumTurn,
     IssueTarget,
     LeaderTurn,
     PositionShift,
@@ -51,6 +53,9 @@ _logger = logging.getLogger(__name__)
 PRESIDENT_TURN = "president_turn"
 NOMINEE_TURN = "nominee_turn"
 AMENDMENT_VOTE = "amendment_vote"
+FORUM_POST = "forum_post"
+FORUM_IDLE_TICKS, FEED_SIZE = 8, 8
+"""A citizen who launched a petition stays on the forum this many ticks; a turn reads this many posts."""
 _RETRY_TEMPERATURE = 0.3
 _RETRY_SEED_BASE = 900_000_901
 SPEECH_LIMIT, RATIONALE_LIMIT, NOTE_LIMIT, INITIATIVE_LIMIT = 400, 300, 200, 200
@@ -144,7 +149,7 @@ def persona(citizen: Citizen) -> str:
 # ── memory ────────────────────────────────────────────────────────────────
 
 _PUBLIC_EVENT_TYPES = INSTITUTIONAL_EVENT_TYPES | {"bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted"}
-_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated", "amendment_vote"})
+_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated", "amendment_vote", "forum_post"})
 
 
 class AgentMemory:
@@ -158,8 +163,15 @@ class AgentMemory:
     def __init__(self, public_window: int = 16, own_window: int = 8) -> None:
         self.public: deque[JournalEvent] = deque(maxlen=public_window)
         self.own: defaultdict[int, deque[JournalEvent]] = defaultdict(lambda: deque(maxlen=own_window))
+        self.posts: deque[JournalEvent] = deque(maxlen=public_window * 4)
+        self.petitioned: dict[int, int] = {}
+        """Each citizen who launched a petition, and when they last did."""
 
     def observe(self, event: JournalEvent) -> None:
+        if event.event_type == "petition_launched" and event.citizen_id is not None:
+            self.petitioned[event.citizen_id] = event.tick
+        if event.payload.get("post") or event.payload.get("speech"):
+            self.posts.append(event)
         if event.event_type in _OWN_EVENT_TYPES and event.citizen_id is not None:
             self.own[event.citizen_id].append(event)
         elif event.event_type in _PUBLIC_EVENT_TYPES:
@@ -178,6 +190,23 @@ class AgentMemory:
             "Recent public events:\n" + ("\n".join(public) or "- none yet")
             + "\n\nYour recent record:\n" + ("\n".join(own) or "- nothing yet")
         )
+
+
+    def recent_petitioners(self, tick: int) -> list[int]:
+        """The citizens who launched a petition within FORUM_IDLE_TICKS, latest first."""
+        recent = [(t, cid) for cid, t in self.petitioned.items() if tick - t < FORUM_IDLE_TICKS]
+        return [cid for _, cid in sorted(recent, key=lambda p: (-p[0], p[1]))]
+
+    def feed(self, reader: int, authors: frozenset[int]) -> str:
+        """The last posts the reader can see: the president's and nominees' speeches, and the posts
+        of `authors` -- never their own, which the model would echo (OBS-028)."""
+        seen = [e for e in self.posts if e.citizen_id != reader and (e.event_type == "agent_turn" or e.citizen_id in authors)]
+        lines = [
+            f"- t{e.tick} the {e.payload['role']}: \"{e.payload['speech']}\"" if e.event_type == "agent_turn"
+            else f"- t{e.tick} citizen {e.citizen_id}: \"{e.payload['post']}\""
+            for e in seen[-FEED_SIZE:]
+        ]
+        return "On the forum:\n" + ("\n".join(lines) or "- nothing yet")
 
 
 def _who(event: JournalEvent) -> str:
@@ -204,6 +233,8 @@ def _own_line(event: JournalEvent) -> str:
         return f"- t{event.tick} legitimacy {payload['legitimacy']:.2f}{approval}"
     if event.event_type == "amendment_vote":
         return f"- t{event.tick} you voted {payload['vote']} on changing {payload['article']}; note to self: \"{payload['note_to_self']}\""
+    if event.event_type == "forum_post":
+        return f"- t{event.tick} you {'posted' if payload['post'] else 'kept silent'}; note to self: \"{payload['note_to_self']}\""
     bill = f"; bill {describe_moves(payload['bill'])}" if payload["bill"] else ""
     return (
         f"- t{event.tick} you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
@@ -568,3 +599,39 @@ def ballot_words(ballot: AmendmentBallot | None) -> dict[str, str]:
     if ballot is None:
         return {"statement": "", "rationale": "", "note_to_self": ""}
     return {"statement": ballot.statement[:SPEECH_LIMIT], "rationale": ballot.rationale[:RATIONALE_LIMIT], "note_to_self": ballot.note_to_self[:NOTE_LIMIT]}
+
+
+# ── the forum ─────────────────────────────────────────────────────────────
+
+def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
+    """A forum participant's rules and who they are -- stable for the run, so a prefix."""
+    return (
+        "You are playing a citizen of a simulated democracy, in the first person.\n\n"
+        f"{persona(citizen)}\n\n"
+        "Each tick you may say one thing on the public forum, or keep silent. You read what your neighbours, "
+        "the president and, if you sit in the citizens' chamber, the other members posted. What you say and "
+        "whether you say anything is yours to decide.\n\n"
+        "Answer with one JSON object in the schema given. \"rationale\" is your private reasoning "
+        f"(at most {RATIONALE_LIMIT} characters). \"post\" is your message (at most {SPEECH_LIMIT} characters); "
+        f"leave it empty to keep silent. \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
+    )
+
+
+def forum_user_prompt(*, tick: int, member: bool, feed: str, memory: str) -> str:
+    seat = " You sit in the citizens' chamber." if member else ""
+    return f"Tick {tick}.{seat}\n\n{feed}\n\n{memory}\n\nYour turn."
+
+
+def decide_forum(
+    citizen: Citizen, *, system_prompt: str, user_prompt: str, config: PolityConfig, client: LlmClientProtocol,
+) -> TurnOutcome[ForumTurn]:
+    return decide(
+        citizen, decision_type=FORUM_POST, system_prompt=system_prompt, user_prompt=user_prompt,
+        json_schema=FORUM_TURN_JSON_SCHEMA, config=config, client=client, decode=lambda raw: decode_one(raw, ForumTurn),
+    )
+
+
+def forum_words(turn: ForumTurn | None) -> dict[str, str]:
+    if turn is None:
+        return {"post": "", "rationale": "", "note_to_self": ""}
+    return {"post": turn.post[:SPEECH_LIMIT], "rationale": turn.rationale[:RATIONALE_LIMIT], "note_to_self": turn.note_to_self[:NOTE_LIMIT]}

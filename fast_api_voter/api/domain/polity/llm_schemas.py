@@ -406,6 +406,19 @@ class AmendmentBallot(BaseModel):
 AMENDMENT_BALLOT_JSON_SCHEMA = AmendmentBallot.model_json_schema()
 
 
+class ForumTurn(BaseModel):
+    """A citizen's turn on the forum: a post, or silence (an empty post)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    post: str
+    note_to_self: str
+
+
+FORUM_TURN_JSON_SCHEMA = ForumTurn.model_json_schema()
+
+
 class PressureDecision(BaseModel):
     """One consulted citizen's pressure choice, design doc §3.6.6 — the
     citizen-side symmetry of ResponseDecision. Wire shape is §3.6.6's own

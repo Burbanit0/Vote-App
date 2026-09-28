@@ -65,7 +65,11 @@ from api.domain.polity.agents import (
     ballot_user_prompt,
     ballot_words,
     decide_ballot,
+    decide_forum,
     decide_turn,
+    forum_system_prompt,
+    forum_user_prompt,
+    forum_words,
     moves_payload,
     nominee_system_prompt,
     nominee_user_prompt,
@@ -127,6 +131,7 @@ from api.domain.polity.events import (
     AmendmentResolved,
     AmendmentVote,
     ConstitutionAmended,
+    ForumPost,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -225,7 +230,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import AmendingLeaderTurn, AmendmentBallot, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
@@ -630,7 +635,7 @@ def run_simulation(
         latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
         edges = NeighbourEdges.from_graph(graph)
 
-    memory = AgentMemory() if config.agents.president else None
+    memory = AgentMemory() if config.agents.president or config.agents.forum else None
     if resume:
         checkpoint = load_checkpoint(checkpoint_path)
         if checkpoint.run_id != run_id:
@@ -858,6 +863,37 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
     context.journal.write_event(tick=context.tick, citizen_id=None, event=ConstitutionAmended(
         article=proposal.article, old=old, new=proposal.value, version=state.constitution.version, source="vote",
     ))
+
+
+def _phase_forum(context: TickContext, state: TickState) -> None:
+    """ADR-016: the forum. The chamber's members and the citizens who recently launched a petition
+    each post or stay silent, in parallel and none seeing another's post of this tick. A citizen
+    reads their neighbours, the president and nominees, and, in the chamber, the other members."""
+    config, client, memory = context.config, context.client, context.memory
+    if not config.agents.forum or client is None or memory is None:
+        return
+    members = frozenset(m.citizen_id for m in current_sortition_members(state.citizens)) if config.sortition_chamber.enabled else frozenset()
+    speakers = list(dict.fromkeys([*memory.recent_petitioners(context.tick), *sorted(members)]))[: config.agents.forum_size]
+    neighbours = context.graph.neighbors if context.graph else {}
+
+    def post(chunk: list[Citizen]) -> TurnOutcome[ForumTurn]:
+        [citizen] = chunk
+        cid = citizen.citizen_id
+        return decide_forum(
+            citizen, system_prompt=forum_system_prompt(citizen, config), config=config, client=client,
+            user_prompt=forum_user_prompt(
+                tick=context.tick, member=cid in members, memory=memory.recall(cid),
+                feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
+            ),
+        )
+
+    for cid, outcome in zip(speakers, run_chunks([[state.citizens[c]] for c in speakers], post, config.parallel.intra_run_workers)):
+        context.journal.write_event(tick=context.tick, citizen_id=cid, codebook_version=config.llm.codebook_version, event=ForumPost(
+            **forum_words(outcome.turn),
+            provenance=LlmProvenance(
+                llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
+            ),
+        ))
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -1309,6 +1345,7 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_legislative_election,
     _phase_sortition_chamber,
     _phase_leaders,
+    _phase_forum,
     _phase_legislation,
     _phase_emotions,
     _phase_accountability,
