@@ -335,6 +335,37 @@ class ResponseBatch(BaseModel):
 RESPONSE_JSON_SCHEMA = ResponseBatch.model_json_schema()
 
 
+class IssueTarget(BaseModel):
+    """Where the leader wants a value to be on one issue."""
+
+    # A target, not a signed delta: the first live runs (2026-09-28) had Qwen3-8B promise one
+    # pole and move toward the other, while its own notes named target values. The kernel
+    # takes the bounded step toward the target (agents.steps_toward).
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: int = Field(..., ge=0)
+    target: float = Field(..., ge=0.0, le=1.0)
+
+
+class LeaderTurn(BaseModel):
+    """One leader's turn, in their own words and moves."""
+
+    # ADR-014 (agents.py): not a batch -- one agent, one call. Field order is generation
+    # order, so the reasoning comes before the moves it justifies. The moves' real bounds
+    # (mandate.max_response_*, legislation.max_bill_*) are enforced by agents.validate_turn.
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    positions: list[IssueTarget] = Field(..., max_length=5)
+    bill: list[IssueTarget] = Field(..., max_length=5)
+    speech: str
+    note_to_self: str
+    other_initiative: str
+
+
+LEADER_TURN_JSON_SCHEMA = LeaderTurn.model_json_schema()
+
+
 class PressureDecision(BaseModel):
     """One consulted citizen's pressure choice, design doc §3.6.6 — the
     citizen-side symmetry of ResponseDecision. Wire shape is §3.6.6's own

@@ -592,6 +592,15 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class AgentsConfig:
+    """The agent tier (ADR-014): citizens the model plays in the first person."""
+
+    president: bool
+    """The sitting president is an agent: one turn a tick sets their statement and, when the
+    agenda is theirs, their bill (replacing representative_response and the formula draft)."""
+
+
+@dataclass(frozen=True)
 class PolityConfig:
     """The typed v0 view of polity_config.yaml, plus the full raw mapping
     (`raw`) so a later palier can read its own not-yet-typed section without
@@ -620,6 +629,7 @@ class PolityConfig:
     metrics: MetricsConfig
     llm: LlmConfig
     parallel: ParallelConfig
+    agents: AgentsConfig
     raw: dict[str, Any]
 
 
@@ -745,6 +755,9 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         incumbent_keeps_record=_get(s, "candidacy", "incumbent_keeps_record", bool),
     )
 
+
+ISSUE_COUNT_NAMED = 20
+"""How many issues agents.ISSUES names; the agent tier needs every issue named."""
 
 _VOTE_MODES = {"llm", "utility"}
 
@@ -1136,6 +1149,12 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
+        "'agents.president' requires 'llm.enabled': an agent's turn is a model call"
+    ) if c.agents.president and not c.llm.enabled else None,
+    lambda c: (
+        f"'agents.president' requires 'citizens.issue_count' {ISSUE_COUNT_NAMED}: agents argue about named issues"
+    ) if c.agents.president and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+    lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
         "experiment, indistinguishable from 'pressure_menu.electoral_only'"
@@ -1251,6 +1270,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
         parallel=_parse_parallel(raw),
+        agents=AgentsConfig(president=_get(_section(raw, "agents"), "agents", "president", bool)),
         raw=raw,
     )
     validate_config(config)
