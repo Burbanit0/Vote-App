@@ -598,6 +598,8 @@ class AgentsConfig:
     president: bool
     """The sitting president is an agent: one turn a tick sets their statement and, when the
     agenda is theirs, their bill (replacing representative_response and the formula draft)."""
+    turn_temperature: float = 0.0
+    """Sampling temperature of an agent's turn (0: greedy, like every batch decision)."""
 
 
 @dataclass(frozen=True)
@@ -1270,7 +1272,10 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
         parallel=_parse_parallel(raw),
-        agents=AgentsConfig(president=_get(_section(raw, "agents"), "agents", "president", bool)),
+        agents=AgentsConfig(
+            president=_get(_section(raw, "agents"), "agents", "president", bool),
+            turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
+        ),
         raw=raw,
     )
     validate_config(config)

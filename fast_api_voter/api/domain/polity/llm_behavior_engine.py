@@ -743,6 +743,7 @@ def _complete_and_decode_with_replay(
     retry_temperature: float | None = None,
     retry_seed_base: int | None = None,
     extra_body: Mapping[str, Any] | None = None,
+    temperature: float | None = None,
 ) -> _BatchT:
     """§3.6.10's "un batch invalide est rejoue integralement, jamais
     corrige partiellement" -- the half of that rule the codebase never
@@ -846,7 +847,7 @@ def _complete_and_decode_with_replay(
     a retry needs its own fake client to accept the kwarg."""
     attempt = 0
     while True:
-        sampling = _retry_sampling(attempt, retry_temperature, retry_seed_base)
+        sampling = _retry_sampling(attempt, retry_temperature, retry_seed_base, temperature)
         # `extra_body` (S1.3's thinking budget) goes to the hash and the call alike, and only
         # when set -- the same rule as the sampling overrides, for the same fake clients.
         call_kwargs: dict[str, Any] = {**sampling, **({"extra_body": extra_body} if extra_body else {})}
@@ -868,7 +869,7 @@ def _complete_and_decode_with_replay(
                 )
             result = decode(raw)
             retry_info["attempts"] = attempt
-            retry_info["sampling_varied"] = bool(sampling)
+            retry_info["sampling_varied"] = attempt > 0 and bool(sampling)
             return result
         except LlmResponseError as exc:
             if attempt >= replays:
@@ -890,11 +891,16 @@ def _validated(decisions: list[_DecisionT], validate: Callable[[_DecisionT], Non
     return decisions
 
 
-def _retry_sampling(attempt: int, retry_temperature: float | None, retry_seed_base: int | None) -> dict[str, Any]:
-    """The sampling overrides an attempt sends: none on the first attempt, then the
-    decision type's retry temperature and a seed of base + attempt, whichever are set.
-    Only overrides are sent, never an explicit None (see
-    _complete_and_decode_with_replay)."""
+def _retry_sampling(
+    attempt: int, retry_temperature: float | None, retry_seed_base: int | None, temperature: float | None = None,
+) -> dict[str, Any]:
+    """The sampling overrides an attempt sends: none on the first attempt unless the caller
+    gives it a `temperature` (an agent's turn, ADR-014), sent with the seed base so a
+    single-worker run still regenerates; then the decision type's retry temperature and a
+    seed of base + attempt, whichever are set. Only overrides are sent, never an explicit
+    None (see _complete_and_decode_with_replay)."""
+    if attempt == 0 and temperature is not None:
+        return {"temperature": temperature, **({"seed": retry_seed_base} if retry_seed_base is not None else {})}
     overrides: dict[str, Any] = {}
     if attempt > 0 and retry_temperature is not None:
         overrides["temperature"] = retry_temperature

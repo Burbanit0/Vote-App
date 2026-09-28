@@ -92,9 +92,10 @@ president, a handful of nominees.
 
 ## What this ADR does not settle
 
-- Turn temperature: the first attempt runs at 0, like every other decision. The first live runs
-  repeated a speech over three ticks, which is the trigger the roadmap names, so this is the next
-  step.
+- Turn temperature, settled after this ADR (2026-09-28): `agents.turn_temperature`, 0 by default,
+  0.6 in the exploration profile (Qwen3's thinking-mode value), because non-determinism is wanted.
+  It did not stop the repetition that prompted it; OBS-028 traces that to the situation. The first attempt sends it with the seed base, so a
+  single-worker run still regenerates; retries keep their own temperature and seeds.
 - Nominee and party-leader turns and their promotion rules (roadmap 1.4, Phase 3 and Phase 4).
 - LLM-written personas, scored memory retrieval, and reflection calls. Each has an "add when" line
   in the roadmap's §5.

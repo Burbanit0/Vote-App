@@ -382,6 +382,7 @@ def decide_turn(
             retry_temperature=_RETRY_TEMPERATURE,
             retry_seed_base=_RETRY_SEED_BASE,
             retry_info=retry_info,
+            temperature=config.agents.turn_temperature or None,
         )
     except LlmResponseError as exc:
         _logger.error("%s: exhausted every recovery attempt for cid %s, the president stays silent: %s",

@@ -677,3 +677,6 @@ agents:
                               #   déclaration et, quand l'agenda lui revient, son projet de
                               #   loi (remplace representative_response et le projet par
                               #   formule). Exige llm.enabled et 20 enjeux (nommés).
+  turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
+                              #   comme toute décision par lots). Envoyée avec une graine :
+                              #   un run à un seul worker reste régénérable.
