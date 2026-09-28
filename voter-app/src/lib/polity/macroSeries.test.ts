@@ -22,6 +22,7 @@ const STANDINGS = [
     legitimacy: 0.6,
     ecart: 0.02,
     mandate_strength: 0.7,
+    approval: 0.55,
     acts: [3, 1, 0, 2, 5],
   },
   { tick: 2, acts: [1] },
@@ -30,9 +31,9 @@ const STANDINGS = [
 describe('macro series', () => {
   it('keeps missing readings as gaps', () => {
     expect(standingRows(STANDINGS)).toEqual([
-      { tick: 0, legitimacy: null, ecart: null, mandateStrength: null },
-      { tick: 1, legitimacy: 0.6, ecart: 0.02, mandateStrength: 0.7 },
-      { tick: 2, legitimacy: null, ecart: null, mandateStrength: null },
+      { tick: 0, legitimacy: null, ecart: null, mandateStrength: null, approval: null },
+      { tick: 1, legitimacy: 0.6, ecart: 0.02, mandateStrength: 0.7, approval: 0.55 },
+      { tick: 2, legitimacy: null, ecart: null, mandateStrength: null, approval: null },
     ]);
     expect(hasStanding(standingRows(STANDINGS))).toBe(true);
     expect(hasStanding(standingRows([STANDINGS[0]]))).toBe(false);

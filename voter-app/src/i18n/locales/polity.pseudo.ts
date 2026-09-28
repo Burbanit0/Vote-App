@@ -134,6 +134,7 @@ const polityPseudo: PolityKeys = {
     legitimacy: '⟦Légítímíté~~~~⟧',
     ecart: '⟦Éçárt~~ à~ lá~ próméssé~~~⟧',
     mandateStrength: '⟦Fórçé~~ dú~ máñdát~~~⟧',
+    approval: '⟦Áppróbátíóñ~~~~⟧',
     noStanding: '⟦Áúçúñé~~~ léçtúré~~~ :~ pérsóññé~~~ ñ’á~~ góúvérñé~~~ péñdáñt~~~ çé~ rúñ.~~⟧',
     pressureTitle: '⟦Áçtés~~ dé~ préssíóñ~~~ pár~~ tíçk~~⟧',
     electionsTitle: '⟦Éléçtíóñs~~~~ présídéñtíéllés~~~~~~⟧',

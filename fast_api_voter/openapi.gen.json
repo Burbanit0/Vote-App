@@ -9237,6 +9237,18 @@
             "title": "Acts",
             "type": "array"
           },
+          "approval": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of citizens approving the president's conduct; journaled only while legitimacy.approval_weight > 0.",
+            "title": "Approval"
+          },
           "ecart": {
             "anyOf": [
               {
