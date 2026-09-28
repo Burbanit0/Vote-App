@@ -107,8 +107,10 @@ from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, ge
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
+from api.domain.polity.constitution import amend, article_value, in_force
 from api.domain.polity.events import (
     AgentTurn,
+    ConstitutionAmended,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -670,7 +672,7 @@ def run_simulation(
             # clears it.
             progress_tracker.begin_tick(tick)
             context = TickContext(
-                tick=tick, config=config, journal=journal, client=client, clock=clock, graph=graph,
+                tick=tick, config=in_force(config, state.constitution), journal=journal, client=client, clock=clock, graph=graph,
                 snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
                 memory=memory,
             )
@@ -780,6 +782,21 @@ class TickContext:
     """ADR-014: what agents remember, a view over the journal kept across ticks."""
     agenda_moves: list[PositionShift] | None = None
     """The president agent's bill this tick (empty: none); None leaves the agenda to the formula."""
+
+
+def _phase_constitution(context: TickContext, state: TickState) -> None:
+    """ADR-015: the amendments this tick brings, first, so the whole tick runs under them.
+    Scripted ones only for now (the run's config orders them); validate_config has already
+    checked that the rules hold after each."""
+    for amendment in sorted(context.config.constitution.scripted, key=lambda a: a.tick):
+        if amendment.tick != context.tick:
+            continue
+        old = article_value(context.config, amendment.article)
+        state.constitution = amend(state.constitution, amendment.article, amendment.value)
+        context.config = in_force(context.config, state.constitution)
+        context.journal.write_event(tick=context.tick, citizen_id=None, event=ConstitutionAmended(
+            article=amendment.article, old=old, new=amendment.value, version=state.constitution.version, source="scripted",
+        ))
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -1203,6 +1220,7 @@ def _phase_snap_election(context: TickContext, state: TickState) -> None:
 
 
 TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
+    _phase_constitution,
     _phase_snapshot,
     _phase_rupture_candidacies,
     _phase_exogenous_events,

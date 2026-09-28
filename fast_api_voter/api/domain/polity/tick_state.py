@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from api.domain.polity.citizen import Citizen
+from api.domain.polity.constitution import Constitution
 from api.domain.polity.legislation import Legislature
 from api.domain.polity.parties import Party
 
@@ -82,5 +83,7 @@ class TickState:
     dynamics_rng: np.random.Generator | None = None
     """S4.3: the opinion-dynamics stream, None unless dynamics.enabled."""
     legislature: Legislature | None = None
+    constitution: Constitution | None = None
+    """ADR-015: the amendments in force; None until the first one."""
     """S4.2: policy, the assembly's seats and coalition, and any suspended bill; None unless
     legislation.enabled."""

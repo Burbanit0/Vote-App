@@ -13,13 +13,15 @@ KeyError/TypeError from a caller three frames away.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
+import dataclasses
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from api.domain.polity.ballot_and_aggregation import RANKED_METHODS
 from api.domain.polity.model_profiles import PROFILED_PROVIDERS, PROFILES
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "polity_config.yaml"
@@ -592,6 +594,61 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class Article:
+    """One amendable rule of the constitution (ADR-015): a config path, and the values a
+    constitution may give it -- a list to choose from, or a numeric range."""
+
+    path: str
+    choices: tuple[Any, ...] = ()
+    low: float = 0.0
+    high: float = 0.0
+    integer: bool = False
+
+    def allows(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return False
+        if self.choices:
+            return value in self.choices
+        if not isinstance(value, int if self.integer else (int, float)):
+            return False
+        return self.low <= value <= self.high
+
+
+ARTICLES: Mapping[str, Article] = {article.path: article for article in (
+    Article("institutions.presidential_method", choices=tuple(sorted(RANKED_METHODS))),
+    Article("institutions.president_term_limit", choices=(1, 2, 3, None)),
+    Article("institutions.seat_allocation", choices=tuple(sorted(_SEAT_ALLOCATIONS))),
+    Article("institutions.electoral_threshold", low=0.0, high=0.15),
+    Article("institutions.assembly_seats", low=20, high=300, integer=True),
+    Article("petition.signature_threshold", low=0.05, high=0.5),
+    Article("legitimacy.recall_floor", low=0.0, high=0.5),
+)}
+"""The rules a constitution may amend. Each is read at an election, a rotation or a
+tick's accountability, never mid-term, so an amendment takes effect the next time the
+rule is read and no calendar moves (a term length would need the clock re-anchored)."""
+
+
+@dataclass(frozen=True)
+class ScriptedAmendment:
+    tick: int
+    article: str
+    value: Any
+
+
+@dataclass(frozen=True)
+class ConstitutionConfig:
+    scripted: tuple[ScriptedAmendment, ...] = ()
+    """Amendments the run makes at fixed ticks, whatever the polity decides: an experiment's
+    rule change ("two-round for ten years, then Borda")."""
+
+
+def amended(config: PolityConfig, path: str, value: Any) -> PolityConfig:
+    """`config` with one article set to `value`."""
+    section, key = path.split(".")
+    return dataclasses.replace(config, **{section: dataclasses.replace(getattr(config, section), **{key: value})})
+
+
+@dataclass(frozen=True)
 class AgentsConfig:
     """The agent tier (ADR-014): citizens the model plays in the first person."""
 
@@ -635,6 +692,7 @@ class PolityConfig:
     llm: LlmConfig
     parallel: ParallelConfig
     agents: AgentsConfig
+    constitution: ConstitutionConfig
     raw: dict[str, Any]
 
 
@@ -1212,13 +1270,37 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
 
 
 def validate_config(config: PolityConfig) -> None:
-    """Raise PolityConfigError on the first cross-setting rule `config` breaks.
-    Called by load_config and again by run_simulation, so a config assembled
-    with dataclasses.replace is held to the same rules as the YAML."""
-    for rule in _CONFIG_RULES:
-        message = rule(config)
-        if message is not None:
-            raise PolityConfigError(message)
+    """Raise PolityConfigError on the first cross-setting rule `config` breaks -- as given,
+    and after each of its scripted amendments in turn, so a run cannot amend itself into a
+    config the rules refuse. Called by load_config and again by run_simulation, so a config
+    assembled with dataclasses.replace is held to the same rules as the YAML."""
+    current = config
+    for amendment in (None, *sorted(config.constitution.scripted, key=lambda a: a.tick)):
+        if amendment is not None:
+            current = amended(current, amendment.article, amendment.value)
+        for rule in _CONFIG_RULES:
+            message = rule(current)
+            if message is not None:
+                suffix = f" (after the amendment at tick {amendment.tick})" if amendment is not None else ""
+                raise PolityConfigError(message + suffix)
+
+
+def _parse_constitution(raw: dict[str, Any]) -> ConstitutionConfig:
+    entries = _get(_section(raw, "constitution"), "constitution", "scripted", list)
+    scripted = []
+    for i, entry in enumerate(entries):
+        where = f"constitution.scripted[{i}]"
+        if not isinstance(entry, dict) or set(entry) != {"tick", "article", "value"}:
+            raise PolityConfigError(f"'{where}': expected a mapping with exactly tick, article and value")
+        article = ARTICLES.get(entry["article"])
+        if article is None:
+            raise PolityConfigError(f"'{where}.article': {entry['article']!r} is not an amendable article ({sorted(ARTICLES)})")
+        if not article.allows(entry["value"]):
+            raise PolityConfigError(f"'{where}.value': {entry['value']!r} is not a value {article.path} may take")
+        if isinstance(entry["tick"], bool) or not isinstance(entry["tick"], int) or entry["tick"] < 0:
+            raise PolityConfigError(f"'{where}.tick': expected a tick (an int >= 0), got {entry['tick']!r}")
+        scripted.append(ScriptedAmendment(tick=entry["tick"], article=article.path, value=entry["value"]))
+    return ConstitutionConfig(scripted=tuple(scripted))
 
 
 def load_config(path: Path | str | None = None) -> PolityConfig:
@@ -1281,6 +1363,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
         ),
+        constitution=_parse_constitution(raw),
         raw=raw,
     )
     validate_config(config)
