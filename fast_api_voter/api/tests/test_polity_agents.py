@@ -150,7 +150,8 @@ def test_memory_keeps_the_public_record_and_each_agent_s_own() -> None:
     assert "pressure_action" not in text and "bill_enacted" not in text  # dropped, and pushed out of the window
     assert '- t3 recalled (citizen 7): {"office": "president"}' in text and "- t4 elected (citizen 30)" in text
     assert "- t4 legitimacy 0.61, approval 0.50" in text
-    assert '- t4 you said: "we build"; you moved housing +0.10; bill taxation -0.10; note to self: "watch taxes"' in text
+    assert '- t4 you moved housing +0.10; bill taxation -0.10; note to self: "watch taxes"' in text
+    assert "we build" not in text  # an agent's own past speeches are left out (OBS-028)
     assert memory.recall(8).endswith("Your recent record:\n- nothing yet")
     assert AgentMemory().recall(1).startswith("Recent public events:\n- none yet")
 

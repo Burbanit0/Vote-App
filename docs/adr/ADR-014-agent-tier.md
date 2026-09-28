@@ -35,7 +35,9 @@ president, a handful of nominees.
 - **Memory is a view over the journal, not a store.** `Journal.tap` feeds `AgentMemory` each event
   as it is written:
   - the last 16 institutional and bill events are the public record;
-  - an agent's own last 8 turns and legitimacy readings are their personal record.
+  - an agent's own last 8 turns (moves, bill and note to self, not the speech) and legitimacy
+    readings are their personal record. The speech is left out because the model echoed its past
+    speeches word for word (OBS-028).
 
   On resume the memory is rebuilt in one pass over the already-truncated `events.jsonl`, so
   nothing new is checkpointed. There is no retrieval scoring and no reflection call yet; the

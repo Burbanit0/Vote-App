@@ -136,7 +136,9 @@ class AgentMemory:
     """What agents remember: a view over the journal, fed by Journal.tap as events are
     written and rebuilt from events.jsonl on resume -- never checkpointed. The public
     record is the last institutional events anyone could know of; an agent's own record is
-    their last turns and standings."""
+    their last moves, notes to self and standings -- not their past speeches, which the
+    model echoed back word for word (OBS-028: shown them, presidents repeated a speech
+    exactly in two seeds of three; without, in none)."""
 
     def __init__(self, public_window: int = 16, own_window: int = 8) -> None:
         self.public: deque[JournalEvent] = deque(maxlen=public_window)
@@ -187,7 +189,7 @@ def _own_line(event: JournalEvent) -> str:
         return f"- t{event.tick} legitimacy {payload['legitimacy']:.2f}{approval}"
     bill = f"; bill {describe_moves(payload['bill'])}" if payload["bill"] else ""
     return (
-        f"- t{event.tick} you said: \"{payload['speech']}\"; you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
+        f"- t{event.tick} you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
         f"note to self: \"{payload['note_to_self']}\""
     )
 
