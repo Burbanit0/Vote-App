@@ -668,3 +668,12 @@ parallel:
                               #      llm.reproducibility: relaxed (D1, S2.1) :
                               #      le batching vLLM change alors les réponses,
                               #      le run se rejoue mais ne se régénère plus
+
+# =============================================================================
+# AGENTS (ADR-014, plan-polity-agency-roadmap.md) — citoyens joués à la première personne
+# =============================================================================
+agents:
+  president: false            # true = le président est un agent : un tour par tick fixe sa
+                              #   déclaration et, quand l'agenda lui revient, son projet de
+                              #   loi (remplace representative_response et le projet par
+                              #   formule). Exige llm.enabled et 20 enjeux (nommés).

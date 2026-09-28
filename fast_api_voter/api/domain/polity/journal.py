@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -52,6 +53,8 @@ class Journal:
     def __init__(self, path: Path, run_id: str, *, start_event_id: int = 0):
         self._run_id = run_id
         self._next_event_id = start_event_id
+        self.tap: Callable[[JournalEvent], None] | None = None
+        """Called with every event as it is written (agents.AgentMemory.observe)."""
         path.parent.mkdir(parents=True, exist_ok=True)
         self._file: TextIO = path.open("a", encoding="utf-8")
 
@@ -99,6 +102,8 @@ class Journal:
         self._file.write(line + "\n")
         self._file.flush()
         self._next_event_id += 1
+        if self.tap is not None:
+            self.tap(event)
         return event.event_id
 
     def write_event(
