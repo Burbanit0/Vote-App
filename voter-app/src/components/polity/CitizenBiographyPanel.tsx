@@ -15,12 +15,54 @@ type Received = PolityCitizen['received'][number];
 
 const SECTIONS = [
   ['roles', 'biography.roles'],
+  ['turns', 'biography.turns'],
   ['candidacies', 'biography.candidacies'],
   ['votes', 'biography.votes'],
   ['pressure_acts', 'biography.pressureActs'],
   ['petitions', 'biography.petitions'],
   ['other', 'biography.other'],
 ] as const;
+
+// An agent's turn (ADR-014): what they said, how they moved, what they noted for
+// themselves, and anything they tried that the rules do not offer.
+const TURN_FIELDS = [
+  ['speech', 'biography.turn.speech'],
+  ['moves', 'biography.turn.moves'],
+  ['bill', 'biography.turn.bill'],
+  ['rationale', 'biography.turn.rationale'],
+  ['note_to_self', 'biography.turn.note'],
+  ['other_initiative', 'biography.turn.initiative'],
+] as const;
+
+const TurnDetails: React.FC<{ details: Entry['details'] }> = ({ details }) => {
+  const { t } = useTranslation('polity');
+  return (
+    <dl className="grid w-full grid-cols-[max-content_1fr] gap-x-2 gap-y-0.5 pl-6">
+      {TURN_FIELDS.map(([field, label]) => {
+        const value = details[field];
+        if (typeof value !== 'string' || !value) return null;
+        const outside = field === 'other_initiative';
+        return (
+          <React.Fragment key={field}>
+            <dt
+              className={
+                outside ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+              }
+            >
+              {t(label)}
+            </dt>
+            <dd
+              data-testid={`biography-turn-${field}`}
+              className={outside ? 'font-medium' : undefined}
+            >
+              {field === 'speech' ? <q>{value}</q> : value}
+            </dd>
+          </React.Fragment>
+        );
+      })}
+    </dl>
+  );
+};
 
 const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
   runKey,
@@ -173,6 +215,9 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
                         )}
                         {entry.rationale && (
                           <q className="w-full italic text-muted-foreground">{entry.rationale}</q>
+                        )}
+                        {entry.event_type === 'agent_turn' && (
+                          <TurnDetails details={entry.details} />
                         )}
                       </li>
                     ))}

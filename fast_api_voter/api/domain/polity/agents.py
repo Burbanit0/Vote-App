@@ -185,14 +185,15 @@ def _own_line(event: JournalEvent) -> str:
     if event.event_type == "legitimacy_updated":
         approval = f", approval {payload['approval']:.2f}" if "approval" in payload else ""
         return f"- t{event.tick} legitimacy {payload['legitimacy']:.2f}{approval}"
-    bill = f"; bill {_moves(payload['bill'])}" if payload["bill"] else ""
+    bill = f"; bill {describe_moves(payload['bill'])}" if payload["bill"] else ""
     return (
-        f"- t{event.tick} you said: \"{payload['speech']}\"; you moved {_moves(payload['shifts']) or 'nothing'}{bill}; "
+        f"- t{event.tick} you said: \"{payload['speech']}\"; you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
         f"note to self: \"{payload['note_to_self']}\""
     )
 
 
-def _moves(moves: Sequence[Mapping[str, Any]]) -> str:
+def describe_moves(moves: Sequence[Mapping[str, Any]]) -> str:
+    """Journaled moves in words: `housing +0.10, taxation -0.05`."""
     return ", ".join(f"{ISSUES[int(m['dimension'])].name} {float(m['delta']):+.2f}" for m in moves)
 
 

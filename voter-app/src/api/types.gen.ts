@@ -5457,6 +5457,11 @@ export interface components {
             pressure_acts: components["schemas"]["PolityBiographyEntry"][];
             /** Roles */
             roles: components["schemas"]["PolityBiographyEntry"][];
+            /**
+             * Turns
+             * @description An agent's turns (ADR-014): speech, moves, bill, note to self.
+             */
+            turns: components["schemas"]["PolityBiographyEntry"][];
             /** Votes */
             votes: components["schemas"]["PolityBiographyEntry"][];
         };
