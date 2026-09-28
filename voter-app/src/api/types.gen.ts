@@ -5770,6 +5770,11 @@ export interface components {
              * @description Pressure actions journaled this tick, counted by act code 0-4.
              */
             acts: number[];
+            /**
+             * Approval
+             * @description Share of citizens approving the president's conduct; journaled only while legitimacy.approval_weight > 0.
+             */
+            approval?: number | null;
             /** Ecart */
             ecart?: number | null;
             /** Legitimacy */

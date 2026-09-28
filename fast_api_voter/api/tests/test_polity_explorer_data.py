@@ -73,6 +73,17 @@ def test_a_standing_carries_the_holder_s_reading_of_that_tick(runs: dict[str, Pa
     assert checked >= 3
 
 
+def test_a_standing_carries_approval_when_the_holder_s_reading_has_one(runs: dict[str, Path]) -> None:
+    view = RunView.load(runs["staggered"])
+    assert all(s.approval is None for s in build_macro(view.events, 40, view.last_tick).standings)
+    approved = [
+        {**e, "payload": {**e["payload"], "approval": 0.42}} if e["event_type"] == "legitimacy_updated" else e
+        for e in view.events
+    ]
+    standings = build_macro(approved, 40, view.last_tick).standings
+    assert {s.approval for s in standings if s.legitimacy is not None} == {0.42}
+
+
 def test_elections_carry_turnout_and_a_blank_share_with_its_source(runs: dict[str, Path]) -> None:
     def elections(name: str) -> tuple[Any, ...]:
         view = RunView.load(runs[name])

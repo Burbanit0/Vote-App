@@ -134,6 +134,7 @@ const polityFr = {
     legitimacy: 'Légitimité',
     ecart: 'Écart à la promesse',
     mandateStrength: 'Force du mandat',
+    approval: 'Approbation',
     noStanding: 'Aucune lecture : personne n’a gouverné pendant ce run.',
     pressureTitle: 'Actes de pression par tick',
     electionsTitle: 'Élections présidentielles',

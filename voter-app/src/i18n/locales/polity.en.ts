@@ -130,6 +130,7 @@ const polityEn: PolityKeys = {
     legitimacy: 'Legitimacy',
     ecart: 'Gap from the pledge',
     mandateStrength: 'Mandate strength',
+    approval: 'Approval',
     noStanding: 'No reading: nobody governed during this run.',
     pressureTitle: 'Pressure acts per tick',
     electionsTitle: 'Presidential elections',

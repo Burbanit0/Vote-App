@@ -144,7 +144,7 @@ describe('MacroCurves', () => {
       within(panel)
         .getAllByTestId('line')
         .map((l) => l.textContent)
-    ).toEqual(['Legitimacy', 'Mandate strength', 'Gap from the pledge']);
+    ).toEqual(['Legitimacy', 'Mandate strength', 'Approval', 'Gap from the pledge']);
     expect(
       within(panel)
         .getAllByTestId('bar')
