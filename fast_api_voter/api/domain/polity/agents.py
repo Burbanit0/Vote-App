@@ -614,6 +614,12 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
         "Answer with one JSON object in the schema given. \"rationale\" is your private reasoning "
         f"(at most {RATIONALE_LIMIT} characters). \"post\" is your message (at most {SPEECH_LIMIT} characters); "
         f"leave it empty to keep silent. \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
+        + (
+            " If what you read has genuinely changed your mind on one issue, give its number as \"shift_issue\" and the "
+            "pole you moved toward as \"shift_direction\" (\"low\" or \"high\"); otherwise -1 and \"none\". Do not move "
+            "for the sake of it: most turns change nothing."
+            if config.agents.stance_step > 0 else " Set \"shift_issue\" to -1 and \"shift_direction\" to \"none\"."
+        )
     )
 
 

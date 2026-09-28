@@ -84,6 +84,15 @@ def current_factors(citizens: Sequence[Citizen], structure: LatentStructure) -> 
     ], dtype=float).reshape(-1, structure.anchors.shape[1])
 
 
+def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float) -> None:
+    """ADR-017: move one citizen `logit` (signed, toward the issue's high pole) on one issue, along that
+    issue's loading, so the issues that load with it move too; the dynamics then pull them back."""
+    loading = structure.loadings[issue]
+    factors = current_factors([citizen], structure) + logit * loading / float(loading @ loading)
+    citizen.latent_factors = tuple(float(x) for x in factors[0])
+    citizen.issue_positions = tuple(float(x) for x in structure.positions(factors, [citizen.citizen_id])[0])
+
+
 def apply_dynamics(
     citizens: Sequence[Citizen], structure: LatentStructure, edges: NeighbourEdges, config: DynamicsConfig,
     rng: np.random.Generator,

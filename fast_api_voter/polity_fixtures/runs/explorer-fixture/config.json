@@ -5,6 +5,7 @@
     "forum_size": 30,
     "nominees": false,
     "president": false,
+    "stance_step": 0.0,
     "turn_temperature": 0.0
   },
   "awakening": {

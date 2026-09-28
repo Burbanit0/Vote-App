@@ -9,6 +9,7 @@ transitions themselves live in simple_rules.py (Lot 6).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -169,9 +170,9 @@ class LatentStructure:
     residuals: np.ndarray
     """(population_size, issue_count)"""
 
-    def positions(self, factors: np.ndarray) -> np.ndarray:
-        """Issue positions for factors of shape (population_size, 2)."""
-        raw = factors @ self.loadings.T + self.residuals
+    def positions(self, factors: np.ndarray, citizen_ids: Sequence[int] | None = None) -> np.ndarray:
+        """Issue positions for factors of shape (population_size, 2), or of one row per citizen_id given."""
+        raw = factors @ self.loadings.T + (self.residuals if citizen_ids is None else self.residuals[list(citizen_ids)])
         result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
         return result
 

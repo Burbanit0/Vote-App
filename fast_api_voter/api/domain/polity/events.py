@@ -571,6 +571,10 @@ class ForumPost(Event):
     rationale: str
     note_to_self: str
     provenance: LlmProvenance
+    shift_issue: int = -1
+    """The issue the speaker's mind moved on after reading (ADR-017), -1 for none."""
+    shift_logit: float = 0.0
+    """How far the kernel moved them on it (signed, toward the high pole positive)."""
 
 
 @dataclass(frozen=True, kw_only=True)

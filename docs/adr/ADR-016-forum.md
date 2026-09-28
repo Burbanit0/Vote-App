@@ -28,7 +28,7 @@ is Phase 3.3; this ADR is the talk.
 
 ## What this ADR does not settle
 
-- That the talk moves anyone. Until 3.3 a post changes no stance, so the chamber talks and still
-  votes as before (OBS-004); the exit test "agents exposed to counter-arguments shift more" waits for it.
+- That the talk moves anyone. Until ADR-017 a post changes no stance, so the chamber talks and still
+  votes as before (OBS-004). ADR-017 (3.3) makes it move; the exposure analysis waits for a run.
 - Replies, direct messages and a party caucus: the logs must show demand first.
 - Scoring which posts to show. The feed is the most recent, which favours the loudest neighbour.

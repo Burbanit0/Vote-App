@@ -27,7 +27,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
-from api.domain.polity.config import ARTICLES
+from api.domain.polity.config import ARTICLES, ISSUE_COUNT_NAMED
 
 
 class VoteCastDecision(BaseModel):
@@ -414,6 +414,14 @@ class ForumTurn(BaseModel):
     rationale: str
     post: str
     note_to_self: str
+    shift_issue: int = Field(..., ge=-1, lt=ISSUE_COUNT_NAMED, description="The issue number your mind moved on after reading the forum, or -1.")
+    shift_direction: Literal["none", "low", "high"] = Field(..., description="Toward which pole of that issue; \"none\" if your mind did not change.")
+
+    @model_validator(mode="after")
+    def _a_shift_names_its_issue(self) -> ForumTurn:
+        if self.shift_direction != "none" and self.shift_issue < 0:
+            raise ValueError("shift_direction needs a shift_issue")
+        return self
 
 
 FORUM_TURN_JSON_SCHEMA = ForumTurn.model_json_schema()

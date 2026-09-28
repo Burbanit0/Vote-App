@@ -684,6 +684,9 @@ class AgentsConfig:
     neighbours, the president and (for a member) the rest of the chamber posted."""
     forum_size: int = 30
     """At most this many citizens take a forum turn per tick, recent petition launchers first."""
+    stance_step: float = 0.0
+    """How far, in logit units, a forum turn may move the speaker on one issue (ADR-017). 0: a
+    citizen's talk moves nobody. Needs `dynamics.enabled`: it moves the latent factors."""
 
 
 @dataclass(frozen=True)
@@ -1243,6 +1246,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "agents argue about named issues"
     ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
     lambda c: (
+        "'agents.stance_step' > 0 requires 'agents.forum' (where citizens change their minds) and 'dynamics.enabled' "
+        "(a stance is a point on the latent factors)"
+    ) if c.agents.stance_step > 0 and not (c.agents.forum and c.dynamics.enabled) else None,
+    lambda c: (
         "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
     ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
     lambda c: (
@@ -1413,6 +1420,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
             forum=_get(_section(raw, "agents"), "agents", "forum", bool),
             forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
+            stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),
         ),
         constitution=_parse_constitution(raw),
         raw=raw,
