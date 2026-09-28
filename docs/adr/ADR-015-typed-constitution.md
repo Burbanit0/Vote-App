@@ -77,9 +77,9 @@ Switched on by `agents.amendments`, which needs the president agent and the sort
 
 - Chamber members proposing amendments: left out until the president-only proposals show that the
   chamber never initiates.
-- Segmenting the digest and the statistics by constitution version (roadmap 2.4 and the
-  "refuse to average" rule). Until then, a metric over a run that amended itself straddles two
-  sets of rules; the journal says where.
+- Averaging across versions: the digest's yearly rows say which constitution each year ended under
+  (roadmap 2.4), but the statistics still average over a run that amended itself. The "refuse to
+  average" rule waits for the first ensemble that spans amendments.
 - Score and approval ballots, which would let the cardinal methods be articles, and the term
   length.
 
