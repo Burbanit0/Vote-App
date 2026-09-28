@@ -54,10 +54,16 @@ import numpy as np
 
 from api.domain.polity import run_provenance
 from api.domain.polity.agents import (
+    NOMINEE_TURN,
+    PRESIDENT_TURN,
     AgentMemory,
+    NomineeBriefing,
     PresidentBriefing,
+    TurnOutcome,
     decide_turn,
     moves_payload,
+    nominee_system_prompt,
+    nominee_user_prompt,
     president_system_prompt,
     president_user_prompt,
     seat_weighted_median,
@@ -103,6 +109,7 @@ from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
 from api.domain.polity.events import (
     AgentTurn,
+    VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
     CandidacyDeclared,
@@ -178,6 +185,7 @@ from api.domain.polity.llm_behavior_engine import (
     ResponseContext,
     VoteBatchOutcome,
     apply_shifts,
+    run_chunks,
     cast_votes,
     clamped_dimensions,
     decide_campaign_positioning,
@@ -208,6 +216,7 @@ from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
+    first_choices,
     attempt_rupture_candidacy,
     blank_share,
     build_confidence_ballot,
@@ -1026,11 +1035,11 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
     president, pledge, stated = seated
     agenda_closed = _agenda_closed(context, state, president)
     outcome = decide_turn(
-        president, system_prompt=president_system_prompt(president, config),
+        president, decision_type=PRESIDENT_TURN, system_prompt=president_system_prompt(president, config),
         user_prompt=president_user_prompt(
             _president_briefing(context, state, president, pledge, stated, agenda_closed), memory.recall(president.citizen_id),
         ),
-        agenda_open=agenda_closed is None, config=config, client=client,
+        max_positions=config.mandate.max_response_shifts, agenda_open=agenda_closed is None, config=config, client=client,
     )
     shifts, bill = _turn_moves(outcome.turn, stated, state.legislature, agenda_closed, config)
     president.revealed_position = apply_shifts(stated, shifts)
@@ -1640,6 +1649,9 @@ def _position_nominees_llm(
 ) -> None:
     """Campaign positioning for the nominees: each moves its pledged platform, and the
     move is journaled with any dimension that hit the [0, 1] bound."""
+    if config.agents.nominees:
+        _campaign_turns(nominees, citizens, config, journal, tick, llm_client)
+        return
     parties_by_id = {party.party_id: party for party in parties}
     positioning_outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, llm_client)
     positioning_by_cid = {decision.cid: decision for decision in positioning_outcome.decisions}
@@ -1670,6 +1682,54 @@ def _position_nominees_llm(
         _journal_clamped_dimensions(
             journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="campaign_positioning",
             base=nominee.issue_positions, shifts=positioning_decision.shifts, result=new_platform,
+        )
+
+
+def _campaign_turns(
+    nominees: list[Citizen], citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
+    client: LlmClientProtocol,
+) -> None:
+    """ADR-014: every nominee campaigns in one turn, in parallel, on the same vote-intention
+    poll (journaled first). The kernel steps each platform toward the positions the nominee
+    names; a turn whose every attempt failed leaves its platform where it was."""
+    poll = first_choices(citizens, nominees, config.vote)
+    journal.write_event(tick=tick, citizen_id=None, event=VoteIntentionPoll(
+        shares=[{"citizen_id": cid, "share": share} for cid, share in poll.shares.items()], blank=poll.blank, abstain=poll.abstain,
+    ))
+    briefing = NomineeBriefing(
+        tick=tick, field=tuple((n.citizen_id, n.party_affiliation) for n in nominees), poll=poll.shares,
+        blank=poll.blank, abstain=poll.abstain, platform=(), public_median=population_median(citizens),
+    )
+
+    def campaign(chunk: list[Citizen]) -> TurnOutcome:
+        [nominee] = chunk
+        assert nominee.pledged_platform is not None  # declared
+        return decide_turn(
+            nominee, decision_type=NOMINEE_TURN, system_prompt=nominee_system_prompt(nominee, config),
+            user_prompt=nominee_user_prompt(nominee, dataclasses.replace(briefing, platform=nominee.pledged_platform)),
+            max_positions=config.campaign.max_positioning_shifts, agenda_open=False, config=config, client=client,
+        )
+
+    for nominee, outcome in zip(nominees, run_chunks([[n] for n in nominees], campaign, config.parallel.intra_run_workers)):
+        base = nominee.pledged_platform
+        assert base is not None
+        shifts = steps_toward(outcome.turn.positions, base, config.campaign.max_positioning_delta) if outcome.turn else []
+        nominee.pledged_platform = nominee.revealed_position = apply_shifts(base, shifts)
+        journal.write_event(
+            tick=tick,
+            event=AgentTurn(
+                role="nominee", shifts=moves_payload(shifts), bill=[], **turn_words(outcome.turn),
+                provenance=LlmProvenance(
+                    llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied),
+                    llm_call_id=outcome.call_id,
+                ),
+            ),
+            citizen_id=nominee.citizen_id,
+            codebook_version=config.llm.codebook_version,
+        )
+        _journal_clamped_dimensions(
+            journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="agent_turn",
+            base=base, shifts=shifts, result=nominee.pledged_platform,
         )
 
 

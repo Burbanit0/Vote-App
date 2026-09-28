@@ -1151,6 +1151,18 @@ seed 2, against 192 of 223 (86%) in seed 42; the chamber on 826 of 1,861 (44%) a
 `vote_cast` rate is high at population 500 on all three seeds (72 to 86%) and the chamber rate is stable (40 to 44%).
 Whether the budget changes a result is still not measured.
 
+*Update 2026-09-28, the agents (ADR-014).* The agents' turns sit at the cap more often still. In
+`p1-nominees-5y-p200-seed1` (`~/Documents/Dev/polity-runs/p1/`, exploration profile, 5 years, p200),
+counting `llm_calls.jsonl` lines of `kind` "decision":
+- 21 of 22 `president_turn` calls reach 2,048 reasoning tokens;
+- 9 of 10 `nominee_turn` calls do;
+- every one of them still finishes (`stop`) with a valid turn.
+
+The budget probes before each turn end on `length` by construction and are not counted. So the cap
+does what it was set on these types for, no runaway (OBS-022), and it bounds the agents' reasoning
+almost always. Whether a larger cap gives better turns is the same open question as for
+`vote_cast`.
+
 ### OBS-024
 
 **A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back.**

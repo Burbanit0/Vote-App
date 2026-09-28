@@ -484,12 +484,12 @@ cog.outl("")
 for label, names in (("institutional", institutional), ("LLM decisions", decisions), ("other", other)):
     cog.outl(f"- {label} ({len(names)}): " + ", ".join(f"`{n}`" for n in names))
 ]]] -->
-**40 event types** can be journaled -- generated from the registry in
+**41 event types** can be journaled -- generated from the registry in
 `api/domain/polity/events.py` (S3.3), checked by `scripts/check_generated_docs.sh`:
 
 - institutional (17): `bill_blocked`, `bill_enacted`, `bill_proposed`, `coalition_failed`, `coalition_formed`, `confidence_vote_result`, `confidence_vote_triggered`, `economic_shock_tick`, `elected`, `election_invalidated`, `election_no_winner`, `legislative_result`, `petition_expired`, `petition_launched`, `recalled`, `scandal_occurred`, `snap_election_triggered`
 - LLM decisions (10): `agent_turn`, `campaign_positioning`, `candidacy_considered`, `chamber_deliberation`, `coalition_decision`, `party_nomination_choice`, `pressure_action`, `reaction_to_event`, `representative_response`, `vote_cast`
-- other (13): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `clamped_at_bound`, `emotions_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `petition_signed`, `policy_status`, `sortition_rotation`
+- other (14): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `clamped_at_bound`, `emotions_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `petition_signed`, `policy_status`, `sortition_rotation`, `vote_intention_poll`
 <!-- [[[end]]] -->
 
 The digest reports a count for every one of them, per year, including zeros — so "this did not

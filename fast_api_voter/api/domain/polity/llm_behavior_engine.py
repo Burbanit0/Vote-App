@@ -710,9 +710,9 @@ def _check_supported(config: PolityConfig) -> None:
     check_codebook_version(config.llm.codebook_version)
 
 
-THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation", "president_turn"})
+THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation", "president_turn", "nominee_turn"})
 """The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured, and the
-president agent's turn (agents.py), capped from the start so it cannot run away the way
+agents' turns (agents.py), capped from the start so they cannot run away the way
 the uncapped `campaign_positioning` does (OBS-022)."""
 
 

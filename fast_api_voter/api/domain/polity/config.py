@@ -598,6 +598,9 @@ class AgentsConfig:
     president: bool
     """The sitting president is an agent: one turn a tick sets their statement and, when the
     agenda is theirs, their bill (replacing representative_response and the formula draft)."""
+    nominees: bool = False
+    """Presidential nominees are agents: each campaigns in one turn, seeing a vote-intention
+    poll (replacing campaign_positioning)."""
     turn_temperature: float = 0.0
     """Sampling temperature of an agent's turn (0: greedy, like every batch decision)."""
 
@@ -1151,11 +1154,12 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
-        "'agents.president' requires 'llm.enabled': an agent's turn is a model call"
-    ) if c.agents.president and not c.llm.enabled else None,
+        "'agents.president' and 'agents.nominees' require 'llm.enabled': an agent's turn is a model call"
+    ) if (c.agents.president or c.agents.nominees) and not c.llm.enabled else None,
     lambda c: (
-        f"'agents.president' requires 'citizens.issue_count' {ISSUE_COUNT_NAMED}: agents argue about named issues"
-    ) if c.agents.president and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+        f"'agents.president' and 'agents.nominees' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: agents argue "
+        "about named issues"
+    ) if (c.agents.president or c.agents.nominees) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
     lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
@@ -1274,6 +1278,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         parallel=_parse_parallel(raw),
         agents=AgentsConfig(
             president=_get(_section(raw, "agents"), "agents", "president", bool),
+            nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
         ),
         raw=raw,

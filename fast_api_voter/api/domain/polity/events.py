@@ -508,6 +508,16 @@ class AgentTurn(Event):
     provenance: LlmProvenance
 
 
+@dataclass(frozen=True, kw_only=True)
+class VoteIntentionPoll(Event):
+    """The poll presidential nominees campaign on (simple_rules.first_choices)."""
+
+    EVENT_TYPE = "vote_intention_poll"
+    shares: list[dict[str, Any]]  # {citizen_id, share} per candidate
+    blank: float
+    abstain: float
+
+
 # ── registry ──────────────────────────────────────────────────────────────
 
 EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -518,7 +528,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
-    AgentTurn,
+    AgentTurn, VoteIntentionPoll,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

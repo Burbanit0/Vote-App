@@ -23,8 +23,9 @@ president, a handful of nominees.
 
 ### An agent is a citizen, played in the first person, one call per turn
 
-- **Who.** The sitting president only, for now. The agent set is derived each tick from the
-  office, so there is no promotion state yet.
+- **Who.** The sitting president, and (Phase 1.4, `agents.nominees`) each presidential nominee
+  for their campaign turn. The agent set is derived from office and nomination, so there is no
+  promotion state yet.
 - **Persona.** A template rendered from the citizen's numbers (`agents.persona`). It carries a
   name, their party, their three top-priority issues, their ambition, and their view on every
   issue. There is no LLM-written biography, and the numbers stay the kernel's truth.
