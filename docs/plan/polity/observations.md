@@ -54,7 +54,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-025](#obs-025) | `reaction_to_event` batches of 25 fall back whole when the model overshoots `events.max_reaction_delta` | 2026-09-27 | cause found |
 | [OBS-026](#obs-026) | The develop→polity sync of 2026-09-27 changes what Kemeny-Young and majority judgment return | 2026-09-27 | recorded |
 | [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
-| [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | open |
+| [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
 
 ---
 
@@ -1318,5 +1318,26 @@ rationales say "align with my convictions" one tick and "reduce the gap" the nex
 
 The roadmap's later phases (a forum, other agents, polls that move) change the situation itself.
 
-*Status: open.*
+*Cause.* The echo. The same day, both arms ran on three seeds (42, 1, 2) at temperature 0.6, from
+worktrees at `26972d4f` (the agent's memory shows its past speeches) and `c22b3ba5` (it shows its
+moves, bills, notes and standings, but not its speeches). The runs are `obs028-{base,nospeech}-seed{1,2}`
+and `obs028-nospeech-seed42` in `~/Documents/Dev/polity-runs/obs028/`, plus the seed-42 baseline
+above, measured as above.
+
+| seed | arm | distinct speeches | mean / highest similarity | moves / reversals | agent bills |
+|---|---|---:|---:|---:|---:|
+| 42 | speeches shown | 11 / 13 | 0.53 / 1.00 | 11 / 6 | 0 |
+| 42 | speeches left out | 13 / 13 | 0.47 / 0.78 | 8 / 3 | 0 |
+| 1 | speeches shown | 13 / 13 | 0.53 / 0.87 | 6 / 3 | 3 |
+| 1 | speeches left out | 13 / 13 | 0.47 / 0.65 | 0 / 0 | 3 |
+| 2 | speeches shown | 12 / 13 | 0.63 / 1.00 | 10 / 5 | 3 |
+| 2 | speeches left out | 13 / 13 | 0.49 / 0.69 | 4 / 0 | 3 |
+
+- **Every seed moves the same way.** Without the echo, mean and highest similarity fall in all three seeds, no speech repeats exactly, and reversals fall.
+- **The agenda is not the cause.** Seeds 1 and 2 gave the president the agenda (three agent bills each; one passed in seed 2), yet the arm with speeches still repeated a speech word for word at seed 2.
+- **Side effect.** Without its speeches the president moves less. At seed 1 it restated nothing in 13 turns: watch for passivity.
+- **The limit-testing log asks for a public campaign.** In both arms, `other_initiative` asks for "a public campaign" or "public outreach" (4 of the 6 runs). The menu has no such act; the roadmap's forum (Phase 3) is where it lands.
+
+*Status: fixed* on `feat/polity-memory-without-own-speech`: `AgentMemory` leaves an agent's own
+past speeches out.
 
