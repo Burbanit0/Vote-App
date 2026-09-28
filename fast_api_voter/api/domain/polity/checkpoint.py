@@ -39,7 +39,7 @@ import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import PolityConfig
-from api.domain.polity.constitution import Constitution
+from api.domain.polity.constitution import Constitution, Proposal
 from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.parties import Party
 from api.domain.polity.tick_state import PendingRerun, TickState
@@ -177,9 +177,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
         # S4.2: likewise only for a legislating run.
         **({"legislature": _legislature_to_dict(state.legislature)} if state.legislature is not None else {}),
-        # ADR-015: likewise only once the constitution was amended.
-        **({"constitution": {"version": state.constitution.version, "values": dict(state.constitution.values)}}
-           if state.constitution is not None else {}),
+        # ADR-015: likewise only once the constitution was amended or an amendment proposed.
+        **({"constitution": _constitution_to_dict(state.constitution)} if state.constitution is not None else {}),
     }
 
 
@@ -203,8 +202,20 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
-        constitution=Constitution(**payload["constitution"]) if "constitution" in payload else None,
+        constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,
     )
+
+
+def _constitution_to_dict(constitution: Constitution) -> dict[str, Any]:
+    return {
+        "version": constitution.version, "values": dict(constitution.values),
+        **({"pending": dataclasses.asdict(constitution.pending)} if constitution.pending is not None else {}),
+    }
+
+
+def _constitution_from_dict(data: Mapping[str, Any]) -> Constitution:
+    pending = data.get("pending")
+    return Constitution(version=data["version"], values=data["values"], pending=None if pending is None else Proposal(**pending))
 
 
 def _optional_tuple(values: list[Any] | None) -> tuple[Any, ...] | None:

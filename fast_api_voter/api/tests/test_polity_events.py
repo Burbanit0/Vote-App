@@ -47,14 +47,16 @@ def test_the_registry_reproduces_the_sets_three_modules_kept_by_hand() -> None:
         "confidence_vote_result", "petition_expired", "recalled", "sortition_rotation", "chamber_deliberation",
     } | {"opinion_dynamics_step", "emotions_updated"} | {  # S4.3 and S4.2, after the lists were retired
         "bill_proposed", "bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted", "policy_status",
-    } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended"}  # ADR-014, ADR-015
+    } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended", "amendment_proposed", "amendment_vote", "amendment_resolved"}  # ADR-014, ADR-015
     assert INSTITUTIONAL_EVENT_TYPES == {
         "elected", "election_no_winner", "election_invalidated", "snap_election_triggered", "legislative_result",
         "coalition_formed", "coalition_failed", "petition_launched", "petition_expired", "confidence_vote_triggered",
         "confidence_vote_result", "recalled", "scandal_occurred", "economic_shock_tick",
-    } | {"bill_proposed", "bill_blocked", "bill_enacted"} | {"constitution_amended"}  # S4.2, ADR-015
+    } | {"bill_proposed", "bill_blocked", "bill_enacted"} | {  # S4.2, ADR-015
+        "constitution_amended", "amendment_proposed", "amendment_resolved",
+    }
     assert PRESIDENT_ELECTION_OUTCOMES == {"elected", "election_no_winner", "election_invalidated"}
-    assert LLM_DECISION_EVENT_TYPES == set(LLM_DECISION_TYPES) | {"agent_turn"}  # the golden run has no agent
+    assert LLM_DECISION_EVENT_TYPES == set(LLM_DECISION_TYPES) | {"agent_turn", "amendment_vote"}  # the golden run has no agent
 
 
 def test_payload_omits_keys_left_at_omit_and_flattens_provenance() -> None:

@@ -53,6 +53,7 @@ from typing import Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
+from api.domain.polity.amendments import constitution_text, proposal_closed, ratified
 from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
@@ -60,6 +61,10 @@ from api.domain.polity.agents import (
     NomineeBriefing,
     PresidentBriefing,
     TurnOutcome,
+    ballot_system_prompt,
+    ballot_user_prompt,
+    ballot_words,
+    decide_ballot,
     decide_turn,
     moves_payload,
     nominee_system_prompt,
@@ -106,10 +111,21 @@ from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
-from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
-from api.domain.polity.constitution import amend, article_value, in_force
+from api.domain.polity.config import PolityConfig, PolityConfigError, amended, broken_rule, validate_config
+from api.domain.polity.constitution import (
+    Proposal,
+    amend,
+    article_value,
+    close_proposal,
+    in_force,
+    propose,
+    threshold_for,
+)
 from api.domain.polity.events import (
     AgentTurn,
+    AmendmentProposed,
+    AmendmentResolved,
+    AmendmentVote,
     ConstitutionAmended,
     VoteIntentionPoll,
     CampaignPositioning,
@@ -209,7 +225,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import LeaderTurn, PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import AmendingLeaderTurn, AmendmentBallot, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
@@ -785,9 +801,9 @@ class TickContext:
 
 
 def _phase_constitution(context: TickContext, state: TickState) -> None:
-    """ADR-015: the amendments this tick brings, first, so the whole tick runs under them.
-    Scripted ones only for now (the run's config orders them); validate_config has already
-    checked that the rules hold after each."""
+    """ADR-015: the amendments this tick brings, first, so the whole tick runs under them: the
+    scripted ones (validate_config has already checked that the rules hold after each), then
+    the chamber's vote on the president's proposal of an earlier tick."""
     for amendment in sorted(context.config.constitution.scripted, key=lambda a: a.tick):
         if amendment.tick != context.tick:
             continue
@@ -797,6 +813,51 @@ def _phase_constitution(context: TickContext, state: TickState) -> None:
         context.journal.write_event(tick=context.tick, citizen_id=None, event=ConstitutionAmended(
             article=amendment.article, old=old, new=amendment.value, version=state.constitution.version, source="scripted",
         ))
+    if state.constitution is not None and state.constitution.pending is not None:
+        _resolve_amendment(context, state, state.constitution.pending)
+
+
+def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposal) -> None:
+    """Every chamber member votes, each on their own turn and none seeing another's vote; the
+    proposal is ratified if more than the threshold it was proposed under voted yes. A member
+    whose every attempt failed votes "none" and counts against."""
+    config, client, memory = context.config, context.client, context.memory
+    assert client is not None and memory is not None  # agents.amendments requires llm.enabled
+    members = current_sortition_members(state.citizens)
+    old = article_value(config, proposal.article)
+
+    def vote(chunk: list[Citizen]) -> TurnOutcome[AmendmentBallot]:
+        [member] = chunk
+        return decide_ballot(
+            member, system_prompt=ballot_system_prompt(member, config), config=config, client=client,
+            user_prompt=ballot_user_prompt(
+                proposal, tick=context.tick, old=old, members=len(members), memory=memory.recall(member.citizen_id),
+            ),
+        )
+
+    yes = 0
+    for member, outcome in zip(members, run_chunks([[m] for m in members], vote, config.parallel.intra_run_workers)):
+        ballot = outcome.turn
+        yes += ballot is not None and ballot.vote == "yes"
+        context.journal.write_event(tick=context.tick, citizen_id=member.citizen_id, codebook_version=config.llm.codebook_version, event=AmendmentVote(
+            article=proposal.article, vote=ballot.vote if ballot else "none", **ballot_words(ballot),
+            provenance=LlmProvenance(
+                llm_fallback=int(ballot is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
+            ),
+        ))
+    passed = ratified(yes, len(members), proposal.threshold) and broken_rule(amended(config, proposal.article, proposal.value)) is None
+    context.journal.write_event(tick=context.tick, citizen_id=None, event=AmendmentResolved(
+        article=proposal.article, value=proposal.value, yes=yes, members=len(members), threshold=proposal.threshold, ratified=int(passed),
+    ))
+    if not passed:
+        assert state.constitution is not None  # a proposal is pending in it
+        state.constitution = close_proposal(state.constitution)
+        return
+    state.constitution = amend(state.constitution, proposal.article, proposal.value)
+    context.config = in_force(config, state.constitution)
+    context.journal.write_event(tick=context.tick, citizen_id=None, event=ConstitutionAmended(
+        article=proposal.article, old=old, new=proposal.value, version=state.constitution.version, source="vote",
+    ))
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -1058,6 +1119,7 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
         ),
         max_positions=config.mandate.max_response_shifts, agenda_open=agenda_closed is None, config=config, client=client,
     )
+    _open_proposal(context, state, president, outcome.turn)
     shifts, bill = _turn_moves(outcome.turn, stated, state.legislature, agenda_closed, config)
     president.revealed_position = apply_shifts(stated, shifts)
     context.agenda_moves = bill
@@ -1076,6 +1138,24 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
         context.journal, tick=context.tick, citizen_id=president.citizen_id, decision_event="agent_turn",
         base=stated, shifts=shifts, result=president.revealed_position,
     )
+
+
+def _open_proposal(context: TickContext, state: TickState, president: Citizen, turn: LeaderTurn | None) -> None:
+    """The president's amendment goes to the chamber, which votes it next tick. One at a time:
+    a proposal made while another is pending (the briefing said so) is dropped."""
+    amendment = turn.amendment if isinstance(turn, AmendingLeaderTurn) else None
+    config = context.config
+    if amendment is None or proposal_closed(state.constitution, len(current_sortition_members(state.citizens))) is not None:
+        return
+    threshold = threshold_for(config, amendment.article)
+    state.constitution = propose(state.constitution, Proposal(
+        article=amendment.article, value=amendment.value, proposer=president.citizen_id, tick=context.tick,
+        threshold=threshold, reason=amendment.reason,
+    ))
+    context.journal.write_event(tick=context.tick, citizen_id=president.citizen_id, event=AmendmentProposed(
+        article=amendment.article, value=amendment.value, old=article_value(config, amendment.article),
+        reason=amendment.reason, threshold=threshold,
+    ))
 
 
 def _seated_president(state: TickState) -> tuple[Citizen, tuple[float, ...], tuple[float, ...]] | None:
@@ -1099,6 +1179,7 @@ def _president_briefing(
         public_median=population_median(state.citizens),
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
+        constitution=constitution_text(config, state.constitution, len(current_sortition_members(state.citizens))) if config.agents.amendments else None,
     )
 
 

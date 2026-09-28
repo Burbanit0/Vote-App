@@ -1,8 +1,8 @@
 # ADR-015: a typed constitution — amendable articles, laid over the founding config
 
 **Status**: Accepted — the kernel is built in Phase 2.1 of `docs/plan/polity/plan-polity-agency-roadmap.md`.
-Only scripted amendments exist so far; proposals and ratification come in 2.2 and 2.3. This ADR
-supersedes ADR-008 §2 (the `AmendableParameter` registry and the `ActiveLaws` overlay).
+Scripted amendments (2.1) and the amendment procedure, an agent's proposal and the chamber's vote
+(2.2 and 2.3), are built. This ADR supersedes ADR-008 §2 (the `AmendableParameter` registry and the `ActiveLaws` overlay).
 **Date**: 2026-09-28
 **Context**: the agency roadmap's decision D2 (a typed constitution) and the user's goal of seeing
 the voting system itself change.
@@ -47,10 +47,36 @@ It does not have to. Every tick phase reads its rules from one place, `TickConte
     cannot amend itself into a config the rules refuse.
   - They are also the kernel's smoke test.
 
+## The amendment procedure (roadmap 2.2 and 2.3)
+
+Switched on by `agents.amendments`, which needs the president agent and the sortition chamber.
+
+- **The president proposes.** Their turn may carry one `amendment` (article, value, reason).
+  - Two things are checked with the turn, so a bad one is retried like any invalid turn: the
+    article exists and allows the value (`validate_amendment`), and the rules still hold with it.
+  - One proposal is pending at a time. One made while another is pending, or before any chamber has
+    been drawn, is dropped: the briefing says so. The briefing also shows the constitution in force
+    and the threshold each article needs.
+- **The chamber votes the next tick,** at the start of it (`_resolve_amendment`, after the scripted
+  amendments). Each member takes a turn of their own (`decide_ballot`, decision type
+  `amendment_vote`), in parallel, and none sees another's vote. It carries a statement and a
+  `note_to_self` like any agent turn, so members remember how they voted.
+- **Ratified when strictly more than the threshold of all members voted yes.** A member whose every
+  attempt failed votes `none` and counts against. The rules are checked once more before it applies.
+  Ratification is a `constitution_amended` event with source `vote`, after an `amendment_resolved`
+  event with the tally. A rejected proposal is dropped, and the president may propose again.
+- **The threshold is an article.** `constitution.amendment_threshold` (0.5 to 0.9) is amendable like
+  the rest, and `constitution.entrenched` names articles that need more (the amendment threshold
+  itself, and the voting method, by default). The threshold of a proposal is fixed when it is
+  proposed and stored with it, so a proposal to lower the threshold is voted under the old one.
+- **The pending proposal is state.** It lives in `Constitution.pending`, is checkpointed with it,
+  and is cleared by `amend` and by `close_proposal`. A resume across it is byte-identical.
+- **The values an agent writes are JSON** (`"two_round"`, `null`, `0.5`), as the prompts show them.
+
 ## What this ADR does not settle
 
-- Who proposes, who ratifies, and at what threshold: roadmap 2.2 and 2.3, where the amendment
-  procedure itself becomes articles (entrenchment, the procedure in force at proposal time).
+- Chamber members proposing amendments: left out until the president-only proposals show that the
+  chamber never initiates.
 - Segmenting the digest and the statistics by constitution version (roadmap 2.4 and the
   "refuse to average" rule). Until then, a metric over a run that amended itself straddles two
   sets of rules; the journal says where.
