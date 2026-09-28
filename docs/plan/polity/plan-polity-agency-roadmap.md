@@ -174,7 +174,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 | PR | Deliverable |
 |---|---|
 | 4.1 | **Mutable party membership.** `found` (the co-founder threshold is an article), `join`, `leave`, and automatic dissolution below a minimum. The party leader is the founder or the last nominee, and a `party_leader_turn` lets them move the platform. Nomination keeps its current path. |
-| 4.2 | **Coalition negotiation between leaders** replaces the collapsed `coalition_decision`. It reuses the `_negotiation_converged` stop rule (`llm_behavior_engine.py:5401`). |
+| 4.2 | **Coalition negotiation between leaders** (ADR-019, built). `decide_coalition` takes a `negotiation` callable; `agents.negotiate_leaders` gives each party's leader (its most ambitious member, derived, no stored field) one turn a round, blind, and stops on the crowd's `_negotiation_converged` rule. ON in the exploration profile when the LLM is. |
 | 4.3 | **Citizen initiatives.** A petition that targets a proposal leads to a referendum. The crowd votes on the counterfactual winner: `get_presidential_winner` (`ballot_and_aggregation.py:90`) on the last election's ballots, under the proposed method. Agents vote through their turns. `referendum_required` becomes an article. |
 | 4.4 | **An `engagement` field**: `active`, `disengaged` or `exited`. `exited` is a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 

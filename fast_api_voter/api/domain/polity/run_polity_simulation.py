@@ -47,8 +47,9 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 
@@ -58,6 +59,7 @@ from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
     AgentMemory,
+    LeaderAnswer,
     NomineeBriefing,
     PresidentBriefing,
     TurnOutcome,
@@ -71,6 +73,7 @@ from api.domain.polity.agents import (
     forum_user_prompt,
     forum_words,
     moves_payload,
+    negotiate_leaders,
     nominee_system_prompt,
     nominee_user_prompt,
     president_system_prompt,
@@ -207,6 +210,7 @@ from api.domain.polity.llm_behavior_engine import (
     ReactionContext,
     ResponseContext,
     VoteBatchOutcome,
+    _run_coalition_negotiation,
     apply_shifts,
     run_chunks,
     cast_votes,
@@ -635,7 +639,7 @@ def run_simulation(
         latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
         edges = NeighbourEdges.from_graph(graph)
 
-    memory = AgentMemory() if config.agents.president or config.agents.forum else None
+    memory = AgentMemory() if config.agents.president or config.agents.forum or config.agents.coalition else None
     if resume:
         checkpoint = load_checkpoint(checkpoint_path)
         if checkpoint.run_id != run_id:
@@ -994,7 +998,14 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
             state.citizens, state.parties, context.config, context.journal, context.tick,
             governing=_governing_record(state.citizens, legislature),
         )
-        coalition = _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+        answers: dict[tuple[int, int], LeaderAnswer] = {}
+        talks: Callable[..., Any] = _run_coalition_negotiation
+        if context.config.agents.coalition:
+            assert context.memory is not None  # agents.coalition builds the memory
+            talks = partial(negotiate_leaders, citizens=state.citizens, memory=context.memory, tick=context.tick, answers=answers)
+        coalition = _form_and_journal_coalition(
+            state.parties, seats, votes, context.config, context.journal, context.tick, context.client, talks, answers,
+        )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
             legislature.policy_at_assembly_start = legislature.policy
@@ -2251,10 +2262,13 @@ def _form_and_journal_coalition(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
+    talks: Callable[..., Any] = _run_coalition_negotiation,
+    answers: Mapping[tuple[int, int], LeaderAnswer] | None = None,
 ) -> list[int] | None:
-    """The governing coalition formed, or None (S4.2 keeps it for legislation)."""
+    """The governing coalition formed, or None (S4.2 keeps it for legislation). `talks` are the
+    party leaders' negotiation (agents.coalition), `answers` what they said in it."""
     if llm_client is not None:
-        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
+        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client, talks, {} if answers is None else answers)
     platforms = {party.party_id: party.platform for party in parties}
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
@@ -2278,6 +2292,8 @@ def _form_and_journal_coalition_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
+    talks: Callable[..., Any],
+    answers: Mapping[tuple[int, int], LeaderAnswer],
 ) -> list[int] | None:
     """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
     nearest-neighbour greedy aggregation with one join/leave decision per
@@ -2296,22 +2312,28 @@ def _form_and_journal_coalition_llm(
     genuine conclusion, no majority reachable" from "negotiation cut short
     by an LLM failure", which the pre-v7 single coalition_failed shape could
     not (plan-coalition-negotiation-v7.md §4)."""
-    outcome = decide_coalition(parties, seats, votes, config, llm_client)
+    outcome = decide_coalition(parties, seats, votes, config, llm_client, talks)
     for round_number, round_decisions in enumerate(outcome.rounds, start=1):
         round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
         round_call_id = outcome.rounds_llm_call_ids[round_number - 1]
         for decision in round_decisions:
+            spoken = answers.get((round_number, decision.party_id))
+            leader_fields: dict[str, Any] = (
+                {"leader": spoken.leader, "llm_fallback": int(spoken.fallback), **spoken.words} if spoken else {}
+            )
             journal.write_event(
                 tick=tick,
+                citizen_id=spoken.leader if spoken else None,
                 event=CoalitionDecision(
                     party_id=decision.party_id,
                     action=decision.action,
                     initiator=outcome.initiator,
                     round=round_number,
-                    retry_sampling_varied=int(round_retry_varied),
-                    llm_call_id=round_call_id,
+                    retry_sampling_varied=int(spoken.sampling_varied if spoken else round_retry_varied),
+                    llm_call_id=spoken.call_id if spoken else round_call_id,
+                    **leader_fields,
                 ),
-                motif=str(decision.motif),
+                motif=None if spoken else str(decision.motif),
                 codebook_version=config.llm.codebook_version,
             )
     if outcome.aborted_at_round is not None:
