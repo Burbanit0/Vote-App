@@ -636,6 +636,7 @@ _TRUNCATE_TO = 5
 _logger = logging.getLogger(__name__)
 
 _BatchT = TypeVar("_BatchT")
+_DecisionT = TypeVar("_DecisionT")
 
 
 @dataclass(frozen=True)
@@ -771,36 +772,16 @@ def _complete_and_decode_with_replay(
     by returning malformed JSON (a decode-time failure) -- it never raises
     from complete_json, so the untested branch was also the broken one.
 
-    The subsequent config-bound validate_*_decision calls each caller makes
-    stay outside the retry loop, on purpose. A validate_* failure (an
-    out-of-bounds shift, an out-of-menu act) is the model's judgment being
-    wrong in a way an identical retry at temperature=0 is not expected to
-    fix, and several callers build side effects (ballots, resolved
-    platforms) alongside their own validate_* loop that would need
-    unwinding to retry safely -- unlike a truncated/misaligned response,
-    which produces no such side effect to unwind.
-
-    ONE DOCUMENTED EXCEPTION, 2026-09-11 (Track C1 step A,
-    lets-build-a-solid-spicy-otter.md): `decide_party_nominations` moves its
-    own `validate_party_nomination_decision` call INSIDE `decode=`. Both
-    reasons above fail to apply to it specifically. First, its retry is
-    NOT byte-identical at temperature=0 -- it already passes
-    `retry_temperature`/`retry_seed_base`, so "an identical retry is not
-    expected to fix it" is not this caller's situation; a genuine retry
-    here samples differently, and `check_party_nomination_position_
-    logprobs_results.md` found the failure to be a confident, repeatable
-    comprehension error (P(2)=0.994, P(6|2)=0.892), not noise a same-
-    sampling retry could shake loose anyway -- varied sampling is the one
-    lever with a real chance to land on a different answer. Second, it
-    builds no side effect before validation -- `winners` is resolved from
-    `decisions` only after the whole batch already validated, so there is
-    nothing to unwind. Found live, 2026-09-10 (Stage 3, population 500):
-    `validate_party_nomination_decision` ran post-hoc, outside this
-    function entirely, so an out-of-range `winner_position` skipped the
-    already-wired replay budget completely and fell straight to the
-    whole-batch deterministic fallback on its very first occurrence --
-    10 of 15 nominations in that run (67%), for one out-of-range answer
-    among five parties' worth of decisions each time.
+    Every caller validates INSIDE `decode=` (`_validated`), so an answer the
+    engine rejects (an out-of-bounds shift, an out-of-menu act) is replayed
+    like a malformed one before any fallback. That used to be the exception
+    (party nominations, 2026-09-11: post-hoc validation had sent 10 of 15
+    nominations straight to the fallback) and became the rule on 2026-09-27
+    (backlog #1 of plan-full-run.md: 361 of 362 failed chamber calls were a
+    shift bound, each costing its whole batch unretried -- OBS-021). The two
+    old reasons for validating outside no longer hold: every decision type
+    now retries with varied sampling, and no caller builds a side effect
+    before its batch has validated.
 
     This softens, and deliberately does not overturn,
     LlmResponseError's own "NOT retried" ruling (llm_client.py): that
@@ -898,6 +879,15 @@ def _complete_and_decode_with_replay(
                 "%s batch rejected on attempt %d/%d, replaying%s: %s",
                 decision_type, attempt, replays + 1, f" at {detail}" if detail else "", exc,
             )
+
+
+def _validated(decisions: list[_DecisionT], validate: Callable[[_DecisionT], None] | None) -> list[_DecisionT]:
+    """`decisions`, once `validate` accepts each one -- for use inside `decode=`, so a
+    rejected answer is replayed like a malformed one."""
+    if validate is not None:
+        for decision in decisions:
+            validate(decision)
+    return decisions
 
 
 def _retry_sampling(attempt: int, retry_temperature: float | None, retry_seed_base: int | None) -> dict[str, Any]:
@@ -1065,8 +1055,8 @@ class DecisionSpec(Generic[_CitizenDecisionT]):
     decode: Callable[[str, Sequence[int]], list[_CitizenDecisionT]]
     validate: Callable[[_CitizenDecisionT], None] | None = None
     """Raises LlmResponseError on a decoded decision the engine cannot honour; runs
-    inside the replay's failure handling, so a rejected batch falls back exactly like
-    an exhausted replay budget."""
+    inside the replay loop, so a rejected batch is replayed, then falls back exactly
+    like an exhausted replay budget."""
     fallback: Callable[[list[Citizen]], list[_CitizenDecisionT]]
     fallback_description: str
     """What the log names as the fallback, e.g. "the deterministic ambition threshold
@@ -1104,7 +1094,7 @@ def run_decision(
                 json_schema=spec.json_schema,
                 max_tokens=compute_max_tokens(len(chunk)),
                 think=spec.think,
-                decode=lambda raw: spec.decode(raw, expected_cids),
+                decode=lambda raw: _validated(spec.decode(raw, expected_cids), spec.validate),
                 replays=config.llm.max_batch_replays,
                 decision_type=spec.decision_type,
                 unit_ids=expected_cids,
@@ -1115,9 +1105,6 @@ def run_decision(
                 retry_seed_base=spec.retry_seed_base,
                 retry_info=retry_info,
             )
-            if spec.validate is not None:
-                for decision in chunk_decisions:
-                    spec.validate(decision)
         except LlmResponseError as exc:
             _logger.error(
                 "%s: exhausted every recovery attempt for cid(s) %s, falling back to %s instead of aborting "
@@ -1728,7 +1715,10 @@ def cast_votes(
                     unit_ids=expected_cids,
                 ),
                 think=True,
-                decode=lambda raw: decode_vote_batch(raw, expected_cids),
+                decode=lambda raw: _validated(
+                    decode_vote_batch(raw, expected_cids),
+                    lambda decision: validate_decision(decision, candidate_count, truncate_at),
+                ),
                 replays=config.llm.max_batch_replays,
                 extra_body=thinking_budget_body(config, "vote_cast"),
                 decision_type="vote_cast",
@@ -1743,19 +1733,12 @@ def cast_votes(
                 retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE,
                 retry_info=retry_info,
             )
-            for decision in chunk_decisions:
-                validate_decision(decision, candidate_count, truncate_at)
         except LlmResponseError as exc:
             # Last resort, not a silent one -- see VoteBatchOutcome.llm_
             # fallback's own docstring for why this exists and what it does
-            # and does not claim. Covers BOTH failure classes that reach
-            # here: the replay budget exhausted inside
-            # _complete_and_decode_with_replay, and a validate_decision
-            # failure on an otherwise-decoded batch (out-of-range/truncated
-            # ranking) -- neither is retried today, and both currently kill
-            # the whole run identically, which is the exact "must not die
-            # mid-run" failure this plan's own priority ordering names as
-            # worse than any of this run's other goals.
+            # and does not claim. Reached once the replay budget is exhausted,
+            # whether by malformed answers or by validate_decision rejections
+            # (out-of-range/truncated ranking), which are replayed alike.
             _logger.error(
                 "vote_cast: exhausted every recovery attempt for cid(s) %s, falling back to the "
                 "deterministic sincere ranking (simple_rules.build_ranking) instead of aborting "
@@ -2279,13 +2262,6 @@ class _NominationRequest:
     def decide(self, batch: dict[int, list[Citizen]], retry_info: dict[str, Any]) -> list[PartyNominationDecision]:
         """One party_nomination_choice call over `batch`, replayed and validated."""
         party_ids = list(batch.keys())
-
-        def decode_and_validate(raw: str) -> list[PartyNominationDecision]:
-            batch_decisions = decode_party_nomination_batch(raw, party_ids)
-            for decision in batch_decisions:
-                validate_party_nomination_decision(decision, batch[decision.party_id])
-            return batch_decisions
-
         return _complete_and_decode_with_replay(
             self.client,
             system_prompt=build_party_nomination_system_prompt(batch),
@@ -2293,7 +2269,10 @@ class _NominationRequest:
             json_schema=PARTY_NOMINATION_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(batch)),
             think=False,
-            decode=decode_and_validate,
+            decode=lambda raw: _validated(
+                decode_party_nomination_batch(raw, party_ids),
+                lambda decision: validate_party_nomination_decision(decision, batch[decision.party_id]),
+            ),
             replays=self.config.llm.max_batch_replays,
             decision_type="party_nomination_choice",
             unit_ids=party_ids,
@@ -2842,7 +2821,10 @@ def decide_campaign_positioning(
             json_schema=POSITIONING_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(nominees)) + _profile(config).positioning_think_allowance,
             think=True,
-            decode=lambda raw: decode_positioning_batch(raw, expected_cids),
+            decode=lambda raw: _validated(
+                decode_positioning_batch(raw, expected_cids),
+                lambda decision: validate_positioning_decision(decision, config),
+            ),
             replays=config.llm.max_batch_replays,
             decision_type="campaign_positioning",
             unit_ids=expected_cids,
@@ -2857,12 +2839,6 @@ def decide_campaign_positioning(
             retry_seed_base=_POSITIONING_RETRY_SEED_BASE,
             retry_info=retry_info,
         )
-        # Inside the try on purpose: a validate_positioning_decision failure is
-        # the SAME class of unrecoverable batch as an exhausted replay budget,
-        # and before this it killed the run just as reliably (cast_votes's own
-        # except block already covers both failure classes for the same reason).
-        for decision in decisions:
-            validate_positioning_decision(decision, config)
     except LlmResponseError as exc:
         # Last resort, not a silent one -- see PositioningBatchOutcome.llm_
         # fallback and _deterministic_positioning_fallback's own docstrings.
@@ -3267,7 +3243,10 @@ def decide_representative_response(
             json_schema=RESPONSE_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(holders)),
             think=False,
-            decode=lambda raw: decode_response_batch(raw, expected_cids),
+            decode=lambda raw: _validated(
+                decode_response_batch(raw, expected_cids),
+                lambda decision: validate_response_decision(decision, config),
+            ),
             replays=config.llm.max_batch_replays,
             decision_type="representative_response",
             unit_ids=expected_cids,
@@ -3278,8 +3257,6 @@ def decide_representative_response(
             retry_seed_base=_RESPONSE_RETRY_SEED_BASE,
             retry_info=retry_info,
         )
-        for decision in decisions:
-            validate_response_decision(decision, config)
     except LlmResponseError as exc:
         # Last resort, not a silent one. Added 2026-09-11 after this exact path
         # killed a real 2.5-hour scale-probe run: dt=6 was one of five decision
@@ -4823,7 +4800,10 @@ def decide_chamber_deliberation(
                     unit_ids=expected_cids,
                 ),
                 think=True,
-                decode=lambda raw: decode_chamber_batch(raw, expected_cids),
+                decode=lambda raw: _validated(
+                    decode_chamber_batch(raw, expected_cids),
+                    lambda decision: validate_chamber_decision(decision, config),
+                ),
                 replays=config.llm.max_batch_replays,
                 extra_body=thinking_budget_body(config, "chamber_deliberation"),
                 decision_type="chamber_deliberation",
@@ -4835,18 +4815,12 @@ def decide_chamber_deliberation(
                 retry_seed_base=_CHAMBER_RETRY_SEED_BASE,
                 retry_info=retry_info,
             )
-            for decision in chunk_decisions:
-                validate_chamber_decision(decision, config)
         except LlmResponseError as exc:
             # Last resort, not a silent one -- see ChamberBatchOutcome.llm_
             # fallback's own docstring for why this exists and what it does
-            # and does not claim. Covers BOTH failure classes that reach
-            # here: the replay budget exhausted inside
-            # _complete_and_decode_with_replay, and a validate_chamber_
-            # decision failure on an otherwise-decoded batch -- neither is
-            # retried further, and both used to kill the whole run
-            # identically before this fix, which this plan's own priority
-            # ordering ("must not die mid-run" first) rules out.
+            # and does not claim. Reached once the replay budget is exhausted,
+            # whether by malformed answers or by validate_chamber_decision
+            # rejections, which are replayed alike (OBS-021).
             _logger.error(
                 "chamber_deliberation: exhausted every recovery attempt for cid(s) %s, falling back "
                 "to the deterministic sincere decision (no shift) instead of aborting the run: %s",
@@ -5460,7 +5434,10 @@ def _run_coalition_negotiation(
                 json_schema=COALITION_JSON_SCHEMA,
                 max_tokens=compute_max_tokens(len(responders)),
                 think=False,
-                decode=lambda raw: decode_coalition_batch(raw, responders),
+                decode=lambda raw: _validated(
+                    decode_coalition_batch(raw, responders),
+                    lambda decision: validate_coalition_decision(decision, seats, initiator),
+                ),
                 replays=config.llm.max_batch_replays,
                 decision_type="coalition_decision",
                 unit_ids=responders,
@@ -5496,8 +5473,6 @@ def _run_coalition_negotiation(
             # form_coalition fallback, never just this one.
             return all_rounds, round_number, rounds_sampling_varied, rounds_call_ids
 
-        for decision in round_decisions:
-            validate_coalition_decision(decision, seats, initiator)
         all_rounds.append(round_decisions)
         rounds_sampling_varied.append(_sampling_varied(retry_info, False))
         rounds_call_ids.append(retry_info.get("call_id"))
