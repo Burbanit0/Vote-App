@@ -17,6 +17,7 @@
   },
   "candidacy": {
     "ambition_threshold": 0.3,
+    "incumbent_keeps_record": false,
     "max_candidates_hard_cap": 20,
     "rupture_base_probability": 0.03,
     "rupture_distance_multiplier": 2.0,
@@ -101,6 +102,7 @@
     "max_bill_step": 0.1
   },
   "legitimacy": {
+    "approval_weight": 0.0,
     "decay": 0.9,
     "enabled": true,
     "passive_erosion_weight": 0.0,

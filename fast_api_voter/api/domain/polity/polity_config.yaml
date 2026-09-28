@@ -237,6 +237,9 @@ candidacy:
   # 0,005), la nouvelle le rejette (0,0 < 0,005). Voir
   # docs/adr/ADR-003-ballot-access-filter-is-inert.md.
   max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
+  incumbent_keeps_record: false       # true = un ancien président se représente sur la
+                                      #   position tenue en fonction, pas sur ses vues
+                                      #   sincères : les électeurs jugent son bilan.
 
 # =============================================================================
 # CAMPAGNE (§3.1, §3.6.2->3.6.8) — positionnement stratégique du candidat
@@ -325,6 +328,10 @@ legitimacy:
                               #      > 0 = mandate_deviation érode L(t) même
                               #      sans action citoyenne. À n'activer
                               #      qu'avec justification explicite.
+  approval_weight: 0.0        # part du soutien support(t) tirée de l'approbation
+                              #   (legitimacy.approval : part des citoyens qui
+                              #   classeraient la conduite du président au-dessus
+                              #   du blanc) au lieu du seul mandat. 0.0 = mandat seul.
 
 # =============================================================================
 # PRESSION CITOYENNE (§7bis) — inactive avant v4

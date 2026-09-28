@@ -161,14 +161,16 @@ def _policy_term(voter: Citizen, vote: VoteConfig, incumbent: IncumbentRecord) -
 def candidate_utility(
     voter: Citizen, candidate: Citizen, vote: VoteConfig,
     incumbent: IncumbentRecord | None = None, valence: Mapping[int, float] | None = None,
+    platform: tuple[float, ...] | None = None,
 ) -> float:
     """S4.1 (ADR-011): minus the weighted distance, plus partisanship for the voter's own
     party, plus the incumbent's record for the incumbent (and a share of it for their
     party's candidate), plus valence. A term whose weight is zero is exactly 0.0, so with
-    every weight at zero this orders and compares as minus build_ranking's distance."""
+    every weight at zero this orders and compares as minus build_ranking's distance.
+    `platform` replaces the pledge as what the distance judges (approval judges conduct)."""
     valence_term = vote.valence * valence.get(candidate.citizen_id, 0.0) if valence else 0.0
     return (
-        -weighted_distance(voter, _candidate_platform(candidate))
+        -weighted_distance(voter, platform if platform is not None else _candidate_platform(candidate))
         + _partisan_term(voter, candidate, vote)
         + _retrospective_term(voter, candidate, vote, incumbent)
         + valence_term
@@ -454,12 +456,16 @@ def vacate_office(citizen: Citizen) -> None:
     citizen.term_end_tick = None
 
 
-def declare_candidacy(citizen: Citizen) -> None:
+def declare_candidacy(citizen: Citizen, *, keep_record: bool = False) -> None:
     """v0 has no campaign strategizing: a candidate runs on their own
     sincere position. revealed_position is pinned equal to pledged_platform
     (design doc §7bis.5) — the deviation this enables is a v2+ LLM effect,
-    zero by construction here."""
+    zero by construction here. With `keep_record`, a former officeholder runs
+    on the position they held in office instead, so voters judge what they did."""
     citizen.role = Role.CANDIDATE
+    if keep_record and citizen.mandates_served > 0 and citizen.revealed_position is not None:
+        citizen.pledged_platform = citizen.revealed_position
+        return
     citizen.pledged_platform = citizen.issue_positions
     citizen.revealed_position = citizen.issue_positions
 

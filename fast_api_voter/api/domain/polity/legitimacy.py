@@ -43,8 +43,11 @@ mandate_deviation already exists, and the shipped default
 """
 from __future__ import annotations
 
-from api.domain.polity.config import LegitimacyConfig
-from api.domain.polity.simple_rules import ballot_ranks_above_blank
+from collections.abc import Sequence
+
+from api.domain.polity.citizen import Citizen
+from api.domain.polity.config import LegitimacyConfig, VoteConfig
+from api.domain.polity.simple_rules import IncumbentRecord, PolicyRecord, ballot_ranks_above_blank, candidate_utility
 
 
 def mandate_strength(ballots: list[list[str]], winner_label: str) -> float:
@@ -56,6 +59,21 @@ def mandate_strength(ballots: list[list[str]], winner_label: str) -> float:
         raise ValueError("mandate_strength requires at least one ballot")
     above = sum(1 for ballot in ballots if ballot_ranks_above_blank(ballot, winner_label))
     return above / len(ballots)
+
+
+def approval(
+    citizens: Sequence[Citizen], president: Citizen, vote: VoteConfig, policy: PolicyRecord | None = None,
+) -> float:
+    """support(t) measured between elections: the share of citizens whose utility ballot
+    would rank the president above blank, judged on their conduct in office (the revealed
+    position, not the pledge) and on the policy of their term. The record term is left
+    out -- the record is 2L-1, and L is what this feeds."""
+    judged = IncumbentRecord(citizen_id=president.citizen_id, party=president.party_affiliation, record=0.0, policy=policy)
+    approving = sum(
+        1 for voter in citizens
+        if candidate_utility(voter, president, vote, judged, platform=president.revealed_position) >= -voter.blank_threshold
+    )
+    return approving / len(citizens)
 
 
 def initial_legitimacy(strength: float) -> float:
@@ -84,6 +102,14 @@ def compose_ecart(
         + street_weight * street_pressure
         + passive_erosion_weight * deviation
     )
+
+
+def support_strength(mandate: float, approval_share: float | None, config: LegitimacyConfig) -> float:
+    """m for update_legitimacy: the mandate, blended with approval by `approval_weight`
+    (0 is the mandate alone, as before approval existed)."""
+    if approval_share is None:
+        return mandate
+    return (1.0 - config.approval_weight) * mandate + config.approval_weight * approval_share
 
 
 def update_legitimacy(previous: float, strength: float, ecart: float, config: LegitimacyConfig) -> float:
