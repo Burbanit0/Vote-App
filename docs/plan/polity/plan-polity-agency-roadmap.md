@@ -112,7 +112,7 @@ Each row is one PR, small enough for the 100% diff-coverage gate.
 | PR | Deliverable |
 |---|---|
 | 0.1 | **Root-cause fix for backlog #1, in one place.** `_complete_and_decode_with_replay` gains a `validate` parameter checked *inside* its retry loop. Its 7 callers (`llm_behavior_engine.py` L1100, 1715, 2289, 2838, 3263, 4810, 5449) pass the validators they currently run after the fact. Invalid answers then get the retries that already exist. |
-| 0.2 | **The exploration profile.** `run_polity_flagship.py` gains `--config <yaml>` (`load_config(path)` already exists), and `polity_config.exploration.yaml` is added. The `llm.temperature == 0` rule (`config.py:1110`) is relaxed under `reproducibility: relaxed`. `digest.json` gains the valid-action rate and token totals. |
+| 0.2 | *Folded into Phase 1 (2026-09-27).* Nothing consumed it yet: `--config <yaml>` and `polity_config.exploration.yaml` arrive with 1.1's first profile knob, the `llm.temperature == 0` relaxation (`config.py:1110`) with 1.2's agents, and the valid-action rate is already `1 − fallback_by_type / decisions_by_type` in `progress.json`. |
 
 **Rented GPU runbook** (no code):
 1. On the rented box, start vLLM with the same compose file, bound to `127.0.0.1`.
@@ -123,12 +123,14 @@ Never expose vLLM publicly: it has no auth. Spot preemption is covered by `--res
 
 **Exit:** chamber unit fallback below 1% on a 2-year p200 run, and one tunnelled rented smoke run completes.
 
+**0.1 result** (PR #679, 2026-09-27): on 2-year runs, the p500 / 75-seat / seed-42 run left 0 of 675 chamber units on fallback, against 45–50 of 600 (7.5–8.3%) in the same 8 ticks of the three full runs; its 13 shift-cap rejections were all rescued by a retry. The p200 run left 0 of 1,007 decisions on fallback. The rented smoke run waits for a rented GPU.
+
 ### Phase 1: Leaders and popularity
 
 | PR | Deliverable |
 |---|---|
-| 1.1 | **Close the loop, no LLM.** A `_phase_polls` phase publishes `approval_poll` and `vote_intention_poll` events by running `utility_ballot` over a seeded sample. `legitimacy.approval_weight` blends approval into the strength that `update_legitimacy` takes (`legitimacy.py:89`); at 0 it reproduces today's behaviour. The profile turns on `vote.approval` and `vote.policy_retrospection` (`policy_gain` already exists, `simple_rules.py:276`) and legislation. `candidacy.incumbent_keeps_record` stops `declare_candidacy` from resetting an incumbent. Approval is added to `MacroCurves`. |
-| 1.2 | **`agents.py`, one module, leaders only.** The agent set is derived every tick: the president and the nominees. It holds the template persona, a named-issue list, the journal-tap memory (last N entries), a reflection every 4 ticks, and the turn runner on `run_decision`. ADR-014 (the agent tier) is written in this PR. |
+| 1.1 | **Close the loop, no LLM.** Adds `--config <yaml>` and `polity_config.exploration.yaml` (from 0.2). A `_phase_polls` phase publishes `approval_poll` and `vote_intention_poll` events by running `utility_ballot` over a seeded sample. `legitimacy.approval_weight` blends approval into the strength that `update_legitimacy` takes (`legitimacy.py:89`); at 0 it reproduces today's behaviour. The profile turns on `vote.approval` and `vote.policy_retrospection` (`policy_gain` already exists, `simple_rules.py:276`) and legislation. `candidacy.incumbent_keeps_record` stops `declare_candidacy` from resetting an incumbent. Approval is added to `MacroCurves`. |
+| 1.2 | **`agents.py`, one module, leaders only.** Relaxes `llm.temperature == 0` under `reproducibility: relaxed` (from 0.2). The agent set is derived every tick: the president and the nominees. It holds the template persona, a named-issue list, the journal-tap memory (last N entries), a reflection every 4 ticks, and the turn runner on `run_decision`. ADR-014 (the agent tier) is written in this PR. |
 | 1.3 | **`president_turn`.** Intents: `set_agenda`, `statement` and `nothing`. `set_agenda` replaces `_draft_bill` (L917), which becomes the fallback. `statement` is a bounded shift that emits the existing `RepresentativeResponse` event, so mandate metrics survive. |
 | 1.4 | **Nominee campaign turn.** It replaces `campaign_positioning` for nominees, and its token budget closes OBS-022. |
 | 1.5 | **Explorer.** A leader diary in `CitizenBiography`, from `agent_turn` events. |
