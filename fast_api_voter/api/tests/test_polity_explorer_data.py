@@ -189,6 +189,18 @@ def test_an_agent_s_turns_make_a_diary_with_its_moves_in_words(runs: dict[str, P
     assert (entry.details["moves"], entry.details["bill"]) == ("housing +0.10", "taxation -0.05")
 
 
+def test_a_forum_post_joins_the_diary_and_a_changed_mind_says_toward_which_pole(runs: dict[str, Path], tmp_path: Path) -> None:
+    run_dir = Path(shutil.copytree(runs["deterministic"], tmp_path / "run"))
+    posts = [("Open the borders.", 5, 0.25), ("", -1, 0.0), ("Close them.", 5, -0.25)]
+    with (run_dir / "events.jsonl").open("a") as handle:
+        for i, (post, issue, logit) in enumerate(posts):
+            payload = {"post": post, "rationale": "r", "note_to_self": "", "shift_issue": issue, "shift_logit": logit}
+            handle.write(json.dumps({"event_id": 10**6 + i, "tick": 12 + i, "citizen_id": 2, "event_type": "forum_post", "payload": payload}) + "\n")
+    entries = [e for e in build_biography(RunView.load(run_dir), 2).sections["turns"] if e.event_type == "forum_post"]
+    assert [e.details["post"] for e in entries] == ["Open the borders.", "", "Close them."]
+    assert [e.details.get("shift") for e in entries] == ["immigration: toward open", None, "immigration: toward restrictive"]
+
+
 # ── catalog ───────────────────────────────────────────────────────────────
 
 def test_run_roots_are_label_path_pairs() -> None:
