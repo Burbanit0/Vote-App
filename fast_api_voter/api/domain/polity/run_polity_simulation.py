@@ -199,7 +199,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
@@ -1020,50 +1020,74 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
     place it takes (the accountability phase skips that call while agents.president is on).
     A turn whose every attempt failed leaves the president silent and the formula drafting."""
     config, client, memory = context.config, context.client, context.memory
-    if not config.agents.president or client is None or memory is None:
+    seated = _seated_president(state) if config.agents.president else None
+    if seated is None or client is None or memory is None:
         return
-    president = next((h for h in current_office_holders(state.citizens, Office.PRESIDENT) if h.revealed_position is not None), None)
-    if president is None or president.pledged_platform is None or president.revealed_position is None:
-        return
-    legislature = state.legislature
+    president, pledge, stated = seated
     agenda_closed = _agenda_closed(context, state, president)
-    briefing = PresidentBriefing(
-        tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
-        approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
-        agenda_closed=agenda_closed,
-        policy=legislature.policy if legislature is not None else None,
-        public_median=population_median(state.citizens),
-        assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
-        pledge=president.pledged_platform, stated=president.revealed_position,
-    )
     outcome = decide_turn(
         president, system_prompt=president_system_prompt(president, config),
-        user_prompt=president_user_prompt(briefing, memory.recall(president.citizen_id)),
+        user_prompt=president_user_prompt(
+            _president_briefing(context, state, president, pledge, stated, agenda_closed), memory.recall(president.citizen_id),
+        ),
         agenda_open=agenda_closed is None, config=config, client=client,
     )
-    turn = outcome.turn
-    base = president.revealed_position
-    shifts = steps_toward(turn.positions, base, config.mandate.max_response_delta) if turn is not None else []
-    bill = (
-        steps_toward(turn.bill, legislature.policy, config.legislation.max_bill_step)
-        if turn is not None and agenda_closed is None and legislature is not None else []
-    )
-    president.revealed_position = apply_shifts(base, shifts)
-    if turn is not None and agenda_closed is None:
-        context.agenda_moves = bill
+    shifts, bill = _turn_moves(outcome.turn, stated, state.legislature, agenda_closed, config)
+    president.revealed_position = apply_shifts(stated, shifts)
+    context.agenda_moves = bill
     context.journal.write_event(
         tick=context.tick,
         event=AgentTurn(
-            role=Office.PRESIDENT.value, shifts=moves_payload(shifts), bill=moves_payload(bill), **turn_words(turn),
-            provenance=LlmProvenance(llm_fallback=int(turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id),
+            role=Office.PRESIDENT.value, shifts=moves_payload(shifts), bill=moves_payload(bill or []), **turn_words(outcome.turn),
+            provenance=LlmProvenance(
+                llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
+            ),
         ),
         citizen_id=president.citizen_id,
         codebook_version=config.llm.codebook_version,
     )
     _journal_clamped_dimensions(
         context.journal, tick=context.tick, citizen_id=president.citizen_id, decision_event="agent_turn",
-        base=base, shifts=shifts, result=president.revealed_position,
+        base=stated, shifts=shifts, result=president.revealed_position,
     )
+
+
+def _seated_president(state: TickState) -> tuple[Citizen, tuple[float, ...], tuple[float, ...]] | None:
+    """The sitting president with their pledge and stated position, when they have both."""
+    for holder in current_office_holders(state.citizens, Office.PRESIDENT):
+        if holder.pledged_platform is not None and holder.revealed_position is not None:
+            return holder, holder.pledged_platform, holder.revealed_position
+    return None
+
+
+def _president_briefing(
+    context: TickContext, state: TickState, president: Citizen,
+    pledge: tuple[float, ...], stated: tuple[float, ...], agenda_closed: str | None,
+) -> PresidentBriefing:
+    config, legislature = context.config, state.legislature
+    return PresidentBriefing(
+        tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
+        approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
+        agenda_closed=agenda_closed,
+        policy=legislature.policy if legislature is not None else None,
+        public_median=population_median(state.citizens),
+        assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
+        pledge=pledge, stated=stated,
+    )
+
+
+def _turn_moves(
+    turn: LeaderTurn | None, stated: tuple[float, ...], legislature: Legislature | None, agenda_closed: str | None,
+    config: PolityConfig,
+) -> tuple[list[PositionShift], list[PositionShift] | None]:
+    """The steps the kernel takes for a turn, and the agent's bill -- None when the agenda is
+    not the agent's this tick (or the turn failed), so the formula keeps it."""
+    if turn is None:
+        return [], None
+    shifts = steps_toward(turn.positions, stated, config.mandate.max_response_delta)
+    if agenda_closed is not None or legislature is None:
+        return shifts, None
+    return shifts, steps_toward(turn.bill, legislature.policy, config.legislation.max_bill_step)
 
 
 def _agenda_closed(context: TickContext, state: TickState, president: Citizen) -> str | None:

@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
+import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -25,13 +28,15 @@ from api.domain.polity.agents import (
 )
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
+from api.domain.polity import run_polity_simulation as engine
 from api.domain.polity.journal import Journal, JournalEvent
+from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.llm_behavior_engine import ResponseContext
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.llm_schemas import IssueTarget, LeaderTurn
+from api.domain.polity.llm_schemas import IssueTarget, LeaderTurn, PositionShift
 from api.domain.polity.parties import Party
-from api.domain.polity.run_polity_simulation import run_simulation
-from api.tests.polity_explorer_fixtures import FixtureLlmClient
+from api.domain.polity.run_polity_simulation import _agenda_closed, _agent_bill, _phase_leaders, _turn_moves, run_simulation
+from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient
 from api.tests.polity_golden import golden_config
 
 _CONFIG = load_config()
@@ -223,34 +228,72 @@ def test_the_president_agent_needs_the_model_and_the_named_issues() -> None:
         validate_config(dataclasses.replace(with_llm, citizens=dataclasses.replace(with_llm.citizens, issue_count=10)))
 
 
+# ── the kernel's side of a turn ───────────────────────────────────────────
+
+_AGENDA_CONFIG = dataclasses.replace(_CONFIG, legislation=dataclasses.replace(_CONFIG.legislation, enabled=True, bill_interval_ticks=2))
+
+
+def _closed(legislature: Legislature | None, tick: int = 4) -> str | None:
+    context = SimpleNamespace(config=_AGENDA_CONFIG, tick=tick)
+    return _agenda_closed(context, SimpleNamespace(legislature=legislature), _president())  # type: ignore[arg-type]
+
+
+def test_the_briefing_says_why_the_agenda_is_closed() -> None:
+    seated = Legislature(policy=(0.5,) * _N, seats={2: 60, 3: 40}, coalition=(2,))
+    bill = Bill(bill_id=1, agenda_setter="president", proposer=30, dimensions=(0,), proposal=(0.6,))
+    assert _closed(None) == "legislation is not in force"
+    assert _closed(Legislature(policy=(0.5,) * _N)) == "no assembly has been elected yet"
+    assert _closed(dataclasses.replace(seated, suspended=bill)) == "a bill the chamber suspended comes back first"
+    assert _closed(seated, tick=5) == "a bill comes every 2 ticks"
+    assert _closed(dataclasses.replace(seated, coalition=(3,))) == "under cohabitation the government sets the agenda"
+    assert _closed(seated) is None
+
+
+def test_an_agent_bill_that_changes_nothing_is_no_bill() -> None:
+    legislature = Legislature(policy=(1.0, 0.5))
+    assert _agent_bill(legislature, _president(), []) is None
+    assert _agent_bill(legislature, _president(), [PositionShift(dimension=0, delta=0.1)]) is None  # already at the bound
+    bill = _agent_bill(legislature, _president(), [PositionShift(dimension=1, delta=0.1), PositionShift(dimension=0, delta=0.1)])
+    assert bill is not None and (bill.dimensions, bill.proposal, bill.proposer) == ((1,), (0.6,), 30)
+
+
+def test_a_failed_turn_moves_nothing_and_leaves_the_agenda_to_the_formula() -> None:
+    assert _turn_moves(None, (0.5,) * _N, Legislature(policy=(0.5,) * _N), None, _CONFIG) == ([], None)
+
+
+def test_no_turn_is_asked_without_a_seated_president() -> None:
+    agent = dataclasses.replace(_CONFIG, agents=dataclasses.replace(_CONFIG.agents, president=True))
+    for config in (agent, _CONFIG):
+        context = SimpleNamespace(config=config, client=object(), memory=AgentMemory(), journal=None)
+        _phase_leaders(context, SimpleNamespace(citizens=[_president()]))  # type: ignore[arg-type]  # holds no office
+
+
 # ── a run with a president agent ──────────────────────────────────────────
 
-class _AgentFakeClient(FixtureLlmClient):  # type: ignore[misc]
-    """The fixture population, and a president who wants public housing (issue 9 at 1) and
-    proposes it whenever the agenda is theirs; every third turn names an issue twice once."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.turns = 0
+class _AgentFakeClient(_ElectingFakeLlmClient):  # type: ignore[misc]
+    """A stateless population, and a president who wants public housing (issue 9 at 1) and
+    proposes it whenever the agenda is theirs; every third tick names an issue twice once.
+    The speech carries a digest of the prompt, so a journal compares the prompts too."""
 
     def complete_json(self, **kwargs: Any) -> str:
         if kwargs["json_schema"].get("title") != "LeaderTurn":
             return str(super().complete_json(**kwargs))
-        self.turns += 1
-        twice = self.turns % 3 == 0 and "temperature" not in kwargs
-        agenda = "The agenda is yours" in kwargs["user_prompt"]
+        prompt = kwargs["user_prompt"]
+        tick = int(re.match(r"Tick (\d+)", prompt).group(1))  # type: ignore[union-attr]
+        twice = tick % 3 == 0 and "temperature" not in kwargs
         return json.dumps(_turn(
             positions=[{"dimension": 9, "target": 1.0}] * (2 if twice else 1),
-            bill=[{"dimension": 9, "target": 1.0}] if agenda else [],
-            speech=f"turn {self.turns}", other_initiative="abolish the chamber" if self.turns == 1 else "",
+            bill=[{"dimension": 9, "target": 1.0}] if "The agenda is yours" in prompt else [],
+            speech=f"prompt {hashlib.sha256(prompt.encode()).hexdigest()[:12]}",
+            other_initiative="abolish the chamber" if tick == 0 else "",
         ))
 
 
-def test_a_run_with_a_president_agent_journals_its_turns_and_its_bills(tmp_path: Path) -> None:
-    config = golden_config(tmp_path, llm=True)
+def _agent_run_config(output_dir: Path) -> Any:
+    config = golden_config(output_dir, llm=True)
     # An assembly from tick 0 and a third year: the president holds the agenda at tick 10
     # (the government does before, under cohabitation).
-    config = dataclasses.replace(
+    return dataclasses.replace(
         config,
         run=dataclasses.replace(config.run, duration_years=3),
         institutions=dataclasses.replace(config.institutions, assembly_offset_years=0),
@@ -258,7 +301,11 @@ def test_a_run_with_a_president_agent_journals_its_turns_and_its_bills(tmp_path:
         agents=dataclasses.replace(config.agents, president=True),
         llm=dataclasses.replace(config.llm, max_batch_replays=1),
     )
-    events = [json.loads(line) for line in run_simulation(config, run_id="agent", llm_client=_AgentFakeClient()).read_text().splitlines()]
+
+
+def test_a_run_with_a_president_agent_journals_its_turns_and_its_bills(tmp_path: Path) -> None:
+    journal = run_simulation(_agent_run_config(tmp_path), run_id="agent", llm_client=_AgentFakeClient())
+    events = [json.loads(line) for line in journal.read_text().splitlines()]
     turns = [e for e in events if e["event_type"] == "agent_turn"]
     assert turns and not [e for e in events if e["event_type"] == "representative_response"]
     moves = [m for t in turns for m in t["payload"]["shifts"]]
@@ -269,3 +316,26 @@ def test_a_run_with_a_president_agent_journals_its_turns_and_its_bills(tmp_path:
     agent_bills = [e for e in events if e["event_type"] == "bill_proposed" and e["payload"].get("drafted_by") == "agent"]
     assert agent_bills and all(b["payload"]["dimensions"] == [9] for b in agent_bills)
     assert len(agent_bills) == sum(1 for t in turns if t["payload"]["bill"])
+
+
+class _Crash(Exception):
+    pass
+
+
+def test_a_president_agent_s_run_resumes_with_the_memory_it_had(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The memory is rebuilt from the journal on resume, so the resumed prompts -- whose digest
+    each speech carries -- and with them the whole journal match the uninterrupted run."""
+    uninterrupted = run_simulation(_agent_run_config(tmp_path / "a"), run_id="run", llm_client=_AgentFakeClient())
+    real_phase = engine._run_accountability_phase
+
+    def crash_at_tick_7(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
+        if tick == 7:
+            raise _Crash("killed mid-tick")
+        return real_phase(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(engine, "_run_accountability_phase", crash_at_tick_7)
+    with pytest.raises(_Crash):
+        run_simulation(_agent_run_config(tmp_path / "b"), run_id="run", llm_client=_AgentFakeClient())
+    monkeypatch.undo()
+    resumed = run_simulation(_agent_run_config(tmp_path / "b"), run_id="run", resume=True, llm_client=_AgentFakeClient())
+    assert resumed.read_bytes() == uninterrupted.read_bytes()
