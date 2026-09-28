@@ -53,6 +53,17 @@ from typing import Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
+from api.domain.polity.agents import (
+    AgentMemory,
+    PresidentBriefing,
+    decide_turn,
+    moves_payload,
+    president_system_prompt,
+    president_user_prompt,
+    seat_weighted_median,
+    steps_toward,
+    turn_words,
+)
 from api.domain.polity.accountability import (
     applicable_pressure_act,
     chamber_deviation,
@@ -91,6 +102,7 @@ from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, Rea
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
 from api.domain.polity.events import (
+    AgentTurn,
     CampaignPositioning,
     CandidacyConsidered,
     CandidacyDeclared,
@@ -165,6 +177,7 @@ from api.domain.polity.llm_behavior_engine import (
     ReactionContext,
     ResponseContext,
     VoteBatchOutcome,
+    apply_shifts,
     cast_votes,
     clamped_dimensions,
     decide_campaign_positioning,
@@ -186,7 +199,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
@@ -590,6 +603,7 @@ def run_simulation(
         latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
         edges = NeighbourEdges.from_graph(graph)
 
+    memory = AgentMemory() if config.agents.president else None
     if resume:
         checkpoint = load_checkpoint(checkpoint_path)
         if checkpoint.run_id != run_id:
@@ -613,6 +627,8 @@ def run_simulation(
         state = checkpoint.state
         first_tick = checkpoint.tick + 1
         start_event_id = checkpoint.next_event_id
+        if memory is not None:
+            memory.replay(journal_path)
     else:
         state = _fresh_tick_state(config)
         first_tick = 0
@@ -634,6 +650,7 @@ def run_simulation(
             call_log_path=run_dir / CALL_LOG_FILENAME if config.llm.enabled else None,
         ) as client,
     ):
+        journal.tap = memory.observe if memory is not None else None
         for tick in range(first_tick, clock.total_ticks + 1):
             tick_start_time = time.monotonic()
             # Publishes "tick N is being computed" before any phase runs, so a
@@ -646,6 +663,7 @@ def run_simulation(
             context = TickContext(
                 tick=tick, config=config, journal=journal, client=client, clock=clock, graph=graph,
                 snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
+                memory=memory,
             )
             for phase in TICK_PHASES:
                 phase(context, state)
@@ -749,6 +767,10 @@ class TickContext:
     latent: LatentStructure | None = None
     """S4.3: the population's latent model, set when dynamics.enabled."""
     edges: NeighbourEdges | None = None
+    memory: AgentMemory | None = None
+    """ADR-014: what agents remember, a view over the journal kept across ticks."""
+    agenda_moves: list[PositionShift] | None = None
+    """The president agent's bill this tick (empty: none); None leaves the agenda to the formula."""
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -898,7 +920,8 @@ def _propose_bill(context: TickContext, state: TickState, legislature: Legislatu
     """Every bill_interval_ticks, the agenda setter's bill and its first reading."""
     if context.tick % context.config.legislation.bill_interval_ticks:
         return
-    bill = _draft_bill(state.parties, legislature, president, context.config)
+    moves = context.agenda_moves
+    bill = _draft_bill(state.parties, legislature, president, context.config) if moves is None else _agent_bill(legislature, president, moves)
     if bill is None:
         return
     legislature.bills_drafted += 1
@@ -907,9 +930,22 @@ def _propose_bill(context: TickContext, state: TickState, legislature: Legislatu
         event=BillProposed(
             bill_id=bill.bill_id, agenda_setter=bill.agenda_setter, proposer=bill.proposer, dimensions=list(bill.dimensions),
             status_quo=[legislature.policy[d] for d in bill.dimensions], proposal=list(bill.proposal),
+            drafted_by=OMIT if moves is None else "agent",
         ),
     )
     _read_bill(context, state, legislature, president, bill, reading=1)
+
+
+def _agent_bill(legislature: Legislature, president: Citizen, moves: Sequence[PositionShift]) -> Bill | None:
+    """The president agent's bill: policy moved on the issues they chose, kept in [0, 1];
+    None when they chose none (or only moves the bounds cancel)."""
+    policy = legislature.policy
+    targets = {m.dimension: max(0.0, min(1.0, policy[m.dimension] + m.delta)) for m in moves}
+    dimensions = tuple(sorted(d for d, value in targets.items() if value != policy[d]))
+    if not dimensions:
+        return None
+    return Bill(bill_id=legislature.bills_drafted + 1, agenda_setter=PRESIDENT, proposer=president.citizen_id,
+                dimensions=dimensions, proposal=tuple(targets[d] for d in dimensions))
 
 
 def _in_cohabitation(legislature: Legislature, president: Citizen) -> bool:
@@ -976,6 +1012,99 @@ def _chamber_suspends(context: TickContext, state: TickState, legislature: Legis
     if veto:
         legislature.suspended = dataclasses.replace(bill, returns_at_tick=returns_at_tick)
     return veto
+
+
+def _phase_leaders(context: TickContext, state: TickState) -> None:
+    """ADR-014: the president agent's turn, before the legislation it may set the agenda of.
+    It reads the street pressure of the previous tick, like representative_response, whose
+    place it takes (the accountability phase skips that call while agents.president is on).
+    A turn whose every attempt failed leaves the president silent and the formula drafting."""
+    config, client, memory = context.config, context.client, context.memory
+    seated = _seated_president(state) if config.agents.president else None
+    if seated is None or client is None or memory is None:
+        return
+    president, pledge, stated = seated
+    agenda_closed = _agenda_closed(context, state, president)
+    outcome = decide_turn(
+        president, system_prompt=president_system_prompt(president, config),
+        user_prompt=president_user_prompt(
+            _president_briefing(context, state, president, pledge, stated, agenda_closed), memory.recall(president.citizen_id),
+        ),
+        agenda_open=agenda_closed is None, config=config, client=client,
+    )
+    shifts, bill = _turn_moves(outcome.turn, stated, state.legislature, agenda_closed, config)
+    president.revealed_position = apply_shifts(stated, shifts)
+    context.agenda_moves = bill
+    context.journal.write_event(
+        tick=context.tick,
+        event=AgentTurn(
+            role=Office.PRESIDENT.value, shifts=moves_payload(shifts), bill=moves_payload(bill or []), **turn_words(outcome.turn),
+            provenance=LlmProvenance(
+                llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
+            ),
+        ),
+        citizen_id=president.citizen_id,
+        codebook_version=config.llm.codebook_version,
+    )
+    _journal_clamped_dimensions(
+        context.journal, tick=context.tick, citizen_id=president.citizen_id, decision_event="agent_turn",
+        base=stated, shifts=shifts, result=president.revealed_position,
+    )
+
+
+def _seated_president(state: TickState) -> tuple[Citizen, tuple[float, ...], tuple[float, ...]] | None:
+    """The sitting president with their pledge and stated position, when they have both."""
+    for holder in current_office_holders(state.citizens, Office.PRESIDENT):
+        if holder.pledged_platform is not None and holder.revealed_position is not None:
+            return holder, holder.pledged_platform, holder.revealed_position
+    return None
+
+
+def _president_briefing(
+    context: TickContext, state: TickState, president: Citizen,
+    pledge: tuple[float, ...], stated: tuple[float, ...], agenda_closed: str | None,
+) -> PresidentBriefing:
+    config, legislature = context.config, state.legislature
+    return PresidentBriefing(
+        tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
+        approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
+        agenda_closed=agenda_closed,
+        policy=legislature.policy if legislature is not None else None,
+        public_median=population_median(state.citizens),
+        assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
+        pledge=pledge, stated=stated,
+    )
+
+
+def _turn_moves(
+    turn: LeaderTurn | None, stated: tuple[float, ...], legislature: Legislature | None, agenda_closed: str | None,
+    config: PolityConfig,
+) -> tuple[list[PositionShift], list[PositionShift] | None]:
+    """The steps the kernel takes for a turn, and the agent's bill -- None when the agenda is
+    not the agent's this tick (or the turn failed), so the formula keeps it."""
+    if turn is None:
+        return [], None
+    shifts = steps_toward(turn.positions, stated, config.mandate.max_response_delta)
+    if agenda_closed is not None or legislature is None:
+        return shifts, None
+    return shifts, steps_toward(turn.bill, legislature.policy, config.legislation.max_bill_step)
+
+
+def _agenda_closed(context: TickContext, state: TickState, president: Citizen) -> str | None:
+    """Why the president cannot propose a bill this tick, in the words the briefing shows;
+    None when _propose_bill will read their agenda."""
+    legislature, legislation = state.legislature, context.config.legislation
+    if legislature is None:
+        return "legislation is not in force"
+    if legislature.seats is None:
+        return "no assembly has been elected yet"
+    if legislature.suspended is not None:
+        return "a bill the chamber suspended comes back first"
+    if context.tick % legislation.bill_interval_ticks:
+        return f"a bill comes every {legislation.bill_interval_ticks} ticks"
+    if legislature.coalition and _in_cohabitation(legislature, president):
+        return "under cohabitation the government sets the agenda"
+    return None
 
 
 def _phase_emotions(context: TickContext, state: TickState) -> None:
@@ -1071,6 +1200,7 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_presidential_election,
     _phase_legislative_election,
     _phase_sortition_chamber,
+    _phase_leaders,
     _phase_legislation,
     _phase_emotions,
     _phase_accountability,
@@ -2531,7 +2661,7 @@ def _run_accountability_phase(
                 citizens, EventType.ECONOMIC_SHOCK, config, journal, tick, llm_client,
                 target=None, magnitude=exogenous.economy_x,
             )
-    if llm_client is not None and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
+    if llm_client is not None and config.mandate.enabled and not config.agents.president:  # §7bis.7 step 1 (v4 Lot 6)
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
         deviation: float | None = None

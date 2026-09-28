@@ -414,6 +414,7 @@ class BillProposed(Event):
     dimensions: list[int]
     status_quo: list[float]  # policy on those dimensions before the bill
     proposal: list[float]
+    drafted_by: str = OMIT  # "agent" when a president agent chose the bill (agents.py)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -489,6 +490,24 @@ class EmotionsUpdated(Event):
     enthusiasm: float
 
 
+# ── agents (ADR-014) ──────────────────────────────────────────────────────
+
+@dataclass(frozen=True, kw_only=True)
+class AgentTurn(Event):
+    """One agent's turn (agents.py): the moves the kernel applied, and the agent's own words."""
+
+    EVENT_TYPE = "agent_turn"
+    LLM_DECISION = True
+    role: str
+    shifts: list[dict[str, Any]]  # applied to the agent's stated position, {dimension, delta}
+    bill: list[dict[str, Any]]  # the bill's moves, {dimension, delta}; empty when none was proposed
+    speech: str
+    rationale: str
+    note_to_self: str
+    other_initiative: str  # something the rules do not offer: recorded, never applied
+    provenance: LlmProvenance
+
+
 # ── registry ──────────────────────────────────────────────────────────────
 
 EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -499,6 +518,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
+    AgentTurn,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

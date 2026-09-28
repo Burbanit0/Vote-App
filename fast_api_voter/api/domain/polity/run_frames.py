@@ -225,6 +225,7 @@ HANDLERS: Mapping[str, Handler] = {
     "election_invalidated": _no_winner,
     "mandate_pledge_declared": _mandate_pledge_declared,
     "representative_response": _representative_response,
+    "agent_turn": _representative_response,  # the president agent's statement shifts, same shape
     "recalled": _recalled,
     "sortition_rotation": _sortition_rotation,
     "pressure_action": _pressure_action,

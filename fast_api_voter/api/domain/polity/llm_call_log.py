@@ -58,6 +58,7 @@ _DECISION_TYPE_BY_TITLE = {
         (llm_schemas.REACTION_JSON_SCHEMA, "reaction_to_event"),
         (llm_schemas.CHAMBER_JSON_SCHEMA, "chamber_deliberation"),
         (llm_schemas.COALITION_JSON_SCHEMA, "coalition_decision"),
+        (llm_schemas.LEADER_TURN_JSON_SCHEMA, "president_turn"),
     )
 }
 

@@ -710,10 +710,10 @@ def _check_supported(config: PolityConfig) -> None:
     check_codebook_version(config.llm.codebook_version)
 
 
-THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation"})
-"""The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured. Others made
-with thinking on -- `campaign_positioning` reasons thousands of tokens too -- were not
-measured under a budget, so they are not given one."""
+THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation", "president_turn"})
+"""The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured, and the
+president agent's turn (agents.py), capped from the start so it cannot run away the way
+the uncapped `campaign_positioning` does (OBS-022)."""
 
 
 def thinking_budget_body(config: PolityConfig, decision_type: str) -> dict[str, Any] | None:

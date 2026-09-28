@@ -1,4 +1,7 @@
 {
+  "agents": {
+    "president": false
+  },
   "awakening": {
     "context_modulation": {
       "event_salience": true,
