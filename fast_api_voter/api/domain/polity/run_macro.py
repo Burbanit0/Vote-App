@@ -38,6 +38,8 @@ class TickStanding:
     mandate_strength: float | None
     acts: tuple[int, ...]
     """Pressure actions journaled this tick, counted by PressureAct code."""
+    approval: float | None = None
+    """legitimacy.approval, journaled only while legitimacy.approval_weight > 0."""
 
 
 @dataclass(frozen=True)
@@ -102,6 +104,7 @@ def _standing(tick: int, events: Sequence[Mapping[str, Any]], president: int | N
         tick=tick, president=president,
         legitimacy=reading.get("legitimacy"), ecart=reading.get("ecart"), mandate_strength=reading.get("mandate_strength"),
         acts=tuple(acts.get(int(act), 0) for act in PressureAct),
+        approval=reading.get("approval"),
     )
 
 
