@@ -150,10 +150,12 @@ from api.domain.polity.legislation import (
     population_median,
 )
 from api.domain.polity.legitimacy import (
+    approval,
     compose_ecart,
     crosses_floor,
     initial_legitimacy,
     mandate_strength,
+    support_strength,
     update_legitimacy,
 )
 from api.domain.polity.llm_behavior_engine import (
@@ -1015,6 +1017,7 @@ def _phase_accountability(context: TickContext, state: TickState) -> None:
     state.mobilized_last_tick = _run_accountability_phase(
         state.citizens, context.config, context.journal, context.tick, context.client,
         exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
+        policy=_term_policy_record(state.legislature),
     )
 
 
@@ -1181,7 +1184,7 @@ def _attempt_rupture_candidacies(
             and not is_term_limited(citizen, config.institutions.president_term_limit)
             and citizen.citizen_id not in barred_candidate_ids
         ):
-            declare_candidacy(citizen)
+            declare_candidacy(citizen, keep_record=config.candidacy.incumbent_keeps_record)
             journal.write_event(
                 tick=tick,
                 event=CandidacyDeclared(
@@ -1298,7 +1301,7 @@ def _declare_nominees(
         nominee = select_party_nominee(party.party_id, eligible, config.candidacy)
         if nominee is None:
             continue
-        declare_candidacy(nominee)
+        declare_candidacy(nominee, keep_record=config.candidacy.incumbent_keeps_record)
         journal.write_event(
             tick=tick,
             event=CandidacyDeclared(
@@ -1446,7 +1449,7 @@ def _nominate_llm(
             )
         if nominee is None:
             continue
-        declare_candidacy(nominee)
+        declare_candidacy(nominee, keep_record=config.candidacy.incumbent_keeps_record)
         journal.write_event(
             tick=tick,
             event=CandidacyDeclared(
@@ -2405,6 +2408,7 @@ def _run_accountability_phase(
     exogenous: ExogenousEventsOutcome | None = None,
     graph: SocialGraph | None = None,
     mobilized_last_tick: Mapping[int, int] | None = None,
+    policy: PolicyRecord | None = None,
 ) -> Mapping[int, int]:
     """v4 Lots 2-6, v5 Lots 3-4 -- §7bis.7's full per-tick sequence: step 0
     (v5 Lot 3/4, §8: population-wide reaction_to_event, LLM-driven under
@@ -2681,8 +2685,12 @@ def _run_accountability_phase(
             street_weight=config.street_pressure.weight_in_ecart,
             passive_erosion_weight=config.legitimacy.passive_erosion_weight,
         )
+        approval_share = approval(citizens, holder, config.vote, policy) if config.legitimacy.approval_weight > 0 else None
         holder.legitimacy_capital = update_legitimacy(
-            holder.legitimacy_capital, holder.mandate_strength, ecart, config.legitimacy
+            holder.legitimacy_capital,
+            support_strength(holder.mandate_strength, approval_share, config.legitimacy),
+            ecart,
+            config.legitimacy,
         )
         journal.write_event(
             tick=tick,
@@ -2691,6 +2699,7 @@ def _run_accountability_phase(
                 legitimacy=holder.legitimacy_capital,
                 mandate_strength=holder.mandate_strength,
                 ecart=ecart,
+                approval=OMIT if approval_share is None else approval_share,
             ),
             citizen_id=holder.citizen_id,
         )

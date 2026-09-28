@@ -501,6 +501,15 @@ def test_petition_enabled_without_legitimacy_enabled_raises(tmp_path):
         load_config(path)
 
 
+def test_approval_weight_without_legitimacy_enabled_raises(tmp_path):
+    def mutate(d):
+        d["legitimacy"]["approval_weight"] = 0.5
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="approval_weight"):
+        load_config(path)
+
+
 def test_street_pressure_enabled_without_legitimacy_enabled_raises(tmp_path):
     def mutate(d):
         d["pressure_menu"]["electoral_only"] = False

@@ -76,7 +76,7 @@ Citizens have no persona text (`personas_count` is unused), and `rationale_mode`
 | D1 | GPU | Undecided. Tier the models, and choose one by comparing short runs across candidates (§6). |
 | D2 | Scope of rule change | A **typed constitution**: typed articles, including the amendment threshold, with per-article entrenchment. Agents propose structured amendments; the kernel validates and applies them. |
 | D3 | Scale | A **tiered population**: at most about 100 persona agents inside a cheap numeric crowd of 500–1000. |
-| D4 | Gate | An **exploration profile** (`polity_config.exploration.yaml`). New mechanisms ship ON there. They are gated by sanity checks (valid-action rate, non-collapse, cost) and by OBS entries, not by pre-registered stylized facts. Pre-registration is kept for claims stated as results. In `polity_config.yaml` everything new stays OFF. |
+| D4 | Gate | An **exploration profile** (`run_polity_flagship.py --profile exploration`). New mechanisms ship ON there. They are gated by sanity checks (valid-action rate, non-collapse, cost) and by OBS entries, not by pre-registered stylized facts. Pre-registration is kept for claims stated as results. In `polity_config.yaml` everything new stays OFF. |
 | D5 | Models | **Open weights only**, served by vLLM on rented GPUs. §12 stands: the inference is rented, not outsourced. |
 | D6 | Limits | **Extra-legal acts can succeed**: a coup, a refusal to leave, an insurrection. Success depends on support, legitimacy and institutional loyalty, and it has an aftermath. |
 | D7 | First phase | **Leaders and popularity.** |
@@ -112,7 +112,7 @@ Each row is one PR, small enough for the 100% diff-coverage gate.
 | PR | Deliverable |
 |---|---|
 | 0.1 | **Root-cause fix for backlog #1, in one place.** `_complete_and_decode_with_replay` gains a `validate` parameter checked *inside* its retry loop. Its 7 callers (`llm_behavior_engine.py` L1100, 1715, 2289, 2838, 3263, 4810, 5449) pass the validators they currently run after the fact. Invalid answers then get the retries that already exist. |
-| 0.2 | *Folded into Phase 1 (2026-09-27).* Nothing consumed it yet: `--config <yaml>` and `polity_config.exploration.yaml` arrive with 1.1's first profile knob, the `llm.temperature == 0` relaxation (`config.py:1110`) with 1.2's agents, and the valid-action rate is already `1 − fallback_by_type / decisions_by_type` in `progress.json`. |
+| 0.2 | *Folded into Phase 1 (2026-09-27).* Nothing consumed it yet: the profile arrived with 1.1's first knob (as `--profile exploration`), the `llm.temperature == 0` relaxation (`config.py:1110`) with 1.2's agents, and the valid-action rate is already `1 − fallback_by_type / decisions_by_type` in `progress.json`. |
 
 **Rented GPU runbook** (no code):
 1. On the rented box, start vLLM with the same compose file, bound to `127.0.0.1`.
@@ -129,10 +129,11 @@ Never expose vLLM publicly: it has no auth. Spot preemption is covered by `--res
 
 | PR | Deliverable |
 |---|---|
-| 1.1 | **Close the loop, no LLM.** Adds `--config <yaml>` and `polity_config.exploration.yaml` (from 0.2). A `_phase_polls` phase publishes `approval_poll` and `vote_intention_poll` events by running `utility_ballot` over a seeded sample. `legitimacy.approval_weight` blends approval into the strength that `update_legitimacy` takes (`legitimacy.py:89`); at 0 it reproduces today's behaviour. The profile turns on `vote.approval` and `vote.policy_retrospection` (`policy_gain` already exists, `simple_rules.py:276`) and legislation. `candidacy.incumbent_keeps_record` stops `declare_candidacy` from resetting an incumbent. Approval is added to `MacroCurves`. |
+| 1.1 | **Close the loop, no LLM** (PR: `feat/polity-approval-polls`). `legitimacy.approval` is the share of citizens whose utility ballot would rank the president above blank, judged on their *conduct* (`revealed_position`) and the term's policy, without the record term. `legitimacy.approval_weight` blends it into the support `update_legitimacy` takes (`legitimacy.py:89`; 0 reproduces today's behaviour), and it rides on `legitimacy_updated` as an optional `approval` field, not a new event. `candidacy.incumbent_keeps_record` runs a former president on their conduct. `run_polity_flagship.py --profile exploration` turns these on with `vote.approval` 0.1, `policy_retrospection` 2 and legislation. Vote-intention polls move to 1.4, which is the step that reads them; the approval curve in `MacroCurves` is 1.1b. |
+| 1.1b | **Explorer.** `run_macro` reads `approval` from `legitimacy_updated`; `MacroCurves` draws it beside L(t). |
 | 1.2 | **`agents.py`, one module, leaders only.** Relaxes `llm.temperature == 0` under `reproducibility: relaxed` (from 0.2). The agent set is derived every tick: the president and the nominees. It holds the template persona, a named-issue list, the journal-tap memory (last N entries), a reflection every 4 ticks, and the turn runner on `run_decision`. ADR-014 (the agent tier) is written in this PR. |
 | 1.3 | **`president_turn`.** Intents: `set_agenda`, `statement` and `nothing`. `set_agenda` replaces `_draft_bill` (L917), which becomes the fallback. `statement` is a bounded shift that emits the existing `RepresentativeResponse` event, so mandate metrics survive. |
-| 1.4 | **Nominee campaign turn.** It replaces `campaign_positioning` for nominees, and its token budget closes OBS-022. |
+| 1.4 | **Nominee campaign turn, with vote-intention polls** (first choices of a utility-ballot sample over the field). It replaces `campaign_positioning` for nominees, and its token budget closes OBS-022. |
 | 1.5 | **Explorer.** A leader diary in `CitizenBiography`, from `agent_turn` events. |
 
 Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays off.

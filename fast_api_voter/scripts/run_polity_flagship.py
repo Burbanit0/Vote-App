@@ -128,6 +128,7 @@ def _flagship_config(
     model: str | None = None,
     reproducibility: str = "strict",
     vote_mode: str | None = None,
+    profile: str = "flagship",
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -237,7 +238,23 @@ def _flagship_config(
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    return config
+    return _exploration_config(config) if profile == "exploration" else config
+
+
+def _exploration_config(config: PolityConfig) -> PolityConfig:
+    """The agency roadmap's exploration profile (plan-polity-agency-roadmap.md, D4): the
+    flagship plus the mechanisms that ship off, turned on without their calibration gate.
+    Phase 1.1: the approval loop -- approval feeds legitimacy, the vote judges the record
+    (S4.1's top measured `approval`) and the policy of the term (ADR-009's lowest
+    nonzero `policy_retrospection`), legislation runs, and a former president runs on
+    their conduct in office."""
+    return dataclasses.replace(
+        config,
+        legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
+        vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
+        legislation=dataclasses.replace(config.legislation, enabled=True),
+        candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
+    )
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -442,6 +459,7 @@ def run_flagship(
     model: str | None = None,
     reproducibility: str = "strict",
     vote_mode: str | None = None,
+    profile: str = "flagship",
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -457,6 +475,7 @@ def run_flagship(
         model=model,
         reproducibility=reproducibility,
         vote_mode=vote_mode,
+        profile=profile,
     )
     validate_config(config)
 
@@ -657,6 +676,13 @@ def main(argv: list[str] | None = None) -> int:
              "the RNG draw order, so a run with it on is not comparable to one without (and invalidates "
              "existing checkpoints via config_hash).",
     )
+    parser.add_argument(
+        "--profile",
+        choices=("flagship", "exploration"),
+        default="flagship",
+        help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
+             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
     parser.add_argument(
@@ -704,6 +730,7 @@ def main(argv: list[str] | None = None) -> int:
         model=args.model,
         reproducibility=args.reproducibility,
         vote_mode=args.vote_mode,
+        profile=args.profile,
     )
     return 0
 

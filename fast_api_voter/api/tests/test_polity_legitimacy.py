@@ -5,14 +5,18 @@ import dataclasses
 
 import pytest
 
-from api.domain.polity.config import LegitimacyConfig
+from api.domain.polity.citizen import Citizen
+from api.domain.polity.config import LegitimacyConfig, load_config
 from api.domain.polity.legitimacy import (
+    approval,
     compose_ecart,
     crosses_floor,
     initial_legitimacy,
     mandate_strength,
+    support_strength,
     update_legitimacy,
 )
+from api.domain.polity.simple_rules import PolicyRecord
 
 _CONFIG = LegitimacyConfig(
     enabled=True,
@@ -22,6 +26,38 @@ _CONFIG = LegitimacyConfig(
     recall_cooldown_ticks=4,
     passive_erosion_weight=0.0,
 )
+
+
+# ── approval and support_strength ─────────────────────────────────────────
+
+def _person(cid, positions, **kwargs):
+    return Citizen(citizen_id=cid, issue_positions=positions, issue_priorities=(0.5, 0.5), blank_threshold=0.2, ambition_score=0.5, **kwargs)
+
+
+_VOTE = load_config().vote
+_ELECTORATE = [_person(i, (x, x)) for i, x in enumerate((0.1, 0.2, 0.8, 0.9))]
+
+
+def test_approval_judges_the_presidents_conduct_not_their_pledge():
+    president = _person(9, (0.15, 0.15), pledged_platform=(0.15, 0.15), revealed_position=(0.15, 0.15))
+    assert approval(_ELECTORATE, president, _VOTE) == 0.5
+    president.revealed_position = (0.85, 0.85)
+    assert approval(_ELECTORATE, president, _VOTE) == 0.5  # the other half now
+    president.revealed_position = (0.5, 0.5)
+    assert approval(_ELECTORATE, president, _VOTE) == 0.0
+
+
+def test_approval_rewards_a_term_whose_policy_came_closer():
+    president = _person(9, (0.5, 0.5), pledged_platform=(0.5, 0.5), revealed_position=(0.5, 0.5))
+    vote = dataclasses.replace(_VOTE, policy_retrospection=10.0)
+    closer_to_the_low_half = PolicyRecord(then=(0.9, 0.9), now=(0.1, 0.1))
+    assert approval(_ELECTORATE, president, vote, closer_to_the_low_half) == 0.5
+
+
+def test_support_strength_is_the_mandate_until_approval_is_weighed():
+    assert support_strength(0.6, None, dataclasses.replace(_CONFIG, approval_weight=0.5)) == 0.6
+    assert support_strength(0.6, 0.2, _CONFIG) == 0.6
+    assert support_strength(0.6, 0.2, dataclasses.replace(_CONFIG, approval_weight=0.5)) == pytest.approx(0.4)
 
 
 # ── mandate_strength ──────────────────────────────────────────────────────
