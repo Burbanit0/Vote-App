@@ -52,6 +52,9 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-023](#obs-023) | The 2,048-token thinking budget binds on 86% of `vote_cast` calls at population 500, against 25% at population 100 | 2026-09-26 | open |
 | [OBS-024](#obs-024) | A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back | 2026-09-27 | open |
 | [OBS-025](#obs-025) | `reaction_to_event` batches of 25 fall back whole when the model overshoots `events.max_reaction_delta` | 2026-09-27 | cause found |
+| [OBS-026](#obs-026) | The develop→polity sync of 2026-09-27 changes what Kemeny-Young and majority judgment return | 2026-09-27 | recorded |
+| [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
+| [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | open |
 
 ---
 
@@ -1269,3 +1272,51 @@ hit an exact seat tie; results before and after this change differ only in a run
 *What would settle it.* Nothing to settle. If a past run is re-run and its seats differ, check this entry first.
 
 *Status: recorded (behaviour change).*
+
+### OBS-028
+
+**The president agent repeats its speech while its situation does not change; a turn temperature
+of 0.6 does not stop it.**
+
+*Seen.* Two live runs of the exploration profile (ADR-014's president agent, Qwen3-8B-AWQ with
+EAGLE-3, 3 years, p200, seed 42, 12 workers), differing in `agents.turn_temperature`:
+
+| | temperature 0 | temperature 0.6 |
+|---|---:|---:|
+| turns | 13 | 13 |
+| distinct speeches | 13 | 11 |
+| mean similarity of consecutive speeches | 0.62 | 0.53 |
+| highest similarity of consecutive speeches | 0.95 | 1.00 |
+| moves / reversals on an issue | 18 / 9 | 11 / 6 |
+| approval range | 0.690-0.745 | 0.685-0.715 |
+
+At 0.6, ticks 5 and 6 carry the same speech word for word ("I remain committed to climate action,
+public housing, and a public role for religion. These pillars…"); tick 10 repeats it again. In
+both runs, "direct democracy" moves back and forth (at 0.6: +0.12, -0.12, +0.30, -0.30). In
+neither run did the president hold the agenda: every bill (ticks 8, 10, 12) was the
+government's, under cohabitation.
+
+To see it again: the runs are `p1-president-agent-3y-p200-seed42` and
+`p1-turn-temp06-3y-p200-seed42` in `~/Documents/Dev/polity-runs/p1/`. Similarity is
+`difflib.SequenceMatcher(None, a, b).ratio()` over consecutive `agent_turn` speeches, and a reversal
+is a move on an issue opposite to that issue's previous move.
+
+*Suspected cause.* The situation, not the sampling.
+- With no agenda, a president's only lever is restating their position, and approval moves within a
+  few hundredths.
+- The prompt is therefore nearly the same from tick to tick.
+- The memory puts the agent's own last speeches in front of it (`AgentMemory.recall`, "you
+  said: …"), and a model shown its own words tends to repeat them.
+
+The reversals look like a president oscillating between their conviction and their pledge (the
+rationales say "align with my convictions" one tick and "reduce the gap" the next).
+
+*What would settle it.*
+- An arm whose memory shows the agent's past moves and notes but not its past speeches.
+- A seed where the president holds the agenda.
+- Several seeds per arm: one run per arm cannot separate a temperature effect from noise.
+
+The roadmap's later phases (a forum, other agents, polls that move) change the situation itself.
+
+*Status: open.*
+

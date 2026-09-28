@@ -248,14 +248,16 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     (S4.1's top measured `approval`) and the policy of the term (ADR-009's lowest
     nonzero `policy_retrospection`), legislation runs, and a former president runs on
     their conduct in office. Phase 1.2: the president is an agent (ADR-014) -- it needs the
-    LLM engine, so the deterministic twin keeps the formula president."""
+    LLM engine, so the deterministic twin keeps the formula president -- whose turns are sampled
+    at 0.6, Qwen3's recommended temperature in thinking mode (it does not stop a static president
+    repeating itself: OBS-028)."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
         vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
-        agents=dataclasses.replace(config.agents, president=config.llm.enabled),
+        agents=dataclasses.replace(config.agents, president=config.llm.enabled, turn_temperature=0.6),
     )
 
 

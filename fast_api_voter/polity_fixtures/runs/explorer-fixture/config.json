@@ -1,6 +1,7 @@
 {
   "agents": {
-    "president": false
+    "president": false,
+    "turn_temperature": 0.0
   },
   "awakening": {
     "context_modulation": {

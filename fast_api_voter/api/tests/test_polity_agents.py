@@ -67,6 +67,7 @@ class _ScriptedClient:
     def complete_json(self, **kwargs: Any) -> str:
         answer = self._answers[min(self.calls, len(self._answers) - 1)]
         self.calls += 1
+        self.sampling = {key: kwargs[key] for key in ("temperature", "seed") if key in kwargs}
         return answer
 
 
@@ -208,6 +209,15 @@ def test_a_rejected_turn_is_replayed_and_an_exhausted_one_leaves_the_president_s
     assert recovered.turn is not None and recovered.turn.bill[0].target == 0.4 and recovered.sampling_varied
     silent = decide(_ScriptedClient(bad))
     assert silent.turn is None and not silent.sampling_varied and silent.call_id
+
+
+def test_a_turn_is_sampled_at_the_turn_temperature_with_a_seed_and_is_no_retry() -> None:
+    config = dataclasses.replace(_CONFIG, llm=dataclasses.replace(_CONFIG.llm, enabled=True))
+    for temperature, sampling in ((0.6, {"temperature": 0.6, "seed": 900_000_901}), (0.0, {})):
+        client = _ScriptedClient(_turn())
+        turned = dataclasses.replace(config, agents=dataclasses.replace(config.agents, turn_temperature=temperature))
+        outcome = decide_turn(_president(), system_prompt="s", user_prompt="u", agenda_open=False, config=turned, client=client)  # type: ignore[arg-type]
+        assert client.sampling == sampling and outcome.turn is not None and not outcome.sampling_varied
 
 
 def test_the_words_are_cut_to_their_limits() -> None:
