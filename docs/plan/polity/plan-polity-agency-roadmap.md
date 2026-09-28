@@ -162,7 +162,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 |---|---|
 | 3.1 + 3.2 | **The forum** (`feat/polity-citizen-agents`, ADR-016). The agent set is derived from the journal rather than promoted: the sortition chamber's members and the citizens who launched a petition in the last 8 ticks (`agents.forum_size` caps them). Each takes one turn a tick, in parallel and blind, and posts or stays silent (`forum_post` event). The feed is the last 8 posts of their graph neighbours, the president and nominees, and, for a chamber member, the other members. No promotion counter, `agents.max_full` or checkpoint field: the window runs out by itself. |
 | 3.3 | **Opinion change** (`feat/polity-opinion-change`, ADR-017). No separate reflection turn: the forum turn returns a `shift_issue` and `shift_direction`, the kernel moves the speaker `agents.stance_step` along that issue's latent loading, and ADR-012 dynamics are ON in the exploration profile, so the move reaches the crowd through the graph with no new code. |
-| 3.4 | **Explorer.** A forum reader. |
+| 3.4 | **Explorer** (`feat/polity-forum-reader`). Forum posts join the citizen biography's turns section (`post`, and `shift` in words when the speaker changed their mind). The chamber members, who all speak, are already marked on the map, so a click reaches their posts. A run-level forum panel (all posts of a tick) is not built: add it when reading citizen by citizen proves too slow. |
 
 **Exit:**
 - Agents exposed to counter-arguments shift more than unexposed ones.

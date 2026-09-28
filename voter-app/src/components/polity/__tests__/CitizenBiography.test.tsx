@@ -45,6 +45,9 @@ const biography = (id: number) => ({
           llm_fallback: 0,
         },
       }),
+      entry(2, 'forum_post', {
+        details: { post: 'Open the borders.', shift: 'immigration: toward open', note_to_self: '' },
+      }),
     ],
     candidacies: [
       entry(0, 'candidacy_considered', {
@@ -119,8 +122,15 @@ describe('CitizenBiography', () => {
 
     expect(screen.getByTestId('biography-section-roles')).toHaveTextContent('Roles and office 2');
     expect(screen.getByTestId('biography-section-roles')).toHaveTextContent('president recalled');
-    const turn = within(screen.getByTestId('biography-section-turns')).getByTestId(
+    const [turn, forumPost] = within(screen.getByTestId('biography-section-turns')).getAllByTestId(
       'biography-entry'
+    );
+    expect(forumPost).toHaveTextContent('forum turn');
+    expect(within(forumPost).getByTestId('biography-turn-post')).toHaveTextContent(
+      'Open the borders.'
+    );
+    expect(within(forumPost).getByTestId('biography-turn-shift')).toHaveTextContent(
+      'immigration: toward open'
     );
     expect(turn).toHaveTextContent('turn');
     expect(within(turn).getByTestId('biography-turn-speech')).toHaveTextContent('We build.');
