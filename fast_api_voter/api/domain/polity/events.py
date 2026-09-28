@@ -530,7 +530,48 @@ class ConstitutionAmended(Event):
     old: Any
     new: Any
     version: int  # the constitution's version once amended (the founding one is 0)
-    source: str  # "scripted": the run's config ordered it
+    source: str  # "scripted": the run's config ordered it; "vote": the chamber ratified it
+
+
+@dataclass(frozen=True, kw_only=True)
+class AmendmentProposed(Event):
+    """The president put an amendment to the chamber, which votes it next tick."""
+
+    EVENT_TYPE = "amendment_proposed"
+    INSTITUTIONAL = True
+    article: str
+    value: Any
+    old: Any
+    reason: str
+    threshold: float  # the share of the chamber the yes votes must beat (constitution.threshold_for)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AmendmentVote(Event):
+    """One chamber member's vote on the pending amendment (agents.decide_ballot)."""
+
+    EVENT_TYPE = "amendment_vote"
+    LLM_DECISION = True
+    article: str
+    vote: str  # "yes", "no", or "none" when every attempt failed (counted against)
+    statement: str
+    rationale: str
+    note_to_self: str
+    provenance: LlmProvenance
+
+
+@dataclass(frozen=True, kw_only=True)
+class AmendmentResolved(Event):
+    """The chamber's tally of the pending amendment: ratified, or not."""
+
+    EVENT_TYPE = "amendment_resolved"
+    INSTITUTIONAL = True
+    article: str
+    value: Any
+    yes: int
+    members: int
+    threshold: float
+    ratified: int
 
 
 # ── registry ──────────────────────────────────────────────────────────────
@@ -543,7 +584,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
-    AgentTurn, VoteIntentionPoll, ConstitutionAmended,
+    AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

@@ -1,5 +1,6 @@
 {
   "agents": {
+    "amendments": false,
     "nominees": false,
     "president": false,
     "turn_temperature": 0.0
@@ -40,6 +41,11 @@
     "static_population": true
   },
   "constitution": {
+    "amendment_threshold": 0.5,
+    "entrenched": {
+      "constitution.amendment_threshold": 0.75,
+      "institutions.presidential_method": 0.6
+    },
     "scripted": []
   },
   "dynamics": {

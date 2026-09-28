@@ -11,14 +11,18 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict, deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import accumulate
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from pydantic import BaseModel
+
+from api.domain.polity.amendments import articles_text, validate_amendment, value_text
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.config import ISSUE_COUNT_NAMED, PolityConfig
+from api.domain.polity.config import ARTICLES, ISSUE_COUNT_NAMED, PolityConfig
+from api.domain.polity.constitution import Proposal
 from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES
 from api.domain.polity.journal import JournalEvent
 from api.domain.polity.llm_behavior_engine import (
@@ -30,13 +34,23 @@ from api.domain.polity.llm_behavior_engine import (
     thinking_budget_body,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, _decode_batch
-from api.domain.polity.llm_schemas import LEADER_TURN_JSON_SCHEMA, IssueTarget, LeaderTurn, PositionShift
+from api.domain.polity.llm_schemas import (
+    AMENDING_LEADER_TURN_JSON_SCHEMA,
+    AMENDMENT_BALLOT_JSON_SCHEMA,
+    LEADER_TURN_JSON_SCHEMA,
+    AmendingLeaderTurn,
+    AmendmentBallot,
+    IssueTarget,
+    LeaderTurn,
+    PositionShift,
+)
 from api.domain.polity.parties import Party
 
 _logger = logging.getLogger(__name__)
 
 PRESIDENT_TURN = "president_turn"
 NOMINEE_TURN = "nominee_turn"
+AMENDMENT_VOTE = "amendment_vote"
 _RETRY_TEMPERATURE = 0.3
 _RETRY_SEED_BASE = 900_000_901
 SPEECH_LIMIT, RATIONALE_LIMIT, NOTE_LIMIT, INITIATIVE_LIMIT = 400, 300, 200, 200
@@ -130,7 +144,7 @@ def persona(citizen: Citizen) -> str:
 # ── memory ────────────────────────────────────────────────────────────────
 
 _PUBLIC_EVENT_TYPES = INSTITUTIONAL_EVENT_TYPES | {"bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted"}
-_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated"})
+_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated", "amendment_vote"})
 
 
 class AgentMemory:
@@ -188,6 +202,8 @@ def _own_line(event: JournalEvent) -> str:
     if event.event_type == "legitimacy_updated":
         approval = f", approval {payload['approval']:.2f}" if "approval" in payload else ""
         return f"- t{event.tick} legitimacy {payload['legitimacy']:.2f}{approval}"
+    if event.event_type == "amendment_vote":
+        return f"- t{event.tick} you voted {payload['vote']} on changing {payload['article']}; note to self: \"{payload['note_to_self']}\""
     bill = f"; bill {describe_moves(payload['bill'])}" if payload["bill"] else ""
     return (
         f"- t{event.tick} you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
@@ -212,6 +228,17 @@ _ANSWER_FORMAT = (
     "If you want to do something these rules do not offer, describe it in \"other_initiative\" "
     f"(at most {INITIATIVE_LIMIT} characters): it will not happen, but it is recorded. Otherwise leave it empty."
 )
+
+
+def _amendment_rules(config: PolityConfig) -> str:
+    chamber = config.sortition_chamber
+    return (
+        f"The constitution can be amended. Its articles:\n{articles_text(config)}\n"
+        f"You may propose one amendment in a turn -- \"amendment\": {{\"article\": ..., \"value\": ..., \"reason\": "
+        f"why, in a sentence}} -- when none is pending; leave \"amendment\" out otherwise. The next tick the chamber, "
+        f"{chamber.seats} citizens drawn by lot, votes on it, each member for themselves; it is ratified when more than the "
+        "share your briefing shows for that article vote yes, and holds from then on."
+    )
 
 
 def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
@@ -242,6 +269,8 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
             f"{legislation.assembly_majority_ratio:.0%} of the assembly's seats find it brings policy closer to their "
             "platforms; the sortition chamber may suspend it."
         )
+    if config.agents.amendments:
+        rules.append(_amendment_rules(config))
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(president)}\n\n"
@@ -267,6 +296,9 @@ class PresidentBriefing:
     assembly_median: tuple[float, ...] | None
     pledge: tuple[float, ...]
     stated: tuple[float, ...]
+    constitution: str | None = None
+    """The constitution in force and whether an amendment can be proposed (amendments.constitution_text);
+    None when the polity cannot amend itself."""
 
 
 def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
@@ -290,11 +322,12 @@ def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
         for d in range(len(ISSUES))
     ]
     year, quarter = divmod(briefing.tick, briefing.ticks_per_year)
+    constitution = f"\n\n{briefing.constitution}" if briefing.constitution is not None else ""
     return (
         f"Tick {briefing.tick} (year {year}, quarter {quarter + 1}). {term}; {again}.\n"
         f"Your standing: {', '.join(standing)}.\n{agenda}\n\n"
         f"The issues (0 = the first pole, 1 = the second):\n{header}\n" + "\n".join(rows)
-        + f"\n\n{memory}\n\nYour turn."
+        + f"{constitution}\n\n{memory}\n\nYour turn."
     )
 
 
@@ -379,6 +412,8 @@ def validate_turn(turn: LeaderTurn, config: PolityConfig, *, max_positions: int,
     _check_targets(turn.positions, max_positions, "positions")
     if agenda_open:
         _check_targets(turn.bill, config.legislation.max_bill_dimensions, "bill")
+    if isinstance(turn, AmendingLeaderTurn) and turn.amendment is not None:
+        validate_amendment(turn.amendment, config)
 
 
 def _check_targets(targets: Sequence[IssueTarget], max_targets: int, what: str) -> None:
@@ -398,30 +433,32 @@ def steps_toward(targets: Sequence[IssueTarget], current: Sequence[float], max_s
     return [PositionShift(dimension=d, delta=delta) for d, delta in steps if abs(delta) >= _SHOWN_PRECISION / 2]
 
 
-def decode_turn(raw: str) -> list[LeaderTurn]:
-    return _decode_batch(raw, LeaderTurn, decisions=_one, unit=_no_unit, unit_label="turns", expected_units=[0])
+def decode_one[T: BaseModel](raw: str, model: type[T]) -> list[T]:
+    return _decode_batch(raw, model, decisions=_one, unit=_no_unit, unit_label="turns", expected_units=[0])
 
 
-def _one(turn: LeaderTurn) -> list[LeaderTurn]:
-    return [turn]
+def _one[T](item: T) -> list[T]:
+    return [item]
 
 
-def _no_unit(turn: LeaderTurn) -> int:
+def _no_unit(item: object) -> int:
     return 0
 
 
 @dataclass(frozen=True)
-class TurnOutcome:
-    turn: LeaderTurn | None
-    """None when every attempt failed: the caller keeps the president silent."""
+class TurnOutcome[T: BaseModel]:
+    turn: T | None
+    """None when every attempt failed: the caller keeps the agent silent."""
     sampling_varied: bool
     call_id: str | None
 
 
-def decide_turn(
-    agent: Citizen, *, decision_type: str, system_prompt: str, user_prompt: str, max_positions: int, agenda_open: bool,
-    config: PolityConfig, client: LlmClientProtocol,
-) -> TurnOutcome:
+def decide[T: BaseModel](
+    agent: Citizen, *, decision_type: str, system_prompt: str, user_prompt: str, json_schema: dict[str, Any],
+    decode: Callable[[str], list[T]], config: PolityConfig, client: LlmClientProtocol,
+) -> TurnOutcome[T]:
+    """One agent's model call, retried like any decision; a call every attempt of which failed
+    is an outcome with no turn."""
     retry_info: dict[str, Any] = {}
     unit_ids = [agent.citizen_id]
     try:
@@ -429,15 +466,13 @@ def decide_turn(
             client,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            json_schema=LEADER_TURN_JSON_SCHEMA,
+            json_schema=json_schema,
             max_tokens=_dynamic_max_tokens(
                 client, config, system_prompt=system_prompt, user_prompt=user_prompt, chunk_size=1,
                 flat_allowance=_profile(config).chamber_think_allowance, decision_type=decision_type, unit_ids=unit_ids,
             ),
             think=True,
-            decode=lambda raw: _validated(
-                decode_turn(raw), lambda t: validate_turn(t, config, max_positions=max_positions, agenda_open=agenda_open),
-            ),
+            decode=decode,
             replays=config.llm.max_batch_replays,
             extra_body=thinking_budget_body(config, decision_type),
             decision_type=decision_type,
@@ -454,6 +489,22 @@ def decide_turn(
     return TurnOutcome(turn=turn, sampling_varied=bool(retry_info.get("sampling_varied")), call_id=retry_info.get("call_id"))
 
 
+def decide_turn(
+    agent: Citizen, *, decision_type: str, system_prompt: str, user_prompt: str, max_positions: int, agenda_open: bool,
+    config: PolityConfig, client: LlmClientProtocol,
+) -> TurnOutcome[LeaderTurn]:
+    """A leader's turn. The president's may carry an amendment when the polity can amend itself."""
+    amending = config.agents.amendments and decision_type == PRESIDENT_TURN
+    model = AmendingLeaderTurn if amending else LeaderTurn
+    return decide(
+        agent, decision_type=decision_type, system_prompt=system_prompt, user_prompt=user_prompt,
+        json_schema=AMENDING_LEADER_TURN_JSON_SCHEMA if amending else LEADER_TURN_JSON_SCHEMA, config=config, client=client,
+        decode=lambda raw: _validated(
+            decode_one(raw, model), lambda t: validate_turn(t, config, max_positions=max_positions, agenda_open=agenda_open),
+        ),
+    )
+
+
 def moves_payload(moves: Sequence[PositionShift]) -> list[dict[str, Any]]:
     return [{"dimension": m.dimension, "delta": m.delta} for m in moves]
 
@@ -467,3 +518,53 @@ def turn_words(turn: LeaderTurn | None) -> dict[str, str]:
         "speech": turn.speech[:SPEECH_LIMIT], "rationale": turn.rationale[:RATIONALE_LIMIT],
         "note_to_self": turn.note_to_self[:NOTE_LIMIT], "other_initiative": turn.other_initiative[:INITIATIVE_LIMIT],
     }
+
+
+# ── the chamber's vote on an amendment ────────────────────────────────────
+
+_BALLOT_FORMAT = (
+    "Answer with one JSON object in the schema given. \"rationale\" is your private reasoning "
+    f"(at most {RATIONALE_LIMIT} characters). \"vote\" is \"yes\" or \"no\". \"statement\" is what you say in "
+    f"public (at most {SPEECH_LIMIT} characters), \"note_to_self\" what you want to remember (at most {NOTE_LIMIT})."
+)
+
+
+def ballot_system_prompt(member: Citizen, config: PolityConfig) -> str:
+    """A chamber member's rules and who they are -- stable for the run, so a prefix. It says
+    what the vote decides and never how to vote (C4)."""
+    chamber = config.sortition_chamber
+    return (
+        "You are playing a citizen of a simulated democracy, in the first person.\n\n"
+        f"{persona(member)}\n\n"
+        f"You sit in the citizens' chamber: {chamber.seats} citizens drawn by lot, for {chamber.term_years} "
+        "year(s). When the president proposes an amendment to the constitution, each member votes yes or no, "
+        "for themselves: how you weigh your own convictions, your party and the public good is yours to decide. "
+        "A member who does not vote counts against.\n\n"
+        f"The articles of the constitution:\n{articles_text(config)}\n\n{_BALLOT_FORMAT}"
+    )
+
+
+def ballot_user_prompt(proposal: Proposal, *, tick: int, old: Any, members: int, memory: str) -> str:
+    return (
+        f"Tick {tick}. The president (citizen {proposal.proposer}) proposed at tick {proposal.tick} to change "
+        f"{proposal.article} -- {ARTICLES[proposal.article].summary} -- from {value_text(old)} to "
+        f"{value_text(proposal.value)}.\nTheir reason: \"{proposal.reason}\"\n"
+        f"It is ratified if more than {proposal.threshold:.0%} of the {members} members vote yes.\n\n"
+        f"{memory}\n\nYour vote."
+    )
+
+
+def decide_ballot(
+    member: Citizen, *, system_prompt: str, user_prompt: str, config: PolityConfig, client: LlmClientProtocol,
+) -> TurnOutcome[AmendmentBallot]:
+    return decide(
+        member, decision_type=AMENDMENT_VOTE, system_prompt=system_prompt, user_prompt=user_prompt,
+        json_schema=AMENDMENT_BALLOT_JSON_SCHEMA, config=config, client=client,
+        decode=lambda raw: decode_one(raw, AmendmentBallot),
+    )
+
+
+def ballot_words(ballot: AmendmentBallot | None) -> dict[str, str]:
+    if ballot is None:
+        return {"statement": "", "rationale": "", "note_to_self": ""}
+    return {"statement": ballot.statement[:SPEECH_LIMIT], "rationale": ballot.rationale[:RATIONALE_LIMIT], "note_to_self": ballot.note_to_self[:NOTE_LIMIT]}

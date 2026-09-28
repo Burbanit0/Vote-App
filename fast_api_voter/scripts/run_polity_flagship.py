@@ -249,7 +249,9 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     nonzero `policy_retrospection`), legislation runs, and a former president runs on
     their conduct in office. Phases 1.2-1.4: the president and the presidential nominees are
     agents (ADR-014) -- they need the LLM engine, so the deterministic twin keeps the formula --
-    whose turns are sampled at 0.6, Qwen3's recommended temperature in thinking mode."""
+    whose turns are sampled at 0.6, Qwen3's recommended temperature in thinking mode. Phase 2.2-2.3:
+    the president proposes amendments to the constitution and the sortition chamber votes them
+    (ADR-015); the flagship's chamber is already on."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
@@ -257,7 +259,8 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
         agents=dataclasses.replace(
-            config.agents, president=config.llm.enabled, nominees=config.llm.enabled, turn_temperature=0.6,
+            config.agents, president=config.llm.enabled, nominees=config.llm.enabled, amendments=config.llm.enabled,
+            turn_temperature=0.6,
         ),
     )
 

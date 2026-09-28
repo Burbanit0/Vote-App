@@ -149,8 +149,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 | PR | Deliverable |
 |---|---|
 | 2.1 | **The constitution kernel** (`feat/polity-constitution-kernel`, ADR-015). `config.ARTICLES` (7 articles, each a config path with a list or a range), `constitution.py` (`in_force`, `amend`), `TickState.constitution` (version and values, checkpointed only once amended), `_phase_constitution` first in the tick, a `constitution_amended` event (institutional: on the timeline), and scripted amendments in config, checked against their article and against every rule after each. A Hypothesis property runs any legal constitution. |
-| 2.2 | **The amendment procedure.** `amendment.threshold` becomes an article, with per-article overrides (entrenchment). The procedure in force *when an amendment is proposed* governs it. Chamber members join the agent set, and while a proposal is pending their turn carries a `vote_amendment` intent. That is the same runtime, not a new decision type. |
-| 2.3 | **The `propose_amendment` intent** for the president and chamber members. |
+| 2.2 + 2.3 | **The amendment procedure and who proposes** (`feat/polity-amendment-procedure`, ADR-015). `constitution.amendment_threshold` is an article (8 now), with per-article entrenchment (`constitution.entrenched`). The procedure in force *when an amendment is proposed* governs it: the threshold is stored in the pending `Proposal`. The president proposes one amendment per turn (an optional `amendment` on their turn); the next tick each member of the sortition chamber votes yes or no in a turn of their own (`amendment_vote`, a new decision type, run in parallel and blind to each other), and it is ratified when strictly more than the threshold of all members voted yes (a failed turn counts against). Ratification is a `constitution_amended` event with source `vote`. `agents.amendments` is ON in the exploration profile. |
 | 2.4 | **Reporting.** `constitution_version` in the digest's per-year rows, and amendments on `InstitutionalTimeline`. |
 
 **Initial articles:** only those read at election or rotation time, so the clock does not change: `presidential_method` (13 ranked methods), `president_term_limit`, seat allocation, electoral threshold, assembly seats, petition threshold, recall floor, and the amendment threshold.
@@ -221,6 +220,7 @@ There is no separate phase: each phase ships its own explorer view. Ensembles re
 | Persona and memory sidecar files | Never: memory is a view over the journal |
 | New bake-off families | Short-run comparisons are ambiguous |
 | A term-length article and clock anchors | Agents try to amend the term length |
+| Chamber members proposing amendments | The president-only proposals show that the chamber never initiates |
 | Cardinal ballots (score and approval methods as articles) | Agents propose approval or score voting |
 | Refuse-to-average across constitution versions | The first ensemble spans amendments |
 | DMs, party caucus, evolving graph, party merge, primaries, online referee, novelty metric | The logs show demand |

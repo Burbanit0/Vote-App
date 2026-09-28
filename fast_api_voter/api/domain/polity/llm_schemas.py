@@ -25,7 +25,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+
+from api.domain.polity.config import ARTICLES
 
 
 class VoteCastDecision(BaseModel):
@@ -364,6 +366,44 @@ class LeaderTurn(BaseModel):
 
 
 LEADER_TURN_JSON_SCHEMA = LeaderTurn.model_json_schema()
+
+
+_ARTICLE_ENUM: dict[str, JsonValue] = {"enum": [*sorted(ARTICLES)]}
+
+
+class AmendmentProposal(BaseModel):
+    """A change of one article of the constitution, put to the chamber."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The article is an enum so the decoder cannot invent one; the value's legality depends on
+    # the article (config.Article.allows), which the schema cannot say -- agents.validate_turn.
+    article: str = Field(..., json_schema_extra=_ARTICLE_ENUM)
+    value: str | int | float | None
+    reason: str
+
+
+class AmendingLeaderTurn(LeaderTurn):
+    """A leader's turn where the constitution can be amended (agents.amendments)."""
+
+    amendment: AmendmentProposal | None = None
+
+
+AMENDING_LEADER_TURN_JSON_SCHEMA = AmendingLeaderTurn.model_json_schema()
+
+
+class AmendmentBallot(BaseModel):
+    """A chamber member's vote on a proposed amendment, in their own words."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    vote: Literal["yes", "no"]
+    statement: str
+    note_to_self: str
+
+
+AMENDMENT_BALLOT_JSON_SCHEMA = AmendmentBallot.model_json_schema()
 
 
 class PressureDecision(BaseModel):

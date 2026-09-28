@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -603,6 +603,8 @@ class Article:
     low: float = 0.0
     high: float = 0.0
     integer: bool = False
+    summary: str = ""
+    """What the rule does, in the words an agent reads."""
 
     def allows(self, value: Any) -> bool:
         if isinstance(value, bool):
@@ -615,13 +617,21 @@ class Article:
 
 
 ARTICLES: Mapping[str, Article] = {article.path: article for article in (
-    Article("institutions.presidential_method", choices=tuple(sorted(RANKED_METHODS))),
-    Article("institutions.president_term_limit", choices=(1, 2, 3, None)),
-    Article("institutions.seat_allocation", choices=tuple(sorted(_SEAT_ALLOCATIONS))),
-    Article("institutions.electoral_threshold", low=0.0, high=0.15),
-    Article("institutions.assembly_seats", low=20, high=300, integer=True),
-    Article("petition.signature_threshold", low=0.05, high=0.5),
-    Article("legitimacy.recall_floor", low=0.0, high=0.5),
+    Article("institutions.presidential_method", choices=tuple(sorted(RANKED_METHODS)),
+            summary="how the president is elected: the voting method that turns the citizens' ballots into a winner"),
+    Article("institutions.president_term_limit", choices=(1, 2, 3, None),
+            summary="how many terms one person may serve as president (null: no limit)"),
+    Article("institutions.seat_allocation", choices=tuple(sorted(_SEAT_ALLOCATIONS)),
+            summary="how the assembly's seats are shared among the parties after a legislative election"),
+    Article("institutions.electoral_threshold", low=0.0, high=0.15,
+            summary="the share of the vote a party needs to win any seat"),
+    Article("institutions.assembly_seats", low=20, high=300, integer=True, summary="the number of seats in the assembly"),
+    Article("petition.signature_threshold", low=0.05, high=0.5,
+            summary="the share of citizens whose signatures force a confidence vote on the president"),
+    Article("legitimacy.recall_floor", low=0.0, high=0.5,
+            summary="the legitimacy below which the president is recalled"),
+    Article("constitution.amendment_threshold", low=0.5, high=0.9,
+            summary="the share of the chamber that must vote yes to amend the constitution"),
 )}
 """The rules a constitution may amend. Each is read at an election, a rotation or a
 tick's accountability, never mid-term, so an amendment takes effect the next time the
@@ -640,6 +650,11 @@ class ConstitutionConfig:
     scripted: tuple[ScriptedAmendment, ...] = ()
     """Amendments the run makes at fixed ticks, whatever the polity decides: an experiment's
     rule change ("two-round for ten years, then Borda")."""
+    amendment_threshold: float = 0.5
+    """The share of the chamber that must vote yes -- strictly more than -- to ratify an
+    amendment (an article itself, so the polity can change how it changes)."""
+    entrenched: Mapping[str, float] = field(default_factory=dict)
+    """Articles that need a higher threshold than amendment_threshold, and what it is."""
 
 
 def amended(config: PolityConfig, path: str, value: Any) -> PolityConfig:
@@ -660,6 +675,9 @@ class AgentsConfig:
     poll (replacing campaign_positioning)."""
     turn_temperature: float = 0.0
     """Sampling temperature of an agent's turn (0: greedy, like every batch decision)."""
+    amendments: bool = False
+    """The president may propose an amendment, and the sortition chamber's members vote on it,
+    each in a turn of their own (ADR-015)."""
 
 
 @dataclass(frozen=True)
@@ -1212,12 +1230,15 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
-        "'agents.president' and 'agents.nominees' require 'llm.enabled': an agent's turn is a model call"
-    ) if (c.agents.president or c.agents.nominees) and not c.llm.enabled else None,
+        "'agents.president', 'agents.nominees' and 'agents.amendments' require 'llm.enabled': an agent's turn is a model call"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments) and not c.llm.enabled else None,
     lambda c: (
-        f"'agents.president' and 'agents.nominees' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: agents argue "
-        "about named issues"
-    ) if (c.agents.president or c.agents.nominees) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+        f"'agents.president', 'agents.nominees' and 'agents.amendments' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
+        "agents argue about named issues"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+    lambda c: (
+        "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
+    ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
     lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
@@ -1269,6 +1290,11 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
 )
 
 
+def broken_rule(config: PolityConfig) -> str | None:
+    """The first cross-setting rule `config` breaks, or None."""
+    return next(filter(None, (rule(config) for rule in _CONFIG_RULES)), None)
+
+
 def validate_config(config: PolityConfig) -> None:
     """Raise PolityConfigError on the first cross-setting rule `config` breaks -- as given,
     and after each of its scripted amendments in turn, so a run cannot amend itself into a
@@ -1278,15 +1304,26 @@ def validate_config(config: PolityConfig) -> None:
     for amendment in (None, *sorted(config.constitution.scripted, key=lambda a: a.tick)):
         if amendment is not None:
             current = amended(current, amendment.article, amendment.value)
-        for rule in _CONFIG_RULES:
-            message = rule(current)
-            if message is not None:
-                suffix = f" (after the amendment at tick {amendment.tick})" if amendment is not None else ""
-                raise PolityConfigError(message + suffix)
+        message = broken_rule(current)
+        if message is not None:
+            suffix = f" (after the amendment at tick {amendment.tick})" if amendment is not None else ""
+            raise PolityConfigError(message + suffix)
+
+
+def _parse_entrenched(section: dict[str, Any]) -> dict[str, float]:
+    entrenched = _get(section, "constitution", "entrenched", dict)
+    threshold = ARTICLES["constitution.amendment_threshold"]
+    for path, value in entrenched.items():
+        if path not in ARTICLES:
+            raise PolityConfigError(f"'constitution.entrenched': {path!r} is not an amendable article ({sorted(ARTICLES)})")
+        if not threshold.allows(value):
+            raise PolityConfigError(f"'constitution.entrenched.{path}': {value!r} is not a threshold in [0.5, 0.9]")
+    return {path: float(value) for path, value in entrenched.items()}
 
 
 def _parse_constitution(raw: dict[str, Any]) -> ConstitutionConfig:
-    entries = _get(_section(raw, "constitution"), "constitution", "scripted", list)
+    section = _section(raw, "constitution")
+    entries = _get(section, "constitution", "scripted", list)
     scripted = []
     for i, entry in enumerate(entries):
         where = f"constitution.scripted[{i}]"
@@ -1300,7 +1337,12 @@ def _parse_constitution(raw: dict[str, Any]) -> ConstitutionConfig:
         if isinstance(entry["tick"], bool) or not isinstance(entry["tick"], int) or entry["tick"] < 0:
             raise PolityConfigError(f"'{where}.tick': expected a tick (an int >= 0), got {entry['tick']!r}")
         scripted.append(ScriptedAmendment(tick=entry["tick"], article=article.path, value=entry["value"]))
-    return ConstitutionConfig(scripted=tuple(scripted))
+    amendment_threshold = _get(section, "constitution", "amendment_threshold", (int, float))
+    if not ARTICLES["constitution.amendment_threshold"].allows(amendment_threshold):
+        raise PolityConfigError(f"'constitution.amendment_threshold': {amendment_threshold!r} is not in [0.5, 0.9]")
+    return ConstitutionConfig(
+        scripted=tuple(scripted), amendment_threshold=float(amendment_threshold), entrenched=_parse_entrenched(section),
+    )
 
 
 def load_config(path: Path | str | None = None) -> PolityConfig:
@@ -1362,6 +1404,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             president=_get(_section(raw, "agents"), "agents", "president", bool),
             nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
+            amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
         ),
         constitution=_parse_constitution(raw),
         raw=raw,
