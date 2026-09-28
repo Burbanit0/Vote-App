@@ -71,6 +71,24 @@ def test_a_decision_the_validator_rejects_sends_only_its_chunk_to_the_fallback(c
     assert "candidacy_considered: exhausted every recovery attempt" in caplog.text and "a test fallback" in caplog.text
 
 
+def test_an_answer_the_validator_rejects_is_replayed_before_any_fallback() -> None:
+    citizens = generate_population(load_config().citizens, 2, seed=3)
+    rejected = citizens[0].citizen_id
+
+    def validate(decision: CandidacyDecision) -> None:
+        if decision.cid == rejected and decision.outcome == 1:
+            raise LlmResponseError("not allowed")
+
+    def decline_all(user_prompt: str) -> str:
+        return json.dumps({"decisions": [{"cid": cid, "outcome": 0, "motif": 201} for cid in json.loads(user_prompt)]})
+
+    client = _ScriptedClient(_declare_all, decline_all)
+    result = run_decision(_spec(validate=validate), citizens, _config(replays=1), client)  # type: ignore[arg-type]
+    assert client.calls == 2
+    assert result.llm_fallback == {}
+    assert set(result.retry_sampling_varied.values()) == {True}
+
+
 def test_a_recovered_retry_is_marked_on_its_chunk_only() -> None:
     citizens = generate_population(load_config().citizens, 4, seed=3)
     client = _ScriptedClient(lambda prompt: "not json", _declare_all)
