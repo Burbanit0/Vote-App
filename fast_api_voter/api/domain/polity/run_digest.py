@@ -155,6 +155,7 @@ def population_impact_by_year(
         per_year[_year_of(event["tick"], ticks_per_year)].append(event)
 
     series = []
+    version = 0
     for year in _year_span(events, ticks_per_year):
         # A year with no events still gets a row -- see _year_span.
         year_events = per_year.get(year, [])
@@ -162,9 +163,14 @@ def population_impact_by_year(
         by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for event in year_events:
             by_type[event["event_type"]].append(event)
+        version += len(by_type.get("constitution_amended", []))
         series.append({
             "year": year,
             "tick_range": [min(ticks), max(ticks)],
+            # ADR-015: the constitution in force at the end of the year (each amendment is one
+            # version), so a reader never averages a metric across two sets of rules unawares.
+            "constitution_version": version,
+            "amendments": _amendment_impact(by_type),
             "candidacy": _candidacy_impact(by_type, population),
             "pressure": _pressure_impact(by_type, population),
             "petitions": _petition_impact(by_type),
@@ -179,6 +185,16 @@ def population_impact_by_year(
 
 
 EventsByType = Mapping[str, list[dict[str, Any]]]
+
+
+def _amendment_impact(by_type: EventsByType) -> dict[str, int]:
+    resolved = by_type.get("amendment_resolved", [])
+    ratified = sum(e["payload"]["ratified"] for e in resolved)
+    return {
+        "proposed": len(by_type.get("amendment_proposed", [])),
+        "ratified": ratified,
+        "rejected": len(resolved) - ratified,
+    }
 
 
 def _candidacy_impact(by_type: EventsByType, population: int) -> dict[str, Any]:

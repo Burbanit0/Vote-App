@@ -188,6 +188,23 @@ def test_population_impact_rate_is_none_not_zero_when_nothing_was_tracked():
     assert year0["reactions"]["mean_salience_delta"] is None
 
 
+def test_each_year_says_which_constitution_it_ended_under_and_what_was_put_to_the_chamber():
+    config = load_config()
+    resolved = lambda tick, ratified: _e(tick, "amendment_resolved", {"ratified": ratified})  # noqa: E731
+    events = [
+        _e(0, "amendment_proposed", {}), resolved(1, 1), _e(1, "constitution_amended", {}),
+        _e(9, "amendment_proposed", {}), resolved(10, 0), _e(9, "amendment_proposed", {}),
+    ]
+
+    series = population_impact_by_year(events, config)
+
+    assert [row["constitution_version"] for row in series] == [1, 1, 1]
+    assert [row["amendments"] for row in series] == [
+        {"proposed": 1, "ratified": 1, "rejected": 0}, {"proposed": 0, "ratified": 0, "rejected": 0},
+        {"proposed": 2, "ratified": 0, "rejected": 1},
+    ]
+
+
 def test_population_impact_counts_blank_ballots():
     config = load_config()
     events = [_e(0, "vote_cast", {"blank": 1}), _e(0, "vote_cast", {"blank": 0}),
