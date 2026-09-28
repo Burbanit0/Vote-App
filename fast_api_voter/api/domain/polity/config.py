@@ -678,6 +678,12 @@ class AgentsConfig:
     amendments: bool = False
     """The president may propose an amendment, and the sortition chamber's members vote on it,
     each in a turn of their own (ADR-015)."""
+    forum: bool = False
+    """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
+    launched a petition post, or stay silent, in a turn of their own, and read what their
+    neighbours, the president and (for a member) the rest of the chamber posted."""
+    forum_size: int = 30
+    """At most this many citizens take a forum turn per tick, recent petition launchers first."""
 
 
 @dataclass(frozen=True)
@@ -1230,12 +1236,12 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
-        "'agents.president', 'agents.nominees' and 'agents.amendments' require 'llm.enabled': an agent's turn is a model call"
-    ) if (c.agents.president or c.agents.nominees or c.agents.amendments) and not c.llm.enabled else None,
+        "'agents.president', 'agents.nominees', 'agents.amendments' and 'agents.forum' require 'llm.enabled': an agent's turn is a model call"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum) and not c.llm.enabled else None,
     lambda c: (
-        f"'agents.president', 'agents.nominees' and 'agents.amendments' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
+        f"'agents.president', 'agents.nominees', 'agents.amendments' and 'agents.forum' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
         "agents argue about named issues"
-    ) if (c.agents.president or c.agents.nominees or c.agents.amendments) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
     lambda c: (
         "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
     ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
@@ -1405,6 +1411,8 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
             amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
+            forum=_get(_section(raw, "agents"), "agents", "forum", bool),
+            forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
         ),
         constitution=_parse_constitution(raw),
         raw=raw,

@@ -99,7 +99,7 @@ president, a handful of nominees.
   0.6 in the exploration profile (Qwen3's thinking-mode value), because non-determinism is wanted.
   It did not stop the repetition that prompted it; OBS-028 traces that to the situation. The first attempt sends it with the seed base, so a
   single-worker run still regenerates; retries keep their own temperature and seeds.
-- Nominee and party-leader turns and their promotion rules (roadmap 1.4, Phase 3 and Phase 4).
+- Party-leader turns (roadmap Phase 4). Citizens who talk are ADR-016.
 - LLM-written personas, scored memory retrieval, and reflection calls. Each has an "add when" line
   in the roadmap's §5.
 

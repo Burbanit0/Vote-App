@@ -683,6 +683,12 @@ agents:
   amendments: false           # true = le président peut proposer un amendement, et les membres de la
                               #   chambre tirée au sort le votent, chacun dans un tour (ADR-015).
                               #   Exige agents.president et sortition_chamber.enabled.
+  forum: false                # true = la chambre tirée au sort et les citoyens qui viennent de lancer
+                              #   une pétition (8 ticks) postent ou se taisent, chacun dans un tour,
+                              #   et lisent leurs voisins, le président et (pour la chambre) leurs
+                              #   pairs (ADR-016). Exige llm.enabled et 20 enjeux (nommés).
+  forum_size: 30              # au plus autant de citoyens prennent la parole par tick,
+                              #   les auteurs de pétition récents d'abord.
   turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
                               #   comme toute décision par lots). Envoyée avec une graine :
                               #   un run à un seul worker reste régénérable.

@@ -561,6 +561,19 @@ class AmendmentVote(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class ForumPost(Event):
+    """One citizen's turn on the forum (agents.decide_forum): what they posted, "" when they kept
+    silent or every attempt failed."""
+
+    EVENT_TYPE = "forum_post"
+    LLM_DECISION = True
+    post: str
+    rationale: str
+    note_to_self: str
+    provenance: LlmProvenance
+
+
+@dataclass(frozen=True, kw_only=True)
 class AmendmentResolved(Event):
     """The chamber's tally of the pending amendment: ratified, or not."""
 
@@ -584,7 +597,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
-    AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved,
+    AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}
