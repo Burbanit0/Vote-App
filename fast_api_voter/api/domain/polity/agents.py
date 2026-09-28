@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict, deque
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import accumulate
 from pathlib import Path
@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from api.domain.polity.amendments import articles_text, validate_amendment, value_text
 from api.domain.polity.citizen import Citizen
+from api.domain.polity.codebook import CoalitionAction, CoalitionMotif
 from api.domain.polity.config import ARTICLES, ISSUE_COUNT_NAMED, PolityConfig
 from api.domain.polity.constitution import Proposal
 from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES
@@ -29,8 +30,11 @@ from api.domain.polity.llm_behavior_engine import (
     ResponseContext,
     _complete_and_decode_with_replay,
     _dynamic_max_tokens,
+    _negotiation_converged,
     _profile,
+    _provisional_coalition_seats,
     _validated,
+    run_chunks,
     thinking_budget_body,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, _decode_batch
@@ -38,11 +42,14 @@ from api.domain.polity.llm_schemas import (
     AMENDING_LEADER_TURN_JSON_SCHEMA,
     AMENDMENT_BALLOT_JSON_SCHEMA,
     FORUM_TURN_JSON_SCHEMA,
+    LEADER_COALITION_TURN_JSON_SCHEMA,
     LEADER_TURN_JSON_SCHEMA,
     AmendingLeaderTurn,
     AmendmentBallot,
+    CoalitionDecision,
     ForumTurn,
     IssueTarget,
+    LeaderCoalitionTurn,
     LeaderTurn,
     PositionShift,
 )
@@ -54,6 +61,9 @@ PRESIDENT_TURN = "president_turn"
 NOMINEE_TURN = "nominee_turn"
 AMENDMENT_VOTE = "amendment_vote"
 FORUM_POST = "forum_post"
+COALITION_TURN = "coalition_turn"
+GAP_ISSUES = 3
+"""A leader is told the issues on which the formateur's platform differs most from their own."""
 FORUM_IDLE_TICKS, FEED_SIZE = 8, 8
 """A citizen who launched a petition stays on the forum this many ticks; a turn reads this many posts."""
 _RETRY_TEMPERATURE = 0.3
@@ -149,7 +159,7 @@ def persona(citizen: Citizen) -> str:
 # ── memory ────────────────────────────────────────────────────────────────
 
 _PUBLIC_EVENT_TYPES = INSTITUTIONAL_EVENT_TYPES | {"bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted"}
-_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated", "amendment_vote", "forum_post"})
+_OWN_EVENT_TYPES = frozenset({"agent_turn", "legitimacy_updated", "amendment_vote", "forum_post", "coalition_decision"})
 
 
 class AgentMemory:
@@ -235,6 +245,8 @@ def _own_line(event: JournalEvent) -> str:
         return f"- t{event.tick} you voted {payload['vote']} on changing {payload['article']}; note to self: \"{payload['note_to_self']}\""
     if event.event_type == "forum_post":
         return f"- t{event.tick} you {'posted' if payload['post'] else 'kept silent'}; note to self: \"{payload['note_to_self']}\""
+    if event.event_type == "coalition_decision":
+        return f"- t{event.tick} round {payload['round']} of the coalition talks you {'joined' if payload['action'] == CoalitionAction.JOIN.value else 'declined'}; note to self: \"{payload['note_to_self']}\""
     bill = f"; bill {describe_moves(payload['bill'])}" if payload["bill"] else ""
     return (
         f"- t{event.tick} you moved {describe_moves(payload['shifts']) or 'nothing'}{bill}; "
@@ -615,6 +627,12 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
         f"(at most {RATIONALE_LIMIT} characters). \"post\" is your message (at most {SPEECH_LIMIT} characters); "
         f"leave it empty to keep silent. \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
         + (
+            " You may also change party: \"party_move\" is \"join\" (with the party's number as \"party_id\"), \"leave\" (to sit "
+            "as an independent) or \"found\" (a new party on your own convictions, which only holds if enough citizens side "
+            "with you); otherwise \"none\" and -1. Most turns change nothing."
+            if config.agents.party_moves else " Set \"party_move\" to none and \"party_id\" to -1."
+        )
+        + (
             " If what you read has genuinely changed your mind on one issue, give its number as \"shift_issue\" and the "
             "pole you moved toward as \"shift_direction\" (\"low\" or \"high\"); otherwise -1 and \"none\". Do not move "
             "for the sake of it: most turns change nothing."
@@ -623,9 +641,19 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
     )
 
 
-def forum_user_prompt(*, tick: int, member: bool, feed: str, memory: str) -> str:
+def party_roll(parties: Sequence[Party], citizens: Sequence[Citizen]) -> str:
+    """The parties as a citizen sees them: their share of the citizens and their three firmest planks."""
+    lines = []
+    for party in parties:
+        share = sum(1 for c in citizens if c.party_affiliation == party.party_id) / len(citizens)
+        planks = sorted(range(len(ISSUES)), key=lambda d: (-abs(party.platform[d] - 0.5), d))[:3]
+        lines.append(f"- party {party.party_id} ({share:.0%} of citizens): " + "; ".join(f"{ISSUES[d].name} {lean(d, party.platform[d])}" for d in planks))
+    return "The parties:\n" + "\n".join(lines)
+
+
+def forum_user_prompt(*, tick: int, member: bool, feed: str, memory: str, roll: str = "") -> str:
     seat = " You sit in the citizens' chamber." if member else ""
-    return f"Tick {tick}.{seat}\n\n{feed}\n\n{memory}\n\nYour turn."
+    return "\n\n".join(part for part in (f"Tick {tick}.{seat}", roll, feed, memory, "Your turn.") if part)
 
 
 def decide_forum(
@@ -641,3 +669,153 @@ def forum_words(turn: ForumTurn | None) -> dict[str, str]:
     if turn is None:
         return {"post": "", "rationale": "", "note_to_self": ""}
     return {"post": turn.post[:SPEECH_LIMIT], "rationale": turn.rationale[:RATIONALE_LIMIT], "note_to_self": turn.note_to_self[:NOTE_LIMIT]}
+
+
+# ── coalition talks between party leaders (ADR-019) ───────────────────────
+
+def party_leader(party_id: int, citizens: Sequence[Citizen], taken: Collection[int] = ()) -> Citizen:
+    """The party's most ambitious member (the lowest id on a tie), never one of `taken`; a party
+    with no member is led by the most ambitious citizen."""
+    members = [c for c in citizens if c.party_affiliation == party_id]
+    return max((c for c in members or citizens if c.citizen_id not in taken), key=lambda c: (c.ambition_score, -c.citizen_id))
+
+
+def coalition_system_prompt(leader: Citizen, party_id: int, config: PolityConfig) -> str:
+    """The talks' rules and who the leader is -- stable for the run, so a prefix."""
+    return (
+        "You are playing a citizen of a simulated democracy, in the first person.\n\n"
+        f"{persona(leader)}\n\n"
+        f"You lead party {party_id}, which won seats in the new assembly. The leader of the largest party, the "
+        f"formateur, is trying to form a government: a coalition holding more than {config.parties.coalition_majority_ratio:.0%} "
+        "of the seats. Each round you answer the formateur, join the coalition or not, and tell the other leaders what you "
+        f"think. You may change your answer from one round to the next. The talks end when no leader changes their answer, or "
+        f"after {config.parties.coalition_max_negotiation_rounds} rounds. Without a majority there is no government. What is best "
+        "for your party, your convictions and you is yours to decide.\n\n"
+        "Answer with one JSON object in the schema given. \"rationale\" is your private reasoning "
+        f"(at most {RATIONALE_LIMIT} characters). \"join\" is \"yes\" or \"no\". \"statement\" is what you say to the other "
+        f"leaders (at most {SPEECH_LIMIT} characters). \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
+    )
+
+
+def _platform_gap(mine: Sequence[float], theirs: Sequence[float]) -> str:
+    far = sorted(range(len(ISSUES)), key=lambda d: (-abs(mine[d] - theirs[d]), d))[:GAP_ISSUES]
+    return "; ".join(f"{ISSUES[d].name} (you {lean(d, mine[d])}, they {lean(d, theirs[d])})" for d in far)
+
+
+def coalition_user_prompt(
+    *, tick: int, party_id: int, initiator: int, platforms: Mapping[int, Sequence[float]], seats: Mapping[int, int],
+    threshold: float, round_number: int, provisional: int | None, others: str, memory: str,
+) -> str:
+    lines = [
+        f"Tick {tick}, round {round_number}. The assembly has {sum(seats.values())} seats; a coalition needs more than "
+        f"{threshold:.1f}. Your party holds {seats[party_id]}.",
+        f"The formateur leads party {initiator}, with {seats[initiator]} seats. Where its platform differs most from yours: "
+        f"{_platform_gap(platforms[party_id], platforms[initiator])}.",
+    ]
+    if provisional is not None:
+        lines.append(f"The coalition now stands at {provisional} seats. The other leaders said:\n{others}")
+    return "\n\n".join([*lines, memory, "Your turn."])
+
+
+def decide_coalition_turn(
+    leader: Citizen, *, system_prompt: str, user_prompt: str, config: PolityConfig, client: LlmClientProtocol,
+) -> TurnOutcome[LeaderCoalitionTurn]:
+    return decide(
+        leader, decision_type=COALITION_TURN, system_prompt=system_prompt, user_prompt=user_prompt,
+        json_schema=LEADER_COALITION_TURN_JSON_SCHEMA, config=config, client=client,
+        decode=lambda raw: decode_one(raw, LeaderCoalitionTurn),
+    )
+
+
+def coalition_words(turn: LeaderCoalitionTurn | None) -> dict[str, str]:
+    if turn is None:
+        return {"statement": "", "rationale": "", "note_to_self": ""}
+    return {"statement": turn.statement[:SPEECH_LIMIT], "rationale": turn.rationale[:RATIONALE_LIMIT], "note_to_self": turn.note_to_self[:NOTE_LIMIT]}
+
+
+@dataclass(frozen=True)
+class LeaderAnswer:
+    """What one leader said in one round, for the journal: the decision itself is a CoalitionDecision."""
+
+    leader: int
+    words: dict[str, str]
+    fallback: bool
+    sampling_varied: bool
+    call_id: str | None
+
+
+def _pick_leaders(responders: Sequence[int], citizens: Sequence[Citizen]) -> dict[int, Citizen]:
+    leaders: dict[int, Citizen] = {}
+    for pid in responders:
+        leaders[pid] = party_leader(pid, citizens, {leader.citizen_id for leader in leaders.values()})
+    return leaders
+
+
+def _others_said(
+    pid: int, responders: Sequence[int], prior: dict[int, CoalitionDecision] | None, seats: dict[int, int], said: dict[int, str],
+) -> str:
+    if prior is None:
+        return ""
+    return "\n".join(
+        f"- party {q} ({seats[q]} seats): {'join' if prior[q].action == CoalitionAction.JOIN.value else 'decline'}, \"{said[q]}\""
+        for q in responders if q != pid
+    )
+
+
+def _leader_decision(pid: int, turn: LeaderCoalitionTurn | None, prior: dict[int, CoalitionDecision] | None) -> CoalitionDecision:
+    """The leader's answer, or the previous one (declining in round 1) when they never answered."""
+    if turn is not None:
+        action = CoalitionAction.JOIN if turn.join == "yes" else CoalitionAction.LEAVE
+    else:
+        action = CoalitionAction(prior[pid].action) if prior is not None else CoalitionAction.LEAVE
+    motif = CoalitionMotif.IDEOLOGICAL_PROXIMITY if action == CoalitionAction.JOIN else CoalitionMotif.IDEOLOGICAL_DISTANCE_TOO_HIGH
+    return CoalitionDecision(party_id=pid, action=action.value, motif=motif.value)
+
+
+def negotiate_leaders(
+    client: LlmClientProtocol, responders: Sequence[int], initiator: int, party_platforms: dict[int, tuple[float, ...]],
+    seats: dict[int, int], votes: dict[int, float], total_seats: int, threshold: float, config: PolityConfig,
+    *, citizens: Sequence[Citizen], memory: AgentMemory, tick: int, answers: dict[tuple[int, int], LeaderAnswer],
+) -> tuple[list[list[CoalitionDecision]], int | None, list[bool], list[str | None]]:
+    """`decide_coalition`'s round loop with the parties' leaders in place of the crowd batch: each
+    round every responding leader takes a turn of their own, in parallel, none seeing another's
+    answer of the same round. It stops on the crowd's own rule (`_negotiation_converged`) or the
+    round cap. A leader who never answers keeps their previous answer, or declines in round 1.
+    `answers[(round, party_id)]` receives each leader's words for the journal."""
+    leaders = _pick_leaders(responders, citizens)
+    party_of = {leader.citizen_id: pid for pid, leader in leaders.items()}
+    rounds: list[list[CoalitionDecision]] = []
+    varied: list[bool] = []
+    prior: dict[int, CoalitionDecision] | None = None
+    provisional: int | None = None
+    said: dict[int, str] = {}
+    round_number = 0
+
+    def answer(chunk: list[Citizen]) -> TurnOutcome[LeaderCoalitionTurn]:
+        [leader] = chunk
+        pid = party_of[leader.citizen_id]
+        return decide_coalition_turn(
+            leader, system_prompt=coalition_system_prompt(leader, pid, config), config=config, client=client,
+            user_prompt=coalition_user_prompt(
+                tick=tick, party_id=pid, initiator=initiator, platforms=party_platforms, seats=seats, threshold=threshold,
+                round_number=round_number, provisional=provisional, memory=memory.recall(leader.citizen_id),
+                others=_others_said(pid, responders, prior, seats, said),
+            ),
+        )
+
+    while True:
+        round_number += 1
+        outcomes = run_chunks([[leaders[pid]] for pid in responders], answer, config.parallel.intra_run_workers)
+        decisions = []
+        for pid, outcome in zip(responders, outcomes):
+            decisions.append(_leader_decision(pid, outcome.turn, prior))
+            answers[(round_number, pid)] = LeaderAnswer(
+                leaders[pid].citizen_id, coalition_words(outcome.turn), outcome.turn is None, outcome.sampling_varied, outcome.call_id,
+            )
+            said[pid] = answers[(round_number, pid)].words["statement"]
+        rounds.append(decisions)
+        varied.append(any(answers[(round_number, pid)].sampling_varied for pid in responders))
+        current = {d.party_id: d for d in decisions}
+        if _negotiation_converged(prior, current, responders) or round_number >= config.parties.coalition_max_negotiation_rounds:
+            return rounds, None, varied, [None] * len(rounds)
+        prior, provisional = current, _provisional_coalition_seats(current, initiator, seats)

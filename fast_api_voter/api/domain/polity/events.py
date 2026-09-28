@@ -244,6 +244,11 @@ class CoalitionDecision(Event):
     # No llm_fallback: a failed negotiation aborts the round instead of falling back.
     retry_sampling_varied: int
     llm_call_id: str | None
+    leader: int = OMIT  # agents.coalition only: the party leader who answered, and what they said
+    statement: str = OMIT
+    rationale: str = OMIT
+    note_to_self: str = OMIT
+    llm_fallback: int = OMIT  # agents.coalition only: the leader never answered, so the party declined
 
 
 # ── exogenous events ──────────────────────────────────────────────────────
@@ -575,6 +580,29 @@ class ForumPost(Event):
     """The issue the speaker's mind moved on after reading (ADR-017), -1 for none."""
     shift_logit: float = 0.0
     """How far the kernel moved them on it (signed, toward the high pole positive)."""
+    party_move: str = ""
+    """The membership move the kernel applied (ADR-018): "join 2", "leave", "found 5"; "" for none."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class PartyFounded(Event):
+    """A citizen founded a party on their own positions, with the citizens who sided with them."""
+
+    EVENT_TYPE = "party_founded"
+    INSTITUTIONAL = True
+    party_id: int
+    members: int
+    platform: list[float]
+
+
+@dataclass(frozen=True, kw_only=True)
+class PartyDissolved(Event):
+    """A party fell below half the founding ratio; its members went to the nearest party."""
+
+    EVENT_TYPE = "party_dissolved"
+    INSTITUTIONAL = True
+    party_id: int
+    members: int
 
 
 @dataclass(frozen=True, kw_only=True)

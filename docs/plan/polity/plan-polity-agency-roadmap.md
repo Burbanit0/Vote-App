@@ -173,8 +173,8 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 
 | PR | Deliverable |
 |---|---|
-| 4.1 | **Mutable party membership.** `found` (the co-founder threshold is an article), `join`, `leave`, and automatic dissolution below a minimum. The party leader is the founder or the last nominee, and a `party_leader_turn` lets them move the platform. Nomination keeps its current path. |
-| 4.2 | **Coalition negotiation between leaders** replaces the collapsed `coalition_decision`. It reuses the `_negotiation_converged` stop rule (`llm_behavior_engine.py:5401`). |
+| 4.1 | **Mutable party membership** (ADR-018, built). A forum turn may `join`, `leave` or `found` a party (the co-founder share `parties.founding_ratio` is an article), and a party under half of it is dissolved. The party leader's `party_leader_turn` (moving a platform) is not built: nothing yet shows it is needed. |
+| 4.2 | **Coalition negotiation between leaders** (ADR-019, built). `decide_coalition` takes a `negotiation` callable; `agents.negotiate_leaders` gives each party's leader (its most ambitious member, derived, no stored field) one turn a round, blind, and stops on the crowd's `_negotiation_converged` rule. ON in the exploration profile when the LLM is. |
 | 4.3 | **Referendum** (ADR-020, built). `constitution.referendum` (`never`, `petition`, `always`) lets the citizens confirm a voting-method change the chamber ratified: the last election's ballots are re-counted under both methods and each citizen votes for the winner they ranked higher. In `petition` it is held when the citizens who would vote no reach the petition threshold. Agents do not vote in it; other articles are not referred. |
 | 4.4 | **An `engagement` field**: `active`, `disengaged` or `exited`. `exited` is a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 
@@ -198,7 +198,7 @@ P(success) = logistic(a·(S − 0.5) + b·(Λ_for − Λ_against) − c·σ)
 - An irregular regime ends either through a constituent process (Phase 2 plus the Phase 4 referendum) or through a counter-uprising.
 - On failure, the author is removed from office and barred from holding it again.
 
-ADR-018 is written in this phase.
+ADR-021 is written in this phase (ADR-018 went to the mutable parties of 4.1, ADR-019 to the leaders' coalition talks of 4.2, ADR-020 to the referendum of 4.3).
 
 ### Observatory
 

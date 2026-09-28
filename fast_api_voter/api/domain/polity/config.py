@@ -175,6 +175,9 @@ class PartiesConfig:
     coalition_tiebreak: tuple[str, ...]
     coalition_majority_ratio: float
     coalition_max_negotiation_rounds: int
+    founding_ratio: float = 0.05
+    """ADR-018: the share of the citizens whose co-founding a new party needs (`birth_enabled`);
+    a party below half of it is dissolved (`death_enabled`). An article."""
 
 
 @dataclass(frozen=True)
@@ -632,6 +635,8 @@ ARTICLES: Mapping[str, Article] = {article.path: article for article in (
             summary="the share of citizens whose signatures force a confidence vote on the president"),
     Article("legitimacy.recall_floor", low=0.0, high=0.5,
             summary="the legitimacy below which the president is recalled"),
+    Article("parties.founding_ratio", low=0.02, high=0.3,
+            summary="the share of citizens who must co-found a new party (and half of it keeps a party alive)"),
     Article("constitution.amendment_threshold", low=0.5, high=0.9,
             summary="the share of the chamber that must vote yes to amend the constitution"),
     Article("constitution.referendum", choices=REFERENDUM_MODES,
@@ -695,6 +700,11 @@ class AgentsConfig:
     stance_step: float = 0.0
     """How far, in logit units, a forum turn may move the speaker on one issue (ADR-017). 0: a
     citizen's talk moves nobody. Needs `dynamics.enabled`: it moves the latent factors."""
+    coalition: bool = False
+    """Each seated party's leader answers the formateur in a turn of their own, round after round
+    (ADR-019), instead of the crowd batch `coalition_decision`."""
+    party_moves: bool = False
+    """A forum turn may join a party, leave to sit as an independent, or found a new one (ADR-018)."""
 
 
 @dataclass(frozen=True)
@@ -824,6 +834,7 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         coalition_tiebreak=tuple(tiebreak),
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
         coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
+        founding_ratio=_get_ratio(s, "parties", "founding_ratio"),
     )
 
 
@@ -1247,16 +1258,17 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
-        "'agents.president', 'agents.nominees', 'agents.amendments' and 'agents.forum' require 'llm.enabled': an agent's turn is a model call"
-    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum) and not c.llm.enabled else None,
+        "'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'llm.enabled': an agent's turn is a model call"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and not c.llm.enabled else None,
     lambda c: (
-        f"'agents.president', 'agents.nominees', 'agents.amendments' and 'agents.forum' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
+        f"'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
         "agents argue about named issues"
-    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
     lambda c: (
         "'agents.stance_step' > 0 requires 'agents.forum' (where citizens change their minds) and 'dynamics.enabled' "
         "(a stance is a point on the latent factors)"
     ) if c.agents.stance_step > 0 and not (c.agents.forum and c.dynamics.enabled) else None,
+    lambda c: "'agents.party_moves' requires 'agents.forum' (where citizens take their turn)" if c.agents.party_moves and not c.agents.forum else None,
     lambda c: (
         "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
     ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
@@ -1430,6 +1442,8 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             forum=_get(_section(raw, "agents"), "agents", "forum", bool),
             forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
             stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),
+            coalition=_get(_section(raw, "agents"), "agents", "coalition", bool),
+            party_moves=_get(_section(raw, "agents"), "agents", "party_moves", bool),
         ),
         constitution=_parse_constitution(raw),
         raw=raw,

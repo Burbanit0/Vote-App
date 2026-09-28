@@ -43,12 +43,13 @@ import logging
 import random
 import subprocess
 import time
+from functools import partial
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 
@@ -58,9 +59,11 @@ from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
     AgentMemory,
+    LeaderAnswer,
     NomineeBriefing,
     PresidentBriefing,
     TurnOutcome,
+    party_roll,
     ballot_system_prompt,
     ballot_user_prompt,
     ballot_words,
@@ -71,6 +74,7 @@ from api.domain.polity.agents import (
     forum_user_prompt,
     forum_words,
     moves_payload,
+    negotiate_leaders,
     nominee_system_prompt,
     nominee_user_prompt,
     president_system_prompt,
@@ -133,6 +137,8 @@ from api.domain.polity.events import (
     AmendmentVote,
     ConstitutionAmended,
     ForumPost,
+    PartyDissolved,
+    PartyFounded,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -208,6 +214,7 @@ from api.domain.polity.llm_behavior_engine import (
     ReactionContext,
     ResponseContext,
     VoteBatchOutcome,
+    _run_coalition_negotiation,
     apply_shifts,
     run_chunks,
     cast_votes,
@@ -239,7 +246,9 @@ from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    apply_party_move,
     assign_party_affiliation,
+    dissolve_small_parties,
     first_choices,
     attempt_rupture_candidacy,
     blank_share,
@@ -636,7 +645,7 @@ def run_simulation(
         latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
         edges = NeighbourEdges.from_graph(graph)
 
-    memory = AgentMemory() if config.agents.president or config.agents.forum else None
+    memory = AgentMemory() if config.agents.president or config.agents.forum or config.agents.coalition else None
     if resume:
         checkpoint = load_checkpoint(checkpoint_path)
         if checkpoint.run_id != run_id:
@@ -917,6 +926,8 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
     speakers = list(dict.fromkeys([*memory.recent_petitioners(context.tick), *sorted(members)]))[: config.agents.forum_size]
     neighbours = context.graph.neighbors if context.graph else {}
 
+    roll = party_roll(state.parties, state.citizens) if config.agents.party_moves else ""
+
     def post(chunk: list[Citizen]) -> TurnOutcome[ForumTurn]:
         [citizen] = chunk
         cid = citizen.citizen_id
@@ -925,18 +936,44 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
             user_prompt=forum_user_prompt(
                 tick=context.tick, member=cid in members, memory=memory.recall(cid),
                 feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
+                roll=roll,
             ),
         )
 
     for cid, outcome in zip(speakers, run_chunks([[state.citizens[c]] for c in speakers], post, config.parallel.intra_run_workers)):
         turn = outcome.turn
         shift_issue, shift_logit = _apply_stance_shift(context, state.citizens[cid], turn)
+        party_move = _apply_party_move(context, state, state.citizens[cid], turn)
         context.journal.write_event(tick=context.tick, citizen_id=cid, codebook_version=config.llm.codebook_version, event=ForumPost(
-            **forum_words(turn), shift_issue=shift_issue, shift_logit=shift_logit,
+            **forum_words(turn), shift_issue=shift_issue, shift_logit=shift_logit, party_move=party_move,
             provenance=LlmProvenance(
                 llm_fallback=int(turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
             ),
         ))
+
+
+def _apply_party_move(context: TickContext, state: TickState, citizen: Citizen, turn: ForumTurn | None) -> str:
+    """ADR-018: the citizen's membership move, journaled with the party it founds and the parties
+    it leaves too small to keep."""
+    config = context.config
+    if turn is None or not config.agents.party_moves:
+        return ""
+    move = apply_party_move(citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties)
+    if move:
+        _journal_party_changes(context, state, citizen, move)
+    return move
+
+
+def _journal_party_changes(context: TickContext, state: TickState, citizen: Citizen, move: str) -> None:
+    config = context.config
+    write = partial(context.journal.write_event, tick=context.tick, codebook_version=config.llm.codebook_version)
+    if move.startswith("found"):
+        founded = state.parties[-1]
+        members = sum(1 for c in state.citizens if c.party_affiliation == founded.party_id)
+        write(citizen_id=citizen.citizen_id, event=PartyFounded(party_id=founded.party_id, members=members, platform=list(founded.platform)))
+    seats = state.legislature.seats if state.legislature is not None and state.legislature.seats else {}
+    for party_id, members in dissolve_small_parties(state.citizens, state.parties, config.parties, {p for p, n in seats.items() if n > 0}):
+        write(citizen_id=None, event=PartyDissolved(party_id=party_id, members=members))
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -1025,7 +1062,14 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
             state.citizens, state.parties, context.config, context.journal, context.tick,
             governing=_governing_record(state.citizens, legislature),
         )
-        coalition = _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+        answers: dict[tuple[int, int], LeaderAnswer] = {}
+        talks: Callable[..., Any] = _run_coalition_negotiation
+        if context.config.agents.coalition:
+            assert context.memory is not None  # agents.coalition builds the memory
+            talks = partial(negotiate_leaders, citizens=state.citizens, memory=context.memory, tick=context.tick, answers=answers)
+        coalition = _form_and_journal_coalition(
+            state.parties, seats, votes, context.config, context.journal, context.tick, context.client, talks, answers,
+        )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
             legislature.policy_at_assembly_start = legislature.policy
@@ -2286,10 +2330,13 @@ def _form_and_journal_coalition(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
+    talks: Callable[..., Any] = _run_coalition_negotiation,
+    answers: Mapping[tuple[int, int], LeaderAnswer] | None = None,
 ) -> list[int] | None:
-    """The governing coalition formed, or None (S4.2 keeps it for legislation)."""
+    """The governing coalition formed, or None (S4.2 keeps it for legislation). `talks` are the
+    party leaders' negotiation (agents.coalition), `answers` what they said in it."""
     if llm_client is not None:
-        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
+        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client, talks, {} if answers is None else answers)
     platforms = {party.party_id: party.platform for party in parties}
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
@@ -2313,6 +2360,8 @@ def _form_and_journal_coalition_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
+    talks: Callable[..., Any],
+    answers: Mapping[tuple[int, int], LeaderAnswer],
 ) -> list[int] | None:
     """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
     nearest-neighbour greedy aggregation with one join/leave decision per
@@ -2331,22 +2380,28 @@ def _form_and_journal_coalition_llm(
     genuine conclusion, no majority reachable" from "negotiation cut short
     by an LLM failure", which the pre-v7 single coalition_failed shape could
     not (plan-coalition-negotiation-v7.md §4)."""
-    outcome = decide_coalition(parties, seats, votes, config, llm_client)
+    outcome = decide_coalition(parties, seats, votes, config, llm_client, talks)
     for round_number, round_decisions in enumerate(outcome.rounds, start=1):
         round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
         round_call_id = outcome.rounds_llm_call_ids[round_number - 1]
         for decision in round_decisions:
+            spoken = answers.get((round_number, decision.party_id))
+            leader_fields: dict[str, Any] = (
+                {"leader": spoken.leader, "llm_fallback": int(spoken.fallback), **spoken.words} if spoken else {}
+            )
             journal.write_event(
                 tick=tick,
+                citizen_id=spoken.leader if spoken else None,
                 event=CoalitionDecision(
                     party_id=decision.party_id,
                     action=decision.action,
                     initiator=outcome.initiator,
                     round=round_number,
-                    retry_sampling_varied=int(round_retry_varied),
-                    llm_call_id=round_call_id,
+                    retry_sampling_varied=int(spoken.sampling_varied if spoken else round_retry_varied),
+                    llm_call_id=spoken.call_id if spoken else round_call_id,
+                    **leader_fields,
                 ),
-                motif=str(decision.motif),
+                motif=None if spoken else str(decision.motif),
                 codebook_version=config.llm.codebook_version,
             )
     if outcome.aborted_at_round is not None:

@@ -112,8 +112,9 @@ parties:
   # random             => plateformes tirées uniformément
   # manual             => voir 'manual_platforms' ci-dessous
   manual_platforms: []        # [v0] si init_strategy = manual
-  birth_enabled: false        # [v1] un parti peut-il naître en cours de run ?
-  death_enabled: false        # [v1] un parti disparaît-il après N échecs ?
+  birth_enabled: false        # [ADR-018] un citoyen-agent peut-il fonder un parti (intention `found`) ?
+  death_enabled: false        # [ADR-018] un parti sous la moitié de founding_ratio est-il dissous ?
+  founding_ratio: 0.05        # [ADR-018] part des citoyens qui doivent cofonder un parti (article)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
@@ -689,9 +690,13 @@ agents:
                               #   pairs (ADR-016). Exige llm.enabled et 20 enjeux (nommés).
   forum_size: 30              # au plus autant de citoyens prennent la parole par tick,
                               #   les auteurs de pétition récents d'abord.
+  party_moves: false          # un tour de forum peut rejoindre un parti, le quitter ou en fonder un (ADR-018)
   stance_step: 0.0            # de combien (en logits) un tour de forum peut déplacer son auteur
                               #   sur un enjeu (ADR-017). 0 = la parole ne déplace personne.
                               #   Exige agents.forum et dynamics.enabled.
+  coalition: false            # true = le chef de chaque parti élu répond au formateur dans un tour,
+                              #   tour après tour (remplace coalition_decision, ADR-019).
+                              #   Exige llm.enabled et 20 enjeux (nommés).
   turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
                               #   comme toute décision par lots). Envoyée avec une graine :
                               #   un run à un seul worker reste régénérable.

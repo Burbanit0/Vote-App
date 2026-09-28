@@ -710,7 +710,7 @@ def _check_supported(config: PolityConfig) -> None:
     check_codebook_version(config.llm.codebook_version)
 
 
-THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation", "president_turn", "nominee_turn", "amendment_vote", "forum_post"})
+THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation", "president_turn", "nominee_turn", "amendment_vote", "forum_post", "coalition_turn"})
 """The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured, and the
 agents' turns (agents.py), capped from the start so they cannot run away the way
 the uncapped `campaign_positioning` does (OBS-022)."""
@@ -5212,6 +5212,7 @@ def decide_coalition(
     votes: dict[int, float],
     config: PolityConfig,
     client: LlmClientProtocol,
+    negotiation: Callable[..., tuple[list[list[CoalitionDecision]], int | None, list[bool], list[str | None]]] = lambda *a: _run_coalition_negotiation(*a),
 ) -> CoalitionBatchOutcome:
     """v2 increment 5's replacement for form_coalition's nearest-neighbour
     greedy aggregation -- the initiator designation, the majority rule, and
@@ -5282,6 +5283,9 @@ def decide_coalition(
     batches seated parties (a handful at most, parties.initial_count in the
     shipped config), not citizens.
 
+    `negotiation` replaces the crowd's round loop with one of the same signature: agents.py's
+    leaders negotiate through it (ADR-019), and share the setup, the stop rule and the assembly.
+
     Skips the client entirely (no network call) when no party holds a seat,
     when the initiator alone already clears the majority, or when there are
     no non-initiator seated parties to ask -- mirrors form_coalition's own
@@ -5341,7 +5345,7 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
-    all_rounds, aborted_at_round, rounds_sampling_varied, rounds_call_ids = _run_coalition_negotiation(
+    all_rounds, aborted_at_round, rounds_sampling_varied, rounds_call_ids = negotiation(
         client, responders, initiator, party_platforms, seats, votes, total_seats, threshold, config,
     )
     if aborted_at_round is not None:
