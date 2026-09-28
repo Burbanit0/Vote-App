@@ -334,6 +334,7 @@ class LegitimacyUpdated(Event):
     legitimacy: float
     mandate_strength: float
     ecart: float
+    approval: float = OMIT  # present when legitimacy.approval_weight > 0
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -195,6 +195,8 @@ class CandidacyConfig:
     rupture_distance_multiplier: float
     rupture_signature_ratio: float
     max_candidates_hard_cap: int
+    incumbent_keeps_record: bool = False
+    """A former president runs on the position they held in office, not their sincere views."""
 
 
 @dataclass(frozen=True)
@@ -313,6 +315,8 @@ class LegitimacyConfig:
     recall_floor_indexed_on_l0: bool
     recall_cooldown_ticks: int
     passive_erosion_weight: float
+    approval_weight: float = 0.0
+    """Share of support(t) taken from approval (legitimacy.approval) instead of the mandate."""
 
 
 @dataclass(frozen=True)
@@ -738,6 +742,7 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         rupture_distance_multiplier=_get_nonneg_float(s, "candidacy", "rupture_distance_multiplier"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+        incumbent_keeps_record=_get(s, "candidacy", "incumbent_keeps_record", bool),
     )
 
 
@@ -815,6 +820,7 @@ def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
         recall_floor_indexed_on_l0=False,
         recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
         passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
+        approval_weight=_get_ratio(s, "legitimacy", "approval_weight"),
     )
 
 
@@ -1126,6 +1132,9 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
     ) if (c.petition.enabled or c.street_pressure.enabled) and not c.legitimacy.enabled else None,
+    lambda c: (
+        "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
+    ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "

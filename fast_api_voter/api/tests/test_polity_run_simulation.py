@@ -1168,6 +1168,19 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
         assert update["payload"]["legitimacy"] == pytest.approx(update["payload"]["mandate_strength"])
 
 
+def test_approval_is_the_mandate_measured_every_tick_while_nobody_drifts(tmp_path):
+    # With every vote weight at zero approval applies the mandate's own rule (above blank on
+    # a utility ballot), so a president whose conduct never leaves their pledge keeps
+    # approval == mandate_strength, and weighing it in leaves L(t) at m.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0, approval_weight=0.5)
+    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
+    updates = [e["payload"] for e in _events(run_simulation(config, run_id="approval")) if e["event_type"] == "legitimacy_updated"]
+    assert updates
+    for update in updates:
+        assert update["approval"] == pytest.approx(update["mandate_strength"])
+        assert update["legitimacy"] == pytest.approx(update["mandate_strength"])
+
+
 @pytest.mark.parametrize(
     "method,expected_winner_cid,expected_m",
     [
