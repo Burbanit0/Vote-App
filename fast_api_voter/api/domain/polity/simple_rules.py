@@ -35,6 +35,7 @@ their pledged_platform.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -204,6 +205,34 @@ def utility_ballot(
     names = [candidate_label(c) for _, c in scored]
     acceptable = sum(1 for utility, _ in scored if utility >= -voter.blank_threshold)
     return names[:acceptable] + [blank_label] + names[acceptable:]
+
+
+ABSTAIN = "abstain"
+
+
+@dataclass(frozen=True)
+class FirstChoices:
+    """A vote-intention poll: each candidate's share of first choices, and the shares that
+    would vote blank or stay home."""
+
+    shares: dict[int, float]
+    blank: float
+    abstain: float
+
+
+def first_choices(citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig) -> FirstChoices:
+    """The poll a campaign sees: every citizen's utility ballot over the field, on the
+    platforms as they stand. The sitting president's record is left out -- the poll is taken
+    before the election decides whose record is judged."""
+    tally: Counter[str] = Counter()
+    for citizen in citizens:
+        ballot = utility_ballot(citizen, candidates, vote)
+        tally[ABSTAIN if ballot is None else ballot[0]] += 1
+    total = len(citizens)
+    return FirstChoices(
+        shares={c.citizen_id: tally[candidate_label(c)] / total for c in candidates},
+        blank=tally[BLANK_LABEL] / total, abstain=tally[ABSTAIN] / total,
+    )
 
 
 def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = BLANK_LABEL) -> bool:

@@ -1,5 +1,6 @@
 {
   "agents": {
+    "nominees": false,
     "president": false,
     "turn_temperature": 0.0
   },

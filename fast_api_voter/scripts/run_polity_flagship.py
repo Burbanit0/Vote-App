@@ -247,17 +247,18 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     Phase 1.1: the approval loop -- approval feeds legitimacy, the vote judges the record
     (S4.1's top measured `approval`) and the policy of the term (ADR-009's lowest
     nonzero `policy_retrospection`), legislation runs, and a former president runs on
-    their conduct in office. Phase 1.2: the president is an agent (ADR-014) -- it needs the
-    LLM engine, so the deterministic twin keeps the formula president -- whose turns are sampled
-    at 0.6, Qwen3's recommended temperature in thinking mode (it does not stop a static president
-    repeating itself: OBS-028)."""
+    their conduct in office. Phases 1.2-1.4: the president and the presidential nominees are
+    agents (ADR-014) -- they need the LLM engine, so the deterministic twin keeps the formula --
+    whose turns are sampled at 0.6, Qwen3's recommended temperature in thinking mode."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
         vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
-        agents=dataclasses.replace(config.agents, president=config.llm.enabled, turn_temperature=0.6),
+        agents=dataclasses.replace(
+            config.agents, president=config.llm.enabled, nominees=config.llm.enabled, turn_temperature=0.6,
+        ),
     )
 
 

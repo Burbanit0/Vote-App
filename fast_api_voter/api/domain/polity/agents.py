@@ -36,6 +36,7 @@ from api.domain.polity.parties import Party
 _logger = logging.getLogger(__name__)
 
 PRESIDENT_TURN = "president_turn"
+NOMINEE_TURN = "nominee_turn"
 _RETRY_TEMPERATURE = 0.3
 _RETRY_SEED_BASE = 900_000_901
 SPEECH_LIMIT, RATIONALE_LIMIT, NOTE_LIMIT, INITIATIVE_LIMIT = 400, 300, 200, 200
@@ -297,6 +298,63 @@ def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
     )
 
 
+def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
+    """A presidential nominee's rules of the campaign and who they are -- stable for the
+    election, so a prefix. As for the president: the rules, never what to do (C4)."""
+    inst, campaign = config.institutions, config.campaign
+    rules = [
+        f"The president is elected by {inst.presidential_method.replace('_', ' ')} for {inst.president_term_years} years.",
+        "Each citizen ranks the candidates by how close their platforms are to the citizen's own views, weighted "
+        "by what the citizen cares about; a candidate of the citizen's own party counts for more; a citizen who "
+        "finds no candidate close enough votes blank, and one who finds the choice indifferent may stay home.",
+        f"You may campaign on a platform: name the position you take on up to {campaign.max_positioning_shifts} issues, "
+        f"and your platform moves toward it by at most {campaign.max_positioning_delta:.2f} on each.",
+        "If elected, your platform is your pledge: the gap between it and what you later say is public, and "
+        "citizens judge you on it.",
+    ]
+    return (
+        "You are playing a citizen of a simulated democracy, in the first person.\n\n"
+        f"{persona(nominee)}\n\n"
+        "You are your party's nominee for president. You want to win and to govern by your convictions; how you "
+        "weigh the two is yours to decide.\n\nThe rules of the campaign:\n"
+        + "\n".join(f"- {rule}" for rule in rules)
+        + f"\n\n{_ANSWER_FORMAT} There is no agenda to set during a campaign: leave \"bill\" empty."
+    )
+
+
+@dataclass(frozen=True)
+class NomineeBriefing:
+    """What a nominee knows when they campaign: the field and where the voters stand."""
+
+    tick: int
+    field: tuple[tuple[int, int | None], ...]
+    """(citizen_id, party) of every candidate."""
+    poll: Mapping[int, float]
+    """Each candidate's share of first choices."""
+    blank: float
+    abstain: float
+    platform: tuple[float, ...]
+    public_median: tuple[float, ...]
+
+
+def nominee_user_prompt(nominee: Citizen, briefing: NomineeBriefing) -> str:
+    candidates = [
+        f"- {'you' if cid == nominee.citizen_id else f'citizen {cid}'} ({f'party {party}' if party is not None else 'no party'}): "
+        f"{briefing.poll.get(cid, 0.0):.0%} of first choices"
+        for cid, party in briefing.field
+    ]
+    rows = [
+        f"{issue_label(d)} | {briefing.platform[d]:.2f} | {briefing.public_median[d]:.2f}" for d in range(len(ISSUES))
+    ]
+    return (
+        f"Tick {briefing.tick}: the presidential election is held this tick, after the campaign.\n"
+        f"The poll, before the campaign (voting blank {briefing.blank:.0%}, staying home {briefing.abstain:.0%}):\n"
+        + "\n".join(candidates)
+        + "\n\nThe issues (0 = the first pole, 1 = the second):\nissue | your platform | public median\n"
+        + "\n".join(rows) + "\n\nYour turn."
+    )
+
+
 def _value(values: Sequence[float] | None, dimension: int) -> str:
     return "-" if values is None else f"{values[dimension]:.2f}"
 
@@ -314,11 +372,11 @@ def seat_weighted_median(parties: Sequence[Party], seats: Mapping[int, int]) -> 
     return tuple(median(d) for d in range(len(seated[0][0])))
 
 
-def validate_turn(turn: LeaderTurn, config: PolityConfig, *, agenda_open: bool) -> None:
+def validate_turn(turn: LeaderTurn, config: PolityConfig, *, max_positions: int, agenda_open: bool) -> None:
     """The bounds the schema cannot know. How far a target is does not matter -- the kernel
     takes the bounded step toward it -- and a bill offered while the agenda is closed is not
     an error: the kernel ignores it."""
-    _check_targets(turn.positions, config.mandate.max_response_shifts, "positions")
+    _check_targets(turn.positions, max_positions, "positions")
     if agenda_open:
         _check_targets(turn.bill, config.legislation.max_bill_dimensions, "bill")
 
@@ -361,7 +419,7 @@ class TurnOutcome:
 
 
 def decide_turn(
-    agent: Citizen, *, system_prompt: str, user_prompt: str, agenda_open: bool,
+    agent: Citizen, *, decision_type: str, system_prompt: str, user_prompt: str, max_positions: int, agenda_open: bool,
     config: PolityConfig, client: LlmClientProtocol,
 ) -> TurnOutcome:
     retry_info: dict[str, Any] = {}
@@ -374,13 +432,15 @@ def decide_turn(
             json_schema=LEADER_TURN_JSON_SCHEMA,
             max_tokens=_dynamic_max_tokens(
                 client, config, system_prompt=system_prompt, user_prompt=user_prompt, chunk_size=1,
-                flat_allowance=_profile(config).chamber_think_allowance, decision_type=PRESIDENT_TURN, unit_ids=unit_ids,
+                flat_allowance=_profile(config).chamber_think_allowance, decision_type=decision_type, unit_ids=unit_ids,
             ),
             think=True,
-            decode=lambda raw: _validated(decode_turn(raw), lambda t: validate_turn(t, config, agenda_open=agenda_open)),
+            decode=lambda raw: _validated(
+                decode_turn(raw), lambda t: validate_turn(t, config, max_positions=max_positions, agenda_open=agenda_open),
+            ),
             replays=config.llm.max_batch_replays,
-            extra_body=thinking_budget_body(config, PRESIDENT_TURN),
-            decision_type=PRESIDENT_TURN,
+            extra_body=thinking_budget_body(config, decision_type),
+            decision_type=decision_type,
             unit_ids=unit_ids,
             retry_temperature=_RETRY_TEMPERATURE,
             retry_seed_base=_RETRY_SEED_BASE,
@@ -388,8 +448,8 @@ def decide_turn(
             temperature=config.agents.turn_temperature or None,
         )
     except LlmResponseError as exc:
-        _logger.error("%s: exhausted every recovery attempt for cid %s, the president stays silent: %s",
-                      PRESIDENT_TURN, agent.citizen_id, exc)
+        _logger.error("%s: exhausted every recovery attempt for cid %s, who keeps their position: %s",
+                      decision_type, agent.citizen_id, exc)
         return TurnOutcome(turn=None, sampling_varied=False, call_id=retry_info.get("call_id"))
     return TurnOutcome(turn=turn, sampling_varied=bool(retry_info.get("sampling_varied")), call_id=retry_info.get("call_id"))
 
