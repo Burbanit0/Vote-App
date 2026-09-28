@@ -109,8 +109,10 @@ not a separate `codeql.yml`.
 ### Other workflows — informational or off the PR path entirely
 
 - `branch-policy.yml` — required, validates PR source-branch naming
-  (`feature/`, `fix/`, … into `develop`; **only `develop`** may be the source
-  of a PR into `main`).
+  (`feat/`, `fix/`, … into `polity`, the working branch, or `develop`; **only
+  `develop`** may be the source of a PR into `main`), plus a Conventional
+  Commits title on every PR, release PRs included (`chore(release): …`, not
+  `Release: …`).
 - `dependency-review.yml` — required, fails a PR that *introduces* a
   vulnerable dependency (complements Dependabot, which only scans what's
   already there).
