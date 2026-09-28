@@ -627,6 +627,12 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
         f"(at most {RATIONALE_LIMIT} characters). \"post\" is your message (at most {SPEECH_LIMIT} characters); "
         f"leave it empty to keep silent. \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
         + (
+            " You may also change party: \"party_move\" is \"join\" (with the party's number as \"party_id\"), \"leave\" (to sit "
+            "as an independent) or \"found\" (a new party on your own convictions, which only holds if enough citizens side "
+            "with you); otherwise \"none\" and -1. Most turns change nothing."
+            if config.agents.party_moves else " Set \"party_move\" to none and \"party_id\" to -1."
+        )
+        + (
             " If what you read has genuinely changed your mind on one issue, give its number as \"shift_issue\" and the "
             "pole you moved toward as \"shift_direction\" (\"low\" or \"high\"); otherwise -1 and \"none\". Do not move "
             "for the sake of it: most turns change nothing."
@@ -635,9 +641,19 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
     )
 
 
-def forum_user_prompt(*, tick: int, member: bool, feed: str, memory: str) -> str:
+def party_roll(parties: Sequence[Party], citizens: Sequence[Citizen]) -> str:
+    """The parties as a citizen sees them: their share of the citizens and their three firmest planks."""
+    lines = []
+    for party in parties:
+        share = sum(1 for c in citizens if c.party_affiliation == party.party_id) / len(citizens)
+        planks = sorted(range(len(ISSUES)), key=lambda d: (-abs(party.platform[d] - 0.5), d))[:3]
+        lines.append(f"- party {party.party_id} ({share:.0%} of citizens): " + "; ".join(f"{ISSUES[d].name} {lean(d, party.platform[d])}" for d in planks))
+    return "The parties:\n" + "\n".join(lines)
+
+
+def forum_user_prompt(*, tick: int, member: bool, feed: str, memory: str, roll: str = "") -> str:
     seat = " You sit in the citizens' chamber." if member else ""
-    return f"Tick {tick}.{seat}\n\n{feed}\n\n{memory}\n\nYour turn."
+    return "\n\n".join(part for part in (f"Tick {tick}.{seat}", roll, feed, memory, "Your turn.") if part)
 
 
 def decide_forum(

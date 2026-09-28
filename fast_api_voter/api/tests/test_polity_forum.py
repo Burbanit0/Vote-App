@@ -4,12 +4,14 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from api.domain.polity import run_polity_simulation as engine
+from api.domain.polity.citizen import generate_population
 from api.domain.polity.agents import (
     FEED_SIZE,
     FORUM_IDLE_TICKS,
@@ -18,11 +20,14 @@ from api.domain.polity.agents import (
     forum_system_prompt,
     forum_user_prompt,
     forum_words,
+    party_roll,
 )
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.journal import JournalEvent
 from api.domain.polity.llm_schemas import ForumTurn
+from api.domain.polity.parties import initialize_parties
 from api.domain.polity.run_polity_simulation import run_simulation
+from api.domain.polity.simple_rules import apply_party_move, assign_party_affiliation, dissolve_small_parties
 from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _president, _ScriptedClient
 
 _CONFIG = load_config()
@@ -75,7 +80,7 @@ def test_a_petition_launcher_speaks_for_a_few_ticks_the_latest_first() -> None:
 
 def test_a_turn_is_a_post_or_silence_and_a_failed_one_is_silence() -> None:
     config = _forum(dataclasses.replace(_CONFIG, llm=dataclasses.replace(_CONFIG.llm, max_batch_replays=0)))
-    turn = {"rationale": "why", "post": "hello", "note_to_self": "n", "shift_issue": -1, "shift_direction": "none"}
+    turn = {"rationale": "why", "post": "hello", "note_to_self": "n", "shift_issue": -1, "shift_direction": "none", "party_move": "none", "party_id": -1}
 
     def say(client: Any) -> Any:
         return decide_forum(_president(), system_prompt="s", user_prompt="u", config=config, client=client)
@@ -94,7 +99,8 @@ def test_a_turn_is_a_post_or_silence_and_a_failed_one_is_silence() -> None:
 class _ForumClient(_AgentFakeClient):
     """Every odd citizen posts `hello from <id>`, every even one stays silent; every forum prompt is kept."""
 
-    def __init__(self, shift: bool = False) -> None:
+    def __init__(self, shift: bool = False, party: str = "none") -> None:
+        self.party = party
         self.prompts: list[tuple[int, str]] = []
         self.systems: list[tuple[int, str]] = []
         self.shift = shift
@@ -106,7 +112,8 @@ class _ForumClient(_AgentFakeClient):
         self.prompts.append((cid, kwargs["user_prompt"]))
         self.systems.append((cid, kwargs["system_prompt"]))
         shift = {"shift_issue": 5, "shift_direction": "high"} if self.shift and cid % 2 else {"shift_issue": -1, "shift_direction": "none"}
-        return json.dumps({"rationale": "r", "post": f"hello from {cid}" if cid % 2 else "", "note_to_self": "", **shift})
+        move = {"party_move": self.party if cid % 2 else "none", "party_id": 0 if self.party == "join" else -1}
+        return json.dumps({"rationale": "r", "post": f"hello from {cid}" if cid % 2 else "", "note_to_self": "", **shift, **move})
 
 
 def _run(tmp_path: Path, client: _ForumClient | None = None) -> tuple[Path, list[dict[str, Any]], _ForumClient]:
@@ -180,3 +187,100 @@ def test_a_citizen_who_changes_their_mind_stays_moved(tmp_path: Path) -> None:
     moved = [seen for cid, seen in by_citizen.items() if cid % 2 and len(seen) > 1]
     assert moved and all(seen == sorted(seen) and seen[-1] > seen[0] for seen in moved)
     assert all(len(set(seen)) == 1 for cid, seen in by_citizen.items() if cid % 2 == 0)
+
+
+def _polity(n: int = 100) -> tuple[list[Any], list[Any]]:
+    citizens = generate_population(_CONFIG.citizens, n, seed=3)
+    parties = initialize_parties(citizens, 5, seed=3)
+    for citizen in citizens:
+        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+    return citizens, parties
+
+
+def _size(citizens: list[Any], party_id: int) -> int:
+    return sum(1 for c in citizens if c.party_affiliation == party_id)
+
+
+def test_a_citizen_joins_leaves_and_founds() -> None:
+    citizens, parties = _polity()
+    parties_cfg = dataclasses.replace(_CONFIG.parties, birth_enabled=True)
+    citizen = citizens[0]
+    other = next(p.party_id for p in parties if p.party_id != citizen.party_affiliation)
+    assert apply_party_move(citizen, "join", 99, citizens, parties, parties_cfg) == ""
+    assert apply_party_move(citizen, "join", citizen.party_affiliation, citizens, parties, parties_cfg) == ""
+    assert apply_party_move(citizen, "join", other, citizens, parties, parties_cfg) == f"join {other}" and citizen.party_affiliation == other
+    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg) == "leave" and citizen.party_affiliation is None
+    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg) == ""
+    assert apply_party_move(citizen, "none", -1, citizens, parties, parties_cfg) == ""
+
+    assert apply_party_move(citizen, "found", -1, citizens, parties, _CONFIG.parties) == ""  # birth is off
+    assert apply_party_move(citizen, "found", -1, citizens, parties, dataclasses.replace(parties_cfg, founding_ratio=1.0)) == ""
+    assert len(parties) == 5
+    founder = next(c for c in citizens if c.party_affiliation is not None and apply_party_move(c, "found", -1, citizens, parties, parties_cfg))
+    assert parties[-1].party_id == 5 and parties[-1].platform == founder.issue_positions and founder.party_affiliation == 5
+    assert _size(citizens, 5) >= 0.05 * len(citizens)
+
+
+def test_a_party_too_small_to_keep_is_dissolved_and_its_members_go_to_the_nearest() -> None:
+    citizens, parties = _polity()
+    config = dataclasses.replace(_CONFIG.parties, death_enabled=True, founding_ratio=0.1)
+    assert dissolve_small_parties(citizens, parties, _CONFIG.parties) == []  # death is off
+    assert dissolve_small_parties(citizens, parties, config) == []  # every party is above half the ratio
+    small, seated = parties[0].party_id, parties[1].party_id
+    for party_id in (small, seated):
+        for citizen in [c for c in citizens if c.party_affiliation == party_id][2:]:
+            citizen.party_affiliation = parties[2].party_id
+    independent = next(c for c in citizens if c.party_affiliation == parties[2].party_id)
+    independent.party_affiliation = None
+    assert dissolve_small_parties(citizens, parties, config, seated={seated}) == [(small, 2)]
+    assert small not in {p.party_id for p in parties} and _size(citizens, small) == 0 and independent.party_affiliation is None
+    assert all(c.party_affiliation is None or c.party_affiliation in {p.party_id for p in parties} for c in citizens)
+    lone, rest = parties[:1], [c for c in citizens if c.party_affiliation is not None]
+    assert dissolve_small_parties(rest[:1], lone, dataclasses.replace(config, founding_ratio=0.3)) == []  # the last party stays
+
+
+def test_party_moves_need_the_forum_and_show_the_parties() -> None:
+    with pytest.raises(PolityConfigError, match="party_moves"):
+        validate_config(dataclasses.replace(_CONFIG, agents=dataclasses.replace(_CONFIG.agents, party_moves=True)))
+    config = _forum(_CONFIG)
+    moving = dataclasses.replace(config, agents=dataclasses.replace(config.agents, party_moves=True))
+    validate_config(moving)
+    assert "change party" in forum_system_prompt(_president(), moving) and "change party" not in forum_system_prompt(_president(), config)
+    citizens, parties = _polity()
+    roll = party_roll(parties, citizens)
+    assert roll.count("- party ") == 5 and "% of citizens" in roll
+    assert forum_user_prompt(tick=3, member=False, feed="FEED", memory="M", roll=roll).startswith("Tick 3.\n\nThe parties:")
+    with pytest.raises(ValueError, match="party_id"):
+        ForumTurn(rationale="", post="", note_to_self="", shift_issue=-1, shift_direction="none", party_move="join", party_id=-1)
+
+
+def test_a_founder_starts_a_party_that_the_run_keeps(tmp_path: Path) -> None:
+    config = _forum(_agent_run_config(tmp_path))
+    config = dataclasses.replace(
+        config, agents=dataclasses.replace(config.agents, party_moves=True), parties=dataclasses.replace(config.parties, birth_enabled=True),
+    )
+    journal = run_simulation(config, run_id="founder", llm_client=_ForumClient(party="found"))
+    events = [json.loads(line) for line in journal.read_text().splitlines()]
+    founded = [e for e in events if e["event_type"] == "party_founded"]
+    assert founded and founded[0]["payload"]["party_id"] == config.parties.initial_count and founded[0]["payload"]["members"] > 0
+    posts = [e["payload"]["party_move"] for e in events if e["event_type"] == "forum_post"]
+    assert any(move.startswith("found ") for move in posts) and set(posts) >= {""}
+
+
+def test_a_party_move_is_journaled_and_a_dissolution_too() -> None:
+    citizens, parties = _polity()
+    config = dataclasses.replace(
+        _forum(_CONFIG), parties=dataclasses.replace(_CONFIG.parties, death_enabled=True, founding_ratio=0.1),
+        agents=dataclasses.replace(_forum(_CONFIG).agents, party_moves=True),
+    )
+    written: list[Any] = []
+    context = SimpleNamespace(config=config, tick=4, journal=SimpleNamespace(write_event=lambda **kw: written.append(kw["event"])))
+    state = SimpleNamespace(citizens=citizens, parties=parties, legislature=SimpleNamespace(seats={p.party_id: 20 for p in parties[1:]}))
+    turn = ForumTurn(rationale="", post="", note_to_self="", shift_issue=-1, shift_direction="none", party_move="leave", party_id=-1)
+    first, second = parties[0].party_id, parties[1].party_id
+    for citizen in [c for c in citizens if c.party_affiliation == first][:-1]:
+        citizen.party_affiliation = second
+    lone = next(c for c in citizens if c.party_affiliation == first)
+    assert engine._apply_party_move(context, state, lone, turn) == "leave"
+    assert [(type(e).__name__, e.party_id) for e in written] == [("PartyDissolved", first)] and first not in {p.party_id for p in parties}
+    assert engine._apply_party_move(context, state, lone, turn) == "" and engine._apply_party_move(context, state, lone, None) == ""

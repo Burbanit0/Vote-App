@@ -36,14 +36,15 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import EventType, PressureAct
-from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig, VoteConfig
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PartiesConfig, PressureMenuConfig, VoteConfig
 from api.domain.polity.parties import Party
 
 CANDIDATE_LABEL_PREFIX = "citizen_"
@@ -296,6 +297,80 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
+def _cofounders(founder: Citizen, citizens: list[Citizen], parties: list[Party]) -> list[Citizen]:
+    """The founder and everyone who would sign for their positions (the ballot-access signature
+    rule) and stands nearer to them than to their own party's platform."""
+    platforms = {p.party_id: p.platform for p in parties}
+
+    def defects(other: Citizen) -> bool:
+        if weighted_distance(other, founder.issue_positions) > other.blank_threshold:
+            return False
+        own = platforms.get(other.party_affiliation) if other.party_affiliation is not None else None
+        return own is None or weighted_distance(other, founder.issue_positions) < weighted_distance(other, own)
+
+    return [founder, *(c for c in citizens if c.citizen_id != founder.citizen_id and defects(c))]
+
+
+def _join(citizen: Citizen, party_id: int, parties: list[Party]) -> str:
+    if party_id not in {p.party_id for p in parties} or party_id == citizen.party_affiliation:
+        return ""
+    citizen.party_affiliation = party_id
+    return f"join {party_id}"
+
+
+def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig) -> str:
+    if not config.birth_enabled:
+        return ""
+    founders = _cofounders(citizen, citizens, parties)
+    if len(founders) < config.founding_ratio * len(citizens):
+        return ""
+    new_id = 1 + max(p.party_id for p in parties)
+    parties.append(Party(party_id=new_id, platform=citizen.issue_positions))
+    for founder in founders:
+        founder.party_affiliation = new_id
+    return f"found {new_id}"
+
+
+def apply_party_move(
+    citizen: Citizen, move: Literal["none", "join", "leave", "found"], party_id: int,
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig,
+) -> str:
+    """Apply one citizen's membership move to `citizens` and `parties`, and say what happened
+    ("join 2", "leave", "found 5") -- "" when the kernel refused it. Founding needs
+    `birth_enabled` and co-founders (the founder counts) for at least `founding_ratio` of the
+    citizens; the new party's platform is the founder's own positions."""
+    if move == "join":
+        return _join(citizen, party_id, parties)
+    if move == "leave" and citizen.party_affiliation is not None:
+        citizen.party_affiliation = None
+        return "leave"
+    return _found(citizen, citizens, parties, config) if move == "found" else ""
+
+
+def _reassign(citizens: list[Citizen], parties: list[Party], gone: set[int]) -> None:
+    for c in citizens:
+        if c.party_affiliation in gone:
+            c.party_affiliation = assign_party_affiliation(c, parties)
+
+
+def dissolve_small_parties(
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig, seated: Collection[int] = (),
+) -> list[tuple[int, int]]:
+    """With `death_enabled`, drop every party below half the founding ratio of the citizens
+    (the gap to founding is what keeps a party from being founded and dissolved in turn), bar
+    the last party and any with seats in the assembly. Members go to the nearest party left;
+    independents stay independent. Returns (party_id, members) per dissolved party."""
+    if not config.death_enabled:
+        return []
+    size = Counter(c.party_affiliation for c in citizens)
+    floor = config.founding_ratio / 2 * len(citizens)
+    doomed = [p for p in parties if size[p.party_id] < floor and p.party_id not in seated][: len(parties) - 1]
+    gone = {p.party_id for p in doomed}
+    parties[:] = [p for p in parties if p.party_id not in gone]
+    _reassign(citizens, parties, gone)
+    return [(p.party_id, size[p.party_id]) for p in doomed]
+
+
 @dataclass(frozen=True)
 class PolicyRecord:
     """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now."""
@@ -425,8 +500,8 @@ def attempt_rupture_candidacy(
     extremity, not disaffection with the party system). party_affiliation
     is always a concrete party_id here (assign_party_affiliation, called
     once at population init, never returns None -- unlike choose_party,
-    a different function for legislative vote choice) so there is no None
-    case to handle. The distance modulates rupture_base_probability only,
+    a different function for legislative vote choice); a citizen who left their
+    party (ADR-018) is measured against the nearest platform. The distance modulates rupture_base_probability only,
     never rupture_signature_ratio -- that bar is ADR-003's generic,
     already-calibrated ballot-access filter, a distinct §2.3 concern from
     this §2.4 probability. At distance 0 (perfectly represented by one's
@@ -434,8 +509,9 @@ def attempt_rupture_candidacy(
     probability is byte-identical to pre-this-change v1 behavior."""
     if not config.rupture_path_enabled:
         return False
-    affiliated_platform = next(p.platform for p in parties if p.party_id == citizen.party_affiliation)
-    disagreement = weighted_distance(citizen, affiliated_platform)
+    disagreement = min(
+        weighted_distance(citizen, p.platform) for p in parties if citizen.party_affiliation in (None, p.party_id)
+    )
     probability = config.rupture_base_probability * (1 + config.rupture_distance_multiplier * disagreement)
     if rng.random() >= probability:
         return False

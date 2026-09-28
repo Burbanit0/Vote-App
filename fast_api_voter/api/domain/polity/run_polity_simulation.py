@@ -43,11 +43,11 @@ import logging
 import random
 import subprocess
 import time
+from functools import partial
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from functools import partial
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -63,6 +63,7 @@ from api.domain.polity.agents import (
     NomineeBriefing,
     PresidentBriefing,
     TurnOutcome,
+    party_roll,
     ballot_system_prompt,
     ballot_user_prompt,
     ballot_words,
@@ -135,6 +136,8 @@ from api.domain.polity.events import (
     AmendmentVote,
     ConstitutionAmended,
     ForumPost,
+    PartyDissolved,
+    PartyFounded,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -242,7 +245,9 @@ from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    apply_party_move,
     assign_party_affiliation,
+    dissolve_small_parties,
     first_choices,
     attempt_rupture_candidacy,
     blank_share,
@@ -892,6 +897,8 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
     speakers = list(dict.fromkeys([*memory.recent_petitioners(context.tick), *sorted(members)]))[: config.agents.forum_size]
     neighbours = context.graph.neighbors if context.graph else {}
 
+    roll = party_roll(state.parties, state.citizens) if config.agents.party_moves else ""
+
     def post(chunk: list[Citizen]) -> TurnOutcome[ForumTurn]:
         [citizen] = chunk
         cid = citizen.citizen_id
@@ -900,18 +907,44 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
             user_prompt=forum_user_prompt(
                 tick=context.tick, member=cid in members, memory=memory.recall(cid),
                 feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
+                roll=roll,
             ),
         )
 
     for cid, outcome in zip(speakers, run_chunks([[state.citizens[c]] for c in speakers], post, config.parallel.intra_run_workers)):
         turn = outcome.turn
         shift_issue, shift_logit = _apply_stance_shift(context, state.citizens[cid], turn)
+        party_move = _apply_party_move(context, state, state.citizens[cid], turn)
         context.journal.write_event(tick=context.tick, citizen_id=cid, codebook_version=config.llm.codebook_version, event=ForumPost(
-            **forum_words(turn), shift_issue=shift_issue, shift_logit=shift_logit,
+            **forum_words(turn), shift_issue=shift_issue, shift_logit=shift_logit, party_move=party_move,
             provenance=LlmProvenance(
                 llm_fallback=int(turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
             ),
         ))
+
+
+def _apply_party_move(context: TickContext, state: TickState, citizen: Citizen, turn: ForumTurn | None) -> str:
+    """ADR-018: the citizen's membership move, journaled with the party it founds and the parties
+    it leaves too small to keep."""
+    config = context.config
+    if turn is None or not config.agents.party_moves:
+        return ""
+    move = apply_party_move(citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties)
+    if move:
+        _journal_party_changes(context, state, citizen, move)
+    return move
+
+
+def _journal_party_changes(context: TickContext, state: TickState, citizen: Citizen, move: str) -> None:
+    config = context.config
+    write = partial(context.journal.write_event, tick=context.tick, codebook_version=config.llm.codebook_version)
+    if move.startswith("found"):
+        founded = state.parties[-1]
+        members = sum(1 for c in state.citizens if c.party_affiliation == founded.party_id)
+        write(citizen_id=citizen.citizen_id, event=PartyFounded(party_id=founded.party_id, members=members, platform=list(founded.platform)))
+    seats = state.legislature.seats if state.legislature is not None and state.legislature.seats else {}
+    for party_id, members in dissolve_small_parties(state.citizens, state.parties, config.parties, {p for p, n in seats.items() if n > 0}):
+        write(citizen_id=None, event=PartyDissolved(party_id=party_id, members=members))
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:

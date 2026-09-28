@@ -5,6 +5,7 @@
     "forum": false,
     "forum_size": 30,
     "nominees": false,
+    "party_moves": false,
     "president": false,
     "stance_step": 0.0,
     "turn_temperature": 0.0
@@ -183,6 +184,7 @@
       "party_id"
     ],
     "death_enabled": false,
+    "founding_ratio": 0.05,
     "init_strategy": "kmeans_on_citizens",
     "initial_count": 5,
     "manual_platforms": []

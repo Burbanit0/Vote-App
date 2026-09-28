@@ -430,11 +430,15 @@ class ForumTurn(BaseModel):
     note_to_self: str
     shift_issue: int = Field(..., ge=-1, lt=ISSUE_COUNT_NAMED, description="The issue number your mind moved on after reading the forum, or -1.")
     shift_direction: Literal["none", "low", "high"] = Field(..., description="Toward which pole of that issue; \"none\" if your mind did not change.")
+    party_move: Literal["none", "join", "leave", "found"] = Field(..., description="Change your party: join one, leave to sit as an independent, found a new one on your own convictions; \"none\" to stay.")
+    party_id: int = Field(..., ge=-1, description="The party to join, or -1.")
 
     @model_validator(mode="after")
-    def _a_shift_names_its_issue(self) -> ForumTurn:
+    def _a_move_is_complete(self) -> ForumTurn:
         if self.shift_direction != "none" and self.shift_issue < 0:
             raise ValueError("shift_direction needs a shift_issue")
+        if self.party_move == "join" and self.party_id < 0:
+            raise ValueError("joining needs a party_id")
         return self
 
 
