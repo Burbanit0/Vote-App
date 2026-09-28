@@ -23,6 +23,136 @@
 
 ---
 
+## 2026-09-24 → 2026-09-27 — Audit des égalités par ordre de listing, première release v0.2.0, polity devient la seule branche de travail
+
+**Contexte du jour.** Plan d'audit approuvé en amont : finir `develop`, sortir la première release `develop→main`, fusionner `develop↔polity` dans les deux sens, puis continuer sur `polity` seule. L'invariant visé sur tout `develop` : réordonner les candidats d'une requête ne doit jamais changer le résultat — une égalité exacte se tire au sort avec la graine de l'endpoint, jamais par ordre de listing ou par plus petit id.
+
+**Ce qui a avancé**
+- **Phase A (develop) — fin de la série « égalités par ordre de listing »** : #640 (Hamilton compare les restes exacts, une égalité de reste va au nom), #643 (multi-gagnants : lignes FPTP, complétion Equal Shares, ancre de coalition), #657 (cause racine trouvée : les utilités étaient arrondies à 4 décimales avant classement, ce qui inventait des égalités — arrondi retiré), #659 (playground : assemblée, équité structurelle, no-show), #661 (la transformation stratégique du profile engine inventait une égalité en tête de classement — remplacée par un échange de valeurs), #660 (cache Redis : `GIT_SHA` n'était jamais défini au déploiement, chaque déploiement réutilisait l'espace de cache « dev » — espace de cache par processus désormais).
+- **CI** : #641 (watchdog ci-health sur une branche fixe, `pipefail`, groupes Dependabot), #649 (e2e servi sur un build de production `vite build`+`vite preview` plutôt que le serveur de dev — tue les flakes WebKit de modules perdus, proxy `ws: true`), #651 (un corps de réponse d'erreur vide déclenche une alerte), #650 (`quota_type` STV validé — `droop`/`hare`, pas n'importe quel nom renvoyé), #644 (plafonds sur `profile-simulate`, l'électorat capé à 500). Dependabot : #632, #636, #637, #645 (size-limit 14, groupé), #646.
+- **Release** : #669 fusionne `develop→main` (470 PR, première release depuis juillet). Titre « Release: … » rejeté par la politique de branche (Conventional Commits requis) ; `diff-cover` rouge par construction (`main` très en retard, 55 lignes déjà passées au gate sur `develop`) ; `main` sans protection → fusion manuelle. Premier vrai dispatch de `release.yml` (run `36292989132`) : **échec** — le job backend n'installait que `requirements.txt` + pytest, jamais `hypothesis`/`schemathesis`/`z3`, un chemin jamais exercé avant. #672 corrige (lockfile dev, plafonds de perf, `test:coverage`+`build` côté front) ; un `/code-review max` sur la branche trouve surtout que la garde de `release.yml` acceptait n'importe quel ancêtre de `main` (un double dispatch aurait pu re-publier une release) → garde « commit exact » + `push --atomic`. #673 porte le correctif sur `main` (Mergify ne file pas les PR vers `main`, fusion manuelle) ; nouveau dispatch → **v0.2.0 taguée et publiée le 2026-09-27** (`git tag` le confirme), premier tag du dépôt.
+- **Phase C** : #671 fusionne `develop→polity`, 10 conflits (`main.py`, i18n, un EXP-015 en double → hook renuméroté EXP-017) et plusieurs casses silencieuses corrigées après coup (imports `lazyWithPreload`, `d3-delaunay`→`d3`, `scipy` réajouté, lockfiles régénérés, un ternaire imbriqué sonarjs dans `RunFacts` pour tenir la barre à 264). OBS-026 enregistre que Kemeny-Young et le jugement majoritaire changent de comportement via ce merge (fixes venus de `develop`, pas une anomalie). Le snapshot visuel du Laboratoire a été remplacé par le rendu du job CI (seul diff réel : le lien Polity de la navbar). `polity` avait bougé entre-temps (#670 avait pris OBS-024/025) → renumérotation nécessaire.
+- **Phase D** : #674 fusionne `polity→develop` ; `diff-cover` y trouve 5 branches d'erreur polity jamais testées → 5 petits tests ajoutés. #675 est la dernière convergence : `develop` et `polity` identiques. #676 met à jour `CLAUDE.md` et le skill `voter-ci` — **`polity` devient la branche de travail**.
+- **E1** : #677 — une égalité de sièges législatifs se tire désormais au sort (`Random("legislative-seats:<seed>:<tick>")`, sans état checkpointé) au lieu d'aller au plus petit `party_id`. Golden et fixture explorer inchangés (aucun run enregistré ne tombait sur une égalité). OBS-027 ; la revue a fait préciser que `choose_party` et le formateur de coalition départagent toujours par `party_id` — des règles propres à polity, laissées telles quelles délibérément.
+
+**Points bloquants**
+- Un départage par nom pour les égalités d'utilité a été codé puis **mis de côté** (jamais ouvert en PR) : il échange la dépendance à l'ordre de listing contre une dépendance au nom, et casserait la parité avec le moteur client — à trancher sur les deux moteurs à la fois, pas en urgence.
+- Le reste de la série reste ouvert : issues #662 à #667, suivies dans `docs/plan/vote-app/LISTING_ORDER_TIES.md` (#668).
+- Mergify a cessé d'auto-mettre les PR en file (probable désactivation côté Mergify, cause non confirmée) : l'utilisateur coche les cases à la main depuis.
+- Une demande de suppression des branches distantes fusionnées a été bloquée par le classificateur de permissions (portée jugée non vérifiable) ; les commandes ont été laissées à l'utilisateur.
+- #681 (le flaky-check nocturne masque 28 tests de benchmark en échec permanent), #682 (le plancher de couverture backend annoncé à 90 % passe en réalité dès 89,5 %), #683 (`release.yml` devrait réutiliser les CI Backend/Frontend via `workflow_call` plutôt que dupliquer leurs jobs à la main), #684/#685 (les docs de release avaient déjà dérivé de ce qui s'est réellement passé — #685 en cours de correction).
+
+**Décisions prises**
+- Départage par nom mis de côté plutôt que shippé — *pourquoi* : trancher sur les deux moteurs (client et backend) en même temps évite de rouvrir un écart de parité pour en refermer un autre.
+- Fusion manuelle de `main` (release et correctif) — *pourquoi* : `main` n'a pas de protection de branche et la file Mergify ne fusionne pas vers `main`.
+- Garde « commit exact » + `push --atomic` sur `release.yml` — *pourquoi* : la garde précédente acceptait tout ancêtre de `main`, ouvrant la porte à une release dupliquée sur double dispatch.
+- `polity` devient l'unique branche de travail à partir de maintenant — *pourquoi* : décision de l'utilisateur une fois `develop` et `polity` convergées juste après la première release taguée.
+
+**Prochaines étapes**
+- [ ] Traiter les issues #662–#667 (`docs/plan/vote-app/LISTING_ORDER_TIES.md`).
+- [ ] #681 : sortir les 28 tests de benchmark en échec permanent du flaky-check nocturne qui les masque.
+- [ ] #682 : faire que le plancher de couverture soit vraiment 90 % (precision=2).
+- [ ] #683 : faire réutiliser Backend/Frontend CI par `release.yml` via `workflow_call`.
+- [ ] Merger #685 (docs de release remises à jour).
+
+**Pour aller plus loin** : `docs/plan/vote-app/LISTING_ORDER_TIES.md`, `docs/plan/polity/observations.md` OBS-026/OBS-027, `CLAUDE.md` (section Workflow).
+
+---
+
+## 2026-09-20 → 2026-09-26 — vLLM 0.29 puis 0.30, EAGLE-3 adopté, sonde NVFP4, et le premier run complet (30 ans / 500 citoyens)
+
+**Contexte du jour.** Entrée reconstruite depuis les commits/PR, les résultats des scripts de bake-off et les mémoires `vllm-bump-recipe`/`vllm-experiment-queue`/`polity-full-run-prep` (pas de transcript de session associé). Plusieurs sessions se sont enchaînées sur le moteur d'inférence LLM de polity : bump de version, sonde de précision, adoption d'un décodage spéculatif, puis le premier vrai run à grande échelle et sa réplique sur trois graines.
+
+**Ce qui a avancé**
+- **vLLM 0.29.0 adopté** (#629, 09-21) : un A/B réel (12 workers, trafic réel) montre 0 gain de la spéculation n-gram en production (0.28.0+n-gram : 323 s/352 s ; 0.29.0 sans spéculation : 310 s/299 s), et un décodage 24-28 % plus lent par appel avec spéculation activée. Coût accepté : les sessions séquentielles (bake-off) ~43 % plus lentes (15,9→22,7 min), 13 réponses sur 174 changent (familles à pensée longue seulement), et la byte-identité à graine égale n'est plus garantie sans spéculation → **OBS-020** ouverte.
+- **Sonde de précision NVFP4** (#630, 09-21) : Qwen3-8B en NVFP4 contre l'AWQ shippé — l'effondrement de `representative_response` et `coalition_decision` persiste identique (donc pas un artefact propre au format AWQ), mais le format 4 bits compte ailleurs (`candidacy` 351/500 contre 314 en AWQ, Holm p=0,028) ; coûte 1,8× plus cher — non adopté.
+- **vLLM 0.30.0** (#631, 09-24/25).
+- **OBS-021** (#642, 09-25) : fallback de `chamber_deliberation` à 5-12 % sur les seeds 1-3, cause trouvée — la validation rejette toute décision à plus de 3 shifts et rien n'est retenté ; ce n'est pas le serveur (le taux est le même sur 0.29.0 à code identique).
+- **EAGLE-3** : sonde (#647, 09-25) puis adoption sur le serveur de production (#656, 09-26) — -32 % de temps mur sur 12 workers, -38 % sur deux runs réels 8 ans/p100 à un worker, byte-identique au bake-off plafonné en pensée. L'utilisateur accepte explicitement de perdre la garantie de reproductibilité contre la vitesse et le volume de logs.
+- **Sidecar `llm_prompts.jsonl`** opt-in (#655, 09-26) pour pouvoir relire les prompts en détail après coup.
+- **S2.4, première vague** (#648, 09-26) : Granite 4.2 8B et Gemma 4 12B testés contre l'effondrement de `coalition_decision` — reste plat sur les deux (Granite -0,033, Gemma +0,000) ; aucun des deux n'est un remplacement direct.
+- **Préparation du run complet** (#654, 09-26) : plan, pré-vol, lanceur `systemd-run --user` avec veille désactivée et watchdog de plancher disque.
+- **Premier run complet** (30 ans, 500 citoyens, 75 sièges, EAGLE-3, 12 workers relâchés, graine 42, 09-26) : 2 h 08, 11 mandats, 8 présidents, occupation 0,967, replay byte-identique (86 s). Résultats (#658) : OBS-021 confirmée à l'échelle (7,05 % de fallback chambre, cause = dépassement du plafond de shifts), **OBS-022** nouvelle (le positionnement de campagne tourne jusqu'à la limite de tokens sur 3 élections sur 11, seule la relance répond), **OBS-023** nouvelle (le budget de pensée de `vote_cast` sature à 86 % à population 500 contre 25 % à population 100).
+- **Réplique sur les graines 1 et 2** (#670, 09-27) : confirme le structurel (fallback chambre 5,8-7,1 %, saturation `vote_cast` 72-86 %), isole ce qui est spécifique à la graine 42 (le positionnement qui tourne en boucle) et découvre deux nouveaux motifs — **OBS-024** (un lot de 3 votes ne répond que pour 1 électeur, identique sur les 3 tentatives) et **OBS-025** (un lot de 25 réactions tombe en entier si une seule dérive dépasse le plafond).
+
+**Points bloquants**
+- OBS-020 (byte-identité à graine égale) reste ouverte ; la cause suspectée (Model Runner V2) n'est pas confirmée.
+- OBS-021/024/025 partagent le même défaut structurel : une seule réponse invalide fait tomber tout son lot (5 à 25 décisions). Retenter par décision plutôt que par lot n'est pas décidé — c'est un choix de l'utilisateur, pas encore fait.
+- OBS-022 : pourquoi ce jeu de partis précis (graine 42 uniquement) fait tourner le modèle en boucle de pensée reste sans cause déterminée.
+
+**Décisions prises**
+- Abandon de la spéculation n-gram malgré le coût sur les sessions séquentielles — *pourquoi* : aucun gain sur le trafic réel à 12 workers, qui est le mode de production.
+- Sonde NVFP4 non adoptée — *pourquoi* : 1,8× plus lente sans lever l'effondrement des deux types de décision visés.
+- EAGLE-3 adopté en sacrifiant la garantie de reproductibilité — *pourquoi* : le call log détaillé suffit à l'objectif d'analyse, la vitesse compte davantage pour un run de cette taille.
+- Run lancé « relâché » à 12 workers plutôt que « strict » — *pourquoi* : cohérent avec le choix ci-dessus (vitesse et volume de logs plutôt que reproductibilité).
+
+**Prochaines étapes**
+- [ ] Décider comment traiter « une réponse invalide fait tomber tout son lot » (retry par décision, ignorer les shifts nuls avant de compter le plafond, etc.) — OBS-021/024/025.
+- [ ] Rouvrir OBS-020 si la reproductibilité redevient un objectif.
+- [ ] Étendre un budget de pensée à `campaign_positioning` (aucun bras de bake-off n'existe encore pour ce type — seuls `vote_cast` et `chamber_deliberation` sont couverts).
+
+**Pour aller plus loin** : `fast_api_voter/scripts/check_vllm_speculation_ab_results.md`, `check_nvfp4_precision_probe_results.md`, `check_vllm_eagle3_results.md`, `bakeoff_s24_first_wave_results.md`, `docs/plan/polity/plan-full-run.md`, `docs/plan/polity/observations.md` OBS-020 à OBS-025.
+
+---
+
+## 2026-09-16 → 2026-09-20 — Stage 4 sur le chemin LLM, l'explorateur de runs polity-ui, et le grand ménage anti-sur-ingénierie sur develop
+
+**Contexte du jour.** Entrée reconstruite depuis les commits/PR et `docs/plan/polity/observations.md` (pas de transcript de session associé). Trois chantiers en parallèle : fermer les derniers calibrages Stage 4 du chemin LLM de polity, construire un explorateur visuel des runs, et un audit « sur-ingénierie » du Laboratoire qui débouche, en fin de période, sur la toute première série de correctifs d'égalités par ordre de premier-listé — le point de départ de ce qui deviendra la « Phase A » de l'audit du 24-27/09.
+
+**Ce qui a avancé**
+- **OBS-016** (09-14/15) : le disque racine se remplit, le run p500 graine 42 meurt au tick 13, toute la chaîne GPU qui suit échoue en cascade sur écriture impossible. Cause exacte non trouvée (ce qui a rempli le disque avait disparu au moment de l'inspection) ; absence confirmée d'un garde-fou sur le disque libre (seule la mémoire libre était vérifiée avant un run).
+- **polity-ui** (#489 à #514, 09-15/16) : un nouvel explorateur qui rejoue un run tick par tick sur une carte (Canvas 2D, ADR-013 adoptée), biographies de citoyens, courbes macro à la demande, API dédiée `/api/v2/polity` — fusionné dans `polity` le 16/09 (#514). **OBS-017** le même jour : WebKit plante une fois en CI en pleine navigation vers `/polity`, non reproduit en isolation, imputé à la contention CPU du runner (2 workers Playwright en parallèle) plutôt qu'à la page.
+- **Stage 4 sur le chemin LLM** : pilote (#536), pré-registration (#537), steps 1 à 5 (#539, #540, #542, #549, #550, #552, #569, #572). **OBS-018** : le contrat de réponse (pas le modèle) fixe la position présidentielle dans 22 des 650 réponses observées — corrigé par #545 (« le silence peut citer le motif 303 »). **OBS-019** : montrer au modèle les émotions de ses citoyens, même à poids nul, multiplie la mobilisation par 14 — c'est la présence du champ dans le prompt qui agit, pas un mécanisme de poids. D9 (mobilisation du jumeau déterministe) pré-registrée puis recalibrée (#524, #529, #530) : aucun niveau testé ne qualifie, D9 reste ouvert. S4.1 : `turnout_cost` 0,04 sélectionné et adopté (#570).
+- **Audit extérieur du Laboratoire** (#515, `PLAN_SURFACE_EXTERIEURE.md`, 09-16) débouche sur un grand ménage « sur-ingénierie » (#553 à #586, 09-17/18) : code frontend mort supprimé, endpoints API sans appelant supprimés, clés i18n mortes retirées, dépendances front/back inutilisées abandonnées, doublons de helpers/labels/couleurs/popovers fusionnés en une seule source, une image de production unique construite depuis les lockfiles, scanners CI redondants supprimés.
+- Scission du contexte Playground en quatre par fréquence de changement (#532, 09-16) et extension de la parité moteur client/backend à l'approbation et au jugement majoritaire (#534, #543, #546, #548).
+- **Origine de la série « égalités par ordre de listing »** (#605 à #628, 09-19/20) : Kemeny-Young rendu exact et indépendant de la graine de hash de l'interpréteur (#604, #605), une table de règles unique (#608), fin du « le premier de la liste gagne » sur primaires, districts, assemblée, tallies, Monte-Carlo et théorie (#609, #615 à #618, #621 à #624), RNG global retiré des workers au profit d'un RNG par appel (#619, #625), catalogue de méthodes v1 dérivé de ce que le moteur calcule réellement plutôt que d'une liste à part (#626).
+
+**Points bloquants**
+- OBS-016 : cause exacte de ce qui a saturé le disque non trouvée ; aucun garde-fou disque n'a encore été ajouté aux runs longs ou aux chaînes GPU.
+- OBS-017 : un seul cas observé, pas reproduit isolément — en observation, sans correctif.
+- D9 reste ouvert : aucune recalibration de la mobilisation du jumeau déterministe testée jusqu'ici ne qualifie.
+
+**Décisions prises**
+- « Émotions à poids nul » documenté comme non neutre plutôt que corrigé dans l'immédiat — *pourquoi* : établir d'abord ce que révèle OBS-019 avant de décider quel taux de mobilisation est la cible, question renvoyée à une nouvelle pré-registration plutôt que tranchée dans l'urgence.
+- Sur-ingénierie traitée par suppression plutôt que dépréciation — *pourquoi* : code sans appelant réel trouvé par l'audit, moins de surface à maintenir en le retirant plutôt qu'en le marquant obsolète.
+
+**Prochaines étapes**
+- [ ] Poursuivre la série de correctifs d'égalités par ordre de listing entamée par #605-628 (suite directe : Phase A du 24-27/09).
+- [ ] Ajouter un garde-fou de disque libre aux runs longs et aux chaînes GPU (OBS-016).
+- [ ] Rouvrir D9 avec un nouveau niveau de recalibration si un besoin se présente.
+
+**Pour aller plus loin** : `docs/plan/polity/observations.md` OBS-016 à OBS-019, `docs/plan/PLAN_SURFACE_EXTERIEURE.md`, `docs/adr/ADR-013-*.md`.
+
+---
+
+## 2026-09-13 → 2026-09-14 — Clôture du chantier CI/qualité (décomposition radon, mutation testing, sonarjs) et sync vers polity
+
+**Contexte du jour.** Entrée reconstruite depuis les commits/PR (pas de transcript de session associé). En parallèle de la session polity du 13/09 déjà journalisée (seed sweep, worktree/venv cassés, `check_llm_stack_versions.py`), une autre session fermait les derniers items du plan de remédiation CI/CD et du plan de solidité technique sur `develop`.
+
+**Ce qui a avancé**
+- Dernières fonctions de complexité rang F (radon) décomposées (#431 à #435, 09-13) : `workers*.py`/`election_service.py` dédupliqués (clones jscpd), 4 fonctions ramenées de F à B/C/A — clôture documentée (#436).
+- Plan de remédiation CI/CD ajouté (#438), mis à jour avec les vrais résultats et liens de PR (#448), puis fermé le lendemain au profit d'un plan « structural-gaps » qui prend la suite (#482).
+- Watchdog ci-health pour repérer les workflows non-requis qui pourrissent en silence (#451), suivi de plusieurs correctifs (#452, #454, #455, #456), puis regroupement des PR de snapshot triviales en cadence hebdomadaire plutôt que quotidienne (#460).
+- Score de mutation : plancher mutmut codé à la main remplacé par un cliquet anti-régression (#462) ; fermeture de 53/57 puis 22/27 survivants de mutation sur le vote STAR et le split cycle (#459, #463).
+- Lot 14 sonarjs : 19 corrections à haute confiance (#466) — 288 signalements restants, catégorisés et volontairement reportés à un lot dédié (mémoire `sonarjs-debt-status`).
+- Bumps d'outillage : Node 20→24 sur tous les workflows (#468), TypeScript 6 + size-limit 13 (#477), jsdom 30 (#479), lockfiles Python compilés ajoutés (#484), image Docker Playwright resynchronisée (#478, #483).
+- Sync `develop→polity` (#486, 09-14).
+
+**Points bloquants**
+- 288 signalements sonarjs restants (cognitive-complexity 38, no-nested-conditional 101, parameterized-tests 39, prefer-specific-assertions 33, no-unused-vars/no-dead-store 40, ~19 dispersés) — catégorisés mais délibérément reportés à un lot dédié plutôt que traités à la volée.
+
+**Décisions prises**
+- Remplacer le plancher mutmut fixe par un cliquet sans régression — *pourquoi* : un chiffre codé à la main dérive avec le temps, un cliquet suit automatiquement les progrès sans plafond arbitraire à remettre à jour.
+- Regrouper les PR de snapshot ci-health en cadence hebdomadaire — *pourquoi* : une PR triviale par jour noie le flux de revue sans apporter d'information supplémentaire.
+
+**Prochaines étapes**
+- [ ] Attaquer le lot sonarjs dédié (cognitive-complexity en priorité, la catégorie la plus porteuse selon le plan lui-même).
+- [ ] Poursuivre le plan « structural-gaps » qui a remplacé le plan de remédiation CI/CD clos ici.
+
+**Pour aller plus loin** : mémoire `sonarjs-debt-status`, `docs/plan/vote-app/` (plan de remédiation CI/CD et plan structural-gaps).
+
+---
+
 ## 2026-09-12 → 2026-09-13 — Track D confirme `office_occupancy` sur 10 seeds, un worktree et un venv abîmés par la migration ressurgissent, le système de lois se révèle pur design
 
 **Contexte du jour.** Track D (politique de validation multi-seed du §4 de `plan-distribution-
