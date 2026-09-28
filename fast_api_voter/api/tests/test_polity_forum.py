@@ -75,15 +75,16 @@ def test_a_petition_launcher_speaks_for_a_few_ticks_the_latest_first() -> None:
 
 def test_a_turn_is_a_post_or_silence_and_a_failed_one_is_silence() -> None:
     config = _forum(dataclasses.replace(_CONFIG, llm=dataclasses.replace(_CONFIG.llm, max_batch_replays=0)))
-    turn = {"rationale": "why", "post": "hello", "note_to_self": "n"}
+    turn = {"rationale": "why", "post": "hello", "note_to_self": "n", "shift_issue": -1, "shift_direction": "none"}
 
     def say(client: Any) -> Any:
         return decide_forum(_president(), system_prompt="s", user_prompt="u", config=config, client=client)
 
     said = say(_ScriptedClient(turn))
-    assert said.turn is not None and forum_words(said.turn) == turn
+    assert said.turn is not None and forum_words(said.turn) == {k: turn[k] for k in ("rationale", "post", "note_to_self")}
     lost = say(_ScriptedClient({"post": 3}))
     assert lost.turn is None and set(forum_words(lost.turn).values()) == {""}
+    assert say(_ScriptedClient({**turn, "shift_direction": "high"})).turn is None  # a shift with no issue is retried, then lost
     assert ForumTurn(**turn).post == "hello"
     assert "silent" in forum_system_prompt(_president(), config)
     assert "You sit in the citizens' chamber" in forum_user_prompt(tick=3, member=True, feed="FEED", memory="MEMORY")
@@ -93,15 +94,19 @@ def test_a_turn_is_a_post_or_silence_and_a_failed_one_is_silence() -> None:
 class _ForumClient(_AgentFakeClient):
     """Every odd citizen posts `hello from <id>`, every even one stays silent; every forum prompt is kept."""
 
-    def __init__(self) -> None:
+    def __init__(self, shift: bool = False) -> None:
         self.prompts: list[tuple[int, str]] = []
+        self.systems: list[tuple[int, str]] = []
+        self.shift = shift
 
     def complete_json(self, **kwargs: Any) -> str:
         if kwargs["json_schema"].get("title") != "ForumTurn":
             return super().complete_json(**kwargs)
         cid = int(re.search(r"\(citizen (\d+)\)", kwargs["system_prompt"]).group(1))  # type: ignore[union-attr]
         self.prompts.append((cid, kwargs["user_prompt"]))
-        return json.dumps({"rationale": "r", "post": f"hello from {cid}" if cid % 2 else "", "note_to_self": ""})
+        self.systems.append((cid, kwargs["system_prompt"]))
+        shift = {"shift_issue": 5, "shift_direction": "high"} if self.shift and cid % 2 else {"shift_issue": -1, "shift_direction": "none"}
+        return json.dumps({"rationale": "r", "post": f"hello from {cid}" if cid % 2 else "", "note_to_self": "", **shift})
 
 
 def _run(tmp_path: Path, client: _ForumClient | None = None) -> tuple[Path, list[dict[str, Any]], _ForumClient]:
@@ -143,3 +148,35 @@ def test_a_run_resumes_with_the_forum_it_had(tmp_path: Path, monkeypatch: pytest
     monkeypatch.undo()
     resumed = run_simulation(_forum(_agent_run_config(tmp_path / "b")), run_id="forum", resume=True, llm_client=_ForumClient())
     assert resumed.read_bytes() == uninterrupted.read_bytes()
+
+
+def _moving(config: Any) -> Any:
+    return dataclasses.replace(
+        config, agents=dataclasses.replace(config.agents, stance_step=0.25), dynamics=dataclasses.replace(config.dynamics, enabled=True),
+    )
+
+
+def test_stance_step_needs_the_forum_and_the_dynamics() -> None:
+    for config in (_moving(_CONFIG), dataclasses.replace(_forum(_CONFIG), agents=dataclasses.replace(_forum(_CONFIG).agents, stance_step=0.25))):
+        with pytest.raises(PolityConfigError, match="stance_step"):
+            validate_config(config)
+    validate_config(_moving(_forum(_CONFIG)))
+    assert "genuinely changed your mind" in forum_system_prompt(_president(), _moving(_forum(_CONFIG)))
+    assert "genuinely" not in forum_system_prompt(_president(), _forum(_CONFIG))
+
+
+def test_a_citizen_who_changes_their_mind_stays_moved(tmp_path: Path) -> None:
+    client = _ForumClient(shift=True)
+    journal = run_simulation(_moving(_forum(_agent_run_config(tmp_path))), run_id="mind", llm_client=client)
+    posts = [json.loads(line) for line in journal.read_text().splitlines() if '"forum_post"' in line]
+    assert {(e["citizen_id"] % 2, e["payload"]["shift_issue"], e["payload"]["shift_logit"]) for e in posts} == {(1, 5, 0.25), (0, -1, 0.0)}
+
+    def position(system: str) -> float:
+        return float(re.search(r"- 5 [^:]+: (\d\.\d+)", system).group(1))  # type: ignore[union-attr]
+
+    by_citizen: dict[int, list[float]] = {}
+    for cid, system in client.systems:
+        by_citizen.setdefault(cid, []).append(position(system))
+    moved = [seen for cid, seen in by_citizen.items() if cid % 2 and len(seen) > 1]
+    assert moved and all(seen == sorted(seen) and seen[-1] > seen[0] for seen in moved)
+    assert all(len(set(seen)) == 1 for cid, seen in by_citizen.items() if cid % 2 == 0)

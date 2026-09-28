@@ -232,7 +232,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
-from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
+from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
@@ -865,6 +865,18 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
     ))
 
 
+def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
+    """ADR-017: a speaker who changed their mind moves `agents.stance_step` toward the pole they named.
+    Returns (issue, logit) as the `ForumPost` journals them."""
+    step = context.config.agents.stance_step
+    if turn is None or turn.shift_direction == "none" or step == 0:
+        return -1, 0.0
+    assert context.latent is not None  # validate_config: stance_step needs dynamics.enabled
+    logit = step if turn.shift_direction == "high" else -step
+    shift_stance(citizen, context.latent, turn.shift_issue, logit)
+    return turn.shift_issue, logit
+
+
 def _phase_forum(context: TickContext, state: TickState) -> None:
     """ADR-016: the forum. The chamber's members and the citizens who recently launched a petition
     each post or stay silent, in parallel and none seeing another's post of this tick. A citizen
@@ -888,10 +900,12 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
         )
 
     for cid, outcome in zip(speakers, run_chunks([[state.citizens[c]] for c in speakers], post, config.parallel.intra_run_workers)):
+        turn = outcome.turn
+        shift_issue, shift_logit = _apply_stance_shift(context, state.citizens[cid], turn)
         context.journal.write_event(tick=context.tick, citizen_id=cid, codebook_version=config.llm.codebook_version, event=ForumPost(
-            **forum_words(outcome.turn),
+            **forum_words(turn), shift_issue=shift_issue, shift_logit=shift_logit,
             provenance=LlmProvenance(
-                llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
+                llm_fallback=int(turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
             ),
         ))
 
