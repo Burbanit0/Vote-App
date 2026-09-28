@@ -683,3 +683,11 @@ agents:
   turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
                               #   comme toute décision par lots). Envoyée avec une graine :
                               #   un run à un seul worker reste régénérable.
+
+# =============================================================================
+# CONSTITUTION (ADR-015) — les règles amendables (config.ARTICLES)
+# =============================================================================
+constitution:
+  scripted: []                # amendements imposés à des ticks fixés, quoi que décide la
+                              #   polity -- l'expérience d'un changement de règle, p. ex.
+                              #   - {tick: 40, article: institutions.presidential_method, value: borda}

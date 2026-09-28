@@ -148,7 +148,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 
 | PR | Deliverable |
 |---|---|
-| 2.1 | **`constitution.py`.** `ARTICLES = {path: allowed values or (min, max)}`; the state is `version` plus `values` in `TickState`; `effective_config()`; a `constitution_amended` event carrying path, old value, new value and version. The history is derived from events. Scripted amendments in YAML serve as a smoke test. One Hypothesis property test: any legal constitution passes `validate_config` and survives a short deterministic run. ADR-015 (the typed constitution, superseding ADR-008 §2) is written in this PR. |
+| 2.1 | **The constitution kernel** (`feat/polity-constitution-kernel`, ADR-015). `config.ARTICLES` (7 articles, each a config path with a list or a range), `constitution.py` (`in_force`, `amend`), `TickState.constitution` (version and values, checkpointed only once amended), `_phase_constitution` first in the tick, a `constitution_amended` event (institutional: on the timeline), and scripted amendments in config, checked against their article and against every rule after each. A Hypothesis property runs any legal constitution. |
 | 2.2 | **The amendment procedure.** `amendment.threshold` becomes an article, with per-article overrides (entrenchment). The procedure in force *when an amendment is proposed* governs it. Chamber members join the agent set, and while a proposal is pending their turn carries a `vote_amendment` intent. That is the same runtime, not a new decision type. |
 | 2.3 | **The `propose_amendment` intent** for the president and chamber members. |
 | 2.4 | **Reporting.** `constitution_version` in the digest's per-year rows, and amendments on `InstitutionalTimeline`. |

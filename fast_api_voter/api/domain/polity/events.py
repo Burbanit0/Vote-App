@@ -518,6 +518,21 @@ class VoteIntentionPoll(Event):
     abstain: float
 
 
+# ── constitution (ADR-015) ────────────────────────────────────────────────
+
+@dataclass(frozen=True, kw_only=True)
+class ConstitutionAmended(Event):
+    """An article of the constitution changed; the new value holds from this tick on."""
+
+    EVENT_TYPE = "constitution_amended"
+    INSTITUTIONAL = True
+    article: str  # config path, e.g. "institutions.presidential_method"
+    old: Any
+    new: Any
+    version: int  # the constitution's version once amended (the founding one is 0)
+    source: str  # "scripted": the run's config ordered it
+
+
 # ── registry ──────────────────────────────────────────────────────────────
 
 EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -528,7 +543,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
-    AgentTurn, VoteIntentionPoll,
+    AgentTurn, VoteIntentionPoll, ConstitutionAmended,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

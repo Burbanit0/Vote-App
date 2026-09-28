@@ -39,6 +39,9 @@
     "priority_dist": "dirichlet",
     "static_population": true
   },
+  "constitution": {
+    "scripted": []
+  },
   "dynamics": {
     "confidence_bound": 1.0,
     "drift_std": 0.0,
