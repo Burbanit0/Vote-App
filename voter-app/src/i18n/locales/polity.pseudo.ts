@@ -71,6 +71,7 @@ const polityPseudo: PolityKeys = {
       sortition_rotation: '⟦çhámbré~~~ tíréé~~ áú~ sórt~~ réñóúvéléé~~~~⟧',
       amendment_proposed: '⟦áméñdéméñt~~~~ própósé~~~⟧',
       amendment_resolved: '⟦vóté~~ súr~~ úñ~ áméñdéméñt~~~~⟧',
+      referendum_held: '⟦référéñdúm~~~~⟧',
       constitution_amended: '⟦çóñstítútíóñ~~~~~ áméñdéé~~~⟧',
     },
   },

@@ -616,6 +616,8 @@ class Article:
         return self.low <= value <= self.high
 
 
+REFERENDUM_MODES = ("never", "petition", "always")
+
 ARTICLES: Mapping[str, Article] = {article.path: article for article in (
     Article("institutions.presidential_method", choices=tuple(sorted(RANKED_METHODS)),
             summary="how the president is elected: the voting method that turns the citizens' ballots into a winner"),
@@ -632,6 +634,9 @@ ARTICLES: Mapping[str, Article] = {article.path: article for article in (
             summary="the legitimacy below which the president is recalled"),
     Article("constitution.amendment_threshold", low=0.5, high=0.9,
             summary="the share of the chamber that must vote yes to amend the constitution"),
+    Article("constitution.referendum", choices=REFERENDUM_MODES,
+            summary="whether the citizens vote on a change of voting method the chamber ratified: never, only when "
+                    "enough of them petition against it, or always"),
 )}
 """The rules a constitution may amend. Each is read at an election, a rotation or a
 tick's accountability, never mid-term, so an amendment takes effect the next time the
@@ -655,6 +660,9 @@ class ConstitutionConfig:
     amendment (an article itself, so the polity can change how it changes)."""
     entrenched: Mapping[str, float] = field(default_factory=dict)
     """Articles that need a higher threshold than amendment_threshold, and what it is."""
+    referendum: str = "never"
+    """ADR-020: whether the citizens confirm a voting-method change the chamber ratified
+    (config.REFERENDUM_MODES); an article itself."""
 
 
 def amended(config: PolityConfig, path: str, value: Any) -> PolityConfig:
@@ -1355,6 +1363,7 @@ def _parse_constitution(raw: dict[str, Any]) -> ConstitutionConfig:
         raise PolityConfigError(f"'constitution.amendment_threshold': {amendment_threshold!r} is not in [0.5, 0.9]")
     return ConstitutionConfig(
         scripted=tuple(scripted), amendment_threshold=float(amendment_threshold), entrenched=_parse_entrenched(section),
+        referendum=_get_enum(section, "constitution", "referendum", set(REFERENDUM_MODES)),
     )
 
 

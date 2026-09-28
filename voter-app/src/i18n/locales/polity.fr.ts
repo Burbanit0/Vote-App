@@ -72,6 +72,7 @@ const polityFr = {
       sortition_rotation: 'chambre tirée au sort renouvelée',
       amendment_proposed: 'amendement proposé',
       amendment_resolved: 'vote sur un amendement',
+      referendum_held: 'référendum',
       constitution_amended: 'constitution amendée',
     },
   },

@@ -175,7 +175,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 |---|---|
 | 4.1 | **Mutable party membership.** `found` (the co-founder threshold is an article), `join`, `leave`, and automatic dissolution below a minimum. The party leader is the founder or the last nominee, and a `party_leader_turn` lets them move the platform. Nomination keeps its current path. |
 | 4.2 | **Coalition negotiation between leaders** replaces the collapsed `coalition_decision`. It reuses the `_negotiation_converged` stop rule (`llm_behavior_engine.py:5401`). |
-| 4.3 | **Citizen initiatives.** A petition that targets a proposal leads to a referendum. The crowd votes on the counterfactual winner: `get_presidential_winner` (`ballot_and_aggregation.py:90`) on the last election's ballots, under the proposed method. Agents vote through their turns. `referendum_required` becomes an article. |
+| 4.3 | **Referendum** (ADR-020, built). `constitution.referendum` (`never`, `petition`, `always`) lets the citizens confirm a voting-method change the chamber ratified: the last election's ballots are re-counted under both methods and each citizen votes for the winner they ranked higher. In `petition` it is held when the citizens who would vote no reach the petition threshold. Agents do not vote in it; other articles are not referred. |
 | 4.4 | **An `engagement` field**: `active`, `disengaged` or `exited`. `exited` is a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 
 **Exit:** the party count changes in at least 30% of seeds, and the effective number of parties stays within 1.5–8.

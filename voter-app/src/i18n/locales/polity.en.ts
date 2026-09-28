@@ -69,6 +69,7 @@ const polityEn: PolityKeys = {
       sortition_rotation: 'sortition chamber rotated',
       amendment_proposed: 'amendment proposed',
       amendment_resolved: 'amendment vote result',
+      referendum_held: 'referendum',
       constitution_amended: 'constitution amended',
     },
   },

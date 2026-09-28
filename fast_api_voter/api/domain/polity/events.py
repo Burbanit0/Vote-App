@@ -591,6 +591,21 @@ class AmendmentResolved(Event):
     ratified: int
 
 
+@dataclass(frozen=True, kw_only=True)
+class ReferendumHeld(Event):
+    """The citizens' vote on a voting-method change the chamber ratified: those who would have
+    ranked the new method's winner above the old one's, against those who would not."""
+
+    EVENT_TYPE = "referendum_held"
+    INSTITUTIONAL = True
+    article: str
+    value: Any
+    trigger: str
+    yes: int
+    no: int
+    passed: int
+
+
 # ── registry ──────────────────────────────────────────────────────────────
 
 EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -602,6 +617,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
+    ReferendumHeld,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

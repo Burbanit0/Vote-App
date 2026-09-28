@@ -251,7 +251,8 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     agents (ADR-014) -- they need the LLM engine, so the deterministic twin keeps the formula --
     whose turns are sampled at 0.6, Qwen3's recommended temperature in thinking mode. Phase 2.2-2.3:
     the president proposes amendments to the constitution and the sortition chamber votes them
-    (ADR-015); the flagship's chamber is already on. Phase 3: the chamber and the recent petition launchers post on a forum (ADR-016) and may change
+    (ADR-015); the flagship's chamber is already on. Phase 4.3: the citizens vote on a voting-method
+    change when enough of them petition against it (ADR-020). Phase 3: the chamber and the recent petition launchers post on a forum (ADR-016) and may change
     their minds there, on a population whose views also drift toward their neighbours' (ADR-012, ADR-017)."""
     return dataclasses.replace(
         config,
@@ -259,6 +260,7 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
         vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
+        constitution=dataclasses.replace(config.constitution, referendum="petition"),
         agents=dataclasses.replace(
             config.agents, president=config.llm.enabled, nominees=config.llm.enabled, amendments=config.llm.enabled,
             forum=config.llm.enabled, stance_step=0.25 if config.llm.enabled else 0.0, turn_temperature=0.6,
