@@ -694,6 +694,9 @@ agents:
   stance_step: 0.0            # de combien (en logits) un tour de forum peut déplacer son auteur
                               #   sur un enjeu (ADR-017). 0 = la parole ne déplace personne.
                               #   Exige agents.forum et dynamics.enabled.
+  coalition: false            # true = le chef de chaque parti élu répond au formateur dans un tour,
+                              #   tour après tour (remplace coalition_decision, ADR-019).
+                              #   Exige llm.enabled et 20 enjeux (nommés).
   turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
                               #   comme toute décision par lots). Envoyée avec une graine :
                               #   un run à un seul worker reste régénérable.

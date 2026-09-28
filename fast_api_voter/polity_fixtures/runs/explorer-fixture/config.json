@@ -1,6 +1,7 @@
 {
   "agents": {
     "amendments": false,
+    "coalition": false,
     "forum": false,
     "forum_size": 30,
     "nominees": false,

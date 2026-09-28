@@ -244,6 +244,11 @@ class CoalitionDecision(Event):
     # No llm_fallback: a failed negotiation aborts the round instead of falling back.
     retry_sampling_varied: int
     llm_call_id: str | None
+    leader: int = OMIT  # agents.coalition only: the party leader who answered, and what they said
+    statement: str = OMIT
+    rationale: str = OMIT
+    note_to_self: str = OMIT
+    llm_fallback: int = OMIT  # agents.coalition only: the leader never answered, so the party declined
 
 
 # ── exogenous events ──────────────────────────────────────────────────────

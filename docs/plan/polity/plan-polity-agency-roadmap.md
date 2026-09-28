@@ -174,7 +174,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 | PR | Deliverable |
 |---|---|
 | 4.1 | **Mutable party membership** (ADR-018, built). A forum turn may `join`, `leave` or `found` a party (the co-founder share `parties.founding_ratio` is an article), and a party under half of it is dissolved. The party leader's `party_leader_turn` (moving a platform) is not built: nothing yet shows it is needed. |
-| 4.2 | **Coalition negotiation between leaders** replaces the collapsed `coalition_decision`. It reuses the `_negotiation_converged` stop rule (`llm_behavior_engine.py:5401`). |
+| 4.2 | **Coalition negotiation between leaders** (ADR-019, built). `decide_coalition` takes a `negotiation` callable; `agents.negotiate_leaders` gives each party's leader (its most ambitious member, derived, no stored field) one turn a round, blind, and stops on the crowd's `_negotiation_converged` rule. ON in the exploration profile when the LLM is. |
 | 4.3 | **Citizen initiatives.** A petition that targets a proposal leads to a referendum. The crowd votes on the counterfactual winner: `get_presidential_winner` (`ballot_and_aggregation.py:90`) on the last election's ballots, under the proposed method. Agents vote through their turns. `referendum_required` becomes an article. |
 | 4.4 | **An `engagement` field**: `active`, `disengaged` or `exited`. `exited` is a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 
@@ -198,7 +198,7 @@ P(success) = logistic(a·(S − 0.5) + b·(Λ_for − Λ_against) − c·σ)
 - An irregular regime ends either through a constituent process (Phase 2 plus the Phase 4 referendum) or through a counter-uprising.
 - On failure, the author is removed from office and barred from holding it again.
 
-ADR-019 is written in this phase (ADR-018 went to the mutable parties of 4.1).
+ADR-020 is written in this phase (ADR-018 went to the mutable parties of 4.1, ADR-019 to the leaders' coalition talks of 4.2).
 
 ### Observatory
 

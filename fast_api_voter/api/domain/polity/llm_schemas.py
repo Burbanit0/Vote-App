@@ -406,6 +406,20 @@ class AmendmentBallot(BaseModel):
 AMENDMENT_BALLOT_JSON_SCHEMA = AmendmentBallot.model_json_schema()
 
 
+class LeaderCoalitionTurn(BaseModel):
+    """A party leader's answer to the formateur, and what they say to the other leaders."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    join: Literal["yes", "no"]
+    statement: str
+    note_to_self: str
+
+
+LEADER_COALITION_TURN_JSON_SCHEMA = LeaderCoalitionTurn.model_json_schema()
+
+
 class ForumTurn(BaseModel):
     """A citizen's turn on the forum: a post, or silence (an empty post)."""
 
