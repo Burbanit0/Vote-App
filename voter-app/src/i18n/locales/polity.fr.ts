@@ -42,6 +42,7 @@ const polityFr = {
     laneElections: 'Élections',
     laneAccountability: 'Contre-pouvoirs',
     laneLegislature: 'Législature',
+    laneConstitution: 'Constitution',
     laneSociety: 'Société',
     term: 'Mandat du citoyen {{holder}}, dès le tick {{start}} ({{end}})',
     endedElection: 'terminé par une élection',
@@ -69,6 +70,9 @@ const polityFr = {
       scandal_occurred: 'scandale',
       economic_shock_tick: 'choc économique',
       sortition_rotation: 'chambre tirée au sort renouvelée',
+      amendment_proposed: 'amendement proposé',
+      amendment_resolved: 'vote sur un amendement',
+      constitution_amended: 'constitution amendée',
     },
   },
   map: {

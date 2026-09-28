@@ -41,6 +41,7 @@ const polityPseudo: PolityKeys = {
     laneElections: '⟦Éléçtíóñs~~~~⟧',
     laneAccountability: '⟦Cóñtré-póúvóírs~~~~~~⟧',
     laneLegislature: '⟦Légíslátúré~~~~⟧',
+    laneConstitution: '⟦Cóñstítútíóñ~~~~~⟧',
     laneSociety: '⟦Sóçíété~~~⟧',
     term: '⟦Máñdát~~~ dú~ çítóyéñ~~~ {{holder}},~ dès~~ lé~ tíçk~~ {{start}} (~{{end}})~⟧',
     endedElection: '⟦térmíñé~~~ pár~~ úñé~~ éléçtíóñ~~~⟧',
@@ -68,6 +69,9 @@ const polityPseudo: PolityKeys = {
       scandal_occurred: '⟦sçáñdálé~~~⟧',
       economic_shock_tick: '⟦çhóç~~ éçóñómíqúé~~~~⟧',
       sortition_rotation: '⟦çhámbré~~~ tíréé~~ áú~ sórt~~ réñóúvéléé~~~~⟧',
+      amendment_proposed: '⟦áméñdéméñt~~~~ própósé~~~⟧',
+      amendment_resolved: '⟦vóté~~ súr~~ úñ~ áméñdéméñt~~~~⟧',
+      constitution_amended: '⟦çóñstítútíóñ~~~~~ áméñdéé~~~⟧',
     },
   },
   map: {

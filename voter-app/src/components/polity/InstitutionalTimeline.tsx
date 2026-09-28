@@ -22,6 +22,7 @@ const LANE_KEYS: Record<TimelineLane, string> = {
   elections: 'timeline.laneElections',
   accountability: 'timeline.laneAccountability',
   legislature: 'timeline.laneLegislature',
+  constitution: 'timeline.laneConstitution',
   society: 'timeline.laneSociety',
 };
 
@@ -70,6 +71,16 @@ const GlyphShape: React.FC<{ glyph: Glyph }> = ({ glyph }) => {
     case 'bill':
     case 'coalition':
       return <rect x={x - 4} y={y - 4} width={8} height={8} className="fill-sky-700" />;
+    case 'amended':
+      return <circle cx={x} cy={y} r={4.5} className="fill-violet-700" />;
+    case 'amendment':
+      return (
+        <path
+          d={`M${x},${y - 5} L${x + 5},${y} L${x},${y + 5} L${x - 5},${y} Z`}
+          className="fill-background stroke-violet-700"
+          strokeWidth={1.5}
+        />
+      );
     default:
       return <rect x={x - 1} y={y - 5} width={2} height={10} className="fill-muted-foreground" />;
   }

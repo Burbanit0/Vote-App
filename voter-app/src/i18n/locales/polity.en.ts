@@ -39,6 +39,7 @@ const polityEn: PolityKeys = {
     laneElections: 'Elections',
     laneAccountability: 'Checks',
     laneLegislature: 'Legislature',
+    laneConstitution: 'Constitution',
     laneSociety: 'Society',
     term: 'Term of citizen {{holder}}, from tick {{start}} ({{end}})',
     endedElection: 'ended by an election',
@@ -66,6 +67,9 @@ const polityEn: PolityKeys = {
       scandal_occurred: 'scandal',
       economic_shock_tick: 'economic shock',
       sortition_rotation: 'sortition chamber rotated',
+      amendment_proposed: 'amendment proposed',
+      amendment_resolved: 'amendment vote result',
+      constitution_amended: 'constitution amended',
     },
   },
   map: {
