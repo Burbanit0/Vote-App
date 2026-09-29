@@ -197,6 +197,8 @@ def utility_ballot(
     abstains. Candidates whose utility reaches minus the voter's blank threshold rank above
     blank, highest utility first, ties to the lowest citizen_id. With every weight in
     `vote` at zero this returns exactly build_ranking's ballot (property-tested)."""
+    if not voter.engaged:
+        return None
     scored = sorted(
         ((candidate_utility(voter, c, vote, incumbent, valence), c) for c in candidates),
         key=lambda item: (-item[0], item[1].citizen_id),

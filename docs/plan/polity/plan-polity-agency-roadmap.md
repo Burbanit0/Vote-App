@@ -176,7 +176,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 | 4.1 | **Mutable party membership** (ADR-018, built). A forum turn may `join`, `leave` or `found` a party (the co-founder share `parties.founding_ratio` is an article), and a party under half of it is dissolved. The party leader's `party_leader_turn` (moving a platform) is not built: nothing yet shows it is needed. |
 | 4.2 | **Coalition negotiation between leaders** (ADR-019, built). `decide_coalition` takes a `negotiation` callable; `agents.negotiate_leaders` gives each party's leader (its most ambitious member, derived, no stored field) one turn a round, blind, and stops on the crowd's `_negotiation_converged` rule. ON in the exploration profile when the LLM is. |
 | 4.3 | **Referendum** (ADR-020, built). `constitution.referendum` (`never`, `petition`, `always`) lets the citizens confirm a voting-method change the chamber ratified: the last election's ballots are re-counted under both methods and each citizen votes for the winner they ranked higher. In `petition` it is held when the citizens who would vote no reach the petition threshold. Agents do not vote in it; other articles are not referred. |
-| 4.4 | **An `engagement` field**: `active`, `disengaged` or `exited`. `exited` is a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
+| 4.4 | **An `engagement` field** (ADR-021, built): `active`, `disengaged` or `exited`, moved by the citizen's anger with hysteresis (`emotions.disengage_anger`, `return_anger`, `exit_anger`). A disengaged or exited citizen abstains and signs nothing; `exited` is final and a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 
 **Exit:** the party count changes in at least 30% of seeds, and the effective number of parties stays within 1.5–8.
 
@@ -198,7 +198,7 @@ P(success) = logistic(a·(S − 0.5) + b·(Λ_for − Λ_against) − c·σ)
 - An irregular regime ends either through a constituent process (Phase 2 plus the Phase 4 referendum) or through a counter-uprising.
 - On failure, the author is removed from office and barred from holding it again.
 
-ADR-021 is written in this phase (ADR-018 went to the mutable parties of 4.1, ADR-019 to the leaders' coalition talks of 4.2, ADR-020 to the referendum of 4.3).
+ADR-022 is written in this phase (ADR-018 to the mutable parties of 4.1, ADR-019 to the leaders' coalition talks of 4.2, ADR-020 to the referendum of 4.3, ADR-021 to the engagement of 4.4).
 
 ### Observatory
 

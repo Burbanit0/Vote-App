@@ -45,7 +45,7 @@ def test_the_registry_reproduces_the_sets_three_modules_kept_by_hand() -> None:
         "reaction_to_event", "representative_response", "mandate_deviation_recorded", "pressure_action",
         "petition_launched", "petition_signed", "legitimacy_updated", "confidence_vote_triggered",
         "confidence_vote_result", "petition_expired", "recalled", "sortition_rotation", "chamber_deliberation",
-    } | {"opinion_dynamics_step", "emotions_updated"} | {  # S4.3 and S4.2, after the lists were retired
+    } | {"opinion_dynamics_step", "emotions_updated", "engagement_updated"} | {  # S4.3 and S4.2, after the lists were retired
         "bill_proposed", "bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted", "policy_status",
     } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended", "amendment_proposed", "amendment_vote", "amendment_resolved", "forum_post", "referendum_held"}  # ADR-014, ADR-015, ADR-016, ADR-020
     assert INSTITUTIONAL_EVENT_TYPES == {

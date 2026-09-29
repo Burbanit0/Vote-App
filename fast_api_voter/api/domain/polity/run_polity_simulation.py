@@ -160,6 +160,7 @@ from api.domain.polity.events import (
     BillVoted,
     ElectionNoWinner,
     EmotionsUpdated,
+    EngagementUpdated,
     Event,
     LegislativeResult,
     LegitimacyUpdated,
@@ -183,7 +184,7 @@ from api.domain.polity.events import (
     SortitionRotation,
     VoteCast,
 )
-from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale
+from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale, update_engagement
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
 from api.domain.polity.legislation import (
@@ -1342,6 +1343,9 @@ def _agenda_closed(context: TickContext, state: TickState, president: Citizen) -
 def _phase_emotions(context: TickContext, state: TickState) -> None:
     if context.config.emotions.enabled:
         _update_emotions(state.citizens, context.config, context.journal, context.tick, state.economy_x)
+    if context.config.emotions.disengage_anger > 0:
+        counts = update_engagement(state.citizens, context.config.emotions)
+        context.journal.write_event(tick=context.tick, event=EngagementUpdated(**counts), citizen_id=None)
 
 
 def _update_emotions(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, economy_x: float) -> None:
@@ -2046,6 +2050,16 @@ def _journal_vote_decisions(
         )
 
 
+def _llm_ballots(
+    citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
+    llm_client: LlmClientProtocol,
+) -> tuple[list[list[str]], int]:
+    voters = [voter for voter in citizens if voter.engaged]  # ADR-021: the rest stay home
+    outcome = cast_votes(voters, nominees, config, llm_client)
+    _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
+    return outcome.ballots, len(citizens) - len(voters)
+
+
 def _presidential_ballots(
     citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
     llm_client: LlmClientProtocol | None, incumbent: IncumbentRecord | None,
@@ -2057,16 +2071,14 @@ def _presidential_ballots(
     (build_ranking's ballot while every weight is zero), and a run with a model also asks
     vote_cast for an audit sample, journaled with `audit` and not counted."""
     if llm_client is not None and config.vote.mode == "llm":
-        outcome = cast_votes(citizens, nominees, config, llm_client)
-        _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
-        return outcome.ballots, 0
+        return _llm_ballots(citizens, nominees, config, journal, tick, llm_client)
     cast = [utility_ballot(voter, nominees, config.vote, incumbent=incumbent) for voter in citizens]
     sample = audit_sample(citizens, config, tick) if llm_client is not None else []
     if sample:
         assert llm_client is not None
         _journal_vote_decisions(journal, tick, cast_votes(sample, nominees, config, llm_client), nominees, config, audit=True)
     ballots = [ballot for ballot in cast if ballot is not None]
-    return ballots, len(cast) - len(ballots)
+    return ballots, len(citizens) - len(ballots)
 
 
 def _hold_presidential_election(
@@ -2464,7 +2476,8 @@ def _can_sign(holder: Citizen, citizen: Citizen, tick: int, config: PolityConfig
     provably the same expression rather than two copies that can drift --
     behavior-preserving, pinned by the existing Lot 5 tests."""
     return (
-        petition_accepts_signatures(holder, tick, config.petition)
+        citizen.engaged
+        and petition_accepts_signatures(holder, tick, config.petition)
         and citizen.citizen_id not in holder.petition_signers
     )
 

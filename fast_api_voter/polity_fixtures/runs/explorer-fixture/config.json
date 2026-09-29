@@ -66,8 +66,11 @@
     "awakening_anxiety": 0.0,
     "awakening_enthusiasm": 0.0,
     "decay": 0.7,
+    "disengage_anger": 0.0,
     "enabled": false,
-    "mobilization_anger": 0.0
+    "exit_anger": 0.0,
+    "mobilization_anger": 0.0,
+    "return_anger": 0.0
   },
   "events": {
     "economic_shock_enabled": true,
