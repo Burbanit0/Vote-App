@@ -18,6 +18,9 @@ import numpy as np
 from api.domain.polity.config import CitizensConfig
 
 
+ACTIVE, DISENGAGED, EXITED = "active", "disengaged", "exited"
+
+
 class Role(str, Enum):
     ELECTOR = "electeur"
     CANDIDATE = "candidat"
@@ -133,6 +136,13 @@ class Citizen:
     anger: float | None = None
     anxiety: float | None = None
     enthusiasm: float | None = None
+    # ADR-021: None while untracked (emotions.disengage_anger 0), which reads as "active".
+    engagement: str | None = None
+
+    @property
+    def engaged(self) -> bool:
+        """Votes and signs petitions: neither disengaged nor exited."""
+        return self.engagement in (None, ACTIVE)
 
 
 # plan-distribution-positions-seeds.md, Phase 1 (2026-08-25): position_dist

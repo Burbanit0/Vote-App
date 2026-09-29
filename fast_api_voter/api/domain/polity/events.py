@@ -495,6 +495,16 @@ class EmotionsUpdated(Event):
     enthusiasm: float
 
 
+@dataclass(frozen=True, kw_only=True)
+class EngagementUpdated(Event):
+    """How many citizens have stopped voting and signing (disengaged) or left for good (exited),
+    after this tick's anger (emotions.py, ADR-021)."""
+
+    EVENT_TYPE = "engagement_updated"
+    disengaged: int
+    exited: int
+
+
 # ── agents (ADR-014) ──────────────────────────────────────────────────────
 
 @dataclass(frozen=True, kw_only=True)
@@ -645,7 +655,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld,
+    ReferendumHeld, EngagementUpdated,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

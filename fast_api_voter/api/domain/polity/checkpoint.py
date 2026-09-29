@@ -107,7 +107,7 @@ def _citizen_to_dict(citizen: Citizen) -> dict[str, Any]:
     return data
 
 
-_UNTRACKED_UNLESS_SET = ("latent_factors", "anger", "anxiety", "enthusiasm")
+_UNTRACKED_UNLESS_SET = ("latent_factors", "anger", "anxiety", "enthusiasm", "engagement")
 
 
 def _citizen_from_dict(data: dict[str, Any]) -> Citizen:

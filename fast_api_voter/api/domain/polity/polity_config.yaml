@@ -315,6 +315,9 @@ emotions:
   awakening_enthusiasm: 0.0     # l'enthousiasme l'élève
   mobilization_anger: 0.0       # à colère 1, la règle déterministe de pression
                                 #   agit au-delà de (1 - ceci) x blank_threshold
+  disengage_anger: 0.0          # ADR-021 : colère à laquelle un citoyen cesse de voter et de signer (0 = jamais)
+  return_anger: 0.0             #   colère sous laquelle il revient
+  exit_anger: 0.0               #   colère à laquelle il sort pour de bon (0 = personne ne sort)
 
 # =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)

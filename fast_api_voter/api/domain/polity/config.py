@@ -287,6 +287,13 @@ class EmotionsConfig:
     awakening_enthusiasm: float
     mobilization_anger: float
     """At anger 1, the deterministic pressure rule acts past (1 - this) x the blank threshold."""
+    disengage_anger: float = 0.0
+    """ADR-021: an active citizen whose anger reaches this stops voting and signing petitions
+    (disengaged); 0 leaves everyone active."""
+    return_anger: float = 0.0
+    """A disengaged citizen whose anger falls to this is active again."""
+    exit_anger: float = 0.0
+    """A citizen whose anger reaches this has exited for good; 0 means nobody exits."""
 
 
 @dataclass(frozen=True)
@@ -917,6 +924,9 @@ def _parse_emotions(raw: dict[str, Any]) -> EmotionsConfig:
         awakening_anxiety=_get_ratio(s, "emotions", "awakening_anxiety"),
         awakening_enthusiasm=_get_ratio(s, "emotions", "awakening_enthusiasm"),
         mobilization_anger=_get_ratio(s, "emotions", "mobilization_anger"),
+        disengage_anger=_get_ratio(s, "emotions", "disengage_anger"),
+        return_anger=_get_ratio(s, "emotions", "return_anger"),
+        exit_anger=_get_ratio(s, "emotions", "exit_anger"),
     )
 
 
@@ -1310,6 +1320,13 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'emotions.enabled' requires 'awakening.enabled' (S4.3): emotions act through the awakening "
         "gate and the pressure rule, so with nobody consulted they are a silently dead experiment"
     ) if c.emotions.enabled and not c.awakening.enabled else None,
+    lambda c: (
+        "'emotions.disengage_anger' > 0 requires 'emotions.enabled' and 'return_anger' < 'disengage_anger' "
+        "<= 'exit_anger' (ADR-021): engagement follows anger, with hysteresis, and exit comes last"
+    ) if c.emotions.disengage_anger > 0 and not (
+        c.emotions.enabled and c.emotions.return_anger < c.emotions.disengage_anger
+        and (c.emotions.exit_anger == 0 or c.emotions.exit_anger >= c.emotions.disengage_anger)
+    ) else None,
     lambda c: (
         "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
         "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
