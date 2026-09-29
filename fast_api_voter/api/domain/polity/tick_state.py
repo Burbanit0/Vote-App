@@ -85,5 +85,8 @@ class TickState:
     legislature: Legislature | None = None
     constitution: Constitution | None = None
     """ADR-015: the amendments in force; None until the first one."""
+    last_ballots: list[list[str]] | None = None
+    """ADR-020: the last presidential election's ballots, kept while agents.amendments is on so a
+    voting-method change can be re-counted for a referendum."""
     """S4.2: policy, the assembly's seats and coalition, and any suspended bill; None unless
     legislation.enabled."""

@@ -710,6 +710,9 @@ constitution:
                               #   - {tick: 40, article: institutions.presidential_method, value: borda}
   amendment_threshold: 0.5    # part de la chambre qui doit voter oui (strictement plus que) pour
                               #   ratifier un amendement -- 0.5 à 0.9. Un article lui-même.
+  referendum: never           # les citoyens confirment-ils un changement de mode de scrutin ratifié par la
+                              #   chambre ? never, petition (si assez de perdants signent : petition.
+                              #   signature_threshold), always. Un article lui-même (ADR-020).
   entrenched:                 # articles qui exigent plus que amendment_threshold : {article: seuil}
     institutions.presidential_method: 0.6
     constitution.amendment_threshold: 0.75

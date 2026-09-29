@@ -58,6 +58,7 @@ const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
   constitution_amended: ['constitution', 'amended'],
   amendment_proposed: ['constitution', 'amendment'],
   amendment_resolved: ['constitution', 'amendment'],
+  referendum_held: ['constitution', 'amendment'],
 };
 
 export interface TermInput {

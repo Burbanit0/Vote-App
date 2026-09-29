@@ -54,7 +54,7 @@ from typing import Any, Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
-from api.domain.polity.amendments import constitution_text, proposal_closed, ratified
+from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count
 from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
@@ -133,6 +133,7 @@ from api.domain.polity.events import (
     AgentTurn,
     AmendmentProposed,
     AmendmentResolved,
+    ReferendumHeld,
     AmendmentVote,
     ConstitutionAmended,
     ForumPost,
@@ -860,6 +861,7 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
             ),
         ))
     passed = ratified(yes, len(members), proposal.threshold) and broken_rule(amended(config, proposal.article, proposal.value)) is None
+    passed = passed and _referendum(context, state, proposal)
     context.journal.write_event(tick=context.tick, citizen_id=None, event=AmendmentResolved(
         article=proposal.article, value=proposal.value, yes=yes, members=len(members), threshold=proposal.threshold, ratified=int(passed),
     ))
@@ -872,6 +874,33 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
     context.journal.write_event(tick=context.tick, citizen_id=None, event=ConstitutionAmended(
         article=proposal.article, old=old, new=proposal.value, version=state.constitution.version, source="vote",
     ))
+
+
+def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str]]) -> None:
+    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens."""
+    if config.agents.amendments and counted:
+        state.last_ballots = counted
+
+
+def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:
+    """ADR-020: whether the citizens let a ratified change of voting method stand. They vote when
+    the constitution asks for it, or when the share who would have preferred the old method's winner
+    reaches the petition threshold; the vote counts the last election's ballots under both methods."""
+    config, ballots = context.config, state.last_ballots
+    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never" or not ballots:
+        return True
+    counted = referendum_count(ballots, config.institutions.presidential_method, proposal.value)
+    if counted is None:
+        return True
+    yes, no = counted
+    petitioned = no >= config.petition.signature_threshold * len(ballots)
+    if config.constitution.referendum == "petition" and not petitioned:
+        return True
+    context.journal.write_event(tick=context.tick, citizen_id=None, event=ReferendumHeld(
+        article=proposal.article, value=proposal.value, trigger="required" if config.constitution.referendum == "always" else "petition",
+        yes=yes, no=no, passed=int(yes > no),
+    ))
+    return yes > no
 
 
 def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
@@ -1005,10 +1034,12 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         # checkpoint) from the campaign's first tick until the election consumes it here.
         staggered = state.pending_rerun is None and state.staggered_declared_cids is not None
         legislature = state.legislature
+        counted: list[list[str]] = []
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
-            policy=_term_policy_record(legislature),
+            policy=_term_policy_record(legislature), ballots_out=counted,
         )
+        _keep_ballots(state, config, counted)
         state.staggered_declared_cids = None
         if legislature is not None and current_office_holders(state.citizens, Office.PRESIDENT):
             legislature.policy_at_term_start = legislature.policy  # a president was elected this tick
@@ -2049,7 +2080,9 @@ def _hold_presidential_election(
     *,
     staggered: bool = False,
     policy: PolicyRecord | None = None,
+    ballots_out: list[list[str]] | None = None,
 ) -> PendingRerun | None:
+    # `ballots_out` (ADR-020): when given, receives the ballots this election counted.
     # `staggered` (S4.4): this election's campaign already declared, nominated and
     # positioned (_run_staggered_campaign), so its field is every citizen holding
     # Role.CANDIDATE and nothing is decided again here.
@@ -2114,6 +2147,8 @@ def _hold_presidential_election(
         ballots, abstained = _presidential_ballots(
             citizens, nominees, config, journal, tick, llm_client, _judged_incumbent(citizens, incumbent_id, config, policy),
         )
+        if ballots_out is not None:
+            ballots_out[:] = ballots
 
         # v4 Lot 9 (§6bis.2): the deterministic-enclave threshold check --
         # no LLM, no RNG, just the ballots already built above. A forced

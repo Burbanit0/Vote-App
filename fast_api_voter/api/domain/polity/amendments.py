@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+from api.domain.polity.ballot_and_aggregation import get_presidential_winner
 from api.domain.polity.config import ARTICLES, Article, PolityConfig, amended, broken_rule
 from api.domain.polity.constitution import Constitution, article_value, threshold_for
 from api.domain.polity.llm_client import LlmResponseError
@@ -77,3 +78,18 @@ def validate_amendment(proposal: AmendmentProposal, config: PolityConfig) -> Non
 def ratified(yes: int, members: int, threshold: float) -> bool:
     """More than `threshold` of all members voted yes; a member who did not vote counts against."""
     return yes > threshold * members
+
+
+def referendum_count(ballots: list[list[str]], old: str, new: str) -> tuple[int, int] | None:
+    """The last election's ballots re-counted under both methods: how many citizens ranked the
+    new method's winner above the old one's (yes), and how many the reverse (no). None when both
+    methods elect the same person, so the change would have altered nothing."""
+    before, after = get_presidential_winner(ballots, old), get_presidential_winner(ballots, new)
+    if before == after:
+        return None
+    gaps = [_rank(b, after) - _rank(b, before) for b in ballots]
+    return sum(gap < 0 for gap in gaps), sum(gap > 0 for gap in gaps)
+
+
+def _rank(ballot: list[str], label: str | None) -> int:
+    return ballot.index(label) if label in ballot else len(ballot)

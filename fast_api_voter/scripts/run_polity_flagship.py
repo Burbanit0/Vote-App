@@ -252,13 +252,15 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     (ADR-015); the flagship's chamber is already on. Phase 3: the chamber and the recent petition launchers post on a forum (ADR-016) and may change
     their minds there, on a population whose views also drift toward their neighbours' (ADR-012, ADR-017).
     Phase 4.1: they may also join, leave or found a party (ADR-018). Phase 4.2: party
-    leaders negotiate the coalition in place of the collapsed crowd batch (ADR-019)."""
+    leaders negotiate the coalition in place of the collapsed crowd batch (ADR-019). Phase 4.3: the citizens vote on a
+    voting-method change when enough of them petition against it (ADR-020)."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
         vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
+        constitution=dataclasses.replace(config.constitution, referendum="petition"),
         agents=dataclasses.replace(
             config.agents, president=config.llm.enabled, nominees=config.llm.enabled, amendments=config.llm.enabled,
             forum=config.llm.enabled, coalition=config.llm.enabled, stance_step=0.25 if config.llm.enabled else 0.0,

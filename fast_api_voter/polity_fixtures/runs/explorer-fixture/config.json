@@ -51,6 +51,7 @@
       "constitution.amendment_threshold": 0.75,
       "institutions.presidential_method": 0.6
     },
+    "referendum": "never",
     "scripted": []
   },
   "dynamics": {

@@ -149,6 +149,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "dynamics_rng": "dynamics_rng_state",
     "legislature": "legislature",
     "constitution": "constitution",
+    "last_ballots": "last_ballots",
 }
 """TickState field -> checkpoint JSON key."""
 
@@ -179,7 +180,13 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         **({"legislature": _legislature_to_dict(state.legislature)} if state.legislature is not None else {}),
         # ADR-015: likewise only once the constitution was amended or an amendment proposed.
         **({"constitution": _constitution_to_dict(state.constitution)} if state.constitution is not None else {}),
+        # ADR-020: likewise only once an election left ballots to keep.
+        **_set_only(last_ballots=state.last_ballots),
     }
+
+
+def _set_only(**fields: Any) -> dict[str, Any]:
+    return {key: value for key, value in fields.items() if value is not None}
 
 
 def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
@@ -203,6 +210,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
         constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,
+        last_ballots=payload.get("last_ballots"),
     )
 
 
