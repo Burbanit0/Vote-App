@@ -55,6 +55,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-026](#obs-026) | The develop→polity sync of 2026-09-27 changes what Kemeny-Young and majority judgment return | 2026-09-27 | recorded |
 | [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
 | [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
+| [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | open |
 
 ---
 
@@ -1353,3 +1354,40 @@ above, measured as above.
 *Status: fixed* on `feat/polity-memory-without-own-speech`: `AgentMemory` leaves an agent's own
 past speeches out.
 
+### OBS-029
+
+**No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns.**
+
+*Seen.* Three live runs of the exploration profile after ADR-021 (Qwen3-8B-AWQ, 8 years, p100, 15 chamber
+seats, seeds 1-3, about 2 h 20 min each, `~/Documents/Dev/polity-runs/phase4/eng-8y-p100-seed{1,2,3}`).
+Phase 4's exit asks for a party count that changes in at least 30% of seeds. It changed in none.
+
+| | seed 1 | seed 2 | seed 3 |
+|---|---:|---:|---:|
+| forum posts | 519 | 533 | 538 |
+| `party_move` other than none (applied by the kernel) | 0 | 0 | 1 (a `join 2`) |
+| parties founded / dissolved | 0 / 0 | 0 / 0 | 0 / 0 |
+
+- **The kernel is not what refuses.** In seed 3's call log the model answered `none` 545 times and
+  `join` 4 times, and never `found`. The co-founder rule (`parties.founding_ratio`, 5% of the citizens)
+  never came into play.
+- **Seed 2 amended the rule and still nothing happened.** At tick 4 the president proposed lowering
+  `parties.founding_ratio` from 0.05 to 0.02 ("encourages more parties ... benefits my party's
+  strategy"); the chamber ratified it 14 to 15, and no citizen founded a party afterwards.
+- **The prompt leans toward staying put.** `forum_system_prompt` says a new party "only holds if enough
+  citizens side with you" and "Most turns change nothing". An 8B model reads that as a reason to answer none.
+- **Other Phase 4 measures, for the record.** Engagement moves as designed: up to 23 citizens disengaged
+  and 20 exited, rising with the number of recalls. The limit-testing log (`other_initiative`, 6-9 entries
+  per seed) asks only for things inside the rules: the term limit, the electoral threshold, the recall floor,
+  assembly seats. No extra-legal act appears.
+
+*Cause.* Not yet isolated. Candidates: the two prompt phrases above; a roster that shows every citizen a
+party close to them; forum turns going only to the 100 citizens the 15-seat chamber and petition launchers
+promote, not to the ones most at odds with every party.
+
+*What would settle it.*
+- A run that drops the two phrases, or shows a citizen how far they stand from their own party's platform.
+- A run that offers `found` only to citizens whose distance to every party is above a threshold.
+- Ten seeds, not three: three cannot separate a prompt effect from luck.
+
+*Status: open.*
