@@ -56,6 +56,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
 | [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
 | [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | fixed |
+| [OBS-030](#obs-030) | The chamber voted yes on 95% of amendments, the president's own included, because the ballot said nothing of who asked | 2026-09-30 | fixed |
 
 ---
 
@@ -1397,3 +1398,36 @@ the 8-year baseline above (0 founds in about 1,590 posts):
 
 *Status: fixed* on `feat/polity-party-prompt`: `forum_system_prompt` uses the `neutral` wording. Three seeds
 is a case study; the 10-seed ensemble comes with the Phase 4 exit measurement.
+
+### OBS-030
+
+**The chamber voted yes on 95% of amendments, the president's own included, because the ballot said nothing of who asked.**
+
+*Seen.* Across the four amendment votes in the OBS-029 runs, 57 of 60 ballots were yes and every proposal was
+ratified, among them the president's own lowering of `parties.founding_ratio` (14 of 15). The ballot showed the
+proposal and the proposer's reason, not their party, approval or term.
+
+*Cause.* Measured offline on the local Qwen3-8B-AWQ: 30 real citizens (the OBS-029 seed-2 checkpoint) each
+voted on 6 synthetic proposals at temperature 0.6, with the ballot as it was (`old`) and with one added line
+(`new`): "The president belongs to party 2; their approval is 35%, with 4 ticks left in their term, and they
+cannot run again." The line is constant across the six proposals.
+
+| proposals | yes, `old` | yes, `new` |
+|---|---:|---:|
+| self-serving (third term; recall floor 0.05; petition threshold 0.5) | 67 / 90 (74%) | 42 / 90 (47%) |
+| - third term alone | 24 / 30 | 2 / 30 |
+| neutral (electoral threshold 0.03; founding ratio 0.03) | 55 / 60 (92%) | 53 / 60 (88%) |
+| in the public's favour (petition threshold 0.15) | 27 / 30 (90%) | 27 / 30 (90%) |
+
+- **The facts do the work.** With the proposer's standing and term in view, the chamber turns against the
+  proposals that serve the president and leaves the others alone. No line says that a proposal benefits anyone.
+- **One scenario.** The proposer is always a 35%-approval president in their last term; the effect at other
+  standings is untested, and the test is 30 members on synthetic proposals, not a run.
+- **The forum wording, same harness (100 citizens, empty feed).** The original wording: 0 founds. The merged
+  `neutral` wording (OBS-029): 18 founds and 3 joins. A wording stating the co-founder rule ("founded only if
+  at least 5% of the citizens, you included, stand nearer to your positions than to their own party's platform"):
+  0 founds. Telling the model what founding takes stops it; the `neutral` wording stays, though it nudges.
+
+*Status: fixed* on `feat/polity-agent-prompts`: the ballot carries `proposer_line`. The president prompt's act
+is now introduced as "One more act is open to you, and the constitution forbids it", where it read "You may
+also break the rules".

@@ -19,6 +19,7 @@ from api.domain.polity.agents import (
     decide_ballot,
     decide_turn,
     president_system_prompt,
+    proposer_line,
     validate_turn,
     PRESIDENT_TURN,
 )
@@ -177,6 +178,15 @@ def test_a_ballot_shows_the_proposal_the_threshold_and_what_the_member_remembers
     assert "drawn by lot" in system and articles_text(_CONFIG) in system
     user = ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="MEMORY")
     assert 'from "two_round" to "borda"' in user and "more than 60% of the 30 members" in user and "fairer" in user and "MEMORY" in user
+
+
+def test_a_ballot_tells_the_member_who_asks_in_facts_and_not_whether_it_serves_them() -> None:
+    president = dataclasses.replace(_president(), party_affiliation=2)
+    line = proposer_line(president, approval=0.35, ticks_left=4, lame_duck=True)
+    assert line == "The president belongs to party 2; their approval is 35%, with 4 ticks left in their term, and they cannot run again."
+    user = ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="", proposer=line)
+    assert line in user and "benefit" not in user
+    assert line not in ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="")
 
 
 def test_a_ballot_is_a_decision_and_a_failed_one_is_no_vote() -> None:

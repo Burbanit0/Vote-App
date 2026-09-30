@@ -64,6 +64,7 @@ from api.domain.polity.agents import (
     PresidentBriefing,
     TurnOutcome,
     party_roll,
+    proposer_line,
     ballot_system_prompt,
     ballot_user_prompt,
     ballot_words,
@@ -845,6 +846,7 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
     assert client is not None and memory is not None  # agents.amendments requires llm.enabled
     members = current_sortition_members(state.citizens)
     old = article_value(config, proposal.article)
+    proposer = _proposer_line(context, state, proposal)
 
     def vote(chunk: list[Citizen]) -> TurnOutcome[AmendmentBallot]:
         [member] = chunk
@@ -852,6 +854,7 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
             member, system_prompt=ballot_system_prompt(member, config), config=config, client=client,
             user_prompt=ballot_user_prompt(
                 proposal, tick=context.tick, old=old, members=len(members), memory=memory.recall(member.citizen_id),
+                proposer=proposer,
             ),
         )
 
@@ -1307,6 +1310,16 @@ def _declares_refusal(context: TickContext, president: Citizen, turn: LeaderTurn
         isinstance(turn, ActingLeaderTurn) and turn.extra_legal == "refuse_to_leave"
         and is_term_limited(president, context.config.institutions.president_term_limit)
         and ticks_to_election(context.tick, president.term_end_tick) == 1
+    )
+
+
+def _proposer_line(context: TickContext, state: TickState, proposal: Proposal) -> str:
+    """What the chamber is told about whoever asks: their party, approval and term."""
+    president, config = state.citizens[proposal.proposer], context.config
+    return proposer_line(
+        president, approval=approval(state.citizens, president, config.vote, _term_policy_record(state.legislature)),
+        ticks_left=ticks_to_election(context.tick, president.term_end_tick),
+        lame_duck=is_term_limited(president, config.institutions.president_term_limit),
     )
 
 
