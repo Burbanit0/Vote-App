@@ -82,6 +82,10 @@ class TickState:
     """citizen_id -> targeted officeholder, from the previous tick's mobilization."""
     dynamics_rng: np.random.Generator | None = None
     """S4.3: the opinion-dynamics stream, None unless dynamics.enabled."""
+    regime_rng: np.random.Generator | None = None
+    """ADR-022: the stream that resolves an extra-legal act, None unless regime.enabled."""
+    refusal_declared: bool = False
+    """ADR-022: the president set `refuse_to_leave` on their last turn; the election resolves it."""
     legislature: Legislature | None = None
     constitution: Constitution | None = None
     """ADR-015: the amendments in force; None until the first one."""

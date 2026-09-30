@@ -147,6 +147,8 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "economy_x": "economy_x",
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
+    "regime_rng": "regime_rng_state",
+    "refusal_declared": "refusal_declared",
     "legislature": "legislature",
     "constitution": "constitution",
     "last_ballots": "last_ballots",
@@ -176,6 +178,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
         # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
         **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
+        # ADR-022: likewise only for a regime run, and the declaration only while one stands.
+        **_regime_payload(state),
         # S4.2: likewise only for a legislating run.
         **({"legislature": _legislature_to_dict(state.legislature)} if state.legislature is not None else {}),
         # ADR-015: likewise only once the constitution was amended or an amendment proposed.
@@ -183,6 +187,14 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         # ADR-020: likewise only once an election left ballots to keep.
         **_set_only(last_ballots=state.last_ballots),
     }
+
+
+def _regime_payload(state: TickState) -> dict[str, Any]:
+    rng = state.regime_rng
+    return _set_only(
+        regime_rng_state=None if rng is None else rng.bit_generator.state,
+        refusal_declared=True if state.refusal_declared else None,
+    )
 
 
 def _set_only(**fields: Any) -> dict[str, Any]:
@@ -208,6 +220,8 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
+        regime_rng=restore_rng(payload["regime_rng_state"]) if "regime_rng_state" in payload else None,
+        refusal_declared=payload.get("refusal_declared", False),
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
         constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,
         last_ballots=payload.get("last_ballots"),

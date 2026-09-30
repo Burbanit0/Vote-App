@@ -88,6 +88,7 @@ from api.domain.polity.accountability import (
     chamber_deviation,
     current_office_holders,
     current_sortition_members,
+    is_irregular,
     is_term_limited,
     launch_petition,
     mandate_deviation,
@@ -114,6 +115,7 @@ from api.domain.polity.ballot_and_aggregation import (
     resolve_confidence_vote,
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
+from api.domain.polity.regime import refusal_succeeds
 from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
@@ -161,6 +163,7 @@ from api.domain.polity.events import (
     ElectionNoWinner,
     EmotionsUpdated,
     EngagementUpdated,
+    ExtraLegalAct,
     Event,
     LegislativeResult,
     LegitimacyUpdated,
@@ -239,7 +242,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
@@ -772,6 +775,7 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
         # static population, so a static run draws and checkpoints exactly as before.
         dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
+        regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
         # S4.2: policy starts at the population's per-issue median, a neutral origin.
         legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
@@ -1004,8 +1008,37 @@ def _phase_exogenous_events(context: TickContext, state: TickState) -> None:
     state.economy_x = context.exogenous.economy_x
 
 
+def _resolve_refusal(context: TickContext, state: TickState) -> bool:
+    """ADR-022: the president declared `refuse_to_leave` last tick. The kernel rolls: on success
+    they hold office another term, irregularly (one mandate past the limit, no recall), and the
+    election is not held; on failure they are removed and the election goes ahead without them.
+    True when the election is not held."""
+    config = context.config
+    declared, state.refusal_declared = state.refusal_declared, False
+    holder = next(iter(current_office_holders(state.citizens, Office.PRESIDENT)), None)
+    if (
+        not declared or holder is None or state.pending_rerun is not None or state.regime_rng is None
+        or context.election not in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
+    ):
+        return False
+    level = approval(state.citizens, holder, config.vote, _term_policy_record(state.legislature))
+    probability, success = refusal_succeeds(level, config.regime, state.regime_rng)
+    context.journal.write_event(
+        tick=context.tick, citizen_id=holder.citizen_id,
+        event=ExtraLegalAct(act="refuse_to_leave", approval=level, probability=probability, success=int(success)),
+    )
+    if not success:
+        vacate_office(holder)
+        return False
+    holder.mandates_served += 1
+    holder.term_end_tick = context.tick + config.institutions.president_term_years * config.run.ticks_per_year
+    return True
+
+
 def _phase_presidential_election(context: TickContext, state: TickState) -> None:
     tick, config, client = context.tick, context.config, context.client
+    if _resolve_refusal(context, state):
+        return
     # While a rerun is pending, the fixed presidential calendar is SUSPENDED, not
     # OR'd with the rerun tick -- see PendingRerun's own docstring for why a union
     # reintroduces a double-election pathology. This reduces to the plain
@@ -1246,6 +1279,7 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
         max_positions=config.mandate.max_response_shifts, agenda_open=agenda_closed is None, config=config, client=client,
     )
     _open_proposal(context, state, president, outcome.turn)
+    state.refusal_declared = _declares_refusal(context, president, outcome.turn)
     shifts, bill = _turn_moves(outcome.turn, stated, state.legislature, agenda_closed, config)
     president.revealed_position = apply_shifts(stated, shifts)
     context.agenda_moves = bill
@@ -1263,6 +1297,16 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
     _journal_clamped_dimensions(
         context.journal, tick=context.tick, citizen_id=president.citizen_id, decision_event="agent_turn",
         base=stated, shifts=shifts, result=president.revealed_position,
+    )
+
+
+def _declares_refusal(context: TickContext, president: Citizen, turn: LeaderTurn | None) -> bool:
+    """ADR-022: only a term-limited president, on the tick before their election, can refuse to
+    leave; the act is ignored at any other time."""
+    return (
+        isinstance(turn, ActingLeaderTurn) and turn.extra_legal == "refuse_to_leave"
+        and is_term_limited(president, context.config.institutions.president_term_limit)
+        and ticks_to_election(context.tick, president.term_end_tick) == 1
     )
 
 
@@ -3225,6 +3269,9 @@ def _run_accountability_phase(
                     citizen_id=holder.citizen_id,
                 )
                 resolve_petition(holder, tick, config.petition)
+
+        if is_irregular(holder, config.institutions.president_term_limit):  # ADR-022: no recall of a president who stayed
+            floor_fires = lost_confidence = False
 
         if floor_fires:  # step 6, floor wins the attribution
             journal.write_event(

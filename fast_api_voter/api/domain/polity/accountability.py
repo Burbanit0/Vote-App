@@ -208,6 +208,11 @@ def is_term_limited(citizen: Citizen, term_limit: int | None) -> bool:
     return term_limit is not None and citizen.mandates_served >= term_limit
 
 
+def is_irregular(citizen: Citizen, term_limit: int | None) -> bool:
+    """ADR-022: holding office past the last term the rules allow -- recalls are suspended."""
+    return term_limit is not None and citizen.mandates_served > term_limit
+
+
 def ticks_to_election(tick: int, term_end_tick: int | None) -> int | None:
     """term_end_tick - tick, or None with no sitting officeholder. Two real
     consumers (v4 Lot 6): election_proximity (which delegates here) and

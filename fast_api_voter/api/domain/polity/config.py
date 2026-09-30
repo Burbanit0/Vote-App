@@ -715,6 +715,22 @@ class AgentsConfig:
 
 
 @dataclass(frozen=True)
+class RegimeConfig:
+    """ADR-022: the president's extra-legal act, refusing to leave at the end of the last
+    term the rules allow. The kernel resolves it, once, with `regime_rng`: success with
+    probability logistic(support_weight * (approval - 0.5) + loyalty_weight * (1 - 2 * loyalty)
+    - severity_weight * severity). `loyalty` is the share of the state's servants who obey the
+    constitution over the president; failure removes the president and bars them for good."""
+
+    enabled: bool = False
+    loyalty: float = 0.8
+    support_weight: float = 6.0
+    loyalty_weight: float = 3.0
+    severity_weight: float = 2.0
+    severity: float = 0.5
+
+
+@dataclass(frozen=True)
 class PolityConfig:
     """The typed v0 view of polity_config.yaml, plus the full raw mapping
     (`raw`) so a later palier can read its own not-yet-typed section without
@@ -746,6 +762,7 @@ class PolityConfig:
     agents: AgentsConfig
     constitution: ConstitutionConfig
     raw: dict[str, Any]
+    regime: RegimeConfig = field(default_factory=RegimeConfig)
 
 
 def _parse_run(raw: dict[str, Any]) -> RunConfig:
@@ -912,6 +929,18 @@ def _parse_dynamics(raw: dict[str, Any]) -> DynamicsConfig:
         influence_step=_get_ratio(s, "dynamics", "influence_step"),
         confidence_bound=_get_nonneg_float(s, "dynamics", "confidence_bound"),
         drift_std=_get_nonneg_float(s, "dynamics", "drift_std"),
+    )
+
+
+def _parse_regime(raw: dict[str, Any]) -> RegimeConfig:
+    s = _section(raw, "regime")
+    return RegimeConfig(
+        enabled=_get(s, "regime", "enabled", bool),
+        loyalty=_get_ratio(s, "regime", "loyalty"),
+        support_weight=_get_nonneg_float(s, "regime", "support_weight"),
+        loyalty_weight=_get_nonneg_float(s, "regime", "loyalty_weight"),
+        severity_weight=_get_nonneg_float(s, "regime", "severity_weight"),
+        severity=_get_ratio(s, "regime", "severity"),
     )
 
 
@@ -1317,6 +1346,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "the social graph, so without one the step would silently do nothing"
     ) if c.dynamics.enabled and c.dynamics.influence_step > 0 and not c.social_graph.enabled else None,
     lambda c: (
+        "'regime.enabled' requires 'agents.amendments' (the act is a field of the president's turn) "
+        "and a finite 'institutions.president_term_limit' (else there is no last term to refuse to leave)"
+    ) if c.regime.enabled and not (c.agents.amendments and c.institutions.president_term_limit is not None) else None,
+    lambda c: (
         "'emotions.enabled' requires 'awakening.enabled' (S4.3): emotions act through the awakening "
         "gate and the pressure rule, so with nobody consulted they are a silently dead experiment"
     ) if c.emotions.enabled and not c.awakening.enabled else None,
@@ -1464,6 +1497,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         ),
         constitution=_parse_constitution(raw),
         raw=raw,
+        regime=_parse_regime(raw),
     )
     validate_config(config)
     return config
