@@ -207,6 +207,14 @@
     "mobilization_enabled": true,
     "petition_enabled": true
   },
+  "regime": {
+    "enabled": false,
+    "loyalty": 0.8,
+    "loyalty_weight": 3.0,
+    "severity": 0.5,
+    "severity_weight": 2.0,
+    "support_weight": 6.0
+  },
   "run": {
     "duration_years": 3,
     "population_size": 40,

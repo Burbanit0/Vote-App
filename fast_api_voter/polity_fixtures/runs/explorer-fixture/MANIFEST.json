@@ -1,11 +1,11 @@
 {
-  "config_hash": "4e24378725329a677e8af7315252235b9cd8af057195baa3b7e8601a75bec0d6",
+  "config_hash": "23ff7efab8c55a8f447fde2bb5a6cb90c03ff2b0a0d50121ec5e70562de10f84",
   "files": {
-    "checkpoint.json": "b58169d7e228107b1e34a19fc337d4e49d7a68d338c8769211bac9d8a86d5e4a",
-    "config.json": "fdc82a94af492a94d34cfade2926be028378ce695cea87ee536024eeea70fc7d",
+    "checkpoint.json": "c8cbc316d0310493fb339d5fd50518757863ce08fd93ca5bc6543ef18388ac1b",
+    "config.json": "53f2fb4ce523e801b8afca7216a38eb10185f3deb0fb9b6ee2d1be7b8cfaf60d",
     "events.jsonl": "aa471fd2a385948bf47c73f4d65b26b8d65b3a420a490d643d6cf8c4db3d3395",
     "progress.json": "819b01c07b16a69d04bfd48b70eded267234590304a501e23ed916f616ca87c6",
-    "run_metadata.json": "5b06e60d78de7ec4cb671aee5a9badf25949b71c0e9f9b0a90e045b87d20ade6",
+    "run_metadata.json": "cfa5438ac9eede7f9252c53f1e13442f7146bb2604ad590c15ddd3ac71363da7",
     "snapshots.jsonl": "01ad1eda385524b9c8ae8f563ee3734477bde407cfcb583d1c7ab7de3260b7dc"
   },
   "run_id": "explorer-fixture"

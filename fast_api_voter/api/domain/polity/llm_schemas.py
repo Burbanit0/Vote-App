@@ -392,6 +392,15 @@ class AmendingLeaderTurn(LeaderTurn):
 AMENDING_LEADER_TURN_JSON_SCHEMA = AmendingLeaderTurn.model_json_schema()
 
 
+class ActingLeaderTurn(AmendingLeaderTurn):
+    """A leader's turn where the president may also refuse to leave office (regime.enabled, ADR-022)."""
+
+    extra_legal: Literal["none", "refuse_to_leave"] = "none"
+
+
+ACTING_LEADER_TURN_JSON_SCHEMA = ActingLeaderTurn.model_json_schema()
+
+
 class AmendmentBallot(BaseModel):
     """A chamber member's vote on a proposed amendment, in their own words."""
 
