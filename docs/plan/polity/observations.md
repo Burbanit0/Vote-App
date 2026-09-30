@@ -55,7 +55,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-026](#obs-026) | The develop→polity sync of 2026-09-27 changes what Kemeny-Young and majority judgment return | 2026-09-27 | recorded |
 | [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
 | [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
-| [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | open |
+| [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | fixed |
 
 ---
 
@@ -1381,13 +1381,19 @@ Phase 4's exit asks for a party count that changes in at least 30% of seeds. It 
   per seed) asks only for things inside the rules: the term limit, the electoral threshold, the recall floor,
   assembly seats. No extra-legal act appears.
 
-*Cause.* Not yet isolated. Candidates: the two prompt phrases above; a roster that shows every citizen a
-party close to them; forum turns going only to the 100 citizens the 15-seat chamber and petition launchers
-promote, not to the ones most at odds with every party.
+*Cause.* The prompt. Two arms on 3 seeds each (3 years, p100, `~/Documents/Dev/polity-runs/phase4b/`), against
+the 8-year baseline above (0 founds in about 1,590 posts):
 
-*What would settle it.*
-- A run that drops the two phrases, or shows a citizen how far they stand from their own party's platform.
-- A run that offers `found` only to citizens whose distance to every party is above a threshold.
-- Ten seeds, not three: three cannot separate a prompt effect from luck.
+| arm | wording | parties founded (seeds 1 / 2 / 3) | posts | `found` answers |
+|---|---|---|---:|---:|
+| `neutral` | drops the two phrases; founding is "a legitimate way to be heard" | 0 / 1 / 1 | 611 | 18 |
+| `invite` | `neutral` plus each citizen's nearest party and where it differs most | 0 / 1 / 0 | 610 | 5 |
 
-*Status: open.*
+- **The wording alone moves the model.** `neutral` founded a party in 2 of 3 seeds, which meets the exit.
+- **Showing the gap did not help.** `invite` founded in 1 of 3 and cost a prompt line per turn, so it was dropped.
+- **The kernel is now the limit.** In seed 3 the model asked to found 15 times and one attempt held: the
+  co-founder rule turns the rest away. That is the rule working, not a defect.
+- **No fallbacks** in any of the six runs. No party was dissolved within 3 years.
+
+*Status: fixed* on `feat/polity-party-prompt`: `forum_system_prompt` uses the `neutral` wording. Three seeds
+is a case study; the 10-seed ensemble comes with the Phase 4 exit measurement.

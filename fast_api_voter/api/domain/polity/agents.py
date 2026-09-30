@@ -628,8 +628,8 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
         f"leave it empty to keep silent. \"note_to_self\" is what you want to remember (at most {NOTE_LIMIT})."
         + (
             " You may also change party: \"party_move\" is \"join\" (with the party's number as \"party_id\"), \"leave\" (to sit "
-            "as an independent) or \"found\" (a new party on your own convictions, which only holds if enough citizens side "
-            "with you); otherwise \"none\" and -1. Most turns change nothing."
+            "as an independent) or \"found\" (a new party on your own convictions); if none of the existing parties speaks for "
+            "you, founding your own is a legitimate way to be heard. Otherwise \"none\" and -1."
             if config.agents.party_moves else " Set \"party_move\" to none and \"party_id\" to -1."
         )
         + (
