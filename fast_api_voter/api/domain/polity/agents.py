@@ -39,11 +39,13 @@ from api.domain.polity.llm_behavior_engine import (
 )
 from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, _decode_batch
 from api.domain.polity.llm_schemas import (
+    ACTING_LEADER_TURN_JSON_SCHEMA,
     AMENDING_LEADER_TURN_JSON_SCHEMA,
     AMENDMENT_BALLOT_JSON_SCHEMA,
     FORUM_TURN_JSON_SCHEMA,
     LEADER_COALITION_TURN_JSON_SCHEMA,
     LEADER_TURN_JSON_SCHEMA,
+    ActingLeaderTurn,
     AmendingLeaderTurn,
     AmendmentBallot,
     CoalitionDecision,
@@ -284,6 +286,16 @@ def _amendment_rules(config: PolityConfig) -> str:
     )
 
 
+def _regime_rules(config: PolityConfig) -> str:
+    return (
+        "You may also break the rules. In the last tick of your final term, set \"extra_legal\" to "
+        "\"refuse_to_leave\" (otherwise \"none\") and you will not hand over office when the election is held. "
+        "Whether you stay is not up to you: it depends on how many citizens still stand behind you and on whether "
+        "the servants of the state obey you or the constitution. If you stay, you hold office for another term and "
+        "can no longer be recalled. If you fail, you are removed at once."
+    )
+
+
 def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     """The rules the president acts under and who they are; nothing tick-dependent, so the
     whole prompt is a stable prefix. It states the rules and never says what to do (C4)."""
@@ -314,6 +326,8 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
         )
     if config.agents.amendments:
         rules.append(_amendment_rules(config))
+    if config.regime.enabled:
+        rules.append(_regime_rules(config))
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(president)}\n\n"
@@ -538,10 +552,14 @@ def decide_turn(
 ) -> TurnOutcome[LeaderTurn]:
     """A leader's turn. The president's may carry an amendment when the polity can amend itself."""
     amending = config.agents.amendments and decision_type == PRESIDENT_TURN
-    model = AmendingLeaderTurn if amending else LeaderTurn
+    model, schema = (
+        (ActingLeaderTurn, ACTING_LEADER_TURN_JSON_SCHEMA) if amending and config.regime.enabled
+        else (AmendingLeaderTurn, AMENDING_LEADER_TURN_JSON_SCHEMA) if amending
+        else (LeaderTurn, LEADER_TURN_JSON_SCHEMA)
+    )
     return decide(
         agent, decision_type=decision_type, system_prompt=system_prompt, user_prompt=user_prompt,
-        json_schema=AMENDING_LEADER_TURN_JSON_SCHEMA if amending else LEADER_TURN_JSON_SCHEMA, config=config, client=client,
+        json_schema=schema, config=config, client=client,
         decode=lambda raw: _validated(
             decode_one(raw, model), lambda t: validate_turn(t, config, max_positions=max_positions, agenda_open=agenda_open),
         ),

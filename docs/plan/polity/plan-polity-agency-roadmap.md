@@ -182,6 +182,8 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 
 ### Phase 5: Extra-legal acts
 
+**5.1 (ADR-022, built): `refuse_to_leave`.** Only the act the log points at (presidents proposing to lift the term limit); resolved with `regime_rng`, loyalty a constant, recalls suspended while irregular. `postpone_election`, `insurrection`, the drift of Λ and the way out of an irregular regime are still to do.
+
 **Which acts.** Build first the acts that agents actually attempted in the limit-testing log. The likely ones are `refuse_to_leave`, `postpone_election` and `insurrection`. Each act has a severity σ.
 
 **Resolution.** The kernel resolves each act with a new seeded `regime_rng`:
@@ -198,7 +200,7 @@ P(success) = logistic(a·(S − 0.5) + b·(Λ_for − Λ_against) − c·σ)
 - An irregular regime ends either through a constituent process (Phase 2 plus the Phase 4 referendum) or through a counter-uprising.
 - On failure, the author is removed from office and barred from holding it again.
 
-ADR-022 is written in this phase (ADR-018 to the mutable parties of 4.1, ADR-019 to the leaders' coalition talks of 4.2, ADR-020 to the referendum of 4.3, ADR-021 to the engagement of 4.4).
+ADR-022 (5.1) is the first of this phase; ADR-018 to ADR-021 cover 4.1 to 4.4 (mutable parties, leaders' coalition talks, referendum, engagement).
 
 ### Observatory
 

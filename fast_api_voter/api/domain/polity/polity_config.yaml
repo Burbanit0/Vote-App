@@ -719,3 +719,15 @@ constitution:
   entrenched:                 # articles qui exigent plus que amendment_threshold : {article: seuil}
     institutions.presidential_method: 0.6
     constitution.amendment_threshold: 0.75
+
+# =============================================================================
+# RÉGIME : ACTES EXTRA-LÉGAUX (ADR-022)
+# =============================================================================
+regime:
+  enabled: false                # requiert agents.amendments et president_term_limit
+                                #   fini : le président peut refuser de partir à la fin de son dernier mandat
+  loyalty: 0.8                  # part des serviteurs de l'État qui obéissent à la constitution
+  support_weight: 6.0           # P(succès) = logistique(support_weight x (approbation - 0.5)
+  loyalty_weight: 3.0           #   + loyalty_weight x (1 - 2 x loyalty) - severity_weight x severity)
+  severity_weight: 2.0
+  severity: 0.5                 # gravité de l'acte, 0 à 1

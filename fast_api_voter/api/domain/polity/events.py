@@ -505,6 +505,20 @@ class EngagementUpdated(Event):
     exited: int
 
 
+@dataclass(frozen=True, kw_only=True)
+class ExtraLegalAct(Event):
+    """The president refused to leave at the end of their last term, and the kernel resolved it
+    (regime.py, ADR-022): `success` 1 keeps them in office for another term, irregularly; 0
+    removes them."""
+
+    EVENT_TYPE = "extra_legal_act"
+    INSTITUTIONAL = True
+    act: str
+    approval: float
+    probability: float
+    success: int
+
+
 # ── agents (ADR-014) ──────────────────────────────────────────────────────
 
 @dataclass(frozen=True, kw_only=True)
@@ -655,7 +669,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld, EngagementUpdated,
+    ReferendumHeld, EngagementUpdated, ExtraLegalAct,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}
