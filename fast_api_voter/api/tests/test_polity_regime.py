@@ -94,3 +94,14 @@ def test_a_president_who_refuses_and_loses_the_roll_is_replaced_at_that_election
     assert (first["tick"], first["payload"]["success"]) == (4, 0)
     [at_four] = [e for e in _of(events, "elected") if e["tick"] == 4]
     assert at_four["citizen_id"] != first["citizen_id"]
+
+
+def test_the_president_is_told_of_the_act_only_where_the_regime_is_on_and_it_is_not_framed_as_a_good_idea() -> None:
+    from api.domain.polity.agents import president_system_prompt
+    from api.tests.test_polity_agents import _president
+
+    config = _regime_config(Path("."), SURE)
+    on = president_system_prompt(_president(), config)
+    assert "refuse_to_leave" in on and "the constitution forbids it" in on and "removed at once" in on
+    off = president_system_prompt(_president(), dataclasses.replace(config, regime=RegimeConfig()))
+    assert "refuse_to_leave" not in off

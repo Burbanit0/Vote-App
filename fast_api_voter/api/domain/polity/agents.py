@@ -288,8 +288,8 @@ def _amendment_rules(config: PolityConfig) -> str:
 
 def _regime_rules(config: PolityConfig) -> str:
     return (
-        "You may also break the rules. In the last tick of your final term, set \"extra_legal\" to "
-        "\"refuse_to_leave\" (otherwise \"none\") and you will not hand over office when the election is held. "
+        "One more act is open to you, and the constitution forbids it: in the last tick of your final term, set "
+        "\"extra_legal\" to \"refuse_to_leave\" (otherwise \"none\") and you will not hand over office when the election is held. "
         "Whether you stay is not up to you: it depends on how many citizens still stand behind you and on whether "
         "the servants of the state obey you or the constitution. If you stay, you hold office for another term and "
         "can no longer be recalled. If you fail, you are removed at once."
@@ -605,11 +605,20 @@ def ballot_system_prompt(member: Citizen, config: PolityConfig) -> str:
     )
 
 
-def ballot_user_prompt(proposal: Proposal, *, tick: int, old: Any, members: int, memory: str) -> str:
+def proposer_line(president: Citizen, *, approval: float, ticks_left: int | None, lame_duck: bool) -> str:
+    """Who asks the chamber, in facts a member can weigh for themselves (ADR-015 leaves the vote theirs)."""
+    party = f"party {president.party_affiliation}" if president.party_affiliation is not None else "no party"
+    term = "no set end to their term" if ticks_left is None else f"{ticks_left} ticks left in their term"
+    again = "cannot run again" if lame_duck else "may run again"
+    return f"The president belongs to {party}; their approval is {approval:.0%}, with {term}, and they {again}."
+
+
+def ballot_user_prompt(proposal: Proposal, *, tick: int, old: Any, members: int, memory: str, proposer: str = "") -> str:
+    who = f"{proposer}\n" if proposer else ""
     return (
         f"Tick {tick}. The president (citizen {proposal.proposer}) proposed at tick {proposal.tick} to change "
         f"{proposal.article} -- {ARTICLES[proposal.article].summary} -- from {value_text(old)} to "
-        f"{value_text(proposal.value)}.\nTheir reason: \"{proposal.reason}\"\n"
+        f"{value_text(proposal.value)}.\n{who}Their reason: \"{proposal.reason}\"\n"
         f"It is ratified if more than {proposal.threshold:.0%} of the {members} members vote yes.\n\n"
         f"{memory}\n\nYour vote."
     )
