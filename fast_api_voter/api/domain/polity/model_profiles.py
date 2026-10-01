@@ -127,6 +127,18 @@ GEMMA_4_12B_QAT_VLLM = replace(
     measured=False,
 )
 
+# The H100 probe (docker-compose.llm-h100.yml): Qwen3.8-27B in the official FP8 checkpoint. Its chat template reads
+# the same `enable_thinking` switch as Qwen3's (checked in chat_template.jinja, 2026-09-30). It inherits the AWQ
+# profile's chunk sizes and budgets, never measured on these weights: bake-off sessions only. The one deliberate
+# difference is `context_limit`, which tracks the larger --max-model-len the 80 GB card is served with.
+QWEN3_8_27B_FP8_VLLM = replace(
+    QWEN3_8B_AWQ_VLLM,
+    model="qwen3.8:27b",
+    weights="Qwen/Qwen3.8-27B-FP8",
+    context_limit=32768,
+    measured=False,
+)
+
 QWEN3_8B_OLLAMA = ModelProfile(
     provider="ollama",
     model="qwen3:8b",
@@ -149,7 +161,8 @@ QWEN3_8B_OLLAMA = ModelProfile(
 PROFILES: dict[tuple[str, str], ModelProfile] = {
     (profile.provider, profile.model): profile
     for profile in (
-        QWEN3_8B_AWQ_VLLM, QWEN3_8B_NVFP4A16_VLLM, GRANITE_4_2_8B_NVFP4_VLLM, GEMMA_4_12B_QAT_VLLM, QWEN3_8B_OLLAMA,
+        QWEN3_8B_AWQ_VLLM, QWEN3_8B_NVFP4A16_VLLM, GRANITE_4_2_8B_NVFP4_VLLM, GEMMA_4_12B_QAT_VLLM,
+        QWEN3_8_27B_FP8_VLLM, QWEN3_8B_OLLAMA,
     )
 }
 

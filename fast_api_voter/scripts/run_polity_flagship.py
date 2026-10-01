@@ -129,6 +129,7 @@ def _flagship_config(
     reproducibility: str = "strict",
     vote_mode: str | None = None,
     profile: str = "flagship",
+    base_url: str | None = None,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -225,11 +226,14 @@ def _flagship_config(
             # single source of truth for which provider production uses --
             # this override exists to time the OTHER one, not to make the
             # choice configurable per run.
-            base_url = {
+            provider_url = {
                 "vllm": "http://localhost:8000/v1",
                 "ollama": "http://localhost:11434/v1",
             }[provider]
-            llm = dataclasses.replace(llm, provider=provider, base_url=base_url)
+            llm = dataclasses.replace(llm, provider=provider, base_url=provider_url)
+        if base_url is not None:
+            # A server that is not on localhost: an SSH-tunnelled rented GPU, or another port.
+            llm = dataclasses.replace(llm, base_url=base_url)
         if model is not None:
             # S2.3: the name the server serves the weights under. validate_config refuses a
             # model with no profile in model_profiles.py -- its chunk sizes and thinking
@@ -478,6 +482,7 @@ def run_flagship(
     reproducibility: str = "strict",
     vote_mode: str | None = None,
     profile: str = "flagship",
+    base_url: str | None = None,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -494,6 +499,7 @@ def run_flagship(
         reproducibility=reproducibility,
         vote_mode=vote_mode,
         profile=profile,
+        base_url=base_url,
     )
     validate_config(config)
 
@@ -660,6 +666,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument(
+        "--base-url", default=None,
+        help="llm.base_url (default: the provider's localhost URL). For a rented GPU reached through an "
+             "SSH tunnel, the tunnel's local address, e.g. http://localhost:8000/v1.",
+    )
+    parser.add_argument(
         "--model", default=None,
         help="S2.3: llm.model, the served model name (default: the shipped config's). Needs a profile in "
              "api/domain/polity/model_profiles.py for the provider.",
@@ -749,6 +760,7 @@ def main(argv: list[str] | None = None) -> int:
         reproducibility=args.reproducibility,
         vote_mode=args.vote_mode,
         profile=args.profile,
+        base_url=args.base_url,
     )
     return 0
 
