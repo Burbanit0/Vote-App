@@ -1,0 +1,78 @@
+# docker-compose.llm-h100.yml — vLLM probe server for ONE 80 GB data-centre GPU (rented H100)
+#
+# Serves Qwen3.8-27B in the official FP8 checkpoint under the model profile `qwen3.8:27b`
+# (api/domain/polity/model_profiles.py). Bake-off sessions only: the profile inherits Qwen3-8B's
+# chunk sizes and thinking budgets, none of them measured on these weights.
+#
+# Same image pin and the same load-bearing flags as docker-compose.llm.yml -- read its header for why:
+#   --structured-outputs-config   xgrammar with disable_any_whitespace (fixes the endless-whitespace loop)
+#   --reasoning-parser qwen3      Qwen3.8's template emits <think>...</think> like Qwen3's (vLLM's recipe
+#                                 for this model uses the same parser)
+#   --served-model-name           llm.model must carry a ':' tag, never a bare HF repo id
+# Qwen3.8 needs vLLM >= 0.17.0 (recipes.vllm.ai/Qwen/Qwen3.8-27B); v0.30.0 is past that.
+#
+# Differences from the 16 GB file, on purpose:
+#   no --quantization              the FP8 checkpoint declares its own quantization; vLLM reads it
+#   no --speculative-config        the EAGLE-3 head is Qwen3-8B-specific. The model ships its own MTP draft
+#                                  head: a separate A/B arm, not adopted here
+#   --max-model-len 32768          the profile's context_limit; the 80 GB card holds this easily
+#   --gpu-memory-utilization 0.90  fixed, not auto-profiled (see the 16 GB file for why)
+# Qwen3.8 is multimodal (vision tower); polity sends text only.
+#
+# Rented pods (RunPod): a pod IS a container, so docker compose is not available inside it. Use the same
+# values in the pod template instead: image vllm/vllm-openai:v0.30.0, the `command` list below as the
+# container start command, a network volume mounted at /root/.cache/huggingface, port 8000 left unexposed
+# (reach it through an SSH tunnel to localhost:8000). Pick the SXM H100, not PCIe: PCIe has A100-class
+# memory bandwidth.
+#
+# Usage on a plain GPU VM:
+#   docker compose -f docker-compose.llm-h100.yml up -d
+#   python scripts/run_bakeoff.py --label h100-qwen38-27b --model qwen3.8:27b --base-url http://localhost:8000/v1
+
+name: polity-vllm-h100
+
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.30.0
+    container_name: vllm-polity
+    ports:
+      - "8000:8000"
+    ipc: host
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 600s            # first start downloads ~28 GB of weights
+    command:
+      - "--model"
+      - "Qwen/Qwen3.8-27B-FP8"
+      - "--revision"
+      - "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"   # `sha` field of /api/models/Qwen/Qwen3.8-27B-FP8, 2026-09-30
+      - "--served-model-name"
+      - "qwen3.8:27b"
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+      - "--max-model-len"
+      - "32768"
+      - "--gpu-memory-utilization"
+      - "0.90"
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+      - "--enable-prompt-tokens-details"
+
+volumes:
+  huggingface_cache:
