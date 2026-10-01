@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 import re
 from types import SimpleNamespace
 from pathlib import Path
@@ -21,13 +22,14 @@ from api.domain.polity.agents import (
     forum_user_prompt,
     forum_words,
     party_roll,
+    stand_line,
 )
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.journal import JournalEvent
 from api.domain.polity.llm_schemas import ForumTurn
 from api.domain.polity.parties import initialize_parties
 from api.domain.polity.run_polity_simulation import run_simulation
-from api.domain.polity.simple_rules import apply_party_move, assign_party_affiliation, dissolve_small_parties
+from api.domain.polity.simple_rules import apply_party_move, assign_party_affiliation, cofounders, dissolve_small_parties
 from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _president, _ScriptedClient
 
 _CONFIG = load_config()
@@ -252,6 +254,30 @@ def test_party_moves_need_the_forum_and_show_the_parties() -> None:
     assert forum_user_prompt(tick=3, member=False, feed="FEED", memory="M", roll=roll).startswith("Tick 3.\n\nThe parties:")
     with pytest.raises(ValueError, match="party_id"):
         ForumTurn(rationale="", post="", note_to_self="", shift_issue=-1, shift_direction="none", party_move="join", party_id=-1)
+
+
+def test_each_party_move_is_given_its_consequence_and_none_of_them_advice() -> None:
+    config = _forum(_CONFIG)
+    moving = dataclasses.replace(config, agents=dataclasses.replace(config.agents, party_moves=True))
+    rules = forum_system_prompt(_president(), moving).split("change party", 1)[1]
+    assert "counted among its members" in rules  # join
+    assert "counted among no party's members" in rules  # leave
+    assert "5% of the citizens stand nearer to your positions" in rules  # found, with what it needs
+    assert "holds no seats until the next legislative election" in rules  # and what it costs
+    # OBS-031: the wording this replaced advocated founding ("a legitimate way to be heard") and the
+    # neutrality harness measured the phrasing outweighing the citizen's own situation.
+    assert "legitimate" not in rules and "should" not in rules
+
+
+def test_a_citizen_is_told_how_many_would_co_found_with_them_and_how_many_the_rule_needs() -> None:
+    citizens, parties = _polity()
+    config = _forum(_CONFIG)
+    line = stand_line(citizens[0], citizens, parties, config)
+    backing = len(cofounders(citizens[0], citizens, parties))
+    assert f"{backing} of the {len(citizens)} citizens stand nearer" in line
+    assert f"founding a party needs {math.ceil(config.parties.founding_ratio * len(citizens))}" in line
+    assert "stands nearest to you" in line
+    assert line in forum_user_prompt(tick=3, member=False, feed="", memory="", stand=line)
 
 
 def test_a_founder_starts_a_party_that_the_run_keeps(tmp_path: Path) -> None:

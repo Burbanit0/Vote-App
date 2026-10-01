@@ -64,6 +64,7 @@ from api.domain.polity.agents import (
     PresidentBriefing,
     TurnOutcome,
     party_roll,
+    stand_line,
     proposer_line,
     ballot_system_prompt,
     ballot_user_prompt,
@@ -945,6 +946,7 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
                 tick=context.tick, member=cid in members, memory=memory.recall(cid),
                 feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
                 roll=roll,
+                stand=stand_line(citizen, state.citizens, state.parties, config) if config.agents.party_moves else "",
             ),
         )
 

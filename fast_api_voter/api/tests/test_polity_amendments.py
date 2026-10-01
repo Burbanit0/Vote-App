@@ -124,6 +124,21 @@ def test_a_proposal_the_articles_refuse_is_an_error(proposal: AmendmentProposal,
         validate_amendment(proposal, _CONFIG)
 
 
+@pytest.mark.parametrize(
+    ("article", "written", "value"),
+    [
+        ("institutions.president_term_limit", "null", None),  # the term limit the log asks to abolish
+        ("institutions.electoral_threshold", "0.03", 0.03),
+        ("institutions.presidential_method", "borda", "borda"),  # a string article keeps its string
+        ("institutions.president_term_limit", "nonsense", "nonsense"),  # left alone, so validate_amendment refuses it
+    ],
+)
+def test_a_value_the_model_quoted_is_read_as_the_json_literal_the_article_wants(
+    article: str, written: str, value: Any,
+) -> None:
+    assert AmendmentProposal(article=article, value=written, reason="r").value == value
+
+
 def test_a_proposal_that_breaks_the_rules_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     validate_amendment(AmendmentProposal(article=_METHOD, value="borda", reason="r"), _CONFIG)
     monkeypatch.setattr("api.domain.polity.config._CONFIG_RULES", (

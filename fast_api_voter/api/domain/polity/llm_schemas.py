@@ -23,6 +23,7 @@ belongs in llm_behavior_engine.py as plain functions, not here.
 """
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
@@ -382,6 +383,25 @@ class AmendmentProposal(BaseModel):
     value: str | int | float | None
     reason: str
 
+    @model_validator(mode="before")
+    @classmethod
+    def _decode_quoted_literal(cls, data: Any) -> Any:
+        """A value the model quoted when the article wants the JSON literal: `"null"` for None,
+        `"0.05"` for a number. The articles are shown to the model as JSON (amendments.value_text),
+        so `null` comes back as a string often enough to matter -- and until this, abolishing the
+        term limit, the amendment the limit-testing log asks for most, could not be proposed at all.
+        Only a decode that lands on a value the article allows is kept, so "borda" stays "borda"."""
+        if not isinstance(data, dict) or not isinstance(data.get("value"), str):
+            return data
+        article = ARTICLES.get(str(data.get("article")))
+        if article is None or article.allows(data["value"]):
+            return data
+        try:
+            decoded = json.loads(data["value"])
+        except ValueError:
+            return data
+        return {**data, "value": decoded} if article.allows(decoded) else data
+
 
 class AmendingLeaderTurn(LeaderTurn):
     """A leader's turn where the constitution can be amended (agents.amendments)."""
@@ -395,7 +415,10 @@ AMENDING_LEADER_TURN_JSON_SCHEMA = AmendingLeaderTurn.model_json_schema()
 class ActingLeaderTurn(AmendingLeaderTurn):
     """A leader's turn where the president may also refuse to leave office (regime.enabled, ADR-022)."""
 
-    extra_legal: Literal["none", "refuse_to_leave"] = "none"
+    # Required, not defaulted: measured on Qwen3-8B, an optional field is never filled (0 of 30
+    # final-term turns, and 0 of 98 in three 8-year runs) while a required one is (6 of 30), so a
+    # default would record "the model never saw the act" as "the model declined it".
+    extra_legal: Literal["none", "refuse_to_leave"] = Field(..., description="\"refuse_to_leave\" or \"none\".")
 
 
 ACTING_LEADER_TURN_JSON_SCHEMA = ActingLeaderTurn.model_json_schema()
