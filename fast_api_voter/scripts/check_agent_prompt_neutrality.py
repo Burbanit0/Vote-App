@@ -221,8 +221,8 @@ def _ballot_ask(
 
 _REGIME_PAIRS = (
     (
-        "One more act is open to you, and the constitution forbids it:",
         "There is one further act, outside the constitution:",
+        "One act more stands outside the constitution:",
     ),
 )
 

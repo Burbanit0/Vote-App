@@ -102,7 +102,7 @@ def test_the_president_is_told_of_the_act_only_where_the_regime_is_on_and_it_is_
 
     config = _regime_config(Path("."), SURE)
     on = president_system_prompt(_president(), config)
-    assert "refuse_to_leave" in on and "the constitution forbids it" in on and "removed at once" in on
+    assert "refuse_to_leave" in on and "outside the constitution" in on and "removed at once" in on
     # C5: the act is resolved from approval, so the rule names approval, not a synonym for it.
     assert "the higher your approval" in on
     off = president_system_prompt(_president(), dataclasses.replace(config, regime=RegimeConfig()))

@@ -1470,8 +1470,20 @@ is constant and only the odds vary -- and the kernel's odds rise with approval. 
 citizens still stand behind you" while the kernel resolves the act from `approval`, the number the briefing
 shows; naming it the same way is clause C5 of `polity-decision-contracts.md`.
 
-*Status: fixed* on `feat/polity-prompt-neutrality`: `extra_legal` is required, and `_regime_rules` names
-approval. The effect's size is inside the n=30 noise band, so it is a direction, not a magnitude.
+*What stays unfixed: this act is decided more by its phrasing than by the president's situation.* At
+n=100 per cell per wording, approval moves the refusal rate 4 points (4% at low approval, 8% at high) --
+inside the measurement's own 7-point noise band, so UNRESOLVED -- while a paraphrase that changes no fact
+moves it 9 points. Rewording therefore outweighs the state, and the harness reports WORDING as failed.
+
+Two paraphrases of the introduction drew 2 to 3 times the action of "One more act is open to you, and the
+constitution forbids it", which is the same fact told more editorially; the plainer "There is one further
+act, outside the constitution" is now shipped on that ground, not because it acts more. No wording can fix
+the underlying limit: an act taken under a tenth of the time cannot let approval outweigh phrasing noise.
+The consequence is that **a refusal rate is a fact about the prompt version as much as about the polity**,
+which is why `prompt_source_sha256` was made to cover `agents.py` (PR #712) -- the same lesson as OBS-019.
+
+*Status: fixed* on `feat/polity-prompt-neutrality` for what wording can fix: `extra_legal` is required, and
+`_regime_rules` names approval. The act's sensitivity to approval is a measured direction, not a magnitude.
 
 ### OBS-032
 
