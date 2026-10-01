@@ -12,7 +12,7 @@ import pytest
 
 from api.domain.polity.accountability import is_irregular
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.config import PolityConfigError, RegimeConfig, load_config, validate_config
+from api.domain.polity.config import PolityConfigError, RegimeConfig, validate_config
 from api.domain.polity.regime import refusal_probability, refusal_succeeds
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _turn

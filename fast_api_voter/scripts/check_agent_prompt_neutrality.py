@@ -59,7 +59,6 @@ import sys
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -81,7 +80,7 @@ from api.domain.polity.agents import (  # noqa: E402
 )
 from api.domain.polity.checkpoint import _citizen_from_dict, _party_from_dict  # noqa: E402
 from api.domain.polity.citizen import Citizen  # noqa: E402
-from api.domain.polity.config import PolityConfig, load_config, validate_config  # noqa: E402
+from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402
 from api.domain.polity.constitution import Proposal, article_value  # noqa: E402
 from api.domain.polity.llm_behavior_engine import ResponseContext  # noqa: E402
 from api.domain.polity.llm_client import LlmClientProtocol, build_json_client  # noqa: E402
