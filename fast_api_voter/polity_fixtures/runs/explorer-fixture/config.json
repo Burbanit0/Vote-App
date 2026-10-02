@@ -24,7 +24,8 @@
   },
   "campaign": {
     "max_positioning_delta": 0.3,
-    "max_positioning_shifts": 3
+    "max_positioning_shifts": 3,
+    "salience_step": 0.0
   },
   "candidacy": {
     "ambition_threshold": 0.3,

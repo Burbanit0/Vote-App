@@ -64,6 +64,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.agents import (  # noqa: E402
     PRESIDENT_TURN,
+    NOMINEE_TURN,
+    NomineeBriefing,
     PresidentBriefing,
     ballot_system_prompt,
     ballot_user_prompt,
@@ -72,6 +74,8 @@ from api.domain.polity.agents import (  # noqa: E402
     decide_turn,
     forum_system_prompt,
     forum_user_prompt,
+    nominee_system_prompt,
+    nominee_user_prompt,
     party_roll,
     stand_line,
     president_system_prompt,
@@ -256,6 +260,41 @@ def _president_ask(
     return getattr(outcome.turn, "extra_legal", "fail") if outcome.turn is not None else "fail"
 
 
+_CAMPAIGN_PAIRS = (
+    (
+        "Citizens you reach weigh that issue more heavily when they compare candidates, and the rest of their concerns proportionally less.",
+        "The issue counts for more, and their other concerns for proportionally less, when the citizens you reach compare candidates.",
+    ),
+)
+
+
+def _campaign_ask(
+    citizen: Citizen, cell: str, paraphrased: bool, config: PolityConfig, client: LlmClientProtocol,
+    *, population: list[Citizen],
+) -> str:
+    """ADR-023: what a nominee campaigns on, and who it tries to reach. The cell is the nominee's
+    standing in the poll -- behind, a campaign should look different from ahead."""
+    system = nominee_system_prompt(citizen, config)
+    if paraphrased:
+        system = _paraphrase(system, _CAMPAIGN_PAIRS)
+    rival = next(c for c in population if c.citizen_id != citizen.citizen_id)
+    mine, theirs = (0.12, 0.55) if cell == "behind in the poll" else (0.55, 0.12)
+    briefing = NomineeBriefing(
+        tick=7, field=((citizen.citizen_id, citizen.party_affiliation), (rival.citizen_id, rival.party_affiliation)),
+        poll={citizen.citizen_id: mine, rival.citizen_id: theirs}, blank=0.2, abstain=0.13,
+        platform=citizen.issue_positions, public_median=tuple(0.5 for _ in citizen.issue_positions),
+    )
+    outcome = decide_turn(
+        citizen, decision_type=NOMINEE_TURN, system_prompt=system,
+        user_prompt=nominee_user_prompt(citizen, briefing), max_positions=config.campaign.max_positioning_shifts,
+        agenda_open=False, config=config, client=client,
+    )
+    if outcome.turn is None:
+        return "fail"
+    plan = getattr(outcome.turn, "campaign", None)
+    return "none" if plan is None else plan.audience
+
+
 def _probes(citizens: list[Citizen], parties: list[Party]) -> dict[str, Probe]:
     roll = party_roll(parties, citizens)
     return {
@@ -273,6 +312,12 @@ def _probes(citizens: list[Citizen], parties: list[Party]) -> dict[str, Probe]:
             cells=("self-serving", "neutral"), state_axis="whether the proposal serves its proposer",
             paraphrase=lambda text: _paraphrase(text, _BALLOT_PAIRS),
             ask=lambda c, cell, para, cfg, cl: _ballot_ask(c, cell, para, cfg, cl, members=30),
+        ),
+        "campaign": Probe(
+            name="nominee campaign audience", options=("none", "base", "undecided"),
+            cells=("behind in the poll", "ahead in the poll"), state_axis="the nominee's standing",
+            paraphrase=lambda text: _paraphrase(text, _CAMPAIGN_PAIRS),
+            ask=lambda c, cell, para, cfg, cl: _campaign_ask(c, cell, para, cfg, cl, population=citizens),
         ),
         "president": Probe(
             name="president extra-legal act", options=("none", "refuse_to_leave"),

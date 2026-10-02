@@ -519,6 +519,19 @@ class ExtraLegalAct(Event):
     success: int
 
 
+@dataclass(frozen=True, kw_only=True)
+class CampaignRun(Event):
+    """ADR-023: a nominee campaigned on one issue, and the citizens it reached now weigh that
+    issue more when they compare candidates. Institutional: a campaign is public."""
+
+    EVENT_TYPE = "campaign_run"
+    INSTITUTIONAL = True
+    issue: int
+    audience: str
+    citizens: int
+    step: float
+
+
 # ── agents (ADR-014) ──────────────────────────────────────────────────────
 
 @dataclass(frozen=True, kw_only=True)
@@ -669,7 +682,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld, EngagementUpdated, ExtraLegalAct,
+    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

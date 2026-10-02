@@ -118,6 +118,7 @@ from api.domain.polity.ballot_and_aggregation import (
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.regime import refusal_succeeds
+from api.domain.polity.salience import raise_salience, reached
 from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
@@ -165,6 +166,7 @@ from api.domain.polity.events import (
     ElectionNoWinner,
     EmotionsUpdated,
     EngagementUpdated,
+    CampaignRun,
     ExtraLegalAct,
     Event,
     LegislativeResult,
@@ -244,7 +246,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, CampaigningNomineeTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
@@ -2003,6 +2005,7 @@ def _campaign_turns(
         assert base is not None
         shifts = steps_toward(outcome.turn.positions, base, config.campaign.max_positioning_delta) if outcome.turn else []
         nominee.pledged_platform = nominee.revealed_position = apply_shifts(base, shifts)
+        _run_campaign(citizens, nominee, nominees, config, journal, tick, outcome.turn)
         journal.write_event(
             tick=tick,
             event=AgentTurn(
@@ -2019,6 +2022,28 @@ def _campaign_turns(
             journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="agent_turn",
             base=base, shifts=shifts, result=nominee.pledged_platform,
         )
+
+
+def _run_campaign(
+    citizens: list[Citizen], nominee: Citizen, field: list[Citizen], config: PolityConfig,
+    journal: Journal, tick: int, turn: LeaderTurn | None,
+) -> None:
+    """ADR-023: the nominee's campaign, applied by the kernel. The citizens it reaches come to
+    weigh its issue more when they compare candidates; `raise_salience` keeps their priorities
+    summing to 1, which `weighted_distance` depends on. A campaign reaching nobody is journaled
+    all the same -- that an independent nominee has no base is a fact about the run."""
+    plan = turn.campaign if isinstance(turn, CampaigningNomineeTurn) else None
+    if plan is None:
+        return
+    heard = reached(nominee, citizens, field, config.vote, plan.audience)
+    for citizen in heard:
+        citizen.issue_priorities = raise_salience(citizen.issue_priorities, plan.issue, config.campaign.salience_step)
+    journal.write_event(
+        tick=tick, citizen_id=nominee.citizen_id,
+        event=CampaignRun(
+            issue=plan.issue, audience=plan.audience, citizens=len(heard), step=config.campaign.salience_step,
+        ),
+    )
 
 
 def _eligible_declared_cids(

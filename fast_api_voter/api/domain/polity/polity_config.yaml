@@ -249,6 +249,8 @@ campaign:
   max_positioning_delta: 0.3   # [v2] amplitude max d'un déplacement, par
                                 #      dimension déplacée (positions dans [0,1])
   max_positioning_shifts: 3    # [v2] nombre max de dimensions déplacées par
+  salience_step: 0.0           # [ADR-023] part du poids restant qu'une campagne sur un enjeu prend,
+                               #   chez les citoyens atteints (0 = aucune campagne)
                                 #      décision — "delta borné", pas un vecteur
                                 #      complet à issue_count dimensions
 
