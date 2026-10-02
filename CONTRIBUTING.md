@@ -119,7 +119,16 @@ l'open source ; installer l'app GitHub sur le repo
 automatiquement les `required_status_checks` de la branch protection
 ci-dessus et les injecte comme conditions de merge, aucune duplication dans
 `.mergify.yml`. Chaque PR dont les checks passent est mise en file et
-mergée automatiquement (`auto_merge_conditions: true`), retestée contre
+mergée automatiquement (`auto_merge_conditions: true`) — **sauf** une PR vers
+`polity` ou `develop` qui touche un chemin à risque (moteur de vote, workflows,
+`.claude/`, scripts et configs de gates, allowlists des scanners, oracles de
+test régénérés : liste exhaustive dans `.mergify.yml`). Celle-ci attend que le
+mainteneur commente `/reviewed <sha>` avec le commit de tête relu :
+`human-review.yml` pose alors un statut `human-review` sur *ce* commit, et tout
+nouveau commit doit être relu à nouveau. Seul le propriétaire du repo peut
+approuver ; un agent ne doit jamais le faire. Si vous renommez un fichier
+protégé, mettez son motif à jour dans la même PR (`branch-policy.yml` échoue
+sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont retestées contre
 l'état à jour de `develop` avant de vraiment merger (évite la classe de
 problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
 #188). Une fois Mergify vérifié en marche, désactiver *"Require branches to
