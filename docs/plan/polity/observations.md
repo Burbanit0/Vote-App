@@ -60,6 +60,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-031](#obs-031) | An agent's schema decides more than its wording: an optional act field is never used, a required one is | 2026-09-30 | fixed |
 | [OBS-032](#obs-032) | Every entry in the limit-testing log names an act the answer already has a field for | 2026-09-30 | fixed |
 | [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
+| [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | open |
 
 ---
 
@@ -1522,3 +1523,39 @@ an extra-legal act for. It was unreachable, and the failure looked like an ordin
 *Status: fixed* on `feat/polity-prompt-neutrality`: `AmendmentProposal` decodes a quoted JSON literal when,
 and only when, the decode lands on a value the article allows -- so `"null"` becomes None and `"borda"` stays
 `"borda"`.
+
+### OBS-034
+
+**Once citizens can found parties, the count climbs for years: self-limiting, but not within three.**
+
+*Seen.* The first complete run with the forum fix of [OBS-031](#obs-031) (3 years, p100, 15 seats, seed 1,
+exploration profile, `~/Documents/Dev/polity-runs/phase6/`). The static probe behind that fix put `found` at
+100% of turns wherever the rule allowed it; live it never came near that, and the party count grew steadily
+instead of exploding:
+
+| tick | 0 | 1 | 2 | 4 | 6 | 8 | 10 | 12 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| founds per ~15 forum turns | 5 | 3 | 1 | 3 | 1 | 2 | 3 | 2 |
+| parties after the tick | 10 | 13 | 14 | 14 | 15 | 16 | 18 | 19 |
+
+- **The rate settles near 12% of turns, not 0% and not 100%.** The opening burst (33%) is the backlog of a
+  population that had never been allowed to found; after it, founding and dissolution nearly balance, net
+  about +1 party a tick.
+- **Why it self-limits, and why slowly.** Founding needs `parties.founding_ratio` of the citizens standing
+  nearer to the founder than to their own party. At the start 83 of 100 citizens cleared that bar; at the end
+  21 did, because each founding moves its co-founders into a party that fits them. The pool drains, so the
+  growth is converging -- but 12 ticks is not long enough to see where.
+- **Against the sanity gate.** The one legislative election (tick 8) seated 11 of the 16 parties then standing,
+  for an effective number of parties (Laakso-Taagepera over seats, `metrics.effective_number_of_parties`) of
+  **9.63**, above the roadmap's 1.5-8 band. Phase 4's other half -- the party count changing in at least 30%
+  of seeds -- is now met many times over.
+
+*Why not tune `parties.founding_ratio` yet.* It is the obvious lever and it would over-correct: measured on
+this run's end state, raising it from 0.05 to 0.08 leaves 2 citizens of 100 able to found and 0.10 leaves
+none, which is [OBS-029](#obs-029) again from the other side. The eligible pool is itself a function of how
+fragmented the polity already is, so the lever's strength depends on the state it is meant to control.
+
+*What would settle it.* An 8-year run (32 ticks) on several seeds, watching the seat-based effective number
+rather than the raw count. One 3-year seed is a case study, and the raw party count is not the gated quantity.
+
+*Status: open.*
