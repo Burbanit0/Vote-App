@@ -61,6 +61,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-032](#obs-032) | Every entry in the limit-testing log names an act the answer already has a field for | 2026-09-30 | fixed |
 | [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
 | [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
+| [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
 
 ---
 
@@ -1586,3 +1587,42 @@ study, not a result claim: the roadmap wants ten for that.
 *Status: cause found* -- the mechanism is understood and needs no change. What stays open is whether 21-23
 raw parties for 100 citizens is the intended texture, which is a modelling question, not a defect.
 
+### OBS-035
+
+**The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act.**
+
+*Seen.* The three 8-year seeds of [OBS-034](#obs-034) are the first runs whose `other_initiative` channel is
+worth reading (OBS-032 fixed its framing). 399 agent turns produced 101 entries, against 30 in the three runs
+before the fix:
+
+| what the entry asks for | entries | has a field already? |
+|---|---:|---|
+| reaching voters: a campaign, outreach, ads, a public debate | 56 | **no** |
+| restating a platform move | 44 | yes (`positions`) |
+| proposing an amendment | 1 | yes (`amendment`) |
+
+- **The president's restatements are gone**: 20 of 30 entries were "propose an amendment" before the fix,
+  1 of 101 after. The nominees took over the channel instead, and they are 100 of the 101 entries.
+- **56 of 101 name something the rules genuinely leave no way to do.** A nominee's turn can move its platform
+  (`positions`) and make one public statement (`speech`); it has no way to address a particular part of the
+  electorate. The asks are specific and repeat across all three seeds: "targeted outreach to swing voters on
+  healthcare and education", "run ads emphasising strong worker protections", "engage in public debates".
+- **The prompt may be priming it.** `nominee_system_prompt` says "You may campaign on a platform", using
+  *campaign* for what is only a platform move, so a model told it may campaign asks to campaign.
+- **Nothing extra-legal, in 399 turns.** `extra_legal_act` never fired: no president refused to leave, and
+  only the single term-limit amendment above comes anywhere near testing a limit. This is the third set of
+  runs to produce no extra-legal act (see [OBS-031](#obs-031)).
+- **Still half restatement.** 44 of 101 describe a platform move the `positions` field exists for, so the
+  scoping fix of OBS-032 halved the problem for presidents without solving it for nominees.
+
+*What this says about the roadmap.* `plan-polity-agency-roadmap.md` builds Phase 5's acts in the order the
+log asks for them, and the log does not ask for `postpone_election` or `insurrection` at all -- it asks,
+56 times, for a campaign. On the roadmap's own rule ("build first the acts agents actually attempted"), the
+next mechanism is targeted campaigning, and the remaining extra-legal acts stay unbuilt. The "left out, add
+when" table has no row for this; it belongs there, as "add when the log shows demand" -- which it now does.
+
+*What would settle the extra-legal question.* Whether agents never want these acts, or want them and cannot
+see them, is untested: the only act on the menu is `refuse_to_leave`, under a condition (the last tick of a
+final term) that arises once or twice in an 8-year run. A run that offers a second act would separate the two.
+
+*Status: open.*
