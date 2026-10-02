@@ -7,8 +7,10 @@
 # installed as a GitHub App (github.com/apps/mergify), zero extra config
 # needed for the basics.
 #
-# `queue_rules`/`merge_protections` deliberately carry no explicit
-# `check-success=...` conditions: Mergify auto-detects this repo's branch
+# `queue_rules` deliberately carry no explicit `check-success=...` conditions
+# for CI (the one exception is the `human-review` attestation in
+# merge_protections below, which is not a CI check and must stay): Mergify
+# auto-detects this repo's branch
 # protection (`required_status_checks`, restored to its documented 12-context
 # list via scripts/setup-branch-protection.sh) and injects it as merge
 # conditions for both queuing and merging — duplicating that list here would
@@ -52,3 +54,118 @@ merge_protections_settings:
   # automatically — matches the `gh pr merge` once-green pattern used
   # throughout this session, just done by Mergify instead of by hand.
   auto_merge_conditions: true
+
+# High-risk changes wait for a human (CI hardening plan, phase 3). Auto-merge
+# stays for everything else; a PR touching any path below is held until the
+# maintainer has reviewed its CURRENT head commit. Families:
+#  - the voting engine (both sides of the parity lock, plus the method registry
+#    and metrics every API worker goes through);
+#  - the safety net itself: workflows, merge rules, Claude Code hooks/settings,
+#    gate scripts, the configs that set thresholds, and the allowlists/ignore
+#    files of the required security scanners;
+#  - test oracles that are regenerated rather than hand-written (parity
+#    fixture, polity golden manifest, syrupy and visual snapshots, the API
+#    contract), the test harnesses CLAUDE.md names as high-blast-radius, and
+#    the baselines/snoozes/allowlists that grandfather findings. Regenerating
+#    an oracle after a code change makes its drift check pass by design, so a
+#    reviewed regeneration is the only thing that tells a deliberate behaviour
+#    change from a bug signed off by its own oracle.
+#
+# The approval is bound to a commit: the owner comments `/reviewed <sha>` naming
+# the head they reviewed, and human-review.yml posts a `human-review` success
+# status on exactly that SHA. Any later commit, by anyone, by any route, has no
+# such status and is held again. Only Mergify's own base-branch update of an
+# approved head carries the approval over (see that workflow).
+#
+# Known limit: a status or check name is not unforgeable on GitHub. A PR that
+# adds a workflow job named `human-review`, or posts such a status with its
+# own token, satisfies this condition. Such a PR necessarily edits
+# .github/workflows/ (held here), so this stops accidental and lazy merges of
+# high-risk changes, not a deliberate forgery; only an attestation from a
+# dedicated GitHub App, pinned in branch protection, would.
+#
+# The path list is data: scripts/check_mergify_protected_paths.py (run by
+# branch-policy.yml on every PR) fails when a pattern stops matching any
+# tracked file, so a config rename can't silently drop a file out of the hold.
+#
+# Mergify reads this file from the default branch (develop): it takes effect
+# once synced there.
+merge_protections:
+  - name: High-risk change needs human review
+    description: >-
+      Engine, CI/guardrail, gate-config, scanner-allowlist or test-oracle files
+      changed. Review the PR, then comment `/reviewed <head sha>`: it approves
+      that commit only.
+    if:
+      # polity-ui is left out until it carries human-review.yml (a hold there
+      # could never be released).
+      - base ~= ^(polity|develop)$
+      - or:
+          # Voting engine, both sides, and what every worker dispatches through.
+          - files = fast_api_voter/api/engine/utils/simulation_ranked_utils.py
+          - files = fast_api_voter/api/engine/utils/simulation_score_utils.py
+          - files = fast_api_voter/api/engine/utils/simulation_voting_utils.py
+          - files = fast_api_voter/api/engine/utils/simulation_multiwinner_utils.py
+          - files = fast_api_voter/api/engine/utils/method_registry.py
+          - files = fast_api_voter/api/engine/utils/simulation_metrics.py
+          - files = voter-app/src/lib/playgroundVoting.ts
+          - files = fast_api_voter/scripts/gen_engine_parity.py
+          - files = fast_api_voter/scripts/gen_polity_golden.py
+          - files = fast_api_voter/scripts/gen_openapi.py
+          # The safety net.
+          - files ~= ^\.github/workflows/
+          - files = .mergify.yml
+          - files ~= ^\.claude/
+          - files ~= ^scripts/check_
+          - files = scripts/setup-branch-protection.sh
+          - files ~= ^voter-app/scripts/check-
+          - files = fast_api_voter/pyproject.toml
+          - files = fast_api_voter/mypy.ini
+          - files = fast_api_voter/.vulture_whitelist.py
+          - files = fast_api_voter/api/core/config.py
+          - files = fast_api_voter/api/core/ratelimit.py
+          - files = voter-app/vitest.config.ts
+          - files = voter-app/stryker.config.json
+          - files = voter-app/eslint.config.js
+          - files = voter-app/.dependency-cruiser.json
+          - files = voter-app/.size-limit.json
+          - files ~= ^voter-app/tsconfig[^/]*\.json$
+          - files = voter-app/knip.json
+          - files = voter-app/playwright.config.ts
+          - files = voter-app/playwright.visual.config.ts
+          - files = .jscpd.json
+          # package.json defines the commands the gates run (lint, build,
+          # test:coverage, type-coverage and its atLeast threshold). Dependabot
+          # only ever bumps versions there, so its PRs stay on auto-merge.
+          - and:
+              - files = voter-app/package.json
+              - -author = dependabot[bot]
+          # Required security scanners' allowlists and ignore files.
+          - files = .gitleaks.toml
+          - files = .gitleaksignore
+          - files = .trivyignore.yaml
+          - files = .semgrepignore
+          - files ~= ^\.semgrep/
+          - files = .secrets.baseline
+          # Oracles, harnesses, baselines and exceptions.
+          - files = voter-app/src/lib/__fixtures__/engineParity.json
+          - files = voter-app/src/lib/playgroundVoting.parity.test.ts
+          - files = voter-app/src/lib/playgroundVoting.axioms.test.ts
+          - files ~= ^fast_api_voter/api/tests/golden/
+          - files = fast_api_voter/api/tests/polity_golden.py
+          - files = fast_api_voter/api/tests/test_polity_golden.py
+          - files ~= ^fast_api_voter/api/tests/test_hypothesis_
+          - files = fast_api_voter/api/tests/test_voting_criteria_matrix.py
+          - files = fast_api_voter/api/tests/test_engine_benchmarks.py
+          - files ~= (^|/)__snapshots__/
+          - files ~= -snapshots/
+          - files = fast_api_voter/openapi.gen.json
+          - files = voter-app/src/api/types.gen.ts
+          - files = .github/ci-health-snoozes.json
+          - files = .github/mutation-baseline.json
+          - files = .github/quality-baseline.json
+          # Any future .github baseline/snooze/allowlist (npm-audit-allowlist.json
+          # arrives with #721) is covered by name.
+          - files ~= ^\.github/[^/]*(baseline|snoozes|allowlist)[^/]*\.json$
+    success_conditions:
+      - check-success = human-review
