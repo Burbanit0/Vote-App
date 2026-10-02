@@ -115,6 +115,12 @@ jobs:
         run: npm run audit:gate
         working-directory: ./voter-app
 
+      # The gate above decides a required check, so its own rules (expiry,
+      # horizon, install-path coverage, failed-audit handling) are tested too.
+      - name: CI script self-tests (node --test)
+        run: npm run test:scripts
+        working-directory: ./voter-app
+
       - name: License compliance — production dependencies (gating)
         # --production scopes to what's actually shipped, excluding
         # devDependencies (eslint plugins, type-coverage, etc. never reach a
