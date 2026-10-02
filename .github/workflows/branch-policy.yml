@@ -19,6 +19,13 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      # .mergify.yml's high-risk review hold lists protected paths as data; a
+      # pattern that stops matching any tracked file (a renamed config, a moved
+      # oracle) would silently drop that file out of the hold. Runs on every PR.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: Review-hold path patterns still match files
+        run: python3 scripts/check_mergify_protected_paths.py
+
       - name: Check branch naming (PRs to develop)
         # Mergify's own speculative merge-queue checks run against a
         # synthetic `mergify/merge-queue/<hash>` branch it creates itself
