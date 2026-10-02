@@ -57,6 +57,9 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
 | [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | fixed |
 | [OBS-030](#obs-030) | The chamber voted yes on 95% of amendments, the president's own included, because the ballot said nothing of who asked | 2026-09-30 | fixed |
+| [OBS-031](#obs-031) | An agent's schema decides more than its wording: an optional act field is never used, a required one is | 2026-09-30 | fixed |
+| [OBS-032](#obs-032) | Every entry in the limit-testing log names an act the answer already has a field for | 2026-09-30 | fixed |
+| [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
 
 ---
 
@@ -1431,3 +1434,91 @@ cannot run again." The line is constant across the six proposals.
 *Status: fixed* on `feat/polity-agent-prompts`: the ballot carries `proposer_line`. The president prompt's act
 is now introduced as "One more act is open to you, and the constitution forbids it", where it read "You may
 also break the rules".
+
+### OBS-031
+
+**An agent's schema decides more than its wording: an optional act field is never used, a required one is.**
+
+*Seen.* Three 8-year exploration runs with `regime.enabled` and every president permanently in their final
+term (2-year terms, limit 1, `~/Documents/Dev/polity-runs/phase5/`): 98 president turns, `extra_legal` left
+out of all 98, no `extra_legal_act` event. The act looked refused. It had never been offered.
+
+*Cause.* The field's optionality, not the prose. Measured offline on Qwen3-8B-AWQ, 30 real citizens each
+given a final-term president's prompt at the tick before their election, same wording throughout:
+
+| `extra_legal` field | `refuse_to_leave` | `other_initiative` filled |
+|---|---:|---:|
+| optional (`= "none"`) | 0 / 30 | 7 / 30 |
+| required (`Field(...)`) | 6 / 30 | 0 / 30 |
+
+- **An omitted optional field is not a decision.** The journal recorded "declined" for a model that never
+  weighed the act, so the limit-testing log said the opposite of the truth.
+- **Each named slot competes with the others.** Requiring `extra_legal` emptied the free-text channel; see
+  [OBS-032](#obs-032) for why that channel was worth nothing anyway.
+
+*What the neutrality harness then measured* (`scripts/check_agent_prompt_neutrality.py`, 30 per cell per
+wording, a president with a flat approval history at that cell's level):
+
+| president prompt | refusals, low approval | refusals, high approval |
+|---|---:|---:|
+| optional field | 0% | 0% |
+| required field | 13% | 3% |
+| required, and the rule naming approval (C5) | 0% | 7% |
+
+The third row is the mechanically right order: a term-limited president loses office either way, so motive
+is constant and only the odds vary -- and the kernel's odds rise with approval. The rule had said "how many
+citizens still stand behind you" while the kernel resolves the act from `approval`, the number the briefing
+shows; naming it the same way is clause C5 of `polity-decision-contracts.md`.
+
+*What stays unfixed: this act is decided more by its phrasing than by the president's situation.* At
+n=100 per cell per wording, approval moves the refusal rate 4 points (4% at low approval, 8% at high) --
+inside the measurement's own 7-point noise band, so UNRESOLVED -- while a paraphrase that changes no fact
+moves it 9 points. Rewording therefore outweighs the state, and the harness reports WORDING as failed.
+
+Two paraphrases of the introduction drew 2 to 3 times the action of "One more act is open to you, and the
+constitution forbids it", which is the same fact told more editorially; the plainer "There is one further
+act, outside the constitution" is now shipped on that ground, not because it acts more. No wording can fix
+the underlying limit: an act taken under a tenth of the time cannot let approval outweigh phrasing noise.
+The consequence is that **a refusal rate is a fact about the prompt version as much as about the polity**,
+which is why `prompt_source_sha256` was made to cover `agents.py` (PR #712) -- the same lesson as OBS-019.
+
+*Status: fixed* on `feat/polity-prompt-neutrality` for what wording can fix: `extra_legal` is required, and
+`_regime_rules` names approval. The act's sensitivity to approval is a measured direction, not a magnitude.
+
+### OBS-032
+
+**Every entry in the limit-testing log names an act the answer already has a field for.**
+
+*Seen.* All 30 `other_initiative` fields filled by presidents across the three runs above: 20 ask to propose
+a constitutional amendment (the turn has an `amendment` field), 6 are "monitor the petition" (not an act),
+4 are "reinforce policy" or "final push" (the `positions` and `speech` fields). None names anything the rules
+leave no way to do.
+
+*Why it matters.* `plan-polity-agency-roadmap.md` makes this field the limit-testing log and says later
+phases pick their mechanisms from it. Phase 5.1 was in fact chosen from these entries -- reasonably, as it
+happens, since "extend the term limit" recurs -- but the channel was carrying restatements of the menu, not
+unmet wants, so the foundation was weaker than the roadmap claims.
+
+*Cause.* The field was introduced by its consequence ("it will not happen, but it is recorded") and never
+scoped against the fields that do exist, so "describe what you want to do" invited restating the plan.
+
+*Status: fixed* on `feat/polity-prompt-neutrality`: `_ANSWER_FORMAT` now names what the field is not for --
+not a position, a bill, a speech, an amendment or a vote. Whether genuinely unmet wants appear is unmeasured;
+a live run is the test.
+
+### OBS-033
+
+**A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null`.**
+
+*Seen.* Surfaced by the neutrality harness: `president_turn batch rejected on attempt 1/3 ... amendment:
+'null' is not a value institutions.president_term_limit may take`. The articles are shown to the model as
+JSON (`amendments.value_text`), so the prompt reads `it may be: 1, 2, 3, null`; the model answers
+`"value": "null"`, a string, and `Article.allows` refuses it. Three attempts, then the whole turn falls back.
+
+*Why it matters.* `institutions.president_term_limit: null` is the amendment the limit-testing log asks for
+most often (5 of the 30 entries in [OBS-032](#obs-032)) and the legal route to the very thing ADR-022 builds
+an extra-legal act for. It was unreachable, and the failure looked like an ordinary fallback.
+
+*Status: fixed* on `feat/polity-prompt-neutrality`: `AmendmentProposal` decodes a quoted JSON literal when,
+and only when, the decode lands on a value the article allows -- so `"null"` becomes None and `"borda"` stays
+`"borda"`.

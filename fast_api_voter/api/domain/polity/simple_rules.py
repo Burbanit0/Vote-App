@@ -299,9 +299,11 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
-def _cofounders(founder: Citizen, citizens: list[Citizen], parties: list[Party]) -> list[Citizen]:
+def cofounders(founder: Citizen, citizens: list[Citizen], parties: list[Party]) -> list[Citizen]:
     """The founder and everyone who would sign for their positions (the ballot-access signature
-    rule) and stands nearer to them than to their own party's platform."""
+    rule) and stands nearer to them than to their own party's platform. Public because a forum
+    turn is told how many it has (agents.stand_line): founding turns on this count, so a citizen
+    who cannot see it cannot judge the move the kernel is about to refuse."""
     platforms = {p.party_id: p.platform for p in parties}
 
     def defects(other: Citizen) -> bool:
@@ -323,7 +325,7 @@ def _join(citizen: Citizen, party_id: int, parties: list[Party]) -> str:
 def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig) -> str:
     if not config.birth_enabled:
         return ""
-    founders = _cofounders(citizen, citizens, parties)
+    founders = cofounders(citizen, citizens, parties)
     if len(founders) < config.founding_ratio * len(citizens):
         return ""
     new_id = 1 + max(p.party_id for p in parties)
