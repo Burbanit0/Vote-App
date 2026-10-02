@@ -88,8 +88,12 @@ merge_protections_settings:
 # branch-policy.yml on every PR) fails when a pattern stops matching any
 # tracked file, so a config rename can't silently drop a file out of the hold.
 #
-# Mergify reads this file from the default branch (develop): it takes effect
-# once synced there.
+# Enforcement: Mergify never evaluated this block (#731 went through the queue
+# unreviewed, its required conditions listing only branch protection). The hold
+# is enforced by the `High-risk review gate` status, which human-review.yml
+# posts from this same path list (check_mergify_protected_paths.py --classify)
+# and branch protection requires on polity and develop. This block stays as
+# the list's single source and a second, Mergify-side layer if it ever applies.
 merge_protections:
   - name: High-risk change needs human review
     description: >-

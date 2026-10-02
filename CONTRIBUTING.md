@@ -124,8 +124,10 @@ mergée automatiquement (`auto_merge_conditions: true`) — **sauf** une PR vers
 `.claude/`, scripts et configs de gates, allowlists des scanners, oracles de
 test régénérés : liste exhaustive dans `.mergify.yml`). Celle-ci attend que le
 mainteneur commente `/reviewed <sha>` avec le commit de tête relu :
-`human-review.yml` pose alors un statut `human-review` sur *ce* commit, et tout
-nouveau commit doit être relu à nouveau. Seul le propriétaire du repo peut
+`human-review.yml` pose alors un statut `human-review` sur *ce* commit et
+libère le statut requis `High-risk review gate` (rouge tant que la PR n'est pas
+relue ; c'est lui qui bloque la file Mergify), et tout nouveau commit doit
+être relu à nouveau. Seul le propriétaire du repo peut
 approuver ; un agent ne doit jamais le faire. Si vous renommez un fichier
 protégé, mettez son motif à jour dans la même PR (`branch-policy.yml` échoue
 sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont retestées contre

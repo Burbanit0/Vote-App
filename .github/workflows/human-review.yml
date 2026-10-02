@@ -1,44 +1,140 @@
 name: Human review attestation
 
-# Binds a maintainer's review to one commit. .mergify.yml holds high-risk PRs
-# until the head commit carries a successful `human-review` status; this
-# workflow posts it.
+# Holds high-risk PRs until the owner has reviewed their CURRENT head commit,
+# through one required status, `High-risk review gate` (branch protection on
+# polity and develop; scripts/setup-branch-protection.sh). Mergify applies
+# required statuses as merge conditions, so a held PR never enters the queue.
 #
-#  - The repository owner comments `/reviewed <sha>` on the PR, naming the head
-#    commit they reviewed (7+ hex chars). If that is still the head, post
-#    `human-review` = success on it. Naming the SHA matters: a commit pushed
-#    while the owner was reading the diff is not approved by accident, which a
-#    label or a bare "LGTM" could not tell apart.
+# Mergify's own `merge_protections` block in .mergify.yml lists the same paths
+# but was never evaluated (#731 merged through the queue unreviewed): this
+# status is the enforcement, .mergify.yml stays the path list.
+#
+#  - gate (every PR event): if the PR touches a path the hold covers
+#    (scripts/check_mergify_protected_paths.py --classify, against the BASE
+#    branch's .mergify.yml), the gate is red until the head commit carries a
+#    `human-review` success; otherwise it is green straight away.
+#  - attest: the repository owner comments `/reviewed <sha>` on the PR, naming
+#    the head commit they reviewed (7+ hex chars). If that is still the head,
+#    post `human-review` and a green gate on it. Naming the SHA matters: a
+#    commit pushed while the owner was reading the diff is not approved by
+#    accident, which a label or a bare "LGTM" could not tell apart.
 #  - Mergify's own update of an approved head (strict mode keeping a queued PR
 #    up to date) carries the approval over only when the new head is a merge
 #    whose first parent is the approved head and whose other parent is already
 #    on the base branch, i.e. it adds nothing that hasn't merged through its
 #    own checks.
-#  - Any other new commit gets nothing, so the PR is held again. There is no
-#    reset step that could be skipped.
+#  - Any other new commit gets a red gate, so the PR is held again. There is
+#    no reset step that could be skipped.
 #
 # Both triggers run the workflow from a branch the PR cannot edit:
 # issue_comment from the default branch, pull_request_target from the base.
-# No PR code is checked out or executed; untrusted event fields only reach the
+# No PR code is checked out or executed (the checkout is the base branch, for
+# the classifier and the path list); untrusted event fields only reach the
 # shell through env.
 #
-# Limits, stated in .mergify.yml too: anyone able to run a workflow in this
-# repo can post a status with this name, so this guards against accidental and
-# lazy merges, not deliberate forgery. And an agent using the owner's own
-# credentials can comment as the owner; that has to be denied on the agent
-# side (Claude Code permissions), not here.
+# Limits: anyone able to run a workflow in this repo can post a status with
+# these names, so this guards against accidental and lazy merges, not
+# deliberate forgery (a PR doing that edits .github/workflows/, which is held;
+# the unforgeable version is a GitHub App pinned in branch protection). And an
+# agent using the owner's own credentials can comment as the owner; that has to
+# be denied on the agent side (.claude/hooks), not here.
 
 on:
   issue_comment:
     types: [created]
   pull_request_target:
-    types: [synchronize]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
     branches: [develop, polity]
 
 permissions:
   contents: read
 
+env:
+  GATE: High-risk review gate
+
 jobs:
+  gate:
+    name: Decide whether the PR is held for review
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: human-review-gate-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      statuses: write
+      contents: read
+      pull-requests: read
+    steps:
+      # The base branch (pull_request_target's default ref): the classifier and
+      # the path list a PR cannot rewrite for itself.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+      - name: Classify the changed paths, then post the gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          SENDER: ${{ github.event.sender.login }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          status() {  # sha state context description
+            gh api "repos/$REPO/statuses/$1" > /dev/null \
+              -f state="$2" -f context="$3" -f description="$4" -f target_url="$RUN_URL"
+          }
+          reviewed() {  # latest human-review state on a commit ("" if none)
+            gh api "repos/$REPO/commits/$1/statuses" \
+              --jq '[.[] | select(.context == "human-review")][0].state // ""'
+          }
+          # Both sides of a rename: moving a protected file out of its path is held too.
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
+          held=$(python3 scripts/check_mergify_protected_paths.py --classify --author "$AUTHOR" \
+            < "$RUNNER_TEMP/files.txt")
+          if [ -z "$held" ]; then
+            status "$HEAD" success "$GATE" "No high-risk path changed"
+            exit 0
+          fi
+          echo "High-risk paths in this PR:"
+          printf '%s\n' "$held" | sed 's/^/  /'
+          if [ "$(reviewed "$HEAD")" = success ]; then
+            status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
+            exit 0
+          fi
+          # Mergify bringing an approved head up to date with the base.
+          if [ "$ACTION" = synchronize ] && [ "$SENDER" = "mergify[bot]" ] \
+              && [ "$(reviewed "$BEFORE")" = success ]; then
+            parents=$(gh api "repos/$REPO/commits/$HEAD" --jq '[.parents[].sha] | join(" ")')
+            read -r first second extra <<< "$parents"
+            rel=""
+            if [ "$first" = "$BEFORE" ] && [ -n "$second" ] && [ -z "${extra:-}" ]; then
+              rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status)
+            fi
+            if [ "$rel" = identical ] || [ "$rel" = ahead ]; then
+              status "$HEAD" success human-review "Carried over Mergify's base update of ${BEFORE:0:7}"
+              status "$HEAD" success "$GATE" "Review carried over Mergify's base update"
+              echo "Approval carried from $BEFORE to $HEAD."
+              exit 0
+            fi
+            echo "Mergify update is not a clean base merge onto the approved head ($parents); held."
+          fi
+          status "$HEAD" failure "$GATE" "High-risk change: the owner comments /reviewed ${HEAD:0:7}"
+          # attest may have run between the check above and this post. It posts
+          # human-review before its green gate, so re-checking here (after our
+          # red one) means the last gate status always matches the review.
+          if [ "$(reviewed "$HEAD")" = success ]; then
+            status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
+            exit 0
+          fi
+          echo "Held: the owner reviews the PR, then comments \`/reviewed ${HEAD:0:7}\`."
+
   attest:
     name: Record the review on the named commit
     if: >-
@@ -48,14 +144,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     concurrency:
-      group: human-review-${{ github.event.issue.number }}
+      group: human-review-attest-${{ github.event.issue.number }}
       cancel-in-progress: false
     permissions:
       statuses: write
       issues: write # PR comments go through the issues API
       pull-requests: read
     steps:
-      - name: Check the commenter and the SHA, then post the status
+      - name: Check the commenter and the SHA, then post the statuses
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -83,52 +179,9 @@ jobs:
               exit 0
               ;;
           esac
-          gh api "repos/$REPO/statuses/$head" > /dev/null \
-            -f state=success -f context=human-review \
-            -f description="Reviewed by @$AUTHOR" -f target_url="$RUN_URL"
-          reply "Recorded @$AUTHOR's review of \`${head:0:7}\` (\`human-review\` status). Any new commit needs a new review."
-
-  carry-over:
-    name: Carry the review over Mergify's base update
-    if: github.event_name == 'pull_request_target' && github.event.sender.login == 'mergify[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    concurrency:
-      group: human-review-${{ github.event.pull_request.number }}
-      cancel-in-progress: false
-    permissions:
-      statuses: write
-      contents: read
-    steps:
-      - name: Re-post the status if the new head only adds base commits
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          BASE: ${{ github.event.pull_request.base.ref }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.event.after }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          reviewed=$(gh api "repos/$REPO/commits/$BEFORE/statuses" \
-            --jq '[.[] | select(.context == "human-review")][0].state // ""')
-          if [ "$reviewed" != "success" ]; then
-            echo "Previous head $BEFORE carried no approval; nothing to carry over."
-            exit 0
-          fi
-          parents=$(gh api "repos/$REPO/commits/$AFTER" --jq '[.parents[].sha] | join(" ")')
-          read -r first second extra <<< "$parents"
-          if [ "$first" != "$BEFORE" ] || [ -z "$second" ] || [ -n "$extra" ]; then
-            echo "New head is not a two-parent merge onto the approved head ($parents); not carried over."
-            exit 0
-          fi
-          # `second` must already be on the base branch: base is identical to or
-          # ahead of it.
-          rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status)
-          if [ "$rel" != "identical" ] && [ "$rel" != "ahead" ]; then
-            echo "Merged-in parent $second is not on $BASE ($rel); not carried over."
-            exit 0
-          fi
-          gh api "repos/$REPO/statuses/$AFTER" > /dev/null \
-            -f state=success -f context=human-review \
-            -f description="Carried over Mergify's base update of ${BEFORE:0:7}" -f target_url="$RUN_URL"
-          echo "Approval carried from $BEFORE to $AFTER."
+          for ctx in human-review "$GATE"; do
+            gh api "repos/$REPO/statuses/$head" > /dev/null \
+              -f state=success -f context="$ctx" \
+              -f description="Reviewed by @$AUTHOR" -f target_url="$RUN_URL"
+          done
+          reply "Recorded @$AUTHOR's review of \`${head:0:7}\` (\`human-review\` status, gate released). Any new commit needs a new review."
