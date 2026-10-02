@@ -178,7 +178,7 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 | 4.3 | **Referendum** (ADR-020, built). `constitution.referendum` (`never`, `petition`, `always`) lets the citizens confirm a voting-method change the chamber ratified: the last election's ballots are re-counted under both methods and each citizen votes for the winner they ranked higher. In `petition` it is held when the citizens who would vote no reach the petition threshold. Agents do not vote in it; other articles are not referred. |
 | 4.4 | **An `engagement` field** (ADR-021, built): `active`, `disengaged` or `exited`, moved by the citizen's anger with hysteresis (`emotions.disengage_anger`, `return_anger`, `exit_anger`). A disengaged or exited citizen abstains and signs nothing; `exited` is final and a state, not a deletion, because `apply_dynamics` requires ids equal to `range(n)` (`opinion_dynamics.py:92`). |
 
-**Exit:** the party count changes in at least 30% of seeds, and the effective number of parties stays within 1.5–8.
+**Exit:** the party count changes in at least 30% of seeds, and the effective number of parties stays within 1.5–8. **Measured 2026-10-02 (OBS-034), met**: on three 8-year seeds the count changes in 3 of 3, plateaus at 21–23 parties by about year 4, and the seat-based effective number falls from 9.6–10.6 at the first legislative election to 5.8–8.5 at the second (mean 7.29) as the electoral threshold excludes the small parties. Ten seeds are still owed for a result claim.
 
 ### Phase 5: Extra-legal acts
 

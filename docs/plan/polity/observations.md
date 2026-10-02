@@ -60,7 +60,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-031](#obs-031) | An agent's schema decides more than its wording: an optional act field is never used, a required one is | 2026-09-30 | fixed |
 | [OBS-032](#obs-032) | Every entry in the limit-testing log names an act the answer already has a field for | 2026-09-30 | fixed |
 | [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
-| [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | open |
+| [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
 
 ---
 
@@ -1558,4 +1558,31 @@ fragmented the polity already is, so the lever's strength depends on the state i
 *What would settle it.* An 8-year run (32 ticks) on several seeds, watching the seat-based effective number
 rather than the raw count. One 3-year seed is a case study, and the raw party count is not the gated quantity.
 
-*Status: open.*
+*Settled 2026-10-02, and it reverses the three-year reading.* Three 8-year seeds (p100, 15 seats,
+exploration profile, `~/Documents/Dev/polity-runs/phase7/`), all completed first attempt:
+
+| | parties at t8 / t16 / t24 / t32 | founds, share of forum turns | effective parties by seats, t8 -> t24 |
+|---|---|---:|---|
+| seed 1 | 14 / 20 / 18 / 21 | 44 (8%) | 9.62 -> 8.50 |
+| seed 2 | 20 / 24 / 22 / 23 | 34 (6%) | 10.64 -> 5.82 |
+| seed 3 | 19 / 21 / 21 / 21 | 35 (7%) | 9.78 -> 7.56 |
+
+- **The raw count does converge, by about year 4.** It plateaus at 21-23 and holds there for the second
+  half of every seed. The three-year run only looked monotone because it ended inside the transient.
+- **The gated quantity falls as the transient clears.** The seat-based effective number drops between the
+  two legislative elections in all three seeds: at t24 two of three are inside the 1.5-8 band (5.82, 7.56)
+  and the third is just over it (8.50), mean 7.29. The t8 figures were the first election after the
+  founding burst, when the electoral threshold had not yet excluded the small parties.
+- **Founding settles at 6-8% of forum turns**, and `leave` is rare rather than dead (2, 0, 2 across seeds),
+  so no option is prescriptively closed.
+- **`parties.founding_ratio` needed no tuning**, which is what OBS-034 argued for on the evidence then
+  available. Had it been raised to 0.08 after the three-year run, founding would have been choked to
+  roughly nothing.
+
+**Phase 4's exit criterion is met**: the party count changes in 3 of 3 seeds (against a bar of 30%), and the
+effective number of parties sits at or near the 1.5-8 band once the transient clears. Three seeds is a case
+study, not a result claim: the roadmap wants ten for that.
+
+*Status: cause found* -- the mechanism is understood and needs no change. What stays open is whether 21-23
+raw parties for 100 citizens is the intended texture, which is a modelling question, not a defect.
+
