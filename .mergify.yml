@@ -134,6 +134,12 @@ merge_protections:
           - files = voter-app/playwright.config.ts
           - files = voter-app/playwright.visual.config.ts
           - files = .jscpd.json
+          # package.json defines the commands the gates run (lint, build,
+          # test:coverage, type-coverage and its atLeast threshold). Dependabot
+          # only ever bumps versions there, so its PRs stay on auto-merge.
+          - and:
+              - files = voter-app/package.json
+              - -author = dependabot[bot]
           # Required security scanners' allowlists and ignore files.
           - files = .gitleaks.toml
           - files = .gitleaksignore
