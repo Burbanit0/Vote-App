@@ -69,7 +69,7 @@ git push origin feature/ma-feature
 | Branch Policy | Branche source sans préfixe valide |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
 | Backend CI | Tests échouent, coverage < 90 %, mypy, ruff, ou la couche `routes → domain → engine` en erreur |
-| npm audit | CVE haute détectée |
+| npm audit | CVE haute détectée, hors exception datée de `.github/npm-audit-allowlist.json` (une exception expirée fait aussi échouer) |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
 | Engine perf ceilings | Une règle de vote (`simulation_ranked_utils.py`/`simulation_score_utils.py`) dépasse son plafond de temps absolu — généreux exprès (100-500 ms, 15-500x la mesure réelle), pensé pour attraper une régression algorithmique, pas du bruit machine (voir `fast_api_voter/api/tests/test_engine_benchmarks.py`) |
@@ -233,7 +233,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
 | Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs) | ne doit jamais augmenter | `.github/quality-baseline.json` |
-| npm audit severity | high | `npm audit --audit-level=high` |
+| npm audit severity | high (arbre complet, exceptions datées) | `npm run audit:gate` + `.github/npm-audit-allowlist.json` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 | Licence des dépendances de *production* | allow-list MIT/BSD/Apache/MPL-2.0/PSF-2.0-like, 0 exception | `fast_api_voter/scripts/check_license_compliance.sh` (backend, venv isolé) ; `license-checker-rseidelsohn --production --onlyAllow` (frontend, `frontend-ci-cd-pipeline.yml`) |
 | Perf moteur de vote (pytest-benchmark) | plafond absolu par palier de complexité : 100 ms (tallies O(n)/cardinal), 500 ms (élimination/appariement/Kemeny) — pas une comparaison à une baseline stockée (voir `docs/exploration/EXP-006-pytest-benchmark-engine-perf.md`) | `fast_api_voter/api/tests/test_engine_benchmarks.py` |
