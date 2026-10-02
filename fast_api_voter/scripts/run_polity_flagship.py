@@ -259,7 +259,8 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     leaders negotiate the coalition in place of the collapsed crowd batch (ADR-019). Phase 4.3: the citizens vote on a
     voting-method change when enough of them petition against it (ADR-020). Phase 4.4: a citizen
     angry enough for long enough stops voting and signing, and may leave for good (ADR-021). Phase 5.1: a president in their last term may refuse to leave, and the
-    kernel rolls whether they stay (ADR-022)."""
+    kernel rolls whether they stay (ADR-022). Phase 5.2: a nominee may campaign on one issue, and the
+    citizens it reaches come to weigh that issue more when they compare candidates (ADR-023)."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
@@ -276,6 +277,7 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
         emotions=dataclasses.replace(config.emotions, enabled=True, disengage_anger=0.4, return_anger=0.2, exit_anger=0.85),
         dynamics=dataclasses.replace(config.dynamics, enabled=True, susceptibility=0.9, influence_step=0.1),
         regime=dataclasses.replace(config.regime, enabled=config.llm.enabled),
+        campaign=dataclasses.replace(config.campaign, salience_step=0.15 if config.llm.enabled else 0.0),
     )
 
 

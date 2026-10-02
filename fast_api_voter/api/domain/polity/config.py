@@ -308,6 +308,10 @@ class CampaignConfig:
 
     max_positioning_delta: float
     max_positioning_shifts: int
+    salience_step: float = 0.0
+    """ADR-023: how much of the weight an issue does not already hold a campaign on it takes, for
+    the citizens the nominee reaches (`salience.raise_salience`). 0 leaves nobody's priorities
+    touched, which is every run before campaigning existed."""
 
 
 @dataclass(frozen=True)
@@ -964,6 +968,7 @@ def _parse_campaign(raw: dict[str, Any]) -> CampaignConfig:
     return CampaignConfig(
         max_positioning_delta=_get_ratio(s, "campaign", "max_positioning_delta"),
         max_positioning_shifts=_get_positive_int(s, "campaign", "max_positioning_shifts"),
+        salience_step=_get_ratio(s, "campaign", "salience_step"),
     )
 
 
@@ -1345,6 +1350,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'dynamics.influence_step' > 0 requires 'social_graph.enabled' (S4.3): influence runs over "
         "the social graph, so without one the step would silently do nothing"
     ) if c.dynamics.enabled and c.dynamics.influence_step > 0 and not c.social_graph.enabled else None,
+    lambda c: (
+        "'campaign.salience_step' > 0 requires 'agents.nominees' (ADR-023: campaigning is a field of "
+        "the nominee's turn, so without agent nominees nothing can ask for it)"
+    ) if c.campaign.salience_step > 0 and not c.agents.nominees else None,
     lambda c: (
         "'regime.enabled' requires 'agents.amendments' (the act is a field of the president's turn) "
         "and a finite 'institutions.president_term_limit' (else there is no last term to refuse to leave)"

@@ -41,12 +41,14 @@ from api.domain.polity.llm_behavior_engine import (
 from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, _decode_batch
 from api.domain.polity.llm_schemas import (
     ACTING_LEADER_TURN_JSON_SCHEMA,
+    CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA,
     AMENDING_LEADER_TURN_JSON_SCHEMA,
     AMENDMENT_BALLOT_JSON_SCHEMA,
     FORUM_TURN_JSON_SCHEMA,
     LEADER_COALITION_TURN_JSON_SCHEMA,
     LEADER_TURN_JSON_SCHEMA,
     ActingLeaderTurn,
+    CampaigningNomineeTurn,
     AmendingLeaderTurn,
     AmendmentBallot,
     CoalitionDecision,
@@ -398,6 +400,19 @@ def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
     )
 
 
+def _campaign_rules() -> str:
+    """What campaigning does, including that it can serve a rival -- a fact the nominee needs to
+    choose an issue at all, and the reason the act is a choice rather than a free gain (C4)."""
+    return (
+        "You may campaign on one issue: \"campaign\" is {\"issue\": its number, \"audience\": \"base\" for your own "
+        "party's members or \"undecided\" for the citizens no candidate currently speaks for}, or null to campaign on "
+        "nothing. Citizens you reach weigh that issue more heavily when "
+        "they compare candidates, and the rest of their concerns proportionally less. It is the weight that moves, "
+        "not their opinion: if a rival stands nearer to them than you do on that issue, campaigning on it serves "
+        "the rival."
+    )
+
+
 def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
     """A presidential nominee's rules of the campaign and who they are -- stable for the
     election, so a prefix. As for the president: the rules, never what to do (C4)."""
@@ -412,6 +427,8 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
         "If elected, your platform is your pledge: the gap between it and what you later say is public, and "
         "citizens judge you on it.",
     ]
+    if config.campaign.salience_step > 0:
+        rules.append(_campaign_rules())
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(nominee)}\n\n"
@@ -561,6 +578,15 @@ def decide_turn(
     config: PolityConfig, client: LlmClientProtocol,
 ) -> TurnOutcome[LeaderTurn]:
     """A leader's turn. The president's may carry an amendment when the polity can amend itself."""
+    if decision_type == NOMINEE_TURN and config.campaign.salience_step > 0:
+        return decide(
+            agent, decision_type=decision_type, system_prompt=system_prompt, user_prompt=user_prompt,
+            json_schema=CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA, config=config, client=client,
+            decode=lambda raw: _validated(
+                decode_one(raw, CampaigningNomineeTurn),
+                lambda t: validate_turn(t, config, max_positions=max_positions, agenda_open=agenda_open),
+            ),
+        )
     amending = config.agents.amendments and decision_type == PRESIDENT_TURN
     model, schema = (
         (ActingLeaderTurn, ACTING_LEADER_TURN_JSON_SCHEMA) if amending and config.regime.enabled
