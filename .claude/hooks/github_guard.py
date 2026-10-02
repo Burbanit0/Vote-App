@@ -4,7 +4,8 @@
 The GitHub MCP server acts with the owner's own credentials, so it can do what
 the Bash guard denies for `gh`. This closes the same doors:
   - merging, enabling auto-merge, or approving the high-risk review hold
-    (`/reviewed` comments, the `reviewed` label, `human-review` statuses):
+    (`/reviewed` comments, the `reviewed` label, `human-review` or
+    `High-risk review gate` statuses):
     the owner's alone (.mergify.yml, human-review.yml);
   - writing files straight to GitHub (create_or_update_file, push_files,
     delete_file): that skips git, the pre-push fast gate and every local hook.
@@ -43,7 +44,7 @@ def main() -> None:
         decide("deny", f"posting `/reviewed`: {APPROVAL}")
     elif re.search(r"\"labels\"\s*:\s*\[[^\]]*\"reviewed\"", blob):
         decide("deny", f"adding the `reviewed` label: {APPROVAL}")
-    elif re.search(r"human-review", blob) and re.search(r"status", name):
+    elif re.search(r"human-review|review gate", blob, re.IGNORECASE) and re.search(r"status", name):
         decide("deny", f"setting the `human-review` status: {APPROVAL}")
 
 

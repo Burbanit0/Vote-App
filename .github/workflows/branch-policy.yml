@@ -25,6 +25,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Review-hold path patterns still match files
         run: python3 scripts/check_mergify_protected_paths.py
+      # The same script classifies every PR for the required `High-risk review
+      # gate` (human-review.yml); a classifier bug would release the hold.
+      - name: Review-hold classifier tests
+        run: python3 -m unittest discover -s scripts/tests -v
 
       - name: Check branch naming (PRs to develop)
         # Mergify's own speculative merge-queue checks run against a
