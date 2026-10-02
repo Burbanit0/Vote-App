@@ -1,7 +1,14 @@
 version: 2
+# target-branch: polity on every ecosystem. polity is the working branch (CLAUDE.md);
+# without it Dependabot opens PRs against the default branch, develop, which only
+# receives release syncs -- so its fixes never reached polity, where the work
+# happens (polity's lockfile still carried the brace-expansion advisory that turned
+# it red on 2026-09-30). Dependabot reads this file from the default branch only:
+# this change takes effect once it is synced to develop.
 updates:
   - package-ecosystem: "pip"
     directory: "/fast_api_voter"
+    target-branch: "polity"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -44,9 +51,15 @@ updates:
       # installed at all while radon is pinned -- and radon feeds the quality
       # ratchet's complexity count. Moves when radon does.
       - dependency-name: "mando"
+      # marimo==0.24.2 (dev-only: the Polity run explorer notebook) declares
+      # `pymdown-extensions>=10.21.2,<12`, so a 12.x bump is unresolvable (#720,
+      # "No solution found"). Moves when marimo does.
+      - dependency-name: "pymdown-extensions"
+        versions: [">=12"]
 
   - package-ecosystem: "npm"
     directory: "/voter-app"
+    target-branch: "polity"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -143,6 +156,7 @@ updates:
   # comments) — Dependabot proposes hash bumps for these, not just version tags.
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "polity"
     schedule:
       interval: "weekly"
     labels:
@@ -162,6 +176,7 @@ updates:
   # ci-local/*.Dockerfile are excluded for that reason, not by choice.
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "polity"
     schedule:
       interval: "weekly"
     labels:
@@ -178,6 +193,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/fast_api_voter"
+    target-branch: "polity"
     schedule:
       interval: "weekly"
     labels:
