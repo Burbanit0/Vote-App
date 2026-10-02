@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HOOKS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HOOKS))
@@ -100,6 +101,36 @@ class BashGuard(unittest.TestCase):
         cmd = f"cat > /tmp/notes.txt <<'EOF'\n{PUSH} --force origin polity\nEOF\necho done"
         self.assertIsNone(self.bash(cmd))
 
+    def test_review_findings_bypasses_are_closed(self):
+        # Separators inside a quoted body, multi-line bodies, git global options,
+        # background `&`, here-strings and unterminated heredocs.
+        for cmd in ['gh pr comment 1 --body "ok; /reviewed abc1234"',
+                    'gh pr comment 1 --body "looks good\n/reviewed abc1234"',
+                    "gh pr comment 1 --body-file - <<'EOF'\n/reviewed abc1234\nEOF",
+                    f"git -C . {PUSH[4:]} --force", f"git --no-pager -c x=y {PUSH[4:]} -f",
+                    f"sleep 1 & {PUSH} --force", f'cat <<< "x"; {PUSH} --force',
+                    f"cat <<EOF\nnot closed\n{PUSH} --force"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.bash(cmd), "deny")
+
+    def test_implicit_push_destination_is_the_current_branch(self):
+        on_polity = {**self.env, "GUARD_CURRENT_BRANCH": "polity"}
+        for cmd in [PUSH, f"{PUSH} origin", f"{PUSH} -u origin HEAD", f"git -C sub {PUSH[4:]}"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.bash(cmd, on_polity), "deny")
+        on_feature = {**self.env, "GUARD_CURRENT_BRANCH": "feat/x"}
+        self.assertIsNone(self.bash(f"{PUSH} -u origin HEAD", on_feature))
+        self.assertIsNone(self.bash(f"{PUSH} origin feat/x", on_polity))  # explicit destination wins
+
+    def test_mentioning_reviewed_in_prose_is_fine(self):
+        msg = "git commit -q -F - <<'EOF'\nfix: deny /reviewed when a command calls gh or the API\nEOF"
+        self.assertIsNone(self.bash(msg))
+        self.assertIsNone(self.bash("grep -rn '/reviewed' .github/workflows/human-review.yml"))
+
+    def test_redirections_stay_whole(self):
+        self.assertEqual(self.bash("echo hi 2>&1 | tee .mergify.yml"), "ask")
+        self.assertIsNone(self.bash("python3 x.py 2>&1 | tail -5"))
+
     def test_push_runs_the_fast_gate(self):
         self.assertIsNone(self.bash(f"{PUSH} -u origin feat/x"))
         out = run("bash_guard.py", {"tool_input": {"command": f"{PUSH} -u origin feat/x"}},
@@ -163,6 +194,31 @@ class GithubGuard(unittest.TestCase):
 class StopGuard(unittest.TestCase):
     def test_loop_guard(self):
         self.assertIsNone(decision(run("stop_engine_parity.py", {"stop_hook_active": True})))
+
+    def test_blocks_once_per_engine_state(self):
+        import contextlib
+        import io
+
+        import stop_engine_parity as hook
+
+        state = {"v": "state-1"}
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(hook, "changed_files", return_value={next(iter(hook.ENGINE))}), \
+                mock.patch.object(hook, "engine_state", side_effect=lambda _t: state["v"]), \
+                mock.patch.dict(os.environ, {"GUARD_PARITY_ACK": str(Path(tmp, "ack"))}):
+            def stop() -> str | None:
+                buf = io.StringIO()
+                with mock.patch.object(sys, "stdin", io.StringIO("{}")), contextlib.redirect_stdout(buf):
+                    hook.main()
+                return decision(json.loads(buf.getvalue())) if buf.getvalue().strip() else None
+
+            self.assertEqual(stop(), "block")
+            self.assertIsNone(stop())  # same state: already told, not re-blocked every turn
+            state["v"] = "state-2"
+            self.assertEqual(stop(), "block")  # a further engine edit blocks again
+            with mock.patch.object(hook, "changed_files", return_value={next(iter(hook.ENGINE)), hook.FIXTURE}):
+                state["v"] = "state-3"
+                self.assertIsNone(stop())  # fixture regenerated alongside: fine
 
 
 class CiStatus(unittest.TestCase):

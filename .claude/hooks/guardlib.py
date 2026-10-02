@@ -78,25 +78,62 @@ def context(text: str, event: str = "PreToolUse") -> None:
     print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}}))
 
 
-_SEPARATORS = re.compile(r"\s*(?:&&|\|\||;|\||\n)\s*")
-_HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+# `<<` or `<<-` then a delimiter word, but not `<<<` (a here-string) and not a
+# `<<` that is itself preceded by `<`.
+_HEREDOC = re.compile(r"(?<!<)<<-?(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
 def strip_heredocs(command: str) -> str:
     """Drop heredoc bodies: they are data fed to a command (a file being
-    written, a script piped to python), not commands themselves."""
+    written, a script piped to python), not commands themselves. A body is only
+    dropped when its closing delimiter line really exists, so a `<<` that isn't
+    a heredoc (a bit shift, a typo) never hides the commands after it."""
     lines = (command or "").split("\n")
     out, i = [], 0
     while i < len(lines):
         line = lines[i]
         out.append(line)
-        delims = [m.group(2) for m in _HEREDOC.finditer(line)]
         i += 1
-        for delim in delims:
-            while i < len(lines) and lines[i].strip() != delim:
-                i += 1
-            i += 1  # the delimiter line itself
+        for m in _HEREDOC.finditer(line):
+            delim = m.group(2)
+            end = next((j for j in range(i, len(lines)) if lines[j].strip() == delim), None)
+            if end is not None:
+                i = end + 1
     return "\n".join(out)
+
+
+def split_commands(command: str) -> list[str]:
+    """Split on unquoted `;`, `&`, `|` (and their doubled forms) and newlines.
+    Quote-aware, so separators inside a quoted argument (a PR comment body with
+    a `;` or a newline) never split it."""
+    parts, cur, quote, i = [], [], None, 0
+    s = command or ""
+    while i < len(s):
+        c = s[i]
+        if quote:
+            cur.append(c)
+            if c == "\\" and quote == '"' and i + 1 < len(s):
+                cur.append(s[i + 1])
+                i += 1
+            elif c == quote:
+                quote = None
+        elif c == "\\" and i + 1 < len(s):
+            cur.append(c)
+            cur.append(s[i + 1])
+            i += 1
+        elif c in "'\"":
+            quote = c
+            cur.append(c)
+        elif c == "&" and ((i > 0 and s[i - 1] in "<>") or s[i + 1:i + 2] == ">"):
+            cur.append(c)  # a redirection (`2>&1`, `>&2`, `&>f`), not a separator
+        elif c in ";&|\n":
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(c)
+        i += 1
+    parts.append("".join(cur))
+    return [p for p in (p.strip() for p in parts) if p]
 
 
 def shell_segments(command: str) -> list[list[str]]:
@@ -104,7 +141,7 @@ def shell_segments(command: str) -> list[list[str]]:
     heredoc bodies are ignored; unparseable segments fall back to whitespace
     splitting)."""
     out = []
-    for seg in _SEPARATORS.split(strip_heredocs(command)):
+    for seg in split_commands(strip_heredocs(command)):
         if not seg.strip():
             continue
         try:

@@ -11,7 +11,9 @@ the winners alone (regeneration gives no diff) can still finish, by saying so.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -45,6 +47,36 @@ def changed_files() -> set[str]:
     return changed
 
 
+def git_out(*args: str) -> str:
+    try:
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=15).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def engine_state(touched: list[str]) -> str:
+    """Hash of the engine change as it stands: the same state blocks only once."""
+    base = git_out("merge-base", "HEAD", "origin/polity").strip()
+    h = hashlib.sha256()
+    if base:
+        h.update(git_out("diff", base, "--", *sorted(ENGINE)).encode())
+    h.update(git_out("diff", "HEAD", "--", *sorted(ENGINE)).encode())
+    for path in touched:  # untracked engine files have no diff; hash their content
+        try:
+            h.update((ROOT / path).read_bytes())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def ack_path() -> Path:
+    override = os.environ.get("GUARD_PARITY_ACK")
+    if override:
+        return Path(override)
+    git_dir = git_out("rev-parse", "--git-dir").strip() or ".git"
+    return (ROOT / git_dir) / "claude-parity-ack"
+
+
 def main() -> None:
     payload = read_payload()
     if payload.get("stop_hook_active"):
@@ -52,6 +84,20 @@ def main() -> None:
     changed = changed_files()
     touched = sorted(ENGINE & changed)
     if touched and FIXTURE not in changed:
+        # Block once per engine state. Once the agent has been told (and has
+        # regenerated with no diff, or explained), later turns on the same
+        # state aren't blocked again; any further engine edit blocks anew.
+        state = engine_state(touched)
+        marker = ack_path()
+        try:
+            if marker.read_text().strip() == state:
+                return
+        except OSError:
+            pass
+        try:
+            marker.write_text(state)
+        except OSError:
+            pass
         print(json.dumps({
             "decision": "block",
             "reason": (

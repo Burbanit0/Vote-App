@@ -33,7 +33,38 @@ FAST_GATE_TIMEOUT_S = 540
 APPROVAL = "approving or merging a PR is the repository owner's alone (CLAUDE.md, .mergify.yml)"
 
 
-def push_problem(argv: list[str]) -> str | None:
+_GIT_OPTS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
+
+
+def git_argv(argv: list[str]) -> tuple[list[str], str | None] | None:
+    """For a git command, (["git", <subcommand>, ...], -C dir or None) with the
+    global options before the subcommand removed; None for anything else."""
+    if not argv or Path(argv[0]).name != "git":
+        return None
+    i, cwd = 1, None
+    while i < len(argv) and argv[i].startswith("-"):
+        opt = argv[i]
+        if opt in _GIT_OPTS_WITH_VALUE:
+            if opt == "-C" and i + 1 < len(argv):
+                cwd = argv[i + 1]
+            i += 2
+        else:
+            i += 1  # --no-pager, -P, --bare, --git-dir=x, ...
+    return ["git", *argv[i:]], cwd
+
+
+def current_branch(cwd: str | None) -> str:
+    override = os.environ.get("GUARD_CURRENT_BRANCH")
+    if override is not None:
+        return override
+    try:
+        return subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT / (cwd or "."),
+                              capture_output=True, text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def push_problem(argv: list[str], cwd: str | None = None) -> str | None:
     args = argv[2:]
     if any(a in {"-f", "--force", "--force-with-lease", "--force-if-includes", "--mirror", "--delete", "-d"}
            or a.startswith("--force") for a in args):
@@ -41,6 +72,13 @@ def push_problem(argv: list[str]) -> str | None:
     if "--no-verify" in args:
         return "--no-verify skips the checks this repo relies on"
     positional = [a for a in args if not a.startswith("-")]
+    implicit = len(positional) <= 1 or any(r.split(":")[-1].lstrip("+") in {"HEAD", "@"} for r in positional[1:])
+    if implicit:
+        # `git push`, `git push origin`, `git push origin HEAD`: the destination
+        # is the current branch (push.default=simple/current).
+        branch = current_branch(cwd)
+        if branch in PROTECTED_BRANCHES:
+            return f"this pushes the current branch, {branch}: open a PR from a feat/fix/ci/chore branch (CLAUDE.md)"
     for refspec in positional[1:]:  # positional[0] is the remote
         dst = refspec.split(":")[-1].lstrip("+")
         dst = dst.removeprefix("refs/heads/")
@@ -55,13 +93,15 @@ def classify(argv: list[str]) -> tuple[str, str] | None:
     """(decision, reason) for one simple command, or None."""
     joined = " ".join(argv)
     prog = Path(argv[0]).name
-    if prog == "git" and len(argv) > 1:
-        if argv[1] == "push":
-            problem = push_problem(argv)
+    git = git_argv(argv)
+    if git and len(git[0]) > 1:
+        gargv, cwd = git
+        if gargv[1] == "push":
+            problem = push_problem(gargv, cwd)
             return ("deny", problem) if problem else ("push", "")
-        if argv[1] == "reset" and "--hard" in argv:
+        if gargv[1] == "reset" and "--hard" in gargv:
             return "deny", "git reset --hard discards work irrecoverably; ask the user first"
-        if argv[1] in {"commit", "merge", "rebase", "cherry-pick"} and "--no-verify" in argv:
+        if gargv[1] in {"commit", "merge", "rebase", "cherry-pick"} and "--no-verify" in gargv:
             return "deny", "--no-verify skips the checks this repo relies on"
     if prog == "gh":
         if argv[1:3] == ["pr", "merge"]:
@@ -103,8 +143,8 @@ def write_targets(argv: list[str]) -> list[str]:
         targets.append(args[-1])
     elif prog in {"sed", "perl"} and any(a.startswith("-i") or a.startswith("-pi") for a in argv[1:]):
         targets += args[1:] if prog == "sed" else args
-    elif prog == "git" and len(argv) > 1 and argv[1] in {"checkout", "restore", "rm", "mv"}:
-        targets += [a for a in argv[2:] if not a.startswith("-")]
+    elif (git := git_argv(argv)) and len(git[0]) > 1 and git[0][1] in {"checkout", "restore", "rm", "mv"}:
+        targets += [a for a in git[0][2:] if not a.startswith("-")]
     return targets
 
 
@@ -139,9 +179,16 @@ def main() -> None:
     command = str((payload.get("tool_input") or {}).get("command") or "")
     if not command:
         return
+    # Whole-command check: a `/reviewed` body can reach gh through a heredoc,
+    # a file, or `$'...'` quoting that the per-command split doesn't see.
+    segments = shell_segments(command)
+    if re.search(r"/reviewed\b", command) and any(
+            Path(a[0]).name in {"gh", "curl", "wget", "http", "xh"} for a in segments):
+        decide("deny", f"posting `/reviewed`: {APPROVAL}")
+        return
     pushes = False
     asks = []
-    for argv in shell_segments(command):
+    for argv in segments:
         verdict = classify(argv)
         if not verdict:
             continue
@@ -153,7 +200,7 @@ def main() -> None:
             pushes = True
         elif decision == "ask":
             asks.append(reason)
-    target = guardrail_write(shell_segments(command))
+    target = guardrail_write(segments)
     if target:
         asks.append(f"this shell command writes to `{target}`, part of the CI/guardrail safety net.")
     if asks:
