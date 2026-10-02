@@ -136,7 +136,11 @@ libs in `src/lib/` with a thin component each.
   config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
   the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
-  been) raced and skipped entirely. It runs locally on the branch's diff and needs
+  been) raced and skipped entirely. PRs touching the high-risk paths listed in
+  `.mergify.yml` are held until the owner comments `/reviewed <sha>`
+  (`human-review.yml` binds that approval to the commit). **Never post
+  `/reviewed`, add a `reviewed` label, set a `human-review` status, or merge a PR
+  yourself** — that approval is the owner's alone. It runs locally on the branch's diff and needs
   no PR or GitHub remote, so there's no reason to wait for one.
   It exists and is underused — standard CI gates catch regressions in what's
   already tested, not a subtly-wrong new rule implementation or a logic error a
