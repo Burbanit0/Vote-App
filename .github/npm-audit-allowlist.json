@@ -1,0 +1,3 @@
+{
+  "_comment": "Time-boxed exceptions to the npm advisory gate (voter-app/scripts/check-npm-audit.mjs). Key: the GHSA id. Each entry needs `until` (YYYY-MM-DD; the gate fails once it passes) and `reason` (why it is acceptable until then: not reachable, no fixed release yet, ...). Prefer fixing the lockfile; add an entry only in a reviewed PR."
+}

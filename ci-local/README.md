@@ -43,8 +43,8 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 
 ## What each job runs (in order)
 
-**Frontend** — `npm run lint` (gating — 0 errors) → `npm audit --audit-level=high`
-(gating on high/critical) → `npm run test:coverage` → `npm run build`. All four
+**Frontend** — `npm run lint` (gating — 0 errors) → `npm run audit:gate`
+(gating on high/critical, minus dated allowlist entries) → `npm run test:coverage` → `npm run build`. All four
 steps are blocking, matching the workflow (lint lost its `continue-on-error` once
 it reached 0 errors).
 
