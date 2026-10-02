@@ -99,6 +99,29 @@ REQUIRED_CONTEXTS='[
       "CI health check"
     ]'
 
+# The high-risk review hold (.github/workflows/human-review.yml) posts this status
+# on every PR to polity and develop, red until the owner has reviewed a PR that
+# touches a path .mergify.yml protects. Required on those two branches only: it
+# never reports on PRs to main or polity-ui, and a required check that never
+# reports blocks every PR forever (the PR #205 lesson above).
+REVIEW_GATE="High-risk review gate"
+
+# Requiring the gate before the workflow that posts it is live blocks every PR,
+# including the one that would bring the workflow in. PRs to a branch run that
+# branch's human-review.yml (pull_request_target); `/reviewed` runs develop's
+# (issue_comment always runs from the default branch). So both must post it.
+require_gate_workflow() {
+  local branch
+  for branch in develop "$1"; do
+    if ! curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/human-review.yml" \
+        | grep -q "$REVIEW_GATE"; then
+      echo "❌  ${branch}'s human-review.yml doesn't post '${REVIEW_GATE}' yet: merge it there first,"
+      echo "    or every PR to '$1' would wait forever on a status nothing posts."
+      exit 1
+    fi
+  done
+}
+
 # The Polity branches (polity, and polity-ui where the run explorer is built) require the
 # same checks, less "CI health check": ci-health.yml runs only on PRs to main and develop,
 # and a required check that never reports blocks every PR forever (the PR #205 lesson
@@ -108,6 +131,10 @@ protect_polity_branch() {
   local branch="$1"
   local POLITY_CONTEXTS
   POLITY_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))')
+  if [ "$branch" = polity ]; then
+    require_gate_workflow polity
+    POLITY_CONTEXTS=$(printf '%s' "$POLITY_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]')
+  fi
   echo "Protecting '${branch}'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/${branch}/protection" "{
     \"required_status_checks\": {
@@ -149,11 +176,14 @@ protect_main() {
 }
 
 protect_develop() {
+  local DEVELOP_CONTEXTS
+  require_gate_workflow develop
+  DEVELOP_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]')
   echo "Protecting 'develop'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{
     \"required_status_checks\": {
       \"strict\": true,
-      \"contexts\": ${REQUIRED_CONTEXTS}
+      \"contexts\": ${DEVELOP_CONTEXTS}
     },
     \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
