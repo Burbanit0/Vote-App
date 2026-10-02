@@ -47,7 +47,7 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 |---|---|---|---|
 | Lint | `npm run lint` (`eslint . --ext .js,.jsx,.ts,.tsx`) | blocking, 0 errors | `voter-app/eslint.config.js` |
 | Architecture boundaries | `npm run depcruise` | blocking | `voter-app/.dependency-cruiser.json` |
-| npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
+| npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`; its own tests: `npm run test:scripts`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
 | License compliance | `license-checker-rseidelsohn --production` | blocking, production deps only | inline allowlist |
 | Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | reporters configured, no hard floor here | `voter-app/vitest.config.ts` |
 | diff-cover | see below | blocking, **100% on changed lines** | — |

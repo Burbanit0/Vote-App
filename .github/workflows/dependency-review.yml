@@ -28,11 +28,19 @@ jobs:
       # are dropped; scripts/check-npm-audit.mjs enforces the rest).
       - name: Unexpired npm advisory exceptions
         id: exceptions
+        # Tolerant on purpose: a missing file or a malformed entry yields no
+        # exception here, and Frontend CI's audit gate (which runs whenever the
+        # allowlist changes) reports the malformed entry.
         run: |
-          ghsas=$(jq -r --arg today "$(date -u +%F)" '
-            to_entries
-            | map(select((.key | startswith("_") | not) and ((.value.until // "") >= $today)))
-            | map(.key) | join(",")' .github/npm-audit-allowlist.json)
+          file=.github/npm-audit-allowlist.json
+          ghsas=""
+          if [ -f "$file" ]; then
+            ghsas=$(jq -r --arg today "$(date -u +%F)" '
+              to_entries
+              | map(select((.key | startswith("_") | not)
+                           and ((.value | objects | .until | strings) // "") >= $today))
+              | map(.key) | join(",")' "$file") || ghsas=""
+          fi
           echo "ghsas=$ghsas" >> "$GITHUB_OUTPUT"
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

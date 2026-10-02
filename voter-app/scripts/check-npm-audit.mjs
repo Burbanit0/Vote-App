@@ -48,6 +48,7 @@ import { parseArgs } from 'node:util';
 const here = dirname(fileURLToPath(import.meta.url));
 const GATED = new Set(['high', 'critical']);
 export const MAX_HORIZON_DAYS = 90;
+export const WARN_BEFORE_DAYS = 14;
 
 class GateError extends Error {}
 const fail = (msg) => {
@@ -61,8 +62,11 @@ export function runAudit() {
   // through this same node binary avoids resolving `npm` from PATH.
   const npmCli = process.env.npm_execpath;
   if (!npmCli) fail('run this through `npm run audit:gate` (or pass --report <file>).');
-  // Explicit flags beat NODE_ENV=production (implies omit=dev) and offline=true
-  // in a user's npmrc, both of which return a well-formed, falsely clean report.
+  // yarn/pnpm also set npm_execpath; their `audit` takes other flags and output.
+  if (!/npm-cli\.[cm]?js$/.test(npmCli)) fail(`only npm is supported (npm_execpath=${npmCli}).`);
+  // Explicit flags beat NODE_ENV=production (implies omit=dev), offline=true and
+  // package-lock=false (audits a freshly resolved tree, not the committed
+  // lockfile) in a user's npmrc: each returns a well-formed, falsely clean report.
   const env = { ...process.env };
   delete env.NODE_ENV;
   const res = spawnSync(
@@ -75,6 +79,7 @@ export function runAudit() {
       '--include=optional',
       '--include=peer',
       '--offline=false',
+      '--package-lock=true',
     ],
     { cwd: resolve(here, '..'), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env }
   );
@@ -151,39 +156,59 @@ export function gatedAdvisories(report) {
   return found;
 }
 
-function entryProblems(id, entry, today, horizon) {
+function entryProblems(id, entry, today, { checkExpiry }) {
+  const horizon = addDays(today, MAX_HORIZON_DAYS);
   const problems = [];
-  if (!isValidDate(entry?.until)) problems.push(`${id}: "until" must be a real YYYY-MM-DD date`);
-  else if (entry.until < today) {
-    problems.push(
-      `${id}: exception expired on ${entry.until} — fix the dependency, or renew it in a reviewed PR`
-    );
+  const warnings = [];
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return { problems: [`${id}: entry must be an object`], warnings };
+  }
+  if (!isValidDate(entry.until)) {
+    problems.push(`${id}: "until" must be a real YYYY-MM-DD date`);
   } else if (entry.until > horizon) {
     problems.push(
       `${id}: "until" ${entry.until} is more than ${MAX_HORIZON_DAYS} days ahead (max ${horizon})`
     );
+  } else if (checkExpiry && entry.until < today) {
+    problems.push(
+      `${id}: exception expired on ${entry.until} — fix the dependency, or renew it in a reviewed PR`
+    );
+  } else if (checkExpiry && entry.until <= addDays(today, WARN_BEFORE_DAYS)) {
+    warnings.push(`${id}: exception expires on ${entry.until} — fix or renew it before then`);
   }
-  if (typeof entry?.reason !== 'string' || !entry.reason.trim()) {
+  if (typeof entry.reason !== 'string' || !entry.reason.trim()) {
     problems.push(`${id}: missing "reason"`);
   }
-  if (!Array.isArray(entry?.nodes) || entry.nodes.length === 0) {
+  if (!Array.isArray(entry.nodes) || entry.nodes.length === 0) {
     problems.push(`${id}: missing "nodes" (the reviewed install paths, from \`npm audit --json\`)`);
   }
-  return problems;
+  return { problems, warnings };
 }
 
 /** Pure decision: what blocks, what is waived, what to clean up. */
 export function evaluate(advisories, allowlist, today) {
-  const horizon = addDays(today, MAX_HORIZON_DAYS);
   const problems = [];
+  const warnings = [];
   const blocking = [];
   const waived = [];
-  // An entry whose advisory is gone never fails, even expired: the PR that
-  // fixed the dependency should delete it, and an expiry date on a dead entry
-  // must not turn unrelated PRs red.
-  const unused = Object.keys(allowlist).filter((id) => !advisories.has(id));
+  const unused = [];
+
+  // Every entry is validated (dependency-review.yml waives the same ids), but
+  // one whose advisory is gone never fails on expiry: the PR that fixed the
+  // dependency should delete it, and a dead entry's date must not turn
+  // unrelated PRs red.
+  for (const [id, entry] of Object.entries(allowlist)) {
+    const needed = advisories.has(id);
+    if (!needed) unused.push(id);
+    const found = entryProblems(id, entry, today, { checkExpiry: needed });
+    problems.push(...found.problems);
+    warnings.push(...found.warnings);
+  }
 
   for (const [id, rec] of advisories) {
+    // Known limit: npm reports install paths per package, not per advisory, so
+    // a package with several advisories lists all its paths under each one.
+    // That only ever asks for more paths to be reviewed, never fewer.
     const nodes = [...rec.nodes].sort();
     const where = nodes.join(', ') || '(no install path reported)';
     const line = `${id} (${rec.severity}) ${rec.title} — ${rec.url}\n      at ${where}`;
@@ -192,16 +217,16 @@ export function evaluate(advisories, allowlist, today) {
       blocking.push(line);
       continue;
     }
-    problems.push(...entryProblems(id, entry, today, horizon));
     const reviewed = new Set(Array.isArray(entry.nodes) ? entry.nodes : []);
     const unreviewed = nodes.filter((n) => !reviewed.has(n));
+    const entryOk = !problems.some((p) => p.startsWith(`${id}:`));
     if (unreviewed.length) {
       blocking.push(`${line}\n      not covered by the exception: ${unreviewed.join(', ')}`);
-    } else {
+    } else if (entryOk) {
       waived.push(line);
     }
   }
-  return { problems, blocking, waived, unused };
+  return { problems, warnings, blocking, waived, unused };
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -227,7 +252,7 @@ export function main(argv = process.argv.slice(2)) {
     : runAudit();
   const report = parseReport(raw, stderr);
   const allowlist = loadAllowlist(allowlistPath);
-  const { problems, blocking, waived, unused } = evaluate(
+  const { problems, warnings, blocking, waived, unused } = evaluate(
     gatedAdvisories(report),
     allowlist,
     today
@@ -241,6 +266,7 @@ export function main(argv = process.argv.slice(2)) {
   if (unused.length) {
     console.log(`[npm-audit] exceptions no longer needed — delete them: ${unused.join(', ')}`);
   }
+  if (warnings.length) console.log(`[npm-audit] warnings:\n  ${warnings.join('\n  ')}`);
   if (problems.length) console.error(`[npm-audit] allowlist problems:\n  ${problems.join('\n  ')}`);
   if (blocking.length) {
     console.error(
