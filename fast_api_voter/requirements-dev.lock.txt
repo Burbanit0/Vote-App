@@ -349,7 +349,7 @@ pygments==2.21.0
     #   pytest
     #   rich
     #   textual
-pymdown-extensions==11.0.2
+pymdown-extensions==12.1
     # via marimo
 pyparsing==3.3.3
     # via pip-requirements-parser
