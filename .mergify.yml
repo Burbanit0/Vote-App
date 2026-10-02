@@ -52,3 +52,66 @@ merge_protections_settings:
   # automatically — matches the `gh pr merge` once-green pattern used
   # throughout this session, just done by Mergify instead of by hand.
   auto_merge_conditions: true
+
+# High-risk changes wait for a human (CI hardening plan, phase 3). Auto-merge
+# stays for everything else; a PR touching any path below is held until the
+# maintainer has reviewed its CURRENT head commit. Families:
+#  - the voting engine (both sides of the parity lock, plus the method registry
+#    and metrics every API worker goes through);
+#  - the safety net itself: workflows, merge rules, Claude Code hooks/settings,
+#    gate scripts, the configs that set thresholds, and the allowlists/ignore
+#    files of the required security scanners;
+#  - test oracles that are regenerated rather than hand-written (parity
+#    fixture, polity golden manifest, syrupy and visual snapshots, the API
+#    contract), the test harnesses CLAUDE.md names as high-blast-radius, and
+#    the baselines/snoozes/allowlists that grandfather findings. Regenerating
+#    an oracle after a code change makes its drift check pass by design, so a
+#    reviewed regeneration is the only thing that tells a deliberate behaviour
+#    change from a bug signed off by its own oracle.
+#
+# The approval is bound to a commit, not to a label: adding the `reviewed`
+# label makes human-review.yml post a `human-review` success status on that
+# exact head SHA (then remove the label). Any later commit, by anyone, by any
+# route, has no such status and is held again. Only Mergify's own base-branch
+# update of an approved head carries the approval over (see that workflow).
+#
+# Mergify reads this file from the default branch (develop): it takes effect
+# once synced there.
+merge_protections:
+  - name: High-risk change needs human review
+    description: >-
+      Engine, CI/guardrail, gate-config, scanner-allowlist or test-oracle files
+      changed. Review the PR, then add the `reviewed` label: it approves the
+      current head commit only.
+    if:
+      - base ~= ^(polity|polity-ui|develop)$
+      - or:
+          # Voting engine, both sides, and what every worker dispatches through.
+          - files ~= ^fast_api_voter/api/engine/utils/(simulation_(ranked|score)_utils|method_registry|simulation_metrics)\.py$
+          - files ~= ^voter-app/src/lib/playgroundVoting\.ts$
+          - files ~= ^fast_api_voter/scripts/gen_(engine_parity|polity_golden|openapi)\.py$
+          # The safety net.
+          - files ~= ^\.github/workflows/
+          - files = .mergify.yml
+          - files ~= ^\.claude/
+          - files ~= ^scripts/(check_|setup-branch-protection)
+          - files ~= ^voter-app/scripts/check-
+          - files ~= ^fast_api_voter/(pyproject\.toml|mypy\.ini|\.vulture_whitelist\.py)$
+          - files ~= ^fast_api_voter/api/core/(config|ratelimit)\.py$
+          - files ~= ^voter-app/(vitest\.config\.ts|stryker\.config\.json|eslint\.config\.js|\.dependency-cruiser\.json|\.size-limit\.json|tsconfig[^/]*\.json|knip\.json|playwright[^/]*\.config\.ts)$
+          - files = .jscpd.json
+          # Required security scanners' allowlists and ignore files.
+          - files ~= ^\.(gitleaks\.toml|gitleaksignore|trivyignore\.yaml|semgrepignore)$
+          - files ~= ^\.semgrep/
+          - files = .secrets.baseline
+          # Oracles, harnesses, baselines and exceptions.
+          - files = voter-app/src/lib/__fixtures__/engineParity.json
+          - files ~= ^voter-app/src/lib/playgroundVoting\.(parity|axioms)\.test\.ts$
+          - files ~= ^fast_api_voter/api/tests/(golden/|polity_golden\.py$|test_polity_golden\.py$|test_hypothesis_|test_voting_criteria_matrix\.py$)
+          - files ~= (^|/)__snapshots__/
+          - files ~= -snapshots/
+          - files = fast_api_voter/openapi.gen.json
+          - files = voter-app/src/api/types.gen.ts
+          - files ~= ^\.github/[^/]*(baseline|snoozes|allowlist)[^/]*\.json$
+    success_conditions:
+      - check-success = human-review

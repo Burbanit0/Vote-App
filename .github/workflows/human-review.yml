@@ -1,0 +1,117 @@
+name: Human review attestation
+
+# Binds a maintainer's review to one commit. .mergify.yml holds high-risk PRs
+# until the head commit carries a successful `human-review` status; this
+# workflow is the only thing that posts it.
+#
+#  - `labeled` with `reviewed`, by the repository owner: post `human-review`
+#    = success on the PR's current head SHA, then remove the label (it is a
+#    button, not a state). Added by anyone else: removed, nothing posted.
+#  - `synchronize` by mergify[bot] (strict mode keeping a queued PR up to date):
+#    carry the approval over only when the new head is a merge whose first
+#    parent is the approved head and whose other parent is already on the base
+#    branch, i.e. it adds nothing that hasn't merged through its own checks.
+#  - Any other new commit gets nothing, so it has no `human-review` status and
+#    the PR is held again. No reset step exists that could be skipped.
+#
+# pull_request_target, not pull_request: the workflow and its token come from
+# the base branch, so a PR cannot edit its way past this file, fork PRs get a
+# token that can post statuses, and runs happen even when the PR conflicts.
+# Safe because no PR code is ever checked out or executed here; untrusted event
+# fields only reach the shell through env.
+#
+# Limit: an agent acting with the owner's own credentials can add the label as
+# the owner. That is closed on the agent side (.claude/settings.json denies
+# label edits and merges), not here.
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: human-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: Record the review on the head commit
+    if: github.event.action == 'labeled' && github.event.label.name == 'reviewed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      statuses: write
+      issues: write # labels and comments on a PR go through the issues API
+      pull-requests: read
+    steps:
+      - name: Post the status (owner only) and consume the label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          # Consume the label first; a 404 means it is already gone (a re-run).
+          gh api -X DELETE "repos/$REPO/issues/$PR/labels/reviewed" > /dev/null 2>&1 || true
+          if [ "$SENDER" != "$OWNER" ]; then
+            gh api "repos/$REPO/issues/$PR/comments" > /dev/null \
+              -f body="\`reviewed\` was added by @$SENDER; only @$OWNER can approve a high-risk change. Nothing recorded."
+            exit 0
+          fi
+          # Re-read the head: the label event's SHA could already be stale.
+          head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
+          if [ "$head" != "$SHA" ]; then
+            gh api "repos/$REPO/issues/$PR/comments" > /dev/null \
+              -f body="The head moved to \`${head:0:7}\` while \`reviewed\` was being added (for \`${SHA:0:7}\`). Nothing recorded: review the new commits, then add the label again."
+            exit 0
+          fi
+          gh api "repos/$REPO/statuses/$SHA" > /dev/null \
+            -f state=success -f context=human-review \
+            -f description="Reviewed by @$SENDER"
+          gh api "repos/$REPO/issues/$PR/comments" > /dev/null \
+            -f body="Recorded @$SENDER's review of \`${SHA:0:7}\` (\`human-review\` status). Any new commit needs a new review."
+
+  carry-over:
+    name: Carry the review over Mergify's base update
+    if: github.event.action == 'synchronize' && github.event.sender.login == 'mergify[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      statuses: write
+      contents: read
+    steps:
+      - name: Re-post the status if the new head only adds base commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          reviewed=$(gh api "repos/$REPO/commits/$BEFORE/statuses" \
+            --jq '[.[] | select(.context == "human-review")][0].state // ""')
+          if [ "$reviewed" != "success" ]; then
+            echo "Previous head $BEFORE carried no approval; nothing to carry over."
+            exit 0
+          fi
+          parents=$(gh api "repos/$REPO/commits/$AFTER" --jq '[.parents[].sha] | join(" ")')
+          read -r first second extra <<< "$parents"
+          if [ "$first" != "$BEFORE" ] || [ -z "$second" ] || [ -n "$extra" ]; then
+            echo "New head is not a two-parent merge onto the approved head ($parents); not carried over."
+            exit 0
+          fi
+          # `second` must already be on the base branch: base is identical to or
+          # ahead of it.
+          rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status)
+          if [ "$rel" != "identical" ] && [ "$rel" != "ahead" ]; then
+            echo "Merged-in parent $second is not on $BASE ($rel); not carried over."
+            exit 0
+          fi
+          gh api "repos/$REPO/statuses/$AFTER" > /dev/null \
+            -f state=success -f context=human-review \
+            -f description="Carried over Mergify's base update of ${BEFORE:0:7}"
+          echo "Approval carried from $BEFORE to $AFTER."
