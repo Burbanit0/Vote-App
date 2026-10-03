@@ -122,6 +122,15 @@ if [ "${#NPM[@]}" -gt 0 ]; then
   fi
 fi
 
+# Report only: a weakened test suite isn't a failure here (deleting an obsolete
+# test is legitimate), but the PR's `High-risk review gate` will hold it for the
+# owner's review, so say so before the push rather than after.
+if weakened=$(python3 scripts/check_test_integrity.py --base "$MB" --head HEAD 2>/dev/null) && [ -n "$weakened" ]; then
+  echo "── test integrity: this PR will be held for the owner's review"
+  printf '%s\n' "$weakened" | sed 's/^/   /'
+  SUMMARY+=("HOLD     test integrity — $(printf '%s' "$weakened" | head -n1)")
+fi
+
 echo
 echo "fast-gate summary (${#CHANGED[@]} changed files vs $BASE):"
 if [ "${#SUMMARY[@]}" -eq 0 ]; then
