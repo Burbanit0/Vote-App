@@ -122,7 +122,10 @@ ci-dessus et les injecte comme conditions de merge, aucune duplication dans
 mergée automatiquement (`auto_merge_conditions: true`) — **sauf** une PR vers
 `polity` ou `develop` qui touche un chemin à risque (moteur de vote, workflows,
 `.claude/`, scripts et configs de gates, allowlists des scanners, oracles de
-test régénérés : liste exhaustive dans `.mergify.yml`). Celle-ci attend que le
+test régénérés : liste exhaustive dans `.mergify.yml`), ou qui affaiblit les
+tests (moins de tests dans les fichiers de test modifiés, ou un
+`skip`/`only`/`xfail` ajouté : `scripts/check_test_integrity.py`, une analyse
+statique qui n'exécute jamais le code de la PR). Celle-ci attend que le
 mainteneur commente `/reviewed <sha>` avec le commit de tête relu :
 `human-review.yml` pose alors un statut `human-review` sur *ce* commit et
 libère le statut requis `High-risk review gate` (rouge tant que la PR n'est pas
