@@ -63,7 +63,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
 | [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
 | [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
-| [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | open |
+| [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | open |
 
 ---
@@ -1713,7 +1713,15 @@ right reading of the outlier rather than a campaign effect.
 If it is, the candidates are decay (ADR-023 left it for exactly this case) or a cost to campaigning on an
 issue already crowded with campaigns; agenda convergence may also be plausible behaviour worth keeping.
 
-*Status: open.*
+*Status: accepted (2026-10-03, owner's decision).* The cap removed the pathology -- 91% of citizens near
+single-issue down to 34% -- and what remains, agenda convergence, is plausible campaign behaviour rather than
+a defect the data proves. Decay is not added. The standing cost, to state in any result claim that involves
+elections: **with campaigning on, attention concentration is about double the no-campaign arm (0.34 against
+0.17) and recalls run about 50% higher.**
+
+*What would reopen it.* A run where one issue becomes the top concern for nearly every citizen, or where the
+concentration keeps climbing with run length rather than settling -- the absence of decay means a 30-year
+run could show what an 8-year one does not.
 
 ### OBS-038
 
