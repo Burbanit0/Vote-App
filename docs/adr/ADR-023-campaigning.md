@@ -67,9 +67,10 @@ for and one ahead mostly sits still -- strategy the mechanism allows rather than
   electorate ended near single-issue. `campaign.max_reached` now draws who hears a campaign by lot
   from the audience, on a seeded `campaign_rng` checkpointed like the other streams; the exploration
   profile sets 12. Whether 12 is right is unverified.
-- **The effect never decays.** A campaign's salience shift is permanent, so a long enough run
-  accumulates whatever reach allows, even capped. Whether priorities drift back belongs with
-  ADR-012's dynamics, and waits for a run that shows the cap alone is not enough.
+- **The effect never decays -- accepted for now (OBS-037).** Capped at 12, campaigning leaves a 0.34
+  median attention on a citizen's biggest issue against 0.17 with it off, and nominees converge on one
+  issue. The owner validated that on 2026-10-03 as plausible behaviour rather than a defect. Decay stays
+  unbuilt until a run shows concentration climbing with run length, which a 30-year run might.
 - **Only nominees campaign.** A sitting president cannot, though `other_initiative` from presidents
   did not ask for it.
 - **The word "campaign" was already taken.** `nominee_system_prompt` has always said "You may
