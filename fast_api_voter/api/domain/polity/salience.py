@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import numpy as np
+
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.config import VoteConfig
 from api.domain.polity.simple_rules import BLANK_LABEL, utility_ballot
@@ -34,6 +36,19 @@ def raise_salience(priorities: Sequence[float], issue: int, step: float) -> tupl
         held + step * (1.0 - held) if d == issue else weight * (1.0 - step)
         for d, weight in enumerate(priorities)
     )
+
+
+def sample_heard(heard: Sequence[Citizen], cap: int, rng: np.random.Generator) -> list[Citizen]:
+    """At most `cap` of the audience actually hears the campaign, drawn by lot (`campaign_rng`);
+    `cap` 0 means everyone, which is how campaigning shipped and what OBS-036 measured: the
+    `undecided` audience is most of the electorate, so an uncapped campaign reached ~60 citizens
+    of 100 and ~100 campaigns left every citizen hearing 45-54 of them. Drawn without replacement,
+    ascending by citizen_id, like `select_sortition_chamber`."""
+    if cap <= 0 or len(heard) <= cap:
+        return list(heard)
+    by_id = {c.citizen_id: c for c in heard}
+    drawn = rng.choice(sorted(by_id), size=cap, replace=False)
+    return [by_id[int(cid)] for cid in sorted(drawn)]
 
 
 def reached(

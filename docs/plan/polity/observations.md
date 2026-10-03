@@ -62,6 +62,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
 | [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
 | [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
+| [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
 
 ---
 
@@ -1626,3 +1627,48 @@ see them, is untested: the only act on the menu is `refuse_to_leave`, under a co
 final term) that arises once or twice in an 8-year run. A run that offers a second act would separate the two.
 
 *Status: open.*
+
+### OBS-036
+
+**Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate.**
+
+*Seen.* The first three 8-year runs with ADR-023's campaigning (`~/Documents/Dev/polity-runs/phase8/`),
+against the three runs of [OBS-034](#obs-034) on the same seeds with campaigning off:
+
+| | attention on a citizen's biggest issue (median) | p90 | share above 0.40 |
+|---|---:|---:|---:|
+| campaigning off | 0.17 | 0.24 | 0% |
+| campaigning on | 0.56 | 0.68 | **91%** |
+
+A citizen starts with a Dirichlet draw over 20 issues, so a flat one holds 0.05 and the control arm's
+0.17 is ordinary variation. 0.56 is a near single-issue voter, and the spatial model has 20 issues
+precisely so that citizens differ in what they weigh.
+
+*Cause -- reach, not the step size, and the arithmetic matches to two decimals.* Each campaign gives
+its issue `salience_step` of the weight it does not already hold, so n campaigns on one issue leave
+`1 - 0.95 x 0.85^n`. The runs made 88-121 campaigns, and each reached a median of 57-62 citizens of
+100, because `undecided` -- the citizens no candidate currently speaks for -- is most of the
+electorate in this model. That is **45-54 campaign hits per citizen**, spread over 8-12 distinct
+issues (nominees converge: one issue took ~45% of the campaigns), so ~4.5-6.6 hits per issue:
+
+| seed | hits per citizen | per issue | predicted share | observed median |
+|---|---:|---:|---:|---:|
+| 1 | 45 | 4.5 | 0.54 | 0.56 |
+| 2 | 54 | 4.5 | 0.54 | 0.56 |
+| 3 | 53 | 6.6 | 0.67 | 0.56 |
+
+A smaller step only delays this: at 45 hits almost any step saturates. ADR-023 listed unbounded
+reach and the absence of decay as unsettled; reach is the dominant term by a wide margin.
+
+*It changed outcomes, not just bookkeeping.* Recalls rose in every seed (2 -> 4, 4 -> 8, 6 -> 10) and
+so did the number of distinct presidents (3 -> 6, 6 -> 9, 6 -> 9). An electorate that weighs one issue
+is harder for any president to satisfy, so the polity became markedly more volatile.
+
+*Status: fixed* on `fix/polity-campaign-reach`: `campaign.max_reached` draws who actually hears a
+campaign from the audience by lot, on a seeded `campaign_rng` checkpointed like the other streams.
+0 keeps the uncapped behaviour; the exploration profile sets 12, which should give about 12 hits per
+citizen and ~1 per issue, for a share near 0.19. **That prediction is unverified** -- the run that
+checks it has not been made.
+
+*What stays open.* The effect still never decays, so a long enough run accumulates whatever reach
+allows. Decay belongs with ADR-012's dynamics and waits for a run that shows the cap is not enough.

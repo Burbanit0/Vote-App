@@ -308,6 +308,11 @@ class CampaignConfig:
 
     max_positioning_delta: float
     max_positioning_shifts: int
+    max_reached: int = 0
+    """ADR-023: how many citizens of the chosen audience actually hear a campaign, drawn by lot.
+    0 means all of them, which is how campaigning first shipped -- and OBS-036 measured that an
+    uncapped campaign reaches most of the electorate, leaving every citizen near single-issue by
+    year 8."""
     salience_step: float = 0.0
     """ADR-023: how much of the weight an issue does not already hold a campaign on it takes, for
     the citizens the nominee reaches (`salience.raise_salience`). 0 leaves nobody's priorities
@@ -969,6 +974,7 @@ def _parse_campaign(raw: dict[str, Any]) -> CampaignConfig:
         max_positioning_delta=_get_ratio(s, "campaign", "max_positioning_delta"),
         max_positioning_shifts=_get_positive_int(s, "campaign", "max_positioning_shifts"),
         salience_step=_get_ratio(s, "campaign", "salience_step"),
+        max_reached=_get_nonneg_int(s, "campaign", "max_reached"),
     )
 
 

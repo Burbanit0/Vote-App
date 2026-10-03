@@ -252,6 +252,8 @@ campaign:
   salience_step: 0.0           # [ADR-023] part du poids restant qu'une campagne sur un enjeu prend,
                                #   chez les citoyens atteints (0 = aucune campagne)
                                 #      décision — "delta borné", pas un vecteur
+  max_reached: 0                # [ADR-023] combien de citoyens de l'audience entendent la campagne,
+                               #   tires au sort (0 = tous -- OBS-036 : sature l'electorat)
                                 #      complet à issue_count dimensions
 
 # =============================================================================

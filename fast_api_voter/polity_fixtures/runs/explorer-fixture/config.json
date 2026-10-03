@@ -25,6 +25,7 @@
   "campaign": {
     "max_positioning_delta": 0.3,
     "max_positioning_shifts": 3,
+    "max_reached": 0,
     "salience_step": 0.0
   },
   "candidacy": {

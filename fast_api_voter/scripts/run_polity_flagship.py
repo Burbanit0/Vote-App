@@ -277,7 +277,9 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
         emotions=dataclasses.replace(config.emotions, enabled=True, disengage_anger=0.4, return_anger=0.2, exit_anger=0.85),
         dynamics=dataclasses.replace(config.dynamics, enabled=True, susceptibility=0.9, influence_step=0.1),
         regime=dataclasses.replace(config.regime, enabled=config.llm.enabled),
-        campaign=dataclasses.replace(config.campaign, salience_step=0.15 if config.llm.enabled else 0.0),
+        campaign=dataclasses.replace(
+            config.campaign, salience_step=0.15 if config.llm.enabled else 0.0, max_reached=12 if config.llm.enabled else 0,
+        ),
     )
 
 
