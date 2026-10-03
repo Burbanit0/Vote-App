@@ -185,7 +185,7 @@ def test_office_occupancy_never_presided_is_0_0():
 
 
 def test_office_occupancy_rejects_a_negative_total_ticks():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="total_ticks >= 0"):
         office_occupancy(0, -1)
 
 

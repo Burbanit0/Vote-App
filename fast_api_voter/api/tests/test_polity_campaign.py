@@ -9,6 +9,8 @@ import numpy as np
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 import pytest
 
 from api.domain.polity.citizen import Citizen, generate_population
@@ -109,13 +111,13 @@ def test_the_act_is_required_nullable_and_whole() -> None:
     fields: dict[str, Any] = dict(rationale="r", positions=[], bill=[], speech="s", note_to_self="", other_initiative="")
     assert "campaign" in CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA["required"]  # required, so always weighed
     assert CampaigningNomineeTurn(**fields, campaign=None).campaign is None  # nullable, so declining is sayable
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError, match=r"campaign\n\s+Field required"):
         CampaigningNomineeTurn(**fields)  # but not omittable: an omitted act is never weighed (OBS-031)
     plan = CampaigningNomineeTurn(**fields, campaign={"issue": 3, "audience": "base"}).campaign
     assert plan is not None and (plan.issue, plan.audience) == (3, BASE)
     assert "campaign" in CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA["properties"]
     for half in ({"issue": 3}, {"audience": "base"}, {"issue": -1, "audience": "base"}):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError, match=r"campaign\.(issue|audience)"):
             CampaigningNomineeTurn(**fields, campaign=half)
 
 
