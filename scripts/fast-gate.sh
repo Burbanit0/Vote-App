@@ -131,6 +131,14 @@ if weakened=$(python3 scripts/check_test_integrity.py --base "$MB" --head HEAD 2
   SUMMARY+=("HOLD     test integrity — $(printf '%s' "$weakened" | head -n1)")
 fi
 
+# Report only: a regenerated test oracle passes its own check by design, so
+# show what it changed (scripts/oracle_diff_report.py) before the reviewer has to.
+if oracles=$(python3 scripts/oracle_diff_report.py --base "$MB" --head HEAD 2>/dev/null) && [ -n "$oracles" ]; then
+  echo "── test oracles changed: review this behaviour change, not just the green check"
+  printf '%s\n' "$oracles" | grep -E '^(###|- |  - )' | sed 's/^/   /'
+  SUMMARY+=("NOTE     test oracles changed — see above")
+fi
+
 echo
 echo "fast-gate summary (${#CHANGED[@]} changed files vs $BASE):"
 if [ "${#SUMMARY[@]}" -eq 0 ]; then

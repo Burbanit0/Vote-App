@@ -141,7 +141,10 @@ libs in `src/lib/` with a thin component each.
   files, or an added skip/only/xfail: `scripts/check_test_integrity.py`, which
   `scripts/fast-gate.sh` also reports before a push), are held until the owner comments `/reviewed <sha>`
   (`human-review.yml` binds that approval to the commit and releases the required
-  `High-risk review gate` status). **Never post
+  `High-risk review gate` status). A regenerated test oracle (parity fixture, golden,
+  OpenAPI contract, baselines, snapshots) passes its own check by design, so
+  `scripts/oracle_diff_report.py` spells out what it changed (winners by rule, moved values)
+  in the gate's run summary and in fast-gate: say it in the PR too. **Never post
   `/reviewed`, add a `reviewed` label, set a `human-review` or `High-risk review gate` status, or merge a PR
   yourself** — that approval is the owner's alone. It runs locally on the branch's diff and needs
   no PR or GitHub remote, so there's no reason to wait for one.

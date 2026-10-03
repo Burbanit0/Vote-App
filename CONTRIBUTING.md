@@ -130,7 +130,11 @@ mainteneur commente `/reviewed <sha>` avec le commit de tête relu :
 `human-review.yml` pose alors un statut `human-review` sur *ce* commit et
 libère le statut requis `High-risk review gate` (rouge tant que la PR n'est pas
 relue ; c'est lui qui bloque la file Mergify), et tout nouveau commit doit
-être relu à nouveau. Seul le propriétaire du repo peut
+être relu à nouveau. Quand la PR régénère un oracle de test (fixture de
+parité, golden polity, contrat OpenAPI, baselines, captures), le résumé du run
+du gate explique ce qui a changé (`scripts/oracle_diff_report.py` : quelle
+règle élit qui, quelles valeurs ont bougé) : c'est ce changement de
+comportement qu'il faut relire. Seul le propriétaire du repo peut
 approuver ; un agent ne doit jamais le faire. Si vous renommez un fichier
 protégé, mettez son motif à jour dans la même PR (`branch-policy.yml` échoue
 sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont retestées contre
