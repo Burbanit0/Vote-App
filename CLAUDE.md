@@ -137,7 +137,9 @@ libs in `src/lib/` with a thin component each.
   the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
   been) raced and skipped entirely. PRs touching the high-risk paths listed in
-  `.mergify.yml` are held until the owner comments `/reviewed <sha>`
+  `.mergify.yml`, or that weaken the test suite (fewer tests in the changed test
+  files, or an added skip/only/xfail: `scripts/check_test_integrity.py`, which
+  `scripts/fast-gate.sh` also reports before a push), are held until the owner comments `/reviewed <sha>`
   (`human-review.yml` binds that approval to the commit and releases the required
   `High-risk review gate` status). **Never post
   `/reviewed`, add a `reviewed` label, set a `human-review` or `High-risk review gate` status, or merge a PR
