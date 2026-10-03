@@ -184,6 +184,8 @@ Coalitions in the profile use `form_coalition`, and the collapsed LLM type stays
 
 **Reordered 2026-10-02 (OBS-035).** The log this phase picks its acts from asks 56 times for a way to reach voters and never once for `postpone_election` or `insurrection`; `extra_legal_act` has not fired in 399 agent turns across three 8-year seeds. So targeted campaigning comes next, and the remaining extra-legal acts wait for a log that asks for them.
 
+**5.2 (ADR-023, built): targeted campaigning.** A nominee campaigns on one issue, and the citizens it reaches come to weigh that issue more when they compare candidates -- salience, not persuasion, so the effect flows through `weighted_distance` and the existing vote rule. Audiences are its own party's members or the citizens no candidate speaks for; `campaign.salience_step` is the knob (0.15 in the exploration profile). Raising an issue a rival owns helps the rival, which the prompt states.
+
 **5.1 (ADR-022, built): `refuse_to_leave`.** Only the act the log points at (presidents proposing to lift the term limit); resolved with `regime_rng`, loyalty a constant, recalls suspended while irregular. `postpone_election`, `insurrection`, the drift of Λ and the way out of an irregular regime are still to do.
 
 **Which acts.** Build first the acts that agents actually attempted in the limit-testing log. The likely ones are `refuse_to_leave`, `postpone_election` and `insurrection`. Each act has a severity σ.
@@ -226,7 +228,6 @@ There is no separate phase: each phase ships its own explorer view. Ensembles re
 | Chamber members proposing amendments | The president-only proposals show that the chamber never initiates |
 | Cardinal ballots (score and approval methods as articles) | Agents propose approval or score voting |
 | Refuse-to-average across constitution versions | The first ensemble spans amendments |
-| Targeted campaigning: addressing one part of the electorate rather than moving the platform | **The log shows demand (OBS-035, 2026-10-02): 56 of 101 entries across three 8-year seeds, in every seed.** This is now Phase 5's next mechanism, ahead of the remaining extra-legal acts |
 | DMs, party caucus, evolving graph, party merge, primaries, online referee, novelty metric | The logs show demand |
 | Fixed factor loadings for named issues | Templated personas read as incoherent |
 | Separate ADRs for the exploration gate and rented inference | Never: they are D4, D5 and D9 above |

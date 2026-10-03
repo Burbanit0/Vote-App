@@ -403,6 +403,32 @@ class AmendmentProposal(BaseModel):
         return {**data, "value": decoded} if article.allows(decoded) else data
 
 
+class CampaignPlan(BaseModel):
+    """One issue, and who is to hear about it (ADR-023)."""
+
+    # One object rather than two sibling fields, so half a campaign cannot be expressed. Two
+    # required siblings guarded by a validator were measured first: the model set one and left the
+    # other on 35% of calls, and every one of those cost the turn its retries.
+    model_config = ConfigDict(extra="forbid")
+
+    issue: int = Field(..., ge=0, lt=ISSUE_COUNT_NAMED, description="The issue to campaign on.")
+    audience: Literal["base", "undecided"] = Field(..., description="Your party's members, or the citizens no candidate currently speaks for.")
+
+
+class CampaigningNomineeTurn(LeaderTurn):
+    """A nominee's turn where it may also campaign on one issue (ADR-023)."""
+
+    # Required AND nullable, which is the only shape that survives both measurements (OBS-031):
+    # as two required siblings the model set one and left the other on 35% of calls, each costing
+    # the turn its retries; as an OPTIONAL nested object it was filled once in 160 calls, because
+    # a field the model may omit it omits. Required so the act is always weighed, nullable so
+    # declining is expressible, nested so half a campaign cannot be.
+    campaign: CampaignPlan | None = Field(..., description="The issue to campaign on and who should hear it, or null to campaign on nothing.")
+
+
+CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA = CampaigningNomineeTurn.model_json_schema()
+
+
 class AmendingLeaderTurn(LeaderTurn):
     """A leader's turn where the constitution can be amended (agents.amendments)."""
 

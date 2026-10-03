@@ -118,6 +118,7 @@ from api.domain.polity.ballot_and_aggregation import (
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.regime import refusal_succeeds
+from api.domain.polity.salience import raise_salience, reached, sample_heard
 from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
@@ -165,6 +166,7 @@ from api.domain.polity.events import (
     ElectionNoWinner,
     EmotionsUpdated,
     EngagementUpdated,
+    CampaignRun,
     ExtraLegalAct,
     Event,
     LegislativeResult,
@@ -244,7 +246,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     build_json_client,
 )
-from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, CampaigningNomineeTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
@@ -778,6 +780,7 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # static population, so a static run draws and checkpoints exactly as before.
         dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
         regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
+        campaign_rng=np.random.default_rng(config.run.seed) if config.campaign.salience_step > 0 else None,
         # S4.2: policy starts at the population's per-issue median, a neutral origin.
         legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
@@ -1076,7 +1079,7 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         counted: list[list[str]] = []
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
-            policy=_term_policy_record(legislature), ballots_out=counted,
+            policy=_term_policy_record(legislature), ballots_out=counted, campaign_rng=state.campaign_rng,
         )
         _keep_ballots(state, config, counted)
         state.staggered_declared_cids = None
@@ -1091,6 +1094,7 @@ def _run_staggered_campaign(context: TickContext, state: TickState, client: LlmC
     if context.clock.is_presidential_nomination_tick(tick) and state.staggered_declared_cids is not None:
         _nominate_and_position_llm(
             state.citizens, state.parties, state.staggered_declared_cids, context.config, context.journal, tick, client,
+            campaign_rng=state.campaign_rng,
         )
 
 
@@ -1708,13 +1712,15 @@ def _declare_nominees(
     tick: int,
     llm_client: LlmClientProtocol | None,
     barred_candidate_ids: frozenset[int] = frozenset(),
+    campaign_rng: np.random.Generator | None = None,
 ) -> list[Citizen]:
     if llm_client is not None:
         # The LLM path applies the same two gates to its declared set, just before
         # nomination (_eligible_declared_cids), and keeps `citizens` whole for
         # perceived support and the positioning electorate mean.
         return _declare_nominees_llm(
-            citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+            citizens, parties, config, journal, tick, llm_client,
+            barred_candidate_ids=barred_candidate_ids, campaign_rng=campaign_rng,
         )
     # Term limits (v4 Lot 2, §6bis.1) and the §6bis.2 barred set (Lot 9).
     eligible = [
@@ -1812,6 +1818,7 @@ def _nominate_and_position_llm(
     tick: int,
     llm_client: LlmClientProtocol,
     barred_candidate_ids: frozenset[int] = frozenset(),
+    campaign_rng: np.random.Generator | None = None,
 ) -> list[Citizen]:
     """v2 increment 2/3's LLM path, nomination + positioning half:
     decide_party_nominations replaces select_party_nominee_from_declared's
@@ -1831,7 +1838,7 @@ def _nominate_and_position_llm(
     (_eligible_declared_cids)."""
     eligible_cids = _eligible_declared_cids(citizens, declared_cids, config, barred_candidate_ids)
     nominees = _nominate_llm(citizens, parties, eligible_cids, config, journal, tick, llm_client)
-    _position_nominees_llm(nominees, citizens, parties, config, journal, tick, llm_client)
+    _position_nominees_llm(nominees, citizens, parties, config, journal, tick, llm_client, campaign_rng)
     return nominees
 
 
@@ -1934,11 +1941,12 @@ def _position_nominees_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
+    campaign_rng: np.random.Generator | None = None,
 ) -> None:
     """Campaign positioning for the nominees: each moves its pledged platform, and the
     move is journaled with any dimension that hit the [0, 1] bound."""
     if config.agents.nominees:
-        _campaign_turns(nominees, citizens, config, journal, tick, llm_client)
+        _campaign_turns(nominees, citizens, config, journal, tick, llm_client, campaign_rng)
         return
     parties_by_id = {party.party_id: party for party in parties}
     positioning_outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, llm_client)
@@ -1975,7 +1983,7 @@ def _position_nominees_llm(
 
 def _campaign_turns(
     nominees: list[Citizen], citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
-    client: LlmClientProtocol,
+    client: LlmClientProtocol, campaign_rng: np.random.Generator | None = None,
 ) -> None:
     """ADR-014: every nominee campaigns in one turn, in parallel, on the same vote-intention
     poll (journaled first). The kernel steps each platform toward the positions the nominee
@@ -2003,6 +2011,7 @@ def _campaign_turns(
         assert base is not None
         shifts = steps_toward(outcome.turn.positions, base, config.campaign.max_positioning_delta) if outcome.turn else []
         nominee.pledged_platform = nominee.revealed_position = apply_shifts(base, shifts)
+        _run_campaign(citizens, nominee, nominees, config, journal, tick, outcome.turn, campaign_rng)
         journal.write_event(
             tick=tick,
             event=AgentTurn(
@@ -2019,6 +2028,29 @@ def _campaign_turns(
             journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="agent_turn",
             base=base, shifts=shifts, result=nominee.pledged_platform,
         )
+
+
+def _run_campaign(
+    citizens: list[Citizen], nominee: Citizen, field: list[Citizen], config: PolityConfig,
+    journal: Journal, tick: int, turn: LeaderTurn | None, rng: np.random.Generator | None,
+) -> None:
+    """ADR-023: the nominee's campaign, applied by the kernel. The citizens it reaches come to
+    weigh its issue more when they compare candidates; `raise_salience` keeps their priorities
+    summing to 1, which `weighted_distance` depends on. A campaign reaching nobody is journaled
+    all the same -- that an independent nominee has no base is a fact about the run."""
+    plan = turn.campaign if isinstance(turn, CampaigningNomineeTurn) else None
+    if plan is None:
+        return
+    audience = reached(nominee, citizens, field, config.vote, plan.audience)
+    heard = audience if rng is None else sample_heard(audience, config.campaign.max_reached, rng)
+    for citizen in heard:
+        citizen.issue_priorities = raise_salience(citizen.issue_priorities, plan.issue, config.campaign.salience_step)
+    journal.write_event(
+        tick=tick, citizen_id=nominee.citizen_id,
+        event=CampaignRun(
+            issue=plan.issue, audience=plan.audience, citizens=len(heard), step=config.campaign.salience_step,
+        ),
+    )
 
 
 def _eligible_declared_cids(
@@ -2050,6 +2082,7 @@ def _declare_nominees_llm(
     tick: int,
     llm_client: LlmClientProtocol,
     barred_candidate_ids: frozenset[int] = frozenset(),
+    campaign_rng: np.random.Generator | None = None,
 ) -> list[Citizen]:
     """The ATOMIC (non-staggered) LLM path -- candidacy, nomination, and
     positioning all in the same tick, exactly as this project has always
@@ -2060,7 +2093,8 @@ def _declare_nominees_llm(
     instead of through this one thin wrapper."""
     declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, llm_client)
     return _nominate_and_position_llm(
-        citizens, parties, declared_cids, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+        citizens, parties, declared_cids, config, journal, tick, llm_client,
+        barred_candidate_ids=barred_candidate_ids, campaign_rng=campaign_rng,
     )
 
 
@@ -2152,6 +2186,7 @@ def _hold_presidential_election(
     staggered: bool = False,
     policy: PolicyRecord | None = None,
     ballots_out: list[list[str]] | None = None,
+    campaign_rng: np.random.Generator | None = None,
 ) -> PendingRerun | None:
     # `ballots_out` (ADR-020): when given, receives the ballots this election counted.
     # `staggered` (S4.4): this election's campaign already declared, nominated and
@@ -2200,7 +2235,10 @@ def _hold_presidential_election(
         # exists only for the atomic branch, which computes nominees fresh.
         nominees = sorted((c for c in citizens if c.role == Role.CANDIDATE), key=lambda c: c.citizen_id)
     else:
-        nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
+        nominees = _declare_nominees(
+            citizens, parties, config, journal, tick, llm_client,
+            barred_candidate_ids=barred_ids, campaign_rng=campaign_rng,
+        )
         nominee_ids = {c.citizen_id for c in nominees}
         standing_rupture_candidates = sorted(
             (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
