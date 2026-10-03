@@ -11,8 +11,10 @@ name: Human review attestation
 #
 #  - gate (every PR event): if the PR touches a path the hold covers
 #    (scripts/check_mergify_protected_paths.py --classify, against the BASE
-#    branch's .mergify.yml), the gate is red until the head commit carries a
-#    `human-review` success; otherwise it is green straight away.
+#    branch's .mergify.yml), or weakens the test suite (fewer tests, or tests
+#    switched off: scripts/check_test_integrity.py, a static diff), the gate is
+#    red until the head commit carries a `human-review` success; otherwise it
+#    is green straight away.
 #  - attest: the repository owner comments `/reviewed <sha>` on the PR, naming
 #    the head commit they reviewed (7+ hex chars). If that is still the head,
 #    post `human-review` and a green gate on it. Naming the SHA matters: a
@@ -66,12 +68,14 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      # The base branch (pull_request_target's default ref): the classifier and
-      # the path list a PR cannot rewrite for itself.
+      # The base branch (pull_request_target's default ref): the classifier, the
+      # path list and the test-integrity check a PR cannot rewrite for itself.
+      # Full history, for the merge-base the integrity diff starts from.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
-      - name: Classify the changed paths, then post the gate
+          fetch-depth: 0
+      - name: Classify the changed paths and test changes, then post the gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -98,12 +102,34 @@ jobs:
             --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
           held=$(python3 scripts/check_mergify_protected_paths.py --classify --author "$AUTHOR" \
             < "$RUNNER_TEMP/files.txt")
-          if [ -z "$held" ]; then
-            status "$HEAD" success "$GATE" "No high-risk path changed"
+          # Tests deleted or switched off (scripts/check_test_integrity.py): a
+          # static diff of the PR head's files, fetched as data and never run.
+          # Any failure to check counts as held.
+          weakened=""
+          why=""
+          if git fetch --quiet --no-tags origin "$HEAD" \
+              && weakened=$(python3 scripts/check_test_integrity.py --base "$(git rev-parse HEAD)" \
+                   --head "$HEAD" --summary "$GITHUB_STEP_SUMMARY"); then :; else
+            weakened="the test-integrity check could not run"
+          fi
+          if [ -z "$held" ] && [ -z "$weakened" ]; then
+            status "$HEAD" success "$GATE" "No high-risk path changed, no test removed or switched off"
             exit 0
           fi
-          echo "High-risk paths in this PR:"
-          printf '%s\n' "$held" | sed 's/^/  /'
+          if [ -n "$held" ]; then
+            echo "High-risk paths in this PR:"
+            printf '%s\n' "$held" | sed 's/^/  /'
+            why="High-risk change"
+          fi
+          if [ -n "$weakened" ]; then
+            echo "Test suite weakened:"
+            printf '%s\n' "$weakened" | sed 's/^/  /'
+            case "$weakened" in
+              "the test-integrity check could not run") what="test-integrity check failed" ;;
+              *) what="tests removed or switched off" ;;
+            esac
+            why="${why:+$why + }$what"
+          fi
           if [ "$(reviewed "$HEAD")" = success ]; then
             status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
             exit 0
@@ -125,7 +151,7 @@ jobs:
             fi
             echo "Mergify update is not a clean base merge onto the approved head ($parents); held."
           fi
-          status "$HEAD" failure "$GATE" "High-risk change: the owner comments /reviewed ${HEAD:0:7}"
+          status "$HEAD" failure "$GATE" "$why: the owner comments /reviewed ${HEAD:0:7}"
           # attest may have run between the check above and this post. It posts
           # human-review before its green gate, so re-checking here (after our
           # red one) means the last gate status always matches the review.
