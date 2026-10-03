@@ -63,6 +63,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
 | [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
 | [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
+| [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | open |
+| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | open |
 
 ---
 
@@ -1672,3 +1674,67 @@ checks it has not been made.
 
 *What stays open.* The effect still never decays, so a long enough run accumulates whatever reach
 allows. Decay belongs with ADR-012's dynamics and waits for a run that shows the cap is not enough.
+
+### OBS-037
+
+**Capped, campaigning still doubles attention concentration: nominees converge on one issue.**
+
+*Seen.* Three 8-year seeds with `campaign.max_reached` 12 (`~/Documents/Dev/polity-runs/phase9/`), against
+the two arms of [OBS-036](#obs-036) on the same seeds:
+
+| arm | attention on a citizen's biggest issue (median) | p90 | share above 0.40 | recalls (seeds 1/2/3) |
+|---|---:|---:|---:|---|
+| campaigning off | 0.17 | 0.24 | 0% | 2 / 4 / 6 |
+| uncapped | 0.56 | 0.68 | 91% | 4 / 8 / 10 |
+| capped at 12 | **0.34** | 0.52 | 34% | 3 / 6 / 9 |
+
+- **The cap did what it was sized for on reach**: 7-14 hits per citizen against 45-54 uncapped, and it
+  roughly halved both the concentration and the excess recalls.
+- **But OBS-036's prediction failed.** It forecast a median near 0.19 (0.14-0.26 by seed); all three seeds
+  came in at 0.34. The formula divided each citizen's hits evenly across the issues campaigned on, and the
+  agents do not spread them: **one issue took 34-48% of every seed's campaigns**, so the dominant issue
+  received 3.8-5.4 hits per citizen, not ~1.
+- **Nor does the opposite simplification work.** Applying the formula to the dominant issue's hits predicts
+  0.49-0.61 for it; its actual median weight was 0.24-0.34, because each campaign draws 12 citizens at
+  random, so hits land unevenly -- some citizens hear many campaigns and most hear few. Uncapped, nearly
+  everyone heard nearly everything, so the even-spread assumption held and OBS-036's arithmetic matched to
+  two decimals. **Once reach is sampled, no one-line formula predicts this mechanism**; OBS-036's claim
+  should not be read as extending past the uncapped regime.
+- **Agenda convergence is the new dynamic.** In seed 1, issue 12 became the top concern for 72 of 100
+  citizens; in seeds 2 and 3, 36 and 52. Campaigning homogenises what the electorate cares about, which is
+  a different effect from OBS-036's saturation and survives the cap.
+
+*Not caused by campaigning: seed 2's 18.2 effective parties.* Its second legislative election seated 20 of
+25 parties because the polity had **amended its own electoral threshold**, 0.05 to 0.03 at tick 9 (ratified
+12 of 15) and on to 0.02 at tick 28. That is the self-amendment the roadmap was built for, and it is the
+right reading of the outlier rather than a campaign effect.
+
+*What would settle it.* Whether 0.34 is too much is a modelling judgement, not a defect the data proves.
+If it is, the candidates are decay (ADR-023 left it for exactly this case) or a cost to campaigning on an
+issue already crowded with campaigns; agenda convergence may also be plausible behaviour worth keeping.
+
+*Status: open.*
+
+### OBS-038
+
+**The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason.**
+
+*Seen.* In the uncapped seed 2 of [OBS-036](#obs-036), at tick 24 the president proposed raising
+`institutions.president_term_limit` from 2 to 3, "to ensure stability and continuity in defense and
+sovereignty policies". The chamber ratified it at tick 25, 14 of 15. Members' statements repeat the reason
+nearly verbatim: "extending terms ensures continuity in defense and regional policies", "ensures consistent
+defense and sovereignty policies".
+
+*Why it is not simply OBS-030 failing.* OBS-030 measured the chamber resisting a third term (80% yes to 7%)
+with a proposer at **35%** approval in their last term -- one scenario, as it said. This proposer stood at
+**51%** approval and 0.74 legitimacy, and a chamber endorsing a moderately popular president's continuity is
+a defensible outcome.
+
+*What is suspicious is the echo.* Fourteen members adopting the proposer's own framing is the pattern of
+OBS-028 (an agent repeating itself) turned outward: the ballot shows the reason and the members return it.
+One amendment cannot separate "the chamber agreed" from "the chamber repeated".
+
+*What would settle it.* The neutrality harness's ballot probe at a range of proposer approvals (OBS-030 only
+covered 35%), and a ballot arm that withholds the proposer's stated reason.
+
+*Status: open.*
