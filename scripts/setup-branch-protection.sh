@@ -111,10 +111,16 @@ REVIEW_GATE="High-risk review gate"
 # branch's human-review.yml (pull_request_target); `/reviewed` runs develop's
 # (issue_comment always runs from the default branch). So both must post it.
 require_gate_workflow() {
-  local branch
+  local branch workflow
   for branch in develop "$1"; do
-    if ! curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/human-review.yml" \
-        | grep -q "$REVIEW_GATE"; then
+    # Fetch first, then search: piping curl into `grep -q` lets grep exit on the
+    # first match, curl then dies writing to the closed pipe (exit 23), and
+    # pipefail turns a found gate into a false "not posted yet".
+    if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/human-review.yml"); then
+      echo "❌  could not fetch ${branch}'s human-review.yml (missing on that branch, or a network error)."
+      exit 1
+    fi
+    if ! grep -qF "$REVIEW_GATE" <<< "$workflow"; then
       echo "❌  ${branch}'s human-review.yml doesn't post '${REVIEW_GATE}' yet: merge it there first,"
       echo "    or every PR to '$1' would wait forever on a status nothing posts."
       exit 1
