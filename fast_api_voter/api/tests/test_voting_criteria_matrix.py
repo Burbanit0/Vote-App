@@ -110,9 +110,8 @@ mechanical reuse of the ranking-based checks here.
 """
 from __future__ import annotations
 
-import itertools
 import random
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import pytest
 from hypothesis import HealthCheck, given, settings, strategies as st

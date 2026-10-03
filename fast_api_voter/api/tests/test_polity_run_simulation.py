@@ -25,7 +25,7 @@ from api.domain.polity.llm_behavior_engine import (
     _VOTE_CAST_RETRY_TEMPERATURE,
     menu_acts,
 )
-from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
+from api.domain.polity.llm_client import OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (

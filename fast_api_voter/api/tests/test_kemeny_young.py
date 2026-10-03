@@ -171,7 +171,7 @@ def test_exact_kemeny_agrees_with_brute_force_across_the_whole_cap_range():
             if len(candidates) < 2:
                 continue
 
-            def score(ranking: tuple[str, ...]) -> int:
+            def score(ranking: tuple[str, ...], pw: dict = pw) -> int:
                 return sum(
                     pw[ranking[i]][ranking[j]]
                     for i, j in itertools.combinations(range(len(ranking)), 2)

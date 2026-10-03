@@ -22,6 +22,14 @@ asyncio_mode = "strict"
 # backend-ci-cd-pipeline.yml's "Engine perf ceilings" step and the module
 # docstring for the full design rationale).
 addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py --ignore=api/tests/test_engine_benchmarks.py"
+# Test integrity (phase 11b): a mistyped marker (`@pytest.mark.skipp`) is an
+# error instead of a silently ignored decoration (strict_markers), and
+# an xfail test that starts passing fails the run (xfail_strict), so a fixed
+# bug can't hide behind a stale xfail. A test that is genuinely nondeterministic
+# opts out explicitly with `strict=False` and a reason (test_polity_vllm_live.py).
+# Ini keys, not addopts: they hold under `-o addopts=""` (fast-gate, local runs).
+strict_markers = true
+xfail_strict = true
 
 [tool.coverage.run]
 source = ["api"]
@@ -48,9 +56,6 @@ fail_under = 90
 [tool.ruff]
 line-length = 88
 extend-exclude = [
-    "api/tests",  # never linted under flake8 either (see the old .flake8's
-                  # `exclude` list) — extending coverage there is a separate,
-                  # deliberate decision, not a side effect of this swap.
     ".vulture_whitelist.py",  # same exclusion the old .flake8 had — its
                               # bare names are deliberately "undefined",
                               # that's how vulture's whitelist mechanism works.
@@ -62,6 +67,24 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["F", "NPY002"]   # NPY002: legacy np.random.* singleton calls
+# Test integrity (CI hardening plan, phase 11b): api/tests is linted too, and
+# these rules catch a test that can pass without checking anything -- a bare
+# comparison or expression that asserts nothing (B015, B018), `assert False`
+# (B011, PT015), a pytest.raises with no expected exception or so broad any
+# ValueError passes (PT010, PT011), raises/warns blocks that swallow more than
+# one statement (PT012, PT031), a closure that sees a later loop value (B023),
+# an assert inside `except` (PT017) and unittest-style asserts (PT027).
+# Enabled for test code only: see per-file-ignores below.
+extend-select = ["B011", "B015", "B018", "B023", "PT010", "PT011", "PT012", "PT015", "PT017", "PT027", "PT030", "PT031"]
+
+[tool.ruff.lint.per-file-ignores]
+# The test-integrity rules above apply to tests only; the rest of the codebase
+# keeps its existing rule set (enabling B018/B023 there is a separate decision).
+"!{api/tests/**,scripts/**/tests/**}" = ["B011", "B015", "B018", "B023", "PT010", "PT011", "PT012", "PT015", "PT017", "PT027", "PT030", "PT031"]
+# These two tests drive the legacy global RNG on purpose, to prove the engine
+# never reads or reseeds it.
+"api/tests/test_no_global_rng.py" = ["NPY002"]
+"api/tests/test_seeded_rng_isolation.py" = ["NPY002"]
 
 # Unused/undeclared dependency detection (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md —
 # knip's Python equivalent). Scoped to api/ — fast_api_voter/scripts/ holds
