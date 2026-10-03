@@ -64,7 +64,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
 | [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
-| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | open |
+| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | cause found |
 
 ---
 
@@ -1745,4 +1745,43 @@ One amendment cannot separate "the chamber agreed" from "the chamber repeated".
 *What would settle it.* The neutrality harness's ballot probe at a range of proposer approvals (OBS-030 only
 covered 35%), and a ballot arm that withholds the proposer's stated reason.
 
-*Status: open.*
+*Cause -- measured 2026-10-03: the chamber judges the reason's wording as much as the president.* Offline on
+Qwen3-8B-AWQ, 30 real chamber members per cell, the same proposal throughout (term limit 2 to 3, by a
+term-limited president, ballot with `proposer_line`):
+
+| proposer approval | reason withheld | reason shown | yes-statements reusing the reason's words |
+|---:|---:|---:|---|
+| 25% | 37% | 57% | 45% withheld, **100%** shown |
+| 50% | 60% | 80% | 72% withheld, **100%** shown |
+| 75% | 57% | 73% | 59% withheld, **100%** shown |
+
+and, with the reason shown, varying only its framing:
+
+| proposer approval | "a third term lets me finish my programme" | "ensures stability and continuity in defense and sovereignty" |
+|---:|---:|---:|
+| 25% | 30% -- fails | **57% -- ratified** |
+| 50% | 57% | 83% |
+
+- **Both effects are real and about the same size.** Approval from 25% to 50% adds ~25 points; a public-good
+  framing adds ~26. Above 50% approval the chamber plateaus.
+- **The echo is real, not this run's accident.** Showing the reason adds 16-20 points of yes at every
+  approval, and every yes-statement then reuses its words (the 45-72% without it is the words' natural use
+  for a term extension).
+- **So an unpopular president gets a third term by framing it as continuity.** At 25% approval the candid
+  reason fails and the public-good one passes. The reason is written by the president's own agent, which
+  wrote exactly that framing in the live run, so live proposals will mostly look like the right-hand column.
+- **This corrects [OBS-030](#obs-030).** Its 80% to 7% drop for a third term was measured with the candidly
+  self-serving reason; against a public-good framing the ballot fix resists far less. OBS-030's finding --
+  that the proposer's standing moves the vote -- holds; its size does not carry over to realistic reasons.
+
+*Why it matters beyond the chamber.* Raising the term limit is the legal road to what ADR-022's
+`refuse_to_leave` makes an extra-legal one. If the legal road is this open, the extra-legal act has little
+reason to fire -- one more candidate explanation for its never having fired (OBS-035).
+
+*What a fix would look like.* The ballot shows the proposer's standing but not the one fact a member needs
+to see through the framing: that this change would let the president who proposes it stand again. Stating
+that consequence, as `stand_line` made the co-founder count visible, is facts rather than advice (C3/C4).
+Whether to build it is a modelling choice -- a chamber swayed by rhetoric is also plausible -- so it is left
+for the owner.
+
+*Status: cause found.*
