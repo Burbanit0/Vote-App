@@ -62,11 +62,14 @@ for and one ahead mostly sits still -- strategy the mechanism allows rather than
 
 - **Whether 0.15 is the right step** is a guess, as ADR-021's thresholds were. Too small and
   campaigning is decorative; too large and one campaign decides an election.
-- **Reach is unbounded within an audience.** A real campaign reaches some of a group, not all of it;
-  bounding it would need a seeded draw and a reproducibility story, so it waits for a run that shows
-  the difference matters.
-- **The effect never decays.** A campaign's salience shift is permanent, so an 8-year run accumulates
-  them. Whether priorities drift back belongs with ADR-012's dynamics, not here.
+- ~~Reach is unbounded within an audience.~~ **Measured and fixed (OBS-036).** The run that showed
+  it mattered came immediately: uncapped, each campaign reached ~60 citizens of 100 and 91% of the
+  electorate ended near single-issue. `campaign.max_reached` now draws who hears a campaign by lot
+  from the audience, on a seeded `campaign_rng` checkpointed like the other streams; the exploration
+  profile sets 12. Whether 12 is right is unverified.
+- **The effect never decays.** A campaign's salience shift is permanent, so a long enough run
+  accumulates whatever reach allows, even capped. Whether priorities drift back belongs with
+  ADR-012's dynamics, and waits for a run that shows the cap alone is not enough.
 - **Only nominees campaign.** A sitting president cannot, though `other_initiative` from presidents
   did not ask for it.
 - **The word "campaign" was already taken.** `nominee_system_prompt` has always said "You may

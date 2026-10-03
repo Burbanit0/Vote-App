@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
+
+import numpy as np
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +15,7 @@ from api.domain.polity.citizen import Citizen, generate_population
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.llm_schemas import CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA, CampaigningNomineeTurn
 from api.domain.polity.run_polity_simulation import run_simulation
-from api.domain.polity.salience import BASE, UNDECIDED, raise_salience, reached
+from api.domain.polity.salience import BASE, UNDECIDED, raise_salience, reached, sample_heard
 from api.domain.polity.simple_rules import utility_ballot, weighted_distance
 from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _turn
 
@@ -81,6 +83,18 @@ def test_the_undecided_are_the_citizens_no_candidate_speaks_for() -> None:
     assert heard == [2]
 
 
+def test_only_so_many_of_the_audience_hear_it_and_the_draw_is_seeded() -> None:
+    audience = [_citizen(i, (0.5, 0.5), (0.5, 0.5)) for i in range(40)]
+    assert len(sample_heard(audience, 0, np.random.default_rng(1))) == 40  # 0 reaches everyone
+    assert len(sample_heard(audience, 99, np.random.default_rng(1))) == 40  # a cap above the audience
+    heard = sample_heard(audience, 7, np.random.default_rng(1))
+    assert len(heard) == 7
+    assert [c.citizen_id for c in heard] == sorted(c.citizen_id for c in heard)
+    # Seeded, so a resumed run draws what the interrupted one would have drawn.
+    assert [c.citizen_id for c in sample_heard(audience, 7, np.random.default_rng(1))] == [c.citizen_id for c in heard]
+    assert [c.citizen_id for c in sample_heard(audience, 7, np.random.default_rng(2))] != [c.citizen_id for c in heard]
+
+
 # ── the rules ─────────────────────────────────────────────────────────────
 
 def test_campaigning_needs_agent_nominees() -> None:
@@ -118,7 +132,7 @@ class _CampaigningClient(_AgentFakeClient):
 
 def test_a_run_journals_the_campaign_and_moves_the_citizens_it_reached(tmp_path: Path) -> None:
     config = _agent_run_config(tmp_path)
-    config = dataclasses.replace(config, campaign=dataclasses.replace(config.campaign, salience_step=0.25))
+    config = dataclasses.replace(config, campaign=dataclasses.replace(config.campaign, salience_step=0.25, max_reached=3))
     journal = run_simulation(config, run_id="campaign", llm_client=_CampaigningClient())
     events = [json.loads(line) for line in journal.read_text().splitlines()]
     runs = [e for e in events if e["event_type"] == "campaign_run"]
@@ -127,6 +141,7 @@ def test_a_run_journals_the_campaign_and_moves_the_citizens_it_reached(tmp_path:
     assert {r["payload"]["audience"] for r in runs} == {"base"}
     assert {r["payload"]["step"] for r in runs} == {0.25}
     assert any(r["payload"]["citizens"] > 0 for r in runs)
+    assert max(r["payload"]["citizens"] for r in runs) <= 3  # the cap the config set
     # The citizens who heard it keep a valid priority vector: the checkpoint is the proof it
     # survived the round trip as well as the move.
     saved = json.loads((journal.parent / "checkpoint.json").read_text())

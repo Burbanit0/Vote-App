@@ -148,6 +148,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
     "regime_rng": "regime_rng_state",
+    "campaign_rng": "campaign_rng_state",
     "refusal_declared": "refusal_declared",
     "legislature": "legislature",
     "constitution": "constitution",
@@ -189,10 +190,17 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
     }
 
 
+def _restore_optional(payload: Mapping[str, Any], key: str) -> np.random.Generator | None:
+    """A stream written only by the runs that use it (ADR-022, ADR-023), so absent from every
+    checkpoint taken before it existed."""
+    return restore_rng(payload[key]) if key in payload else None
+
+
 def _regime_payload(state: TickState) -> dict[str, Any]:
-    rng = state.regime_rng
+    regime, campaign = state.regime_rng, state.campaign_rng
     return _set_only(
-        regime_rng_state=None if rng is None else rng.bit_generator.state,
+        regime_rng_state=None if regime is None else regime.bit_generator.state,
+        campaign_rng_state=None if campaign is None else campaign.bit_generator.state,
         refusal_declared=True if state.refusal_declared else None,
     )
 
@@ -220,7 +228,8 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
-        regime_rng=restore_rng(payload["regime_rng_state"]) if "regime_rng_state" in payload else None,
+        regime_rng=_restore_optional(payload, "regime_rng_state"),
+        campaign_rng=_restore_optional(payload, "campaign_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
         constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,
