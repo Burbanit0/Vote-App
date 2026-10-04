@@ -15,7 +15,13 @@ name: CI Dashboard
 on:
   schedule:
     - cron: "17 * * * *"
+    - cron: "47 6 * * 1" # Mondays: also rebuild the "CI weekly report" issue
   workflow_dispatch:
+    inputs:
+      weekly:
+        description: Also rebuild the "CI weekly report" issue
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -83,3 +89,41 @@ jobs:
     steps:
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  weekly-report:
+    name: Rebuild the CI weekly report issue
+    needs: collect
+    if: github.event.schedule == '47 6 * * 1' || inputs.weekly
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: polity
+          persist-credentials: false
+      - name: Write the report and edit the issue in place
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DASHBOARD: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: |
+          set -euo pipefail
+          git fetch --quiet --depth 1 origin ci-data
+          mkdir -p "$RUNNER_TEMP/data"
+          git --work-tree="$RUNNER_TEMP/data" checkout FETCH_HEAD -- runs.jsonl summary.json
+          python3 scripts/ci_dashboard/weekly_report.py --data "$RUNNER_TEMP/data" \
+            --dashboard "$DASHBOARD" > "$RUNNER_TEMP/report.md"
+          gh label create ci-weekly-report --repo "$REPO" --color 5319e7 \
+            --description "The CI weekly report (ci-dashboard.yml)" 2>/dev/null || true
+          number=$(gh issue list --repo "$REPO" --label ci-weekly-report --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/report.md" > /dev/null
+            echo "Updated #$number."
+          else
+            gh issue create --repo "$REPO" --title "CI weekly report" --label ci-weekly-report \
+              --body-file "$RUNNER_TEMP/report.md"
+          fi
