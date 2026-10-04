@@ -79,9 +79,29 @@ describe('timeline layout', () => {
       'amendment_proposed',
       'amendment_resolved',
       'referendum_held',
+      'extra_legal_act',
+      'campaign_run',
     ]) {
       expect(glyphOf(type)[1]).not.toBe('other');
     }
+  });
+
+  it('keeps a long stack inside its lane, so an election tick of campaigns hides nothing below', () => {
+    // Ten nominees campaigning on one tick: at the old fixed 5px a glyph, the stack ran 45px down,
+    // through two lanes beneath it.
+    const campaigns = Array.from({ length: 10 }, () => ({ tick: 8, event_type: 'campaign_run' }));
+    const { glyphs, laneY } = layoutTimeline([], campaigns, 12, 400);
+    const ys = glyphs.map((g) => g.y);
+    expect(ys[0]).toBe(laneY.elections);
+    expect(Math.max(...ys) - laneY.elections).toBeLessThanOrEqual(LANE_HEIGHT / 2 - 5);
+    expect(new Set(ys).size).toBe(10); // still one distinct glyph per event, not collapsed
+    expect(Math.max(...ys)).toBeLessThan(laneY.accountability - 5); // clear of the next lane's glyphs
+  });
+
+  it('files the Phase 5 acts where they belong, not with the society marks', () => {
+    // Before they had glyphs both fell through to ['society', 'other'] and read as noise.
+    expect(glyphOf('extra_legal_act')).toEqual(['accountability', 'extraLegal']);
+    expect(glyphOf('campaign_run')).toEqual(['elections', 'campaign']);
   });
 
   it('turns a position back into the nearest tick, inside the run', () => {
