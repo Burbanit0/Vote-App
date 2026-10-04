@@ -34,6 +34,25 @@ describe('timeline layout', () => {
     expect(bands[2].width).toBe(2); // starts and ends at the last tick
   });
 
+  it('marks the ticks no term covers as a vacant presidency', () => {
+    const { vacancies, tickX } = layoutTimeline(TERMS, [], 12, 124);
+    // Recalled at 9, next elected at 10; recalled at 11, next at 12.
+    expect(vacancies.map((v) => [v.startTick, v.endTick])).toEqual([
+      [9, 10],
+      [11, 12],
+    ]);
+    expect(vacancies[0]).toMatchObject({ x: tickX(9), width: tickX(10) - tickX(9) });
+    // Nobody elected before tick 4, and the last term ends three ticks before the run does.
+    const late = [{ holder: 1, start_tick: 4, end_tick: 9, ended_by: 'legitimacy_floor' }];
+    expect(
+      layoutTimeline(late, [], 12, 124).vacancies.map((v) => [v.startTick, v.endTick])
+    ).toEqual([
+      [0, 4],
+      [9, 12],
+    ]);
+    expect(layoutTimeline([], [], 12, 124).vacancies).toHaveLength(1);
+  });
+
   it('puts events in their lane and stacks those that share a tick', () => {
     const { glyphs, laneY } = layoutTimeline(
       [],
