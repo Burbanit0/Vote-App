@@ -669,6 +669,17 @@ def amendment_consequence(proposal: Proposal, president: Citizen, old: Any) -> s
     return ""
 
 
+def ballot_proposer_text(
+    president: Citizen, proposal: Proposal, old: Any, *, approval: float, ticks_left: int | None, lame_duck: bool,
+) -> str:
+    """Everything the ballot says about who asks: their standing, then whether the change would loosen a
+    rule binding them. One function for the kernel and the neutrality harness alike, so the harness
+    measures the ballot a run actually shows rather than a copy that drifts from it."""
+    standing = proposer_line(president, approval=approval, ticks_left=ticks_left, lame_duck=lame_duck)
+    consequence = amendment_consequence(proposal, president, old)
+    return f"{standing}\n{consequence}" if consequence else standing
+
+
 def ballot_user_prompt(proposal: Proposal, *, tick: int, old: Any, members: int, memory: str, proposer: str = "") -> str:
     who = f"{proposer}\n" if proposer else ""
     return (

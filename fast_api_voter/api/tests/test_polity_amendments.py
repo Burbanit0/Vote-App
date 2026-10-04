@@ -21,6 +21,7 @@ from api.domain.polity.agents import (
     president_system_prompt,
     proposer_line,
     amendment_consequence,
+    ballot_proposer_text,
     validate_turn,
     PRESIDENT_TURN,
 )
@@ -236,6 +237,19 @@ def test_the_ballot_names_a_change_that_would_loosen_a_rule_binding_its_proposer
     assert bool(line) is shown
     # A consequence, never advice (C4): it says what would follow, not how to vote.
     assert not any(advice in line.lower() for advice in ("should", "vote yes", "vote no", "reject", "oppose", "beware"))
+
+
+def test_the_ballot_s_proposer_text_is_the_standing_then_any_self_interest() -> None:
+    # One composer for the kernel and the neutrality harness, so the harness cannot measure a
+    # ballot the runs no longer show (it had drifted once already, before this function existed).
+    barred = dataclasses.replace(_president(), mandates_served=2)
+    standing = proposer_line(barred, approval=0.4, ticks_left=1, lame_duck=True)
+    third_term = _proposal(_TERM, 3)
+    assert ballot_proposer_text(barred, third_term, 2, approval=0.4, ticks_left=1, lame_duck=True) == (
+        f"{standing}\n{amendment_consequence(third_term, barred, 2)}"
+    )
+    method = _proposal("institutions.presidential_method", "borda")
+    assert ballot_proposer_text(barred, method, "two_round", approval=0.4, ticks_left=1, lame_duck=True) == standing
 
 
 def test_a_ballot_is_a_decision_and_a_failed_one_is_no_vote() -> None:
