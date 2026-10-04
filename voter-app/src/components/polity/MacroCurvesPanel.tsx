@@ -67,7 +67,7 @@ const percent = (value: number | null | undefined) =>
 
 const MacroCurvesPanel: React.FC = () => {
   const { t } = useTranslation('polity');
-  const { overview, tick, setTick } = usePolityCtx();
+  const { overview, tick, setTick, setCitizen } = usePolityCtx();
   const theme = useChartTheme();
   if (!overview) return null;
 
@@ -170,7 +170,21 @@ const MacroCurvesPanel: React.FC = () => {
                     </button>
                   </td>
                   <td className="px-2 py-0.5">{t(OUTCOME_KEYS[e.outcome])}</td>
-                  <td className="px-2 py-0.5 tabular-nums">{e.winner ?? '—'}</td>
+                  <td className="px-2 py-0.5 tabular-nums">
+                    {e.winner == null ? (
+                      '—'
+                    ) : (
+                      // The winner's story opens beside the map.
+                      <button
+                        type="button"
+                        className="underline-offset-2 hover:underline"
+                        aria-label={t('map.select', { id: e.winner })}
+                        onClick={() => setCitizen(e.winner ?? null)}
+                      >
+                        {e.winner}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-2 py-0.5 tabular-nums">
                     {percent(e.turnout) ?? t('macro.unavailable')}
                   </td>
