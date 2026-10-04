@@ -13,18 +13,20 @@ describe('hit testing', () => {
     const hit = makeHitTester(POINTS);
     expect(hit(98, 52, 6)).toBe(1);
     expect(hit(75, 75, 6)).toBeNull();
+    // Unbounded, it is the nearest citizen anywhere: where the map's arrows start from.
+    expect(hit(52, 48, Infinity)).toBe(0);
+    expect(hit(101, 49, Infinity)).toBe(1);
     expect(makeHitTester([])(0, 0, 10)).toBeNull();
   });
 
   it('moves the keyboard selection to the nearest citizen in a direction', () => {
-    expect(nearestInDirection(POINTS, 0, 'right', [0, 0])).toBe(1);
-    expect(nearestInDirection(POINTS, 0, 'down', [0, 0])).toBe(2);
-    expect(nearestInDirection(POINTS, 0, 'left', [0, 0])).toBe(3);
-    expect(nearestInDirection(POINTS, 0, 'up', [0, 0])).toBe(4);
-    expect(nearestInDirection(POINTS, 1, 'right', [0, 0])).toBeNull();
-    expect(nearestInDirection(POINTS, null, 'up', [52, 48])).toBe(0);
-    expect(nearestInDirection(POINTS, 99, 'up', [101, 49])).toBe(1);
-    expect(nearestInDirection([], null, 'up', [0, 0])).toBeNull();
+    expect(nearestInDirection(POINTS, 0, 'right')).toBe(1);
+    expect(nearestInDirection(POINTS, 0, 'down')).toBe(2);
+    expect(nearestInDirection(POINTS, 0, 'left')).toBe(3);
+    expect(nearestInDirection(POINTS, 0, 'up')).toBe(4);
+    expect(nearestInDirection(POINTS, 1, 'right')).toBeNull();
+    expect(nearestInDirection(POINTS, 99, 'up')).toBeNull();
+    expect(nearestInDirection([], 0, 'up')).toBeNull();
   });
 
   it('reads arrow keys as directions', () => {

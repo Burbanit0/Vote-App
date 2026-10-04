@@ -186,35 +186,60 @@ def test_one_damaged_run_record_costs_only_that_run_its_shape(
     assert (listed["sound"]["population"], listed["sound"]["years"]) == (40, 3)
 
 
+def _found_party(run_dir: Path, party_id: int, platform: Any) -> None:
+    """Journal a party's founding at tick 1, as forum.apply_party_move does."""
+    event = {"tick": 1, "event_type": "party_founded", "citizen_id": 0, "run_id": "explorer-fixture",
+             "codebook_version": None, "motif": None, "rationale": None,
+             "payload": {"party_id": party_id, "platform": platform, "members": 3}}
+    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as journal:
+        journal.write(json.dumps(event) + "\n")
+
+
 @pytest.mark.parametrize("checkpoint", [
     [{"party_id": 0}],                                   # a list where the state belongs
     {"parties": {"0": []}},                              # parties that are not a list
     {"parties": [{"party_id": 0}, 7]},                   # an entry without a platform, and one that is not one
     {"parties": [{"party_id": 0, "platform": "left"}]},  # a platform that is not numbers
 ])
-def test_a_checkpoint_the_parties_cannot_be_read_from_leaves_the_run_openable(
+def test_the_parties_do_not_hang_on_the_checkpoint(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, checkpoint: Any,
 ) -> None:
+    """The final checkpoint holds only the parties alive at the end; every party is remade
+    from the year-0 census and the journal instead, so a torn one costs nothing."""
     runs = _root(tmp_path, monkeypatch, "odd")
     (runs["odd"] / "checkpoint.json").write_text(json.dumps(checkpoint))
     overview = client.get(f"{BASE}/runs/{run_key('lab', 'odd')}")
     assert overview.status_code == 200, overview.text
-    assert overview.json()["parties"] == []
+    assert [party["party_id"] for party in overview.json()["parties"]] == [0, 1, 2, 3, 4]
 
 
-def test_a_party_platform_the_projection_cannot_place_is_left_off_the_map(
+def test_a_founded_party_is_placed_and_one_the_projection_cannot_place_is_left_off(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runs = _root(tmp_path, monkeypatch, "future")
-    checkpoint = json.loads((runs["future"] / "checkpoint.json").read_text())
-    kept, unplaceable = checkpoint["parties"][0], dict(checkpoint["parties"][1])
-    unplaceable["platform"] = [0.5] * (len(kept["platform"]) + 3)  # another engine version's issues
-    checkpoint["parties"] = [kept, unplaceable]
-    (runs["future"] / "checkpoint.json").write_text(json.dumps(checkpoint))
+    issues = len(json.loads((runs["future"] / "snapshots.jsonl").read_text().splitlines()[0])["issue_positions"])
+    _found_party(runs["future"], 5, [0.5] * issues)
+    _found_party(runs["future"], 6, [0.5] * (issues + 3))  # another engine version's issues
+    _found_party(runs["future"], 7, "left")                 # a platform that is not numbers
 
     overview = client.get(f"{BASE}/runs/{run_key('lab', 'future')}")
     assert overview.status_code == 200, overview.text
-    assert [party["party_id"] for party in overview.json()["parties"]] == [kept["party_id"]]
+    assert [party["party_id"] for party in overview.json()["parties"]] == [0, 1, 2, 3, 4, 5]
+
+
+def test_a_config_without_the_party_settings_costs_only_the_initial_parties(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runs = _root(tmp_path, monkeypatch, "older")
+    config = json.loads((runs["older"] / "config.json").read_text())
+    del config["parties"]  # an engine version before parties were configured
+    (runs["older"] / "config.json").write_text(json.dumps(config))
+    issues = len(json.loads((runs["older"] / "snapshots.jsonl").read_text().splitlines()[0])["issue_positions"])
+    _found_party(runs["older"], 5, [0.5] * issues)
+
+    overview = client.get(f"{BASE}/runs/{run_key('lab', 'older')}")
+    assert overview.status_code == 200, overview.text
+    assert [party["party_id"] for party in overview.json()["parties"]] == [5]
 
 
 # ── The run cache ─────────────────────────────────────────────────────────────
@@ -224,10 +249,11 @@ def test_a_cached_run_is_reloaded_when_any_file_it_was_read_from_changes(
 ) -> None:
     runs = _root(tmp_path, monkeypatch, "written")
     key = run_key("lab", "written")
-    assert client.get(f"{BASE}/runs/{key}").json()["parties"]  # the first read fills the cache
+    assert len(client.get(f"{BASE}/runs/{key}").json()["parties"]) == 5  # the first read fills the cache
 
-    (runs["written"] / "checkpoint.json").unlink()  # the checkpoint goes, the journal does not
-    assert client.get(f"{BASE}/runs/{key}").json()["parties"] == []
+    issues = len(json.loads((runs["written"] / "snapshots.jsonl").read_text().splitlines()[0])["issue_positions"])
+    _found_party(runs["written"], 5, [0.5] * issues)  # the journal grows
+    assert len(client.get(f"{BASE}/runs/{key}").json()["parties"]) == 6
 
 
 def test_concurrent_first_readers_of_a_run_wait_for_one_load(monkeypatch: pytest.MonkeyPatch) -> None:

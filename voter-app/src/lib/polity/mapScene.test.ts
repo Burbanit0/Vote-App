@@ -57,6 +57,20 @@ describe('population map scene', () => {
     expect(buildScene(input({ president: null }), 'activity', 248, 148).president).toBeNull();
   });
 
+  it('draws, and sizes the map by, only the parties with members at this census', () => {
+    // Party 9 was founded and dissolved elsewhere in the run: nobody belongs to it now.
+    const gone = { party_id: 9, xy: [50, 50] };
+    const scene = buildScene(
+      input({ citizenParties: [1, 1, null, 7], parties: [...input().parties, gone] }),
+      'activity',
+      248,
+      148
+    );
+    expect(scene.parties.map((p) => p.partyId)).toEqual([1]);
+    expect(scene.points.map((p) => p.party)).toEqual([1, 1, null, 7]);
+    expect(scene.project([1, 0.5])).toEqual([124, 74]); // party 9 does not stretch the map
+  });
+
   it('gives every code of every lens a shape and a colour, and counts the legend', () => {
     const scene = buildScene(input(), 'activity', 248, 148);
     expect(scene.points.map((p) => p.legend)).toEqual([
