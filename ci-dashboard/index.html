@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Vote-App CI</title>
+<!-- Built by .github/workflows/ci-dashboard.yml from summary.json
+     (scripts/ci_dashboard/collect.py). Static, no build step, no CDN. -->
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --ink: #1d2125; --muted: #5d656e; --line: #e2e4e7;
+  --ok: #1f8a4c; --ok-soft: #d6f0df; --bad: #c4362c; --bad-soft: #f8dcd9;
+  --warn: #a96500; --warn-soft: #f8e9c9; --none: #eef0f2; --accent: #3a5fcd;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121417; --panel: #1a1d21; --ink: #e6e8ea; --muted: #9aa3ad; --line: #2c3137;
+    --ok: #4cc27a; --ok-soft: #1c3a28; --bad: #f0675b; --bad-soft: #432320;
+    --warn: #e0a440; --warn-soft: #3d3020; --none: #24282d; --accent: #8aa6ff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121417; --panel: #1a1d21; --ink: #e6e8ea; --muted: #9aa3ad; --line: #2c3137;
+  --ok: #4cc27a; --ok-soft: #1c3a28; --bad: #f0675b; --bad-soft: #432320;
+  --warn: #e0a440; --warn-soft: #3d3020; --none: #24282d; --accent: #8aa6ff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 8px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+.muted { color: var(--muted); }
+a { color: var(--accent); }
+nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
+nav a { text-decoration: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); font-size: 13px; color: var(--ink); }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.card h3 { margin: 0 0 6px; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+.pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.success { background: var(--ok-soft); color: var(--ok); }
+.failure, .timed_out { background: var(--bad-soft); color: var(--bad); }
+.cancelled, .skipped, .neutral, .action_required, .stale { background: var(--warn-soft); color: var(--warn); }
+ul.checks { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+ul.checks li { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 2px 0; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.heat td.cell { padding: 0; width: 16px; min-width: 16px; height: 18px; border: 2px solid var(--panel); border-radius: 3px; }
+.heat th.wf { white-space: nowrap; max-width: 230px; overflow: hidden; text-overflow: ellipsis; position: sticky; left: 0; background: var(--panel); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; margin-top: 8px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 4px; vertical-align: -1px; background: var(--c); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+select { max-width: 100%; font: inherit; font-size: 13px; padding: 3px 6px; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; }
+details { border-bottom: 1px solid var(--line); padding: 6px 0; }
+summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+summary .sig { flex: 1 1 320px; font-family: ui-monospace, monospace; font-size: 12.5px; word-break: break-word; }
+pre { background: var(--none); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;
+  white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
+.bar { height: 8px; background: var(--accent); border-radius: 4px; min-width: 2px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpi { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.kpi b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.kpi small { color: var(--muted); }
+#error { display: none; }
+@media (max-width: 600px) { .heat th.wf { max-width: 120px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Vote-App CI</h1>
+    <span class="muted" id="meta">Loading…</span>
+  </header>
+  <nav>
+    <a href="#branches">Branches</a><a href="#activity">Activity</a><a href="#failures">Failures</a>
+    <a href="#deep">Deep tests</a><a href="#speed">Speed</a><a href="#quality">Quality</a>
+  </nav>
+  <section id="error"></section>
+
+  <section id="branches">
+    <h2>Branch tips</h2>
+    <p class="muted">Each workflow's latest completed run on the branch (pushes and dispatches). A short SHA marks a run on an older commit than the tip.</p>
+    <div class="cards" id="tips"></div>
+  </section>
+
+  <section id="activity">
+    <h2>Activity on polity and develop</h2>
+    <p class="muted">One cell per workflow per day, coloured by that day's worst result. Pull-request runs are left out.</p>
+    <div class="scroll"><table class="heat" id="heat"></table></div>
+    <div class="legend">
+      <span style="--c: var(--ok)">all passed</span><span style="--c: var(--warn)">cancelled or skipped</span>
+      <span style="--c: var(--bad)">at least one failure</span><span style="--c: var(--none)">no run</span>
+    </div>
+  </section>
+
+  <section id="failures">
+    <h2>Failures, grouped by cause</h2>
+    <div class="kpis" id="cats" style="margin-bottom:12px"></div>
+    <div class="filters">
+      <select id="f-cat"><option value="">All categories</option></select>
+      <select id="f-branch"><option value="">All branches</option></select>
+      <select id="f-wf"><option value="">All workflows</option></select>
+    </div>
+    <div id="groups"></div>
+  </section>
+
+  <section id="deep">
+    <h2>Latest run of each workflow</h2>
+    <p class="muted">On polity or develop. Scheduled deep tests (mutation, fuzzing, DAST…) show here when they go stale.</p>
+    <div class="scroll"><table id="latest"></table></div>
+  </section>
+
+  <section id="speed">
+    <h2>Speed</h2>
+    <p class="muted">Successful runs only. Bar = median duration.</p>
+    <div class="scroll"><table id="speedt"></table></div>
+  </section>
+
+  <section id="quality">
+    <h2>Quality baselines</h2>
+    <p class="muted">The committed ratchets on the dashboard's branch (<code>.github/*-baseline.json</code>).</p>
+    <div class="kpis" id="qual"></div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const pill = (c) => `<span class="pill ${esc(c)}">${esc(c ?? "?")}</span>`;
+const dur = (s) => s == null ? "–" : s < 90 ? `${s}s` : s < 5400 ? `${Math.round(s / 60)}m` : `${(s / 3600).toFixed(1)}h`;
+const ago = (iso) => {
+  const h = (Date.now() - Date.parse(iso)) / 3.6e6;
+  return h < 1 ? "<1h ago" : h < 48 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`;
+};
+const RANK = {failure: 3, timed_out: 3, cancelled: 2, skipped: 1, neutral: 1, action_required: 2, success: 0};
+
+function tips(s) {
+  const html = Object.entries(s.tips).map(([branch, t]) => {
+    const wfs = Object.entries(t.workflows);
+    const bad = wfs.filter(([, w]) => RANK[w.conclusion] >= 3).length;
+    return `<div class="card"><h3><span>${esc(branch)} <code class="muted">${esc(t.sha.slice(0, 7))}</code></span>
+      ${bad ? pill("failure").replace(">failure<", `>${bad} red<`) : pill("success").replace(">success<", ">green<")}</h3>
+      <ul class="checks">${wfs.map(([n, w]) => `<li><span><a href="${esc(w.url)}">${esc(n)}</a>${w.sha && w.sha !== t.sha
+        ? ` <code class="muted" title="Latest completed run is on an older commit">${esc(w.sha.slice(0, 7))}</code>` : ""}</span>${pill(w.conclusion)}</li>`).join("")}</ul></div>`;
+  });
+  $("tips").innerHTML = html.join("") || '<p class="muted">No push runs in the window.</p>';
+}
+
+function heat(s) {
+  const days = [...new Set(Object.values(s.grid).flatMap((d) => Object.keys(d)))].sort();
+  const colour = (c) => {
+    if (!c) return "var(--none)";
+    const worst = Math.max(...Object.keys(c).map((k) => RANK[k] ?? 1));
+    return worst >= 3 ? "var(--bad)" : worst >= 1 ? "var(--warn)" : "var(--ok)";
+  };
+  const head = `<tr><th></th>${days.map((d, i) => `<th class="muted" style="font-weight:400;font-size:11px;padding:0 1px">${i % 7 === 0 ? esc(d.slice(5)) : ""}</th>`).join("")}</tr>`;
+  const rows = Object.entries(s.grid).map(([wf, byDay]) => `<tr><th class="wf">${esc(wf)}</th>${days.map((d) => {
+    const c = byDay[d];
+    const tip = c ? `${d}: ${Object.entries(c).map(([k, v]) => `${v} ${k}`).join(", ")}` : `${d}: no run`;
+    return `<td class="cell" title="${esc(tip)}" style="background:${colour(c)}"></td>`;
+  }).join("")}</tr>`);
+  $("heat").innerHTML = head + rows.join("");
+}
+
+function failures(s) {
+  const cats = Object.entries(s.failures_by_category).sort((a, b) => b[1] - a[1]);
+  $("cats").innerHTML = cats.map(([c, n]) => `<div class="kpi"><b>${n}</b><small>${esc(c)}</small></div>`).join("")
+    || '<div class="kpi"><b>0</b><small>failed runs in the window</small></div>';
+  const fill = (id, values) => { for (const v of [...new Set(values)].sort()) $(id).insertAdjacentHTML("beforeend", `<option>${esc(v)}</option>`); };
+  fill("f-cat", s.failure_groups.map((g) => g.category));
+  fill("f-branch", s.failure_groups.flatMap((g) => g.branches));
+  fill("f-wf", s.failure_groups.flatMap((g) => g.workflows));
+  const render = () => {
+    const [cat, br, wf] = ["f-cat", "f-branch", "f-wf"].map((id) => $(id).value);
+    const shown = s.failure_groups.filter((g) => (!cat || g.category === cat) && (!br || g.branches.includes(br)) && (!wf || g.workflows.includes(wf)));
+    $("groups").innerHTML = shown.map((g) => {
+      const e = g.example || {};
+      return `<details><summary>${pill(g.category === "code" ? "failure" : "stale").replace(/>[^<]*</, `>${esc(g.category)}<`)}
+        <b>${g.count}×</b><span class="sig">${esc(g.signature.replace(/^[^:]+: /, ""))}</span>
+        <span class="muted">${esc(g.branches.slice(0, 2).join(", "))}${g.branches.length > 2 ? ` +${g.branches.length - 2}` : ""} · last ${esc(ago(g.last_seen))}</span></summary>
+        <p class="muted" style="margin:6px 0">${esc(g.workflows.join(", "))} → job <b>${esc(e.job ?? "?")}</b>, step <b>${esc(e.step ?? "?")}</b>
+        ${e.pr && e.pr.length ? ` · PR ${e.pr.map((n) => `#${esc(n)}`).join(" ")}` : ""} · <a href="${esc(e.url)}">latest run</a></p>
+        ${e.lines && e.lines.length ? `<pre>${esc(e.lines.join("\n"))}</pre>` : ""}</details>`;
+    }).join("") || '<p class="muted">Nothing matches.</p>';
+  };
+  for (const id of ["f-cat", "f-branch", "f-wf"]) $(id).addEventListener("change", render);
+  render();
+}
+
+function latest(s) {
+  const rows = Object.entries(s.latest_runs).sort((a, b) => Date.parse(a[1].created_at) - Date.parse(b[1].created_at));
+  $("latest").innerHTML = `<tr><th>Workflow</th><th>Result</th><th>When</th><th>Branch · event</th></tr>` + rows.map(([wf, r]) => {
+    const old = Date.now() - Date.parse(r.created_at) > 8 * 864e5;
+    return `<tr><td><a href="${esc(r.url)}">${esc(wf)}</a></td><td>${pill(r.conclusion)}</td>
+      <td>${old ? pill("stale").replace(">stale<", `>${esc(ago(r.created_at))}<`) : esc(ago(r.created_at))}</td>
+      <td class="muted">${esc(r.branch)} · ${esc(r.event)}</td></tr>`;
+  }).join("");
+}
+
+function speed(s) {
+  const rows = Object.entries(s.speed).sort((a, b) => (b[1].p50_s ?? 0) - (a[1].p50_s ?? 0));
+  const max = Math.max(1, ...rows.map(([, v]) => v.p50_s ?? 0));
+  $("speedt").innerHTML = `<tr><th>Workflow</th><th class="num">Runs</th><th class="num">p50</th><th class="num">p95</th><th class="num">Queue p50</th><th style="width:30%"></th></tr>` +
+    rows.map(([wf, v]) => `<tr><td>${esc(wf)}</td><td class="num">${v.runs}</td><td class="num">${dur(v.p50_s)}</td>
+      <td class="num">${dur(v.p95_s)}</td><td class="num">${dur(v.queue_p50_s)}</td>
+      <td><div class="bar" style="width:${(100 * (v.p50_s ?? 0)) / max}%"></div></td></tr>`).join("");
+}
+
+function quality(s) {
+  const b = s.baselines || {};
+  const items = [];
+  const m = b.mutation;
+  if (m) items.push([m.score ?? m.mutation_score, "mutation score (%)"]);
+  const q = b.quality;
+  if (q) for (const [k, v] of Object.entries(q)) if (typeof v === "number") items.push([v, k.replace(/_/g, " ")]);
+  $("qual").innerHTML = items.map(([v, l]) => `<div class="kpi"><b>${esc(v)}</b><small>${esc(l)}</small></div>`).join("")
+    || '<p class="muted">No baseline files found.</p>';
+}
+
+fetch("summary.json", {cache: "no-store"})
+  .then((r) => { if (!r.ok) throw new Error(`summary.json: HTTP ${r.status}`); return r.json(); })
+  .then((s) => {
+    $("meta").textContent = `${s.runs} runs over ${s.window_days} days · updated ${ago(s.generated_at)}`;
+    for (const f of [tips, heat, failures, latest, speed, quality]) {
+      try { f(s); } catch (e) { console.error(f.name, e); }
+    }
+  })
+  .catch((e) => { $("error").style.display = "block"; $("error").textContent = `Could not load the data: ${e.message}`; $("meta").textContent = ""; });
+</script>
+</body>
+</html>
