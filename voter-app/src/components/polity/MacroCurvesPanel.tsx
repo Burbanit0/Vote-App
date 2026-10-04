@@ -17,11 +17,9 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import {
   PRESSURE_KEYS,
   clickedTick,
-  electionRows,
   hasStanding,
   pressureRows,
-  standingRows,
-  type ElectionRow,
+  type ElectionInput,
 } from '../../lib/polity/macroSeries';
 import { MAP_COLORS } from '../../lib/polity/mapScene';
 import { usePolityCtx } from './PolityController';
@@ -38,25 +36,34 @@ const PRESSURE_COLORS: Record<(typeof PRESSURE_KEYS)[number], string> = {
   mobilize: MAP_COLORS.vermillion,
   waitForElection: MAP_COLORS.green,
 };
-const PRESSURE_LABELS: Record<(typeof PRESSURE_KEYS)[number], string> = {
-  nothing: 'map.legend.nothing',
-  signPetition: 'map.legend.signPetition',
-  launchPetition: 'map.legend.launchPetition',
-  mobilize: 'map.legend.mobilize',
-  waitForElection: 'map.legend.waitForElection',
-};
-const OUTCOME_KEYS: Record<ElectionRow['outcome'], string> = {
+// The standing's four lines, by the API's field: label, colour, dash.
+const STANDING_LINES = [
+  ['legitimacy', 'macro.legitimacy', MAP_COLORS.blue, undefined],
+  ['mandate_strength', 'macro.mandateStrength', MAP_COLORS.green, undefined],
+  ['approval', 'macro.approval', MAP_COLORS.purple, undefined],
+  ['ecart', 'macro.ecart', MAP_COLORS.vermillion, '4 2'],
+] as const;
+const ELECTION_COLUMNS = [
+  'tableTick',
+  'tableOutcome',
+  'tableWinner',
+  'turnout',
+  'blankShare',
+  'tableSource',
+] as const;
+const OUTCOME_KEYS: Record<ElectionInput['outcome'], string> = {
   elected: 'macro.outcomeElected',
   no_winner: 'macro.outcomeNoWinner',
   invalidated: 'macro.outcomeInvalidated',
 };
-const SOURCE_KEYS: Record<NonNullable<ElectionRow['blankSource']>, string> = {
+const SOURCE_KEYS: Record<NonNullable<ElectionInput['blank_source']>, string> = {
   invalidation_check: 'macro.sourceInvalidationCheck',
   ballots: 'macro.sourceBallots',
   audit_sample: 'macro.sourceAuditSample',
 };
 
-const percent = (value: number | null) => (value === null ? null : `${Math.round(value * 100)} %`);
+const percent = (value: number | null | undefined) =>
+  value == null ? null : `${Math.round(value * 100)} %`;
 
 const MacroCurvesPanel: React.FC = () => {
   const { t } = useTranslation('polity');
@@ -64,9 +71,8 @@ const MacroCurvesPanel: React.FC = () => {
   const theme = useChartTheme();
   if (!overview) return null;
 
-  const standings = standingRows(overview.standings);
-  const pressure = pressureRows(overview.standings);
-  const elections = electionRows(overview.elections);
+  const { standings, elections } = overview;
+  const pressure = pressureRows(standings);
   const jump = (state: { activeLabel?: string | number } | null) => {
     const target = clickedTick(state);
     if (target !== null) setTick(target);
@@ -88,39 +94,18 @@ const MacroCurvesPanel: React.FC = () => {
               <YAxis domain={[0, 1]} {...axis} />
               <Tooltip contentStyle={theme.tooltipStyle} />
               <Legend />
-              <Line
-                dataKey="legitimacy"
-                name={t('macro.legitimacy')}
-                stroke={MAP_COLORS.blue}
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-              <Line
-                dataKey="mandateStrength"
-                name={t('macro.mandateStrength')}
-                stroke={MAP_COLORS.green}
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-              <Line
-                dataKey="approval"
-                name={t('macro.approval')}
-                stroke={MAP_COLORS.purple}
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-              <Line
-                dataKey="ecart"
-                name={t('macro.ecart')}
-                stroke={MAP_COLORS.vermillion}
-                strokeDasharray="4 2"
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
+              {STANDING_LINES.map(([field, label, color, dash]) => (
+                <Line
+                  key={field}
+                  dataKey={field}
+                  name={t(label)}
+                  stroke={color}
+                  strokeDasharray={dash}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ))}
               {marker}
             </LineChart>
           </ResponsiveContainer>
@@ -143,7 +128,7 @@ const MacroCurvesPanel: React.FC = () => {
                 key={key}
                 dataKey={key}
                 stackId="acts"
-                name={t(PRESSURE_LABELS[key])}
+                name={t(`map.legend.${key}`)}
                 fill={PRESSURE_COLORS[key]}
                 isAnimationActive={false}
               />
@@ -161,24 +146,11 @@ const MacroCurvesPanel: React.FC = () => {
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.tableTick')}
-                </th>
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.tableOutcome')}
-                </th>
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.tableWinner')}
-                </th>
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.turnout')}
-                </th>
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.blankShare')}
-                </th>
-                <th scope="col" className="px-2 py-1">
-                  {t('macro.tableSource')}
-                </th>
+                {ELECTION_COLUMNS.map((column) => (
+                  <th key={column} scope="col" className="px-2 py-1">
+                    {t(`macro.${column}`)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -203,10 +175,10 @@ const MacroCurvesPanel: React.FC = () => {
                     {percent(e.turnout) ?? t('macro.unavailable')}
                   </td>
                   <td className="px-2 py-0.5 tabular-nums">
-                    {percent(e.blankShare) ?? t('macro.unavailable')}
+                    {percent(e.blank_share) ?? t('macro.unavailable')}
                   </td>
                   <td className="px-2 py-0.5">
-                    {e.blankSource ? t(SOURCE_KEYS[e.blankSource]) : t('macro.unavailable')}
+                    {e.blank_source ? t(SOURCE_KEYS[e.blank_source]) : t('macro.unavailable')}
                   </td>
                 </tr>
               ))}

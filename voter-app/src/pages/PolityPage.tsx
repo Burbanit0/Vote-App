@@ -9,7 +9,7 @@ import TickPlayer from '../components/polity/TickPlayer';
 import InstitutionalTimeline from '../components/polity/InstitutionalTimeline';
 import PopulationMap from '../components/polity/PopulationMap';
 import MacroCurves from '../components/polity/MacroCurves';
-import CitizenBiography from '../components/polity/CitizenBiography';
+import CitizenBiographyPanel from '../components/polity/CitizenBiographyPanel';
 
 // The run explorer: a finished polity simulation replayed tick by tick. The page
 // is a layout shell over PolityController; each view (player, map, curves,
@@ -32,7 +32,16 @@ const Status: React.FC<{ testId: string; children: React.ReactNode; busy?: boole
 
 const PolityBody: React.FC = () => {
   const { t } = useTranslation('polity');
-  const { runs, runsLoading, runsError, overview, overviewLoading, overviewError } = usePolityCtx();
+  const {
+    runs,
+    runsLoading,
+    runsError,
+    runKey,
+    overview,
+    overviewLoading,
+    overviewError,
+    citizen,
+  } = usePolityCtx();
 
   if (runsLoading)
     return (
@@ -69,7 +78,8 @@ const PolityBody: React.FC = () => {
       <TickPlayer />
       <InstitutionalTimeline />
       <PopulationMap />
-      <CitizenBiography />
+      {/* A citizen is only read from the URL once a run is shown, so the run key is set here. */}
+      {citizen !== null && <CitizenBiographyPanel runKey={runKey as string} citizen={citizen} />}
       <MacroCurves />
     </div>
   );
