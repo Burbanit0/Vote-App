@@ -1795,11 +1795,19 @@ every other amendment, and it states a consequence, never how to vote. Same prob
 | 50% | self-serving | 50% | 10% |
 | 50% | public-good | 90% | **43% -- now fails** |
 
-- **The exploit is closed.** An unpopular president no longer wins a third term by calling it continuity.
 - **Rhetoric still matters**, by 35-45 points between the two framings, which a legislature legitimately
-  allows. What changed is that the members now know the change is the proposer's own to gain from, and a
-  third term becomes contested (43-47%) rather than rubber-stamped.
+  allows. What changed is that the members now know the change is the proposer's own to gain from.
 - **Measured on the term limit only.** The recall-floor and petition-threshold lines are built and tested
   but not measured live; the term limit is the case a run produced.
+
+*Correction, same day: the exploit is narrowed, not closed.* The table above was first read as "now fails",
+and it should not have been: 47% and 43% sit inside the measurement's ~18-point noise band around the 50%
+threshold. Re-measured through the neutrality harness -- once it called the kernel's own ballot composer
+(`ballot_proposer_text`) and used the realistic public-good reason -- the same fix at 35% approval with four
+ticks left gave **57% yes, which ratifies**. So with the fact line a well-framed third term lands *near* the
+threshold, a contested vote either way, where without it the same proposal drew 60-90%. The line moves the
+vote by 10-45 points depending on the conditions; it does not reliably defeat the amendment. That is the
+"contested rather than rubber-stamped" outcome, and calling it closed was the same overstatement OBS-030
+made from one favourable condition.
 
 *Status: fixed* on `fix/polity-ballot-self-interest`.
