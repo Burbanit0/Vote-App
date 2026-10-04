@@ -22,7 +22,7 @@ name: Schemathesis Contract Fuzzing
 # `develop`, so `schedule`/`workflow_dispatch` resolve correctly here too.
 on:
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'fast_api_voter/api/**'
       - 'fast_api_voter/requirements*.txt'
@@ -31,8 +31,9 @@ on:
   schedule:
     - cron: '38 5 * * 1'  # Monday 05:38 UTC — off-peak, arbitrary offset
 
+# Scheduled runs test polity: their own group, so a develop push can't cancel them.
 concurrency:
-  group: schemathesis-${{ github.ref }}
+  group: schemathesis-${{ github.event_name == 'schedule' && 'schedule-polity' || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -50,6 +51,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
