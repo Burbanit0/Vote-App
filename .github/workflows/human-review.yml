@@ -28,8 +28,12 @@ name: Human review attestation
 #  - Any other new commit gets a red gate, so the PR is held again. There is
 #    no reset step that could be skipped.
 #
-# Both triggers run the workflow from a branch the PR cannot edit:
-# issue_comment from the default branch, pull_request_target from the base.
+# Both triggers run the workflow from a branch the PR cannot edit: the DEFAULT
+# branch (develop), for issue_comment and for pull_request_target alike (seen
+# live on #763: the gate ran develop's copy while polity had a newer one). A
+# change to this file, or to what its checkout reads (the classifier, the
+# integrity check, .mergify.yml), takes effect only after a polity -> develop
+# sync.
 # No PR code is checked out or executed (the checkout is the base branch, for
 # the classifier and the path list); untrusted event fields only reach the
 # shell through env.
@@ -68,8 +72,8 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      # The base branch (pull_request_target's default ref): the classifier, the
-      # path list and the test-integrity check a PR cannot rewrite for itself.
+      # The default branch (pull_request_target's ref): the classifier, the path
+      # list and the test-integrity check a PR cannot rewrite for itself.
       # Full history, for the merge-base the integrity diff starts from.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:

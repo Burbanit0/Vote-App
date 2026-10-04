@@ -1,5 +1,6 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWidth } from '../../hooks/useWidth';
 import {
   LANE_HEIGHT,
   TIMELINE_LANES,
@@ -48,6 +49,9 @@ const LEGEND = [
   ['other', ['scandal', 'shock', 'rotation', 'other']],
 ] as const;
 
+const diamond = (x: number, y: number) =>
+  `M${x},${y - 5} L${x + 5},${y} L${x},${y + 5} L${x - 5},${y} Z`;
+
 /** One shape per glyph kind, so a glyph reads without its colour. */
 const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyph }) => {
   const { x, y, kind } = glyph;
@@ -76,12 +80,7 @@ const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyp
       );
     case 'confidence':
     case 'petition':
-      return (
-        <path
-          d={`M${x},${y - 5} L${x + 5},${y} L${x},${y + 5} L${x - 5},${y} Z`}
-          className="fill-orange-500"
-        />
-      );
+      return <path d={diamond(x, y)} className="fill-orange-500" />;
     case 'legislative':
     case 'bill':
     case 'coalition':
@@ -90,11 +89,7 @@ const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyp
       return <circle cx={x} cy={y} r={4.5} className="fill-violet-700" />;
     case 'amendment':
       return (
-        <path
-          d={`M${x},${y - 5} L${x + 5},${y} L${x},${y + 5} L${x - 5},${y} Z`}
-          className="fill-background stroke-violet-700"
-          strokeWidth={1.5}
-        />
+        <path d={diamond(x, y)} className="fill-background stroke-violet-700" strokeWidth={1.5} />
       );
     case 'extraLegal':
       // A downward triangle: the reverse of an election's mark, for an office kept against the rules.
@@ -120,18 +115,7 @@ const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyp
 const InstitutionalTimeline: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, tick, setTick } = usePolityCtx();
-  const holder = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(UNMEASURED_WIDTH);
-
-  useLayoutEffect(() => {
-    const element = holder.current;
-    if (!element) return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry && entry.contentRect.width > 0) setWidth(entry.contentRect.width);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const [holder, width] = useWidth(UNMEASURED_WIDTH);
 
   if (!overview) return null;
 

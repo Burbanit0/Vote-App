@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWidth } from '../../hooks/useWidth';
 import { drawScene } from '../../lib/polity/drawScene';
 import { directionOf, makeHitTester, nearestInDirection } from '../../lib/polity/hitTest';
 import {
@@ -22,21 +23,6 @@ import PopulationTable from './PopulationTable';
 
 const UNMEASURED_WIDTH = 640;
 const HIT_RADIUS = 8;
-
-/** The width of the element given to the returned ref, re-observed whenever that element changes. */
-function useWidth(): [(element: HTMLDivElement | null) => void, number] {
-  const [element, setElement] = useState<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(UNMEASURED_WIDTH);
-  useLayoutEffect(() => {
-    if (!element) return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry && entry.contentRect.width > 0) setWidth(entry.contentRect.width);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [element]);
-  return [setElement, width];
-}
 
 const Axis: React.FC<{ scene: Scene; axis: 0 | 1; label: string; issues: string }> = ({
   scene,
@@ -62,21 +48,18 @@ const Axis: React.FC<{ scene: Scene; axis: 0 | 1; label: string; issues: string 
 const PopulationMap: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, frame, lens, tick, setTick, citizen, setCitizen } = usePolityCtx();
-  const [holder, width] = useWidth();
+  const [holder, width] = useWidth(UNMEASURED_WIDTH);
   const canvas = useRef<HTMLCanvasElement>(null);
   const height = Math.round(Math.min(Math.max(width * 0.6, 260), 560));
 
   const scene = useMemo(() => {
     if (!overview || !frame) return null;
-    const census = censusAt(
-      overview.projection.citizens,
-      Math.floor(tick / overview.ticks_per_year)
-    );
+    const year = Math.floor(tick / overview.ticks_per_year);
     return buildScene(
       {
-        citizens: census?.xy ?? [],
+        citizens: censusAt(overview.projection.citizens, year)?.xy ?? [],
         frame,
-        citizenParties: overview.citizen_parties,
+        citizenParties: censusAt(overview.citizen_parties, year)?.parties ?? [],
         parties: overview.parties,
         president: frame.president ?? null,
       },
@@ -147,10 +130,11 @@ const PopulationMap: React.FC = () => {
     const direction = directionOf(event.key);
     if (!direction) return;
     event.preventDefault();
-    const next = nearestInDirection(scene.points, citizen, direction, [
-      scene.width / 2,
-      scene.height / 2,
-    ]);
+    // With nobody selected, any arrow picks the citizen nearest the map's centre.
+    const next =
+      citizen === null
+        ? hitTest(scene.width / 2, scene.height / 2, Infinity)
+        : nearestInDirection(scene.points, citizen, direction);
     if (next !== null) setCitizen(next);
   };
 

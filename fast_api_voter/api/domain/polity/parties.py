@@ -31,7 +31,7 @@ class Party:
     platform: tuple[float, ...]
 
 
-def _kmeans(points: np.ndarray, k: int, seed: int) -> np.ndarray:
+def kmeans(points: np.ndarray, k: int, seed: int) -> np.ndarray:
     """Deterministic Lloyd's-algorithm k-means: same (points, k, seed) always
     converges to the same centroids. A cluster left empty after an assignment
     step keeps its previous centroid unchanged rather than being
@@ -69,7 +69,7 @@ def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -
         raise ValueError(f"cannot form {initial_count} parties from {len(citizens)} citizens")
 
     points = np.array([c.issue_positions for c in citizens], dtype=float)
-    centroids = _kmeans(points, initial_count, seed)
+    centroids = kmeans(points, initial_count, seed)
 
     return [
         Party(party_id=i, platform=tuple(float(x) for x in centroids[i]))
