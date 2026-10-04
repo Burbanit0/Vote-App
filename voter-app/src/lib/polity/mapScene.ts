@@ -45,6 +45,8 @@ export interface MapPoint {
   color: MapColor;
   /** The legend entry this point counts toward. */
   legend: string;
+  /** The citizen's party at the census in force. */
+  party: number | null;
 }
 
 export interface LegendEntry {
@@ -172,7 +174,11 @@ export function buildScene(
   width: number,
   height: number
 ): Scene {
-  const [minX, minY, maxX, maxY] = bounds(input);
+  // The run lists every party it ever had; a party is drawn, and sizes the map, only while
+  // it has members.
+  const members = new Set(input.citizenParties);
+  const parties = input.parties.filter((p) => members.has(p.party_id));
+  const [minX, minY, maxX, maxY] = bounds({ ...input, parties });
   const spanX = Math.max(maxX - minX, 1e-9);
   const spanY = Math.max(maxY - minY, 1e-9);
   // One scale for both axes: distances on the map mean the same thing in every direction.
@@ -192,7 +198,7 @@ export function buildScene(
     entry.count += 1;
     counts.set(legend, entry);
     const [x, y] = project(xy);
-    return { id, x, y, shape, color, legend };
+    return { id, x, y, shape, color, legend, party: input.citizenParties[id] ?? null };
   });
 
   const president = input.president;
@@ -202,7 +208,7 @@ export function buildScene(
     height,
     points,
     legend: [...counts.values()],
-    parties: input.parties.map((p) => {
+    parties: parties.map((p) => {
       const [x, y] = project(p.xy);
       return { partyId: p.party_id, x, y, color: PARTY_COLORS[p.party_id % PARTY_COLORS.length] };
     }),

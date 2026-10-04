@@ -19,7 +19,7 @@ import hashlib
 import json
 import re
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -28,6 +28,7 @@ from weakref import WeakValueDictionary
 
 from api.domain.polity.explorer_biography import Biography, build_biography
 from api.domain.polity.explorer_paths import inside
+from api.domain.polity.parties import kmeans
 from api.domain.polity.run_explorer import RunView
 from api.domain.polity.run_frames import RunFrames, frames_for
 from api.domain.polity.run_macro import RunMacro, build_macro
@@ -135,38 +136,44 @@ class LoadedRun:
     frames: RunFrames
     macro: RunMacro
     parties: tuple[tuple[int, tuple[float, ...]], ...]
-    """(party_id, platform) from the final checkpoint; platforms never move during a run."""
+    """(party_id, platform) of every party the run had, by id; platforms never move during a run."""
 
     def biography(self, citizen_id: int) -> Biography:
         return build_biography(self.view, citizen_id)
 
 
-def _parties(run_dir: Path) -> tuple[tuple[int, tuple[float, ...]], ...]:
-    """The parties of a run's final checkpoint, a malformed entry dropped rather than
-    raised: a run whose checkpoint is torn or from another engine version still opens,
-    without its party markers."""
+def _parties(run_dir: Path, frames: RunFrames, events: Sequence[Mapping[str, Any]]) -> tuple[tuple[int, tuple[float, ...]], ...]:
+    """Every party the run had. The final checkpoint holds only the parties still alive at
+    the end, so they are read from what records each one whole: the initial parties are
+    remade as the run made them (k-means on the year-0 census, seeded with the run's seed:
+    parties.initialize_parties), and a founded party's platform is in its journal entry.
+
+    A config without the party settings costs the run its initial parties, and a malformed
+    founding entry its own party, not the page."""
+    found: dict[int, tuple[float, ...]] = {}
     try:
-        checkpoint = json.loads((run_dir / "checkpoint.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return ()
-    if not isinstance(checkpoint, dict) or not isinstance(checkpoint.get("parties"), list):
-        return ()
-    found = []
-    for party in checkpoint["parties"]:
-        if not isinstance(party, dict):
+        config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+        count, seed = int(config["parties"]["initial_count"]), int(config["run"]["seed"])
+        centroids = kmeans(frames.projection.issue_positions[0], count, seed)
+        found.update((party_id, tuple(float(x) for x in platform)) for party_id, platform in enumerate(centroids))
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    for event in events:
+        if event["event_type"] != "party_founded":
             continue
         try:
-            found.append((int(party["party_id"]), tuple(float(x) for x in party["platform"])))
+            payload = event["payload"]
+            found[int(payload["party_id"])] = tuple(float(x) for x in payload["platform"])
         except (KeyError, TypeError, ValueError):
             continue
-    return tuple(found)
+    return tuple(sorted(found.items()))
 
 
 def load_run(run_dir: Path) -> LoadedRun:
     view = RunView.load(run_dir)
     frames = frames_for(run_dir, view.events, view.snapshots)
     return LoadedRun(view=view, frames=frames, macro=build_macro(view.events, frames.population, view.last_tick),
-                     parties=_parties(run_dir))
+                     parties=_parties(run_dir, frames, view.events))
 
 
 _LOADED_FILES = ("events.jsonl", "snapshots.jsonl", "config.json", "checkpoint.json", "progress.json")
