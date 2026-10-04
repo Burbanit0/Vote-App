@@ -64,7 +64,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
 | [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
-| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | cause found |
+| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 
 ---
 
@@ -1781,7 +1781,25 @@ reason to fire -- one more candidate explanation for its never having fired (OBS
 *What a fix would look like.* The ballot shows the proposer's standing but not the one fact a member needs
 to see through the framing: that this change would let the president who proposes it stand again. Stating
 that consequence, as `stand_line` made the co-founder count visible, is facts rather than advice (C3/C4).
-Whether to build it is a modelling choice -- a chamber swayed by rhetoric is also plausible -- so it is left
-for the owner.
+The owner chose to build it (2026-10-03).
 
-*Status: cause found.*
+*Fix, measured.* `agents.amendment_consequence` adds that fact to the ballot when the change would loosen
+a rule binding the proposer: lifting the term limit for a president it currently bars, lowering the recall
+floor, or raising the petition threshold -- the three self-serving articles OBS-030 named. It is empty for
+every other amendment, and it states a consequence, never how to vote. Same probe, 30 members per cell:
+
+| approval | framing | without the fact | with the fact |
+|---:|---|---:|---:|
+| 25% | self-serving | 27% | 3% |
+| 25% | public-good | 60% | **47% -- now fails** |
+| 50% | self-serving | 50% | 10% |
+| 50% | public-good | 90% | **43% -- now fails** |
+
+- **The exploit is closed.** An unpopular president no longer wins a third term by calling it continuity.
+- **Rhetoric still matters**, by 35-45 points between the two framings, which a legislature legitimately
+  allows. What changed is that the members now know the change is the proposer's own to gain from, and a
+  third term becomes contested (43-47%) rather than rubber-stamped.
+- **Measured on the term limit only.** The recall-floor and petition-threshold lines are built and tested
+  but not measured live; the term limit is the case a run produced.
+
+*Status: fixed* on `fix/polity-ballot-self-interest`.

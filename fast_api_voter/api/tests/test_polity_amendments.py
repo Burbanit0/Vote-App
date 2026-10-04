@@ -20,6 +20,7 @@ from api.domain.polity.agents import (
     decide_turn,
     president_system_prompt,
     proposer_line,
+    amendment_consequence,
     validate_turn,
     PRESIDENT_TURN,
 )
@@ -202,6 +203,39 @@ def test_a_ballot_tells_the_member_who_asks_in_facts_and_not_whether_it_serves_t
     user = ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="", proposer=line)
     assert line in user and "benefit" not in user
     assert line not in ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="")
+
+
+_TERM = "institutions.president_term_limit"
+
+
+def _proposal(article: str, value: Any) -> Proposal:
+    return Proposal(article=article, value=value, proposer=30, tick=3, threshold=0.5, reason="continuity")
+
+
+@pytest.mark.parametrize(
+    ("article", "served", "old", "new", "shown"),
+    [
+        # The case OBS-038 measured: a president who has served their two terms asks for a third.
+        (_TERM, 2, 2, 3, True),
+        (_TERM, 2, 2, None, True),  # abolishing the limit lifts the bar too (and OBS-033 made it reachable)
+        (_TERM, 1, 2, 3, False),  # not yet barred, so the change gains them nothing now
+        (_TERM, 2, 2, 1, False),  # tightening the limit binds them no less
+        (_TERM, 0, None, 2, False),  # introducing a limit where there was none
+        ("legitimacy.recall_floor", 1, 0.3, 0.1, True),  # a lower floor shields the sitting president
+        ("legitimacy.recall_floor", 1, 0.1, 0.3, False),
+        ("petition.signature_threshold", 1, 0.25, 0.4, True),  # a higher bar shields them from petitions
+        ("petition.signature_threshold", 1, 0.25, 0.15, False),
+        ("institutions.presidential_method", 2, "two_round", "borda", False),  # no rule the proposer is bound by
+    ],
+)
+def test_the_ballot_names_a_change_that_would_loosen_a_rule_binding_its_proposer(
+    article: str, served: int, old: Any, new: Any, shown: bool,
+) -> None:
+    president = dataclasses.replace(_president(), mandates_served=served)
+    line = amendment_consequence(_proposal(article, new), president, old)
+    assert bool(line) is shown
+    # A consequence, never advice (C4): it says what would follow, not how to vote.
+    assert not any(advice in line.lower() for advice in ("should", "vote yes", "vote no", "reject", "oppose", "beware"))
 
 
 def test_a_ballot_is_a_decision_and_a_failed_one_is_no_vote() -> None:

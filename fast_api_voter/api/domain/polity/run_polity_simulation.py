@@ -66,6 +66,7 @@ from api.domain.polity.agents import (
     party_roll,
     stand_line,
     proposer_line,
+    amendment_consequence,
     ballot_system_prompt,
     ballot_user_prompt,
     ballot_words,
@@ -1320,13 +1321,16 @@ def _declares_refusal(context: TickContext, president: Citizen, turn: LeaderTurn
 
 
 def _proposer_line(context: TickContext, state: TickState, proposal: Proposal) -> str:
-    """What the chamber is told about whoever asks: their party, approval and term."""
+    """What the chamber is told about whoever asks: their party, approval and term, and whether the
+    change would loosen a rule they are bound by (OBS-038)."""
     president, config = state.citizens[proposal.proposer], context.config
-    return proposer_line(
+    standing = proposer_line(
         president, approval=approval(state.citizens, president, config.vote, _term_policy_record(state.legislature)),
         ticks_left=ticks_to_election(context.tick, president.term_end_tick),
         lame_duck=is_term_limited(president, config.institutions.president_term_limit),
     )
+    consequence = amendment_consequence(proposal, president, article_value(config, proposal.article))
+    return f"{standing}\n{consequence}" if consequence else standing
 
 
 def _open_proposal(context: TickContext, state: TickState, president: Citizen, turn: LeaderTurn | None) -> None:
