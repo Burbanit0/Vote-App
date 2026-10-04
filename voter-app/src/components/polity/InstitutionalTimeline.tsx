@@ -17,6 +17,7 @@ import { usePolityCtx } from './PolityController';
 
 const UNMEASURED_WIDTH = 800;
 const BAND_CLASSES = ['fill-primary/25', 'fill-primary/45'];
+const VACANCY_CLASS = 'fill-none stroke-muted-foreground';
 
 const LANE_KEYS: Record<TimelineLane, string> = {
   presidency: 'timeline.lanePresidency',
@@ -176,6 +177,23 @@ const InstitutionalTimeline: React.FC = () => {
                 </title>
               </rect>
             ))}
+            {geometry.vacancies.map((vacancy) => (
+              <rect
+                key={vacancy.startTick}
+                data-testid="timeline-vacancy"
+                x={vacancy.x}
+                y={geometry.laneY.presidency - 7}
+                width={vacancy.width}
+                height={14}
+                rx={2}
+                className={VACANCY_CLASS}
+                strokeDasharray="3 2"
+              >
+                <title>
+                  {t('timeline.vacancy', { start: vacancy.startTick, end: vacancy.endTick })}
+                </title>
+              </rect>
+            ))}
             {geometry.glyphs.map((glyph, i) => (
               <g key={i} data-testid="timeline-glyph" data-kind={glyph.kind} data-tick={glyph.tick}>
                 <title>
@@ -201,6 +219,22 @@ const InstitutionalTimeline: React.FC = () => {
         aria-label={t('timeline.legendLabel')}
         className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs"
       >
+        {geometry.vacancies.length > 0 && (
+          <li data-testid="timeline-legend-vacancy" className="flex items-center gap-1.5">
+            <svg width={16} height={12} aria-hidden="true" className="shrink-0">
+              <rect
+                x={1}
+                y={2}
+                width={14}
+                height={8}
+                rx={2}
+                className={VACANCY_CLASS}
+                strokeDasharray="3 2"
+              />
+            </svg>
+            {t('timeline.legend.vacancy')}
+          </li>
+        )}
         {LEGEND.filter(([, kinds]) => kinds.some((kind) => drawn.has(kind))).map(([key, kinds]) => (
           <li
             key={key}

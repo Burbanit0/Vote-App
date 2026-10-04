@@ -104,6 +104,10 @@ describe('CitizenBiography', () => {
     renderAt('/polity');
     await screen.findByTestId('polity-run-facts');
     expect(screen.queryByTestId('polity-biography')).not.toBeInTheDocument();
+    // Its place beside the map says how to fill it.
+    expect(screen.getByTestId('polity-biography-hint')).toHaveTextContent(
+      'Pick a citizen on the map or in the table'
+    );
     expect(apiClient.GET.mock.calls.map(([path]) => path)).not.toContain(
       '/api/v2/polity/runs/{run_key}/citizens/{citizen_id}'
     );
@@ -165,6 +169,33 @@ describe('CitizenBiography', () => {
     expect(received).toHaveTextContent('5 × mobilizes');
     expect(received).toHaveTextContent('1 × pressure act');
     expect(received).toHaveTextContent('2 × petition signed');
+  });
+
+  it('tells a repeat once: a span of identical censuses, one entry with every tick', async () => {
+    renderAt('/polity?citizen=2', {
+      citizen: (id) => {
+        const story = biography(id);
+        const debate = (tick: number) => entry(tick, 'chamber_deliberation', { motif: 203 });
+        return {
+          ...story,
+          sections: { ...story.sections, roles: [debate(4), debate(5), debate(9)] },
+          census: [0, 1, 2].map((year) => ({ year, role: 'electeur', office: 'aucun', party: 1 })),
+        };
+      },
+    });
+    const census = await screen.findByTestId('biography-census');
+    expect(within(census).getAllByRole('row')).toHaveLength(2); // the header and one span
+    expect(census).toHaveTextContent('0–2electornone1');
+
+    const roles = screen.getByTestId('biography-section-roles');
+    expect(roles).toHaveTextContent('Roles and office 3');
+    const [debates] = within(roles).getAllByTestId('biography-entry');
+    expect(within(roles).getAllByTestId('biography-entry')).toHaveLength(1);
+    expect(
+      within(debates)
+        .getAllByTestId('biography-tick')
+        .map((c) => c.textContent)
+    ).toEqual(['4', '5', '9']);
   });
 
   it('moves the player from a tick chip and closes back to nobody selected', async () => {

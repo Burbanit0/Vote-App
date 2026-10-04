@@ -49,7 +49,9 @@ const polityEn: PolityKeys = {
     jump: 'Tick {{tick}}: {{event}}',
     eventList: 'Events, to jump to their tick',
     legendLabel: 'Timeline legend',
+    vacancy: 'Presidency vacant from tick {{start}} until tick {{end}}',
     legend: {
+      vacancy: 'presidency vacant',
       elected: 'election won',
       noWinner: 'election without a winner, or invalidated',
       snap: 'snap election',
@@ -178,6 +180,7 @@ const polityEn: PolityKeys = {
     close: 'Close the biography',
     loading: 'Loading the biography…',
     error: 'Could not load this biography: {{message}}',
+    hint: 'Pick a citizen on the map or in the table to read their story.',
     census: 'Censuses',
     censusYear: 'Year',
     censusRole: 'Role',

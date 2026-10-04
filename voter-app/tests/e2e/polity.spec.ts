@@ -106,13 +106,14 @@ test.describe('Polity — run explorer', () => {
 
     const biography = page.getByTestId('polity-biography');
     await expect(biography).toBeVisible();
+    // Acts on the same motive share one entry, each act a tick chip of its own.
     const acts = biography
       .getByTestId('biography-section-pressure_acts')
-      .getByTestId('biography-entry');
+      .getByTestId('biography-tick');
     await expect(acts.first()).toBeVisible();
     expect(await acts.count()).toBeGreaterThan(5);
 
-    await acts.nth(2).getByTestId('biography-tick').click();
+    await acts.nth(2).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).not.toBeNull();
     await biography.getByTestId('polity-biography-close').click();
     await expect.poll(() => new URL(page.url()).searchParams.get('citizen')).toBeNull();

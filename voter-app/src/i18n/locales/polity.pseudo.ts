@@ -51,7 +51,9 @@ const polityPseudo: PolityKeys = {
     jump: '⟦Tíçk~~ {{tick}} :~ {{event}}⟧',
     eventList: '⟦Évéñéméñts,~~~~ póúr~~ állér~~ à~ léúr~~ tíçk~~⟧',
     legendLabel: '⟦Légéñdé~~~ dé~ lá~ frísé~~⟧',
+    vacancy: '⟦Présídéñçé~~~~ váçáñté~~~ dú~ tíçk~~ {{start}} júsqú’áú~~~ tíçk~~ {{end}}⟧',
     legend: {
+      vacancy: '⟦présídéñçé~~~~ váçáñté~~~⟧',
       elected: '⟦éléçtíóñ~~~ gágñéé~~~⟧',
       noWinner: '⟦éléçtíóñ~~~ sáñs~~ váíñqúéúr~~~~ óú~ íñválídéé~~~~⟧',
       snap: '⟦éléçtíóñ~~~ áñtíçípéé~~~~⟧',
@@ -183,6 +185,7 @@ const polityPseudo: PolityKeys = {
     close: '⟦Férmér~~~ lá~ bíógráphíé~~~~⟧',
     loading: '⟦Chárgéméñt~~~~ dé~ lá~ bíógráphíé…~~~~⟧',
     error: '⟦Ímpóssíblé~~~~ dé~ çhárgér~~~ çétté~~ bíógráphíé~~~~ :~ {{message}}⟧',
+    hint: '⟦Chóísísséz~~~~ úñ~ çítóyéñ~~~ súr~~ lá~ çárté~~ óú~ dáñs~~ lé~ tábléáú~~~ póúr~~ líré~~ sóñ~~ hístóíré.~~~~⟧',
     census: '⟦Réçéñséméñts~~~~~⟧',
     censusYear: '⟦Áññéé~~⟧',
     censusRole: '⟦Rôlé~~⟧',

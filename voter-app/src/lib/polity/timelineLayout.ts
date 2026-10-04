@@ -89,6 +89,14 @@ interface Band {
   startTick: number;
 }
 
+/** Ticks no term covers: nobody held the presidency, from `startTick` until `endTick`. */
+interface Vacancy {
+  x: number;
+  width: number;
+  startTick: number;
+  endTick: number;
+}
+
 export interface Glyph {
   x: number;
   y: number;
@@ -104,6 +112,7 @@ export interface TimelineGeometry {
   height: number;
   laneY: Record<TimelineLane, number>;
   bands: Band[];
+  vacancies: Vacancy[];
   glyphs: Glyph[];
   tickX: (tick: number) => number;
 }
@@ -148,6 +157,25 @@ export function layoutTimeline(
     startTick: term.start_tick,
   }));
 
+  // A recall empties the office until the next election: those ticks belong to no term.
+  const vacancies: Vacancy[] = [];
+  const vacant = (from: number, to: number) => {
+    if (to > from) {
+      vacancies.push({
+        x: tickX(from),
+        width: tickX(to) - tickX(from),
+        startTick: from,
+        endTick: to,
+      });
+    }
+  };
+  let covered = 0;
+  for (const term of [...terms].sort((a, b) => a.start_tick - b.start_tick)) {
+    vacant(covered, term.start_tick);
+    covered = Math.max(covered, term.end_tick);
+  }
+  vacant(covered, lastTick);
+
   const slotOf = (event: EventInput) => `${glyphOf(event.event_type)[0]}:${event.tick}`;
   const slotSize = new Map<string, number>();
   for (const event of events) slotSize.set(slotOf(event), (slotSize.get(slotOf(event)) ?? 0) + 1);
@@ -177,6 +205,7 @@ export function layoutTimeline(
     height: 2 * TIMELINE_PADDING + TIMELINE_LANES.length * LANE_HEIGHT,
     laneY,
     bands,
+    vacancies,
     glyphs,
     tickX,
   };

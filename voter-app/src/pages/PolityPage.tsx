@@ -77,9 +77,25 @@ const PolityBody: React.FC = () => {
       <RunFacts />
       <TickPlayer />
       <InstitutionalTimeline />
-      <PopulationMap />
-      {/* A citizen is only read from the URL once a run is shown, so the run key is set here. */}
-      {citizen !== null && <CitizenBiographyPanel runKey={runKey as string} citizen={citizen} />}
+      {/* On a wide screen the selected citizen's story sits beside the map, in a column of its
+          own that stays in view and scrolls by itself; it is always there, so selecting
+          someone never resizes the map. */}
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <PopulationMap />
+        <div className="lg:sticky lg:top-14 lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto">
+          {/* A citizen is only read from the URL once a run is shown, so the run key is set here. */}
+          {citizen !== null ? (
+            <CitizenBiographyPanel runKey={runKey as string} citizen={citizen} />
+          ) : (
+            <p
+              data-testid="polity-biography-hint"
+              className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground"
+            >
+              {t('biography.hint')}
+            </p>
+          )}
+        </div>
+      </div>
       <MacroCurves />
     </div>
   );
