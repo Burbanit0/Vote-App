@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/components/ui/spinner';
 import { usePolityCitizen, type PolityCitizen } from '../../hooks/usePolityData';
+import { censusSpans, groupEntries } from '../../lib/polity/biography';
 import { messageOf } from '../../lib/polity/errors';
 import { PRESSURE_KEYS } from '../../lib/polity/macroSeries';
 import { usePolityCtx } from './PolityController';
@@ -95,8 +96,9 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
     }
     return eventName(item.event_type);
   };
-  const chip = (tick: number) => (
+  const chip = (tick: number, key?: React.Key) => (
     <button
+      key={key}
       type="button"
       data-testid="biography-tick"
       aria-label={t('biography.goToTick', { tick })}
@@ -160,9 +162,11 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
               </tr>
             </thead>
             <tbody>
-              {data.census.map((year) => (
+              {censusSpans(data.census).map((year) => (
                 <tr key={year.year}>
-                  <td className="px-2 py-0.5 tabular-nums">{year.year}</td>
+                  <td className="px-2 py-0.5 tabular-nums">
+                    {year.year === year.to ? year.year : `${year.year}–${year.to}`}
+                  </td>
                   <td className="px-2 py-0.5">
                     {t(`biography.roleValues.${year.role}`, { defaultValue: year.role })}
                   </td>
@@ -187,13 +191,13 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
                   <p className="text-muted-foreground">{t('biography.empty')}</p>
                 ) : (
                   <ol className="flex flex-col gap-1">
-                    {entries.map((entry, i) => (
+                    {groupEntries(entries).map(({ entry, ticks }, i) => (
                       <li
                         key={i}
                         data-testid="biography-entry"
                         className="flex flex-wrap items-baseline gap-1.5"
                       >
-                        {chip(entry.tick)}
+                        {ticks.map((tick, j) => chip(tick, j))}
                         <span>{eventName(entry.event_type)}</span>
                         {entry.role !== 'actor' && (
                           <span className="text-muted-foreground">
