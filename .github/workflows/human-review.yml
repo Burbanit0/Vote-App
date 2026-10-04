@@ -197,8 +197,10 @@ jobs:
       cancel-in-progress: false
     permissions:
       statuses: write
-      issues: write # PR comments go through the issues API
-      pull-requests: read
+      # The reply goes through the issues API, but on a pull request the token
+      # needs pull-requests: write for it (issues: write alone is a 403).
+      issues: write
+      pull-requests: write
     steps:
       - name: Check the commenter and the SHA, then post the statuses
         env:
