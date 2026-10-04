@@ -20,11 +20,11 @@ name: Human review attestation
 #    post `human-review` and a green gate on it. Naming the SHA matters: a
 #    commit pushed while the owner was reading the diff is not approved by
 #    accident, which a label or a bare "LGTM" could not tell apart.
-#  - Mergify's own update of an approved head (strict mode keeping a queued PR
-#    up to date) carries the approval over only when the new head is a merge
-#    whose first parent is the approved head and whose other parent is already
-#    on the base branch, i.e. it adds nothing that hasn't merged through its
-#    own checks.
+#  - An update of an approved head by Mergify (strict mode keeping a queued PR
+#    up to date) or by the owner (the "Update branch" button) carries the
+#    approval over only when the new head is a merge whose first parent is the
+#    approved head and whose other parent is already on the base branch, i.e.
+#    it adds nothing that hasn't merged through its own checks.
 #  - Any other new commit gets a red gate, so the PR is held again. There is
 #    no reset step that could be skipped.
 #
@@ -84,6 +84,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.ref }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           SENDER: ${{ github.event.sender.login }}
+          OWNER: ${{ github.repository_owner }}
           ACTION: ${{ github.event.action }}
           BEFORE: ${{ github.event.before }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -143,8 +144,10 @@ jobs:
             status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
             exit 0
           fi
-          # Mergify bringing an approved head up to date with the base.
-          if [ "$ACTION" = synchronize ] && [ "$SENDER" = "mergify[bot]" ] \
+          # Mergify, or the owner's "Update branch", bringing an approved head
+          # up to date with the base. Anyone else's push is held as usual.
+          if [ "$ACTION" = synchronize ] \
+              && { [ "$SENDER" = "mergify[bot]" ] || [ "$SENDER" = "$OWNER" ]; } \
               && [ "$(reviewed "$BEFORE")" = success ]; then
             parents=$(gh api "repos/$REPO/commits/$HEAD" --jq '[.parents[].sha] | join(" ")')
             read -r first second extra <<< "$parents"
@@ -152,13 +155,24 @@ jobs:
             if [ "$first" = "$BEFORE" ] && [ -n "$second" ] && [ -z "${extra:-}" ]; then
               rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status)
             fi
+            # The parents alone don't show what the merge commit contains: a
+            # conflict resolution or an edit slipped into it (an agent pushing
+            # with the owner's credentials can do that) would ride on the old
+            # approval. Recompute the clean merge and require the same tree.
+            # Any conflict makes merge-tree fail, which holds the PR too.
+            clean=""
             if [ "$rel" = identical ] || [ "$rel" = ahead ]; then
-              status "$HEAD" success human-review "Carried over Mergify's base update of ${BEFORE:0:7}"
-              status "$HEAD" success "$GATE" "Review carried over Mergify's base update"
+              if git fetch --quiet --no-tags origin "$BEFORE" "$second" 2>/dev/null; then
+                clean=$(git merge-tree --write-tree "$BEFORE" "$second" 2>/dev/null) || clean=""
+              fi
+            fi
+            if [ -n "$clean" ] && [ "$clean" = "$(git rev-parse "$HEAD^{tree}" 2>/dev/null)" ]; then
+              status "$HEAD" success human-review "Carried over a base update of ${BEFORE:0:7} by $SENDER"
+              status "$HEAD" success "$GATE" "Review carried over a base update by $SENDER"
               echo "Approval carried from $BEFORE to $HEAD."
               exit 0
             fi
-            echo "Mergify update is not a clean base merge onto the approved head ($parents); held."
+            echo "Update by $SENDER is not a clean base merge onto the approved head ($parents); held."
           fi
           status "$HEAD" failure "$GATE" "$why: the owner comments /reviewed ${HEAD:0:7}"
           # attest may have run between the check above and this post. It posts
