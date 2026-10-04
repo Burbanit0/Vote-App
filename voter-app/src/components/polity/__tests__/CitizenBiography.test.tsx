@@ -104,6 +104,10 @@ describe('CitizenBiography', () => {
     renderAt('/polity');
     await screen.findByTestId('polity-run-facts');
     expect(screen.queryByTestId('polity-biography')).not.toBeInTheDocument();
+    // Its place beside the map says how to fill it.
+    expect(screen.getByTestId('polity-biography-hint')).toHaveTextContent(
+      'Pick a citizen on the map or in the table'
+    );
     expect(apiClient.GET.mock.calls.map(([path]) => path)).not.toContain(
       '/api/v2/polity/runs/{run_key}/citizens/{citizen_id}'
     );
