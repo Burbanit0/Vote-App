@@ -72,6 +72,8 @@ const polityPseudo: PolityKeys = {
       amendment_proposed: '⟦áméñdéméñt~~~~ própósé~~~⟧',
       amendment_resolved: '⟦vóté~~ súr~~ úñ~ áméñdéméñt~~~~⟧',
       referendum_held: '⟦référéñdúm~~~~⟧',
+      extra_legal_act: '⟦áçté~~ éxtrá-légál~~~~⟧',
+      campaign_run: '⟦çámpágñé~~~⟧',
       constitution_amended: '⟦çóñstítútíóñ~~~~~ áméñdéé~~~⟧',
     },
   },

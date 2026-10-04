@@ -81,6 +81,22 @@ const GlyphShape: React.FC<{ glyph: Glyph }> = ({ glyph }) => {
           strokeWidth={1.5}
         />
       );
+    case 'extraLegal':
+      // A downward triangle: the reverse of an election's mark, for an office kept against the rules.
+      return (
+        <path
+          d={`M${x},${y + 5} L${x + 5},${y - 4} L${x - 5},${y - 4} Z`}
+          className="fill-red-700"
+        />
+      );
+    case 'campaign':
+      return (
+        <path
+          d={`M${x - 4},${y} L${x + 4},${y} M${x},${y - 4} L${x},${y + 4}`}
+          className="stroke-emerald-700"
+          strokeWidth={2}
+        />
+      );
     default:
       return <rect x={x - 1} y={y - 5} width={2} height={10} className="fill-muted-foreground" />;
   }

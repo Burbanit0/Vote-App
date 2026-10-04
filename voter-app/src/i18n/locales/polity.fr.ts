@@ -73,6 +73,8 @@ const polityFr = {
       amendment_proposed: 'amendement proposé',
       amendment_resolved: 'vote sur un amendement',
       referendum_held: 'référendum',
+      extra_legal_act: 'acte extra-légal',
+      campaign_run: 'campagne',
       constitution_amended: 'constitution amendée',
     },
   },

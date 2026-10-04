@@ -70,6 +70,8 @@ const polityEn: PolityKeys = {
       amendment_proposed: 'amendment proposed',
       amendment_resolved: 'amendment vote result',
       referendum_held: 'referendum',
+      extra_legal_act: 'extra-legal act',
+      campaign_run: 'campaign',
       constitution_amended: 'constitution amended',
     },
   },
