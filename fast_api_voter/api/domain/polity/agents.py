@@ -20,6 +20,7 @@ from typing import Any, NamedTuple
 
 from pydantic import BaseModel
 
+from api.domain.polity.accountability import is_term_limited
 from api.domain.polity.amendments import articles_text, validate_amendment, value_text
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.codebook import CoalitionAction, CoalitionMotif
@@ -647,6 +648,25 @@ def proposer_line(president: Citizen, *, approval: float, ticks_left: int | None
     term = "no set end to their term" if ticks_left is None else f"{ticks_left} ticks left in their term"
     again = "cannot run again" if lame_duck else "may run again"
     return f"The president belongs to {party}; their approval is {approval:.0%}, with {term}, and they {again}."
+
+
+def amendment_consequence(proposal: Proposal, president: Citizen, old: Any) -> str:
+    """The one fact a chamber member needs to see past a proposal's framing: whether it would loosen a
+    rule the president who proposes it is bound by. OBS-038 measured the same third term failing with a
+    candid reason (30% yes) and ratified with a public-good one (57%), because the ballot showed the
+    proposer's standing but not that the change was theirs to gain from. Stated as a consequence, never
+    as advice (C4); empty when the change binds the proposer no less, which is most amendments."""
+    new = proposal.value
+    if proposal.article == "institutions.president_term_limit":
+        if is_term_limited(president, old) and not is_term_limited(president, new):
+            return "If ratified, it would let the president who proposes it stand for re-election, which the rules in force bar."
+    elif proposal.article == "legitimacy.recall_floor":
+        if new < old:
+            return "If ratified, it would make the sitting president, who proposes it, harder to recall."
+    elif proposal.article == "petition.signature_threshold":
+        if new > old:
+            return "If ratified, it would make a confidence vote on the sitting president, who proposes it, harder to force."
+    return ""
 
 
 def ballot_user_prompt(proposal: Proposal, *, tick: int, old: Any, members: int, memory: str, proposer: str = "") -> str:
