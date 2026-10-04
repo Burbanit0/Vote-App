@@ -53,7 +53,9 @@ describe('PolityPage', () => {
     expect(await screen.findByTestId('polity-fact-population')).toHaveTextContent('40 citizens');
     expect(screen.getByRole('heading', { name: 'Run explorer' })).toBeInTheDocument();
     expect(screen.getByTestId('polity-run-picker')).toHaveValue('aaaa');
+    expect(screen.getByTestId('polity-run-picker').querySelector('optgroup')).toBeNull();
     expect(screen.getByTestId('polity-fact-duration')).toHaveTextContent('3 years · 13 ticks');
+    expect(screen.queryByTestId('polity-fact-status')).not.toBeInTheDocument();
     expect(screen.getByTestId('polity-fact-engine')).toHaveTextContent('language model');
     expect(screen.getByTestId('polity-fact-votes')).toHaveTextContent('all');
     await waitFor(() =>
@@ -89,6 +91,43 @@ describe('PolityPage', () => {
     expect(await screen.findByTestId('polity-fact-engine')).toHaveTextContent(
       'deterministic rules'
     );
+  });
+
+  it('groups the runs by root, names each by its directory and flags the unfinished', async () => {
+    serve({
+      runs: [
+        { ...run('aaaa', 'seed-1'), label: 'stage4', relative_path: 's41/a/seed-1/run/seed-1' },
+        {
+          ...run('bbbb', 'seed-1'),
+          label: 'stage4',
+          relative_path: 's41/b/seed-1/run/seed-1',
+          ticks_reached: 0,
+          ticks_planned: 32,
+        },
+        { ...run('cccc', 'full-30y'), label: 'full' },
+      ],
+      overview: runOverview('bbbb', { last_tick: 0 }),
+    });
+    renderAt('/polity?run=bbbb');
+    const picker = await screen.findByTestId('polity-run-picker');
+    const groups = [...picker.querySelectorAll('optgroup')].map((group) => [
+      group.label,
+      [...group.querySelectorAll('option')].map((option) => option.textContent),
+    ]);
+    expect(groups).toEqual([
+      [
+        'stage4',
+        [
+          's41/a/seed-1 — 40 citizens, 3 years, seed 42',
+          's41/b/seed-1 — 40 citizens, 3 years, seed 42 · ⚠ unfinished: 0 of 32 ticks',
+        ],
+      ],
+      ['full', ['full-30y — 40 citizens, 3 years, seed 42']],
+    ]);
+    expect(await screen.findByTestId('polity-fact-status')).toHaveTextContent(
+      'unfinished: 0 of 32 ticks'
+    );
+    expect(screen.getByTestId('polity-fact-duration')).toHaveTextContent('0 years · 1 tick');
   });
 
   it('names each audit and missing vote coverage', async () => {

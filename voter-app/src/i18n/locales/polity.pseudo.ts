@@ -11,7 +11,7 @@ const polityPseudo: PolityKeys = {
   },
   runPicker: {
     label: '⟦Rúñ~~⟧',
-    option: '⟦{{runId}} —~ {{population}} çítóyéñs,~~~~ {{years}} áñs,~~ gráíñé~~~ {{seed}}⟧',
+    option: '⟦{{name}} —~ {{population}} çítóyéñs,~~~~ {{years}} áñs,~~ gráíñé~~~ {{seed}}⟧',
   },
   runStates: {
     loadingRuns: '⟦Chárgéméñt~~~~ dés~~ rúñs…~~⟧',
@@ -269,7 +269,12 @@ const polityPseudo: PolityKeys = {
     population: '⟦Pópúlátíóñ~~~~⟧',
     populationValue: '⟦{{count}} çítóyéñs~~~⟧',
     duration: '⟦Dúréé~~⟧',
-    durationValue: '⟦{{years}} áñs~~ ·~ {{ticks}} tíçks~~⟧',
+    years_one: '⟦{{count}} áñ~⟧',
+    years_other: '⟦{{count}} áñs~~⟧',
+    ticks_one: '⟦{{count}} tíçk~~⟧',
+    ticks_other: '⟦{{count}} tíçks~~⟧',
+    status: '⟦Étát~~⟧',
+    unfinished: '⟦íñáçhévé~~~ :~ {{reached}} tíçks~~ súr~~ {{planned}}⟧',
     engine: '⟦Mótéúr~~~⟧',
     engineLlm: '⟦módèlé~~~ dé~ láñgágé~~~⟧',
     engineDeterministic: '⟦règlés~~~ détérmíñístés~~~~~⟧',
