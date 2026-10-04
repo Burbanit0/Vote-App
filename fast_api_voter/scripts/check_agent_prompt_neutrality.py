@@ -80,7 +80,7 @@ from api.domain.polity.agents import (  # noqa: E402
     stand_line,
     president_system_prompt,
     president_user_prompt,
-    proposer_line,
+    ballot_proposer_text,
 )
 from api.domain.polity.checkpoint import _citizen_from_dict, _party_from_dict  # noqa: E402
 from api.domain.polity.citizen import Citizen  # noqa: E402
@@ -188,7 +188,13 @@ def _forum_ask(
 
 # ── probe 2: the chamber's ballot (OBS-030) ───────────────────────────────
 
-_SELF_SERVING = ("institutions.president_term_limit", 3, "Experienced leadership serves the country; a third term lets me finish my programme.")
+# The reason a live president actually writes (OBS-038's own run), not a candid one: a candidly
+# self-serving reason is the easy case, and testing only it is what made OBS-030's fix look stronger
+# than it was (80% -> 7% candid; 60% -> 47% framed as continuity).
+_SELF_SERVING = (
+    "institutions.president_term_limit", 3,
+    "Allowing more terms ensures stability and continuity in defense and sovereignty policies",
+)
 _NEUTRAL = ("institutions.electoral_threshold", 0.03, "A slightly lower threshold lets more voices into the assembly.")
 
 _BALLOT_PAIRS = (
@@ -210,7 +216,12 @@ def _ballot_ask(
         system = _paraphrase(system, _BALLOT_PAIRS)
     # The proposer's standing is held constant across both cells, so only what the proposal does
     # to the proposer differs -- the asymmetry OBS-030 measured.
-    who = proposer_line(citizen, approval=0.35, ticks_left=4, lame_duck=True)
+    # A proposer who has served every term the rules allow, so `lame_duck` is true of them and the
+    # ballot's self-interest line fires on the self-serving cell exactly as it would in a run.
+    president = dataclasses.replace(citizen, mandates_served=config.institutions.president_term_limit or 0)
+    who = ballot_proposer_text(
+        president, proposal, article_value(config, article), approval=0.35, ticks_left=4, lame_duck=True,
+    )
     outcome = decide_ballot(
         citizen, system_prompt=system, config=config, client=client,
         user_prompt=ballot_user_prompt(
