@@ -23,7 +23,7 @@ export function censusSpans<T extends CensusYear>(years: readonly T[]): (T & { t
       last.to === year.year - 1 &&
       last.role === year.role &&
       last.office === year.office &&
-      (last.party ?? null) === (year.party ?? null);
+      last.party === year.party;
     if (same) last.to = year.year;
     else spans.push({ ...year, to: year.year });
   }
