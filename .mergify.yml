@@ -144,6 +144,10 @@ merge_protections:
           - and:
               - files = voter-app/package.json
               - -author = dependabot[bot]
+          # The backend's pinned dependencies and their lockfiles. Unlike
+          # package.json, Dependabot's bumps are held too: the owner reviews
+          # every change to what the backend installs.
+          - files ~= ^fast_api_voter/requirements[^/]*\.txt$
           # Required security scanners' allowlists and ignore files.
           - files = .gitleaks.toml
           - files = .gitleaksignore

@@ -14,7 +14,8 @@ const LENS_KEYS: Record<PolityLens, string> = {
 /** How the map colours and shapes citizens. */
 const LensSelector: React.FC = () => {
   const { t } = useTranslation('polity');
-  const { lens, setLens } = usePolityCtx();
+  const { overview, lens, setLens } = usePolityCtx();
+  const noBallots = overview?.vote_coverage === 'none';
   return (
     <div
       role="radiogroup"
@@ -29,7 +30,10 @@ const LensSelector: React.FC = () => {
           role="radio"
           aria-checked={lens === id}
           data-testid={`polity-lens-${id}`}
-          className={`rounded border px-2 py-0.5 ${
+          // A run that journals no ballot has nothing to show under the vote lens.
+          disabled={id === 'vote' && noBallots}
+          title={id === 'vote' && noBallots ? t('map.noVotesNote') : undefined}
+          className={`rounded border px-2 py-0.5 disabled:opacity-40 ${
             lens === id ? 'border-primary text-primary' : 'border-border text-muted-foreground'
           }`}
           onClick={() => setLens(id)}

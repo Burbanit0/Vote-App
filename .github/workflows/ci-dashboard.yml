@@ -1,0 +1,85 @@
+name: CI Dashboard
+
+# Hourly: collect every completed workflow run (scripts/ci_dashboard/collect.py),
+# keep the history on the unprotected `ci-data` branch (runs.jsonl, 30 days),
+# and publish ci-dashboard/index.html + summary.json to GitHub Pages.
+#
+# Schedules only fire from the default branch (develop), so this starts after
+# the next polity -> develop sync. The page and the quality baselines it shows
+# come from polity, the working branch.
+#
+# One-time setup by the owner: Settings -> Pages -> Source: "GitHub Actions".
+# Pushes made with GITHUB_TOKEN start no workflow, so writing `ci-data` here
+# cannot loop.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-dashboard
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect run history
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # the ci-data branch
+      actions: read # run listings and job logs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: polity
+          persist-credentials: true # pushes ci-data below
+      - name: Check out the ci-data history (created on first run)
+        run: |
+          set -euo pipefail
+          if git fetch --quiet --depth 1 origin ci-data; then
+            git worktree add data FETCH_HEAD
+            git -C data switch -c ci-data
+          else
+            git worktree add --orphan -b ci-data data
+          fi
+      - name: Collect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python3 scripts/ci_dashboard/collect.py --data data --days 30 --repo "$REPO"
+      - name: Commit the history to ci-data
+        run: |
+          set -euo pipefail
+          cd data
+          git add runs.jsonl summary.json
+          if git diff --cached --quiet; then echo "No change."; exit 0; fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "ci-data: collect $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --quiet origin ci-data
+      - name: Assemble the site
+        run: |
+          mkdir -p "$RUNNER_TEMP/site"
+          cp ci-dashboard/index.html data/summary.json "$RUNNER_TEMP/site/"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

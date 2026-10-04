@@ -1,15 +1,6 @@
-import React, { useEffect, useReducer, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  INITIAL_PLAYER,
-  PLAYER_SPEEDS,
-  beatMs,
-  keyTarget,
-  nextBeat,
-  playFrom,
-  playerReducer,
-  type PlayerSpeed,
-} from '../../lib/polity/playerClock';
+import { PLAYER_SPEEDS, keyTarget, type PlayerSpeed } from '../../lib/polity/playerClock';
 import { simulatedDate } from '../../lib/polity/ticks';
 import { usePolityCtx } from './PolityController';
 
@@ -21,27 +12,28 @@ import { usePolityCtx } from './PolityController';
 const TickPlayer: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, tick, setTick } = usePolityCtx();
-  const [player, dispatch] = useReducer(playerReducer, INITIAL_PLAYER);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<PlayerSpeed>(2);
   const lastTick = overview?.last_tick ?? 0;
   const ticksPerYear = overview?.ticks_per_year ?? 1;
   const tickRef = useRef(tick);
   tickRef.current = tick;
 
   useEffect(() => {
-    if (!player.playing) return undefined;
+    if (!playing) return undefined;
     const id = window.setInterval(() => {
-      const next = nextBeat(tickRef.current, lastTick);
-      if (next === null) dispatch({ type: 'pause' });
-      else setTick(next);
-    }, beatMs(player.speed));
+      if (tickRef.current < lastTick) setTick(tickRef.current + 1);
+      else setPlaying(false);
+    }, 1000 / speed);
     return () => window.clearInterval(id);
-  }, [player.playing, player.speed, lastTick, setTick]);
+  }, [playing, speed, lastTick, setTick]);
 
   if (!overview) return null;
 
   const toggle = () => {
-    if (!player.playing) setTick(playFrom(tick, lastTick));
-    dispatch({ type: 'toggle' });
+    // Play from the end rewinds to the start first.
+    if (!playing && tick >= lastTick) setTick(0);
+    setPlaying(!playing);
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
     // Space belongs to whichever control has focus: it opens the speed menu and presses
@@ -79,11 +71,11 @@ const TickPlayer: React.FC = () => {
         <button
           type="button"
           data-testid="player-toggle"
-          aria-pressed={player.playing}
+          aria-pressed={playing}
           className="min-w-[4.5rem] rounded border border-primary px-3 py-1 text-sm font-semibold text-primary"
           onClick={toggle}
         >
-          {player.playing ? t('player.pause') : t('player.play')}
+          {playing ? t('player.pause') : t('player.play')}
         </button>
         <button
           type="button"
@@ -117,14 +109,12 @@ const TickPlayer: React.FC = () => {
           id="player-speed"
           data-testid="player-speed"
           className="rounded border border-border bg-background px-1 py-0.5"
-          value={player.speed}
-          onChange={(e) =>
-            dispatch({ type: 'speed', speed: Number(e.target.value) as PlayerSpeed })
-          }
+          value={speed}
+          onChange={(e) => setSpeed(Number(e.target.value) as PlayerSpeed)}
         >
-          {PLAYER_SPEEDS.map((speed) => (
-            <option key={speed} value={speed}>
-              {t('player.speedValue', { speed })}
+          {PLAYER_SPEEDS.map((value) => (
+            <option key={value} value={value}>
+              {t('player.speedValue', { speed: value })}
             </option>
           ))}
         </select>

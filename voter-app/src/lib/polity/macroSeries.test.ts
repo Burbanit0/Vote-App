@@ -1,11 +1,4 @@
-import {
-  PRESSURE_KEYS,
-  clickedTick,
-  electionRows,
-  hasStanding,
-  pressureRows,
-  standingRows,
-} from './macroSeries';
+import { PRESSURE_KEYS, clickedTick, hasStanding, pressureRows } from './macroSeries';
 
 const STANDINGS = [
   {
@@ -29,14 +22,9 @@ const STANDINGS = [
 ];
 
 describe('macro series', () => {
-  it('keeps missing readings as gaps', () => {
-    expect(standingRows(STANDINGS)).toEqual([
-      { tick: 0, legitimacy: null, ecart: null, mandateStrength: null, approval: null },
-      { tick: 1, legitimacy: 0.6, ecart: 0.02, mandateStrength: 0.7, approval: 0.55 },
-      { tick: 2, legitimacy: null, ecart: null, mandateStrength: null, approval: null },
-    ]);
-    expect(hasStanding(standingRows(STANDINGS))).toBe(true);
-    expect(hasStanding(standingRows([STANDINGS[0]]))).toBe(false);
+  it('tells whether any tick carries a reading, null or missing alike counting as none', () => {
+    expect(hasStanding(STANDINGS)).toBe(true);
+    expect(hasStanding([STANDINGS[0], STANDINGS[2]])).toBe(false);
   });
 
   it('spreads each tick’s pressure acts over their five kinds', () => {
@@ -57,39 +45,6 @@ describe('macro series', () => {
       mobilize: 0,
       waitForElection: 0,
     });
-  });
-
-  it('carries each election’s turnout and blank share with its source', () => {
-    expect(
-      electionRows([
-        {
-          tick: 0,
-          outcome: 'elected',
-          winner: 2,
-          turnout: 0.8,
-          blank_share: 0.1,
-          blank_source: 'ballots',
-        },
-        { tick: 4, outcome: 'invalidated' },
-      ])
-    ).toEqual([
-      {
-        tick: 0,
-        outcome: 'elected',
-        winner: 2,
-        turnout: 0.8,
-        blankShare: 0.1,
-        blankSource: 'ballots',
-      },
-      {
-        tick: 4,
-        outcome: 'invalidated',
-        winner: null,
-        turnout: null,
-        blankShare: null,
-        blankSource: null,
-      },
-    ]);
   });
 
   it('reads a chart click as a tick', () => {

@@ -34,6 +34,8 @@ export type GlyphKind =
   | 'rotation'
   | 'amended'
   | 'amendment'
+  | 'extraLegal'
+  | 'campaign'
   | 'other';
 
 const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
@@ -59,6 +61,11 @@ const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
   amendment_proposed: ['constitution', 'amendment'],
   amendment_resolved: ['constitution', 'amendment'],
   referendum_held: ['constitution', 'amendment'],
+  // Phase 5 (ADR-022, ADR-023). Both are institutional, so they reached the timeline before they
+  // had glyphs -- as anonymous 'other' marks in the society lane. An extra-legal act answers to
+  // accountability (it is the opposite of a recall); a campaign belongs to the election it precedes.
+  extra_legal_act: ['accountability', 'extraLegal'],
+  campaign_run: ['elections', 'campaign'],
 };
 
 export interface TermInput {
@@ -104,6 +111,10 @@ export interface TimelineGeometry {
 export const LANE_HEIGHT = 22;
 export const TIMELINE_PADDING = 12;
 const STACK_OFFSET = 5;
+/** How far below its lane's centre a stacked glyph may sit and still stay inside the lane: half a
+ * lane, less a glyph's own half-height. Unbounded, a stack of campaigns (one per nominee, so five to
+ * ten on an election tick) spilled down through the lanes beneath and hid their glyphs. */
+const MAX_STACK_DROP = LANE_HEIGHT / 2 - 5;
 const MIN_BAND_WIDTH = 2;
 
 export function glyphOf(eventType: string): [TimelineLane, GlyphKind] {
@@ -137,15 +148,22 @@ export function layoutTimeline(
     startTick: term.start_tick,
   }));
 
+  const slotOf = (event: EventInput) => `${glyphOf(event.event_type)[0]}:${event.tick}`;
+  const slotSize = new Map<string, number>();
+  for (const event of events) slotSize.set(slotOf(event), (slotSize.get(slotOf(event)) ?? 0) + 1);
+
   const stacked = new Map<string, number>();
   const glyphs = events.map((event) => {
     const [lane, kind] = glyphOf(event.event_type);
-    const slot = `${lane}:${event.tick}`;
+    const slot = slotOf(event);
     const depth = stacked.get(slot) ?? 0;
     stacked.set(slot, depth + 1);
+    // A short stack keeps its 5px spacing; a long one tightens so it never leaves its lane.
+    const size = slotSize.get(slot) ?? 1;
+    const step = size > 1 ? Math.min(STACK_OFFSET, MAX_STACK_DROP / (size - 1)) : 0;
     return {
       x: tickX(event.tick),
-      y: laneY[lane] + depth * STACK_OFFSET,
+      y: laneY[lane] + depth * step,
       lane,
       kind,
       tick: event.tick,
