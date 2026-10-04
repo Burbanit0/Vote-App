@@ -222,6 +222,7 @@ describe('InstitutionalTimeline', () => {
     await renderTimeline();
     expect(screen.getByTestId('timeline-legend')).toHaveAccessibleName('Timeline legend');
     expect(legend()).toEqual([
+      'presidency vacant',
       'election won',
       'election without a winner, or invalidated',
       'snap election',
@@ -234,11 +235,26 @@ describe('InstitutionalTimeline', () => {
       'amendment or referendum',
       'society event',
     ]);
+    // Recalled at 9 and at 11, each time a tick before the next term.
+    expect(screen.getAllByTestId('timeline-vacancy').map((rect) => rect.textContent)).toEqual([
+      'Presidency vacant from tick 9 until tick 10',
+      'Presidency vacant from tick 11 until tick 12',
+    ]);
     cleanup();
 
     await renderTimeline(
       '/polity',
       runOverview('aaaa', {
+        terms: [
+          {
+            holder: 2,
+            start_tick: 0,
+            end_tick: 12,
+            ended_by: 'run_end',
+            lame_duck: false,
+            mandate_strength: null,
+          },
+        ],
         timeline: [
           { tick: 0, event_type: 'elected', citizen_id: 2, details: {} },
           { tick: 3, event_type: 'economic_shock_tick', citizen_id: null, details: {} },
