@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { unfinished } from '../../lib/polity/runs';
 import { completedYears, simulatedDate } from '../../lib/polity/ticks';
 import { usePolityCtx } from './PolityController';
 
@@ -35,6 +36,7 @@ const RunFacts: React.FC = () => {
     deterministic: t('runFacts.engineDeterministic'),
   };
   const engine = engines[run?.engine ?? ''] ?? '—';
+  const progress = run ? unfinished(run) : null;
 
   return (
     <dl
@@ -49,11 +51,17 @@ const RunFacts: React.FC = () => {
       <Fact
         testId="polity-fact-duration"
         label={t('runFacts.duration')}
-        value={t('runFacts.durationValue', {
-          years: completedYears(overview.last_tick, overview.ticks_per_year),
-          ticks: overview.last_tick + 1,
-        })}
+        value={`${t('runFacts.years', {
+          count: completedYears(overview.last_tick, overview.ticks_per_year),
+        })} · ${t('runFacts.ticks', { count: overview.last_tick + 1 })}`}
       />
+      {progress && (
+        <Fact
+          testId="polity-fact-status"
+          label={t('runFacts.status')}
+          value={t('runFacts.unfinished', progress)}
+        />
+      )}
       <Fact testId="polity-fact-engine" label={t('runFacts.engine')} value={engine} />
       <Fact testId="polity-fact-votes" label={t('runFacts.votes')} value={votes} />
       <Fact

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/components/ui/spinner';
 import { usePolityCitizen, type PolityCitizen } from '../../hooks/usePolityData';
 import { messageOf } from '../../lib/polity/errors';
+import { PRESSURE_KEYS } from '../../lib/polity/macroSeries';
 import { usePolityCtx } from './PolityController';
 
 // One citizen's story in the shown run: their yearly census, what they did
@@ -22,6 +23,8 @@ const SECTIONS = [
   ['petitions', 'biography.petitions'],
   ['other', 'biography.other'],
 ] as const;
+
+const CENSUS_COLUMNS = ['censusYear', 'censusRole', 'censusOffice', 'censusParty'] as const;
 
 // An agent's turn (ADR-014) or forum post (ADR-016, 017): what they said, how they moved, what they noted for
 // themselves, and anything they tried that the rules do not offer.
@@ -87,9 +90,7 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
       return `${eventName(item.event_type)} (${t('biography.rank', { rank: item.code + 1 })})`;
     }
     if (item.event_type === 'pressure_action' && item.code !== null && item.code !== undefined) {
-      const act = ['nothing', 'signPetition', 'launchPetition', 'mobilize', 'waitForElection'][
-        item.code
-      ];
+      const act = PRESSURE_KEYS[item.code];
       return act ? t(`map.legend.${act}`) : eventName(item.event_type);
     }
     return eventName(item.event_type);
@@ -151,18 +152,11 @@ const CitizenBiographyPanel: React.FC<{ runKey: string; citizen: number }> = ({
             </caption>
             <thead>
               <tr className="border-b border-border">
-                <th scope="col" className="px-2 py-0.5">
-                  {t('biography.censusYear')}
-                </th>
-                <th scope="col" className="px-2 py-0.5">
-                  {t('biography.censusRole')}
-                </th>
-                <th scope="col" className="px-2 py-0.5">
-                  {t('biography.censusOffice')}
-                </th>
-                <th scope="col" className="px-2 py-0.5">
-                  {t('biography.censusParty')}
-                </th>
+                {CENSUS_COLUMNS.map((column) => (
+                  <th key={column} scope="col" className="px-2 py-0.5">
+                    {t(`biography.${column}`)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
