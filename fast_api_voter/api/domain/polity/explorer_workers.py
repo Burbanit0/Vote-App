@@ -24,7 +24,7 @@ from api.domain.polity.run_catalog import (
     list_runs,
     parse_roots,
 )
-from api.domain.polity.run_frames import NotExplorable, TickFrame
+from api.domain.polity.run_frames import NotExplorable, TickFrame, census_by_year
 from api.domain.polity.run_projection import Projection
 from api.engine.utils.logger import get_logger
 
@@ -137,9 +137,10 @@ def _party_markers(projection: Projection, parties: Sequence[tuple[int, tuple[fl
 
 
 def _map(loaded: LoadedRun) -> dict[str, Any]:
-    """Where citizens and parties sit, and each citizen's party."""
+    """Where citizens and parties sit, and each citizen's party at each census: membership
+    moves as citizens found, join and leave parties, and as parties dissolve."""
     projection = loaded.frames.projection
-    census_zero = sorted((r for r in loaded.view.snapshots if r.get("year") == 0), key=lambda r: int(r["citizen_id"]))
+    census = census_by_year(loaded.view.snapshots, loaded.frames.population)
     return {
         "projection": {
             "method": projection.method, "positions": projection.positions,
@@ -147,7 +148,9 @@ def _map(loaded: LoadedRun) -> dict[str, Any]:
             "citizens": [{"year": year, "xy": [_xy(p) for p in xy]} for year, xy in sorted(projection.citizen_xy.items())],
         },
         "parties": _party_markers(projection, loaded.parties),
-        "citizen_parties": [row.get("party_affiliation") for row in census_zero],
+        "citizen_parties": [
+            {"year": year, "parties": [row.get("party_affiliation") for row in rows]} for year, rows in census.items()
+        ],
     }
 
 
