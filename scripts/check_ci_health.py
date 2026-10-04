@@ -71,6 +71,12 @@ SETUP_BRANCH_PROTECTION = REPO_ROOT / "scripts" / "setup-branch-protection.sh"
 
 OWNER_REPO = "Burbanit0/Vote-App"
 BRANCH = "develop"
+# Branches whose protection is checked for drift, keyed by the snapshot field
+# that records it ("branch_protection" stays develop's, so an older snapshot
+# still reads the same).
+PROTECTED_BRANCHES = {"branch_protection": "develop", "branch_protection_polity": "polity"}
+# Branches whose runs count for a watched workflow's health.
+RUN_BRANCHES = ("develop", "polity")
 
 # Deliberate curation, not auto-discovery: these are the workflows that
 # never run on pull_request (so a red run gates nobody, and rot is
@@ -171,16 +177,22 @@ def workflow_display_name(workflow_file: str) -> str:
 
 def query_workflow_health(workflow_file: str) -> dict[str, Any]:
     expected_hours = derive_expected_hours(workflow_file)
-    runs = _run_gh_json(
-        [
-            "run",
-            "list",
-            f"--workflow={workflow_file}",
-            f"--branch={BRANCH}",
-            "--limit=8",
-            "--json=databaseId,status,conclusion,createdAt,event",
-        ]
-    )
+    # Both branches: scheduled runs report develop (the default branch they fire
+    # from) though they test polity, and pushes to polity run the deep tests too.
+    seen: dict[int, dict[str, Any]] = {}
+    for branch in RUN_BRANCHES:
+        for run in _run_gh_json(
+            [
+                "run",
+                "list",
+                f"--workflow={workflow_file}",
+                f"--branch={branch}",
+                "--limit=8",
+                "--json=databaseId,status,conclusion,createdAt,event",
+            ]
+        ):
+            seen[run["databaseId"]] = run
+    runs = sorted(seen.values(), key=lambda r: r["createdAt"], reverse=True)[:8]
     display_name = workflow_display_name(workflow_file)
 
     if not runs:
@@ -229,40 +241,44 @@ def query_workflow_health(workflow_file: str) -> dict[str, Any]:
     }
 
 
-def parse_setup_script_expectations() -> tuple[list[str], bool]:
-    """Extract develop's expected required-contexts list and strict flag
-    from setup-branch-protection.sh -- the authoritative source, not a
-    second hand-copied list that could itself drift (same reasoning as
-    .mergify.yml's comment on branch-protection duplication)."""
-    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
-
-    contexts_match = re.search(r"REQUIRED_CONTEXTS='(\[.*?\])'", text, re.DOTALL)
-    required_contexts = json.loads(contexts_match.group(1)) if contexts_match else []
-
-    develop_fn_match = re.search(
-        r"protect_develop\(\)\s*\{(.*?)\n\}", text, re.DOTALL
+def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str], bool]:
+    """A branch's expected required contexts and strict flag, from
+    setup-branch-protection.sh itself -- the authoritative source, not a second
+    hand-copied list that could drift (same reasoning as .mergify.yml's comment
+    on branch-protection duplication). The contexts come from the script's own
+    `--print-contexts`, which touches nothing; the strict flag from the
+    function that protects the branch."""
+    result = subprocess.run(
+        ["bash", str(SETUP_BRANCH_PROTECTION), "--print-contexts", branch],
+        capture_output=True, text=True, check=True,
     )
-    develop_fn_body = develop_fn_match.group(1) if develop_fn_match else ""
+    required_contexts = json.loads(result.stdout)
+
+    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
+    fn = "protect_develop" if branch == "develop" else "protect_polity_branch"
+    fn_match = re.search(rf"{fn}\(\)\s*\{{(.*?)\n\}}", text, re.DOTALL)
+    fn_body = fn_match.group(1) if fn_match else ""
     # The JSON is embedded in a bash double-quoted string, so its own quotes
     # are backslash-escaped in the raw file text (\"strict\": true) -- match
     # loosely rather than requiring literal unescaped quotes.
-    expected_strict = bool(re.search(r'\\?"strict\\?"\s*:\s*true', develop_fn_body))
-
-    # protect_develop() appends the high-risk review hold's status to the shared
-    # list (jq '. + [$g]'), so it is required live on develop without being in
-    # REQUIRED_CONTEXTS; leaving it out reported a correct setup as drifted.
-    gate_match = re.search(r'^REVIEW_GATE="([^"]+)"', text, re.MULTILINE)
-    if gate_match and "$REVIEW_GATE" in develop_fn_body:
-        required_contexts = required_contexts + [gate_match.group(1)]
+    expected_strict = bool(re.search(r'\\?"strict\\?"\s*:\s*true', fn_body))
 
     return required_contexts, expected_strict
 
 
-def check_branch_protection_drift() -> dict[str, Any]:
-    expected_contexts, expected_strict = parse_setup_script_expectations()
+def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
+    try:
+        expected_contexts, expected_strict = parse_setup_script_expectations(branch)
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError) as exc:
+        reason = getattr(exc, "stderr", None) or str(exc)
+        sys.stderr.write(f"setup-branch-protection.sh --print-contexts {branch}: {reason}\n")
+        return {
+            "status": "unhealthy",
+            "detail": f"could not read the expected contexts for {branch}: {str(reason).strip()}",
+        }
     try:
         live = _run_gh_json(
-            ["api", f"repos/{OWNER_REPO}/branches/{BRANCH}/protection"]
+            ["api", f"repos/{OWNER_REPO}/branches/{branch}/protection"]
         )
     except subprocess.CalledProcessError as exc:
         return {
@@ -309,7 +325,7 @@ def _meaningfully_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
 
     return _strip_timestamps(old.get("workflows", {})) != _strip_timestamps(
         new.get("workflows", {})
-    ) or old.get("branch_protection") != new.get("branch_protection")
+    ) or any(old.get(key) != new.get(key) for key in PROTECTED_BRANCHES)
 
 
 def _heartbeat_overdue(old: dict[str, Any]) -> bool:
@@ -330,12 +346,13 @@ def cmd_update(_: argparse.Namespace) -> int:
             old_snapshot = None
 
     workflows = {wf: query_workflow_health(wf) for wf in WATCHED_WORKFLOWS}
-    branch_protection = check_branch_protection_drift()
+    protections = {key: check_branch_protection_drift(branch)
+                   for key, branch in PROTECTED_BRANCHES.items()}
 
     snapshot = {
         "generated_at": _now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "workflows": workflows,
-        "branch_protection": branch_protection,
+        **protections,
     }
 
     if old_snapshot is None:
@@ -354,8 +371,9 @@ def cmd_update(_: argparse.Namespace) -> int:
         for wf, info in workflows.items()
         if info["status"] != "healthy"
     ]
-    if branch_protection["status"] != "healthy":
-        unhealthy.append(f"branch-protection ({branch_protection['detail']})")
+    for key, branch in PROTECTED_BRANCHES.items():
+        if protections[key]["status"] != "healthy":
+            unhealthy.append(f"branch-protection on {branch} ({protections[key]['detail']})")
 
     print(f"Wrote {SNAPSHOT_PATH.relative_to(REPO_ROOT)}")
     if unhealthy:
@@ -425,10 +443,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
         else:
             problems.append(f"{line}{f' [{why}]' if why else ''}")
 
-    bp = snapshot.get("branch_protection", {})
-    if bp.get("status") != "healthy":
-        snoozed, why = _is_snoozed("branch-protection", snoozes)
-        line = f"branch protection on {BRANCH}: {bp.get('status')} -- {bp.get('detail')}"
+    for key, branch in PROTECTED_BRANCHES.items():
+        if key not in snapshot and key != "branch_protection":
+            continue  # a snapshot written before this branch was checked
+        bp = snapshot.get(key, {})
+        if bp.get("status") == "healthy":
+            continue
+        # develop keeps the original snooze key, so existing snoozes still apply.
+        snoozed, why = _is_snoozed(
+            "branch-protection" if branch == BRANCH else f"branch-protection-{branch}", snoozes)
+        line = f"branch protection on {branch}: {bp.get('status')} -- {bp.get('detail')}"
         if snoozed:
             notes.append(f"{line} [{why}]")
         else:
