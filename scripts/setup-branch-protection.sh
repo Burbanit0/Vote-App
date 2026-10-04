@@ -128,19 +128,52 @@ require_gate_workflow() {
   done
 }
 
-# The Polity branches (polity, and polity-ui where the run explorer is built) require the
-# same checks, less "CI health check": ci-health.yml runs only on PRs to main and develop,
-# and a required check that never reports blocks every PR forever (the PR #205 lesson
-# above). Derived from REQUIRED_CONTEXTS so the two lists cannot drift apart; computed
-# here, not at the top, so the main/develop targets never need jq.
+# Requiring "CI health check" on a branch before that branch's ci-health.yml
+# runs on PRs to it blocks every PR forever (the PR #205 lesson above). PRs run
+# the workflow from their own merge commit, so the branch's copy is the one that
+# must list it under pull_request.
+require_ci_health_on() {
+  local workflow
+  if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/$1/.github/workflows/ci-health.yml"); then
+    echo "❌  could not fetch $1's ci-health.yml (missing on that branch, or a network error)."
+    exit 1
+  fi
+  if ! awk '/^  pull_request:/{f=1} f && /branches:/{print; exit}' <<< "$workflow" | grep -qE "branches: \[(.*[ ,])?$1([ ,].*)?\]"; then
+    echo "❌  $1's ci-health.yml doesn't run on PRs to $1 yet: merge that first,"
+    echo "    or every PR to '$1' would wait forever on 'CI health check'."
+    exit 1
+  fi
+}
+
+# The required-contexts list for one branch, as compact JSON: the one place it is
+# decided, read both by the protect_* functions below and by
+# scripts/check_ci_health.py (--print-contexts), so the drift check can never
+# expect something other than what this script applies.
+#   main:      REQUIRED_CONTEXTS.
+#   develop:   + the review gate.
+#   polity:    + the review gate. "CI health check" too, now that ci-health.yml
+#              runs on PRs to polity.
+#   polity-ui: less "CI health check": ci-health.yml doesn't run on PRs to it,
+#              and a required check that never reports blocks every PR
+#              forever (the PR #205 lesson above).
+# Computed here, not at the top, so the main target never needs jq.
+contexts_for() {
+  case "$1" in
+    main)           printf '%s' "$REQUIRED_CONTEXTS" | jq -c . ;;
+    develop|polity) printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]' ;;
+    polity-ui)      printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))' ;;
+    *) echo "contexts_for: unknown branch '$1'" >&2; return 1 ;;
+  esac
+}
+
 protect_polity_branch() {
   local branch="$1"
   local POLITY_CONTEXTS
-  POLITY_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))')
   if [ "$branch" = polity ]; then
     require_gate_workflow polity
-    POLITY_CONTEXTS=$(printf '%s' "$POLITY_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]')
+    require_ci_health_on polity
   fi
+  POLITY_CONTEXTS=$(contexts_for "$branch")
   echo "Protecting '${branch}'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/${branch}/protection" "{
     \"required_status_checks\": {
@@ -184,7 +217,7 @@ protect_main() {
 protect_develop() {
   local DEVELOP_CONTEXTS
   require_gate_workflow develop
-  DEVELOP_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]')
+  DEVELOP_CONTEXTS=$(contexts_for develop)
   echo "Protecting 'develop'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{
     \"required_status_checks\": {
@@ -203,6 +236,13 @@ protect_develop() {
   }"
   echo "✅  'develop' protected."
 }
+
+# Print a branch's required contexts and exit, touching nothing (for
+# scripts/check_ci_health.py's drift check): --print-contexts <branch>.
+if [ "$TARGET" = --print-contexts ]; then
+  contexts_for "${2:?usage: $0 --print-contexts <main|develop|polity|polity-ui>}"
+  exit
+fi
 
 echo "🔒 Setting up branch protection for ${OWNER}/${REPO} (target: ${TARGET})..."
 echo ""

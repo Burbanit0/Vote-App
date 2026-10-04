@@ -17,7 +17,10 @@ on:
     - cron: '7 8 * * *'  # daily, off-peak, distinct from every other cron in this repo
   workflow_dispatch: {}
   pull_request:
-    branches: [main, develop]
+    # polity too: "CI health check" is required there (setup-branch-protection.sh
+    # contexts_for). The snapshot it verifies still comes from develop, where the
+    # scheduled audit writes it.
+    branches: [main, develop, polity]
   push:
     branches: [develop]
 
