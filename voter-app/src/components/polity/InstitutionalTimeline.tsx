@@ -33,8 +33,23 @@ const ENDED_KEYS: Record<string, string> = {
   run_end: 'timeline.endedRunEnd',
 };
 
+/** The legend: one entry per shape, in lane order. Kinds drawn alike share an entry. */
+const LEGEND = [
+  ['elected', ['elected']],
+  ['noWinner', ['noWinner', 'invalidated']],
+  ['snap', ['snap']],
+  ['campaign', ['campaign']],
+  ['recall', ['recall']],
+  ['petition', ['confidence', 'petition']],
+  ['extraLegal', ['extraLegal']],
+  ['bill', ['legislative', 'bill', 'coalition']],
+  ['amended', ['amended']],
+  ['amendment', ['amendment']],
+  ['other', ['scandal', 'shock', 'rotation', 'other']],
+] as const;
+
 /** One shape per glyph kind, so a glyph reads without its colour. */
-const GlyphShape: React.FC<{ glyph: Glyph }> = ({ glyph }) => {
+const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyph }) => {
   const { x, y, kind } = glyph;
   switch (kind) {
     case 'elected':
@@ -123,6 +138,7 @@ const InstitutionalTimeline: React.FC = () => {
   const lastTick = overview.last_tick;
   const geometry = layoutTimeline(overview.terms, overview.timeline, lastTick, width);
   const eventName = (type: string) => t(`timeline.eventNames.${type}`, { defaultValue: type });
+  const drawn = new Set(geometry.glyphs.map((glyph) => glyph.kind));
   const onClick = (event: React.MouseEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     setTick(tickAtX(event.clientX - box.left, lastTick, width));
@@ -196,6 +212,24 @@ const InstitutionalTimeline: React.FC = () => {
           </svg>
         </div>
       </div>
+      <ul
+        data-testid="timeline-legend"
+        aria-label={t('timeline.legendLabel')}
+        className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs"
+      >
+        {LEGEND.filter(([, kinds]) => kinds.some((kind) => drawn.has(kind))).map(([key, kinds]) => (
+          <li
+            key={key}
+            data-testid={`timeline-legend-${key}`}
+            className="flex items-center gap-1.5"
+          >
+            <svg width={12} height={12} aria-hidden="true" className="shrink-0">
+              <GlyphShape glyph={{ x: 6, y: 6, kind: kinds[0] }} />
+            </svg>
+            {t(`timeline.legend.${key}`)}
+          </li>
+        ))}
+      </ul>
       <details className="mt-1 text-xs">
         <summary className="cursor-pointer text-muted-foreground">
           {t('timeline.eventList')}

@@ -48,6 +48,7 @@ test.describe('Polity — run explorer', () => {
       timeline.locator('[data-testid="timeline-glyph"][data-kind="recall"]')
     ).toHaveCount(2);
     await expect(timeline.getByTestId('timeline-term')).toHaveCount(3);
+    await expect(timeline.getByTestId('timeline-legend-recall')).toBeVisible();
 
     await timeline.locator('details > summary').click();
     await timeline
