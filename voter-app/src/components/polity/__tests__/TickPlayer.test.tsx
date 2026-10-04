@@ -156,6 +156,9 @@ describe('InstitutionalTimeline', () => {
       { tick: 12, event_type: 'brand_new_event', citizen_id: null, details: {} },
       { tick: 12, event_type: 'amendment_proposed', citizen_id: 2, details: {} },
       { tick: 12, event_type: 'constitution_amended', citizen_id: null, details: {} },
+      // Phase 5: appended last, in lanes empty at tick 12, so no earlier glyph or jump index moves.
+      { tick: 12, event_type: 'extra_legal_act', citizen_id: 2, details: {} },
+      { tick: 12, event_type: 'campaign_run', citizen_id: 7, details: {} },
     ],
   });
 
@@ -174,7 +177,7 @@ describe('InstitutionalTimeline', () => {
 
   it('draws the terms, a shape per event kind and the playhead at the current tick', async () => {
     const svg = await renderTimeline('/polity?tick=6');
-    expect(svg).toHaveAttribute('aria-label', '4 terms and 10 institutional events over 13 ticks');
+    expect(svg).toHaveAttribute('aria-label', '4 terms and 12 institutional events over 13 ticks');
     const terms = screen.getAllByTestId('timeline-term');
     expect(terms).toHaveLength(4);
     expect(terms[0]).toHaveTextContent(
@@ -195,8 +198,18 @@ describe('InstitutionalTimeline', () => {
         'other',
         'amendment',
         'amended',
+        'extraLegal',
+        'campaign',
       ]
     );
+    // Each Phase 5 act draws its own shape, not the generic bar 'other' falls back to.
+    const shapeOf = (kind: string) =>
+      document.querySelector(`[data-testid="timeline-glyph"][data-kind="${kind}"] path`);
+    expect(shapeOf('extraLegal')).toHaveClass('fill-red-700');
+    expect(shapeOf('campaign')).toHaveClass('stroke-emerald-700');
+    const jumps = screen.getAllByTestId('timeline-event-jump');
+    expect(jumps.at(-2)).toHaveTextContent('Tick 12: extra-legal act');
+    expect(jumps.at(-1)).toHaveTextContent('Tick 12: campaign');
     const x6 = screen.getByTestId('timeline-playhead').getAttribute('x1');
     fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
     await waitFor(() =>
