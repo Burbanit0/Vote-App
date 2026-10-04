@@ -50,6 +50,20 @@ const polityPseudo: PolityKeys = {
     endedRunEnd: '⟦éñ~ çóúrs~~ à~ lá~ fíñ~~ dú~ rúñ~~⟧',
     jump: '⟦Tíçk~~ {{tick}} :~ {{event}}⟧',
     eventList: '⟦Évéñéméñts,~~~~ póúr~~ állér~~ à~ léúr~~ tíçk~~⟧',
+    legendLabel: '⟦Légéñdé~~~ dé~ lá~ frísé~~⟧',
+    legend: {
+      elected: '⟦éléçtíóñ~~~ gágñéé~~~⟧',
+      noWinner: '⟦éléçtíóñ~~~ sáñs~~ váíñqúéúr~~~~ óú~ íñválídéé~~~~⟧',
+      snap: '⟦éléçtíóñ~~~ áñtíçípéé~~~~⟧',
+      campaign: '⟦çámpágñé~~~⟧',
+      recall: '⟦présídéñt~~~~ ráppélé~~~⟧',
+      petition: '⟦pétítíóñ~~~ óú~ vóté~~ dé~ défíáñçé~~~⟧',
+      extraLegal: '⟦áçté~~ éxtrá-légál~~~~⟧',
+      bill: '⟦légíslátívés,~~~~~ lóí~~ óú~ çóálítíóñ~~~~⟧',
+      amended: '⟦çóñstítútíóñ~~~~~ áméñdéé~~~⟧',
+      amendment: '⟦áméñdéméñt~~~~ óú~ référéñdúm~~~~⟧',
+      other: '⟦évéñéméñt~~~~ dé~ sóçíété~~~⟧',
+    },
     eventNames: {
       elected: '⟦éléçtíóñ~~~ gágñéé~~~⟧',
       election_no_winner: '⟦éléçtíóñ~~~ sáñs~~ váíñqúéúr~~~~⟧',
@@ -119,6 +133,9 @@ const polityPseudo: PolityKeys = {
     auditNote:
       '⟦Séúls~~ lés~~ búllétíñs~~~~ dé~ l’éçháñtíllóñ~~~~~ d’áúdít~~~ sóñt~~ jóúrñálísés~~~~ :~ lés~~ áútrés~~~ çítóyéñs~~~ áppáráísséñt~~~~~ sáñs~~ búllétíñ.~~~~⟧',
     noVotesNote: '⟦Cé~ rúñ~~ ñé~ jóúrñálísé~~~~ áúçúñ~~ búllétíñ.~~~~⟧',
+    noElection:
+      '⟦Pás~~ d’éléçtíóñ~~~~ présídéñtíéllé~~~~~ à~ çé~ tíçk~~ :~ çétté~~ léçtúré~~~ ést~~ vídé.~~⟧',
+    goToElection: '⟦Állér~~ à~ l’éléçtíóñ~~~~ dú~ tíçk~~ {{tick}}⟧',
     yearlyNote:
       '⟦Lés~~ ópíñíóñs~~~ évólúéñt~~~ :~ lés~~ pósítíóñs~~~~ sóñt~~ çéllés~~~ dú~ réçéñséméñt~~~~ dé~ l’áññéé.~~~⟧',
     president: '⟦Présídéñt~~~~ :~ çítóyéñ~~~ {{id}}⟧',

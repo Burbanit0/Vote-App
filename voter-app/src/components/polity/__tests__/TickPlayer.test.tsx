@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Mock } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import PolityPage from '../../../pages/PolityPage';
@@ -162,8 +162,8 @@ describe('InstitutionalTimeline', () => {
     ],
   });
 
-  async function renderTimeline(url = '/polity') {
-    servePolity(apiClient.GET, { overview: story });
+  async function renderTimeline(url = '/polity', overview = story) {
+    servePolity(apiClient.GET, { overview });
     render(
       <QueryClientProvider client={makeTestQueryClient()}>
         <MemoryRouter initialEntries={[url]}>
@@ -215,6 +215,37 @@ describe('InstitutionalTimeline', () => {
     await waitFor(() =>
       expect(screen.getByTestId('timeline-playhead').getAttribute('x1')).not.toBe(x6)
     );
+  });
+
+  it('explains each shape it draws, and only those', async () => {
+    const legend = () => screen.getAllByTestId(/^timeline-legend-/).map((e) => e.textContent);
+    await renderTimeline();
+    expect(screen.getByTestId('timeline-legend')).toHaveAccessibleName('Timeline legend');
+    expect(legend()).toEqual([
+      'election won',
+      'election without a winner, or invalidated',
+      'snap election',
+      'campaign',
+      'president recalled',
+      'petition or confidence vote',
+      'extra-legal act',
+      'legislative election, bill or coalition',
+      'constitution amended',
+      'amendment or referendum',
+      'society event',
+    ]);
+    cleanup();
+
+    await renderTimeline(
+      '/polity',
+      runOverview('aaaa', {
+        timeline: [
+          { tick: 0, event_type: 'elected', citizen_id: 2, details: {} },
+          { tick: 3, event_type: 'economic_shock_tick', citizen_id: null, details: {} },
+        ],
+      })
+    );
+    expect(legend()).toEqual(['election won', 'society event']);
   });
 
   it('moves the player to a clicked tick or a listed event', async () => {
