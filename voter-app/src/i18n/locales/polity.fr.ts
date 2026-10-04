@@ -184,6 +184,7 @@ const polityFr = {
     close: 'Fermer la biographie',
     loading: 'Chargement de la biographie…',
     error: 'Impossible de charger cette biographie : {{message}}',
+    hint: 'Choisissez un citoyen sur la carte ou dans le tableau pour lire son histoire.',
     census: 'Recensements',
     censusYear: 'Année',
     censusRole: 'Rôle',

@@ -64,6 +64,11 @@ class PolityParty(_Model):
     xy: XY
 
 
+class PolityCensusParties(_Model):
+    year: int
+    parties: List[Optional[int]] = Field(..., description="Each citizen's party at this census (None: no party), in citizen_id order.")
+
+
 class PolityTerm(_Model):
     holder: int
     start_tick: int
@@ -131,8 +136,8 @@ class PolityRunOverview(_Model):
         ..., description="all: every ballot journaled; audit_sample: only S4.1's audit ballots; none: no ballot journaled.")
     unknown_event_types: List[str]
     projection: PolityProjection
-    parties: List[PolityParty]
-    citizen_parties: List[Optional[int]] = Field(..., description="Each citizen's party, in citizen_id order.")
+    parties: List[PolityParty] = Field(..., description="Every party the run had, at its platform: parties are founded and dissolved, platforms never move.")
+    citizen_parties: List[PolityCensusParties] = Field(..., description="Each census year's party of every citizen.")
     terms: List[PolityTerm]
     timeline: List[PolityTimelineEntry]
     standings: List[PolityStanding]

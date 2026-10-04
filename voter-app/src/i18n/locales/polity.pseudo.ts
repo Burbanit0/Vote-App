@@ -185,6 +185,7 @@ const polityPseudo: PolityKeys = {
     close: '⟦Férmér~~~ lá~ bíógráphíé~~~~⟧',
     loading: '⟦Chárgéméñt~~~~ dé~ lá~ bíógráphíé…~~~~⟧',
     error: '⟦Ímpóssíblé~~~~ dé~ çhárgér~~~ çétté~~ bíógráphíé~~~~ :~ {{message}}⟧',
+    hint: '⟦Chóísísséz~~~~ úñ~ çítóyéñ~~~ súr~~ lá~ çárté~~ óú~ dáñs~~ lé~ tábléáú~~~ póúr~~ líré~~ sóñ~~ hístóíré.~~~~⟧',
     census: '⟦Réçéñséméñts~~~~~⟧',
     censusYear: '⟦Áññéé~~⟧',
     censusRole: '⟦Rôlé~~⟧',

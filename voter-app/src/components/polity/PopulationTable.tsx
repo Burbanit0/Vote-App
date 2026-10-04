@@ -7,7 +7,7 @@ import { usePolityCtx } from './PolityController';
 /** The map's reading as a table, one row per citizen: the same information without the canvas. */
 const PopulationTable: React.FC<{ scene: Scene }> = ({ scene }) => {
   const { t } = useTranslation('polity');
-  const { overview, citizen, setCitizen } = usePolityCtx();
+  const { citizen, setCitizen } = usePolityCtx();
   return (
     <details data-testid="polity-table" className="mt-2 text-xs">
       <summary className="cursor-pointer text-muted-foreground">{t('map.table')}</summary>
@@ -40,9 +40,7 @@ const PopulationTable: React.FC<{ scene: Scene }> = ({ scene }) => {
                     {point.id}
                   </button>
                 </td>
-                <td className="px-2 py-0.5 tabular-nums">
-                  {overview?.citizen_parties[point.id] ?? '—'}
-                </td>
+                <td className="px-2 py-0.5 tabular-nums">{point.party ?? '—'}</td>
                 <td className="px-2 py-0.5">
                   <span className="flex items-center gap-1.5">
                     <Swatch shape={point.shape} color={point.color} />

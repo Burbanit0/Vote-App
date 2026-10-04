@@ -54,15 +54,12 @@ const PopulationMap: React.FC = () => {
 
   const scene = useMemo(() => {
     if (!overview || !frame) return null;
-    const census = censusAt(
-      overview.projection.citizens,
-      Math.floor(tick / overview.ticks_per_year)
-    );
+    const year = Math.floor(tick / overview.ticks_per_year);
     return buildScene(
       {
-        citizens: census?.xy ?? [],
+        citizens: censusAt(overview.projection.citizens, year)?.xy ?? [],
         frame,
-        citizenParties: overview.citizen_parties,
+        citizenParties: censusAt(overview.citizen_parties, year)?.parties ?? [],
         parties: overview.parties,
         president: frame.president ?? null,
       },

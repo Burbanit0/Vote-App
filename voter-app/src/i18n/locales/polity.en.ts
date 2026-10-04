@@ -180,6 +180,7 @@ const polityEn: PolityKeys = {
     close: 'Close the biography',
     loading: 'Loading the biography…',
     error: 'Could not load this biography: {{message}}',
+    hint: 'Pick a citizen on the map or in the table to read their story.',
     census: 'Censuses',
     censusYear: 'Year',
     censusRole: 'Role',
