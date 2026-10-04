@@ -45,19 +45,16 @@ export function directionOf(key: string): Direction | null {
 
 /**
  * The citizen the keyboard moves to from `fromId`: among the points lying in the
- * direction (within 45° of it), the nearest; none when there is none. Starting
- * with nobody selected, any arrow picks the point nearest the map's centre.
+ * direction (within 45° of it), the nearest; none when there is none, or no such
+ * citizen to start from.
  */
 export function nearestInDirection(
   points: readonly Located[],
-  fromId: number | null,
-  direction: Direction,
-  centre: [number, number]
+  fromId: number,
+  direction: Direction
 ): number | null {
-  const from = fromId === null ? null : points.find((p) => p.id === fromId);
-  if (!from) {
-    return nearestTo(points, centre[0], centre[1]);
-  }
+  const from = points.find((p) => p.id === fromId);
+  if (!from) return null;
   const [dx, dy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[direction];
   let best: number | null = null;
   let bestDistance = Infinity;
@@ -68,19 +65,6 @@ export function nearestInDirection(
     const across = Math.abs(vx * dy - vy * dx);
     if (p.id === from.id || along <= 0 || across > along) continue;
     const distance = Math.hypot(vx, vy);
-    if (distance < bestDistance) {
-      best = p.id;
-      bestDistance = distance;
-    }
-  }
-  return best;
-}
-
-function nearestTo(points: readonly Located[], x: number, y: number): number | null {
-  let best: number | null = null;
-  let bestDistance = Infinity;
-  for (const p of points) {
-    const distance = Math.hypot(p.x - x, p.y - y);
     if (distance < bestDistance) {
       best = p.id;
       bestDistance = distance;
