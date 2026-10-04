@@ -119,6 +119,9 @@ const polityPseudo: PolityKeys = {
     auditNote:
       '⟦Séúls~~ lés~~ búllétíñs~~~~ dé~ l’éçháñtíllóñ~~~~~ d’áúdít~~~ sóñt~~ jóúrñálísés~~~~ :~ lés~~ áútrés~~~ çítóyéñs~~~ áppáráísséñt~~~~~ sáñs~~ búllétíñ.~~~~⟧',
     noVotesNote: '⟦Cé~ rúñ~~ ñé~ jóúrñálísé~~~~ áúçúñ~~ búllétíñ.~~~~⟧',
+    noElection:
+      '⟦Pás~~ d’éléçtíóñ~~~~ présídéñtíéllé~~~~~ à~ çé~ tíçk~~ :~ çétté~~ léçtúré~~~ ést~~ vídé.~~⟧',
+    goToElection: '⟦Állér~~ à~ l’éléçtíóñ~~~~ dú~ tíçk~~ {{tick}}⟧',
     yearlyNote:
       '⟦Lés~~ ópíñíóñs~~~ évólúéñt~~~ :~ lés~~ pósítíóñs~~~~ sóñt~~ çéllés~~~ dú~ réçéñséméñt~~~~ dé~ l’áññéé.~~~⟧',
     president: '⟦Présídéñt~~~~ :~ çítóyéñ~~~ {{id}}⟧',
