@@ -26,7 +26,7 @@ name: Backend Flaky Test Hunt
 # cron has already fired and succeeded for real (2026-09-12).
 on:
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'fast_api_voter/api/**'
       - 'fast_api_voter/requirements*.txt'
@@ -36,8 +36,9 @@ on:
   schedule:
     - cron: '13 3 * * *'  # nightly, 03:13 UTC — off-peak, arbitrary offset
 
+# Scheduled runs test polity: their own group, so a develop push can't cancel them.
 concurrency:
-  group: flaky-check-backend-${{ github.ref }}
+  group: flaky-check-backend-${{ github.event_name == 'schedule' && 'schedule-polity' || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -55,6 +56,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
