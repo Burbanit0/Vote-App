@@ -112,8 +112,9 @@ parties:
   # random             => plateformes tirées uniformément
   # manual             => voir 'manual_platforms' ci-dessous
   manual_platforms: []        # [v0] si init_strategy = manual
-  birth_enabled: false        # [v1] un parti peut-il naître en cours de run ?
-  death_enabled: false        # [v1] un parti disparaît-il après N échecs ?
+  birth_enabled: false        # [ADR-018] un citoyen-agent peut-il fonder un parti (intention `found`) ?
+  death_enabled: false        # [ADR-018] un parti sous la moitié de founding_ratio est-il dissous ?
+  founding_ratio: 0.05        # [ADR-018] part des citoyens qui doivent cofonder un parti (article)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
@@ -237,6 +238,9 @@ candidacy:
   # 0,005), la nouvelle le rejette (0,0 < 0,005). Voir
   # docs/adr/ADR-003-ballot-access-filter-is-inert.md.
   max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
+  incumbent_keeps_record: false       # true = un ancien président se représente sur la
+                                      #   position tenue en fonction, pas sur ses vues
+                                      #   sincères : les électeurs jugent son bilan.
 
 # =============================================================================
 # CAMPAGNE (§3.1, §3.6.2->3.6.8) — positionnement stratégique du candidat
@@ -245,7 +249,11 @@ campaign:
   max_positioning_delta: 0.3   # [v2] amplitude max d'un déplacement, par
                                 #      dimension déplacée (positions dans [0,1])
   max_positioning_shifts: 3    # [v2] nombre max de dimensions déplacées par
+  salience_step: 0.0           # [ADR-023] part du poids restant qu'une campagne sur un enjeu prend,
+                               #   chez les citoyens atteints (0 = aucune campagne)
                                 #      décision — "delta borné", pas un vecteur
+  max_reached: 0                # [ADR-023] combien de citoyens de l'audience entendent la campagne,
+                               #   tires au sort (0 = tous -- OBS-036 : sature l'electorat)
                                 #      complet à issue_count dimensions
 
 # =============================================================================
@@ -311,6 +319,9 @@ emotions:
   awakening_enthusiasm: 0.0     # l'enthousiasme l'élève
   mobilization_anger: 0.0       # à colère 1, la règle déterministe de pression
                                 #   agit au-delà de (1 - ceci) x blank_threshold
+  disengage_anger: 0.0          # ADR-021 : colère à laquelle un citoyen cesse de voter et de signer (0 = jamais)
+  return_anger: 0.0             #   colère sous laquelle il revient
+  exit_anger: 0.0               #   colère à laquelle il sort pour de bon (0 = personne ne sort)
 
 # =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)
@@ -325,6 +336,10 @@ legitimacy:
                               #      > 0 = mandate_deviation érode L(t) même
                               #      sans action citoyenne. À n'activer
                               #      qu'avec justification explicite.
+  approval_weight: 0.0        # part du soutien support(t) tirée de l'approbation
+                              #   (legitimacy.approval : part des citoyens qui
+                              #   classeraient la conduite du président au-dessus
+                              #   du blanc) au lieu du seul mandat. 0.0 = mandat seul.
 
 # =============================================================================
 # PRESSION CITOYENNE (§7bis) — inactive avant v4
@@ -661,3 +676,62 @@ parallel:
                               #      llm.reproducibility: relaxed (D1, S2.1) :
                               #      le batching vLLM change alors les réponses,
                               #      le run se rejoue mais ne se régénère plus
+
+# =============================================================================
+# AGENTS (ADR-014, plan-polity-agency-roadmap.md) — citoyens joués à la première personne
+# =============================================================================
+agents:
+  president: false            # true = le président est un agent : un tour par tick fixe sa
+                              #   déclaration et, quand l'agenda lui revient, son projet de
+                              #   loi (remplace representative_response et le projet par
+                              #   formule). Exige llm.enabled et 20 enjeux (nommés).
+  nominees: false             # true = chaque candidat investi est un agent : un tour de
+                              #   campagne, en voyant un sondage d'intentions de vote
+                              #   (remplace campaign_positioning).
+  amendments: false           # true = le président peut proposer un amendement, et les membres de la
+                              #   chambre tirée au sort le votent, chacun dans un tour (ADR-015).
+                              #   Exige agents.president et sortition_chamber.enabled.
+  forum: false                # true = la chambre tirée au sort et les citoyens qui viennent de lancer
+                              #   une pétition (8 ticks) postent ou se taisent, chacun dans un tour,
+                              #   et lisent leurs voisins, le président et (pour la chambre) leurs
+                              #   pairs (ADR-016). Exige llm.enabled et 20 enjeux (nommés).
+  forum_size: 30              # au plus autant de citoyens prennent la parole par tick,
+                              #   les auteurs de pétition récents d'abord.
+  party_moves: false          # un tour de forum peut rejoindre un parti, le quitter ou en fonder un (ADR-018)
+  stance_step: 0.0            # de combien (en logits) un tour de forum peut déplacer son auteur
+                              #   sur un enjeu (ADR-017). 0 = la parole ne déplace personne.
+                              #   Exige agents.forum et dynamics.enabled.
+  coalition: false            # true = le chef de chaque parti élu répond au formateur dans un tour,
+                              #   tour après tour (remplace coalition_decision, ADR-019).
+                              #   Exige llm.enabled et 20 enjeux (nommés).
+  turn_temperature: 0.0       # température d'échantillonnage d'un tour d'agent (0 = glouton,
+                              #   comme toute décision par lots). Envoyée avec une graine :
+                              #   un run à un seul worker reste régénérable.
+
+# =============================================================================
+# CONSTITUTION (ADR-015) — les règles amendables (config.ARTICLES)
+# =============================================================================
+constitution:
+  scripted: []                # amendements imposés à des ticks fixés, quoi que décide la
+                              #   polity -- l'expérience d'un changement de règle, p. ex.
+                              #   - {tick: 40, article: institutions.presidential_method, value: borda}
+  amendment_threshold: 0.5    # part de la chambre qui doit voter oui (strictement plus que) pour
+                              #   ratifier un amendement -- 0.5 à 0.9. Un article lui-même.
+  referendum: never           # les citoyens confirment-ils un changement de mode de scrutin ratifié par la
+                              #   chambre ? never, petition (si assez de perdants signent : petition.
+                              #   signature_threshold), always. Un article lui-même (ADR-020).
+  entrenched:                 # articles qui exigent plus que amendment_threshold : {article: seuil}
+    institutions.presidential_method: 0.6
+    constitution.amendment_threshold: 0.75
+
+# =============================================================================
+# RÉGIME : ACTES EXTRA-LÉGAUX (ADR-022)
+# =============================================================================
+regime:
+  enabled: false                # requiert agents.amendments et president_term_limit
+                                #   fini : le président peut refuser de partir à la fin de son dernier mandat
+  loyalty: 0.8                  # part des serviteurs de l'État qui obéissent à la constitution
+  support_weight: 6.0           # P(succès) = logistique(support_weight x (approbation - 0.5)
+  loyalty_weight: 3.0           #   + loyalty_weight x (1 - 2 x loyalty) - severity_weight x severity)
+  severity_weight: 2.0
+  severity: 0.5                 # gravité de l'acte, 0 à 1

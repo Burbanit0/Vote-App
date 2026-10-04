@@ -5457,6 +5457,11 @@ export interface components {
             pressure_acts: components["schemas"]["PolityBiographyEntry"][];
             /** Roles */
             roles: components["schemas"]["PolityBiographyEntry"][];
+            /**
+             * Turns
+             * @description An agent's turns (ADR-014): speech, moves, bill, note to self.
+             */
+            turns: components["schemas"]["PolityBiographyEntry"][];
             /** Votes */
             votes: components["schemas"]["PolityBiographyEntry"][];
         };
@@ -5770,6 +5775,11 @@ export interface components {
              * @description Pressure actions journaled this tick, counted by act code 0-4.
              */
             acts: number[];
+            /**
+             * Approval
+             * @description Share of citizens approving the president's conduct; journaled only while legitimacy.approval_weight > 0.
+             */
+            approval?: number | null;
             /** Ecart */
             ecart?: number | null;
             /** Legitimacy */

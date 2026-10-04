@@ -128,6 +128,8 @@ def _flagship_config(
     model: str | None = None,
     reproducibility: str = "strict",
     vote_mode: str | None = None,
+    profile: str = "flagship",
+    base_url: str | None = None,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -166,10 +168,8 @@ def _flagship_config(
         #     require a sitting president). Bounded the same way blank-vote
         #     reruns already are: reuses PendingRerun, capped by
         #     reelection_max_attempts, cannot loop.
-        # Deliberately still OFF: parties.birth_enabled/death_enabled, which are
-        # parsed but not implemented (parties.py's own module docstring), and
-        # social_graph.evolving / sortition_chamber.renewable, which load_config
-        # rejects outright as designs this codebase decided against.
+        # Deliberately still OFF: social_graph.evolving / sortition_chamber.renewable,
+        # which load_config rejects outright as designs this codebase decided against.
         candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True),
         institutions=dataclasses.replace(
             config.institutions,
@@ -226,18 +226,61 @@ def _flagship_config(
             # single source of truth for which provider production uses --
             # this override exists to time the OTHER one, not to make the
             # choice configurable per run.
-            base_url = {
+            provider_url = {
                 "vllm": "http://localhost:8000/v1",
                 "ollama": "http://localhost:11434/v1",
             }[provider]
-            llm = dataclasses.replace(llm, provider=provider, base_url=base_url)
+            llm = dataclasses.replace(llm, provider=provider, base_url=provider_url)
+        if base_url is not None:
+            # A server that is not on localhost: an SSH-tunnelled rented GPU, or another port.
+            llm = dataclasses.replace(llm, base_url=base_url)
         if model is not None:
             # S2.3: the name the server serves the weights under. validate_config refuses a
             # model with no profile in model_profiles.py -- its chunk sizes and thinking
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    return config
+    return _exploration_config(config) if profile == "exploration" else config
+
+
+def _exploration_config(config: PolityConfig) -> PolityConfig:
+    """The agency roadmap's exploration profile (plan-polity-agency-roadmap.md, D4): the
+    flagship plus the mechanisms that ship off, turned on without their calibration gate.
+    Phase 1.1: the approval loop -- approval feeds legitimacy, the vote judges the record
+    (S4.1's top measured `approval`) and the policy of the term (ADR-009's lowest
+    nonzero `policy_retrospection`), legislation runs, and a former president runs on
+    their conduct in office. Phases 1.2-1.4: the president and the presidential nominees are
+    agents (ADR-014) -- they need the LLM engine, so the deterministic twin keeps the formula --
+    whose turns are sampled at 0.6, Qwen3's recommended temperature in thinking mode. Phase 2.2-2.3:
+    the president proposes amendments to the constitution and the sortition chamber votes them
+    (ADR-015); the flagship's chamber is already on. Phase 3: the chamber and the recent petition launchers post on a forum (ADR-016) and may change
+    their minds there, on a population whose views also drift toward their neighbours' (ADR-012, ADR-017).
+    Phase 4.1: they may also join, leave or found a party (ADR-018). Phase 4.2: party
+    leaders negotiate the coalition in place of the collapsed crowd batch (ADR-019). Phase 4.3: the citizens vote on a
+    voting-method change when enough of them petition against it (ADR-020). Phase 4.4: a citizen
+    angry enough for long enough stops voting and signing, and may leave for good (ADR-021). Phase 5.1: a president in their last term may refuse to leave, and the
+    kernel rolls whether they stay (ADR-022). Phase 5.2: a nominee may campaign on one issue, and the
+    citizens it reaches come to weigh that issue more when they compare candidates (ADR-023)."""
+    return dataclasses.replace(
+        config,
+        legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
+        vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
+        legislation=dataclasses.replace(config.legislation, enabled=True),
+        candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
+        constitution=dataclasses.replace(config.constitution, referendum="petition"),
+        agents=dataclasses.replace(
+            config.agents, president=config.llm.enabled, nominees=config.llm.enabled, amendments=config.llm.enabled,
+            forum=config.llm.enabled, coalition=config.llm.enabled, stance_step=0.25 if config.llm.enabled else 0.0,
+            turn_temperature=0.6, party_moves=config.llm.enabled,
+        ),
+        parties=dataclasses.replace(config.parties, birth_enabled=config.llm.enabled, death_enabled=config.llm.enabled),
+        emotions=dataclasses.replace(config.emotions, enabled=True, disengage_anger=0.4, return_anger=0.2, exit_anger=0.85),
+        dynamics=dataclasses.replace(config.dynamics, enabled=True, susceptibility=0.9, influence_step=0.1),
+        regime=dataclasses.replace(config.regime, enabled=config.llm.enabled),
+        campaign=dataclasses.replace(
+            config.campaign, salience_step=0.15 if config.llm.enabled else 0.0, max_reached=12 if config.llm.enabled else 0,
+        ),
+    )
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -442,6 +485,8 @@ def run_flagship(
     model: str | None = None,
     reproducibility: str = "strict",
     vote_mode: str | None = None,
+    profile: str = "flagship",
+    base_url: str | None = None,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -457,6 +502,8 @@ def run_flagship(
         model=model,
         reproducibility=reproducibility,
         vote_mode=vote_mode,
+        profile=profile,
+        base_url=base_url,
     )
     validate_config(config)
 
@@ -623,6 +670,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument(
+        "--base-url", default=None,
+        help="llm.base_url (default: the provider's localhost URL). For a rented GPU reached through an "
+             "SSH tunnel, the tunnel's local address, e.g. http://localhost:8000/v1.",
+    )
+    parser.add_argument(
         "--model", default=None,
         help="S2.3: llm.model, the served model name (default: the shipped config's). Needs a profile in "
              "api/domain/polity/model_profiles.py for the provider.",
@@ -656,6 +708,13 @@ def main(argv: list[str] | None = None) -> int:
              "only -- it is a no-op under --engine deterministic. OFF by default on purpose: it changes "
              "the RNG draw order, so a run with it on is not comparable to one without (and invalidates "
              "existing checkpoints via config_hash).",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("flagship", "exploration"),
+        default="flagship",
+        help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
+             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
     )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
@@ -704,6 +763,8 @@ def main(argv: list[str] | None = None) -> int:
         model=args.model,
         reproducibility=args.reproducibility,
         vote_mode=args.vote_mode,
+        profile=args.profile,
+        base_url=args.base_url,
     )
     return 0
 

@@ -17,7 +17,8 @@ build them.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+import random
+from typing import Any, Callable, Optional, Protocol
 
 from api.domain.polity.codebook import BallotFormat
 from api.engine.utils.simulation_multiwinner_utils import (
@@ -73,7 +74,13 @@ SCORE_METHODS: dict[str, Callable[[list[Any]], dict[str, Any]]] = {
     "majority_judgment": get_majority_judgment_winner,
 }
 
-SEAT_ALLOCATIONS: dict[str, Callable[[dict[str, float], int], dict[str, int]]] = {
+class _SeatAllocator(Protocol):
+    def __call__(
+        self, party_votes: dict[str, float], num_seats: int, *, rng: random.Random | None = ...,
+    ) -> dict[str, int]: ...
+
+
+SEAT_ALLOCATIONS: dict[str, _SeatAllocator] = {
     "dhondt": get_dhondt_winners,
     "sainte_lague": get_sainte_lague_winners,
     "largest_remainder": get_largest_remainder_winners,
@@ -96,13 +103,16 @@ def get_presidential_winner(ballots: list[Any], method: str) -> Optional[str]:
 
 
 def allocate_seats(
-    vote_shares: dict[str, float], total_seats: int, method: str, electoral_threshold: float
+    vote_shares: dict[str, float], total_seats: int, method: str, electoral_threshold: float,
+    *, rng: random.Random | None = None,
 ) -> dict[str, int]:
     """Party-list seat allocation (design doc §6, resolves audit blocker A4).
     Parties below `electoral_threshold` (as a share of the total vote) get
     zero seats; the configured method allocates all `total_seats` among the
     parties that clear it. Every party in `vote_shares` is present in the
-    result, defaulting to 0 seats."""
+    result, defaulting to 0 seats. `rng` draws an exact quotient/remainder
+    tie by lot (the engine's `break_tie`); without it the tie goes to the
+    first-listed party."""
     allocate = SEAT_ALLOCATIONS.get(method)
     if allocate is None:
         raise ValueError(f"unknown seat_allocation method: {method!r}")
@@ -119,7 +129,7 @@ def allocate_seats(
     if not qualifying:
         return {party: 0 for party in vote_shares}
 
-    awarded = allocate(qualifying, total_seats)
+    awarded = allocate(qualifying, total_seats, rng=rng)
     return {party: awarded.get(party, 0) for party in vote_shares}
 
 

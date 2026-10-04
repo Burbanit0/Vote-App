@@ -6,6 +6,7 @@ import parser from '@typescript-eslint/parser';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import unusedImports from 'eslint-plugin-unused-imports';
 import sonarjs from 'eslint-plugin-sonarjs';
+import vitest from '@vitest/eslint-plugin';
 
 export default [
   js.configs.recommended,
@@ -93,6 +94,36 @@ export default [
       'jsx-a11y/label-has-associated-control': 'error',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
       'jsx-a11y/no-redundant-roles': 'error',
+    },
+  },
+  {
+    // Test integrity (CI hardening plan, phase 11b): the unit tests themselves
+    // are linted for tests that can pass without checking anything. `error`
+    // for every rule with zero existing violations (a focused/skipped test, a
+    // test with no assertion, a duplicated title, a malformed expect, an
+    // expect outside a test, a test declared under a condition).
+    // no-conditional-expect stays off: its 13 hits (2026-10-03) are all
+    // data-driven invariant loops ("for every row where it applies, assert
+    // X"), checked one by one, not weakened tests; and as a warning it would
+    // also inflate the quality ratchet's sonarjs count, which lints with this
+    // config as its base. Playwright e2e specs (tests/e2e) use Playwright's own
+    // `test`/`expect`, which this plugin doesn't model, so they're excluded.
+    files: ['src/**/*.test.{ts,tsx}'],
+    plugins: { vitest },
+    rules: {
+      'vitest/no-focused-tests': 'error',
+      'vitest/no-disabled-tests': 'error',
+      'vitest/no-identical-title': 'error',
+      'vitest/no-standalone-expect': 'error',
+      'vitest/no-conditional-tests': 'error',
+      'vitest/valid-title': 'error',
+      // Vitest's expect(value, message) form is a feature, not a mistake.
+      'vitest/valid-expect': ['error', { maxArgs: 2 }],
+      // fast-check property tests assert through fc.assert.
+      'vitest/expect-expect': [
+        'error',
+        { assertFunctionNames: ['expect', 'expect*', 'fc.assert'] },
+      ],
     },
   },
   {

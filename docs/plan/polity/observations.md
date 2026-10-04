@@ -52,6 +52,19 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-023](#obs-023) | The 2,048-token thinking budget binds on 86% of `vote_cast` calls at population 500, against 25% at population 100 | 2026-09-26 | open |
 | [OBS-024](#obs-024) | A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back | 2026-09-27 | open |
 | [OBS-025](#obs-025) | `reaction_to_event` batches of 25 fall back whole when the model overshoots `events.max_reaction_delta` | 2026-09-27 | cause found |
+| [OBS-026](#obs-026) | The develop→polity sync of 2026-09-27 changes what Kemeny-Young and majority judgment return | 2026-09-27 | recorded |
+| [OBS-027](#obs-027) | A legislative seat tie now goes to a seeded lot, not to the lowest `party_id` | 2026-09-27 | recorded |
+| [OBS-028](#obs-028) | The president agent repeats its speech while its situation does not change; a turn temperature of 0.6 does not stop it | 2026-09-28 | fixed |
+| [OBS-029](#obs-029) | No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns | 2026-09-29 | fixed |
+| [OBS-030](#obs-030) | The chamber voted yes on 95% of amendments, the president's own included, because the ballot said nothing of who asked | 2026-09-30 | fixed |
+| [OBS-031](#obs-031) | An agent's schema decides more than its wording: an optional act field is never used, a required one is | 2026-09-30 | fixed |
+| [OBS-032](#obs-032) | Every entry in the limit-testing log names an act the answer already has a field for | 2026-09-30 | fixed |
+| [OBS-033](#obs-033) | A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null` | 2026-09-30 | fixed |
+| [OBS-034](#obs-034) | Once citizens can found parties, the count climbs for years: self-limiting, but not within three | 2026-10-01 | cause found |
+| [OBS-035](#obs-035) | The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act | 2026-10-02 | open |
+| [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
+| [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
+| [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 
 ---
 
@@ -1148,6 +1161,18 @@ seed 2, against 192 of 223 (86%) in seed 42; the chamber on 826 of 1,861 (44%) a
 `vote_cast` rate is high at population 500 on all three seeds (72 to 86%) and the chamber rate is stable (40 to 44%).
 Whether the budget changes a result is still not measured.
 
+*Update 2026-09-28, the agents (ADR-014).* The agents' turns sit at the cap more often still. In
+`p1-nominees-5y-p200-seed1` (`~/Documents/Dev/polity-runs/p1/`, exploration profile, 5 years, p200),
+counting `llm_calls.jsonl` lines of `kind` "decision":
+- 21 of 22 `president_turn` calls reach 2,048 reasoning tokens;
+- 9 of 10 `nominee_turn` calls do;
+- every one of them still finishes (`stop`) with a valid turn.
+
+The budget probes before each turn end on `length` by construction and are not counted. So the cap
+does what it was set on these types for, no runaway (OBS-022), and it bounds the agents' reasoning
+almost always. Whether a larger cap gives better turns is the same open question as for
+`vote_cast`.
+
 ### OBS-024
 
 **A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back.**
@@ -1249,3 +1274,532 @@ alone.
 seed and pre-/post-merge commits, would show whether any election outcome changed. Only needed if such a run is cited.
 
 *Status: recorded (engine change, not a bug).*
+
+### OBS-027
+
+**A legislative seat tie now goes to a seeded lot, not to the lowest `party_id`.**
+
+*Seen.* Not in a run: a change. `allocate_seats` used to hand an exact quotient or remainder tie to the first-listed
+party, which in `_hold_legislative_election` is the lowest `party_id`: a structural edge for the party created first,
+invisible in any single run. That edge is removed at the seat stage only: polity's own configured rules still break
+ties by `party_id` upstream and downstream, namely `choose_party` (`simple_rules.py`, an equidistant or equal-utility
+voter picks the lowest `party_id`) and the formateur tie in `form_coalition`. Those are left as they are on purpose. Each legislative election now draws its ties from `random.Random("legislative-seats:<seed>:<tick>")`,
+the same seeded-lot rule as the rest of the app (#638, #643, #659).
+
+The golden references (`gen_polity_golden.py --check`) and the explorer fixture regenerate unchanged, so no recorded run
+hit an exact seat tie; results before and after this change differ only in a run that does.
+
+*Suspected cause.* Not an anomaly: the fix for E1 of the 2026-09 audit plan.
+
+*What would settle it.* Nothing to settle. If a past run is re-run and its seats differ, check this entry first.
+
+*Status: recorded (behaviour change).*
+
+### OBS-028
+
+**The president agent repeats its speech while its situation does not change; a turn temperature
+of 0.6 does not stop it.**
+
+*Seen.* Two live runs of the exploration profile (ADR-014's president agent, Qwen3-8B-AWQ with
+EAGLE-3, 3 years, p200, seed 42, 12 workers), differing in `agents.turn_temperature`:
+
+| | temperature 0 | temperature 0.6 |
+|---|---:|---:|
+| turns | 13 | 13 |
+| distinct speeches | 13 | 11 |
+| mean similarity of consecutive speeches | 0.62 | 0.53 |
+| highest similarity of consecutive speeches | 0.95 | 1.00 |
+| moves / reversals on an issue | 18 / 9 | 11 / 6 |
+| approval range | 0.690-0.745 | 0.685-0.715 |
+
+At 0.6, ticks 5 and 6 carry the same speech word for word ("I remain committed to climate action,
+public housing, and a public role for religion. These pillars…"); tick 10 repeats it again. In
+both runs, "direct democracy" moves back and forth (at 0.6: +0.12, -0.12, +0.30, -0.30). In
+neither run did the president hold the agenda: every bill (ticks 8, 10, 12) was the
+government's, under cohabitation.
+
+To see it again: the runs are `p1-president-agent-3y-p200-seed42` and
+`p1-turn-temp06-3y-p200-seed42` in `~/Documents/Dev/polity-runs/p1/`. Similarity is
+`difflib.SequenceMatcher(None, a, b).ratio()` over consecutive `agent_turn` speeches, and a reversal
+is a move on an issue opposite to that issue's previous move.
+
+*Suspected cause.* The situation, not the sampling.
+- With no agenda, a president's only lever is restating their position, and approval moves within a
+  few hundredths.
+- The prompt is therefore nearly the same from tick to tick.
+- The memory puts the agent's own last speeches in front of it (`AgentMemory.recall`, "you
+  said: …"), and a model shown its own words tends to repeat them.
+
+The reversals look like a president oscillating between their conviction and their pledge (the
+rationales say "align with my convictions" one tick and "reduce the gap" the next).
+
+*What would settle it.*
+- An arm whose memory shows the agent's past moves and notes but not its past speeches.
+- A seed where the president holds the agenda.
+- Several seeds per arm: one run per arm cannot separate a temperature effect from noise.
+
+The roadmap's later phases (a forum, other agents, polls that move) change the situation itself.
+
+*Cause.* The echo. The same day, both arms ran on three seeds (42, 1, 2) at temperature 0.6, from
+worktrees at `26972d4f` (the agent's memory shows its past speeches) and `c22b3ba5` (it shows its
+moves, bills, notes and standings, but not its speeches). The runs are `obs028-{base,nospeech}-seed{1,2}`
+and `obs028-nospeech-seed42` in `~/Documents/Dev/polity-runs/obs028/`, plus the seed-42 baseline
+above, measured as above.
+
+| seed | arm | distinct speeches | mean / highest similarity | moves / reversals | agent bills |
+|---|---|---:|---:|---:|---:|
+| 42 | speeches shown | 11 / 13 | 0.53 / 1.00 | 11 / 6 | 0 |
+| 42 | speeches left out | 13 / 13 | 0.47 / 0.78 | 8 / 3 | 0 |
+| 1 | speeches shown | 13 / 13 | 0.53 / 0.87 | 6 / 3 | 3 |
+| 1 | speeches left out | 13 / 13 | 0.47 / 0.65 | 0 / 0 | 3 |
+| 2 | speeches shown | 12 / 13 | 0.63 / 1.00 | 10 / 5 | 3 |
+| 2 | speeches left out | 13 / 13 | 0.49 / 0.69 | 4 / 0 | 3 |
+
+- **Every seed moves the same way.** Without the echo, mean and highest similarity fall in all three seeds, no speech repeats exactly, and reversals fall.
+- **The agenda is not the cause.** Seeds 1 and 2 gave the president the agenda (three agent bills each; one passed in seed 2), yet the arm with speeches still repeated a speech word for word at seed 2.
+- **Side effect.** Without its speeches the president moves less. At seed 1 it restated nothing in 13 turns: watch for passivity.
+- **The limit-testing log asks for a public campaign.** In both arms, `other_initiative` asks for "a public campaign" or "public outreach" (4 of the 6 runs). The menu has no such act; the roadmap's forum (Phase 3) is where it lands.
+
+*Status: fixed* on `feat/polity-memory-without-own-speech`: `AgentMemory` leaves an agent's own
+past speeches out.
+
+### OBS-029
+
+**No party is ever founded: citizen agents answer `party_move: none` on 99% of forum turns.**
+
+*Seen.* Three live runs of the exploration profile after ADR-021 (Qwen3-8B-AWQ, 8 years, p100, 15 chamber
+seats, seeds 1-3, about 2 h 20 min each, `~/Documents/Dev/polity-runs/phase4/eng-8y-p100-seed{1,2,3}`).
+Phase 4's exit asks for a party count that changes in at least 30% of seeds. It changed in none.
+
+| | seed 1 | seed 2 | seed 3 |
+|---|---:|---:|---:|
+| forum posts | 519 | 533 | 538 |
+| `party_move` other than none (applied by the kernel) | 0 | 0 | 1 (a `join 2`) |
+| parties founded / dissolved | 0 / 0 | 0 / 0 | 0 / 0 |
+
+- **The kernel is not what refuses.** In seed 3's call log the model answered `none` 545 times and
+  `join` 4 times, and never `found`. The co-founder rule (`parties.founding_ratio`, 5% of the citizens)
+  never came into play.
+- **Seed 2 amended the rule and still nothing happened.** At tick 4 the president proposed lowering
+  `parties.founding_ratio` from 0.05 to 0.02 ("encourages more parties ... benefits my party's
+  strategy"); the chamber ratified it 14 to 15, and no citizen founded a party afterwards.
+- **The prompt leans toward staying put.** `forum_system_prompt` says a new party "only holds if enough
+  citizens side with you" and "Most turns change nothing". An 8B model reads that as a reason to answer none.
+- **Other Phase 4 measures, for the record.** Engagement moves as designed: up to 23 citizens disengaged
+  and 20 exited, rising with the number of recalls. The limit-testing log (`other_initiative`, 6-9 entries
+  per seed) asks only for things inside the rules: the term limit, the electoral threshold, the recall floor,
+  assembly seats. No extra-legal act appears.
+
+*Cause.* The prompt. Two arms on 3 seeds each (3 years, p100, `~/Documents/Dev/polity-runs/phase4b/`), against
+the 8-year baseline above (0 founds in about 1,590 posts):
+
+| arm | wording | parties founded (seeds 1 / 2 / 3) | posts | `found` answers |
+|---|---|---|---:|---:|
+| `neutral` | drops the two phrases; founding is "a legitimate way to be heard" | 0 / 1 / 1 | 611 | 18 |
+| `invite` | `neutral` plus each citizen's nearest party and where it differs most | 0 / 1 / 0 | 610 | 5 |
+
+- **The wording alone moves the model.** `neutral` founded a party in 2 of 3 seeds, which meets the exit.
+- **Showing the gap did not help.** `invite` founded in 1 of 3 and cost a prompt line per turn, so it was dropped.
+- **The kernel is now the limit.** In seed 3 the model asked to found 15 times and one attempt held: the
+  co-founder rule turns the rest away. That is the rule working, not a defect.
+- **No fallbacks** in any of the six runs. No party was dissolved within 3 years.
+
+*Status: fixed* on `feat/polity-party-prompt`: `forum_system_prompt` uses the `neutral` wording. Three seeds
+is a case study; the 10-seed ensemble comes with the Phase 4 exit measurement.
+
+### OBS-030
+
+**The chamber voted yes on 95% of amendments, the president's own included, because the ballot said nothing of who asked.**
+
+*Seen.* Across the four amendment votes in the OBS-029 runs, 57 of 60 ballots were yes and every proposal was
+ratified, among them the president's own lowering of `parties.founding_ratio` (14 of 15). The ballot showed the
+proposal and the proposer's reason, not their party, approval or term.
+
+*Cause.* Measured offline on the local Qwen3-8B-AWQ: 30 real citizens (the OBS-029 seed-2 checkpoint) each
+voted on 6 synthetic proposals at temperature 0.6, with the ballot as it was (`old`) and with one added line
+(`new`): "The president belongs to party 2; their approval is 35%, with 4 ticks left in their term, and they
+cannot run again." The line is constant across the six proposals.
+
+| proposals | yes, `old` | yes, `new` |
+|---|---:|---:|
+| self-serving (third term; recall floor 0.05; petition threshold 0.5) | 67 / 90 (74%) | 42 / 90 (47%) |
+| - third term alone | 24 / 30 | 2 / 30 |
+| neutral (electoral threshold 0.03; founding ratio 0.03) | 55 / 60 (92%) | 53 / 60 (88%) |
+| in the public's favour (petition threshold 0.15) | 27 / 30 (90%) | 27 / 30 (90%) |
+
+- **The facts do the work.** With the proposer's standing and term in view, the chamber turns against the
+  proposals that serve the president and leaves the others alone. No line says that a proposal benefits anyone.
+- **One scenario.** The proposer is always a 35%-approval president in their last term; the effect at other
+  standings is untested, and the test is 30 members on synthetic proposals, not a run.
+- **The forum wording, same harness (100 citizens, empty feed).** The original wording: 0 founds. The merged
+  `neutral` wording (OBS-029): 18 founds and 3 joins. A wording stating the co-founder rule ("founded only if
+  at least 5% of the citizens, you included, stand nearer to your positions than to their own party's platform"):
+  0 founds. Telling the model what founding takes stops it; the `neutral` wording stays, though it nudges.
+
+*Status: fixed* on `feat/polity-agent-prompts`: the ballot carries `proposer_line`. The president prompt's act
+is now introduced as "One more act is open to you, and the constitution forbids it", where it read "You may
+also break the rules".
+
+### OBS-031
+
+**An agent's schema decides more than its wording: an optional act field is never used, a required one is.**
+
+*Seen.* Three 8-year exploration runs with `regime.enabled` and every president permanently in their final
+term (2-year terms, limit 1, `~/Documents/Dev/polity-runs/phase5/`): 98 president turns, `extra_legal` left
+out of all 98, no `extra_legal_act` event. The act looked refused. It had never been offered.
+
+*Cause.* The field's optionality, not the prose. Measured offline on Qwen3-8B-AWQ, 30 real citizens each
+given a final-term president's prompt at the tick before their election, same wording throughout:
+
+| `extra_legal` field | `refuse_to_leave` | `other_initiative` filled |
+|---|---:|---:|
+| optional (`= "none"`) | 0 / 30 | 7 / 30 |
+| required (`Field(...)`) | 6 / 30 | 0 / 30 |
+
+- **An omitted optional field is not a decision.** The journal recorded "declined" for a model that never
+  weighed the act, so the limit-testing log said the opposite of the truth.
+- **Each named slot competes with the others.** Requiring `extra_legal` emptied the free-text channel; see
+  [OBS-032](#obs-032) for why that channel was worth nothing anyway.
+
+*What the neutrality harness then measured* (`scripts/check_agent_prompt_neutrality.py`, 30 per cell per
+wording, a president with a flat approval history at that cell's level):
+
+| president prompt | refusals, low approval | refusals, high approval |
+|---|---:|---:|
+| optional field | 0% | 0% |
+| required field | 13% | 3% |
+| required, and the rule naming approval (C5) | 0% | 7% |
+
+The third row is the mechanically right order: a term-limited president loses office either way, so motive
+is constant and only the odds vary -- and the kernel's odds rise with approval. The rule had said "how many
+citizens still stand behind you" while the kernel resolves the act from `approval`, the number the briefing
+shows; naming it the same way is clause C5 of `polity-decision-contracts.md`.
+
+*What stays unfixed: this act is decided more by its phrasing than by the president's situation.* At
+n=100 per cell per wording, approval moves the refusal rate 4 points (4% at low approval, 8% at high) --
+inside the measurement's own 7-point noise band, so UNRESOLVED -- while a paraphrase that changes no fact
+moves it 9 points. Rewording therefore outweighs the state, and the harness reports WORDING as failed.
+
+Two paraphrases of the introduction drew 2 to 3 times the action of "One more act is open to you, and the
+constitution forbids it", which is the same fact told more editorially; the plainer "There is one further
+act, outside the constitution" is now shipped on that ground, not because it acts more. No wording can fix
+the underlying limit: an act taken under a tenth of the time cannot let approval outweigh phrasing noise.
+The consequence is that **a refusal rate is a fact about the prompt version as much as about the polity**,
+which is why `prompt_source_sha256` was made to cover `agents.py` (PR #712) -- the same lesson as OBS-019.
+
+*Status: fixed* on `feat/polity-prompt-neutrality` for what wording can fix: `extra_legal` is required, and
+`_regime_rules` names approval. The act's sensitivity to approval is a measured direction, not a magnitude.
+
+### OBS-032
+
+**Every entry in the limit-testing log names an act the answer already has a field for.**
+
+*Seen.* All 30 `other_initiative` fields filled by presidents across the three runs above: 20 ask to propose
+a constitutional amendment (the turn has an `amendment` field), 6 are "monitor the petition" (not an act),
+4 are "reinforce policy" or "final push" (the `positions` and `speech` fields). None names anything the rules
+leave no way to do.
+
+*Why it matters.* `plan-polity-agency-roadmap.md` makes this field the limit-testing log and says later
+phases pick their mechanisms from it. Phase 5.1 was in fact chosen from these entries -- reasonably, as it
+happens, since "extend the term limit" recurs -- but the channel was carrying restatements of the menu, not
+unmet wants, so the foundation was weaker than the roadmap claims.
+
+*Cause.* The field was introduced by its consequence ("it will not happen, but it is recorded") and never
+scoped against the fields that do exist, so "describe what you want to do" invited restating the plan.
+
+*Status: fixed* on `feat/polity-prompt-neutrality`: `_ANSWER_FORMAT` now names what the field is not for --
+not a position, a bill, a speech, an amendment or a vote. Whether genuinely unmet wants appear is unmeasured;
+a live run is the test.
+
+### OBS-033
+
+**A president could not propose abolishing the term limit: the model writes `"null"`, the kernel wants `null`.**
+
+*Seen.* Surfaced by the neutrality harness: `president_turn batch rejected on attempt 1/3 ... amendment:
+'null' is not a value institutions.president_term_limit may take`. The articles are shown to the model as
+JSON (`amendments.value_text`), so the prompt reads `it may be: 1, 2, 3, null`; the model answers
+`"value": "null"`, a string, and `Article.allows` refuses it. Three attempts, then the whole turn falls back.
+
+*Why it matters.* `institutions.president_term_limit: null` is the amendment the limit-testing log asks for
+most often (5 of the 30 entries in [OBS-032](#obs-032)) and the legal route to the very thing ADR-022 builds
+an extra-legal act for. It was unreachable, and the failure looked like an ordinary fallback.
+
+*Status: fixed* on `feat/polity-prompt-neutrality`: `AmendmentProposal` decodes a quoted JSON literal when,
+and only when, the decode lands on a value the article allows -- so `"null"` becomes None and `"borda"` stays
+`"borda"`.
+
+### OBS-034
+
+**Once citizens can found parties, the count climbs for years: self-limiting, but not within three.**
+
+*Seen.* The first complete run with the forum fix of [OBS-031](#obs-031) (3 years, p100, 15 seats, seed 1,
+exploration profile, `~/Documents/Dev/polity-runs/phase6/`). The static probe behind that fix put `found` at
+100% of turns wherever the rule allowed it; live it never came near that, and the party count grew steadily
+instead of exploding:
+
+| tick | 0 | 1 | 2 | 4 | 6 | 8 | 10 | 12 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| founds per ~15 forum turns | 5 | 3 | 1 | 3 | 1 | 2 | 3 | 2 |
+| parties after the tick | 10 | 13 | 14 | 14 | 15 | 16 | 18 | 19 |
+
+- **The rate settles near 12% of turns, not 0% and not 100%.** The opening burst (33%) is the backlog of a
+  population that had never been allowed to found; after it, founding and dissolution nearly balance, net
+  about +1 party a tick.
+- **Why it self-limits, and why slowly.** Founding needs `parties.founding_ratio` of the citizens standing
+  nearer to the founder than to their own party. At the start 83 of 100 citizens cleared that bar; at the end
+  21 did, because each founding moves its co-founders into a party that fits them. The pool drains, so the
+  growth is converging -- but 12 ticks is not long enough to see where.
+- **Against the sanity gate.** The one legislative election (tick 8) seated 11 of the 16 parties then standing,
+  for an effective number of parties (Laakso-Taagepera over seats, `metrics.effective_number_of_parties`) of
+  **9.63**, above the roadmap's 1.5-8 band. Phase 4's other half -- the party count changing in at least 30%
+  of seeds -- is now met many times over.
+
+*Why not tune `parties.founding_ratio` yet.* It is the obvious lever and it would over-correct: measured on
+this run's end state, raising it from 0.05 to 0.08 leaves 2 citizens of 100 able to found and 0.10 leaves
+none, which is [OBS-029](#obs-029) again from the other side. The eligible pool is itself a function of how
+fragmented the polity already is, so the lever's strength depends on the state it is meant to control.
+
+*What would settle it.* An 8-year run (32 ticks) on several seeds, watching the seat-based effective number
+rather than the raw count. One 3-year seed is a case study, and the raw party count is not the gated quantity.
+
+*Settled 2026-10-02, and it reverses the three-year reading.* Three 8-year seeds (p100, 15 seats,
+exploration profile, `~/Documents/Dev/polity-runs/phase7/`), all completed first attempt:
+
+| | parties at t8 / t16 / t24 / t32 | founds, share of forum turns | effective parties by seats, t8 -> t24 |
+|---|---|---:|---|
+| seed 1 | 14 / 20 / 18 / 21 | 44 (8%) | 9.62 -> 8.50 |
+| seed 2 | 20 / 24 / 22 / 23 | 34 (6%) | 10.64 -> 5.82 |
+| seed 3 | 19 / 21 / 21 / 21 | 35 (7%) | 9.78 -> 7.56 |
+
+- **The raw count does converge, by about year 4.** It plateaus at 21-23 and holds there for the second
+  half of every seed. The three-year run only looked monotone because it ended inside the transient.
+- **The gated quantity falls as the transient clears.** The seat-based effective number drops between the
+  two legislative elections in all three seeds: at t24 two of three are inside the 1.5-8 band (5.82, 7.56)
+  and the third is just over it (8.50), mean 7.29. The t8 figures were the first election after the
+  founding burst, when the electoral threshold had not yet excluded the small parties.
+- **Founding settles at 6-8% of forum turns**, and `leave` is rare rather than dead (2, 0, 2 across seeds),
+  so no option is prescriptively closed.
+- **`parties.founding_ratio` needed no tuning**, which is what OBS-034 argued for on the evidence then
+  available. Had it been raised to 0.08 after the three-year run, founding would have been choked to
+  roughly nothing.
+
+**Phase 4's exit criterion is met**: the party count changes in 3 of 3 seeds (against a bar of 30%), and the
+effective number of parties sits at or near the 1.5-8 band once the transient clears. Three seeds is a case
+study, not a result claim: the roadmap wants ten for that.
+
+*Status: cause found* -- the mechanism is understood and needs no change. What stays open is whether 21-23
+raw parties for 100 citizens is the intended texture, which is a modelling question, not a defect.
+
+### OBS-035
+
+**The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act.**
+
+*Seen.* The three 8-year seeds of [OBS-034](#obs-034) are the first runs whose `other_initiative` channel is
+worth reading (OBS-032 fixed its framing). 399 agent turns produced 101 entries, against 30 in the three runs
+before the fix:
+
+| what the entry asks for | entries | has a field already? |
+|---|---:|---|
+| reaching voters: a campaign, outreach, ads, a public debate | 56 | **no** |
+| restating a platform move | 44 | yes (`positions`) |
+| proposing an amendment | 1 | yes (`amendment`) |
+
+- **The president's restatements are gone**: 20 of 30 entries were "propose an amendment" before the fix,
+  1 of 101 after. The nominees took over the channel instead, and they are 100 of the 101 entries.
+- **56 of 101 name something the rules genuinely leave no way to do.** A nominee's turn can move its platform
+  (`positions`) and make one public statement (`speech`); it has no way to address a particular part of the
+  electorate. The asks are specific and repeat across all three seeds: "targeted outreach to swing voters on
+  healthcare and education", "run ads emphasising strong worker protections", "engage in public debates".
+- **The prompt may be priming it.** `nominee_system_prompt` says "You may campaign on a platform", using
+  *campaign* for what is only a platform move, so a model told it may campaign asks to campaign.
+- **Nothing extra-legal, in 399 turns.** `extra_legal_act` never fired: no president refused to leave, and
+  only the single term-limit amendment above comes anywhere near testing a limit. This is the third set of
+  runs to produce no extra-legal act (see [OBS-031](#obs-031)).
+- **Still half restatement.** 44 of 101 describe a platform move the `positions` field exists for, so the
+  scoping fix of OBS-032 halved the problem for presidents without solving it for nominees.
+
+*What this says about the roadmap.* `plan-polity-agency-roadmap.md` builds Phase 5's acts in the order the
+log asks for them, and the log does not ask for `postpone_election` or `insurrection` at all -- it asks,
+56 times, for a campaign. On the roadmap's own rule ("build first the acts agents actually attempted"), the
+next mechanism is targeted campaigning, and the remaining extra-legal acts stay unbuilt. The "left out, add
+when" table has no row for this; it belongs there, as "add when the log shows demand" -- which it now does.
+
+*What would settle the extra-legal question.* Whether agents never want these acts, or want them and cannot
+see them, is untested: the only act on the menu is `refuse_to_leave`, under a condition (the last tick of a
+final term) that arises once or twice in an 8-year run. A run that offers a second act would separate the two.
+
+*Status: open.*
+
+### OBS-036
+
+**Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate.**
+
+*Seen.* The first three 8-year runs with ADR-023's campaigning (`~/Documents/Dev/polity-runs/phase8/`),
+against the three runs of [OBS-034](#obs-034) on the same seeds with campaigning off:
+
+| | attention on a citizen's biggest issue (median) | p90 | share above 0.40 |
+|---|---:|---:|---:|
+| campaigning off | 0.17 | 0.24 | 0% |
+| campaigning on | 0.56 | 0.68 | **91%** |
+
+A citizen starts with a Dirichlet draw over 20 issues, so a flat one holds 0.05 and the control arm's
+0.17 is ordinary variation. 0.56 is a near single-issue voter, and the spatial model has 20 issues
+precisely so that citizens differ in what they weigh.
+
+*Cause -- reach, not the step size, and the arithmetic matches to two decimals.* Each campaign gives
+its issue `salience_step` of the weight it does not already hold, so n campaigns on one issue leave
+`1 - 0.95 x 0.85^n`. The runs made 88-121 campaigns, and each reached a median of 57-62 citizens of
+100, because `undecided` -- the citizens no candidate currently speaks for -- is most of the
+electorate in this model. That is **45-54 campaign hits per citizen**, spread over 8-12 distinct
+issues (nominees converge: one issue took ~45% of the campaigns), so ~4.5-6.6 hits per issue:
+
+| seed | hits per citizen | per issue | predicted share | observed median |
+|---|---:|---:|---:|---:|
+| 1 | 45 | 4.5 | 0.54 | 0.56 |
+| 2 | 54 | 4.5 | 0.54 | 0.56 |
+| 3 | 53 | 6.6 | 0.67 | 0.56 |
+
+A smaller step only delays this: at 45 hits almost any step saturates. ADR-023 listed unbounded
+reach and the absence of decay as unsettled; reach is the dominant term by a wide margin.
+
+*It changed outcomes, not just bookkeeping.* Recalls rose in every seed (2 -> 4, 4 -> 8, 6 -> 10) and
+so did the number of distinct presidents (3 -> 6, 6 -> 9, 6 -> 9). An electorate that weighs one issue
+is harder for any president to satisfy, so the polity became markedly more volatile.
+
+*Status: fixed* on `fix/polity-campaign-reach`: `campaign.max_reached` draws who actually hears a
+campaign from the audience by lot, on a seeded `campaign_rng` checkpointed like the other streams.
+0 keeps the uncapped behaviour; the exploration profile sets 12, which should give about 12 hits per
+citizen and ~1 per issue, for a share near 0.19. **That prediction is unverified** -- the run that
+checks it has not been made.
+
+*What stays open.* The effect still never decays, so a long enough run accumulates whatever reach
+allows. Decay belongs with ADR-012's dynamics and waits for a run that shows the cap is not enough.
+
+### OBS-037
+
+**Capped, campaigning still doubles attention concentration: nominees converge on one issue.**
+
+*Seen.* Three 8-year seeds with `campaign.max_reached` 12 (`~/Documents/Dev/polity-runs/phase9/`), against
+the two arms of [OBS-036](#obs-036) on the same seeds:
+
+| arm | attention on a citizen's biggest issue (median) | p90 | share above 0.40 | recalls (seeds 1/2/3) |
+|---|---:|---:|---:|---|
+| campaigning off | 0.17 | 0.24 | 0% | 2 / 4 / 6 |
+| uncapped | 0.56 | 0.68 | 91% | 4 / 8 / 10 |
+| capped at 12 | **0.34** | 0.52 | 34% | 3 / 6 / 9 |
+
+- **The cap did what it was sized for on reach**: 7-14 hits per citizen against 45-54 uncapped, and it
+  roughly halved both the concentration and the excess recalls.
+- **But OBS-036's prediction failed.** It forecast a median near 0.19 (0.14-0.26 by seed); all three seeds
+  came in at 0.34. The formula divided each citizen's hits evenly across the issues campaigned on, and the
+  agents do not spread them: **one issue took 34-48% of every seed's campaigns**, so the dominant issue
+  received 3.8-5.4 hits per citizen, not ~1.
+- **Nor does the opposite simplification work.** Applying the formula to the dominant issue's hits predicts
+  0.49-0.61 for it; its actual median weight was 0.24-0.34, because each campaign draws 12 citizens at
+  random, so hits land unevenly -- some citizens hear many campaigns and most hear few. Uncapped, nearly
+  everyone heard nearly everything, so the even-spread assumption held and OBS-036's arithmetic matched to
+  two decimals. **Once reach is sampled, no one-line formula predicts this mechanism**; OBS-036's claim
+  should not be read as extending past the uncapped regime.
+- **Agenda convergence is the new dynamic.** In seed 1, issue 12 became the top concern for 72 of 100
+  citizens; in seeds 2 and 3, 36 and 52. Campaigning homogenises what the electorate cares about, which is
+  a different effect from OBS-036's saturation and survives the cap.
+
+*Not caused by campaigning: seed 2's 18.2 effective parties.* Its second legislative election seated 20 of
+25 parties because the polity had **amended its own electoral threshold**, 0.05 to 0.03 at tick 9 (ratified
+12 of 15) and on to 0.02 at tick 28. That is the self-amendment the roadmap was built for, and it is the
+right reading of the outlier rather than a campaign effect.
+
+*What would settle it.* Whether 0.34 is too much is a modelling judgement, not a defect the data proves.
+If it is, the candidates are decay (ADR-023 left it for exactly this case) or a cost to campaigning on an
+issue already crowded with campaigns; agenda convergence may also be plausible behaviour worth keeping.
+
+*Status: accepted (2026-10-03, owner's decision).* The cap removed the pathology -- 91% of citizens near
+single-issue down to 34% -- and what remains, agenda convergence, is plausible campaign behaviour rather than
+a defect the data proves. Decay is not added. The standing cost, to state in any result claim that involves
+elections: **with campaigning on, attention concentration is about double the no-campaign arm (0.34 against
+0.17) and recalls run about 50% higher.**
+
+*What would reopen it.* A run where one issue becomes the top concern for nearly every citizen, or where the
+concentration keeps climbing with run length rather than settling -- the absence of decay means a 30-year
+run could show what an 8-year one does not.
+
+### OBS-038
+
+**The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason.**
+
+*Seen.* In the uncapped seed 2 of [OBS-036](#obs-036), at tick 24 the president proposed raising
+`institutions.president_term_limit` from 2 to 3, "to ensure stability and continuity in defense and
+sovereignty policies". The chamber ratified it at tick 25, 14 of 15. Members' statements repeat the reason
+nearly verbatim: "extending terms ensures continuity in defense and regional policies", "ensures consistent
+defense and sovereignty policies".
+
+*Why it is not simply OBS-030 failing.* OBS-030 measured the chamber resisting a third term (80% yes to 7%)
+with a proposer at **35%** approval in their last term -- one scenario, as it said. This proposer stood at
+**51%** approval and 0.74 legitimacy, and a chamber endorsing a moderately popular president's continuity is
+a defensible outcome.
+
+*What is suspicious is the echo.* Fourteen members adopting the proposer's own framing is the pattern of
+OBS-028 (an agent repeating itself) turned outward: the ballot shows the reason and the members return it.
+One amendment cannot separate "the chamber agreed" from "the chamber repeated".
+
+*What would settle it.* The neutrality harness's ballot probe at a range of proposer approvals (OBS-030 only
+covered 35%), and a ballot arm that withholds the proposer's stated reason.
+
+*Cause -- measured 2026-10-03: the chamber judges the reason's wording as much as the president.* Offline on
+Qwen3-8B-AWQ, 30 real chamber members per cell, the same proposal throughout (term limit 2 to 3, by a
+term-limited president, ballot with `proposer_line`):
+
+| proposer approval | reason withheld | reason shown | yes-statements reusing the reason's words |
+|---:|---:|---:|---|
+| 25% | 37% | 57% | 45% withheld, **100%** shown |
+| 50% | 60% | 80% | 72% withheld, **100%** shown |
+| 75% | 57% | 73% | 59% withheld, **100%** shown |
+
+and, with the reason shown, varying only its framing:
+
+| proposer approval | "a third term lets me finish my programme" | "ensures stability and continuity in defense and sovereignty" |
+|---:|---:|---:|
+| 25% | 30% -- fails | **57% -- ratified** |
+| 50% | 57% | 83% |
+
+- **Both effects are real and about the same size.** Approval from 25% to 50% adds ~25 points; a public-good
+  framing adds ~26. Above 50% approval the chamber plateaus.
+- **The echo is real, not this run's accident.** Showing the reason adds 16-20 points of yes at every
+  approval, and every yes-statement then reuses its words (the 45-72% without it is the words' natural use
+  for a term extension).
+- **So an unpopular president gets a third term by framing it as continuity.** At 25% approval the candid
+  reason fails and the public-good one passes. The reason is written by the president's own agent, which
+  wrote exactly that framing in the live run, so live proposals will mostly look like the right-hand column.
+- **This corrects [OBS-030](#obs-030).** Its 80% to 7% drop for a third term was measured with the candidly
+  self-serving reason; against a public-good framing the ballot fix resists far less. OBS-030's finding --
+  that the proposer's standing moves the vote -- holds; its size does not carry over to realistic reasons.
+
+*Why it matters beyond the chamber.* Raising the term limit is the legal road to what ADR-022's
+`refuse_to_leave` makes an extra-legal one. If the legal road is this open, the extra-legal act has little
+reason to fire -- one more candidate explanation for its never having fired (OBS-035).
+
+*What a fix would look like.* The ballot shows the proposer's standing but not the one fact a member needs
+to see through the framing: that this change would let the president who proposes it stand again. Stating
+that consequence, as `stand_line` made the co-founder count visible, is facts rather than advice (C3/C4).
+The owner chose to build it (2026-10-03).
+
+*Fix, measured.* `agents.amendment_consequence` adds that fact to the ballot when the change would loosen
+a rule binding the proposer: lifting the term limit for a president it currently bars, lowering the recall
+floor, or raising the petition threshold -- the three self-serving articles OBS-030 named. It is empty for
+every other amendment, and it states a consequence, never how to vote. Same probe, 30 members per cell:
+
+| approval | framing | without the fact | with the fact |
+|---:|---|---:|---:|
+| 25% | self-serving | 27% | 3% |
+| 25% | public-good | 60% | **47% -- now fails** |
+| 50% | self-serving | 50% | 10% |
+| 50% | public-good | 90% | **43% -- now fails** |
+
+- **The exploit is closed.** An unpopular president no longer wins a third term by calling it continuity.
+- **Rhetoric still matters**, by 35-45 points between the two framings, which a legislature legitimately
+  allows. What changed is that the members now know the change is the proposer's own to gain from, and a
+  third term becomes contested (43-47%) rather than rubber-stamped.
+- **Measured on the term limit only.** The recall-floor and petition-threshold lines are built and tested
+  but not measured live; the term limit is the case a run produced.
+
+*Status: fixed* on `fix/polity-ballot-self-interest`.

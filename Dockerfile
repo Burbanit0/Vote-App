@@ -26,8 +26,6 @@ RUN npx vite build
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM python:3.14-slim AS runtime
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # The lockfile, not requirements.txt: transitive versions are pinned too.
@@ -50,7 +48,13 @@ ENV APP_ENV=production \
 
 EXPOSE 4434
 
+# Stdlib only, no curl needed: /api/v2/health returns 200 healthy / 503
+# degraded, and urlopen raises on a non-2xx status, so a 503 correctly fails
+# the check. sys.exit(str) prints the message to stderr and exits 1 — a
+# terse one-liner in `docker inspect`'s health log, not a full traceback
+# (fast_api_voter/Dockerfile's dev image predates this and still raises raw;
+# not changed here, out of scope).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:4434/api/v2/health || exit 1
+    CMD ["python", "-c", "import sys, urllib.request as u\ntry:\n u.urlopen('http://localhost:4434/api/v2/health')\nexcept Exception as e:\n sys.exit(f'health check failed: {e}')"]
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434", "--workers", "1"]

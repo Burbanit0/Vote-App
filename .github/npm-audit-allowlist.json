@@ -1,0 +1,13 @@
+{
+  "_comment": "Time-boxed exceptions to the npm advisory gate (voter-app/scripts/check-npm-audit.mjs; also fed to dependency-review.yml's allow-ghsas). Key: the GHSA id. Each entry needs `until` (a real YYYY-MM-DD, at most 90 days ahead; the gate fails once it passes), `reason` (why it is acceptable until then) and `nodes` (the node_modules install paths that were reviewed, copied from `npm audit --json`; the advisory appearing anywhere else fails the gate again). Prefer fixing the lockfile; add an entry only in a reviewed PR, and delete it in the PR that fixes the dependency.",
+  "GHSA-vfj7-8cjw-p6xm": {
+    "until": "2026-11-02",
+    "reason": "braces <=3.0.3 stack-exhaustion DoS on deeply nested patterns. Covers the latest release, so no patched version exists yet. Dev-only: type-coverage -> type-coverage-core -> fast-glob -> micromatch -> braces, run in CI on our own source globs, never shipped (npm's only offer is a semver-major downgrade of type-coverage). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once braces ships a fix.",
+    "nodes": ["node_modules/braces"]
+  },
+  "GHSA-ch52-4w7c-c8xp": {
+    "until": "2026-11-02",
+    "reason": "http-cache-semantics <=4.2.0 max-stale handling can disclose cross-user cached responses. Covers the latest release, so no patched version exists yet. Dev-only: license-checker-rseidelsohn -> @npmcli/arborist -> npm-registry-fetch -> make-fetch-happen -> http-cache-semantics, a single-user CLI cache in CI, never shipped (npm's only offer is a semver-major downgrade of license-checker). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once http-cache-semantics ships a fix.",
+    "nodes": ["node_modules/http-cache-semantics"]
+  }
+}

@@ -16,19 +16,21 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal
 
+from api.domain.polity.agents import ISSUES, describe_moves
 from api.domain.polity.codebook import motif_labels
 from api.domain.polity.run_explorer import RunView, citizen_census, citizen_events
 from api.domain.polity.run_macro import Scalar
 
 RATIONALE_LIMIT = 280
-Section = Literal["roles", "candidacies", "votes", "pressure_acts", "petitions", "other"]
-SECTIONS: tuple[Section, ...] = ("roles", "candidacies", "votes", "pressure_acts", "petitions", "other")
+Section = Literal["roles", "turns", "candidacies", "votes", "pressure_acts", "petitions", "other"]
+SECTIONS: tuple[Section, ...] = ("roles", "turns", "candidacies", "votes", "pressure_acts", "petitions", "other")
 
 _SECTION_OF: Mapping[str, Section] = {
     **dict.fromkeys(("elected", "recalled", "mandate_pledge_declared", "representative_response", "legitimacy_updated",
                      "mandate_deviation_recorded", "sortition_rotation", "chamber_deliberation"), "roles"),
     **dict.fromkeys(("candidacy_considered", "candidacy_declared", "nomination_lost", "party_nomination_choice",
                      "campaign_positioning", "election_invalidated"), "candidacies"),
+    **dict.fromkeys(("agent_turn", "forum_post"), "turns"),
     "vote_cast": "votes",
     "pressure_action": "pressure_acts",
     **dict.fromkeys(("petition_launched", "petition_signed", "petition_expired", "confidence_vote_triggered",
@@ -100,8 +102,20 @@ def _entry(event: Mapping[str, Any], role: str) -> BiographyEntry:
     return BiographyEntry(
         tick=int(event["tick"]), event_type=str(event["event_type"]), role=role, motif=motif, motif_label=label,
         rationale=_rationale(event.get("rationale")),
-        details={k: v for k, v in sorted(payload.items()) if isinstance(v, int | float | str | bool) or v is None},
+        details={k: v for k, v in sorted({**payload, **_diary_words(event)}.items()) if isinstance(v, int | float | str | bool) or v is None},
     )
+
+
+def _diary_words(event: Mapping[str, Any]) -> dict[str, str]:
+    """An agent's turn (ADR-014) in words for the diary: its moves and bill, or, for a forum post
+    (ADR-017), the pole the speaker's mind moved toward."""
+    payload = event["payload"]
+    if event["event_type"] == "forum_post":
+        issue, logit = payload["shift_issue"], payload["shift_logit"]
+        return {"shift": f"{ISSUES[issue].name}: toward {ISSUES[issue].high if logit > 0 else ISSUES[issue].low}"} if logit else {}
+    if event["event_type"] != "agent_turn":
+        return {}
+    return {"moves": describe_moves(payload["shifts"]), "bill": describe_moves(payload["bill"])}
 
 
 def _received_code(event: Mapping[str, Any], citizen_id: int) -> int | None:

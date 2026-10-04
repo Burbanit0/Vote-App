@@ -196,6 +196,17 @@ def _representative_response(state: ReplayState, marks: TickMarks, event: Mappin
     citizen.revealed = _shifted(citizen.revealed, event["payload"]["shifts"])
 
 
+def _agent_turn(state: ReplayState, marks: TickMarks, event: Mapping[str, Any], positions: np.ndarray) -> None:
+    """A leader's turn (ADR-014): a president restates their stated position; a nominee moves
+    their pledge with it."""
+    if event["payload"]["role"] != "nominee":
+        _representative_response(state, marks, event, positions)
+        return
+    citizen = state.citizens[event["citizen_id"]]
+    assert citizen.pledged is not None, "a nominee campaigns only once declared"
+    citizen.pledged = citizen.revealed = _shifted(citizen.pledged, event["payload"]["shifts"])
+
+
 def _recalled(state: ReplayState, marks: TickMarks, event: Mapping[str, Any], positions: np.ndarray) -> None:
     citizen = state.citizens[event["citizen_id"]]
     citizen.role, citizen.office = Role.ELECTOR.value, Office.NONE.value
@@ -225,6 +236,7 @@ HANDLERS: Mapping[str, Handler] = {
     "election_invalidated": _no_winner,
     "mandate_pledge_declared": _mandate_pledge_declared,
     "representative_response": _representative_response,
+    "agent_turn": _agent_turn,
     "recalled": _recalled,
     "sortition_rotation": _sortition_rotation,
     "pressure_action": _pressure_action,

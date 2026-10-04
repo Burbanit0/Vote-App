@@ -7,6 +7,8 @@ acceptance criterion written *before* the step runs.
 
 **Language.** English, matching `polity-llm-reference.md` and `plan-flagship-30y-run.md`.
 
+**Next era.** Polity's next era starts from `plan-polity-agency-roadmap.md` (2026-09-27): persona agents, an amendable constitution, emergent parties and initiatives.
+
 ---
 
 ## 0. How this plan is run

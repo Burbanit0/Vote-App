@@ -137,3 +137,15 @@ def test_a_dead_audit_is_still_caught(watchdog, verify):
     assert verify(watchdog.AUDIT_STALE_HOURS - 1) == 0
     assert verify(watchdog.AUDIT_STALE_HOURS + 1) == 1
     assert verify(2 * watchdog.HEARTBEAT_MAX_DAYS * 24) == 1
+
+
+def test_the_review_gate_develop_requires_is_expected_not_drift(watchdog):
+    """protect_develop() appends `High-risk review gate` to the shared context list
+    (setup-branch-protection.sh); the drift check read REQUIRED_CONTEXTS alone, so
+    the correctly applied protection would have reported as drifted and turned
+    "CI health check" red on every PR to develop and main."""
+    contexts, strict = watchdog.parse_setup_script_expectations()
+    assert strict
+    assert "High-risk review gate" in contexts
+    assert contexts.count("High-risk review gate") == 1
+    assert "CI health check" in contexts  # the shared list is still there

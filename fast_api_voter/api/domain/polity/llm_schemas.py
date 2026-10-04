@@ -23,9 +23,12 @@ belongs in llm_behavior_engine.py as plain functions, not here.
 """
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+
+from api.domain.polity.config import ARTICLES, ISSUE_COUNT_NAMED
 
 
 class VoteCastDecision(BaseModel):
@@ -333,6 +336,171 @@ class ResponseBatch(BaseModel):
 
 
 RESPONSE_JSON_SCHEMA = ResponseBatch.model_json_schema()
+
+
+class IssueTarget(BaseModel):
+    """Where the leader wants a value to be on one issue."""
+
+    # A target, not a signed delta: the first live runs (2026-09-28) had Qwen3-8B promise one
+    # pole and move toward the other, while its own notes named target values. The kernel
+    # takes the bounded step toward the target (agents.steps_toward).
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: int = Field(..., ge=0)
+    target: float = Field(..., ge=0.0, le=1.0)
+
+
+class LeaderTurn(BaseModel):
+    """One leader's turn, in their own words and moves."""
+
+    # ADR-014 (agents.py): not a batch -- one agent, one call. Field order is generation
+    # order, so the reasoning comes before the moves it justifies. The moves' real bounds
+    # (mandate.max_response_*, legislation.max_bill_*) are enforced by agents.validate_turn.
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    positions: list[IssueTarget] = Field(..., max_length=5)
+    bill: list[IssueTarget] = Field(..., max_length=5)
+    speech: str
+    note_to_self: str
+    other_initiative: str
+
+
+LEADER_TURN_JSON_SCHEMA = LeaderTurn.model_json_schema()
+
+
+_ARTICLE_ENUM: dict[str, JsonValue] = {"enum": [*sorted(ARTICLES)]}
+
+
+class AmendmentProposal(BaseModel):
+    """A change of one article of the constitution, put to the chamber."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The article is an enum so the decoder cannot invent one; the value's legality depends on
+    # the article (config.Article.allows), which the schema cannot say -- agents.validate_turn.
+    article: str = Field(..., json_schema_extra=_ARTICLE_ENUM)
+    value: str | int | float | None
+    reason: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _decode_quoted_literal(cls, data: Any) -> Any:
+        """A value the model quoted when the article wants the JSON literal: `"null"` for None,
+        `"0.05"` for a number. The articles are shown to the model as JSON (amendments.value_text),
+        so `null` comes back as a string often enough to matter -- and until this, abolishing the
+        term limit, the amendment the limit-testing log asks for most, could not be proposed at all.
+        Only a decode that lands on a value the article allows is kept, so "borda" stays "borda"."""
+        if not isinstance(data, dict) or not isinstance(data.get("value"), str):
+            return data
+        article = ARTICLES.get(str(data.get("article")))
+        if article is None or article.allows(data["value"]):
+            return data
+        try:
+            decoded = json.loads(data["value"])
+        except ValueError:
+            return data
+        return {**data, "value": decoded} if article.allows(decoded) else data
+
+
+class CampaignPlan(BaseModel):
+    """One issue, and who is to hear about it (ADR-023)."""
+
+    # One object rather than two sibling fields, so half a campaign cannot be expressed. Two
+    # required siblings guarded by a validator were measured first: the model set one and left the
+    # other on 35% of calls, and every one of those cost the turn its retries.
+    model_config = ConfigDict(extra="forbid")
+
+    issue: int = Field(..., ge=0, lt=ISSUE_COUNT_NAMED, description="The issue to campaign on.")
+    audience: Literal["base", "undecided"] = Field(..., description="Your party's members, or the citizens no candidate currently speaks for.")
+
+
+class CampaigningNomineeTurn(LeaderTurn):
+    """A nominee's turn where it may also campaign on one issue (ADR-023)."""
+
+    # Required AND nullable, which is the only shape that survives both measurements (OBS-031):
+    # as two required siblings the model set one and left the other on 35% of calls, each costing
+    # the turn its retries; as an OPTIONAL nested object it was filled once in 160 calls, because
+    # a field the model may omit it omits. Required so the act is always weighed, nullable so
+    # declining is expressible, nested so half a campaign cannot be.
+    campaign: CampaignPlan | None = Field(..., description="The issue to campaign on and who should hear it, or null to campaign on nothing.")
+
+
+CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA = CampaigningNomineeTurn.model_json_schema()
+
+
+class AmendingLeaderTurn(LeaderTurn):
+    """A leader's turn where the constitution can be amended (agents.amendments)."""
+
+    amendment: AmendmentProposal | None = None
+
+
+AMENDING_LEADER_TURN_JSON_SCHEMA = AmendingLeaderTurn.model_json_schema()
+
+
+class ActingLeaderTurn(AmendingLeaderTurn):
+    """A leader's turn where the president may also refuse to leave office (regime.enabled, ADR-022)."""
+
+    # Required, not defaulted: measured on Qwen3-8B, an optional field is never filled (0 of 30
+    # final-term turns, and 0 of 98 in three 8-year runs) while a required one is (6 of 30), so a
+    # default would record "the model never saw the act" as "the model declined it".
+    extra_legal: Literal["none", "refuse_to_leave"] = Field(..., description="\"refuse_to_leave\" or \"none\".")
+
+
+ACTING_LEADER_TURN_JSON_SCHEMA = ActingLeaderTurn.model_json_schema()
+
+
+class AmendmentBallot(BaseModel):
+    """A chamber member's vote on a proposed amendment, in their own words."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    vote: Literal["yes", "no"]
+    statement: str
+    note_to_self: str
+
+
+AMENDMENT_BALLOT_JSON_SCHEMA = AmendmentBallot.model_json_schema()
+
+
+class LeaderCoalitionTurn(BaseModel):
+    """A party leader's answer to the formateur, and what they say to the other leaders."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    join: Literal["yes", "no"]
+    statement: str
+    note_to_self: str
+
+
+LEADER_COALITION_TURN_JSON_SCHEMA = LeaderCoalitionTurn.model_json_schema()
+
+
+class ForumTurn(BaseModel):
+    """A citizen's turn on the forum: a post, or silence (an empty post)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rationale: str
+    post: str
+    note_to_self: str
+    shift_issue: int = Field(..., ge=-1, lt=ISSUE_COUNT_NAMED, description="The issue number your mind moved on after reading the forum, or -1.")
+    shift_direction: Literal["none", "low", "high"] = Field(..., description="Toward which pole of that issue; \"none\" if your mind did not change.")
+    party_move: Literal["none", "join", "leave", "found"] = Field(..., description="Change your party: join one, leave to sit as an independent, found a new one on your own convictions; \"none\" to stay.")
+    party_id: int = Field(..., ge=-1, description="The party to join, or -1.")
+
+    @model_validator(mode="after")
+    def _a_move_is_complete(self) -> ForumTurn:
+        if self.shift_direction != "none" and self.shift_issue < 0:
+            raise ValueError("shift_direction needs a shift_issue")
+        if self.party_move == "join" and self.party_id < 0:
+            raise ValueError("joining needs a party_id")
+        return self
+
+
+FORUM_TURN_JSON_SCHEMA = ForumTurn.model_json_schema()
 
 
 class PressureDecision(BaseModel):

@@ -87,6 +87,9 @@ class PolityStanding(_Model):
     ecart: Optional[float] = None
     mandate_strength: Optional[float] = None
     acts: List[int] = Field(..., description="Pressure actions journaled this tick, counted by act code 0-4.")
+    approval: Optional[float] = Field(
+        None, description="Share of citizens approving the president's conduct; journaled only while legitimacy.approval_weight > 0."
+    )
 
 
 class PolityElection(_Model):
@@ -183,6 +186,7 @@ class PolityBiographyEntry(_Model):
 
 class PolityBiographySections(_Model):
     roles: List[PolityBiographyEntry]
+    turns: List[PolityBiographyEntry] = Field(..., description="An agent's turns (ADR-014): speech, moves, bill, note to self.")
     candidacies: List[PolityBiographyEntry]
     votes: List[PolityBiographyEntry]
     pressure_acts: List[PolityBiographyEntry]

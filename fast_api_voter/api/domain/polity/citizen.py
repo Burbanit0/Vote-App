@@ -9,12 +9,16 @@ transitions themselves live in simple_rules.py (Lot 6).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
 
 from api.domain.polity.config import CitizensConfig
+
+
+ACTIVE, DISENGAGED, EXITED = "active", "disengaged", "exited"
 
 
 class Role(str, Enum):
@@ -132,6 +136,13 @@ class Citizen:
     anger: float | None = None
     anxiety: float | None = None
     enthusiasm: float | None = None
+    # ADR-021: None while untracked (emotions.disengage_anger 0), which reads as "active".
+    engagement: str | None = None
+
+    @property
+    def engaged(self) -> bool:
+        """Votes and signs petitions: neither disengaged nor exited."""
+        return self.engagement in (None, ACTIVE)
 
 
 # plan-distribution-positions-seeds.md, Phase 1 (2026-08-25): position_dist
@@ -169,9 +180,9 @@ class LatentStructure:
     residuals: np.ndarray
     """(population_size, issue_count)"""
 
-    def positions(self, factors: np.ndarray) -> np.ndarray:
-        """Issue positions for factors of shape (population_size, 2)."""
-        raw = factors @ self.loadings.T + self.residuals
+    def positions(self, factors: np.ndarray, citizen_ids: Sequence[int] | None = None) -> np.ndarray:
+        """Issue positions for factors of shape (population_size, 2), or of one row per citizen_id given."""
+        raw = factors @ self.loadings.T + (self.residuals if citizen_ids is None else self.residuals[list(citizen_ids)])
         result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
         return result
 

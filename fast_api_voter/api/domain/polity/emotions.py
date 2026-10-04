@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from api.domain.polity.citizen import Citizen
+from api.domain.polity.citizen import ACTIVE, DISENGAGED, EXITED, Citizen
 from api.domain.polity.config import EmotionsConfig
 
 
@@ -64,6 +64,26 @@ def mean_emotions(citizens: Sequence[Citizen]) -> Appraisal:
         anxiety=sum(c.anxiety or 0.0 for c in citizens) / count,
         enthusiasm=sum(c.enthusiasm or 0.0 for c in citizens) / count,
     )
+
+
+def engagement_after(state: str | None, anger: float, config: EmotionsConfig) -> str:
+    """ADR-021: giving up follows anger. Active turns disengaged at `disengage_anger` and back at
+    `return_anger` (below it, so a citizen at the edge does not flicker); `exit_anger` is final."""
+    if state == EXITED or (config.exit_anger > 0 and anger >= config.exit_anger):
+        return EXITED
+    if anger >= config.disengage_anger:
+        return DISENGAGED
+    if state == DISENGAGED and anger > config.return_anger:
+        return DISENGAGED
+    return ACTIVE
+
+
+def update_engagement(citizens: Sequence[Citizen], config: EmotionsConfig) -> dict[str, int]:
+    """Move every citizen's engagement after this tick's anger; returns how many are now in
+    each state. Exited citizens stay in the population (ids must remain range(n))."""
+    for citizen in citizens:
+        citizen.engagement = engagement_after(citizen.engagement, citizen.anger or 0.0, config)
+    return {state: sum(1 for c in citizens if c.engagement == state) for state in (DISENGAGED, EXITED)}
 
 
 def awakening_pull(citizen: Citizen, config: EmotionsConfig) -> float:

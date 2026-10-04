@@ -8335,6 +8335,14 @@
             "title": "Roles",
             "type": "array"
           },
+          "turns": {
+            "description": "An agent's turns (ADR-014): speech, moves, bill, note to self.",
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Turns",
+            "type": "array"
+          },
           "votes": {
             "items": {
               "$ref": "#/components/schemas/PolityBiographyEntry"
@@ -8345,6 +8353,7 @@
         },
         "required": [
           "roles",
+          "turns",
           "candidacies",
           "votes",
           "pressure_acts",
@@ -9236,6 +9245,18 @@
             },
             "title": "Acts",
             "type": "array"
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of citizens approving the president's conduct; journaled only while legitimacy.approval_weight > 0.",
+            "title": "Approval"
           },
           "ecart": {
             "anyOf": [

@@ -27,7 +27,7 @@ name: Coverage-Guided Fuzzing (atheris)
 # succeeded for real (2026-09-11).
 on:
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
       - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
@@ -49,8 +49,9 @@ on:
                            # deep; a different day spreads runner load rather
                            # than adding a fourth to the same window.
 
+# Scheduled runs test polity: their own group, so a develop push can't cancel them.
 concurrency:
-  group: atheris-fuzzing-${{ github.ref }}
+  group: atheris-fuzzing-${{ github.event_name == 'schedule' && 'schedule-polity' || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -67,6 +68,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -98,7 +103,9 @@ jobs:
           path: |
             fast_api_voter/fuzz_corpus/engine
             fast_api_voter/fuzz_corpus/llm_parsers
-          key: atheris-corpus-${{ github.sha }}
+          # Per run, not per github.sha: a scheduled run tests polity while
+          # github.sha is develop's tip, so a sha key would hit and never save.
+          key: atheris-corpus-${{ github.run_id }}
           restore-keys: |
             atheris-corpus-
 

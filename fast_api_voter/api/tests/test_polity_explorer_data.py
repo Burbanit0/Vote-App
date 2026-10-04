@@ -73,6 +73,17 @@ def test_a_standing_carries_the_holder_s_reading_of_that_tick(runs: dict[str, Pa
     assert checked >= 3
 
 
+def test_a_standing_carries_approval_when_the_holder_s_reading_has_one(runs: dict[str, Path]) -> None:
+    view = RunView.load(runs["staggered"])
+    assert all(s.approval is None for s in build_macro(view.events, 40, view.last_tick).standings)
+    approved = [
+        {**e, "payload": {**e["payload"], "approval": 0.42}} if e["event_type"] == "legitimacy_updated" else e
+        for e in view.events
+    ]
+    standings = build_macro(approved, 40, view.last_tick).standings
+    assert {s.approval for s in standings if s.legitimacy is not None} == {0.42}
+
+
 def test_elections_carry_turnout_and_a_blank_share_with_its_source(runs: dict[str, Path]) -> None:
     def elections(name: str) -> tuple[Any, ...]:
         view = RunView.load(runs[name])
@@ -164,6 +175,30 @@ def test_a_rationale_is_cut_short_and_an_unknown_motif_stays_undecoded(runs: dic
     assert (vote.motif, vote.motif_label) == (104, motif_labels()[104])
     others = [e for e in biography.sections["other"] if e.tick == 12]
     assert [(e.event_type, e.motif, e.rationale) for e in others] == [("scandal_occurred", None, "short"), ("future_event", None, None)]
+
+
+def test_an_agent_s_turns_make_a_diary_with_its_moves_in_words(runs: dict[str, Path], tmp_path: Path) -> None:
+    run_dir = Path(shutil.copytree(runs["deterministic"], tmp_path / "run"))
+    turn = {"speech": "We build.", "rationale": "housing first", "note_to_self": "watch the assembly", "other_initiative": "",
+            "shifts": [{"dimension": 9, "delta": 0.1}], "bill": [{"dimension": 0, "delta": -0.05}],
+            "llm_fallback": 0, "retry_sampling_varied": 0, "llm_call_id": "c"}
+    with (run_dir / "events.jsonl").open("a") as handle:
+        handle.write(json.dumps({"event_id": 10**6, "tick": 12, "citizen_id": 2, "event_type": "agent_turn", "payload": turn}) + "\n")
+    [entry] = build_biography(RunView.load(run_dir), 2).sections["turns"]
+    assert entry.details["speech"] == "We build." and entry.details["note_to_self"] == "watch the assembly"
+    assert (entry.details["moves"], entry.details["bill"]) == ("housing +0.10", "taxation -0.05")
+
+
+def test_a_forum_post_joins_the_diary_and_a_changed_mind_says_toward_which_pole(runs: dict[str, Path], tmp_path: Path) -> None:
+    run_dir = Path(shutil.copytree(runs["deterministic"], tmp_path / "run"))
+    posts = [("Open the borders.", 5, 0.25), ("", -1, 0.0), ("Close them.", 5, -0.25)]
+    with (run_dir / "events.jsonl").open("a") as handle:
+        for i, (post, issue, logit) in enumerate(posts):
+            payload = {"post": post, "rationale": "r", "note_to_self": "", "shift_issue": issue, "shift_logit": logit}
+            handle.write(json.dumps({"event_id": 10**6 + i, "tick": 12 + i, "citizen_id": 2, "event_type": "forum_post", "payload": payload}) + "\n")
+    entries = [e for e in build_biography(RunView.load(run_dir), 2).sections["turns"] if e.event_type == "forum_post"]
+    assert [e.details["post"] for e in entries] == ["Open the borders.", "", "Close them."]
+    assert [e.details.get("shift") for e in entries] == ["immigration: toward open", None, "immigration: toward restrictive"]
 
 
 # ── catalog ───────────────────────────────────────────────────────────────

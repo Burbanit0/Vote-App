@@ -25,7 +25,7 @@ from api.domain.polity.llm_behavior_engine import (
     _VOTE_CAST_RETRY_TEMPERATURE,
     menu_acts,
 )
-from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
+from api.domain.polity.llm_client import OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (
@@ -1166,6 +1166,19 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
     for update in updates:
         assert update["payload"]["mandate_strength"] == pytest.approx(0.51)
         assert update["payload"]["legitimacy"] == pytest.approx(update["payload"]["mandate_strength"])
+
+
+def test_approval_is_the_mandate_measured_every_tick_while_nobody_drifts(tmp_path):
+    # With every vote weight at zero approval applies the mandate's own rule (above blank on
+    # a utility ballot), so a president whose conduct never leaves their pledge keeps
+    # approval == mandate_strength, and weighing it in leaves L(t) at m.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0, approval_weight=0.5)
+    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
+    updates = [e["payload"] for e in _events(run_simulation(config, run_id="approval")) if e["event_type"] == "legitimacy_updated"]
+    assert updates
+    for update in updates:
+        assert update["approval"] == pytest.approx(update["mandate_strength"])
+        assert update["legitimacy"] == pytest.approx(update["mandate_strength"])
 
 
 @pytest.mark.parametrize(
@@ -5261,3 +5274,28 @@ def test_run_simulation_refuses_a_client_injected_into_a_deterministic_config(tm
     # would otherwise silently turn the LLM path on.
     with pytest.raises(PolityConfigError, match="'llm.enabled' is false"):
         run_simulation(_config_with_output_dir(tmp_path), run_id="mismatch", llm_client=_FakeLlmClient())
+
+
+def test_each_legislative_election_draws_its_seat_ties_from_its_own_seeded_lot(tmp_path, monkeypatch):
+    """A seat tie used to go to the lowest party_id. Each election now gets a
+    lot seeded from (run seed, tick): reproducible, and independent of every
+    checkpointed stream."""
+    import random
+
+    real = run_polity_simulation_module.allocate_seats
+    draws = []
+
+    def spy(*args, rng=None, **kwargs):
+        probe = random.Random()
+        probe.setstate(rng.getstate())  # read the lot without consuming it
+        draws.append(probe.random())
+        return real(*args, rng=rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "allocate_seats", spy)
+    config = _config_with_output_dir(tmp_path)
+    journal_path = run_simulation(config, run_id="seat-lot")
+
+    ticks = [e["tick"] for e in _events(journal_path) if e["event_type"] == "legislative_result"]
+    assert ticks and len(draws) == len(ticks)
+    expected = [random.Random(f"legislative-seats:{config.run.seed}:{t}").random() for t in ticks]
+    assert draws == expected

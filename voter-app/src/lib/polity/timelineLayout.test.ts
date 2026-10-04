@@ -75,6 +75,10 @@ describe('timeline layout', () => {
       'scandal_occurred',
       'economic_shock_tick',
       'sortition_rotation',
+      'constitution_amended',
+      'amendment_proposed',
+      'amendment_resolved',
+      'referendum_held',
     ]) {
       expect(glyphOf(type)[1]).not.toBe('other');
     }

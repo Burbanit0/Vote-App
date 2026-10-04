@@ -33,6 +33,22 @@ const biography = (id: number) => ({
   citizen_id: id,
   sections: {
     roles: [entry(0, 'elected'), entry(9, 'recalled')],
+    turns: [
+      entry(1, 'agent_turn', {
+        details: {
+          speech: 'We build.',
+          moves: 'housing +0.10',
+          bill: '',
+          rationale: 'housing first',
+          note_to_self: 'watch the assembly',
+          other_initiative: 'abolish the chamber',
+          llm_fallback: 0,
+        },
+      }),
+      entry(2, 'forum_post', {
+        details: { post: 'Open the borders.', shift: 'immigration: toward open', note_to_self: '' },
+      }),
+    ],
     candidacies: [
       entry(0, 'candidacy_considered', {
         motif: 203,
@@ -106,6 +122,24 @@ describe('CitizenBiography', () => {
 
     expect(screen.getByTestId('biography-section-roles')).toHaveTextContent('Roles and office 2');
     expect(screen.getByTestId('biography-section-roles')).toHaveTextContent('president recalled');
+    const [turn, forumPost] = within(screen.getByTestId('biography-section-turns')).getAllByTestId(
+      'biography-entry'
+    );
+    expect(forumPost).toHaveTextContent('forum turn');
+    expect(within(forumPost).getByTestId('biography-turn-post')).toHaveTextContent(
+      'Open the borders.'
+    );
+    expect(within(forumPost).getByTestId('biography-turn-shift')).toHaveTextContent(
+      'immigration: toward open'
+    );
+    expect(turn).toHaveTextContent('turn');
+    expect(within(turn).getByTestId('biography-turn-speech')).toHaveTextContent('We build.');
+    expect(within(turn).getByTestId('biography-turn-moves')).toHaveTextContent('housing +0.10');
+    expect(within(turn).getByTestId('biography-turn-other_initiative')).toHaveTextContent(
+      'abolish the chamber'
+    );
+    expect(turn).toHaveTextContent('Tried outside the rules');
+    expect(within(turn).queryByTestId('biography-turn-bill')).not.toBeInTheDocument();
     const candidacy = within(screen.getByTestId('biography-section-candidacies')).getByTestId(
       'biography-entry'
     );

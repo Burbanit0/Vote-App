@@ -248,6 +248,13 @@ def parse_setup_script_expectations() -> tuple[list[str], bool]:
     # loosely rather than requiring literal unescaped quotes.
     expected_strict = bool(re.search(r'\\?"strict\\?"\s*:\s*true', develop_fn_body))
 
+    # protect_develop() appends the high-risk review hold's status to the shared
+    # list (jq '. + [$g]'), so it is required live on develop without being in
+    # REQUIRED_CONTEXTS; leaving it out reported a correct setup as drifted.
+    gate_match = re.search(r'^REVIEW_GATE="([^"]+)"', text, re.MULTILINE)
+    if gate_match and "$REVIEW_GATE" in develop_fn_body:
+        required_contexts = required_contexts + [gate_match.group(1)]
+
     return required_contexts, expected_strict
 
 
