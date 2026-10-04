@@ -10,7 +10,7 @@ const polityEn: PolityKeys = {
   },
   runPicker: {
     label: 'Run',
-    option: '{{runId}} — {{population}} citizens, {{years}} years, seed {{seed}}',
+    option: '{{name}} — {{population}} citizens, {{years}} years, seed {{seed}}',
   },
   runStates: {
     loadingRuns: 'Loading runs…',
@@ -281,7 +281,12 @@ const polityEn: PolityKeys = {
     population: 'Population',
     populationValue: '{{count}} citizens',
     duration: 'Duration',
-    durationValue: '{{years}} years · {{ticks}} ticks',
+    years_one: '{{count}} year',
+    years_other: '{{count}} years',
+    ticks_one: '{{count}} tick',
+    ticks_other: '{{count}} ticks',
+    status: 'Status',
+    unfinished: 'unfinished: {{reached}} of {{planned}} ticks',
     engine: 'Engine',
     engineLlm: 'language model',
     engineDeterministic: 'deterministic rules',

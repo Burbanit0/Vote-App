@@ -13,7 +13,7 @@ const polityFr = {
   },
   runPicker: {
     label: 'Run',
-    option: '{{runId}} — {{population}} citoyens, {{years}} ans, graine {{seed}}',
+    option: '{{name}} — {{population}} citoyens, {{years}} ans, graine {{seed}}',
   },
   runStates: {
     loadingRuns: 'Chargement des runs…',
@@ -285,7 +285,12 @@ const polityFr = {
     population: 'Population',
     populationValue: '{{count}} citoyens',
     duration: 'Durée',
-    durationValue: '{{years}} ans · {{ticks}} ticks',
+    years_one: '{{count}} an',
+    years_other: '{{count}} ans',
+    ticks_one: '{{count}} tick',
+    ticks_other: '{{count}} ticks',
+    status: 'État',
+    unfinished: 'inachevé : {{reached}} ticks sur {{planned}}',
     engine: 'Moteur',
     engineLlm: 'modèle de langage',
     engineDeterministic: 'règles déterministes',
