@@ -8363,6 +8363,36 @@
         "title": "PolityBiographySections",
         "type": "object"
       },
+      "PolityCensusParties": {
+        "additionalProperties": false,
+        "properties": {
+          "parties": {
+            "description": "Each citizen's party at this census (None: no party), in citizen_id order.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "parties"
+        ],
+        "title": "PolityCensusParties",
+        "type": "object"
+      },
       "PolityCensusPositions": {
         "additionalProperties": false,
         "properties": {
@@ -8958,16 +8988,9 @@
         "additionalProperties": false,
         "properties": {
           "citizen_parties": {
-            "description": "Each citizen's party, in citizen_id order.",
+            "description": "Each census year's party of every citizen.",
             "items": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/components/schemas/PolityCensusParties"
             },
             "title": "Citizen Parties",
             "type": "array"
@@ -9017,6 +9040,7 @@
             "type": "array"
           },
           "parties": {
+            "description": "Every party the run had, at its platform: parties are founded and dissolved, platforms never move.",
             "items": {
               "$ref": "#/components/schemas/PolityParty"
             },
