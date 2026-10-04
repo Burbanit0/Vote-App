@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Mock } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import PolityPage from '../../../pages/PolityPage';
@@ -156,11 +156,14 @@ describe('InstitutionalTimeline', () => {
       { tick: 12, event_type: 'brand_new_event', citizen_id: null, details: {} },
       { tick: 12, event_type: 'amendment_proposed', citizen_id: 2, details: {} },
       { tick: 12, event_type: 'constitution_amended', citizen_id: null, details: {} },
+      // Phase 5: appended last, in lanes empty at tick 12, so no earlier glyph or jump index moves.
+      { tick: 12, event_type: 'extra_legal_act', citizen_id: 2, details: {} },
+      { tick: 12, event_type: 'campaign_run', citizen_id: 7, details: {} },
     ],
   });
 
-  async function renderTimeline(url = '/polity') {
-    servePolity(apiClient.GET, { overview: story });
+  async function renderTimeline(url = '/polity', overview = story) {
+    servePolity(apiClient.GET, { overview });
     render(
       <QueryClientProvider client={makeTestQueryClient()}>
         <MemoryRouter initialEntries={[url]}>
@@ -174,7 +177,7 @@ describe('InstitutionalTimeline', () => {
 
   it('draws the terms, a shape per event kind and the playhead at the current tick', async () => {
     const svg = await renderTimeline('/polity?tick=6');
-    expect(svg).toHaveAttribute('aria-label', '4 terms and 10 institutional events over 13 ticks');
+    expect(svg).toHaveAttribute('aria-label', '4 terms and 12 institutional events over 13 ticks');
     const terms = screen.getAllByTestId('timeline-term');
     expect(terms).toHaveLength(4);
     expect(terms[0]).toHaveTextContent(
@@ -195,13 +198,54 @@ describe('InstitutionalTimeline', () => {
         'other',
         'amendment',
         'amended',
+        'extraLegal',
+        'campaign',
       ]
     );
+    // Each Phase 5 act draws its own shape, not the generic bar 'other' falls back to.
+    const shapeOf = (kind: string) =>
+      document.querySelector(`[data-testid="timeline-glyph"][data-kind="${kind}"] path`);
+    expect(shapeOf('extraLegal')).toHaveClass('fill-red-700');
+    expect(shapeOf('campaign')).toHaveClass('stroke-emerald-700');
+    const jumps = screen.getAllByTestId('timeline-event-jump');
+    expect(jumps.at(-2)).toHaveTextContent('Tick 12: extra-legal act');
+    expect(jumps.at(-1)).toHaveTextContent('Tick 12: campaign');
     const x6 = screen.getByTestId('timeline-playhead').getAttribute('x1');
     fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
     await waitFor(() =>
       expect(screen.getByTestId('timeline-playhead').getAttribute('x1')).not.toBe(x6)
     );
+  });
+
+  it('explains each shape it draws, and only those', async () => {
+    const legend = () => screen.getAllByTestId(/^timeline-legend-/).map((e) => e.textContent);
+    await renderTimeline();
+    expect(screen.getByTestId('timeline-legend')).toHaveAccessibleName('Timeline legend');
+    expect(legend()).toEqual([
+      'election won',
+      'election without a winner, or invalidated',
+      'snap election',
+      'campaign',
+      'president recalled',
+      'petition or confidence vote',
+      'extra-legal act',
+      'legislative election, bill or coalition',
+      'constitution amended',
+      'amendment or referendum',
+      'society event',
+    ]);
+    cleanup();
+
+    await renderTimeline(
+      '/polity',
+      runOverview('aaaa', {
+        timeline: [
+          { tick: 0, event_type: 'elected', citizen_id: 2, details: {} },
+          { tick: 3, event_type: 'economic_shock_tick', citizen_id: null, details: {} },
+        ],
+      })
+    );
+    expect(legend()).toEqual(['election won', 'society event']);
   });
 
   it('moves the player to a clicked tick or a listed event', async () => {

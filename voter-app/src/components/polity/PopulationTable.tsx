@@ -15,15 +15,11 @@ const PopulationTable: React.FC<{ scene: Scene }> = ({ scene }) => {
         <table className="mt-1 w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-border">
-              <th scope="col" className="px-2 py-1">
-                {t('map.tableCitizen')}
-              </th>
-              <th scope="col" className="px-2 py-1">
-                {t('map.tableParty')}
-              </th>
-              <th scope="col" className="px-2 py-1">
-                {t('map.tableReading')}
-              </th>
+              {(['tableCitizen', 'tableParty', 'tableReading'] as const).map((column) => (
+                <th key={column} scope="col" className="px-2 py-1">
+                  {t(`map.${column}`)}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

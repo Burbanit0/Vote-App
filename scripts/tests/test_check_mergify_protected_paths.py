@@ -59,6 +59,10 @@ class Classify(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(cmp.held_paths(text, [path], "Burbanit0"), [path])
         self.assertEqual(cmp.held_paths(text, ["voter-app/package.json"], "dependabot[bot]"), [])
+        # The backend's pins are held for everyone, Dependabot included.
+        pins = ["fast_api_voter/requirements.txt", "fast_api_voter/requirements-dev.lock.txt"]
+        self.assertEqual(cmp.held_paths(text, pins, "dependabot[bot]"), pins)
+        self.assertEqual(cmp.held_paths(text, ["fast_api_voter/requirements/notes.md"], "x"), [])
         self.assertEqual(cmp.held_paths(text, ["docs/journal/JOURNAL_DE_BORD.md", "voter-app/src/App.tsx"]), [])
 
     def run_cli(self, argv, stdin):

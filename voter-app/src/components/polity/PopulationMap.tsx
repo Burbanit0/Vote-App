@@ -61,7 +61,7 @@ const Axis: React.FC<{ scene: Scene; axis: 0 | 1; label: string; issues: string 
 
 const PopulationMap: React.FC = () => {
   const { t } = useTranslation('polity');
-  const { overview, frame, lens, tick, citizen, setCitizen } = usePolityCtx();
+  const { overview, frame, lens, tick, setTick, citizen, setCitizen } = usePolityCtx();
   const [holder, width] = useWidth();
   const canvas = useRef<HTMLCanvasElement>(null);
   const height = Math.round(Math.min(Math.max(width * 0.6, 260), 560));
@@ -126,6 +126,13 @@ const PopulationMap: React.FC = () => {
     .map((entry: LegendEntry) => `${legendLabel(t, entry.key)} ${entry.count}`)
     .join(', ');
   const selected = citizen === null ? undefined : scene.points[citizen];
+  // Ballots and candidacies exist only on a presidential election's tick: elsewhere these two
+  // lenses are empty, so the map says so and points to the next election (or the last one).
+  const electionTicks = overview.elections.map((election) => election.tick);
+  const noElection =
+    ((lens === 'vote' && overview.vote_coverage !== 'none') || lens === 'candidacy') &&
+    !electionTicks.includes(tick);
+  const election = electionTicks.find((t) => t > tick) ?? electionTicks.at(-1);
 
   const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -156,6 +163,24 @@ const PopulationMap: React.FC = () => {
       {lens === 'vote' && overview.vote_coverage !== 'all' && (
         <p data-testid="polity-map-vote-note" className="mb-1 text-xs text-muted-foreground">
           {overview.vote_coverage === 'audit_sample' ? t('map.auditNote') : t('map.noVotesNote')}
+        </p>
+      )}
+      {noElection && (
+        <p
+          data-testid="polity-map-no-election"
+          className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+        >
+          {t('map.noElection')}
+          {election !== undefined && (
+            <button
+              type="button"
+              data-testid="polity-map-go-election"
+              className="rounded border border-primary/40 px-1.5 text-primary"
+              onClick={() => setTick(election)}
+            >
+              {t('map.goToElection', { tick: election })}
+            </button>
+          )}
         </p>
       )}
       {overview.projection.positions === 'yearly' && (
