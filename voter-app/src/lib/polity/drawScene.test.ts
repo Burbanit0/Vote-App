@@ -29,6 +29,7 @@ const point = (id: number, shape: MapPoint['shape']): MapPoint => ({
   shape,
   color: 'green',
   legend: 'x',
+  party: null,
 });
 
 const scene = (points: MapPoint[]): Scene => ({

@@ -55,7 +55,9 @@ def test_the_overview_carries_the_map_and_the_institutional_story(client: TestCl
     projection = overview["projection"]
     assert projection["method"] == "latent" and len(projection["axes"]) == 2
     assert [len(census["xy"]) for census in projection["citizens"]] == [40]
-    assert len(overview["citizen_parties"]) == 40 and {p["party_id"] for p in overview["parties"]} == set(overview["citizen_parties"])
+    assert [census["year"] for census in overview["citizen_parties"]] == [0, 1, 2, 3]
+    assert all(len(census["parties"]) == 40 for census in overview["citizen_parties"])
+    assert {p["party_id"] for p in overview["parties"]} == set(overview["citizen_parties"][0]["parties"]) == {0, 1, 2, 3, 4}
     assert len(overview["standings"]) == 13 and [e["outcome"] for e in overview["elections"]] == ["elected"] * 3
     assert {t["ended_by"] for t in overview["terms"]} >= {"legitimacy_floor"}
     assert any(entry["event_type"] == "recalled" for entry in overview["timeline"])
@@ -117,7 +119,8 @@ def test_configured_roots_replace_the_fixture_and_an_unexplorable_run_is_a_400(
     (tmp_path / "batch" / "good" / "checkpoint.json").unlink()  # a run killed before its first checkpoint
     get_settings.cache_clear()
     polity_routes._cache.cache_clear()
-    assert _ok(client, f"{BASE}/runs/{keys['batch/good']}")["parties"] == []
+    # Its parties are remade from the year-0 census, not read from a checkpoint.
+    assert [p["party_id"] for p in _ok(client, f"{BASE}/runs/{keys['batch/good']}")["parties"]] == [0, 1, 2, 3, 4]
 
 
 def test_a_worker_that_runs_too_long_is_a_503(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
