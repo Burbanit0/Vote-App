@@ -130,6 +130,8 @@ const polityEn: PolityKeys = {
     partyLegend: 'party {{id}}',
     auditNote: 'Only the audit sample’s ballots are journaled: other citizens show no ballot.',
     noVotesNote: 'This run journals no ballot.',
+    noElection: 'No presidential election at this tick, so this reading is empty.',
+    goToElection: 'Go to the election at tick {{tick}}',
     yearlyNote: 'Opinions move: positions are those of the year’s census.',
     president: 'President: citizen {{id}}',
     pledge: 'The president’s pledge',

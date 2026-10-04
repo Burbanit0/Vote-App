@@ -177,8 +177,48 @@ describe('PopulationMap', () => {
     expect(screen.getByTestId('polity-map-vote-note')).toHaveTextContent(
       'This run journals no ballot.'
     );
+    // The lens can only be reached from the URL now: its button is off, and no election note
+    // stacks on the ballot one.
+    expect(screen.getByTestId('polity-lens-vote')).toBeDisabled();
+    expect(screen.getByTestId('polity-lens-vote')).toHaveAttribute(
+      'title',
+      'This run journals no ballot.'
+    );
+    expect(screen.queryByTestId('polity-map-no-election')).not.toBeInTheDocument();
     expect(screen.getByTestId('polity-map-yearly-note')).toBeInTheDocument();
     expect(screen.getByTestId('polity-map-overlay')).toHaveTextContent('Principal component 1');
+  });
+
+  it('points the vote and candidacy lenses to an election when the tick has none', async () => {
+    const elections = [0, 8].map((tick) => ({ tick, outcome: 'elected', winner: 2 }));
+    await renderMap('/polity?lens=vote&tick=3', { overview: overview({ elections }) });
+    expect(screen.getByTestId('polity-lens-vote')).toBeEnabled();
+    expect(screen.getByTestId('polity-map-no-election')).toHaveTextContent(
+      'No presidential election at this tick'
+    );
+    fireEvent.click(screen.getByTestId('polity-map-go-election'));
+    await waitFor(() => expect(param('tick')).toBe('8'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('polity-map-no-election')).not.toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByTestId('polity-lens-act'));
+    await waitFor(() => expect(param('lens')).toBe('act'));
+    fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
+    await waitFor(() => expect(param('tick')).toBe('12'));
+    expect(screen.queryByTestId('polity-map-no-election')).not.toBeInTheDocument();
+
+    // Past the last election, the candidacy lens points back to it.
+    fireEvent.click(screen.getByTestId('polity-lens-candidacy'));
+    expect(await screen.findByTestId('polity-map-go-election')).toHaveTextContent(
+      'Go to the election at tick 8'
+    );
+  });
+
+  it('says a lens is empty without a jump when the run holds no election', async () => {
+    await renderMap('/polity?lens=candidacy&tick=2');
+    expect(screen.getByTestId('polity-map-no-election')).toBeInTheDocument();
+    expect(screen.queryByTestId('polity-map-go-election')).not.toBeInTheDocument();
   });
 
   it('selects a citizen by click, by arrows and from the table, and clears with Escape', async () => {

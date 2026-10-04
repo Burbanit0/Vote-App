@@ -134,6 +134,8 @@ const polityFr = {
     auditNote:
       'Seuls les bulletins de l’échantillon d’audit sont journalisés : les autres citoyens apparaissent sans bulletin.',
     noVotesNote: 'Ce run ne journalise aucun bulletin.',
+    noElection: 'Pas d’élection présidentielle à ce tick : cette lecture est vide.',
+    goToElection: 'Aller à l’élection du tick {{tick}}',
     yearlyNote: 'Les opinions évoluent : les positions sont celles du recensement de l’année.',
     president: 'Président : citoyen {{id}}',
     pledge: 'Promesse du président',
