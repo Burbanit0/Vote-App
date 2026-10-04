@@ -47,7 +47,7 @@ const overview = (overrides: Record<string, unknown> = {}) =>
       { party_id: 0, xy: [0.25, 0.5] },
       { party_id: 1, xy: [0.75, 0.5] },
     ],
-    citizen_parties: [0, 1, 0, null],
+    citizen_parties: [{ year: 0, parties: [0, 1, 0, null] }],
     ...overrides,
   });
 

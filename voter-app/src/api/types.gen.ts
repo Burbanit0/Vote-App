@@ -5465,6 +5465,16 @@ export interface components {
             /** Votes */
             votes: components["schemas"]["PolityBiographyEntry"][];
         };
+        /** PolityCensusParties */
+        PolityCensusParties: {
+            /**
+             * Parties
+             * @description Each citizen's party at this census (None: no party), in citizen_id order.
+             */
+            parties: (number | null)[];
+            /** Year */
+            year: number;
+        };
         /** PolityCensusPositions */
         PolityCensusPositions: {
             /**
@@ -5675,9 +5685,9 @@ export interface components {
         PolityRunOverview: {
             /**
              * Citizen Parties
-             * @description Each citizen's party, in citizen_id order.
+             * @description Each census year's party of every citizen.
              */
-            citizen_parties: (number | null)[];
+            citizen_parties: components["schemas"]["PolityCensusParties"][];
             /** Elections */
             elections: components["schemas"]["PolityElection"][];
             /** Key */
@@ -5692,7 +5702,10 @@ export interface components {
             legislative: components["schemas"]["PolityLegislative"][];
             /** Motifs */
             motifs: components["schemas"]["PolityMotif"][];
-            /** Parties */
+            /**
+             * Parties
+             * @description Every party the run had, at its platform: parties are founded and dissolved, platforms never move.
+             */
             parties: components["schemas"]["PolityParty"][];
             /** Population */
             population: number;
