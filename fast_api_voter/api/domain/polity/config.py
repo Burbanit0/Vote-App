@@ -13,13 +13,15 @@ KeyError/TypeError from a caller three frames away.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+import dataclasses
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from api.domain.polity.ballot_and_aggregation import RANKED_METHODS
 from api.domain.polity.model_profiles import PROFILED_PROVIDERS, PROFILES
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "polity_config.yaml"
@@ -173,6 +175,9 @@ class PartiesConfig:
     coalition_tiebreak: tuple[str, ...]
     coalition_majority_ratio: float
     coalition_max_negotiation_rounds: int
+    founding_ratio: float = 0.05
+    """ADR-018: the share of the citizens whose co-founding a new party needs (`birth_enabled`);
+    a party below half of it is dissolved (`death_enabled`). An article."""
 
 
 @dataclass(frozen=True)
@@ -195,6 +200,8 @@ class CandidacyConfig:
     rupture_distance_multiplier: float
     rupture_signature_ratio: float
     max_candidates_hard_cap: int
+    incumbent_keeps_record: bool = False
+    """A former president runs on the position they held in office, not their sincere views."""
 
 
 @dataclass(frozen=True)
@@ -280,6 +287,13 @@ class EmotionsConfig:
     awakening_enthusiasm: float
     mobilization_anger: float
     """At anger 1, the deterministic pressure rule acts past (1 - this) x the blank threshold."""
+    disengage_anger: float = 0.0
+    """ADR-021: an active citizen whose anger reaches this stops voting and signing petitions
+    (disengaged); 0 leaves everyone active."""
+    return_anger: float = 0.0
+    """A disengaged citizen whose anger falls to this is active again."""
+    exit_anger: float = 0.0
+    """A citizen whose anger reaches this has exited for good; 0 means nobody exits."""
 
 
 @dataclass(frozen=True)
@@ -294,6 +308,15 @@ class CampaignConfig:
 
     max_positioning_delta: float
     max_positioning_shifts: int
+    max_reached: int = 0
+    """ADR-023: how many citizens of the chosen audience actually hear a campaign, drawn by lot.
+    0 means all of them, which is how campaigning first shipped -- and OBS-036 measured that an
+    uncapped campaign reaches most of the electorate, leaving every citizen near single-issue by
+    year 8."""
+    salience_step: float = 0.0
+    """ADR-023: how much of the weight an issue does not already hold a campaign on it takes, for
+    the citizens the nominee reaches (`salience.raise_salience`). 0 leaves nobody's priorities
+    touched, which is every run before campaigning existed."""
 
 
 @dataclass(frozen=True)
@@ -313,6 +336,8 @@ class LegitimacyConfig:
     recall_floor_indexed_on_l0: bool
     recall_cooldown_ticks: int
     passive_erosion_weight: float
+    approval_weight: float = 0.0
+    """Share of support(t) taken from approval (legitimacy.approval) instead of the mandate."""
 
 
 @dataclass(frozen=True)
@@ -588,6 +613,133 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class Article:
+    """One amendable rule of the constitution (ADR-015): a config path, and the values a
+    constitution may give it -- a list to choose from, or a numeric range."""
+
+    path: str
+    choices: tuple[Any, ...] = ()
+    low: float = 0.0
+    high: float = 0.0
+    integer: bool = False
+    summary: str = ""
+    """What the rule does, in the words an agent reads."""
+
+    def allows(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return False
+        if self.choices:
+            return value in self.choices
+        if not isinstance(value, int if self.integer else (int, float)):
+            return False
+        return self.low <= value <= self.high
+
+
+REFERENDUM_MODES = ("never", "petition", "always")
+
+ARTICLES: Mapping[str, Article] = {article.path: article for article in (
+    Article("institutions.presidential_method", choices=tuple(sorted(RANKED_METHODS)),
+            summary="how the president is elected: the voting method that turns the citizens' ballots into a winner"),
+    Article("institutions.president_term_limit", choices=(1, 2, 3, None),
+            summary="how many terms one person may serve as president (null: no limit)"),
+    Article("institutions.seat_allocation", choices=tuple(sorted(_SEAT_ALLOCATIONS)),
+            summary="how the assembly's seats are shared among the parties after a legislative election"),
+    Article("institutions.electoral_threshold", low=0.0, high=0.15,
+            summary="the share of the vote a party needs to win any seat"),
+    Article("institutions.assembly_seats", low=20, high=300, integer=True, summary="the number of seats in the assembly"),
+    Article("petition.signature_threshold", low=0.05, high=0.5,
+            summary="the share of citizens whose signatures force a confidence vote on the president"),
+    Article("legitimacy.recall_floor", low=0.0, high=0.5,
+            summary="the legitimacy below which the president is recalled"),
+    Article("parties.founding_ratio", low=0.02, high=0.3,
+            summary="the share of citizens who must co-found a new party (and half of it keeps a party alive)"),
+    Article("constitution.amendment_threshold", low=0.5, high=0.9,
+            summary="the share of the chamber that must vote yes to amend the constitution"),
+    Article("constitution.referendum", choices=REFERENDUM_MODES,
+            summary="whether the citizens vote on a change of voting method the chamber ratified: never, only when "
+                    "enough of them petition against it, or always"),
+)}
+"""The rules a constitution may amend. Each is read at an election, a rotation or a
+tick's accountability, never mid-term, so an amendment takes effect the next time the
+rule is read and no calendar moves (a term length would need the clock re-anchored)."""
+
+
+@dataclass(frozen=True)
+class ScriptedAmendment:
+    tick: int
+    article: str
+    value: Any
+
+
+@dataclass(frozen=True)
+class ConstitutionConfig:
+    scripted: tuple[ScriptedAmendment, ...] = ()
+    """Amendments the run makes at fixed ticks, whatever the polity decides: an experiment's
+    rule change ("two-round for ten years, then Borda")."""
+    amendment_threshold: float = 0.5
+    """The share of the chamber that must vote yes -- strictly more than -- to ratify an
+    amendment (an article itself, so the polity can change how it changes)."""
+    entrenched: Mapping[str, float] = field(default_factory=dict)
+    """Articles that need a higher threshold than amendment_threshold, and what it is."""
+    referendum: str = "never"
+    """ADR-020: whether the citizens confirm a voting-method change the chamber ratified
+    (config.REFERENDUM_MODES); an article itself."""
+
+
+def amended(config: PolityConfig, path: str, value: Any) -> PolityConfig:
+    """`config` with one article set to `value`."""
+    section, key = path.split(".")
+    return dataclasses.replace(config, **{section: dataclasses.replace(getattr(config, section), **{key: value})})
+
+
+@dataclass(frozen=True)
+class AgentsConfig:
+    """The agent tier (ADR-014): citizens the model plays in the first person."""
+
+    president: bool
+    """The sitting president is an agent: one turn a tick sets their statement and, when the
+    agenda is theirs, their bill (replacing representative_response and the formula draft)."""
+    nominees: bool = False
+    """Presidential nominees are agents: each campaigns in one turn, seeing a vote-intention
+    poll (replacing campaign_positioning)."""
+    turn_temperature: float = 0.0
+    """Sampling temperature of an agent's turn (0: greedy, like every batch decision)."""
+    amendments: bool = False
+    """The president may propose an amendment, and the sortition chamber's members vote on it,
+    each in a turn of their own (ADR-015)."""
+    forum: bool = False
+    """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
+    launched a petition post, or stay silent, in a turn of their own, and read what their
+    neighbours, the president and (for a member) the rest of the chamber posted."""
+    forum_size: int = 30
+    """At most this many citizens take a forum turn per tick, recent petition launchers first."""
+    stance_step: float = 0.0
+    """How far, in logit units, a forum turn may move the speaker on one issue (ADR-017). 0: a
+    citizen's talk moves nobody. Needs `dynamics.enabled`: it moves the latent factors."""
+    coalition: bool = False
+    """Each seated party's leader answers the formateur in a turn of their own, round after round
+    (ADR-019), instead of the crowd batch `coalition_decision`."""
+    party_moves: bool = False
+    """A forum turn may join a party, leave to sit as an independent, or found a new one (ADR-018)."""
+
+
+@dataclass(frozen=True)
+class RegimeConfig:
+    """ADR-022: the president's extra-legal act, refusing to leave at the end of the last
+    term the rules allow. The kernel resolves it, once, with `regime_rng`: success with
+    probability logistic(support_weight * (approval - 0.5) + loyalty_weight * (1 - 2 * loyalty)
+    - severity_weight * severity). `loyalty` is the share of the state's servants who obey the
+    constitution over the president; failure removes the president and bars them for good."""
+
+    enabled: bool = False
+    loyalty: float = 0.8
+    support_weight: float = 6.0
+    loyalty_weight: float = 3.0
+    severity_weight: float = 2.0
+    severity: float = 0.5
+
+
+@dataclass(frozen=True)
 class PolityConfig:
     """The typed v0 view of polity_config.yaml, plus the full raw mapping
     (`raw`) so a later palier can read its own not-yet-typed section without
@@ -616,7 +768,10 @@ class PolityConfig:
     metrics: MetricsConfig
     llm: LlmConfig
     parallel: ParallelConfig
+    agents: AgentsConfig
+    constitution: ConstitutionConfig
     raw: dict[str, Any]
+    regime: RegimeConfig = field(default_factory=RegimeConfig)
 
 
 def _parse_run(raw: dict[str, Any]) -> RunConfig:
@@ -712,6 +867,7 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         coalition_tiebreak=tuple(tiebreak),
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
         coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
+        founding_ratio=_get_ratio(s, "parties", "founding_ratio"),
     )
 
 
@@ -738,8 +894,12 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         rupture_distance_multiplier=_get_nonneg_float(s, "candidacy", "rupture_distance_multiplier"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+        incumbent_keeps_record=_get(s, "candidacy", "incumbent_keeps_record", bool),
     )
 
+
+ISSUE_COUNT_NAMED = 20
+"""How many issues agents.ISSUES names; the agent tier needs every issue named."""
 
 _VOTE_MODES = {"llm", "utility"}
 
@@ -781,6 +941,18 @@ def _parse_dynamics(raw: dict[str, Any]) -> DynamicsConfig:
     )
 
 
+def _parse_regime(raw: dict[str, Any]) -> RegimeConfig:
+    s = _section(raw, "regime")
+    return RegimeConfig(
+        enabled=_get(s, "regime", "enabled", bool),
+        loyalty=_get_ratio(s, "regime", "loyalty"),
+        support_weight=_get_nonneg_float(s, "regime", "support_weight"),
+        loyalty_weight=_get_nonneg_float(s, "regime", "loyalty_weight"),
+        severity_weight=_get_nonneg_float(s, "regime", "severity_weight"),
+        severity=_get_ratio(s, "regime", "severity"),
+    )
+
+
 def _parse_emotions(raw: dict[str, Any]) -> EmotionsConfig:
     s = _section(raw, "emotions")
     return EmotionsConfig(
@@ -790,6 +962,9 @@ def _parse_emotions(raw: dict[str, Any]) -> EmotionsConfig:
         awakening_anxiety=_get_ratio(s, "emotions", "awakening_anxiety"),
         awakening_enthusiasm=_get_ratio(s, "emotions", "awakening_enthusiasm"),
         mobilization_anger=_get_ratio(s, "emotions", "mobilization_anger"),
+        disengage_anger=_get_ratio(s, "emotions", "disengage_anger"),
+        return_anger=_get_ratio(s, "emotions", "return_anger"),
+        exit_anger=_get_ratio(s, "emotions", "exit_anger"),
     )
 
 
@@ -798,6 +973,8 @@ def _parse_campaign(raw: dict[str, Any]) -> CampaignConfig:
     return CampaignConfig(
         max_positioning_delta=_get_ratio(s, "campaign", "max_positioning_delta"),
         max_positioning_shifts=_get_positive_int(s, "campaign", "max_positioning_shifts"),
+        salience_step=_get_ratio(s, "campaign", "salience_step"),
+        max_reached=_get_nonneg_int(s, "campaign", "max_reached"),
     )
 
 
@@ -815,6 +992,7 @@ def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
         recall_floor_indexed_on_l0=False,
         recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
         passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
+        approval_weight=_get_ratio(s, "legitimacy", "approval_weight"),
     )
 
 
@@ -1127,6 +1305,24 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
     ) if (c.petition.enabled or c.street_pressure.enabled) and not c.legitimacy.enabled else None,
     lambda c: (
+        "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
+    ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
+    lambda c: (
+        "'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'llm.enabled': an agent's turn is a model call"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and not c.llm.enabled else None,
+    lambda c: (
+        f"'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'citizens.issue_count' {ISSUE_COUNT_NAMED}: "
+        "agents argue about named issues"
+    ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and c.citizens.issue_count != ISSUE_COUNT_NAMED else None,
+    lambda c: (
+        "'agents.stance_step' > 0 requires 'agents.forum' (where citizens change their minds) and 'dynamics.enabled' "
+        "(a stance is a point on the latent factors)"
+    ) if c.agents.stance_step > 0 and not (c.agents.forum and c.dynamics.enabled) else None,
+    lambda c: "'agents.party_moves' requires 'agents.forum' (where citizens take their turn)" if c.agents.party_moves and not c.agents.forum else None,
+    lambda c: (
+        "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
+    ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
+    lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
         "experiment, indistinguishable from 'pressure_menu.electoral_only'"
@@ -1161,9 +1357,24 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "the social graph, so without one the step would silently do nothing"
     ) if c.dynamics.enabled and c.dynamics.influence_step > 0 and not c.social_graph.enabled else None,
     lambda c: (
+        "'campaign.salience_step' > 0 requires 'agents.nominees' (ADR-023: campaigning is a field of "
+        "the nominee's turn, so without agent nominees nothing can ask for it)"
+    ) if c.campaign.salience_step > 0 and not c.agents.nominees else None,
+    lambda c: (
+        "'regime.enabled' requires 'agents.amendments' (the act is a field of the president's turn) "
+        "and a finite 'institutions.president_term_limit' (else there is no last term to refuse to leave)"
+    ) if c.regime.enabled and not (c.agents.amendments and c.institutions.president_term_limit is not None) else None,
+    lambda c: (
         "'emotions.enabled' requires 'awakening.enabled' (S4.3): emotions act through the awakening "
         "gate and the pressure rule, so with nobody consulted they are a silently dead experiment"
     ) if c.emotions.enabled and not c.awakening.enabled else None,
+    lambda c: (
+        "'emotions.disengage_anger' > 0 requires 'emotions.enabled' and 'return_anger' < 'disengage_anger' "
+        "<= 'exit_anger' (ADR-021): engagement follows anger, with hysteresis, and exit comes last"
+    ) if c.emotions.disengage_anger > 0 and not (
+        c.emotions.enabled and c.emotions.return_anger < c.emotions.disengage_anger
+        and (c.emotions.exit_anger == 0 or c.emotions.exit_anger >= c.emotions.disengage_anger)
+    ) else None,
     lambda c: (
         "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
         "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
@@ -1177,14 +1388,60 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
 )
 
 
+def broken_rule(config: PolityConfig) -> str | None:
+    """The first cross-setting rule `config` breaks, or None."""
+    return next(filter(None, (rule(config) for rule in _CONFIG_RULES)), None)
+
+
 def validate_config(config: PolityConfig) -> None:
-    """Raise PolityConfigError on the first cross-setting rule `config` breaks.
-    Called by load_config and again by run_simulation, so a config assembled
-    with dataclasses.replace is held to the same rules as the YAML."""
-    for rule in _CONFIG_RULES:
-        message = rule(config)
+    """Raise PolityConfigError on the first cross-setting rule `config` breaks -- as given,
+    and after each of its scripted amendments in turn, so a run cannot amend itself into a
+    config the rules refuse. Called by load_config and again by run_simulation, so a config
+    assembled with dataclasses.replace is held to the same rules as the YAML."""
+    current = config
+    for amendment in (None, *sorted(config.constitution.scripted, key=lambda a: a.tick)):
+        if amendment is not None:
+            current = amended(current, amendment.article, amendment.value)
+        message = broken_rule(current)
         if message is not None:
-            raise PolityConfigError(message)
+            suffix = f" (after the amendment at tick {amendment.tick})" if amendment is not None else ""
+            raise PolityConfigError(message + suffix)
+
+
+def _parse_entrenched(section: dict[str, Any]) -> dict[str, float]:
+    entrenched = _get(section, "constitution", "entrenched", dict)
+    threshold = ARTICLES["constitution.amendment_threshold"]
+    for path, value in entrenched.items():
+        if path not in ARTICLES:
+            raise PolityConfigError(f"'constitution.entrenched': {path!r} is not an amendable article ({sorted(ARTICLES)})")
+        if not threshold.allows(value):
+            raise PolityConfigError(f"'constitution.entrenched.{path}': {value!r} is not a threshold in [0.5, 0.9]")
+    return {path: float(value) for path, value in entrenched.items()}
+
+
+def _parse_constitution(raw: dict[str, Any]) -> ConstitutionConfig:
+    section = _section(raw, "constitution")
+    entries = _get(section, "constitution", "scripted", list)
+    scripted = []
+    for i, entry in enumerate(entries):
+        where = f"constitution.scripted[{i}]"
+        if not isinstance(entry, dict) or set(entry) != {"tick", "article", "value"}:
+            raise PolityConfigError(f"'{where}': expected a mapping with exactly tick, article and value")
+        article = ARTICLES.get(entry["article"])
+        if article is None:
+            raise PolityConfigError(f"'{where}.article': {entry['article']!r} is not an amendable article ({sorted(ARTICLES)})")
+        if not article.allows(entry["value"]):
+            raise PolityConfigError(f"'{where}.value': {entry['value']!r} is not a value {article.path} may take")
+        if isinstance(entry["tick"], bool) or not isinstance(entry["tick"], int) or entry["tick"] < 0:
+            raise PolityConfigError(f"'{where}.tick': expected a tick (an int >= 0), got {entry['tick']!r}")
+        scripted.append(ScriptedAmendment(tick=entry["tick"], article=article.path, value=entry["value"]))
+    amendment_threshold = _get(section, "constitution", "amendment_threshold", (int, float))
+    if not ARTICLES["constitution.amendment_threshold"].allows(amendment_threshold):
+        raise PolityConfigError(f"'constitution.amendment_threshold': {amendment_threshold!r} is not in [0.5, 0.9]")
+    return ConstitutionConfig(
+        scripted=tuple(scripted), amendment_threshold=float(amendment_threshold), entrenched=_parse_entrenched(section),
+        referendum=_get_enum(section, "constitution", "referendum", set(REFERENDUM_MODES)),
+    )
 
 
 def load_config(path: Path | str | None = None) -> PolityConfig:
@@ -1242,7 +1499,20 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
         parallel=_parse_parallel(raw),
+        agents=AgentsConfig(
+            president=_get(_section(raw, "agents"), "agents", "president", bool),
+            nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
+            turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
+            amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
+            forum=_get(_section(raw, "agents"), "agents", "forum", bool),
+            forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
+            stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),
+            coalition=_get(_section(raw, "agents"), "agents", "coalition", bool),
+            party_moves=_get(_section(raw, "agents"), "agents", "party_moves", bool),
+        ),
+        constitution=_parse_constitution(raw),
         raw=raw,
+        regime=_parse_regime(raw),
     )
     validate_config(config)
     return config

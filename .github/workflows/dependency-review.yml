@@ -23,7 +23,30 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      # The npm audit gate's dated exceptions apply here too, or an approved
+      # exception could never unblock this required check (expired entries
+      # are dropped; scripts/check-npm-audit.mjs enforces the rest).
+      - name: Unexpired npm advisory exceptions
+        id: exceptions
+        # Tolerant on purpose: a missing file or a malformed entry yields no
+        # exception here, and Frontend CI's audit gate (which runs whenever the
+        # allowlist changes) reports the malformed entry.
+        run: |
+          file=.github/npm-audit-allowlist.json
+          ghsas=""
+          if [ -f "$file" ]; then
+            ghsas=$(jq -r --arg today "$(date -u +%F)" '
+              to_entries
+              | map(select((.key | startswith("_") | not)
+                           and ((.value | objects | .until | strings) // "") >= $today))
+              | map(.key) | join(",")' "$file") || ghsas=""
+          fi
+          echo "ghsas=$ghsas" >> "$GITHUB_OUTPUT"
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          # The default is runtime only; devDependencies ship here too
+          # (workbox-* lands in the bundle and the service worker).
+          fail-on-scopes: runtime, development
+          allow-ghsas: ${{ steps.exceptions.outputs.ghsas }}

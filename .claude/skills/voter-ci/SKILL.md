@@ -47,7 +47,7 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 |---|---|---|---|
 | Lint | `npm run lint` (`eslint . --ext .js,.jsx,.ts,.tsx`) | blocking, 0 errors | `voter-app/eslint.config.js` |
 | Architecture boundaries | `npm run depcruise` | blocking | `voter-app/.dependency-cruiser.json` |
-| npm audit | `npm audit --audit-level=high` | blocking, high+ CVEs | — |
+| npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`; its own tests: `npm run test:scripts`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
 | License compliance | `license-checker-rseidelsohn --production` | blocking, production deps only | inline allowlist |
 | Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | reporters configured, no hard floor here | `voter-app/vitest.config.ts` |
 | diff-cover | see below | blocking, **100% on changed lines** | — |
@@ -109,8 +109,10 @@ not a separate `codeql.yml`.
 ### Other workflows — informational or off the PR path entirely
 
 - `branch-policy.yml` — required, validates PR source-branch naming
-  (`feature/`, `fix/`, … into `develop`; **only `develop`** may be the source
-  of a PR into `main`).
+  (`feat/`, `fix/`, … into `polity`, the working branch, or `develop`; **only
+  `develop`** may be the source of a PR into `main`), plus a Conventional
+  Commits title on every PR, release PRs included (`chore(release): …`, not
+  `Release: …`).
 - `dependency-review.yml` — required, fails a PR that *introduces* a
   vulnerable dependency (complements Dependabot, which only scans what's
   already there).
@@ -271,7 +273,7 @@ already-tested codebase can't dilute it. Reproduce it locally before pushing:
 ```bash
 # Backend, from fast_api_voter/ — verified working:
 python -m pytest api/tests --cov-report=xml -q
-diff-cover coverage.xml --compare-branch=origin/develop --fail-under=100
+diff-cover coverage.xml --compare-branch=origin/polity --fail-under=100
 ```
 
 **The gotcha**: `--cov-report=xml` is not in `pyproject.toml`'s default
@@ -288,12 +290,13 @@ works but then you lose the default coverage flags entirely and must pass
 # vitest writes lcov.info with SF: paths relative to voter-app/ (its own cwd),
 # but git diff (and diff-cover's lcov reader) expect repo-root-relative paths:
 sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
-diff-cover voter-app/coverage/lcov-diffcover.info --compare-branch=origin/develop --fail-under=100
+diff-cover voter-app/coverage/lcov-diffcover.info --compare-branch=origin/polity --fail-under=100
 ```
 
-Both commands compare against `origin/develop` — make sure that ref is fetched
-and up to date locally (`git fetch origin develop`) or the diff is computed
-against a stale base and won't match what CI sees.
+Both commands compare against `origin/polity`, the working branch (CI uses the
+PR's own base; use `origin/develop` for a release-sync PR into develop) — make
+sure that ref is fetched and up to date locally (`git fetch origin polity`) or
+the diff is computed against a stale base and won't match what CI sees.
 
 ## `ci-local/` — the Docker mirror, and when to reach for it
 

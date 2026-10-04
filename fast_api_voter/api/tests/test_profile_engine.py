@@ -193,7 +193,6 @@ def test_impartial_culture_raises_cycle_rate():
 def test_strategic_behavior_compresses_to_frontrunners():
     """Under strategic behaviour every voter ranks a frontrunner top or bottom, so
     the two frontrunners capture all first and last places."""
-    names = ["A", "B", "C"]
     built = build_profile(
         "spatial",
         [{"name": "A", "x": -0.6, "y": 0.0}, {"name": "B", "x": 0.6, "y": 0.0},

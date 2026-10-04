@@ -112,6 +112,15 @@ jobs:
                    --head "$HEAD" --summary "$GITHUB_STEP_SUMMARY"); then :; else
             weakened="the test-integrity check could not run"
           fi
+          # What a regenerated test oracle changes (winners by rule, golden
+          # values, API shape, baselines), for the reviewer: report only, it
+          # never decides the gate. Same static diff, never runs PR code.
+          if ! oracles=$(python3 scripts/oracle_diff_report.py --base "$(git rev-parse HEAD)" \
+              --head "$HEAD" --summary "$GITHUB_STEP_SUMMARY"); then
+            echo "The test-oracle report could not run (it does not affect the gate)."
+          elif [ -n "$oracles" ]; then
+            echo "Test oracles changed: the run summary says how."
+          fi
           if [ -z "$held" ] && [ -z "$weakened" ]; then
             status "$HEAD" success "$GATE" "No high-risk path changed, no test removed or switched off"
             exit 0

@@ -352,6 +352,15 @@ def test_declare_candidacy_pins_revealed_position_to_pledged_platform():
     assert citizen.revealed_position == citizen.pledged_platform
 
 
+def test_declare_candidacy_keeping_the_record_runs_a_former_president_on_their_conduct():
+    former = _citizen(1, (0.2, 0.8), mandates_served=1, revealed_position=(0.6, 0.4))
+    newcomer = _citizen(2, (0.2, 0.8), revealed_position=(0.6, 0.4))
+    declare_candidacy(former, keep_record=True)
+    declare_candidacy(newcomer, keep_record=True)
+    assert (former.pledged_platform, former.revealed_position) == ((0.6, 0.4), (0.6, 0.4))
+    assert (newcomer.pledged_platform, newcomer.revealed_position) == ((0.2, 0.8), (0.2, 0.8))
+
+
 # ── vacate_office ─────────────────────────────────────────────────────────
 
 def test_vacate_office_resets_role_office_and_term_end_tick():

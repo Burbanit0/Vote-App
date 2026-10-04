@@ -25,7 +25,7 @@
 - [ ] Le coverage ne régresse pas
 
 ### Sécurité
-- [ ] `npm audit --audit-level=high` ne remonte aucune CVE haute
+- [ ] `npm run audit:gate` (dans `voter-app/`) passe
 - [ ] Les inputs utilisateur sont validés côté backend
 - [ ] Aucune dépendance vulnérable ajoutée
 

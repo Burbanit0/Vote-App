@@ -386,3 +386,7 @@ INTERVIEW_PREP.md
 !/fast_api_voter/fuzz_corpus/*/seed_*
 # libFuzzer/atheris crash artifacts, wherever a manual local run leaves them
 /fast_api_voter/crash-*
+
+# The `!.claude/hooks/**` re-include above also re-includes the bytecode the
+# hooks leave behind when they import each other; exclude it again here (after).
+.claude/hooks/**/__pycache__/

@@ -250,7 +250,7 @@ not a decision, and it changes what the fallback rates mean, so it should land w
 
 | # | Item | Evidence | Note |
 |---|---|---|---|
-| 1 | One invalid answer discards its whole batch (chamber 5 units, `reaction_to_event` 25, `vote_cast` 3), and validation failures are not retried | OBS-021, OBS-024, OBS-025 | Chamber: 5.8 to 7.1% of units over three seeds, 361 of 362 failed calls are the shift or delta bound. Candidates: replay a rejected answer like a decode failure, drop zero-delta shifts before the count, or fall back per decision instead of per batch. None is done. |
+| 1 | One invalid answer discards its whole batch (chamber 5 units, `reaction_to_event` 25, `vote_cast` 3), and validation failures are not retried | OBS-021, OBS-024, OBS-025 | Chamber: 5.8 to 7.1% of units over three seeds, 361 of 362 failed calls are the shift or delta bound. Candidates: replay a rejected answer like a decode failure, drop zero-delta shifts before the count, or fall back per decision instead of per batch. None is done. Scheduled as Phase 0.1 of `plan-polity-agency-roadmap.md` (validation inside the retry loop). |
 | 2 | Positioning thinking has no cap | S2.4 results (PR #648), OBS-022 | It cost 3 of 11 elections their first attempt in the full run (about 230 s each). It needs a bank arm before a budget can be measured (`THINKING_ARM_TYPES` covers only vote and chamber). |
 | 3 | Party nominations: out-of-range and last-listed | OBS-006, OBS-013 | Watch `party_nomination_choice` per election; the call log records the reasoning. |
 | 4 | About 40% declare candidacy | OBS-011 | A contract defect the run amplifies. |

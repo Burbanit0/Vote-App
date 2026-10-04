@@ -12,6 +12,7 @@ export interface StandingInput {
   legitimacy?: number | null;
   ecart?: number | null;
   mandate_strength?: number | null;
+  approval?: number | null;
   acts: readonly number[];
 }
 
@@ -29,6 +30,7 @@ export interface StandingRow {
   legitimacy: number | null;
   ecart: number | null;
   mandateStrength: number | null;
+  approval: number | null;
 }
 
 /** Pressure acts journaled in a tick, by act (PressureAct 0–4). */
@@ -64,6 +66,7 @@ export function standingRows(standings: readonly StandingInput[]): StandingRow[]
     legitimacy: s.legitimacy ?? null,
     ecart: s.ecart ?? null,
     mandateStrength: s.mandate_strength ?? null,
+    approval: s.approval ?? null,
   }));
 }
 

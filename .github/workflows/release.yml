@@ -79,10 +79,8 @@ jobs:
         run: python -m pytest api/tests/test_engine_benchmarks.py -v -o addopts=""
         working-directory: fast_api_voter
 
-  # E2E (Playwright) was previously wired to nothing (workflow_dispatch only)
-  # despite being the repo's one exhaustive, end-to-end check. It's too slow
-  # to run on every develop PR, but a release is exactly the infrequent,
-  # can-afford-to-be-slow moment it belongs at — see e2e.yml's own comment.
+  # E2E (Playwright) gates every PR too (CLAUDE.md), but pushes to main skip
+  # it, so the release re-runs it on the exact commit it tags.
   e2e:
     name: E2E (Playwright)
     uses: ./.github/workflows/e2e.yml

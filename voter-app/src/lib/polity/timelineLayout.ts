@@ -12,6 +12,7 @@ export const TIMELINE_LANES = [
   'elections',
   'accountability',
   'legislature',
+  'constitution',
   'society',
 ] as const;
 export type TimelineLane = (typeof TIMELINE_LANES)[number];
@@ -31,6 +32,8 @@ export type GlyphKind =
   | 'scandal'
   | 'shock'
   | 'rotation'
+  | 'amended'
+  | 'amendment'
   | 'other';
 
 const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
@@ -52,6 +55,10 @@ const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
   scandal_occurred: ['society', 'scandal'],
   economic_shock_tick: ['society', 'shock'],
   sortition_rotation: ['society', 'rotation'],
+  constitution_amended: ['constitution', 'amended'],
+  amendment_proposed: ['constitution', 'amendment'],
+  amendment_resolved: ['constitution', 'amendment'],
+  referendum_held: ['constitution', 'amendment'],
 };
 
 export interface TermInput {

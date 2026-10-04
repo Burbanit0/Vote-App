@@ -105,6 +105,14 @@ const MacroCurvesPanel: React.FC = () => {
                 isAnimationActive={false}
               />
               <Line
+                dataKey="approval"
+                name={t('macro.approval')}
+                stroke={MAP_COLORS.purple}
+                dot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+              <Line
                 dataKey="ecart"
                 name={t('macro.ecart')}
                 stroke={MAP_COLORS.vermillion}

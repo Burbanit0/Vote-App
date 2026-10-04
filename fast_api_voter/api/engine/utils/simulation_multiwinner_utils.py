@@ -26,7 +26,8 @@ def break_tie(scores: Mapping[str, float], rng: Optional[random.Random] = None) 
     Without `rng` -- the default -- this is exactly `max(scores, key=...)`:
     whichever tied name is listed first, the behaviour every quotient loop
     here had before a tie-break was threaded in, so a caller that doesn't opt
-    in (polity, which shares these allocators) sees no change at all.
+    in sees no change at all. (Polity opts in: one lot per legislative
+    election.)
 
     With one, an exact tie draws uniformly among the tied names sorted,
     matching `_district_winner` in workers_playground.py ("drawing among the
@@ -224,8 +225,7 @@ def get_dhondt_winners(
     Divisor sequence: 1, 2, 3, 4, …  → favours larger parties slightly.
     Used for French European elections, Spanish general elections, etc.
 
-    `rng`: see `break_tie`. Polity imports this and passes none, so its seat
-    ties keep going to the first-listed party.
+    `rng`: see `break_tie`. Without one, a tie goes to the first-listed party.
     """
     return _highest_averages(party_votes, num_seats, lambda s: s + 1, rng)
 
@@ -250,8 +250,7 @@ def top_k(
     `rng` is given: then each pick is the highest remaining score with ties
     drawn by `break_tie`, so a tied group -- including one straddling the
     cutoff -- no longer depends on how the keys were listed, and "tied" means
-    the same thing it does for every other allocator here. (Largest remainder
-    passes no `rng` only for polity, its sole caller.)"""
+    the same thing it does for every other allocator here."""
     if rng is None:
         return sorted(scores, key=lambda p: scores[p], reverse=True)[:k]
     pool = dict(scores)

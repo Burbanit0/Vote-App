@@ -194,6 +194,7 @@ Measured per served model (a row marked as inherited is not) -- generated from `
 | `qwen3:8b` on ollama | qwen3:8b (Ollama library GGUF) | `chat_template_kwargs.enable_thinking` | not sized against | 1 | 1 | 12000 / 8000 / 8000 |
 | `gemma-4-12b` on vllm | google/gemma-4-12B-it-qat-w4a16-ct (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 | `granite-4.2-8b` on vllm | ibm-granite/granite-4.2-8b-nvfp4 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
+| `qwen3.8:27b` on vllm | Qwen/Qwen3.8-27B-FP8 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 32768 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 | `qwen3:8b` on vllm | Qwen/Qwen3-8B-AWQ | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 | `qwen3:8b-nvfp4a16` on vllm | ELVISIO/Qwen3-8B-NVFP4A16 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 <!-- [[[end]]] -->
@@ -484,12 +485,12 @@ cog.outl("")
 for label, names in (("institutional", institutional), ("LLM decisions", decisions), ("other", other)):
     cog.outl(f"- {label} ({len(names)}): " + ", ".join(f"`{n}`" for n in names))
 ]]] -->
-**39 event types** can be journaled -- generated from the registry in
+**50 event types** can be journaled -- generated from the registry in
 `api/domain/polity/events.py` (S3.3), checked by `scripts/check_generated_docs.sh`:
 
-- institutional (17): `bill_blocked`, `bill_enacted`, `bill_proposed`, `coalition_failed`, `coalition_formed`, `confidence_vote_result`, `confidence_vote_triggered`, `economic_shock_tick`, `elected`, `election_invalidated`, `election_no_winner`, `legislative_result`, `petition_expired`, `petition_launched`, `recalled`, `scandal_occurred`, `snap_election_triggered`
-- LLM decisions (9): `campaign_positioning`, `candidacy_considered`, `chamber_deliberation`, `coalition_decision`, `party_nomination_choice`, `pressure_action`, `reaction_to_event`, `representative_response`, `vote_cast`
-- other (13): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `clamped_at_bound`, `emotions_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `petition_signed`, `policy_status`, `sortition_rotation`
+- institutional (23): `amendment_proposed`, `amendment_resolved`, `bill_blocked`, `bill_enacted`, `bill_proposed`, `campaign_run`, `coalition_failed`, `coalition_formed`, `confidence_vote_result`, `confidence_vote_triggered`, `constitution_amended`, `economic_shock_tick`, `elected`, `election_invalidated`, `election_no_winner`, `extra_legal_act`, `legislative_result`, `petition_expired`, `petition_launched`, `recalled`, `referendum_held`, `scandal_occurred`, `snap_election_triggered`
+- LLM decisions (12): `agent_turn`, `amendment_vote`, `campaign_positioning`, `candidacy_considered`, `chamber_deliberation`, `coalition_decision`, `forum_post`, `party_nomination_choice`, `pressure_action`, `reaction_to_event`, `representative_response`, `vote_cast`
+- other (15): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `clamped_at_bound`, `emotions_updated`, `engagement_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `petition_signed`, `policy_status`, `sortition_rotation`, `vote_intention_poll`
 <!-- [[[end]]] -->
 
 The digest reports a count for every one of them, per year, including zeros — so "this did not

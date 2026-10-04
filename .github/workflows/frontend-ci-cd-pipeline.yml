@@ -37,6 +37,8 @@ jobs:
             frontend:
               - 'voter-app/**'
               - '.github/workflows/frontend-ci-cd-pipeline.yml'
+              # Read by the npm audit gate (scripts/check-npm-audit.mjs).
+              - '.github/npm-audit-allowlist.json'
 
   test:
     needs: changes
@@ -102,8 +104,21 @@ jobs:
         run: npm run depcruise
         working-directory: ./voter-app
 
-      - name: Security — npm audit (high CVEs block)
-        run: npm audit --audit-level=high
+      # Full dependency tree, high/critical, minus .github/npm-audit-allowlist.json
+      # (dated, reviewed exceptions). Plain `npm audit --audit-level=high` made
+      # this required check fail on advisory-database updates with no way out
+      # but weakening it (polity red from 2026-09-30, brace-expansion via
+      # eslint); `--omit=dev` would have been wrong too, since workbox-* is a
+      # devDependency that ships in the bundle and the service worker. See
+      # scripts/check-npm-audit.mjs's header.
+      - name: Security — npm audit (high CVEs block, dated allowlist)
+        run: npm run audit:gate
+        working-directory: ./voter-app
+
+      # The gate above decides a required check, so its own rules (expiry,
+      # horizon, install-path coverage, failed-audit handling) are tested too.
+      - name: CI script self-tests (node --test)
+        run: npm run test:scripts
         working-directory: ./voter-app
 
       - name: License compliance — production dependencies (gating)

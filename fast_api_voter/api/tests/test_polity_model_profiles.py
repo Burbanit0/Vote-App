@@ -68,6 +68,15 @@ def test_the_s24_candidate_profiles_are_unmeasured_and_inherit_everything_but_th
     assert dataclasses.replace(candidate, **identity) == QWEN3_8B_AWQ_VLLM
 
 
+def test_the_h100_probe_profile_differs_from_the_awq_profile_only_in_identity_and_context_limit() -> None:
+    probe = model_profile("vllm", "qwen3.8:27b")
+    assert (probe.weights, probe.family, probe.context_limit) == ("Qwen/Qwen3.8-27B-FP8", "qwen3", 32768)
+    assert not probe.measured
+    inherited = {"model": QWEN3_8B_AWQ_VLLM.model, "weights": QWEN3_8B_AWQ_VLLM.weights,
+                 "context_limit": QWEN3_8B_AWQ_VLLM.context_limit, "measured": True}
+    assert dataclasses.replace(probe, **inherited) == QWEN3_8B_AWQ_VLLM
+
+
 def test_an_llm_run_on_an_unprofiled_model_is_refused_by_validate_config() -> None:
     with pytest.raises(PolityConfigError, match="'llm.model' 'gemma4:12b' has no model profile on provider 'vllm'"):
         validate_config(_llm_config(model="gemma4:12b"))

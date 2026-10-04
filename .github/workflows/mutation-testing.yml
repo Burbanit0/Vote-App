@@ -33,7 +33,7 @@ on:
   # moves, so this runs exactly when it has something new to say — which is
   # a better rule than "every Monday" anyway.
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
       - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
@@ -48,8 +48,9 @@ on:
 
 # A full pass is ~40 min per engine. Two engine merges in quick succession would
 # otherwise queue two runs whose only difference is the older one being obsolete.
+# Scheduled runs test polity: their own group, so a develop push can't cancel them.
 concurrency:
-  group: mutation-${{ github.ref }}
+  group: mutation-${{ github.event_name == 'schedule' && 'schedule-polity' || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -62,6 +63,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -145,6 +150,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       # @stryker-mutator/core@10.0.0 hard-requires Node >=22 (it throws before
       # running a single mutant otherwise) -- satisfied by the project-wide
@@ -176,7 +185,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: voter-app/.stryker-tmp/incremental.json
-          key: stryker-incremental-${{ github.sha }}
+          # Per run, not per github.sha: a scheduled run tests polity while
+          # github.sha is develop's tip, so a sha key would hit and never save.
+          key: stryker-incremental-${{ github.run_id }}
           restore-keys: |
             stryker-incremental-
 

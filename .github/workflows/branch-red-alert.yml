@@ -1,0 +1,64 @@
+name: polity red alert
+
+# Keeps one open `polity-red` issue listing every watched workflow whose latest
+# run on polity failed, and closes it when they all pass again
+# (scripts/branch_red_alert.py). polity once stayed red for three days unseen:
+# a red push run notifies only its pusher, and a red scheduled deep test
+# notifies no one. An open issue notifies the repo's watchers, and stays open
+# until the branch is green.
+#
+# workflow_run and schedule only run from the DEFAULT branch's copy of this
+# file (develop), so this does nothing until it is synced to develop. The
+# script rebuilds the list from each workflow's latest run instead of applying
+# the one event, so a queued run replaced by a newer one loses nothing, and the
+# daily cron catches any event GitHub never delivered.
+
+on:
+  workflow_run:
+    # The literal `name:` of each watched workflow; keep in step with WATCHED in
+    # scripts/branch_red_alert.py (keyed by file name).
+    workflows:
+      - Backend CI
+      - Frontend CI
+      - E2E Tests
+      - Generated Artifacts Contract
+      - Security Audit
+      - Mutation Testing
+      - Schemathesis Contract Fuzzing
+      - Coverage-Guided Fuzzing (atheris)
+      - Backend Flaky Test Hunt
+      - DAST — ZAP Baseline
+    types: [completed]
+  schedule:
+    - cron: '23 9 * * *' # daily, distinct from every other cron in this repo
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: polity-red-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    name: Update the polity-red issue
+    # A PR's runs say nothing about polity; skip them before using a runner.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+      - name: Rebuild the list of red workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create polity-red --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "polity, the working branch, has a red workflow" 2>/dev/null || true
+          python3 scripts/branch_red_alert.py

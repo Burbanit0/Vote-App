@@ -8,9 +8,9 @@ theory/workers.py's four divisor-method apportionment functions did the same
 a 2:1 vote ratio tie on a seat.
 
 The engine allocators and `dhondt` take an optional keyword-only `rng`. Without
-one they behave exactly as before -- polity imports the engine allocators and
-passes none, so its seat allocation is untouched. With one, a tie is drawn by
-lot among the tied names sorted, matching `_district_winner`. The theory
+one they behave exactly as before (first-listed wins). With one, a tie is drawn
+by lot among the tied names sorted, matching `_district_winner`. Polity passes
+one per legislative election (see test_polity_ballot_and_aggregation.py). The theory
 endpoint has no seed field, so its four divisor methods break a tie by name
 instead, and `_hamilton` breaks an exact remainder tie by name too.
 """
@@ -214,7 +214,7 @@ class TestTopK:
         assert top_k(self.SCORES, 4, random.Random(0))[-1] == "D"
 
     def test_without_rng_ties_keep_listing_order(self):
-        """Largest remainder's polity path."""
+        """The no-rng path: first-listed wins."""
         assert top_k(self.SCORES, 2, None) == ["A", "B"]
         assert top_k({"C": 3.0, "B": 3.0, "A": 5.0}, 2, None) == ["A", "C"]
 

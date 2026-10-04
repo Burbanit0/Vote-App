@@ -170,9 +170,13 @@ jobs:
     name: Malicious packages (GuardDog, informational)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && contains(fromJSON('["refs/heads/develop","refs/heads/polity"]'), github.ref))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.13", cache: "pip" }
       - run: pip install guarddog
@@ -227,9 +231,13 @@ jobs:
     name: Docker image scan & SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && contains(fromJSON('["refs/heads/develop","refs/heads/polity"]'), github.ref))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 

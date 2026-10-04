@@ -1,7 +1,8 @@
 # ADR-008: the law system — seam, bounded amendment, and comparability (design only, not built)
 
 **Status**: Proposed — design settled, implementation deliberately deferred (see
-"When to build" below)
+"When to build" below). §2 is superseded by ADR-015 (2026-09-28): articles are laid over
+the founding config through `TickContext.config`, with no `ActiveLaws` overlay to read.
 **Date**: 2026-09-11
 **Context**: `lets-build-a-solid-spicy-otter.md` ("The law system — design now,
 build after Track B"), written while closing out Tracks A/B/C/E of that plan

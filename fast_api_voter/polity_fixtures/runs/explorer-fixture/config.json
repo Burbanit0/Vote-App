@@ -1,4 +1,15 @@
 {
+  "agents": {
+    "amendments": false,
+    "coalition": false,
+    "forum": false,
+    "forum_size": 30,
+    "nominees": false,
+    "party_moves": false,
+    "president": false,
+    "stance_step": 0.0,
+    "turn_temperature": 0.0
+  },
   "awakening": {
     "context_modulation": {
       "event_salience": true,
@@ -13,10 +24,13 @@
   },
   "campaign": {
     "max_positioning_delta": 0.3,
-    "max_positioning_shifts": 3
+    "max_positioning_shifts": 3,
+    "max_reached": 0,
+    "salience_step": 0.0
   },
   "candidacy": {
     "ambition_threshold": 0.3,
+    "incumbent_keeps_record": false,
     "max_candidates_hard_cap": 20,
     "rupture_base_probability": 0.03,
     "rupture_distance_multiplier": 2.0,
@@ -33,6 +47,15 @@
     "priority_dist": "dirichlet",
     "static_population": true
   },
+  "constitution": {
+    "amendment_threshold": 0.5,
+    "entrenched": {
+      "constitution.amendment_threshold": 0.75,
+      "institutions.presidential_method": 0.6
+    },
+    "referendum": "never",
+    "scripted": []
+  },
   "dynamics": {
     "confidence_bound": 1.0,
     "drift_std": 0.0,
@@ -45,8 +68,11 @@
     "awakening_anxiety": 0.0,
     "awakening_enthusiasm": 0.0,
     "decay": 0.7,
+    "disengage_anger": 0.0,
     "enabled": false,
-    "mobilization_anger": 0.0
+    "exit_anger": 0.0,
+    "mobilization_anger": 0.0,
+    "return_anger": 0.0
   },
   "events": {
     "economic_shock_enabled": true,
@@ -101,6 +127,7 @@
     "max_bill_step": 0.1
   },
   "legitimacy": {
+    "approval_weight": 0.0,
     "decay": 0.9,
     "enabled": true,
     "passive_erosion_weight": 0.0,
@@ -163,6 +190,7 @@
       "party_id"
     ],
     "death_enabled": false,
+    "founding_ratio": 0.05,
     "init_strategy": "kmeans_on_citizens",
     "initial_count": 5,
     "manual_platforms": []
@@ -180,6 +208,14 @@
     "electoral_only": false,
     "mobilization_enabled": true,
     "petition_enabled": true
+  },
+  "regime": {
+    "enabled": false,
+    "loyalty": 0.8,
+    "loyalty_weight": 3.0,
+    "severity": 0.5,
+    "severity_weight": 2.0,
+    "support_weight": 6.0
   },
   "run": {
     "duration_years": 3,

@@ -154,6 +154,8 @@ describe('InstitutionalTimeline', () => {
       { tick: 11, event_type: 'bill_enacted', citizen_id: null, details: {} },
       { tick: 12, event_type: 'scandal_occurred', citizen_id: 2, details: {} },
       { tick: 12, event_type: 'brand_new_event', citizen_id: null, details: {} },
+      { tick: 12, event_type: 'amendment_proposed', citizen_id: 2, details: {} },
+      { tick: 12, event_type: 'constitution_amended', citizen_id: null, details: {} },
     ],
   });
 
@@ -172,7 +174,7 @@ describe('InstitutionalTimeline', () => {
 
   it('draws the terms, a shape per event kind and the playhead at the current tick', async () => {
     const svg = await renderTimeline('/polity?tick=6');
-    expect(svg).toHaveAttribute('aria-label', '4 terms and 8 institutional events over 13 ticks');
+    expect(svg).toHaveAttribute('aria-label', '4 terms and 10 institutional events over 13 ticks');
     const terms = screen.getAllByTestId('timeline-term');
     expect(terms).toHaveLength(4);
     expect(terms[0]).toHaveTextContent(
@@ -182,7 +184,18 @@ describe('InstitutionalTimeline', () => {
     expect(terms[2]).toHaveTextContent('still running when the run ended');
     expect(terms[3]).toHaveTextContent('ended by an election');
     expect(screen.getAllByTestId('timeline-glyph').map((g) => g.getAttribute('data-kind'))).toEqual(
-      ['elected', 'recall', 'snap', 'noWinner', 'petition', 'bill', 'scandal', 'other']
+      [
+        'elected',
+        'recall',
+        'snap',
+        'noWinner',
+        'petition',
+        'bill',
+        'scandal',
+        'other',
+        'amendment',
+        'amended',
+      ]
     );
     const x6 = screen.getByTestId('timeline-playhead').getAttribute('x1');
     fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
