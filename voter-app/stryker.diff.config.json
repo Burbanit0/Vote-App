@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Diff mutation (CI plan phase 6): run by .github/workflows/mutation-diff.yml on a PR's changed line ranges, passed as --mutate file:start-end by scripts/mutation_diff.py. No thresholds.break and no incremental state: it reports the survivors on the PR, advisory, and never fails the job. The full-file baseline stays in stryker.config.json.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.stryker.diff.config.ts" },
+  "mutate": [],
+  "coverageAnalysis": "perTest",
+  "reporters": ["json", "clear-text"],
+  "jsonReporter": { "fileName": "reports/mutation-diff/mutation.json" },
+  "timeoutMS": 60000,
+  "tempDirName": ".stryker-diff-tmp"
+}

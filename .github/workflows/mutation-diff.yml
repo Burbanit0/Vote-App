@@ -1,0 +1,179 @@
+name: Diff Mutation
+
+# CI hardening plan, phase 6. Mutation testing scoped to the lines a PR
+# changes: a mutant that survives is a changed line that no test would catch
+# if it were wrong. scripts/mutation_diff.py turns the diff into Stryker
+# `--mutate file:start-end` ranges (voter-app/src/{lib,hooks,services}) and
+# mutmut name patterns (the functions changed in fast_api_voter's
+# [tool.mutmut] source_paths), then summarises the survivors in the run
+# summary and in one sticky PR comment per tool.
+#
+# Advisory: not a required check, no score threshold. The full-file baselines
+# with their floors stay in mutation-testing.yml.
+
+on:
+  pull_request:
+    branches: [polity]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect mutable changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'voter-app/src/lib/**'
+              - 'voter-app/src/hooks/**'
+              - 'voter-app/src/services/**'
+            backend:
+              # fast_api_voter/pyproject.toml [tool.mutmut] source_paths
+              - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
+              - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
+              - 'fast_api_voter/api/domain/theory/workers.py'
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    name: "Diff mutation: frontend (advisory)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write # the sticky summary comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./voter-app
+      - name: Changed line ranges
+        id: plan
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          python3 scripts/mutation_diff.py plan --tool stryker --base "$BASE_REF" > "$RUNNER_TEMP/ranges.txt" 2> "$RUNNER_TEMP/plan.err"
+          echo "count=$(grep -c . "$RUNNER_TEMP/ranges.txt" || true)" >> "$GITHUB_OUTPUT"
+          echo "sampled=$(grep -q sampled "$RUNNER_TEMP/plan.err" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/ranges.txt"
+      - name: Run Stryker on the changed lines
+        if: steps.plan.outputs.count != '0'
+        continue-on-error: true
+        working-directory: ./voter-app
+        # One --mutate with every range comma-joined: Stryker keeps only the last
+        # value when the flag is repeated.
+        run: npx stryker run stryker.diff.config.json --concurrency 4 --mutate "$(paste -sd, "$RUNNER_TEMP/ranges.txt")"
+      - name: Summary
+        if: always() && steps.plan.outputs.count != '0'
+        env:
+          SAMPLED: ${{ steps.plan.outputs.sampled }}
+        run: |
+          python3 scripts/mutation_diff.py report --tool stryker \
+            --input voter-app/reports/mutation-diff/mutation.json \
+            $([ "$SAMPLED" = true ] && echo --sampled) > "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sticky PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        # A PR from a fork gets a read-only token: the summary above still
+        # carries the result, and the advisory job must not turn red for it.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash scripts/sticky_comment.sh "$REPO" "$PR" diff-mutation:stryker "$RUNNER_TEMP/summary.md"
+      - name: Upload the Stryker report
+        if: always() && steps.plan.outputs.count != '0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: diff-mutation-stryker
+          path: voter-app/reports/mutation-diff
+          retention-days: 14
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    name: "Diff mutation: backend (advisory)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write # the sticky summary comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+      - name: Install production + dev dependencies (from the lockfile)
+        run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+      - name: Changed functions
+        id: plan
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          python3 scripts/mutation_diff.py plan --tool mutmut --base "$BASE_REF" > "$RUNNER_TEMP/patterns.txt"
+          echo "count=$(grep -c . "$RUNNER_TEMP/patterns.txt" || true)" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/patterns.txt"
+      - name: Run mutmut on the changed functions
+        if: steps.plan.outputs.count != '0'
+        continue-on-error: true
+        working-directory: ./fast_api_voter
+        run: |
+          mapfile -t patterns < "$RUNNER_TEMP/patterns.txt"
+          # mutmut can exit non-zero (survivors, a failing clean run): the
+          # results must still be read, so the exit code is kept for the end.
+          status=0
+          python -m mutmut run --max-children 4 "${patterns[@]}" || status=$?
+          python -m mutmut results --all true > "$RUNNER_TEMP/mutmut-results.txt" 2>&1 || true
+          exit "$status"
+      - name: Summary
+        if: always() && steps.plan.outputs.count != '0'
+        run: |
+          python3 scripts/mutation_diff.py report --tool mutmut \
+            --input "$RUNNER_TEMP/mutmut-results.txt" --patterns "$RUNNER_TEMP/patterns.txt" \
+            > "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sticky PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        # A PR from a fork gets a read-only token: the summary above still
+        # carries the result, and the advisory job must not turn red for it.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash scripts/sticky_comment.sh "$REPO" "$PR" diff-mutation:mutmut "$RUNNER_TEMP/summary.md"
