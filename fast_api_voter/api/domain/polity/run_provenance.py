@@ -32,7 +32,12 @@ _POLITY_DIR = Path(__file__).resolve().parent
 _BACKEND_DIR = _POLITY_DIR.parents[2]
 
 # Every module whose source can change a prompt's bytes or the schema sent with it.
-PROMPT_SOURCE_FILES = ("llm_behavior_engine.py", "agents.py", "amendments.py", "codebook.py", "llm_schemas.py", "llm_toon_encoding.py")
+# events.py: its registry decides which events reach an agent's public memory (agents._PUBLIC_EVENT_TYPES),
+# so registering an event changes the prompts -- as registering party_founded/party_dissolved did.
+PROMPT_SOURCE_FILES = (
+    "llm_behavior_engine.py", "agents.py", "amendments.py", "codebook.py", "events.py", "llm_schemas.py",
+    "llm_toon_encoding.py",
+)
 
 _PROBE_TIMEOUT_SECONDS = 5.0
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}

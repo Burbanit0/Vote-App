@@ -682,7 +682,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun,
+    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

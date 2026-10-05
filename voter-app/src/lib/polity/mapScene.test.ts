@@ -122,6 +122,18 @@ describe('population map scene', () => {
     }
   });
 
+  it('lists the party legend by number, independents last, whatever order citizens meet them in', () => {
+    // Met first: party 7, then 1, an independent, then 0 -- the order the legend used to keep.
+    const meetsSevenFirst = { citizenParties: [7, 1, null, 0] };
+    const scene = buildScene(
+      input({ ...meetsSevenFirst, partyStyle: partyStyles([{ parties: [7, 1, null, 0] }]) }),
+      'party',
+      248,
+      148
+    );
+    expect(scene.legend.map((l) => l.key)).toEqual(['party0', 'party1', 'party7', 'noParty']);
+  });
+
   it('falls back on a code it does not know and on an empty population', () => {
     const odd = input({
       frame: { status: [9], chamber: [0], act: [9], vote: [9], candidacy: [9] },

@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from api.domain.polity import events as events_module
 from api.domain.polity.events import (
     ALL_EVENT_TYPES,
+    EVENT_CLASSES,
     EVENT_TYPES,
     INSTITUTIONAL_EVENT_TYPES,
     LLM_DECISION_EVENT_TYPES,
@@ -15,6 +17,7 @@ from api.domain.polity.events import (
     PRESIDENT_ELECTION_OUTCOMES,
     CoalitionFailed,
     ElectionNoWinner,
+    Event,
     LlmProvenance,
     PressureAction,
     validate_event,
@@ -47,17 +50,31 @@ def test_the_registry_reproduces_the_sets_three_modules_kept_by_hand() -> None:
         "confidence_vote_result", "petition_expired", "recalled", "sortition_rotation", "chamber_deliberation",
     } | {"opinion_dynamics_step", "emotions_updated", "engagement_updated"} | {  # S4.3 and S4.2, after the lists were retired
         "bill_proposed", "bill_voted", "bill_blocked", "bill_reviewed", "bill_enacted", "policy_status",
-    } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended", "amendment_proposed", "amendment_vote", "amendment_resolved", "forum_post", "referendum_held", "extra_legal_act", "campaign_run"}  # ADR-014, ADR-015, ADR-016, ADR-020, ADR-022, ADR-023
+    } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended", "amendment_proposed", "amendment_vote", "amendment_resolved", "forum_post", "referendum_held", "extra_legal_act", "campaign_run"} | {  # ADR-014, ADR-015, ADR-016, ADR-020, ADR-022, ADR-023
+        "party_founded", "party_dissolved",  # ADR-018: flagged institutional since #705, but never registered until now
+    }
     assert INSTITUTIONAL_EVENT_TYPES == {
         "elected", "election_no_winner", "election_invalidated", "snap_election_triggered", "legislative_result",
         "coalition_formed", "coalition_failed", "petition_launched", "petition_expired", "confidence_vote_triggered",
         "confidence_vote_result", "recalled", "scandal_occurred", "economic_shock_tick",
     } | {"bill_proposed", "bill_blocked", "bill_enacted"} | {  # S4.2, ADR-015
         "constitution_amended", "amendment_proposed", "amendment_resolved", "referendum_held", "extra_legal_act",
-        "campaign_run",
+        "campaign_run", "party_founded", "party_dissolved",
     }
     assert PRESIDENT_ELECTION_OUTCOMES == {"elected", "election_no_winner", "election_invalidated"}
     assert LLM_DECISION_EVENT_TYPES == set(LLM_DECISION_TYPES) | {"agent_turn", "amendment_vote", "forum_post"}  # the golden run has no agent
+
+
+def test_every_event_class_is_registered() -> None:
+    # A class left out of EVENT_CLASSES is silently missing from every set derived from it: its
+    # INSTITUTIONAL flag is dead, the explorer drops it, and agents never see it in their public
+    # memory. PartyFounded and PartyDissolved sat outside the registry from #705 until this test,
+    # unseen because the expected sets above are kept by hand and missed them too. This one is not.
+    defined = {
+        cls for cls in vars(events_module).values()
+        if isinstance(cls, type) and issubclass(cls, Event) and cls is not Event and hasattr(cls, "EVENT_TYPE")
+    }
+    assert defined == set(EVENT_CLASSES)
 
 
 def test_payload_omits_keys_left_at_omit_and_flattens_provenance() -> None:
