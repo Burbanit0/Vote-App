@@ -100,6 +100,8 @@ describe('timeline layout', () => {
       'referendum_held',
       'extra_legal_act',
       'campaign_run',
+      'party_founded',
+      'party_dissolved',
     ]) {
       expect(glyphOf(type)[1]).not.toBe('other');
     }
@@ -121,6 +123,8 @@ describe('timeline layout', () => {
     // Before they had glyphs both fell through to ['society', 'other'] and read as noise.
     expect(glyphOf('extra_legal_act')).toEqual(['accountability', 'extraLegal']);
     expect(glyphOf('campaign_run')).toEqual(['elections', 'campaign']);
+    expect(glyphOf('party_founded')).toEqual(['society', 'party']);
+    expect(glyphOf('party_dissolved')).toEqual(['society', 'party']);
   });
 
   it('turns a position back into the nearest tick, inside the run', () => {

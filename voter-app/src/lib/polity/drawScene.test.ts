@@ -1,5 +1,5 @@
 import { POINT_RADIUS, drawScene, type DrawContext } from './drawScene';
-import { MAP_COLORS, type MapPoint, type Scene } from './mapScene';
+import { MAP_COLORS, MAP_COLORS_DARK, type MapPoint, type Scene } from './mapScene';
 
 /** A 2D context that records what is drawn. */
 function recorder() {
@@ -55,7 +55,8 @@ describe('drawScene', () => {
         point(5, 'diamond'),
         point(6, 'cross'),
       ]),
-      2
+      2,
+      MAP_COLORS
     );
     const green = MAP_COLORS.green;
     expect(calls.slice(0, 2)).toEqual(['setTransform(2,0,0,2,0,0)', 'clearRect(0,0,200,100)']);
@@ -89,5 +90,11 @@ describe('drawScene', () => {
       'lineTo',
       `stroke(${green},1.5)`,
     ]);
+  });
+  it('draws in the palette it is given, so the dark page gets its own steps', () => {
+    const { ctx, calls } = recorder();
+    drawScene(ctx, scene([point(1, 'circle')]), 1, MAP_COLORS_DARK);
+    expect(calls).toContain(`fill(${MAP_COLORS_DARK.green})`);
+    expect(MAP_COLORS_DARK.green).not.toBe(MAP_COLORS.green);
   });
 });

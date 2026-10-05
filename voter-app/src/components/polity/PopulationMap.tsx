@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useChartTheme } from '../../hooks/useChartTheme';
 import { useWidth } from '../../hooks/useWidth';
 import { drawScene } from '../../lib/polity/drawScene';
 import { directionOf, makeHitTester, nearestInDirection } from '../../lib/polity/hitTest';
 import {
-  MAP_COLORS,
   buildScene,
   censusAt,
+  mapColors,
   partyStyles,
   type LegendEntry,
   type Scene,
@@ -50,6 +51,7 @@ const PopulationMap: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, frame, lens, tick, setTick, citizen, setCitizen } = usePolityCtx();
   const [holder, width] = useWidth(UNMEASURED_WIDTH);
+  const colors = mapColors(useChartTheme().isDark);
   const canvas = useRef<HTMLCanvasElement>(null);
   const height = Math.round(Math.min(Math.max(width * 0.6, 260), 560));
 
@@ -79,8 +81,8 @@ const PopulationMap: React.FC = () => {
     const ratio = window.devicePixelRatio || 1;
     element.width = Math.round(scene.width * ratio);
     element.height = Math.round(scene.height * ratio);
-    drawScene(context, scene, ratio);
-  }, [scene]);
+    drawScene(context, scene, ratio, colors);
+  }, [scene, colors]);
 
   if (!overview) return null;
   if (!scene || !hitTest) {
@@ -225,7 +227,7 @@ const PopulationMap: React.FC = () => {
                   cy={party.y}
                   r={9}
                   fill="none"
-                  stroke={MAP_COLORS[party.color]}
+                  stroke={colors[party.color]}
                   strokeWidth={2}
                 />
                 <text
@@ -233,7 +235,7 @@ const PopulationMap: React.FC = () => {
                   y={party.y + 3}
                   textAnchor="middle"
                   className="text-[9px] font-semibold"
-                  fill={MAP_COLORS[party.color]}
+                  fill={colors[party.color]}
                 >
                   {party.partyId}
                 </text>
@@ -250,7 +252,7 @@ const PopulationMap: React.FC = () => {
                       y1={scene.president.pledgedY}
                       x2={scene.president.x}
                       y2={scene.president.y}
-                      stroke={MAP_COLORS.vermillion}
+                      stroke={colors.vermillion}
                       strokeDasharray="3 3"
                     />
                     <rect
@@ -259,7 +261,7 @@ const PopulationMap: React.FC = () => {
                       width={8}
                       height={8}
                       fill="none"
-                      stroke={MAP_COLORS.vermillion}
+                      stroke={colors.vermillion}
                     >
                       <title>{t('map.pledge')}</title>
                     </rect>
@@ -268,7 +270,7 @@ const PopulationMap: React.FC = () => {
                 <path
                   d={`M${scene.president.x},${scene.president.y - 8} L${scene.president.x + 8},${scene.president.y} L${scene.president.x},${scene.president.y + 8} L${scene.president.x - 8},${scene.president.y} Z`}
                   fill="none"
-                  stroke={MAP_COLORS.vermillion}
+                  stroke={colors.vermillion}
                   strokeWidth={2}
                 />
               </g>

@@ -65,6 +65,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-036](#obs-036) | Campaigning left 91% of citizens near single-issue by year 8: the audience is most of the electorate | 2026-10-02 | fixed |
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
+| [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
 
 ---
 
@@ -1810,4 +1811,42 @@ vote by 10-45 points depending on the conditions; it does not reliably defeat th
 "contested rather than rubber-stamped" outcome, and calling it closed was the same overstatement OBS-030
 made from one favourable condition.
 
-*Status: fixed* on `fix/polity-ballot-self-interest`.
+*Closed, 2026-10-05: the term limit is entrenched at 75% (#784).* The owner chose the stronger fix the
+correction above pointed to. In a 15-seat chamber 75% needs 12 votes, so at the per-member yes rates measured
+here a framed third term ratifies at most ~6% of the time, while a change with broad support (80% per-member
+yes) still passes ~65%. Measured live, framed third term with the self-interest line on:
+
+| approval | threshold 50% (before) | threshold 75% (now) |
+|---:|---|---|
+| 25% | 47% yes, ratified 40% of the time | 37% yes, ratified 0% |
+| 50% | 37% yes, ratified 14% | 43% yes, ratified 0% |
+
+Showing the higher bar on the ballot did not make members vote yes more freely: the shifts are mixed and
+inside the noise band. 0.75 is also the height the amendment procedure itself is entrenched at.
+
+*Status: fixed* -- narrowed by `fix/polity-ballot-self-interest` (#748), closed by `feat/polity-entrench-term-limit` (#784).
+
+### OBS-039
+
+**Party foundings never reached the explorer or any agent's memory: the two events were never registered.**
+
+*Seen.* Checking the new party glyph in a browser on a real run (`phase9/capped-8y-seed1`, 45 foundings and
+25 dissolutions in its journal), the timeline drew **none** of them -- and the API's overview timeline held
+none either, though both event classes are flagged `INSTITUTIONAL = True`.
+
+*Cause.* `PartyFounded` and `PartyDissolved` (ADR-018, #705) were defined but never added to the
+`EVENT_CLASSES` tuple, and every derived set -- `EVENT_TYPES`, `ALL_EVENT_TYPES`, `INSTITUTIONAL_EVENT_TYPES`
+-- is built from that tuple, not from the flag. So the flag was dead. Of the 52 event classes, these two were
+the only ones missing. The registry's own test kept its expected sets by hand and missed them too.
+
+*Why it matters beyond the explorer.* `agents._PUBLIC_EVENT_TYPES` is built from `INSTITUTIONAL_EVENT_TYPES`,
+so **since #705 no agent has ever seen a party being founded or dissolved in its public memory.** A forum
+citizen still saw the current parties (`party_roll`) and its own co-founder count (`stand_line`), which come
+from state rather than memory, but never the history of who founded what and when. Every party run so far was
+made that way, including the ones behind OBS-029 and OBS-034: their findings stand as measurements of a
+party-blind memory, and the ensemble run after this fix is the first with party-aware agents.
+
+*Status: fixed* on `feat/polity-explorer-parties-timeline`: both classes are registered, a new test checks by
+introspection that every `Event` subclass is (it fails, naming `PartyFounded`, if either is removed), and
+`events.py` joins `PROMPT_SOURCE_FILES` so that runs before and after -- which differ in what agents remember
+-- carry different prompt stamps and are not averaged together.

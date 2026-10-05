@@ -158,7 +158,9 @@ describe('InstitutionalTimeline', () => {
       { tick: 12, event_type: 'brand_new_event', citizen_id: null, details: {} },
       { tick: 12, event_type: 'amendment_proposed', citizen_id: 2, details: {} },
       { tick: 12, event_type: 'constitution_amended', citizen_id: null, details: {} },
-      // Phase 5: appended last, in lanes empty at tick 12, so no earlier glyph or jump index moves.
+      // Phase 4, then Phase 5: after every earlier event, so no earlier glyph or jump moves.
+      { tick: 12, event_type: 'party_founded', citizen_id: 7, details: {} },
+      { tick: 12, event_type: 'party_dissolved', citizen_id: null, details: {} },
       { tick: 12, event_type: 'extra_legal_act', citizen_id: 2, details: {} },
       { tick: 12, event_type: 'campaign_run', citizen_id: 7, details: {} },
     ],
@@ -184,7 +186,7 @@ describe('InstitutionalTimeline', () => {
 
   it('draws the terms, a shape per event kind and the playhead at the current tick', async () => {
     const svg = await renderTimeline('/polity?tick=6');
-    expect(svg).toHaveAttribute('aria-label', '4 terms and 12 institutional events over 13 ticks');
+    expect(svg).toHaveAttribute('aria-label', '4 terms and 14 institutional events over 13 ticks');
     const terms = screen.getAllByTestId('timeline-term');
     expect(terms).toHaveLength(4);
     expect(terms[0]).toHaveTextContent(
@@ -205,6 +207,8 @@ describe('InstitutionalTimeline', () => {
         'other',
         'amendment',
         'amended',
+        'party',
+        'party',
         'extraLegal',
         'campaign',
       ]
@@ -216,6 +220,12 @@ describe('InstitutionalTimeline', () => {
     expect(shapeOf('campaign')).toHaveClass('stroke-emerald-700');
     expect(jump('extra_legal_act', 12)).toHaveTextContent('Tick 12: extra-legal act');
     expect(jump('campaign_run', 12)).toHaveTextContent('Tick 12: campaign');
+    // Phase 4: a party's founding and dissolution share an outlined square, told apart by name.
+    expect(
+      document.querySelector('[data-testid="timeline-glyph"][data-kind="party"] rect')
+    ).toHaveClass('stroke-indigo-700');
+    expect(jump('party_founded', 12)).toHaveTextContent('Tick 12: party founded');
+    expect(jump('party_dissolved', 12)).toHaveTextContent('Tick 12: party dissolved');
     const x6 = screen.getByTestId('timeline-playhead').getAttribute('x1');
     fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
     await waitFor(() =>
@@ -239,6 +249,7 @@ describe('InstitutionalTimeline', () => {
       'legislative election, bill or coalition',
       'constitution amended',
       'amendment or referendum',
+      'party founded or dissolved',
       'society event',
     ]);
     // Recalled at 9 and at 11, each time a tick before the next term.
@@ -281,7 +292,7 @@ describe('InstitutionalTimeline', () => {
       screen
         .getAllByTestId(/^timeline-events-/)
         .map((lane) => lane.querySelector('summary')?.textContent)
-    ).toEqual(['Elections 4', 'Checks 3', 'Legislature 1', 'Constitution 2', 'Society 2']);
+    ).toEqual(['Elections 4', 'Checks 3', 'Legislature 1', 'Constitution 2', 'Society 4']);
     expect(jump('recalled', 9)).toHaveTextContent('Tick 9: president recalled');
     expect(jump('brand_new_event', 12)).toHaveTextContent('Tick 12: brand_new_event');
     fireEvent.click(jump('recalled', 9));

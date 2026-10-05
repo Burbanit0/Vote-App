@@ -1,7 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { MAP_COLORS, type LegendEntry, type PointShape } from '../../lib/polity/mapScene';
+import { useChartTheme } from '../../hooks/useChartTheme';
+import {
+  mapColors,
+  type LegendEntry,
+  type MapColor,
+  type PointShape,
+} from '../../lib/polity/mapScene';
 
 /** A legend key as text: party keys carry their number, the others have a label. */
 export function legendLabel(t: TFunction<'polity'>, key: string): string {
@@ -20,17 +26,15 @@ const SWATCH_PATHS: Record<PointShape, string> = {
   cross: 'M2,2 L10,10 M10,2 L2,10',
 };
 
-export const Swatch: React.FC<{ shape: PointShape; color: keyof typeof MAP_COLORS }> = ({
-  shape,
-  color,
-}) => {
+export const Swatch: React.FC<{ shape: PointShape; color: MapColor }> = ({ shape, color }) => {
+  const colors = mapColors(useChartTheme().isDark);
   const outline = shape === 'ring' || shape === 'cross';
   return (
     <svg width={12} height={12} aria-hidden="true" className="shrink-0">
       <path
         d={SWATCH_PATHS[shape]}
-        fill={outline ? 'none' : MAP_COLORS[color]}
-        stroke={outline ? MAP_COLORS[color] : 'none'}
+        fill={outline ? 'none' : colors[color]}
+        stroke={outline ? colors[color] : 'none'}
         strokeWidth={1.5}
       />
     </svg>
