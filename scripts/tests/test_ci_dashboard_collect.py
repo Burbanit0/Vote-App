@@ -129,10 +129,24 @@ class Fetch(unittest.TestCase):
         jobs = {"jobs": [{"id": 9, "name": "Tests", "conclusion": "failure",
                           "steps": [{"name": "pytest", "conclusion": "failure"}]}]}
         with mock.patch.object(collect, "gh_json", return_value=jobs), \
-                mock.patch.object(collect, "gh_text", return_value=None):
+                mock.patch.object(collect, "gh_text", return_value=("", "HTTP 403: Resource not accessible")):
             got = collect.failure_detail("o/r", collect.record(run(1, conclusion="failure")))
         self.assertEqual((got["category"], got["signature"]),
                          ("unknown", "unknown: Tests / pytest (log unavailable)"))
+        self.assertEqual(got["log_error"], "HTTP 403: Resource not accessible")
+
+    def test_an_unreadable_log_is_retried_a_few_times_while_young(self):
+        r = collect.record(run(1, conclusion="failure"))
+        self.assertTrue(collect.needs_log(r, NOW))  # never read
+        r["failure"] = {"category": "unknown", "signature": "unknown: x"}
+        r["log_tries"] = 1
+        self.assertTrue(collect.needs_log(r, NOW))
+        r["log_tries"] = collect.LOG_RETRIES
+        self.assertFalse(collect.needs_log(r, NOW))  # gave up
+        r["log_tries"] = 1
+        self.assertFalse(collect.needs_log(r, NOW + timedelta(days=8)))  # too old to be worth it
+        r["failure"] = {"category": "code", "signature": "code: y"}
+        self.assertFalse(collect.needs_log(r, NOW))  # read fine: never again
 
 
 class Reruns(unittest.TestCase):
@@ -187,6 +201,7 @@ class Main(unittest.TestCase):
             runs[:] = many
             collect.main(["--data", d])
             unread = [json.loads(ln) for ln in (data / "runs.jsonl").read_text().splitlines()]
+            # Never-read failures go before the retry of the earlier unreadable log.
             self.assertEqual(sum("failure" not in r for r in unread if r["conclusion"] == "failure"), 2)
             collect.main(["--data", d])
             done = [json.loads(ln) for ln in (data / "runs.jsonl").read_text().splitlines()]
