@@ -46,6 +46,17 @@ class Classify(unittest.TestCase):
         self.assertEqual(collect.error_lines(log),
                          ["FAILED api/tests/test_a.py::test_b", "##[error]Process completed with exit code 1."])
 
+    def test_error_lines_strip_colour_codes(self):
+        log = "2026-10-04T10:00:01.2Z \x1b[31;1mFAILED\x1b[0m api/tests/test_a.py::test_b\n"
+        self.assertEqual(collect.error_lines(log), ["FAILED api/tests/test_a.py::test_b"])
+
+    def test_logs_are_fetched_with_escape_sequences_allowed(self):
+        # gh refuses to print a response with terminal escapes, and every job log has them.
+        done = mock.Mock(returncode=0, stdout=b"\x1b[31mlog\x1b[0m", stderr=b"")
+        with mock.patch.object(collect.subprocess, "run", return_value=done) as run_:
+            self.assertEqual(collect.gh_text("repos/o/r/actions/jobs/1/logs"), ("\x1b[31mlog\x1b[0m", ""))
+        self.assertIn("--allow-escape-sequences", run_.call_args.args[0])
+
     def test_error_lines_fall_back_to_the_tail(self):
         self.assertEqual(collect.error_lines("one\n\ntwo\n"), ["one", "two"])
 
