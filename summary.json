@@ -1793,7 +1793,7 @@
   "infra": 11,
   "test-flaky": 34
  },
- "generated_at": "2026-10-05T14:36:09Z",
+ "generated_at": "2026-10-05T14:41:56Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1979,7 +1979,7 @@
    },
    "2026-10-05": {
     "failure": 25,
-    "success": 3
+    "success": 4
    }
   },
   "CI Health Watchdog": {
@@ -2833,7 +2833,7 @@
    },
    "2026-10-05": {
     "cancelled": 13,
-    "skipped": 104,
+    "skipped": 106,
     "success": 81
    }
   }
@@ -2856,9 +2856,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-05T14:29:48Z",
+   "created_at": "2026-10-05T14:35:13Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37325163075"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37325894318"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2940,12 +2940,12 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T14:40:52Z",
+   "created_at": "2026-10-05T14:46:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37326655962"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37327472874"
   }
  },
- "runs": 11516,
+ "runs": 11523,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3045,21 +3045,21 @@
     "2026-10-02": 11,
     "2026-10-03": 10.0,
     "2026-10-04": 10,
-    "2026-10-05": 10.5
+    "2026-10-05": 11
    },
    "p50_s": 8,
    "p95_s": 61,
    "queue_p50_s": 0,
-   "runs": 996
+   "runs": 997
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-05": 499
+    "2026-10-05": 448.0
    },
    "p50_s": 499,
    "p95_s": 634,
    "queue_p50_s": 0,
-   "runs": 3
+   "runs": 4
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3217,12 +3217,12 @@
     "2026-10-02": 573,
     "2026-10-03": 46,
     "2026-10-04": 663.5,
-    "2026-10-05": 595
+    "2026-10-05": 629.0
    },
-   "p50_s": 538,
+   "p50_s": 539,
    "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1143
+   "runs": 1144
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3301,12 +3301,12 @@
     "2026-10-02": 26.0,
     "2026-10-03": 13.5,
     "2026-10-04": 13.5,
-    "2026-10-05": 14.0
+    "2026-10-05": 14
    },
    "p50_s": 14,
    "p95_s": 23,
    "queue_p50_s": 0,
-   "runs": 102
+   "runs": 103
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3415,12 +3415,12 @@
     "2026-10-02": 128.0,
     "2026-10-03": 121.0,
     "2026-10-04": 128,
-    "2026-10-05": 132.0
+    "2026-10-05": 131
    },
    "p50_s": 119,
    "p95_s": 302,
    "queue_p50_s": 0,
-   "runs": 1335
+   "runs": 1336
   },
   "polity red alert": {
    "daily_p50_s": {
