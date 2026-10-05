@@ -172,6 +172,10 @@ const CANDIDACY: Record<number, Style> = {
   4: ['electedCandidate', 'diamond', 'vermillion'],
 };
 
+const partyNumber = (key: string) =>
+  key === 'noParty' ? Infinity : Number(key.slice('party'.length));
+const byPartyNumber = (a: LegendEntry, b: LegendEntry) => partyNumber(a.key) - partyNumber(b.key);
+
 /** The lens's style for citizen `id`: legend key, shape and colour. */
 export function styleOf(lens: PolityLens, input: SceneInput, id: number): Style {
   const { frame } = input;
@@ -254,7 +258,9 @@ export function buildScene(
     width,
     height,
     points,
-    legend: [...counts.values()],
+    // Entries arrive in the order citizens first hit them, which is arbitrary for parties; under
+    // the party lens list them by number, independents last. Other lenses keep their own order.
+    legend: lens === 'party' ? [...counts.values()].sort(byPartyNumber) : [...counts.values()],
     parties: parties.map((p) => {
       const [x, y] = project(p.xy);
       return { partyId: p.party_id, x, y, color: input.partyStyle(p.party_id).color };
