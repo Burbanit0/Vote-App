@@ -116,6 +116,33 @@
  "failure_groups": [
   {
    "branches": [
+    "chore/bump-typescript-6-size-limit-13",
+    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
+   ],
+   "category": "code",
+   "count": 24,
+   "example": {
+    "job": "Semgrep SAST",
+    "lines": [
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "2171236003f03b8d6f23f47814a5faae906a0dee",
+    "step": "Run Semgrep (gating)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34807105257"
+   },
+   "last_seen": "2026-09-14T04:43:42Z",
+   "signature": "code: ##[error]Process completed with exit code #.",
+   "workflows": [
+    "E2E Tests",
+    "Frontend CI",
+    "Generated Artifacts Contract",
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "chore/ci-health-snapshot-20260915-025105",
     "chore/ci-health-snapshot-20260918-125539",
     "ci/python-lockfile-freshness-check",
@@ -218,6 +245,39 @@
    "signature": "unknown: Frontend: Tests + Coverage + Security / Security \u2014 npm audit (high CVEs block) (log unavailable)",
    "workflows": [
     "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "chore/bump-typescript-6-size-limit-13",
+    "dependabot/npm_and_yarn/voter-app/dependency-cruiser-18.2.0",
+    "dependabot/npm_and_yarn/voter-app/license-checker-rseidelsohn-5.0.1",
+    "dependabot/pip/fast_api_voter/patch-and-minor-2c86d29176",
+    "dependabot/pip/fast_api_voter/types-pyyaml-6.0.12.20260906",
+    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
+    "develop"
+   ],
+   "category": "code",
+   "count": 11,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+     "    Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+     "    Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+     "    Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+     "    Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "e3d19d2a9b84a47008377ba56119a1c51259e3b4",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34805066727"
+   },
+   "last_seen": "2026-09-14T04:10:32Z",
+   "signature": "code: Error: browserType.launch: Executable doesn't exist at /ms-playwright/chromium_headless_shell-#/chrome-headless-shell-linux#/chrome-headless",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -377,23 +437,45 @@
     "develop"
    ],
    "category": "code",
-   "count": 3,
+   "count": 4,
    "example": {
     "job": "Publish to GitHub Pages",
     "lines": [
      "##[error]Creating Pages deployment failed",
      "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 6808:39D6CA:4268B56:DCA67D1:6AC2EA16 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID F008:18CFA1:6541116:14E6C353:6AC303B4 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
     "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
     "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37245579431"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37252985861"
    },
-   "last_seen": "2026-10-04T23:56:58Z",
+   "last_seen": "2026-10-05T01:50:10Z",
    "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 3,
+   "example": {
+    "job": "Scorecard analysis",
+    "lines": [
+     "2026/09/15 14:02:51 scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv4.Query: Something went wrong while executing your query on 2026-09-15T14:02:51Z. Please include `F040:1F994A:37B17CB:BA7C0CA:6AA95009` when reporting this issue."
+    ],
+    "pr": [],
+    "sha": "d4b5d425b335b5819be278a4002889b5c5e52126",
+    "step": "Run ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34978973289"
+   },
+   "last_seen": "2026-09-15T14:02:41Z",
+   "signature": "code: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: Something",
+   "workflows": [
+    "OpenSSF Scorecard"
    ]
   },
   {
@@ -457,28 +539,6 @@
    "signature": "unknown: Semgrep SAST / Run Semgrep (gating) (log unavailable)",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Scorecard analysis",
-    "lines": [
-     "2026/09/15 14:02:51 scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv4.Query: Something went wrong while executing your query on 2026-09-15T14:02:51Z. Please include `F040:1F994A:37B17CB:BA7C0CA:6AA95009` when reporting this issue."
-    ],
-    "pr": [],
-    "sha": "d4b5d425b335b5819be278a4002889b5c5e52126",
-    "step": "Run ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34978973289"
-   },
-   "last_seen": "2026-09-15T14:02:41Z",
-   "signature": "code: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: Something",
-   "workflows": [
-    "OpenSSF Scorecard"
    ]
   },
   {
@@ -654,6 +714,53 @@
    "category": "code",
    "count": 1,
    "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toHaveAttribute(expected) failed",
+     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "99f6fc371fd1283a386b8eb990e823ae504c861a",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34854784476"
+   },
+   "last_seen": "2026-09-14T14:18:43Z",
+   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "polity-ui"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: page.goto: WebKit encountered an internal error",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "99f6fc371fd1283a386b8eb990e823ae504c861a",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34855778029"
+   },
+   "last_seen": "2026-09-14T14:27:56Z",
+   "signature": "code: Error: page.goto: WebKit encountered an internal error",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "polity"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
     "job": "CodeQL (javascript-typescript)",
     "lines": [
      "[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path",
@@ -694,6 +801,33 @@
    "signature": "infra: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: non-# OK ",
    "workflows": [
     "OpenSSF Scorecard"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 1,
+   "example": {
+    "job": "Secret Scan",
+    "lines": [
+     "[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path",
+     "/github/runner_temp/git-credentials-cec18cee-4d86-47d7-9c39-eb8b1f1fd080.config",
+     "[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \\/github\\/runner_temp\\/git\\-credentials\\-cec18cee\\-4d86\\-47d7\\-9c39\\-eb8b1f1fd080\\.config",
+     "[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url",
+     "Removing credentials config '/home/runner/work/_temp/git-credentials-cec18cee-4d86-47d7-9c39-eb8b1f1fd080.config'",
+     "Cleaning up orphan processes"
+    ],
+    "pr": [],
+    "sha": "9e61d72adbf94eadfd8695c718e6513041cc84f6",
+    "step": "Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34842350100"
+   },
+   "last_seen": "2026-09-14T12:14:32Z",
+   "signature": "test-flaky: [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -838,11 +972,12 @@
   }
  ],
  "failures_by_category": {
-  "code": 6,
+  "code": 45,
   "infra": 1,
+  "test-flaky": 1,
   "unknown": 153
  },
- "generated_at": "2026-10-05T01:50:20Z",
+ "generated_at": "2026-10-05T02:00:24Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -939,7 +1074,7 @@
     "success": 25
    },
    "2026-10-05": {
-    "success": 3
+    "success": 4
    }
   },
   "Backend Flaky Test Hunt": {
@@ -1021,6 +1156,9 @@
   "CI Dashboard": {
    "2026-10-04": {
     "failure": 3
+   },
+   "2026-10-05": {
+    "failure": 1
    }
   },
   "CI Health Watchdog": {
@@ -1429,7 +1567,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
-    "success": 2
+    "success": 3
    }
   },
   "Generated Artifacts Contract": {
@@ -1517,7 +1655,7 @@
     "success": 25
    },
    "2026-10-05": {
-    "success": 3
+    "success": 4
    }
   },
   "Human review attestation": {
@@ -1534,7 +1672,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 4
+    "skipped": 6
    }
   },
   "Mutation Testing": {
@@ -1849,7 +1987,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
-    "success": 2
+    "success": 3
    }
   },
   "polity red alert": {
@@ -1860,8 +1998,8 @@
    },
    "2026-10-05": {
     "cancelled": 8,
-    "skipped": 18,
-    "success": 16
+    "skipped": 23,
+    "success": 19
    }
   }
  },
@@ -1869,9 +2007,9 @@
   "Backend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T01:19:37Z",
+   "created_at": "2026-10-05T02:00:05Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992258"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620537"
   },
   "Backend Flaky Test Hunt": {
    "branch": "develop",
@@ -1883,9 +2021,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-04T23:56:58Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37245579431"
+   "created_at": "2026-10-05T01:50:10Z",
+   "event": "workflow_dispatch",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37252985861"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -1918,23 +2056,23 @@
   "Frontend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T01:19:37Z",
+   "created_at": "2026-10-05T02:00:05Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992235"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620533"
   },
   "Generated Artifacts Contract": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T01:19:37Z",
+   "created_at": "2026-10-05T02:00:05Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992246"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620568"
   },
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T01:05:25Z",
+   "created_at": "2026-10-05T01:59:52Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250017078"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253605783"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -1960,19 +2098,19 @@
   "Security Audit": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T01:19:37Z",
+   "created_at": "2026-10-05T02:00:05Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992247"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620649"
   },
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-05T01:37:59Z",
+   "created_at": "2026-10-05T02:03:39Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37252183625"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253861665"
   }
  },
- "runs": 11360,
+ "runs": 11384,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2008,7 +2146,7 @@
    "p50_s": 149,
    "p95_s": 434,
    "queue_p50_s": 0,
-   "runs": 1319
+   "runs": 1321
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2071,12 +2209,12 @@
     "2026-10-02": 11,
     "2026-10-03": 10.0,
     "2026-10-04": 10,
-    "2026-10-05": 15.5
+    "2026-10-05": 11
    },
    "p50_s": 8,
    "p95_s": 86,
    "queue_p50_s": 0,
-   "runs": 1020
+   "runs": 1021
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2098,12 +2236,12 @@
     "2026-10-02": 12,
     "2026-10-03": 11,
     "2026-10-04": 11,
-    "2026-10-05": 10.5
+    "2026-10-05": 10
    },
    "p50_s": 10,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 524
+   "runs": 525
   },
   "Check Merge Source": {
    "daily_p50_s": {
@@ -2198,12 +2336,12 @@
     "2026-10-02": 13,
     "2026-10-03": 10.0,
     "2026-10-04": 10.0,
-    "2026-10-05": 11.5
+    "2026-10-05": 11
    },
    "p50_s": 11,
    "p95_s": 100,
    "queue_p50_s": 0,
-   "runs": 936
+   "runs": 937
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -2234,12 +2372,12 @@
     "2026-10-02": 573,
     "2026-10-03": 46,
     "2026-10-04": 663.5,
-    "2026-10-05": 625.5
+    "2026-10-05": 572
    },
-   "p50_s": 530,
+   "p50_s": 526,
    "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1145
+   "runs": 1146
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -2272,10 +2410,10 @@
     "2026-10-04": 197.0,
     "2026-10-05": 227.0
    },
-   "p50_s": 20,
+   "p50_s": 19,
    "p95_s": 285,
    "queue_p50_s": 0,
-   "runs": 1256
+   "runs": 1258
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -2311,19 +2449,19 @@
    "p50_s": 73,
    "p95_s": 216,
    "queue_p50_s": 0,
-   "runs": 1360
+   "runs": 1362
   },
   "Human review attestation": {
    "daily_p50_s": {
     "2026-10-02": 26.0,
     "2026-10-03": 13.5,
     "2026-10-04": 13.5,
-    "2026-10-05": 20
+    "2026-10-05": 15.5
    },
    "p50_s": 14,
    "p95_s": 23,
    "queue_p50_s": 0,
-   "runs": 81
+   "runs": 82
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2429,22 +2567,22 @@
     "2026-10-02": 128.0,
     "2026-10-03": 121.0,
     "2026-10-04": 128,
-    "2026-10-05": 127.0
+    "2026-10-05": 127.5
    },
    "p50_s": 119,
    "p95_s": 385,
    "queue_p50_s": 0,
-   "runs": 1345
+   "runs": 1347
   },
   "polity red alert": {
    "daily_p50_s": {
     "2026-10-04": 22,
-    "2026-10-05": 21.0
+    "2026-10-05": 21
    },
    "p50_s": 22,
    "p95_s": 44,
    "queue_p50_s": 0,
-   "runs": 139
+   "runs": 142
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -2474,9 +2612,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-04T23:55:36Z",
+     "created_at": "2026-10-05T01:50:10Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37245501471"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37252985861"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
@@ -2582,13 +2720,13 @@
    }
   },
   "polity": {
-   "sha": "df7628f68e46f7c7854023e7f1773736ad91aa04",
+   "sha": "bbdae731497e4235a21b2edc9d7cbbb22ea06155",
    "workflows": {
     "Backend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-05T01:19:37Z",
-     "sha": "df7628f68e46f7c7854023e7f1773736ad91aa04",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992258"
+     "created_at": "2026-10-05T02:00:05Z",
+     "sha": "bbdae731497e4235a21b2edc9d7cbbb22ea06155",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620537"
     },
     "Backend Flaky Test Hunt": {
      "conclusion": "success",
@@ -2616,15 +2754,15 @@
     },
     "Frontend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-05T01:19:37Z",
-     "sha": "df7628f68e46f7c7854023e7f1773736ad91aa04",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992235"
+     "created_at": "2026-10-05T02:00:05Z",
+     "sha": "bbdae731497e4235a21b2edc9d7cbbb22ea06155",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620533"
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
-     "created_at": "2026-10-05T01:19:37Z",
-     "sha": "df7628f68e46f7c7854023e7f1773736ad91aa04",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992246"
+     "created_at": "2026-10-05T02:00:05Z",
+     "sha": "bbdae731497e4235a21b2edc9d7cbbb22ea06155",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620568"
     },
     "Mutation Testing": {
      "conclusion": "success",
@@ -2640,9 +2778,9 @@
     },
     "Security Audit": {
      "conclusion": "success",
-     "created_at": "2026-10-05T01:19:37Z",
-     "sha": "df7628f68e46f7c7854023e7f1773736ad91aa04",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37250992247"
+     "created_at": "2026-10-05T02:00:05Z",
+     "sha": "bbdae731497e4235a21b2edc9d7cbbb22ea06155",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37253620649"
     }
    }
   }
