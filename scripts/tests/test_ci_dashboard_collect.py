@@ -256,6 +256,24 @@ class Rekey(unittest.TestCase):
         self.assertEqual(got["failure"]["signature"], "code: E   assert result.winner == 'Alice'")
 
 
+class Triggers(unittest.TestCase):
+    def test_workflow_run_names_match_the_workflow_files(self):
+        # A misspelt name in `workflow_run.workflows` silently never fires.
+        wf_dir = collect.ROOT / ".github" / "workflows"
+        text = (wf_dir / "ci-dashboard.yml").read_text(encoding="utf-8")
+        block = text.split("    workflows:\n", 1)[1].split("    types:", 1)[0]
+        listed = [ln.strip()[2:].strip() for ln in block.splitlines() if ln.strip().startswith("- ")]
+        names = set()
+        for f in wf_dir.glob("*.y*ml"):
+            for ln in f.read_text(encoding="utf-8").splitlines():
+                if ln.startswith("name:"):
+                    names.add(ln.split(":", 1)[1].strip().strip("'\""))
+                    break
+        self.assertGreaterEqual(len(listed), 5)
+        self.assertEqual([n for n in listed if n not in names], [])
+        self.assertNotIn("CI Dashboard", listed)  # never itself: it would loop
+
+
 class Main(unittest.TestCase):
     def test_collects_appends_and_survives_an_unreadable_log(self):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%dT10:00:00Z")  # main() uses the real clock
