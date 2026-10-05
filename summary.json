@@ -126,7 +126,7 @@
     "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
    ],
    "category": "code",
-   "count": 73,
+   "count": 111,
    "example": {
     "job": "Playwright E2E",
     "lines": [
@@ -154,27 +154,26 @@
   {
    "branches": [
     "dependabot/npm_and_yarn/voter-app/eslint-10.9.1",
-    "dependabot/npm_and_yarn/voter-app/eslint/js-10.0.1",
-    "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
+    "dependabot/npm_and_yarn/voter-app/eslint/js-10.0.1"
    ],
    "category": "code",
-   "count": 71,
+   "count": 33,
    "example": {
-    "job": "Generated artifacts in sync",
+    "job": "Playwright E2E",
     "lines": [
      "npm error",
      "npm error",
      "npm error For a full report see:",
-     "npm error /home/runner/.npm/_logs/2026-09-11T11_39_13_048Z-eresolve-report.txt",
-     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-11T11_39_13_048Z-debug-0.log",
+     "npm error /home/runner/.npm/_logs/2026-09-09T12_44_22_686Z-eresolve-report.txt",
+     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-09T12_44_22_686Z-debug-0.log",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "e1badb2a7a8c8682480ef82d4e960c6ffb579020",
+    "sha": "0df56cb72a1ffdfd5c832a3592ff7a8c3f61b7c0",
     "step": "Install frontend dependencies",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34595012023"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34352701721"
    },
-   "last_seen": "2026-09-11T11:38:31Z",
+   "last_seen": "2026-09-09T12:43:35Z",
    "signature": "code: npm error",
    "workflows": [
     "E2E Tests",
@@ -188,20 +187,20 @@
     "develop"
    ],
    "category": "code",
-   "count": 20,
+   "count": 21,
    "example": {
     "job": "Publish to GitHub Pages",
     "lines": [
      "##[error]Creating Pages deployment failed",
      "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 5082:2934AD:1034411:3741376:6AC3A380 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID B800:C8D21:11AE96B:3C0B7A4:6AC3A521 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
     "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
     "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37314740515"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37315763732"
    },
-   "last_seen": "2026-10-05T13:10:13Z",
+   "last_seen": "2026-10-05T13:18:20Z",
    "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
@@ -1808,11 +1807,11 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 452,
+  "code": 453,
   "infra": 11,
   "test-flaky": 28
  },
- "generated_at": "2026-10-05T13:18:31Z",
+ "generated_at": "2026-10-05T13:25:37Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1997,7 +1996,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
-    "failure": 17
+    "failure": 18
    }
   },
   "CI Health Watchdog": {
@@ -2406,7 +2405,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
-    "success": 6
+    "success": 7
    }
   },
   "Generated Artifacts Contract": {
@@ -2511,7 +2510,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 14,
+    "skipped": 15,
     "success": 1
    }
   },
@@ -2830,7 +2829,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
-    "success": 6
+    "success": 7
    }
   },
   "polity red alert": {
@@ -2841,8 +2840,8 @@
    },
    "2026-10-05": {
     "cancelled": 10,
-    "skipped": 55,
-    "success": 41
+    "skipped": 60,
+    "success": 43
    }
   }
  },
@@ -2899,9 +2898,9 @@
   "Frontend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T12:59:53Z",
+   "created_at": "2026-10-05T13:21:04Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37313449056"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316109419"
   },
   "Generated Artifacts Contract": {
    "branch": "polity",
@@ -2913,9 +2912,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T13:20:48Z",
+   "created_at": "2026-10-05T13:26:18Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316075319"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316785515"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2941,19 +2940,19 @@
   "Security Audit": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T12:59:53Z",
+   "created_at": "2026-10-05T13:21:04Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37313449040"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316109334"
   },
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T13:23:20Z",
+   "created_at": "2026-10-05T13:28:42Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316401470"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37317097329"
   }
  },
- "runs": 11420,
+ "runs": 11436,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2984,12 +2983,12 @@
     "2026-10-02": 128.5,
     "2026-10-03": 13,
     "2026-10-04": 12,
-    "2026-10-05": 10
+    "2026-10-05": 10.0
    },
    "p50_s": 144,
-   "p95_s": 408,
+   "p95_s": 410,
    "queue_p50_s": 0,
-   "runs": 1320
+   "runs": 1321
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3252,12 +3251,12 @@
     "2026-10-02": 12,
     "2026-10-03": 13,
     "2026-10-04": 197.0,
-    "2026-10-05": 222.5
+    "2026-10-05": 239
    },
    "p50_s": 19,
-   "p95_s": 284,
+   "p95_s": 285,
    "queue_p50_s": 0,
-   "runs": 1260
+   "runs": 1263
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3412,22 +3411,22 @@
     "2026-10-02": 128.0,
     "2026-10-03": 121.0,
     "2026-10-04": 128,
-    "2026-10-05": 126.5
+    "2026-10-05": 127.5
    },
    "p50_s": 119,
    "p95_s": 343,
    "queue_p50_s": 0,
-   "runs": 1332
+   "runs": 1334
   },
   "polity red alert": {
    "daily_p50_s": {
     "2026-10-04": 22,
-    "2026-10-05": 22
+    "2026-10-05": 23
    },
    "p50_s": 22,
    "p95_s": 49,
    "queue_p50_s": 0,
-   "runs": 164
+   "runs": 166
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -3599,9 +3598,9 @@
     },
     "Frontend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-05T12:59:53Z",
-     "sha": "8d69c6794e461586a97107acf30e323ce4866a2d",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37313449056"
+     "created_at": "2026-10-05T13:21:04Z",
+     "sha": "1b7e6e58ad3836b39f9ef8bb7f872136e3e3e463",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316109419"
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
@@ -3623,9 +3622,9 @@
     },
     "Security Audit": {
      "conclusion": "success",
-     "created_at": "2026-10-05T12:59:53Z",
-     "sha": "8d69c6794e461586a97107acf30e323ce4866a2d",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37313449040"
+     "created_at": "2026-10-05T13:21:04Z",
+     "sha": "1b7e6e58ad3836b39f9ef8bb7f872136e3e3e463",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37316109334"
     }
    }
   }
