@@ -178,6 +178,33 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 20,
+   "example": {
+    "job": "Record the review on the named commit",
+    "lines": [
+     "  PR: 765",
+     "  AUTHOR: Burbanit0",
+     "  BODY: /reviewed bee3308",
+     "  RUN_URL: https://github.com/Burbanit0/Vote-App/actions/runs/37232103157",
+     "gh: Resource not accessible by integration (HTTP 403)",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "35861dc1e5ac54ff61b3faba0a2121f5f2c2d900",
+    "step": "Check the commenter and the SHA, then post the statuses",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37232103157"
+   },
+   "last_seen": "2026-10-04T20:26:32Z",
+   "signature": "code: gh: Resource not accessible by integration (HTTP #)",
+   "workflows": [
+    "Human review attestation"
+   ]
+  },
+  {
+   "branches": [
     "chore/ci-health-snapshot-20260915-025105",
     "chore/ci-health-snapshot-20260918-125539",
     "ci/python-lockfile-freshness-check",
@@ -240,24 +267,32 @@
   },
   {
    "branches": [
+    "dependabot/npm_and_yarn/voter-app/jsdom-30.0.1",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-348e55abb4",
     "dependabot/npm_and_yarn/voter-app/patch-and-minor-709d3b11bf",
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
-    "fix/election-method-names",
-    "fix/no-best-method-from-a-tie",
+    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
     "polity"
    ],
-   "category": "unknown",
+   "category": "advisory",
    "count": 15,
    "example": {
     "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
+    "lines": [
+     "fix available via `npm audit fix`",
+     "node_modules/ip-address",
+     "3 vulnerabilities (2 moderate, 1 high)",
+     "To address all issues, run:",
+     "  npm audit fix",
+     "##[error]Process completed with exit code 1."
+    ],
     "pr": [],
     "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
     "step": "Security \u2014 npm audit (high CVEs block)",
     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
    },
    "last_seen": "2026-10-02T15:07:10Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / Security \u2014 npm audit (high CVEs block) (log unavailable)",
+   "signature": "advisory: npm audit fix",
    "workflows": [
     "Frontend CI"
    ]
@@ -273,27 +308,28 @@
     "feat/lot10-opentelemetry-tracing",
     "feat/lot14-refurb-perflint-fix",
     "feat/lot9-atheris-coverage-fuzzing",
+    "feat/polity-president-agent",
     "feat/schemathesis-contract-fuzzing",
     "feat/semgrep-custom-rules"
    ],
    "category": "code",
-   "count": 14,
+   "count": 15,
    "example": {
     "job": "Backend: Tests + Coverage + Security",
     "lines": [
      "-------------",
-     "Total:   66 lines",
-     "Missing: 1 line",
-     "Coverage: 98%",
+     "Total:   281 lines",
+     "Missing: 6 lines",
+     "Coverage: 97%",
      "-------------",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "d642aae5450b0246408055c31f0b5b1649251ff5",
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
     "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34734519162"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715636"
    },
-   "last_seen": "2026-09-13T03:03:00Z",
+   "last_seen": "2026-09-28T12:43:56Z",
    "signature": "code: -------------",
    "workflows": [
     "Backend CI"
@@ -335,6 +371,58 @@
   },
   {
    "branches": [
+    "feat/polity-prompt-neutrality",
+    "polity"
+   ],
+   "category": "code",
+   "count": 14,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "84 + from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402",
+     "85 | from api.domain.polity.constitution import Proposal, article_value  # noqa: E402",
+     "   |",
+     "Found 2 errors.",
+     "[*] 2 fixable with the `--fix` option.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "a7040b2406129ba2c1e2ee5f421cf4c52ec66ebd",
+    "step": "Ruff (pyflakes \u2014 blocking)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36802081287"
+   },
+   "last_seen": "2026-10-01T01:38:42Z",
+   "signature": "code: [*] # fixable with the `--fix` option.",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 13,
+   "example": {
+    "job": "Publish to GitHub Pages",
+    "lines": [
+     "##[error]Creating Pages deployment failed",
+     "##[error]HttpError: Not Found",
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID C819:1EF0:1E2F4EE:63B0EDE:6AC311DD Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+    ],
+    "pr": [],
+    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
+    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257006794"
+   },
+   "last_seen": "2026-10-05T02:51:05Z",
+   "signature": "code: ##[error]Creating Pages deployment failed",
+   "workflows": [
+    "CI Dashboard"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "code",
@@ -362,73 +450,33 @@
   },
   {
    "branches": [
-    "polity"
+    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
+    "feat/eslint-plugin-sonarjs",
+    "feat/lot7-i18next-tooling",
+    "feat/lot7-pseudo-locale",
+    "feat/polity-biography-compact",
+    "feat/polity-constitution-reporting",
+    "feat/polity-timeline-phase5-glyphs",
+    "feat/reorganize-shared-components",
+    "refactor/lot14-type-coverage-anys"
    ],
    "category": "code",
    "count": 13,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
+    "job": "Frontend: Tests + Coverage + Security",
     "lines": [
-     "   -     sorted_candidates,",
-     "49 | )",
-     "   |",
-     "Found 1 error.",
-     "[*] 1 fixable with the `--fix` option.",
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  520ms",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "0f645a5225857cbdd79f93137caebd267c058f5f",
-    "step": "Ruff (pyflakes \u2014 blocking)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34770823116"
+    "sha": "f194e553a557e23d987056b67fdff41c81e2c9f6",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37238264958"
    },
-   "last_seen": "2026-09-13T17:11:14Z",
-   "signature": "code: [*] # fixable with the `--fix` option.",
+   "last_seen": "2026-10-04T21:59:30Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
    "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "unknown",
-   "count": 13,
-   "example": {
-    "job": "Record the review on the named commit",
-    "lines": [],
-    "pr": [],
-    "sha": "a1aacad53a3f9f1ef4a4e480f49cda402a327b6b",
-    "step": "Check the commenter and the SHA, then post the statuses",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37204235347"
-   },
-   "last_seen": "2026-10-04T13:02:57Z",
-   "signature": "unknown: Record the review on the named commit / Check the commenter and the SHA, then post the statuses (log unavailable)",
-   "workflows": [
-    "Human review attestation"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 12,
-   "example": {
-    "job": "Publish to GitHub Pages",
-    "lines": [
-     "##[error]Creating Pages deployment failed",
-     "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID BBC0:CACAC:26E00D:7FD2B9:6AC31089 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
-    ],
-    "pr": [],
-    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256623128"
-   },
-   "last_seen": "2026-10-05T02:45:12Z",
-   "signature": "code: ##[error]Creating Pages deployment failed",
-   "workflows": [
-    "CI Dashboard"
+    "Frontend CI"
    ]
   },
   {
@@ -495,63 +543,6 @@
    "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
-    "feat/eslint-plugin-sonarjs",
-    "feat/lot7-i18next-tooling",
-    "feat/lot7-pseudo-locale",
-    "feat/polity-biography-compact",
-    "feat/polity-timeline-phase5-glyphs",
-    "feat/reorganize-shared-components",
-    "refactor/lot14-type-coverage-anys"
-   ],
-   "category": "code",
-   "count": 11,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  520ms",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "f194e553a557e23d987056b67fdff41c81e2c9f6",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37238264958"
-   },
-   "last_seen": "2026-10-04T21:59:30Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/patch-and-minor-3c51789501",
-    "dependabot/pip/fast_api_voter/patch-and-minor-741781a224",
-    "dependabot/pip/fast_api_voter/patch-and-minor-b40ff696ee",
-    "dependabot/pip/fast_api_voter/patch-and-minor-beeed9c07d",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
-    "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
-   ],
-   "category": "unknown",
-   "count": 11,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [
-     727
-    ],
-    "sha": "e4c616f17b0fdd6921f963a1b108e0a20f51563c",
-    "step": "Install production + dev dependencies (from the lockfile)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37038573307"
-   },
-   "last_seen": "2026-10-02T17:07:27Z",
-   "signature": "unknown: Backend: Tests + Coverage + Security / Install production + dev dependencies (from the lockfile) (log unavailable)",
-   "workflows": [
-    "Backend CI"
    ]
   },
   {
@@ -729,33 +720,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 7,
-   "example": {
-    "job": "Record the review on the named commit",
-    "lines": [
-     "  PR: 765",
-     "  AUTHOR: Burbanit0",
-     "  BODY: /reviewed bee3308",
-     "  RUN_URL: https://github.com/Burbanit0/Vote-App/actions/runs/37232103157",
-     "gh: Resource not accessible by integration (HTTP 403)",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "35861dc1e5ac54ff61b3faba0a2121f5f2c2d900",
-    "step": "Check the commenter and the SHA, then post the statuses",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37232103157"
-   },
-   "last_seen": "2026-10-04T20:26:32Z",
-   "signature": "code: gh: Resource not accessible by integration (HTTP #)",
-   "workflows": [
-    "Human review attestation"
-   ]
-  },
-  {
-   "branches": [
     "chore/sonarjs-high-confidence-fixes",
     "feat/license-compliance-check",
     "feat/lot9-atheris-coverage-fuzzing",
@@ -817,12 +781,10 @@
   },
   {
    "branches": [
-    "chore/sync-polity-into-develop-20260927",
-    "develop",
-    "feat/polity-call-log-prompts",
-    "feat/polity-emotions-prerequisite-verdict",
-    "feat/polity-president-agent",
-    "fix/method-registry"
+    "dependabot/pip/fast_api_voter/patch-and-minor-3c51789501",
+    "dependabot/pip/fast_api_voter/patch-and-minor-741781a224",
+    "dependabot/pip/fast_api_voter/patch-and-minor-b40ff696ee",
+    "dependabot/pip/fast_api_voter/patch-and-minor-beeed9c07d"
    ],
    "category": "unknown",
    "count": 7,
@@ -830,11 +792,35 @@
     "job": "Backend: Tests + Coverage + Security",
     "lines": [],
     "pr": [],
-    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715636"
+    "sha": "72b9ffe6cd981151ba9f8fb5d4ef63324813a0c1",
+    "step": "Install production + dev dependencies (from the lockfile)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35390147400"
    },
-   "last_seen": "2026-09-28T12:43:56Z",
+   "last_seen": "2026-09-18T20:12:08Z",
+   "signature": "unknown: Backend: Tests + Coverage + Security / Install production + dev dependencies (from the lockfile) (log unavailable)",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "chore/sync-polity-into-develop-20260927",
+    "develop",
+    "feat/polity-call-log-prompts",
+    "feat/polity-emotions-prerequisite-verdict",
+    "fix/method-registry"
+   ],
+   "category": "unknown",
+   "count": 6,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [],
+    "pr": [],
+    "sha": "baba71b63bf818201049d7e99b3d66570f91bc7a",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36332956835"
+   },
+   "last_seen": "2026-09-27T16:21:46Z",
    "signature": "unknown: Backend: Tests + Coverage + Security / diff-cover \u2014 100% coverage on changed lines (log unavailable)",
    "workflows": [
     "Backend CI"
@@ -944,54 +930,28 @@
   },
   {
    "branches": [
-    "develop",
-    "feat/polity-constitution-reporting",
-    "feat/restore-arrow-theorem-fiche",
-    "refactor/winner-from-utilities"
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
+    "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
    ],
-   "category": "unknown",
+   "category": "code",
    "count": 4,
    "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "ab94acc82389343f2ed59a1648342e4c68d83a77",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36469040388"
-   },
-   "last_seen": "2026-09-28T18:59:09Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / diff-cover \u2014 100% coverage on changed lines (log unavailable)",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/jsdom-30.0.1",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-348e55abb4",
-    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1"
-   ],
-   "category": "advisory",
-   "count": 3,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
+    "job": "Backend: Tests + Coverage + Security",
     "lines": [
-     "  Depends on vulnerable versions of js-yaml",
-     "  node_modules/@redocly/openapi-core",
-     "2 high severity vulnerabilities",
-     "To address all issues, run:",
-     "  npm audit fix",
+     "error: No solution found when resolving dependencies",
      "##[error]Process completed with exit code 1."
     ],
-    "pr": [],
-    "sha": "46ab602ffbd651a0e24519b1b69154e2c30ea28c",
-    "step": "Security \u2014 npm audit (high CVEs block)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34292683313"
+    "pr": [
+     727
+    ],
+    "sha": "e4c616f17b0fdd6921f963a1b108e0a20f51563c",
+    "step": "Install production + dev dependencies (from the lockfile)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37038573307"
    },
-   "last_seen": "2026-09-08T23:54:19Z",
-   "signature": "advisory: npm audit fix",
+   "last_seen": "2026-10-02T17:07:27Z",
+   "signature": "code: error: No solution found when resolving dependencies",
    "workflows": [
-    "Frontend CI"
+    "Backend CI"
    ]
   },
   {
@@ -1120,24 +1080,45 @@
   },
   {
    "branches": [
-    "feat/polity-extra-legal",
-    "feat/polity-nvfp4-probe-profile",
-    "feat/polity-s24-first-wave"
+    "fix/election-method-names",
+    "fix/no-best-method-from-a-tie"
    ],
    "category": "unknown",
    "count": 3,
    "example": {
-    "job": "Generated artifacts in sync",
+    "job": "Frontend: Tests + Coverage + Security",
     "lines": [],
     "pr": [],
-    "sha": "23b3462d0739c0c736228b5696bdb967af77aeb3",
-    "step": "Generated doc blocks in sync",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36747781108"
+    "sha": "1be4044d98f0a0ac637815984953be59ed1bfe92",
+    "step": "Security \u2014 npm audit (high CVEs block)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35457625984"
    },
-   "last_seen": "2026-09-30T16:55:53Z",
-   "signature": "unknown: Generated artifacts in sync / Generated doc blocks in sync (log unavailable)",
+   "last_seen": "2026-09-19T17:17:27Z",
+   "signature": "unknown: Frontend: Tests + Coverage + Security / Security \u2014 npm audit (high CVEs block) (log unavailable)",
    "workflows": [
-    "Generated Artifacts Contract"
+    "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "develop",
+    "feat/restore-arrow-theorem-fiche",
+    "refactor/winner-from-utilities"
+   ],
+   "category": "unknown",
+   "count": 3,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [],
+    "pr": [],
+    "sha": "48bebe80c86c2aa1e30d547ba813b87f19054e72",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36292439708"
+   },
+   "last_seen": "2026-09-27T03:47:37Z",
+   "signature": "unknown: Frontend: Tests + Coverage + Security / diff-cover \u2014 100% coverage on changed lines (log unavailable)",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -1179,6 +1160,33 @@
    "signature": "unknown: Semgrep SAST / Run Semgrep (gating) (log unavailable)",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "polity"
+   ],
+   "category": "advisory",
+   "count": 2,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "  GHSA-vfj7-8cjw-p6xm (high) braces vulnerable to stack-exhaustion denial of service through deeply nested patterns \u2014 https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+     "      at node_modules/braces",
+     "  GHSA-ch52-4w7c-c8xp (high) http-cache-semantics max-stale handling can disclose cross-user cached responses \u2014 https://github.com/advisories/GHSA-ch52-4w7c-c8xp",
+     "      at node_modules/http-cache-semantics",
+     "Fix: `npm audit fix --package-lock-only` with npm >= 11.10 (so .npmrc's min-release-age is honoured). If no fixed version is usable yet, add an entry (until, reason, nodes) to .github/npm-audit-allowlist.json in a reviewed PR.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "511724f0a1a676b7bc442c0341b0cab4e4198105",
+    "step": "Security \u2014 npm audit (high CVEs block, dated allowlist)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37092741734"
+   },
+   "last_seen": "2026-10-03T03:18:10Z",
+   "signature": "advisory: Fix: `npm audit fix --package-lock-only` with npm >= # (so .npmrc's min-release-age is honoured). If no fixed version is usable yet, add an ",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -1315,6 +1323,31 @@
   },
   {
    "branches": [
+    "feat/polity-president-agent"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [
+     "error: Request failed after 3 retries in 127.8s",
+     "##[error]Process completed with exit code 2.",
+     "##[error]Process completed with exit code 5."
+    ],
+    "pr": [],
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
+    "step": "Install backend dependencies",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715710"
+   },
+   "last_seen": "2026-09-28T12:43:56Z",
+   "signature": "code: error: Request failed after # retries in #",
+   "workflows": [
+    "E2E Tests",
+    "Generated Artifacts Contract"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "code",
@@ -1436,47 +1469,6 @@
   },
   {
    "branches": [
-    "polity"
-   ],
-   "category": "unknown",
-   "count": 2,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "511724f0a1a676b7bc442c0341b0cab4e4198105",
-    "step": "Security \u2014 npm audit (high CVEs block, dated allowlist)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37092741734"
-   },
-   "last_seen": "2026-10-03T03:18:10Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / Security \u2014 npm audit (high CVEs block, dated allowlist) (log unavailable)",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop",
-    "feat/polity-constitution-reporting"
-   ],
-   "category": "unknown",
-   "count": 2,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "fdbc2a5abd6db342aecb0867a97ccd312bd7618d",
-    "step": "Tests with coverage",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36468403086"
-   },
-   "last_seen": "2026-09-28T18:53:40Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / Tests with coverage (log unavailable)",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "feat/prune-i18n-keys",
     "fix/no-best-method-from-a-tie"
    ],
@@ -1494,6 +1486,27 @@
    "signature": "unknown: Frontend: Tests + Coverage + Security / Type coverage \u2014 no regression (blocking) (log unavailable)",
    "workflows": [
     "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-nvfp4-probe-profile",
+    "feat/polity-s24-first-wave"
+   ],
+   "category": "unknown",
+   "count": 2,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [],
+    "pr": [],
+    "sha": "73b22dbf07ac2e8aef321cbceac8532e6c84a08a",
+    "step": "Generated doc blocks in sync",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36193831964"
+   },
+   "last_seen": "2026-09-25T21:52:07Z",
+   "signature": "unknown: Generated artifacts in sync / Generated doc blocks in sync (log unavailable)",
+   "workflows": [
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -1536,26 +1549,6 @@
    "signature": "unknown: Playwright E2E / Install frontend dependencies (log unavailable)",
    "workflows": [
     "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "unknown",
-   "count": 2,
-   "example": {
-    "job": "Secret Scan",
-    "lines": [],
-    "pr": [],
-    "sha": "a87b23adb06693f0dc538b80883e0dc32f030e5f",
-    "step": "Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36427791139"
-   },
-   "last_seen": "2026-09-28T13:19:23Z",
-   "signature": "unknown: Secret Scan / Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e (log unavailable)",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -1605,6 +1598,33 @@
    "signature": "code: ##[error]fetch failed",
    "workflows": [
     "Dependency Review"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-extra-legal"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [
+     "Resolved 1 package in 67ms",
+     "Installed 1 package in 3ms",
+     " + cogapp==3.6.0",
+     "Check failed",
+     "Checking docs/plan/polity/polity-llm-reference.md  (changed)",
+     "##[error]Process completed with exit code 5."
+    ],
+    "pr": [],
+    "sha": "23b3462d0739c0c736228b5696bdb967af77aeb3",
+    "step": "Generated doc blocks in sync",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36747781108"
+   },
+   "last_seen": "2026-09-30T16:55:53Z",
+   "signature": "code: Checking docs/plan/polity/polity-llm-reference.md  (changed)",
+   "workflows": [
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -1690,13 +1710,13 @@
   }
  ],
  "failures_by_category": {
-  "advisory": 3,
-  "code": 344,
+  "advisory": 17,
+  "code": 369,
   "infra": 11,
-  "test-flaky": 9,
-  "unknown": 143
+  "test-flaky": 10,
+  "unknown": 104
  },
- "generated_at": "2026-10-05T02:51:14Z",
+ "generated_at": "2026-10-05T02:56:51Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1877,7 +1897,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 9
+    "failure": 10
    }
   },
   "CI Health Watchdog": {
@@ -2391,7 +2411,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 10
+    "skipped": 11
    }
   },
   "Mutation Testing": {
@@ -2717,7 +2737,7 @@
    },
    "2026-10-05": {
     "cancelled": 8,
-    "skipped": 38,
+    "skipped": 43,
     "success": 32
    }
   }
@@ -2740,9 +2760,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T02:45:12Z",
+   "created_at": "2026-10-05T02:51:05Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256623128"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257006794"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2789,9 +2809,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T02:41:39Z",
+   "created_at": "2026-10-05T02:58:26Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256394976"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257498723"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2823,13 +2843,13 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-05T02:53:34Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-05T02:58:09Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257170233"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257480430"
   }
  },
- "runs": 11450,
+ "runs": 11466,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2860,12 +2880,12 @@
     "2026-10-02": 128.5,
     "2026-10-03": 13,
     "2026-10-04": 12,
-    "2026-10-05": 10.0
+    "2026-10-05": 10
    },
    "p50_s": 148,
    "p95_s": 432,
    "queue_p50_s": 0,
-   "runs": 1324
+   "runs": 1325
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2928,12 +2948,12 @@
     "2026-10-02": 11,
     "2026-10-03": 10.0,
     "2026-10-04": 10,
-    "2026-10-05": 10.5
+    "2026-10-05": 10
    },
    "p50_s": 8,
    "p95_s": 86,
    "queue_p50_s": 0,
-   "runs": 1023
+   "runs": 1024
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2955,12 +2975,12 @@
     "2026-10-02": 12,
     "2026-10-03": 11,
     "2026-10-04": 11,
-    "2026-10-05": 10.5
+    "2026-10-05": 10
    },
    "p50_s": 10,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 528
+   "runs": 529
   },
   "Check Merge Source": {
    "daily_p50_s": {
@@ -3055,12 +3075,12 @@
     "2026-10-02": 13,
     "2026-10-03": 10.0,
     "2026-10-04": 10.0,
-    "2026-10-05": 11.0
+    "2026-10-05": 11
    },
    "p50_s": 11,
    "p95_s": 100,
    "queue_p50_s": 0,
-   "runs": 939
+   "runs": 940
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3091,12 +3111,12 @@
     "2026-10-02": 573,
     "2026-10-03": 46,
     "2026-10-04": 663.5,
-    "2026-10-05": 679
+    "2026-10-05": 625.5
    },
    "p50_s": 530,
    "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1150
+   "runs": 1151
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3127,12 +3147,12 @@
     "2026-10-02": 12,
     "2026-10-03": 13,
     "2026-10-04": 197.0,
-    "2026-10-05": 248
+    "2026-10-05": 227.0
    },
    "p50_s": 20,
    "p95_s": 285,
    "queue_p50_s": 0,
-   "runs": 1263
+   "runs": 1264
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3163,24 +3183,24 @@
     "2026-10-02": 90.5,
     "2026-10-03": 41.5,
     "2026-10-04": 11,
-    "2026-10-05": 11.0
+    "2026-10-05": 11
    },
    "p50_s": 73,
    "p95_s": 216,
    "queue_p50_s": 0,
-   "runs": 1365
+   "runs": 1366
   },
   "Human review attestation": {
    "daily_p50_s": {
     "2026-10-02": 26.0,
     "2026-10-03": 13.5,
     "2026-10-04": 13.5,
-    "2026-10-05": 11
+    "2026-10-05": 12.5
    },
    "p50_s": 14,
    "p95_s": 23,
    "queue_p50_s": 0,
-   "runs": 85
+   "runs": 86
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3286,12 +3306,12 @@
     "2026-10-02": 128.0,
     "2026-10-03": 121.0,
     "2026-10-04": 128,
-    "2026-10-05": 128
+    "2026-10-05": 127.5
    },
-   "p50_s": 120,
+   "p50_s": 119,
    "p95_s": 385,
    "queue_p50_s": 0,
-   "runs": 1349
+   "runs": 1350
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -3331,9 +3351,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T02:45:12Z",
+     "created_at": "2026-10-05T02:51:05Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256623128"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257006794"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
