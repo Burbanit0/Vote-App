@@ -3,6 +3,9 @@ import {
   buildScene,
   censusAt,
   partyStyles,
+  MAP_COLORS,
+  MAP_COLORS_DARK,
+  mapColors,
   styleOf,
   type SceneInput,
 } from './mapScene';
@@ -132,6 +135,13 @@ describe('population map scene', () => {
       148
     );
     expect(scene.legend.map((l) => l.key)).toEqual(['party0', 'party1', 'party7', 'noParty']);
+  });
+
+  it('has a dark step for every colour, and picks the palette by theme', () => {
+    // A colour added to the light palette and not the dark one would draw as undefined at night.
+    expect(Object.keys(MAP_COLORS_DARK).sort()).toEqual(Object.keys(MAP_COLORS).sort());
+    expect(mapColors(false)).toBe(MAP_COLORS);
+    expect(mapColors(true)).toBe(MAP_COLORS_DARK);
   });
 
   it('falls back on a code it does not know and on an empty population', () => {

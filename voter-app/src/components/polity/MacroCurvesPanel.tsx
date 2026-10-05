@@ -21,7 +21,7 @@ import {
   pressureRows,
   type ElectionInput,
 } from '../../lib/polity/macroSeries';
-import { MAP_COLORS } from '../../lib/polity/mapScene';
+import { mapColors, type MapColor } from '../../lib/polity/mapScene';
 import { usePolityCtx } from './PolityController';
 
 // The run's curves (Recharts, loaded on demand — ADR-005): the sitting
@@ -29,19 +29,21 @@ import { usePolityCtx } from './PolityController';
 // presidential election's turnout and blank share with where that share comes
 // from. A marker follows the player; a click on a chart moves it.
 
-const PRESSURE_COLORS: Record<(typeof PRESSURE_KEYS)[number], string> = {
-  nothing: MAP_COLORS.muted,
-  signPetition: MAP_COLORS.sky,
-  launchPetition: MAP_COLORS.blue,
-  mobilize: MAP_COLORS.vermillion,
-  waitForElection: MAP_COLORS.green,
+// Colours by name, resolved against the theme's palette at render -- the act a curve shows is the
+// same act the map's lens shows, so both must take the same step in dark mode.
+const PRESSURE_COLORS: Record<(typeof PRESSURE_KEYS)[number], MapColor> = {
+  nothing: 'muted',
+  signPetition: 'sky',
+  launchPetition: 'blue',
+  mobilize: 'vermillion',
+  waitForElection: 'green',
 };
 // The standing's four lines, by the API's field: label, colour, dash.
 const STANDING_LINES = [
-  ['legitimacy', 'macro.legitimacy', MAP_COLORS.blue, undefined],
-  ['mandate_strength', 'macro.mandateStrength', MAP_COLORS.green, undefined],
-  ['approval', 'macro.approval', MAP_COLORS.purple, undefined],
-  ['ecart', 'macro.ecart', MAP_COLORS.vermillion, '4 2'],
+  ['legitimacy', 'macro.legitimacy', 'blue', undefined],
+  ['mandate_strength', 'macro.mandateStrength', 'green', undefined],
+  ['approval', 'macro.approval', 'purple', undefined],
+  ['ecart', 'macro.ecart', 'vermillion', '4 2'],
 ] as const;
 const ELECTION_COLUMNS = [
   'tableTick',
@@ -69,6 +71,7 @@ const MacroCurvesPanel: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, tick, setTick, setCitizen } = usePolityCtx();
   const theme = useChartTheme();
+  const colors = mapColors(theme.isDark);
   if (!overview) return null;
 
   const { standings, elections } = overview;
@@ -99,7 +102,7 @@ const MacroCurvesPanel: React.FC = () => {
                   key={field}
                   dataKey={field}
                   name={t(label)}
-                  stroke={color}
+                  stroke={colors[color]}
                   strokeDasharray={dash}
                   dot={false}
                   connectNulls={false}
@@ -129,7 +132,7 @@ const MacroCurvesPanel: React.FC = () => {
                 dataKey={key}
                 stackId="acts"
                 name={t(`map.legend.${key}`)}
-                fill={PRESSURE_COLORS[key]}
+                fill={colors[PRESSURE_COLORS[key]]}
                 isAnimationActive={false}
               />
             ))}
