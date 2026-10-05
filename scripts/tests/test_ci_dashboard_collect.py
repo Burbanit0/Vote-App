@@ -60,6 +60,26 @@ class Classify(unittest.TestCase):
     def test_error_lines_fall_back_to_the_tail(self):
         self.assertEqual(collect.error_lines("one\n\ntwo\n"), ["one", "two"])
 
+    def test_a_bare_exit_line_keeps_the_commands_last_output(self):
+        log = ("2026-10-04T10:00:00.1Z ##[group]Run npm ci\n"
+               "2026-10-04T10:00:00.2Z [command]/usr/bin/npm ci\n"
+               "2026-10-04T10:00:01.0Z added 12 packages\n"
+               "2026-10-04T10:00:02.0Z ETARGET No matching version for foo@^9\n"
+               "2026-10-04T10:00:03.0Z ##[error]Process completed with exit code 1.\n")
+        lines = collect.error_lines(log)
+        self.assertEqual(lines, ["added 12 packages", "ETARGET No matching version for foo@^9",
+                                 "##[error]Process completed with exit code 1."])
+        self.assertEqual(collect.signature("code", lines), "code: ETARGET No matching version for foo@^#")
+
+    def test_npm_errors_are_error_lines(self):
+        self.assertEqual(collect.error_lines("npm error code ERESOLVE\nnoise\n"), ["npm error code ERESOLVE"])
+
+    def test_signature_skips_the_runners_generic_exit_line(self):
+        lines = ["Error: browserType.launch: Executable doesn't exist", "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", lines), "code: Error: browserType.launch: Executable doesn't exist")
+        self.assertEqual(collect.signature("code", ["##[error]Process completed with exit code 2."]),
+                         "code: ##[error]Process completed with exit code #.")  # nothing else: kept
+
     def test_signature_groups_the_same_error_across_runs(self):
         a = collect.signature("code", ["FAILED test_x.py::t - took 1.25s at line 40 in /tmp/abc"])
         b = collect.signature("code", ["FAILED test_x.py::t - took 3.5s at line 41 in /tmp/xyz"])
@@ -155,9 +175,13 @@ class Fetch(unittest.TestCase):
         r["log_tries"] = collect.LOG_RETRIES
         self.assertFalse(collect.needs_log(r, NOW))  # gave up
         r["log_tries"] = 1
-        self.assertFalse(collect.needs_log(r, NOW + timedelta(days=8)))  # too old to be worth it
-        r["failure"] = {"category": "code", "signature": "code: y"}
+        self.assertTrue(collect.needs_log(r, NOW + timedelta(days=20)))  # GitHub still has the log
+        self.assertFalse(collect.needs_log(r, NOW + timedelta(days=86)))  # GitHub has deleted it
+        r["failure"] = {"category": "code", "signature": "code: y", "lines": ["E   assert 1"]}
         self.assertFalse(collect.needs_log(r, NOW))  # read fine: never again
+        r["failure"] = {"category": "code", "signature": "code: #",
+                        "lines": ["##[error]Process completed with exit code 1."]}
+        self.assertTrue(collect.needs_log(r, NOW))  # only the bare exit line was kept: read again
 
 
 class Reruns(unittest.TestCase):
@@ -186,6 +210,21 @@ class Reruns(unittest.TestCase):
         fail["failure"] = {"category": "code", "signature": "code: FAILED t", "job": "j", "step": "s", "lines": []}
         collect.mark_flaky([fail, collect.record(run(7, attempt=2))])
         self.assertEqual(fail["failure"]["category"], "test-flaky")
+
+
+class Rekey(unittest.TestCase):
+    def test_stored_failures_are_regrouped_with_the_current_rule(self):
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%dT10:00:00Z")
+        old = collect.record(run(1, conclusion="failure", created=today))
+        old["failure"] = {"category": "code", "job": "j", "step": "s",
+                          "lines": ["E   assert 1 == 2", "##[error]Process completed with exit code 1."],
+                          "signature": "code: ##[error]Process completed with exit code #."}
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(collect, "gh_json", return_value={"workflow_runs": []}):
+            (Path(d) / "runs.jsonl").write_text(json.dumps(old) + "\n")
+            collect.main(["--data", d])
+            got = json.loads((Path(d) / "runs.jsonl").read_text().splitlines()[0])
+        self.assertEqual(got["failure"]["signature"], "code: E   assert # == #")
 
 
 class Main(unittest.TestCase):

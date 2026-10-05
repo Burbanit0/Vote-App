@@ -58,7 +58,8 @@ CATEGORIES: list[tuple[str, re.Pattern[str]]] = [
 ]
 ERROR_RE = re.compile(
     r"##\[error\]|(^|\s)(FAILED|ERROR|Error:|error:|AssertionError|Traceback|✗|×|::error::|"
-    r"error TS\d+|E\s{3}|FAIL\s|Process completed with exit code [1-9])")
+    r"error TS\d+|E\s{3}|FAIL\s|npm (ERR!|error)|Process completed with exit code [1-9])")
+GENERIC = re.compile(r"Process completed with exit code")
 TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 NOISE = re.compile(r"[0-9a-f]{7,40}|\d+(\.\d+)?(ms|s)?|/tmp/\S+|line \d+")
@@ -151,6 +152,12 @@ def earlier_attempts(repo: str, fresh: list[dict], seen: set) -> list[dict]:
 def error_lines(log: str) -> list[str]:
     lines = [TIMESTAMP.sub("", ANSI.sub("", ln)).rstrip() for ln in log.splitlines()]
     hits = [ln for ln in lines if ERROR_RE.search(ln) and "##[group]" not in ln]
+    if hits and all(GENERIC.search(h) for h in hits):
+        # Only the runner's closing exit-code line matched: keep what the failing
+        # command printed just before it, which is where the cause is.
+        end = next(i for i, ln in enumerate(lines) if GENERIC.search(ln))
+        context = [ln for ln in lines[:end] if ln.strip() and not ln.startswith(("##[", "[command]"))]
+        return (context[-(ERROR_LINES - 1):] + [lines[end]])
     return (hits or [ln for ln in lines if ln.strip()])[-ERROR_LINES:]
 
 
@@ -164,7 +171,12 @@ def categorize(lines: list[str]) -> str:
 
 def signature(category: str, lines: list[str]) -> str:
     """A stable key for grouping the same failure across runs."""
-    first = next((ln for ln in lines if ERROR_RE.search(ln)), lines[0] if lines else "")
+    # The runner's closing "Process completed with exit code N" says nothing about
+    # the cause and would lump every failure together: prefer the line before it.
+    hits = [ln for ln in lines if ERROR_RE.search(ln)]
+    specific = [ln for ln in hits if not GENERIC.search(ln)]
+    context = [ln for ln in lines if not GENERIC.search(ln)]
+    first = (specific or context[-1:] or hits or [""])[0]
     return f"{category}: {NOISE.sub('#', first).strip()[:140]}"
 
 
@@ -188,16 +200,20 @@ def failure_detail(repo: str, run: dict) -> dict:
 
 
 LOG_RETRIES = 3
+LOG_MAX_AGE = timedelta(days=85)  # GitHub keeps job logs 90 days
 
 
 def needs_log(r: dict, now: datetime) -> bool:
-    """Unread, or unreadable last time (a few retries while the log is young)."""
+    """Unread, or unreadable or reduced to the runner's bare exit line last time
+    (a few retries while GitHub still has the log)."""
     f = r.get("failure")
     if f is None:
         return True
     created = iso(r["created_at"])
-    return (f.get("category") == "unknown" and r.get("log_tries", 1) < LOG_RETRIES
-            and created is not None and now - created < timedelta(days=7))
+    vague = f.get("category") == "unknown" or (
+        bool(f.get("lines")) and all(GENERIC.search(ln) for ln in f["lines"]))
+    return (vague and r.get("log_tries", 1) < LOG_RETRIES
+            and created is not None and now - created < LOG_MAX_AGE)
 
 
 def mark_flaky(records: list[dict]) -> None:
@@ -352,6 +368,12 @@ def main(argv: list[str] | None = None) -> int:
                 r["failure"] = {"category": "unknown", "job": None, "step": None, "lines": [],
                                 "signature": "unknown: run details unavailable"}
             fetched += 1
+    # Re-key stored failures from their error lines, so a better signature rule
+    # also regroups the history (mark_flaky then re-applies its own prefix).
+    for r in records:
+        f = r.get("failure")
+        if f and f.get("lines") and f["category"] != "test-flaky":
+            f["signature"] = signature(f["category"], f["lines"])
     mark_flaky(records)
     history_path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in records), encoding="utf-8")
     summary = summarize(records, read_baselines(ROOT), now)
