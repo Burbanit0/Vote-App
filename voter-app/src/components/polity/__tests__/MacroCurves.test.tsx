@@ -174,6 +174,12 @@ describe('MacroCurves', () => {
 
     fireEvent.click(within(row(8)).getByRole('button', { name: '8' }));
     await waitFor(() => expect(new URLSearchParams(spy.search()).get('tick')).toBe('8'));
+    // A winner opens their story; an election without one has nobody to open.
+    expect(
+      within(row(8)).queryByRole('button', { name: /Select citizen/ })
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(row(12)).getByRole('button', { name: 'Select citizen 5' }));
+    await waitFor(() => expect(new URLSearchParams(spy.search()).get('citizen')).toBe('5'));
   });
 
   it('moves the player to a clicked tick', async () => {

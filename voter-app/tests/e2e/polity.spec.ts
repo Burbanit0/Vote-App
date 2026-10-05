@@ -93,7 +93,7 @@ test.describe('Polity — run explorer', () => {
     for (const tick of [0, 10, 12]) {
       await expect(page.getByTestId(`polity-election-${tick}`)).toBeVisible();
     }
-    await page.getByTestId('polity-election-10').getByRole('button').click();
+    await page.getByTestId('polity-election-10').getByRole('button', { name: '10' }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('10');
   });
 
