@@ -4,6 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import PolityPage from '../../../pages/PolityPage';
+import InstitutionalTimeline from '../InstitutionalTimeline';
+import { PolityProvider } from '../PolityController';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 import { makeSearchSpy, runOverview, servePolity } from '../../../test/polityApi';
 
@@ -162,6 +164,11 @@ describe('InstitutionalTimeline', () => {
     ],
   });
 
+  const jump = (event: string, tick: number) =>
+    document.querySelector(
+      `[data-testid="timeline-event-jump"][data-event="${event}"][data-tick="${tick}"]`
+    ) as HTMLElement;
+
   async function renderTimeline(url = '/polity', overview = story) {
     servePolity(apiClient.GET, { overview });
     render(
@@ -207,9 +214,8 @@ describe('InstitutionalTimeline', () => {
       document.querySelector(`[data-testid="timeline-glyph"][data-kind="${kind}"] path`);
     expect(shapeOf('extraLegal')).toHaveClass('fill-red-700');
     expect(shapeOf('campaign')).toHaveClass('stroke-emerald-700');
-    const jumps = screen.getAllByTestId('timeline-event-jump');
-    expect(jumps.at(-2)).toHaveTextContent('Tick 12: extra-legal act');
-    expect(jumps.at(-1)).toHaveTextContent('Tick 12: campaign');
+    expect(jump('extra_legal_act', 12)).toHaveTextContent('Tick 12: extra-legal act');
+    expect(jump('campaign_run', 12)).toHaveTextContent('Tick 12: campaign');
     const x6 = screen.getByTestId('timeline-playhead').getAttribute('x1');
     fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
     await waitFor(() =>
@@ -270,11 +276,54 @@ describe('InstitutionalTimeline', () => {
     fireEvent.click(svg, { clientX: 100 + 400 });
     await waitFor(() => expect(tickParam()).toBe('6'));
 
-    const jumps = screen.getAllByTestId('timeline-event-jump');
-    expect(jumps[1]).toHaveTextContent('Tick 9: president recalled');
-    expect(jumps[7]).toHaveTextContent('Tick 12: brand_new_event');
-    fireEvent.click(jumps[1]);
+    // The list folds by lane, in lane order: elections first, the society lane last.
+    expect(
+      screen
+        .getAllByTestId(/^timeline-events-/)
+        .map((lane) => lane.querySelector('summary')?.textContent)
+    ).toEqual(['Elections 4', 'Checks 3', 'Legislature 1', 'Constitution 2', 'Society 2']);
+    expect(jump('recalled', 9)).toHaveTextContent('Tick 9: president recalled');
+    expect(jump('brand_new_event', 12)).toHaveTextContent('Tick 12: brand_new_event');
+    fireEvent.click(jump('recalled', 9));
     await waitFor(() => expect(tickParam()).toBe('9'));
+  });
+
+  it('draws nothing until its run is there', async () => {
+    servePolity(apiClient.GET, { failRun: true });
+    render(
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <MemoryRouter initialEntries={['/polity']}>
+          <PolityProvider>
+            <InstitutionalTimeline />
+          </PolityProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await waitFor(() => expect(apiClient.GET).toHaveBeenCalled());
+    expect(screen.queryByTestId('polity-timeline')).not.toBeInTheDocument();
+  });
+
+  it('lets a long run scroll on a narrow screen, keeping the playhead in view', async () => {
+    let scrollLeft = 0;
+    const scrolled: number[] = [];
+    const spies = [
+      vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(300),
+      vi.spyOn(Element.prototype, 'scrollLeft', 'get').mockImplementation(() => scrollLeft),
+      vi.spyOn(Element.prototype, 'scrollLeft', 'set').mockImplementation((value: number) => {
+        scrollLeft = value;
+        scrolled.push(value);
+      }),
+    ];
+    try {
+      const svg = await renderTimeline('/polity', runOverview('aaaa', { last_tick: 120 }));
+      expect(svg).toHaveAttribute('width', '968'); // 121 ticks at 8 px, wider than its 800 px holder
+      expect(scrolled).toEqual([]); // tick 0 is in view
+      fireEvent.keyDown(screen.getByTestId('polity-player'), { key: 'End' });
+      // The last tick sits at 956 px: it comes back to the middle of the 300 px view.
+      await waitFor(() => expect(scrolled).toEqual([806]));
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
   });
 
   it('fits the width its container reports', async () => {

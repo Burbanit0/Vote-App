@@ -50,7 +50,9 @@ test.describe('Polity — run explorer', () => {
     await expect(timeline.getByTestId('timeline-term')).toHaveCount(3);
     await expect(timeline.getByTestId('timeline-legend-recall')).toBeVisible();
 
-    await timeline.locator('details > summary').click();
+    // The event list folds by lane: a recall is under the checks.
+    await timeline.locator('details > summary').first().click();
+    await timeline.getByTestId('timeline-events-accountability').locator('summary').click();
     await timeline
       .locator('[data-testid="timeline-event-jump"][data-event="recalled"][data-tick="11"]')
       .click();
