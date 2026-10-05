@@ -49,7 +49,9 @@ const polityEn: PolityKeys = {
     jump: 'Tick {{tick}}: {{event}}',
     eventList: 'Events, to jump to their tick',
     legendLabel: 'Timeline legend',
+    vacancy: 'Presidency vacant from tick {{start}} until tick {{end}}',
     legend: {
+      vacancy: 'presidency vacant',
       elected: 'election won',
       noWinner: 'election without a winner, or invalidated',
       snap: 'snap election',

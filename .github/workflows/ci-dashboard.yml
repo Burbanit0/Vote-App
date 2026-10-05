@@ -1,6 +1,6 @@
 name: CI Dashboard
 
-# Hourly: collect every completed workflow run (scripts/ci_dashboard/collect.py),
+# Hourly, and after each CI run on polity or develop: collect every completed workflow run (scripts/ci_dashboard/collect.py),
 # keep the history on the unprotected `ci-data` branch (runs.jsonl, 30 days),
 # and publish ci-dashboard/index.html + summary.json to GitHub Pages.
 #
@@ -13,6 +13,25 @@ name: CI Dashboard
 # cannot loop.
 
 on:
+  # GitHub drops schedule events under load (the hourly slot fired once in its
+  # first seven hours), so a finished CI run on polity or develop also starts a
+  # collection. The names must match each workflow's `name:` exactly: a test
+  # (scripts/tests/test_ci_dashboard_collect.py) locks them to the files.
+  workflow_run:
+    workflows:
+      - Backend CI
+      - Frontend CI
+      - E2E Tests
+      - Security Audit
+      - Generated Artifacts Contract
+      - Mutation Testing
+      - Coverage-Guided Fuzzing (atheris)
+      - DAST — ZAP Baseline
+      - Schemathesis Contract Fuzzing
+      - Backend Flaky Test Hunt
+      - CI Health Watchdog
+    types: [completed]
+    branches: [polity, develop]
   schedule:
     - cron: "17 * * * *"
     - cron: "47 6 * * 1" # Mondays: also rebuild the "CI weekly report" issue

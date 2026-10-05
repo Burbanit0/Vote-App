@@ -46,8 +46,68 @@ class Classify(unittest.TestCase):
         self.assertEqual(collect.error_lines(log),
                          ["FAILED api/tests/test_a.py::test_b", "##[error]Process completed with exit code 1."])
 
+    def test_error_lines_strip_colour_codes(self):
+        log = "2026-10-04T10:00:01.2Z \x1b[31;1mFAILED\x1b[0m api/tests/test_a.py::test_b\n"
+        self.assertEqual(collect.error_lines(log), ["FAILED api/tests/test_a.py::test_b"])
+
+    def test_logs_are_fetched_with_escape_sequences_allowed(self):
+        # gh refuses to print a response with terminal escapes, and every job log has them.
+        done = mock.Mock(returncode=0, stdout=b"\x1b[31mlog\x1b[0m", stderr=b"")
+        with mock.patch.object(collect.subprocess, "run", return_value=done) as run_:
+            self.assertEqual(collect.gh_text("repos/o/r/actions/jobs/1/logs"), ("\x1b[31mlog\x1b[0m", ""))
+        self.assertIn("--allow-escape-sequences", run_.call_args.args[0])
+
     def test_error_lines_fall_back_to_the_tail(self):
         self.assertEqual(collect.error_lines("one\n\ntwo\n"), ["one", "two"])
+
+    def test_a_bare_exit_line_keeps_the_commands_last_output(self):
+        log = ("2026-10-04T10:00:00.1Z ##[group]Run npm ci\n"
+               "2026-10-04T10:00:00.2Z [command]/usr/bin/npm ci\n"
+               "2026-10-04T10:00:01.0Z added 12 packages\n"
+               "2026-10-04T10:00:02.0Z ETARGET No matching version for foo@^9\n"
+               "2026-10-04T10:00:03.0Z ##[error]Process completed with exit code 1.\n")
+        lines = collect.error_lines(log)
+        self.assertEqual(lines, ["added 12 packages", "ETARGET No matching version for foo@^9",
+                                 "##[error]Process completed with exit code 1."])
+        self.assertEqual(collect.signature("code", lines), "code: ETARGET No matching version for foo@^#")
+
+    def test_npm_errors_are_error_lines(self):
+        self.assertEqual(collect.error_lines("npm error code ERESOLVE\nnoise\n"), ["npm error code ERESOLVE"])
+
+    def test_long_error_output_keeps_its_head_and_tail(self):
+        log = "\n".join(["npm error code ERESOLVE", "npm error ERESOLVE could not resolve peer dependency"]
+                        + [f"npm error detail {i}" for i in range(10)]
+                        + ["npm error For a full report see:", "npm error A complete log of this run can be found in: x",
+                           "##[error]Process completed with exit code 1."])
+        lines = collect.error_lines(log)
+        self.assertEqual(lines[:2], ["npm error code ERESOLVE", "npm error ERESOLVE could not resolve peer dependency"])
+        self.assertEqual(lines[-1], "##[error]Process completed with exit code 1.")
+        self.assertEqual(collect.signature("code", lines),
+                         "code: npm error code ERESOLVE")
+
+    def test_a_failure_with_only_boilerplate_is_read_again(self):
+        r = collect.record(run(1, conclusion="failure"))
+        r["failure"] = {"category": "code", "signature": "code: x", "lines": [
+            "npm error", "npm error For a full report see:", "npm error /home/runner/.npm/_logs/x-eresolve-report.txt",
+            "##[error]Process completed with exit code 1."]}
+        r["log_tries"] = 1
+        self.assertTrue(collect.needs_log(r, NOW))
+
+    def test_signature_skips_lines_that_name_nothing(self):
+        npm = ["npm error", "npm error code E404", "npm error 404 Not Found - GET https://registry/foo",
+               "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", npm), "code: npm error # Not Found - GET https://registry/foo")
+        ruff = ["F401 `os` imported but unused", "Found 3 errors.", "[*] 3 fixable with the `--fix` option.",
+                "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", ruff), "code: F# `os` imported but unused")
+        rule = ["-------------", "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", rule), "code: -------------")  # nothing better: kept
+
+    def test_signature_skips_the_runners_generic_exit_line(self):
+        lines = ["Error: browserType.launch: Executable doesn't exist", "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", lines), "code: Error: browserType.launch: Executable doesn't exist")
+        self.assertEqual(collect.signature("code", ["##[error]Process completed with exit code 2."]),
+                         "code: ##[error]Process completed with exit code #.")  # nothing else: kept
 
     def test_signature_groups_the_same_error_across_runs(self):
         a = collect.signature("code", ["FAILED test_x.py::t - took 1.25s at line 40 in /tmp/abc"])
@@ -129,10 +189,28 @@ class Fetch(unittest.TestCase):
         jobs = {"jobs": [{"id": 9, "name": "Tests", "conclusion": "failure",
                           "steps": [{"name": "pytest", "conclusion": "failure"}]}]}
         with mock.patch.object(collect, "gh_json", return_value=jobs), \
-                mock.patch.object(collect, "gh_text", return_value=None):
+                mock.patch.object(collect, "gh_text", return_value=("", "HTTP 403: Resource not accessible")):
             got = collect.failure_detail("o/r", collect.record(run(1, conclusion="failure")))
         self.assertEqual((got["category"], got["signature"]),
                          ("unknown", "unknown: Tests / pytest (log unavailable)"))
+        self.assertEqual(got["log_error"], "HTTP 403: Resource not accessible")
+
+    def test_an_unreadable_log_is_retried_a_few_times_while_young(self):
+        r = collect.record(run(1, conclusion="failure"))
+        self.assertTrue(collect.needs_log(r, NOW))  # never read
+        r["failure"] = {"category": "unknown", "signature": "unknown: x"}
+        r["log_tries"] = 1
+        self.assertTrue(collect.needs_log(r, NOW))
+        r["log_tries"] = collect.LOG_RETRIES
+        self.assertFalse(collect.needs_log(r, NOW))  # gave up
+        r["log_tries"] = 1
+        self.assertTrue(collect.needs_log(r, NOW + timedelta(days=20)))  # GitHub still has the log
+        self.assertFalse(collect.needs_log(r, NOW + timedelta(days=86)))  # GitHub has deleted it
+        r["failure"] = {"category": "code", "signature": "code: y", "lines": ["E   assert response.status_code == 200"]}
+        self.assertFalse(collect.needs_log(r, NOW))  # read fine: never again
+        r["failure"] = {"category": "code", "signature": "code: #",
+                        "lines": ["##[error]Process completed with exit code 1."]}
+        self.assertTrue(collect.needs_log(r, NOW))  # only the bare exit line was kept: read again
 
 
 class Reruns(unittest.TestCase):
@@ -163,6 +241,39 @@ class Reruns(unittest.TestCase):
         self.assertEqual(fail["failure"]["category"], "test-flaky")
 
 
+class Rekey(unittest.TestCase):
+    def test_stored_failures_are_regrouped_with_the_current_rule(self):
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%dT10:00:00Z")
+        old = collect.record(run(1, conclusion="failure", created=today))
+        old["failure"] = {"category": "code", "job": "j", "step": "s",
+                          "lines": ["E   assert result.winner == 'Alice'", "##[error]Process completed with exit code 1."],
+                          "signature": "code: ##[error]Process completed with exit code #."}
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(collect, "gh_json", return_value={"workflow_runs": []}):
+            (Path(d) / "runs.jsonl").write_text(json.dumps(old) + "\n")
+            collect.main(["--data", d])
+            got = json.loads((Path(d) / "runs.jsonl").read_text().splitlines()[0])
+        self.assertEqual(got["failure"]["signature"], "code: E   assert result.winner == 'Alice'")
+
+
+class Triggers(unittest.TestCase):
+    def test_workflow_run_names_match_the_workflow_files(self):
+        # A misspelt name in `workflow_run.workflows` silently never fires.
+        wf_dir = collect.ROOT / ".github" / "workflows"
+        text = (wf_dir / "ci-dashboard.yml").read_text(encoding="utf-8")
+        block = text.split("    workflows:\n", 1)[1].split("    types:", 1)[0]
+        listed = [ln.strip()[2:].strip() for ln in block.splitlines() if ln.strip().startswith("- ")]
+        names = set()
+        for f in wf_dir.glob("*.y*ml"):
+            for ln in f.read_text(encoding="utf-8").splitlines():
+                if ln.startswith("name:"):
+                    names.add(ln.split(":", 1)[1].strip().strip("'\""))
+                    break
+        self.assertGreaterEqual(len(listed), 5)
+        self.assertEqual([n for n in listed if n not in names], [])
+        self.assertNotIn("CI Dashboard", listed)  # never itself: it would loop
+
+
 class Main(unittest.TestCase):
     def test_collects_appends_and_survives_an_unreadable_log(self):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%dT10:00:00Z")  # main() uses the real clock
@@ -187,6 +298,7 @@ class Main(unittest.TestCase):
             runs[:] = many
             collect.main(["--data", d])
             unread = [json.loads(ln) for ln in (data / "runs.jsonl").read_text().splitlines()]
+            # Never-read failures go before the retry of the earlier unreadable log.
             self.assertEqual(sum("failure" not in r for r in unread if r["conclusion"] == "failure"), 2)
             collect.main(["--data", d])
             done = [json.loads(ln) for ln in (data / "runs.jsonl").read_text().splitlines()]
