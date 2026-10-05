@@ -66,6 +66,9 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
+| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
+| [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | open |
+| [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | open |
 
 ---
 
@@ -1591,6 +1594,9 @@ study, not a result claim: the roadmap wants ten for that.
 *Status: cause found* -- the mechanism is understood and needs no change. What stays open is whether 21-23
 raw parties for 100 citizens is the intended texture, which is a modelling question, not a defect.
 
+*Revisited at ten seeds, 2026-10-05: [OBS-040](#obs-040).* The band holds at the last election in 5 of 10
+seeds and at both in none, and the same three seeds re-run on later code rose to a mean of 10.54.
+
 ### OBS-035
 
 **The limit-testing log's one real ask is a way to reach voters; no agent ever reaches for an extra-legal act.**
@@ -1850,3 +1856,123 @@ party-blind memory, and the ensemble run after this fix is the first with party-
 introspection that every `Event` subclass is (it fails, naming `PartyFounded`, if either is removed), and
 `events.py` joins `PROMPT_SOURCE_FILES` so that runs before and after -- which differ in what agents remember
 -- carry different prompt stamps and are not averaged together.
+
+### OBS-040
+
+**At ten seeds the effective number of parties is inside the 1.5-8 band in half of them at the last
+election, and in none at both: Phase 4's exit is not met.**
+
+*Seen.* The ten-seed ensemble [OBS-034](#obs-034) said was owed (`~/Documents/Dev/polity-runs/phase10/`,
+8 years, p100, 15-seat chamber, exploration profile; all ten completed on their first attempt). It is the
+first with party-aware agent memory ([OBS-039](#obs-039)) and with campaigning on ([OBS-037](#obs-037)). It
+started before the term limit was entrenched (#784).
+
+| seed | parties at t8 / t16 / t24 / t32 | founded / dissolved | founds, share of forum turns | effective parties by seats, t8 -> t24 | seated at t24 |
+|---|---|---|---:|---|---:|
+| 1 | 18 / 23 / 25 / 31 | 46 / 20 | 9% | 12.14 -> **16.95** | 18 |
+| 2 | 21 / 23 / 20 / 22 | 45 / 28 | 8% | 12.99 -> **8.85** | 9 |
+| 3 | 21 / 26 / 21 / 25 | 51 / 31 | 9% | 8.94 -> 5.81 | 6 |
+| 4 | 20 / 23 / 24 / 21 | 35 / 19 | 6% | 10.44 -> **9.88** | 10 |
+| 5 | 14 / 15 / 16 / 16 | 17 / 6 | 3% | 12.44 -> **13.48** | 14 |
+| 6 | 21 / 24 / 26 / 27 | 46 / 24 | 9% | 8.26 -> 8.00 | 9 |
+| 7 | 21 / 22 / 23 / 27 | 51 / 29 | 10% | 8.58 -> 7.90 | 8 |
+| 8 | 21 / 25 / 27 / 26 | 54 / 33 | 10% | 9.77 -> 7.45 | 9 |
+| 9 | 21 / 23 / 25 / 23 | 45 / 27 | 8% | 9.51 -> 7.73 | 8 |
+| 10 | 21 / 23 / 22 / 25 | 67 / 47 | 13% | 6.58 -> **9.75** | 10 |
+
+- **The party count changes in 10 of 10 seeds**, against a bar of 30%: that half of the exit holds.
+- **The effective number is inside 1.5-8 at the last election in 5 of 10** (median 8.42, mean 9.58, range
+  5.81-16.95), **at the first in 1 of 10, and at both in none.** OBS-034 set the first election aside as
+  the founding transient, on the grounds that the number falls once it clears; here it rises between the
+  two elections in seeds 1, 5 and 10, so that reading does not hold either.
+- **Two seeds rewrote the rules that set it.** Seed 1 lowered `institutions.electoral_threshold` to 0.03 at
+  tick 7 (15 of 15) and holds the 16.95. Seed 5 raised `parties.founding_ratio` to 0.10 at tick 5 (10 of
+  15); the amendment itself dissolved four parties, founding then fell to the ensemble's lowest, and still
+  14 parties were seated at t24, two of them founded after the change.
+
+*Why so many.* The bar to found a party and the bar to win a seat are the same size: `founding_ratio` 0.05
+of 100 citizens is 5 co-founders, and `electoral_threshold` 0.05 of at most 100 votes is 5 votes, so up to
+20 parties can be seated. Nothing between the two pushes small parties together: ballots are sincere
+(`utility_ballot`), nobody deserts a party that cannot win, there is no merge act, and
+`dissolve_small_parties` never dissolves a party that holds seats, however few members it keeps. Votes are
+spatial rather than loyal -- a party's vote and its membership correlate only weakly (r = 0.38 over the 243
+parties on the ballot at the seeds' last elections).
+
+*Not a sampling accident, and not attributable.* The ensemble re-ran OBS-034's own seeds 1-3, and they rose:
+8.50 / 5.82 / 7.56 then (mean 7.29), 16.95 / 8.85 / 5.81 now (mean 10.54). The configs differ only in
+`campaign.*`; the code also gained the ballot's self-interest line (OBS-038) and the party events in agent
+memory (OBS-039). LLM runs are not reproducible run to run, so one re-run per seed cannot separate those
+changes from noise.
+
+*What would settle it.* A modelling choice, not a defect the data proves. The band is a real-world one, and
+real party systems sit below it partly through the strategic voting this model does not have. The levers
+are the band, `parties.founding_ratio` (OBS-034 found 0.08 would leave 2 citizens of 100 able to found), the
+default electoral threshold, the seated-party exemption from dissolution, or nothing: the polity amends the
+first two itself.
+
+*Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
+
+### OBS-041
+
+**A president elected off the calendar is told the next election is up to 15 ticks later than it is, which
+also kept `refuse_to_leave` from ever being offered.**
+
+*Seen.* Reading why `refuse_to_leave` never fired in the [OBS-040](#obs-040) ensemble. The act is legal only
+for a term-limited president on the tick before their election (ADR-022). Twelve wins left a president
+term-limited (`mandates_served` counts every win, consecutive or not; seeds 5 and 10 had also raised the
+limit to 3, at ticks 2 and 30, through first-term presidents' amendments). Six of those presidents were
+recalled before the tick before their election, and one became term-limited on the run's last tick. The
+other **five did play a president turn on that tick** (seeds 2, 4 and 8 at tick 31, seed 9 at ticks 15 and
+31), and for all five the act was off: each was a snap winner, whose `term_end_tick` pointed 13 to 15 ticks
+past the real election, so `_declares_refusal`'s `ticks_to_election == 1` never held. Three of the five were
+never recalled.
+
+*Cause.* The presidential calendar is fixed (`InstitutionalClock.is_presidential_election`,
+`tick % president_term_ticks == 0`) and resumes once a rerun resolves, but `_hold_presidential_election`
+gave every winner `term_end_tick = tick + term_ticks`. That is the next calendar election only for a winner
+elected on the calendar. A snap winner at tick 11 was given tick 27 while the calendar held the election at
+16, and the winner of a rerun after an invalidated election (blank-vote invalidation, v4 Lot 9, 2026-08-15;
+`blank_vote_competitive` is on in the flagship profile) got one term too late in the same way.
+`ticks_to_election`'s docstring and the comment above the assignment both state the invariant this breaks.
+
+*Why it matters.* 57 of the ensemble's 84 wins were snap elections (it had no invalidated one), and 54 of
+those presidents were told a wrong date: 9 ticks late at the median, 15 at most. `term_end_tick` feeds the
+president's own briefing (`_response_context`'s `ticks_left`), the amendment ballot's proposer line, the
+pressure context, `election_proximity` -- which raises citizens' awakening threshold as an election nears, so
+deterministic runs move too -- and `_declares_refusal`. An agent acting on a false state is what contract
+C3 rules out. Every run with a recall or an invalidated election since those reruns were built carries it.
+
+*A question it raises, not a defect.* `mandates_served` rises at every win, so a one-tick snap term counts as
+a full term against `president_term_limit`. Some constitutions do not count a short remainder (the US 22nd
+Amendment counts more than two years of someone else's term). Whether this one should is the owner's call.
+
+*Status: open* -- the fix, giving an off-calendar winner the next calendar election as its term end, follows
+on its own branch.
+
+### OBS-042
+
+**Two citizens in three stay home at a presidential election, most of them by indifference rather than
+disengagement.**
+
+*Seen.* In the [OBS-040](#obs-040) ensemble a median 66 of 100 citizens abstain at the regular presidential
+elections, 23-48 at tick 0 and 63-78 at tick 32. It is not new: OBS-034's three seeds had a median of 78.
+
+*Most of it is the indifference rule, by construction.* A citizen abstains in `utility_ballot` for two
+reasons only: not being engaged (ADR-021), or `simple_rules.abstains`, which keeps a voter home when their
+best option beats the *next best* by less than `vote.turnout_cost` (0.04, `LLM_TURNOUT_COST`, set by
+`run_polity_flagship.py` for every LLM run). Taking the disengaged and exited citizens out leaves a median of
+44 indifferent abstainers per regular election, and already 23-48 at tick 0, before anyone has disengaged.
+
+*Suspected cause.* Measured against the runner-up, indifference grows common once a ballot carries many
+candidates. The ensemble does not show it growing with the field once tick 0 is set aside (medians 72, 70
+and 72 across fields of 5-9, 10-14 and 15-19 campaigning nominees, on 17 elections), so this stays a
+suspicion.
+
+*Why it matters.* A result that reads this turnout as disaffection would be reading a rule written with a
+field of a few candidates in mind.
+
+*What would settle it.* Re-scoring the recorded elections with the rule comparing the best option with
+something that does not shrink as the field grows (the blank ballot alone, or the voter's mean over the
+field). Whether to change the rule is a modelling call.
+
+*Status: open.*
