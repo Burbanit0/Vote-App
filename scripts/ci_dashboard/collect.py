@@ -60,6 +60,7 @@ ERROR_RE = re.compile(
     r"##\[error\]|(^|\s)(FAILED|ERROR|Error:|error:|AssertionError|Traceback|✗|×|::error::|"
     r"error TS\d+|E\s{3}|FAIL\s|Process completed with exit code [1-9])")
 TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 NOISE = re.compile(r"[0-9a-f]{7,40}|\d+(\.\d+)?(ms|s)?|/tmp/\S+|line \d+")
 
 
@@ -71,8 +72,9 @@ def gh_json(path: str) -> Any:
 
 
 def gh_text(path: str) -> tuple[str, str]:
-    """(body, error): a job log is not JSON and may not be valid UTF-8."""
-    res = subprocess.run(["gh", "api", path], capture_output=True, check=False)
+    """(body, error): a job log is not JSON and may not be valid UTF-8, and it is
+    full of colour codes, which gh refuses to output unless told to."""
+    res = subprocess.run(["gh", "api", "--allow-escape-sequences", path], capture_output=True, check=False)
     if res.returncode != 0:
         err = res.stderr.decode("utf-8", "replace").strip().splitlines()
         return "", (err[-1] if err else f"gh exited {res.returncode}")[:300]
@@ -147,7 +149,7 @@ def earlier_attempts(repo: str, fresh: list[dict], seen: set) -> list[dict]:
 # ── Failures ───────────────────────────────────────────────────────────────
 
 def error_lines(log: str) -> list[str]:
-    lines = [TIMESTAMP.sub("", ln).rstrip() for ln in log.splitlines()]
+    lines = [TIMESTAMP.sub("", ANSI.sub("", ln)).rstrip() for ln in log.splitlines()]
     hits = [ln for ln in lines if ERROR_RE.search(ln) and "##[group]" not in ln]
     return (hits or [ln for ln in lines if ln.strip()])[-ERROR_LINES:]
 
