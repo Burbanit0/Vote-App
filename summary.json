@@ -180,6 +180,48 @@
   },
   {
    "branches": [
+    "chore/sync-develop-into-polity-2026-09-10",
+    "chore/sync-polity-into-develop-20260927",
+    "feat/basedpyright-second-opinion",
+    "feat/centralize-except-exception-logging",
+    "feat/decompose-democratic-backsliding-worker",
+    "feat/decompose-start-monte-carlo",
+    "feat/dedupe-election-workers-jscpd-clones",
+    "feat/lot10-opentelemetry-tracing",
+    "feat/lot14-refurb-perflint-fix",
+    "feat/lot9-atheris-coverage-fuzzing",
+    "feat/polity-call-log-prompts",
+    "feat/polity-emotions-prerequisite-verdict",
+    "feat/polity-president-agent",
+    "feat/schemathesis-contract-fuzzing",
+    "feat/semgrep-custom-rules",
+    "fix/method-registry"
+   ],
+   "category": "code",
+   "count": 20,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "-------------",
+     "Total:   281 lines",
+     "Missing: 6 lines",
+     "Coverage: 97%",
+     "-------------",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715636"
+   },
+   "last_seen": "2026-09-28T12:43:56Z",
+   "signature": "code: -------------",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "code",
@@ -207,42 +249,36 @@
   },
   {
    "branches": [
-    "chore/sync-develop-into-polity-2026-09-10",
-    "chore/sync-polity-into-develop-20260927",
-    "feat/basedpyright-second-opinion",
-    "feat/centralize-except-exception-logging",
-    "feat/decompose-democratic-backsliding-worker",
-    "feat/decompose-start-monte-carlo",
-    "feat/dedupe-election-workers-jscpd-clones",
-    "feat/lot10-opentelemetry-tracing",
-    "feat/lot14-refurb-perflint-fix",
-    "feat/lot9-atheris-coverage-fuzzing",
-    "feat/polity-call-log-prompts",
-    "feat/polity-president-agent",
-    "feat/schemathesis-contract-fuzzing",
-    "feat/semgrep-custom-rules"
+    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
+    "develop",
+    "feat/eslint-plugin-sonarjs",
+    "feat/lot7-i18next-tooling",
+    "feat/lot7-pseudo-locale",
+    "feat/polity-biography-compact",
+    "feat/polity-constitution-reporting",
+    "feat/polity-timeline-phase5-glyphs",
+    "feat/reorganize-shared-components",
+    "feat/restore-arrow-theorem-fiche",
+    "refactor/lot14-type-coverage-anys",
+    "refactor/winner-from-utilities"
    ],
    "category": "code",
-   "count": 17,
+   "count": 16,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
+    "job": "Frontend: Tests + Coverage + Security",
     "lines": [
-     "-------------",
-     "Total:   281 lines",
-     "Missing: 6 lines",
-     "Coverage: 97%",
-     "-------------",
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  520ms",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
+    "sha": "f194e553a557e23d987056b67fdff41c81e2c9f6",
     "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715636"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37238264958"
    },
-   "last_seen": "2026-09-28T12:43:56Z",
-   "signature": "code: -------------",
+   "last_seen": "2026-10-04T21:59:30Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
    "workflows": [
-    "Backend CI"
+    "Frontend CI"
    ]
   },
   {
@@ -279,53 +315,23 @@
   },
   {
    "branches": [
-    "develop",
-    "docs/plan-surface-2l-small-accuracies",
-    "feat/bound-simulation-inputs",
-    "feat/e2e-result-oracle",
-    "feat/fix-copeland-participation",
-    "feat/polity-ui-macro-curves",
-    "feat/polity-ui-population-map",
-    "feat/polity-ui-route-shell",
-    "feat/polity-ui-timeline-player",
-    "feat/restore-arrow-theorem-fiche",
-    "refactor/enable-exhaustive-deps-lint"
-   ],
-   "category": "unknown",
-   "count": 15,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [],
-    "pr": [],
-    "sha": "5831d974050a3d703cb20026a95da2667ba9965b",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35090117768"
-   },
-   "last_seen": "2026-09-16T11:24:12Z",
-   "signature": "unknown: Visual regression (screenshots) / Run visual regression tests (log unavailable)",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "develop"
    ],
    "category": "code",
-   "count": 14,
+   "count": 15,
    "example": {
     "job": "Publish to GitHub Pages",
     "lines": [
      "##[error]Creating Pages deployment failed",
      "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 9C10:2A0D1:478C89F:ED86B83:6AC3131E Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 3240:252C73:61DF46E:144C86E0:6AC3145C Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
     "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
     "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257386476"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
    },
-   "last_seen": "2026-10-05T02:56:43Z",
+   "last_seen": "2026-10-05T03:02:05Z",
    "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
@@ -422,37 +428,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
-    "feat/eslint-plugin-sonarjs",
-    "feat/lot7-i18next-tooling",
-    "feat/lot7-pseudo-locale",
-    "feat/polity-biography-compact",
-    "feat/polity-constitution-reporting",
-    "feat/polity-timeline-phase5-glyphs",
-    "feat/reorganize-shared-components",
-    "refactor/lot14-type-coverage-anys"
-   ],
-   "category": "code",
-   "count": 13,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  520ms",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "f194e553a557e23d987056b67fdff41c81e2c9f6",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37238264958"
-   },
-   "last_seen": "2026-10-04T21:59:30Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "claude/pr-315-plan-push-phase-one-1a6je5",
     "mergify/merge-queue/4439221af0",
     "mergify/merge-queue/4cdbae48ec",
@@ -489,6 +464,36 @@
   },
   {
    "branches": [
+    "dependabot/pip/fast_api_voter/patch-and-minor-3c51789501",
+    "dependabot/pip/fast_api_voter/patch-and-minor-741781a224",
+    "dependabot/pip/fast_api_voter/patch-and-minor-b40ff696ee",
+    "dependabot/pip/fast_api_voter/patch-and-minor-beeed9c07d",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
+    "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
+   ],
+   "category": "code",
+   "count": 11,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "error: No solution found when resolving dependencies",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     727
+    ],
+    "sha": "e4c616f17b0fdd6921f963a1b108e0a20f51563c",
+    "step": "Install production + dev dependencies (from the lockfile)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37038573307"
+   },
+   "last_seen": "2026-10-02T17:07:27Z",
+   "signature": "code: error: No solution found when resolving dependencies",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
     "docs/polity-llm-protocol-and-theory-program",
     "feat/canvas-keyboard-a11y",
     "feat/playground-context-memoization",
@@ -515,6 +520,33 @@
    "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "develop",
+    "feat/bound-simulation-inputs",
+    "feat/e2e-result-oracle",
+    "feat/fix-copeland-participation",
+    "feat/polity-ui-macro-curves",
+    "feat/polity-ui-population-map",
+    "feat/polity-ui-route-shell",
+    "feat/polity-ui-timeline-player"
+   ],
+   "category": "unknown",
+   "count": 11,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [],
+    "pr": [],
+    "sha": "597a5f2aadeb1192e687188b980bbdd814356246",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35055666733"
+   },
+   "last_seen": "2026-09-16T04:27:24Z",
+   "signature": "unknown: Visual regression (screenshots) / Run visual regression tests (log unavailable)",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -549,6 +581,41 @@
   },
   {
    "branches": [
+    "chore/apply-ci-health-check-live",
+    "chore/ci-health-snapshot-20260918-125539",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 10,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
+     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "ab0aefe797421794af7fcc1177b64169965924d0",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142179317"
+   },
+   "last_seen": "2026-09-25T13:37:53Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "chore/sonarjs-high-confidence-fixes",
     "develop",
     "feat/dedupe-election-workers-jscpd-clones",
@@ -577,36 +644,65 @@
   },
   {
    "branches": [
-    "chore/apply-ci-health-check-live",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "fix/apportionment-quotient-ties"
+    "chore/sonarjs-high-confidence-fixes",
+    "feat/license-compliance-check",
+    "feat/lot9-atheris-coverage-fuzzing",
+    "feat/polity-emotions-prerequisite-verdict",
+    "feat/rng-fix-followup-recovery",
+    "feat/runtime-coverage-e2e",
+    "polity"
    ],
    "category": "code",
-   "count": 9,
+   "count": 8,
    "example": {
-    "job": "CI health check",
+    "job": "Code Quality (dead code, duplication & complexity)",
     "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
-     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          133    134      +1 \ud83d\udd34",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)             92     92      +0",
+     "jscpd (duplicate clones)                      19     19      +0",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "ab0aefe797421794af7fcc1177b64169965924d0",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142179317"
+    "sha": "3865fb870e4194e16fd253932b97911de95c2fb4",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35150675584"
    },
-   "last_seen": "2026-09-25T13:37:53Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "last_seen": "2026-09-16T21:08:24Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
    "workflows": [
-    "CI Health Watchdog"
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "feat/canvas-keyboard-a11y",
+    "feat/polity-emotions-prerequisite-verdict",
+    "feat/runtime-coverage-e2e",
+    "polity"
+   ],
+   "category": "code",
+   "count": 8,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "   These tools are non-blocking on their own, but the total may not grow.",
+     "   Fix the new findings, or \u2014 if a finding is a false positive \u2014 silence it",
+     "   at the source (.vulture_whitelist.py, fast_api_voter/pyproject.toml's",
+     "   [tool.deptry], voter-app/knip.json, .jscpd.json)",
+     "   rather than raising the baseline.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "4973fff32480f45c786a277e9d1f71235a2537d6",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35148848021"
+   },
+   "last_seen": "2026-09-16T20:49:21Z",
+   "signature": "code: rather than raising the baseline.",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -671,160 +767,85 @@
   },
   {
    "branches": [
-    "develop",
-    "feat/prune-i18n-keys",
-    "fix/no-first-listed-winner",
-    "fix/polity-ui-review-follow-ups",
-    "polity-ui",
-    "refactor/vote-step-bars"
-   ],
-   "category": "unknown",
-   "count": 8,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [],
-    "pr": [],
-    "sha": "29d49b470b2c04d95d7f67fe88b7354cb420b311",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35515874978"
-   },
-   "last_seen": "2026-09-20T14:14:29Z",
-   "signature": "unknown: Playwright E2E / Fail on flaky tests (log unavailable)",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "chore/sonarjs-high-confidence-fixes",
-    "feat/license-compliance-check",
-    "feat/lot9-atheris-coverage-fuzzing",
-    "feat/rng-fix-followup-recovery",
-    "feat/runtime-coverage-e2e",
-    "polity"
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "feat/polity-president-agent",
+    "feat/restore-arrow-theorem-fiche",
+    "fix/methods-catalogue-drift",
+    "fix/restore-simulate-cache",
+    "refactor/enable-exhaustive-deps-lint",
+    "refactor/tailwind-animations"
    ],
    "category": "code",
    "count": 7,
    "example": {
     "job": "Code Quality (dead code, duplication & complexity)",
     "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          135    135      +0",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)             93     92      -1 \ud83d\udfe2",
-     "jscpd (duplicate clones)                      19     19      +0",
+     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "b5ddae2f7dd697b2eccd2d8f4e509e1a56292e32",
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
     "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34794869665"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
    },
-   "last_seen": "2026-09-14T01:07:25Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
+   "last_seen": "2026-09-28T12:43:56Z",
+   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
    "workflows": [
     "Security Audit"
    ]
   },
   {
    "branches": [
-    "feat/canvas-keyboard-a11y",
-    "feat/runtime-coverage-e2e",
-    "polity"
+    "develop"
    ],
    "category": "code",
-   "count": 7,
+   "count": 6,
    "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
+    "job": "API contract fuzzing (Schemathesis)",
     "lines": [
-     "   These tools are non-blocking on their own, but the total may not grow.",
-     "   Fix the new findings, or \u2014 if a finding is a false positive \u2014 silence it",
-     "   at the source (.vulture_whitelist.py, fast_api_voter/pyproject.toml's",
-     "   [tool.deptry], voter-app/knip.json, .jscpd.json)",
-     "   rather than raising the baseline.",
+     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
+     "  | E           Reproduce with:",
+     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
+     "    | Traceback (most recent call last):",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "6be5cea6f55b4c7c9fc59a7f20ddd2199a7a3f59",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34728107850"
+    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
+    "step": "Run contract fuzzing",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
    },
-   "last_seen": "2026-09-13T00:29:51Z",
-   "signature": "code: rather than raising the baseline.",
+   "last_seen": "2026-09-26T23:58:34Z",
+   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
    "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/patch-and-minor-3c51789501",
-    "dependabot/pip/fast_api_voter/patch-and-minor-741781a224",
-    "dependabot/pip/fast_api_voter/patch-and-minor-b40ff696ee",
-    "dependabot/pip/fast_api_voter/patch-and-minor-beeed9c07d"
-   ],
-   "category": "unknown",
-   "count": 7,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "72b9ffe6cd981151ba9f8fb5d4ef63324813a0c1",
-    "step": "Install production + dev dependencies (from the lockfile)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35390147400"
-   },
-   "last_seen": "2026-09-18T20:12:08Z",
-   "signature": "unknown: Backend: Tests + Coverage + Security / Install production + dev dependencies (from the lockfile) (log unavailable)",
-   "workflows": [
-    "Backend CI"
+    "Schemathesis Contract Fuzzing"
    ]
   },
   {
    "branches": [
     "chore/ci-health-snapshot-20260915-025105",
-    "chore/ci-health-snapshot-20260918-125539",
     "ci/python-lockfile-freshness-check",
     "develop",
     "fix/playground-lens-click-layout-shift"
    ],
    "category": "unknown",
-   "count": 7,
+   "count": 6,
    "example": {
     "job": "CI health check",
     "lines": [],
     "pr": [],
-    "sha": "61e634d33eef468436a97d5c22af6d84cdc9c2a1",
+    "sha": "d5edb13086f249d5ab39b57b590064a95fc394ae",
     "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35347274240"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34922753359"
    },
-   "last_seen": "2026-09-18T12:55:45Z",
+   "last_seen": "2026-09-15T02:51:11Z",
    "signature": "unknown: CI health check / Verify (log unavailable)",
    "workflows": [
     "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
-    "feat/polity-emotions-prerequisite-verdict",
-    "feat/restore-arrow-theorem-fiche",
-    "fix/polity-ui-explorer-hardening",
-    "fix/restore-simulate-cache",
-    "refactor/enable-exhaustive-deps-lint",
-    "refactor/tailwind-animations"
-   ],
-   "category": "unknown",
-   "count": 7,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [],
-    "pr": [],
-    "sha": "111771a8f5184813b47303da39f22da96ac8f2c4",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35374382053"
-   },
-   "last_seen": "2026-09-18T17:26:47Z",
-   "signature": "unknown: Code Quality (dead code, duplication & complexity) / Quality ratchet (debt may shrink, never grow) (log unavailable)",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -856,6 +877,60 @@
    "signature": "code: /** Message */",
    "workflows": [
     "Generated Artifacts Contract"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "develop",
+    "feat/backend-ratelimit-v2-and-sockets"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toBeVisible() failed",
+     "    Error: element(s) not found",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "33628f76b37e3b266435ae8e25491063970a6dd9",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105225136"
+   },
+   "last_seen": "2026-09-25T06:57:09Z",
+   "signature": "code: Error: expect(locator).toBeVisible() failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "chore/sync-develop-into-polity-20260927",
+    "develop",
+    "docs/plan-surface-2l-small-accuracies",
+    "feat/restore-arrow-theorem-fiche",
+    "refactor/enable-exhaustive-deps-lint"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "48a93f777cc24d0b57403e66ad059d3d1795f64f",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36293452615"
+   },
+   "last_seen": "2026-09-27T04:08:42Z",
+   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -938,81 +1013,6 @@
   },
   {
    "branches": [
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
-    "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "error: No solution found when resolving dependencies",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     727
-    ],
-    "sha": "e4c616f17b0fdd6921f963a1b108e0a20f51563c",
-    "step": "Install production + dev dependencies (from the lockfile)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37038573307"
-   },
-   "last_seen": "2026-10-02T17:07:27Z",
-   "signature": "code: error: No solution found when resolving dependencies",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "unknown",
-   "count": 4,
-   "example": {
-    "job": "API contract fuzzing (Schemathesis)",
-    "lines": [],
-    "pr": [],
-    "sha": "e2406a14c7844832fff15d177d0f152cad7c865d",
-    "step": "Run contract fuzzing",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35342547464"
-   },
-   "last_seen": "2026-09-18T12:01:53Z",
-   "signature": "unknown: API contract fuzzing (Schemathesis) / Run contract fuzzing (log unavailable)",
-   "workflows": [
-    "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "feat/polity-president-agent",
-    "fix/methods-catalogue-drift"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
-   },
-   "last_seen": "2026-09-28T12:43:56Z",
-   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/recharts-3.10.1"
    ],
    "category": "code",
@@ -1087,31 +1087,6 @@
    "signature": "code: Checking docs/plan/polity/polity-llm-reference.md  (changed)",
    "workflows": [
     "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "feat/backend-ratelimit-v2-and-sockets"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toBeVisible() failed",
-     "    Error: element(s) not found",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "33628f76b37e3b266435ae8e25491063970a6dd9",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105225136"
-   },
-   "last_seen": "2026-09-25T06:57:09Z",
-   "signature": "code: Error: expect(locator).toBeVisible() failed",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -1191,69 +1166,26 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "API contract fuzzing (Schemathesis)",
-    "lines": [
-     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
-     "  | E           Reproduce with:",
-     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
-     "    | Traceback (most recent call last):",
-     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
-    "step": "Run contract fuzzing",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
-   },
-   "last_seen": "2026-09-26T23:58:34Z",
-   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
-   "workflows": [
-    "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
-    "feat/polity-emotions-prerequisite-verdict",
-    "fix/method-registry"
-   ],
-   "category": "unknown",
-   "count": 3,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "4a256ae0eb1ab9cf8651b89ed532afabfcce7577",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35334113005"
-   },
-   "last_seen": "2026-09-18T10:19:35Z",
-   "signature": "unknown: Backend: Tests + Coverage + Security / diff-cover \u2014 100% coverage on changed lines (log unavailable)",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
     "fix/election-method-names",
     "fix/no-best-method-from-a-tie"
    ],
-   "category": "unknown",
+   "category": "test-flaky",
    "count": 3,
    "example": {
     "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
+    "lines": [
+     "  error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
+     "npm error audit endpoint returned an error",
+     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-19T17_18_37_922Z-debug-0.log",
+     "##[error]Process completed with exit code 1."
+    ],
     "pr": [],
     "sha": "1be4044d98f0a0ac637815984953be59ed1bfe92",
     "step": "Security \u2014 npm audit (high CVEs block)",
     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35457625984"
    },
    "last_seen": "2026-09-19T17:17:27Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / Security \u2014 npm audit (high CVEs block) (log unavailable)",
+   "signature": "test-flaky: error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
    "workflows": [
     "Frontend CI"
    ]
@@ -1362,6 +1294,30 @@
   },
   {
    "branches": [
+    "develop",
+    "polity-ui"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: page.goto: WebKit encountered an internal error",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "29d49b470b2c04d95d7f67fe88b7354cb420b311",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35515874978"
+   },
+   "last_seen": "2026-09-20T14:14:29Z",
+   "signature": "code: Error: page.goto: WebKit encountered an internal error",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "polity"
    ],
    "category": "code",
@@ -1436,6 +1392,34 @@
    "signature": "code: Ran # rules on # files: # findings.",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "feat/prune-i18n-keys",
+    "fix/no-best-method-from-a-tie"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:193:12: url",
+     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:193:17: init",
+     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:194:12: url",
+     "(136335 / 136663) 99.75%",
+     "The type coverage rate(99.75%) is lower than the target(99.76%).",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "9123ab15f8f1f324901b8a52f1c1f610418ae718",
+    "step": "Type coverage \u2014 no regression (blocking)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35454509853"
+   },
+   "last_seen": "2026-09-19T16:18:05Z",
+   "signature": "code: The type coverage rate(#%) is lower than the target(#%).",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -1545,43 +1529,46 @@
   {
    "branches": [
     "feat/prune-i18n-keys",
-    "fix/no-best-method-from-a-tie"
+    "refactor/vote-step-bars"
    ],
-   "category": "unknown",
+   "category": "test-flaky",
    "count": 2,
    "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [],
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: page.goto: WebKit encountered an internal error",
+     "##[error]Process completed with exit code 1."
+    ],
     "pr": [],
-    "sha": "9123ab15f8f1f324901b8a52f1c1f610418ae718",
-    "step": "Type coverage \u2014 no regression (blocking)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35454509853"
+    "sha": "e63636ff9e0127c93c641d63fd545053c2a75736",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35291015585"
    },
-   "last_seen": "2026-09-19T16:18:05Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / Type coverage \u2014 no regression (blocking) (log unavailable)",
+   "last_seen": "2026-09-18T00:23:54Z",
+   "signature": "test-flaky: Error: page.goto: WebKit encountered an internal error",
    "workflows": [
-    "Frontend CI"
+    "E2E Tests"
    ]
   },
   {
    "branches": [
-    "feat/restore-arrow-theorem-fiche",
-    "refactor/winner-from-utilities"
+    "fix/polity-ui-review-follow-ups",
+    "polity-ui"
    ],
    "category": "unknown",
    "count": 2,
    "example": {
-    "job": "Frontend: Tests + Coverage + Security",
+    "job": "Playwright E2E",
     "lines": [],
     "pr": [],
-    "sha": "b16d0d100f95d1fdc10edec2831bfdf60a89864f",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35340356202"
+    "sha": "d416d203e6b4234359e715182c6b522b563cc45b",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35047429948"
    },
-   "last_seen": "2026-09-18T11:35:08Z",
-   "signature": "unknown: Frontend: Tests + Coverage + Security / diff-cover \u2014 100% coverage on changed lines (log unavailable)",
+   "last_seen": "2026-09-16T02:17:45Z",
+   "signature": "unknown: Playwright E2E / Fail on flaky tests (log unavailable)",
    "workflows": [
-    "Frontend CI"
+    "E2E Tests"
    ]
   },
   {
@@ -1740,16 +1727,66 @@
    "workflows": [
     "\ud83d\ude80 Release Vote Lab"
    ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/pylint-4.0.8"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "ERROR: Cannot install -r requirements-dev.txt (line 54) and pylint==4.0.8 because these package versions have conflicting dependencies.",
+     "ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts",
+     "##[error]Process completed with exit code 1.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "838122a13add1283145e6a3695f569b98c81bf68",
+    "step": "Install backend dependencies (for deptry)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34572130080"
+   },
+   "last_seen": "2026-09-11T06:56:54Z",
+   "signature": "code: ERROR: Cannot install -r requirements-dev.txt (#) and pylint==#.# because these package versions have conflicting dependencies.",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Coverage-guided fuzzing (engine + LLM parsers)",
+    "lines": [
+     "ERROR: The required directory \"fuzz_corpus/engine\" does not exist",
+     "##[error]Process completed with exit code 1.",
+     "##[error]atheris found an uncaught exception -- download the atheris-crashes artifact and replay it locally (see fuzz_engine.py/fuzz_llm_parsers.py's Usage docstring) to reproduce, then turn it into a regression test.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "6c3ea431b9ad1ec13eb2db8e965b6778b2331731",
+    "step": "Fail the job if either campaign crashed",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34647474108"
+   },
+   "last_seen": "2026-09-11T21:03:58Z",
+   "signature": "code: ERROR: The required directory \"fuzz_corpus/engine\" does not exist",
+   "workflows": [
+    "Coverage-Guided Fuzzing (atheris)"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 400,
+  "code": 435,
   "infra": 11,
-  "test-flaky": 19,
-  "unknown": 65
+  "test-flaky": 24,
+  "unknown": 26
  },
- "generated_at": "2026-10-05T03:02:14Z",
+ "generated_at": "2026-10-05T03:07:21Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1930,7 +1967,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 11
+    "failure": 12
    }
   },
   "CI Health Watchdog": {
@@ -2793,9 +2830,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T02:56:43Z",
+   "created_at": "2026-10-05T03:02:05Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257386476"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2882,7 +2919,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257480430"
   }
  },
- "runs": 11464,
+ "runs": 11461,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2954,7 +2991,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-05": 11,
+    "2026-09-05": 11.0,
     "2026-09-06": 31,
     "2026-09-07": 7.5,
     "2026-09-08": 7.0,
@@ -2986,7 +3023,7 @@
    "p50_s": 8,
    "p95_s": 86,
    "queue_p50_s": 0,
-   "runs": 1024
+   "runs": 1023
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3017,13 +3054,13 @@
   },
   "Check Merge Source": {
    "daily_p50_s": {
-    "2026-09-05": 7,
+    "2026-09-05": 7.0,
     "2026-09-06": 5.0
    },
    "p50_s": 6,
    "p95_s": 114,
    "queue_p50_s": 0,
-   "runs": 47
+   "runs": 46
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3081,7 +3118,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-05": 19,
+    "2026-09-05": 21.5,
     "2026-09-06": 30.5,
     "2026-09-07": 9.0,
     "2026-09-08": 11,
@@ -3113,7 +3150,7 @@
    "p50_s": 11,
    "p95_s": 100,
    "queue_p50_s": 0,
-   "runs": 940
+   "runs": 939
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3312,7 +3349,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-05": 173,
+    "2026-09-05": 180.5,
     "2026-09-06": 232,
     "2026-09-07": 96.5,
     "2026-09-08": 94.5,
@@ -3344,7 +3381,7 @@
    "p50_s": 120,
    "p95_s": 385,
    "queue_p50_s": 0,
-   "runs": 1349
+   "runs": 1348
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -3384,9 +3421,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T02:56:43Z",
+     "created_at": "2026-10-05T03:02:05Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257386476"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
