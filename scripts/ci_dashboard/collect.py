@@ -70,9 +70,13 @@ def gh_json(path: str) -> Any:
     return json.loads(res.stdout)
 
 
-def gh_text(path: str) -> str | None:
-    res = subprocess.run(["gh", "api", path], capture_output=True, text=True, check=False)
-    return res.stdout if res.returncode == 0 else None
+def gh_text(path: str) -> tuple[str, str]:
+    """(body, error): a job log is not JSON and may not be valid UTF-8."""
+    res = subprocess.run(["gh", "api", path], capture_output=True, check=False)
+    if res.returncode != 0:
+        err = res.stderr.decode("utf-8", "replace").strip().splitlines()
+        return "", (err[-1] if err else f"gh exited {res.returncode}")[:300]
+    return res.stdout.decode("utf-8", "replace"), ""
 
 
 def iso(ts: str | None) -> datetime | None:
@@ -169,14 +173,29 @@ def failure_detail(repo: str, run: dict) -> dict:
         return {"category": "infra", "job": None, "step": None, "lines": [], "signature": "infra: no failed job"}
     job = failed[0]
     step = next((s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"), None)
-    log = gh_text(f"repos/{repo}/actions/jobs/{job['id']}/logs") or ""
-    if not log.strip():  # expired (90 days) or unreachable: say so, group by where it failed
+    log, error = gh_text(f"repos/{repo}/actions/jobs/{job['id']}/logs")
+    if not log.strip():  # expired (90 days) or unreachable: say why, group by where it failed
+        print(f"collect: log of job {job['id']} unavailable: {error or 'empty'}", file=sys.stderr)
         return {"category": "unknown", "job": job.get("name"), "step": step, "lines": [],
+                "log_error": error or "empty log",
                 "signature": f"unknown: {job.get('name')} / {step or '?'} (log unavailable)"}
     lines = error_lines(log[-200_000:])
     category = "timeout" if job.get("conclusion") == "timed_out" else categorize(lines)
     return {"category": category, "job": job.get("name"), "step": step,
             "lines": lines, "signature": signature(category, lines)}
+
+
+LOG_RETRIES = 3
+
+
+def needs_log(r: dict, now: datetime) -> bool:
+    """Unread, or unreadable last time (a few retries while the log is young)."""
+    f = r.get("failure")
+    if f is None:
+        return True
+    created = iso(r["created_at"])
+    return (f.get("category") == "unknown" and r.get("log_tries", 1) < LOG_RETRIES
+            and created is not None and now - created < timedelta(days=7))
 
 
 def mark_flaky(records: list[dict]) -> None:
@@ -316,12 +335,14 @@ def main(argv: list[str] | None = None) -> int:
     fresh += earlier_attempts(args.repo, fresh, seen)
 
     records = merge(history, fresh, since)
-    # Newest unread failures first; whatever the cap leaves is read next time.
+    # Never-read failures first, then retries of unreadable logs, newest first in
+    # each; whatever the cap leaves is read next time.
     fetched = 0
-    for r in sorted(records, key=lambda r: r["created_at"], reverse=True):
+    for r in sorted(records, key=lambda r: ("failure" not in r, r["created_at"]), reverse=True):
         if fetched >= MAX_LOG_FETCHES:
             break
-        if r["conclusion"] in ("failure", "timed_out") and "failure" not in r:
+        if r["conclusion"] in ("failure", "timed_out") and needs_log(r, now):
+            r["log_tries"] = r.get("log_tries", 0) + 1
             try:
                 r["failure"] = failure_detail(args.repo, r)
             except RuntimeError as exc:  # one unreadable run never stops the collection
