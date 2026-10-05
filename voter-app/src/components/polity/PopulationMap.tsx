@@ -7,6 +7,7 @@ import {
   MAP_COLORS,
   buildScene,
   censusAt,
+  partyStyles,
   type LegendEntry,
   type Scene,
 } from '../../lib/polity/mapScene';
@@ -60,6 +61,7 @@ const PopulationMap: React.FC = () => {
         citizens: censusAt(overview.projection.citizens, year)?.xy ?? [],
         frame,
         citizenParties: censusAt(overview.citizen_parties, year)?.parties ?? [],
+        partyStyle: partyStyles(overview.citizen_parties),
         parties: overview.parties,
         president: frame.president ?? null,
       },
