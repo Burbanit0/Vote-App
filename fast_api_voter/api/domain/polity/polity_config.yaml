@@ -723,6 +723,8 @@ constitution:
   entrenched:                 # articles qui exigent plus que amendment_threshold : {article: seuil}
     institutions.presidential_method: 0.6
     constitution.amendment_threshold: 0.75
+    institutions.president_term_limit: 0.75   # OBS-038 : à 0.5, un troisième mandat présenté comme « continuité »
+                                              #   passait une fois sur deux ; à 0.75, au plus 6 % du temps
 
 # =============================================================================
 # RÉGIME : ACTES EXTRA-LÉGAUX (ADR-022)
