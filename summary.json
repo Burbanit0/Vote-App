@@ -116,6 +116,41 @@
  "failure_groups": [
   {
    "branches": [
+    "dependabot/npm_and_yarn/voter-app/eslint-10.10.0",
+    "dependabot/npm_and_yarn/voter-app/eslint-10.9.1",
+    "dependabot/npm_and_yarn/voter-app/eslint/js-10.0.1",
+    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3",
+    "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
+   ],
+   "category": "code",
+   "count": 45,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "npm error",
+     "npm error For a full report see:",
+     "npm error /home/runner/.npm/_logs/2026-09-14T03_10_52_322Z-eresolve-report.txt",
+     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-14T03_10_52_322Z-debug-0.log",
+     "##[error]Process completed with exit code 1.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3a1bdec389d83f2646d3c4d3d6c6f8aa87a79b8b",
+    "step": "Install frontend deps",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34801524777"
+   },
+   "last_seen": "2026-09-14T03:08:08Z",
+   "signature": "code: npm error",
+   "workflows": [
+    "E2E Tests",
+    "Frontend CI",
+    "Generated Artifacts Contract",
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "chore/bump-typescript-6-size-limit-13",
     "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
     "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
@@ -283,38 +318,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/eslint-10.10.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
-   ],
-   "category": "code",
-   "count": 14,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "npm error",
-     "npm error For a full report see:",
-     "npm error /home/runner/.npm/_logs/2026-09-14T03_10_52_322Z-eresolve-report.txt",
-     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-14T03_10_52_322Z-debug-0.log",
-     "##[error]Process completed with exit code 1.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3a1bdec389d83f2646d3c4d3d6c6f8aa87a79b8b",
-    "step": "Install frontend deps",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34801524777"
-   },
-   "last_seen": "2026-09-14T03:08:08Z",
-   "signature": "code: npm error",
-   "workflows": [
-    "E2E Tests",
-    "Frontend CI",
-    "Generated Artifacts Contract",
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -365,6 +368,40 @@
    "signature": "unknown: Backend: Tests + Coverage + Security / Install production + dev dependencies (from the lockfile) (log unavailable)",
    "workflows": [
     "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "mergify/merge-queue/4439221af0",
+    "mergify/merge-queue/4cdbae48ec",
+    "mergify/merge-queue/5c4588c035",
+    "mergify/merge-queue/633458c653",
+    "mergify/merge-queue/6b6589e87e",
+    "mergify/merge-queue/6ebe506484",
+    "mergify/merge-queue/7980717d8d",
+    "mergify/merge-queue/bf47eb2184"
+   ],
+   "category": "code",
+   "count": 10,
+   "example": {
+    "job": "Validate branch source and naming",
+    "lines": [
+     "  refactor/ chore/    \u2192 refactoring / maintenance",
+     "  docs/     test/     \u2192 documentation / tests",
+     "  ci/       perf/     \u2192 CI/CD / performance",
+     "  dependabot/         \u2192 mises \u00e0 jour automatiques (Dependabot)",
+     "Exemple : feature/vote-blanc-toggle",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "b3351823c316d7777b0d75844de20070ce821f8c",
+    "step": "Check branch naming (PRs to develop)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34720379577"
+   },
+   "last_seen": "2026-09-12T21:35:21Z",
+   "signature": "code: Exemple : feature/vote-blanc-toggle",
+   "workflows": [
+    "Branch Policy"
    ]
   },
   {
@@ -485,35 +522,26 @@
   },
   {
    "branches": [
-    "mergify/merge-queue/4439221af0",
-    "mergify/merge-queue/4cdbae48ec",
-    "mergify/merge-queue/633458c653",
-    "mergify/merge-queue/6b6589e87e",
-    "mergify/merge-queue/6ebe506484",
-    "mergify/merge-queue/7980717d8d",
-    "mergify/merge-queue/bf47eb2184"
+    "develop"
    ],
    "category": "code",
-   "count": 9,
+   "count": 8,
    "example": {
-    "job": "Validate branch source and naming",
+    "job": "Publish to GitHub Pages",
     "lines": [
-     "  refactor/ chore/    \u2192 refactoring / maintenance",
-     "  docs/     test/     \u2192 documentation / tests",
-     "  ci/       perf/     \u2192 CI/CD / performance",
-     "  dependabot/         \u2192 mises \u00e0 jour automatiques (Dependabot)",
-     "Exemple : feature/vote-blanc-toggle",
-     "##[error]Process completed with exit code 1."
+     "##[error]Creating Pages deployment failed",
+     "##[error]HttpError: Not Found",
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 3C20:2E87B9:53179C4:113147B3:6AC30B1C Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
-    "sha": "b3351823c316d7777b0d75844de20070ce821f8c",
-    "step": "Check branch naming (PRs to develop)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34720379577"
+    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
+    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255124556"
    },
-   "last_seen": "2026-09-12T21:35:21Z",
-   "signature": "code: Exemple : feature/vote-blanc-toggle",
+   "last_seen": "2026-10-05T02:22:13Z",
+   "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
-    "Branch Policy"
+    "CI Dashboard"
    ]
   },
   {
@@ -541,30 +569,6 @@
     "Frontend CI",
     "Generated Artifacts Contract",
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 7,
-   "example": {
-    "job": "Publish to GitHub Pages",
-    "lines": [
-     "##[error]Creating Pages deployment failed",
-     "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 4430:2873F9:1ED8DDF:66139CC:6AC309C8 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
-    ],
-    "pr": [],
-    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254763348"
-   },
-   "last_seen": "2026-10-05T02:16:40Z",
-   "signature": "code: ##[error]Creating Pages deployment failed",
-   "workflows": [
-    "CI Dashboard"
    ]
   },
   {
@@ -646,6 +650,64 @@
   },
   {
    "branches": [
+    "chore/sonarjs-high-confidence-fixes",
+    "feat/license-compliance-check",
+    "feat/lot9-atheris-coverage-fuzzing",
+    "feat/rng-fix-followup-recovery",
+    "polity"
+   ],
+   "category": "code",
+   "count": 6,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          135    135      +0",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)             93     92      -1 \ud83d\udfe2",
+     "jscpd (duplicate clones)                      19     19      +0",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "b5ddae2f7dd697b2eccd2d8f4e509e1a56292e32",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34794869665"
+   },
+   "last_seen": "2026-09-14T01:07:25Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Backend mutation score (mutmut, floor 70%)",
+    "lines": [
+     "==================================== ERRORS ====================================",
+     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
+     "Traceback:",
+     "E   ImportError: cannot load module more than once per process",
+     "ERROR api/tests/test_anti_plurality.py",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
+    "step": "Mutation score floor (70%)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
+   },
+   "last_seen": "2026-09-13T02:15:34Z",
+   "signature": "code: ==================================== ERRORS ====================================",
+   "workflows": [
+    "Mutation Testing"
+   ]
+  },
+  {
+   "branches": [
     "polity"
    ],
    "category": "code",
@@ -666,36 +728,6 @@
    "signature": "code: [gw#] [ #%] FAILED api/tests/test_polity_golden.py::test_prompts_and_journals_match_the_golden_references",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "chore/sonarjs-high-confidence-fixes",
-    "feat/lot9-atheris-coverage-fuzzing",
-    "feat/rng-fix-followup-recovery",
-    "polity"
-   ],
-   "category": "code",
-   "count": 5,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          135    135      +0",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)             93     92      -1 \ud83d\udfe2",
-     "jscpd (duplicate clones)                      19     19      +0",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "b5ddae2f7dd697b2eccd2d8f4e509e1a56292e32",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34794869665"
-   },
-   "last_seen": "2026-09-14T01:07:25Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -747,33 +779,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Backend mutation score (mutmut, floor 70%)",
-    "lines": [
-     "==================================== ERRORS ====================================",
-     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
-     "Traceback:",
-     "E   ImportError: cannot load module more than once per process",
-     "ERROR api/tests/test_anti_plurality.py",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
-    "step": "Mutation score floor (70%)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
-   },
-   "last_seen": "2026-09-13T02:15:34Z",
-   "signature": "code: ==================================== ERRORS ====================================",
-   "workflows": [
-    "Mutation Testing"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
     "develop",
     "mergify/merge-queue/7980717d8d",
@@ -797,6 +802,32 @@
    "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "feat/lot7-i18next-tooling",
+    "feat/lot7-pseudo-locale",
+    "feat/reorganize-shared-components",
+    "refactor/lot14-type-coverage-anys"
+   ],
+   "category": "code",
+   "count": 4,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  1014ms",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "bc02b8dd5e3a2077faa2897add4b675806e68a8b",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34785337361"
+   },
+   "last_seen": "2026-09-13T21:57:29Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -987,30 +1018,6 @@
    "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
    "workflows": [
     "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
-    "feat/reorganize-shared-components",
-    "refactor/lot14-type-coverage-anys"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  1014ms",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "bc02b8dd5e3a2077faa2897add4b675806e68a8b",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34785337361"
-   },
-   "last_seen": "2026-09-13T21:57:29Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
    ]
   },
   {
@@ -1232,6 +1239,33 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "API contract fuzzing (Schemathesis)",
+    "lines": [
+     "E           Reproduce with:",
+     "E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"name\": \"0\", \"x\": 0.0, \"y\": 0.0}, {\"name\": \"0\", \"x\": 0.0, \"y\": 0.0}]}' http://testserver/api/v2/election/adaptive",
+     "E           You can reproduce this test case by temporarily adding @reproduce_failure('6.167.1', b'AXicc2RgYGw00GCAAjjDkcGREacEAwBl8wNM') as a decorator on your test function",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/combined-effects] - requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/adaptive] - requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "4daf6e6e327a0f6935c575b61bc837298db1e99e",
+    "step": "Run contract fuzzing",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34601039003"
+   },
+   "last_seen": "2026-09-11T12:50:44Z",
+   "signature": "code: E           Reproduce with:",
+   "workflows": [
+    "Schemathesis Contract Fuzzing"
+   ]
+  },
+  {
+   "branches": [
     "feat/lot9-atheris-coverage-fuzzing"
    ],
    "category": "code",
@@ -1280,6 +1314,30 @@
    "signature": "code: ERROR: The required directory \"fuzz_corpus/engine\" does not exist",
    "workflows": [
     "Coverage-Guided Fuzzing (atheris)"
+   ]
+  },
+  {
+   "branches": [
+    "feat/lot7-pseudo-locale"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
+     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "a41a91bdb448a23454a99c3e050b8f982b1c1665",
+    "step": "Run E2E tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34611444845"
+   },
+   "last_seen": "2026-09-11T14:39:39Z",
+   "signature": "code: Error: /decouvrir: page is #px wider than the viewport in pseudo-locale",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -1437,6 +1495,28 @@
   },
   {
    "branches": [
+    "feat/visual-regression-lot7"
+   ],
+   "category": "test-flaky",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "##[error]Failed to FinalizeArtifact: Received non-retryable error: Failed request: (403) Forbidden: Error from intermediary with HTTP status code 403 \"Forbidden\""
+    ],
+    "pr": [],
+    "sha": "59e5b3964af32970b4417741c46e6b4c6b8ec172",
+    "step": "Upload Playwright report",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34614610423"
+   },
+   "last_seen": "2026-09-11T15:11:09Z",
+   "signature": "test-flaky: ##[error]Failed to FinalizeArtifact: Received non-retryable error: Failed request: (#) Forbidden: Error from intermediary with HTTP status c",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "fix/mutmut-numpy-crash-bump-3.8.0"
    ],
    "category": "test-flaky",
@@ -1563,75 +1643,15 @@
    "workflows": [
     "E2E Tests"
    ]
-  },
-  {
-   "branches": [
-    "feat/polity-ui-fixture-run"
-   ],
-   "category": "unknown",
-   "count": 1,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "1420c9245eb1c63c42d4a84b89cdab8b2f10aaef",
-    "step": "Bandit (Python SAST \u2014 gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34962631914"
-   },
-   "last_seen": "2026-09-15T11:19:04Z",
-   "signature": "unknown: Backend: Tests + Coverage + Security / Bandit (Python SAST \u2014 gating) (log unavailable)",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "feat/polity-prompt-neutrality"
-   ],
-   "category": "unknown",
-   "count": 1,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [],
-    "pr": [],
-    "sha": "a7040b2406129ba2c1e2ee5f421cf4c52ec66ebd",
-    "step": "Ruff (pyflakes \u2014 blocking)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36802081287"
-   },
-   "last_seen": "2026-10-01T01:38:42Z",
-   "signature": "unknown: Backend: Tests + Coverage + Security / Ruff (pyflakes \u2014 blocking) (log unavailable)",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "feat/bound-simulation-inputs"
-   ],
-   "category": "unknown",
-   "count": 1,
-   "example": {
-    "job": "Generated artifacts in sync",
-    "lines": [],
-    "pr": [],
-    "sha": "fd6fdcc2973adcd62b6aea1466e62c34282e82ca",
-    "step": "API contract drift",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35052772919"
-   },
-   "last_seen": "2026-09-16T03:41:56Z",
-   "signature": "unknown: Generated artifacts in sync / API contract drift (log unavailable)",
-   "workflows": [
-    "Generated Artifacts Contract"
-   ]
   }
  ],
  "failures_by_category": {
-  "code": 151,
+  "code": 190,
   "infra": 9,
-  "test-flaky": 7,
+  "test-flaky": 8,
   "unknown": 153
  },
- "generated_at": "2026-10-05T02:22:23Z",
+ "generated_at": "2026-10-05T02:28:26Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1812,7 +1832,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 4
+    "failure": 5
    }
   },
   "CI Health Watchdog": {
@@ -2326,7 +2346,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 8
+    "skipped": 9
    }
   },
   "Mutation Testing": {
@@ -2675,9 +2695,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T02:16:40Z",
+   "created_at": "2026-10-05T02:22:13Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254763348"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255124556"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2724,9 +2744,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T02:10:42Z",
+   "created_at": "2026-10-05T02:26:33Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254352888"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255417800"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2764,7 +2784,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255375734"
   }
  },
- "runs": 11444,
+ "runs": 11446,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3266,9 +3286,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T02:16:40Z",
+     "created_at": "2026-10-05T02:22:13Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254763348"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255124556"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
