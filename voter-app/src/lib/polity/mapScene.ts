@@ -24,7 +24,31 @@ export const MAP_COLORS = {
   purple: '#cc79a7',
   black: '#1f2937',
 } as const;
-type MapColor = keyof typeof MAP_COLORS;
+export type MapColor = keyof typeof MAP_COLORS;
+
+/** Dark mode's own steps, chosen rather than flipped, and validated with the dataviz checks against
+ * the dark page (#0f1722), every pair compared since any two parties can share the map. The light
+ * steps of orange, purple and sky sat above the dark lightness band, and darkening them alone made
+ * them collide with their Okabe-Ito partners (sky with blue, purple with green under deuteranopia,
+ * orange with vermillion), so each pair is pushed to opposite ends of the band instead: worst normal
+ * ΔE 16.5, worst colour-blind ΔE 8.6, every hue kept so a party is the same colour in both modes.
+ * The neutrals keep their order rather than their values: `faint` must still recede and `black`, a
+ * blank vote, still stand out -- so on a dark page `black` is the light foreground ink. */
+export const MAP_COLORS_DARK: Readonly<Record<MapColor, string>> = {
+  muted: '#9aa7b8', // --muted-foreground
+  faint: '#4b5768',
+  orange: '#bb8d09',
+  sky: '#3c9cd0',
+  green: '#078964',
+  blue: '#03639a',
+  vermillion: '#ac4b02',
+  purple: '#c2709e',
+  black: '#e6e9ef', // --foreground
+};
+
+/** The map's colours for the page's theme. */
+export const mapColors = (dark: boolean): Readonly<Record<MapColor, string>> =>
+  dark ? MAP_COLORS_DARK : MAP_COLORS;
 
 /** Six colours that pass the dataviz palette checks against the page. Okabe-Ito's yellow sits
  * outside the light-mode lightness band, at 1.2:1 against the paper, so it is not a party colour. */
