@@ -126,7 +126,7 @@
     "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
    ],
    "category": "code",
-   "count": 122,
+   "count": 134,
    "example": {
     "job": "Playwright E2E",
     "lines": [
@@ -144,33 +144,6 @@
    },
    "last_seen": "2026-09-25T06:56:47Z",
    "signature": "code: npm error",
-   "workflows": [
-    "E2E Tests",
-    "Frontend CI",
-    "Generated Artifacts Contract",
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "chore/bump-typescript-6-size-limit-13",
-    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
-   ],
-   "category": "code",
-   "count": 24,
-   "example": {
-    "job": "Semgrep SAST",
-    "lines": [
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "2171236003f03b8d6f23f47814a5faae906a0dee",
-    "step": "Run Semgrep (gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34807105257"
-   },
-   "last_seen": "2026-09-14T04:43:42Z",
-   "signature": "code: ##[error]Process completed with exit code #.",
    "workflows": [
     "E2E Tests",
     "Frontend CI",
@@ -249,6 +222,65 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 16,
+   "example": {
+    "job": "Publish to GitHub Pages",
+    "lines": [
+     "##[error]Creating Pages deployment failed",
+     "##[error]HttpError: Not Found",
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 6C10:24BE2A:68AEF00:158F0437:6AC31598 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+    ],
+    "pr": [],
+    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
+    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
+   },
+   "last_seen": "2026-10-05T03:07:12Z",
+   "signature": "code: ##[error]Creating Pages deployment failed",
+   "workflows": [
+    "CI Dashboard"
+   ]
+  },
+  {
+   "branches": [
+    "chore/sync-develop-into-polity-20260927",
+    "develop",
+    "docs/plan-surface-2l-small-accuracies",
+    "feat/bound-simulation-inputs",
+    "feat/e2e-result-oracle",
+    "feat/fix-copeland-participation",
+    "feat/polity-ui-macro-curves",
+    "feat/polity-ui-population-map",
+    "feat/polity-ui-route-shell",
+    "feat/polity-ui-timeline-player",
+    "feat/restore-arrow-theorem-fiche",
+    "refactor/enable-exhaustive-deps-lint"
+   ],
+   "category": "code",
+   "count": 16,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "48a93f777cc24d0b57403e66ad059d3d1795f64f",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36293452615"
+   },
+   "last_seen": "2026-09-27T04:08:42Z",
+   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "dependabot/npm_and_yarn/voter-app/types/node-26.4.1",
     "develop",
     "feat/eslint-plugin-sonarjs",
@@ -311,30 +343,6 @@
    "signature": "advisory: npm audit fix",
    "workflows": [
     "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 15,
-   "example": {
-    "job": "Publish to GitHub Pages",
-    "lines": [
-     "##[error]Creating Pages deployment failed",
-     "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 3240:252C73:61DF46E:144C86E0:6AC3145C Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
-    ],
-    "pr": [],
-    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
-   },
-   "last_seen": "2026-10-05T03:02:05Z",
-   "signature": "code: ##[error]Creating Pages deployment failed",
-   "workflows": [
-    "CI Dashboard"
    ]
   },
   {
@@ -428,6 +436,43 @@
   },
   {
    "branches": [
+    "chore/apply-ci-health-check-live",
+    "chore/ci-health-snapshot-20260915-025105",
+    "chore/ci-health-snapshot-20260918-125539",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "develop",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 13,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
+     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "ab0aefe797421794af7fcc1177b64169965924d0",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142179317"
+   },
+   "last_seen": "2026-09-25T13:37:53Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "claude/pr-315-plan-push-phase-one-1a6je5",
     "mergify/merge-queue/4439221af0",
     "mergify/merge-queue/4cdbae48ec",
@@ -460,6 +505,65 @@
    "signature": "code: Exemple : feature/vote-blanc-toggle",
    "workflows": [
     "Branch Policy"
+   ]
+  },
+  {
+   "branches": [
+    "chore/bump-typescript-6-size-limit-13",
+    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
+   ],
+   "category": "code",
+   "count": 11,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "##[error]Process completed with exit code 1.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3aa654449ef93ce14780d7ddda8e2220ada35ef3",
+    "step": "Install frontend deps",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34804353099"
+   },
+   "last_seen": "2026-09-14T03:57:43Z",
+   "signature": "code: ##[error]Process completed with exit code #.",
+   "workflows": [
+    "E2E Tests",
+    "Frontend CI",
+    "Generated Artifacts Contract",
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/npm_and_yarn/voter-app/globals-17.11.0",
+    "dependabot/npm_and_yarn/voter-app/zustand-5.0.15",
+    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
+    "develop",
+    "feat/backend-ratelimit-v2-and-sockets",
+    "mergify/merge-queue/7980717d8d",
+    "polity",
+    "polity-ui"
+   ],
+   "category": "code",
+   "count": 11,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toHaveAttribute(expected) failed",
+     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "84e50b03ad11d55d9a0828fde6f1aef6f8abcf49",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34972011887"
+   },
+   "last_seen": "2026-09-15T12:57:53Z",
+   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -524,98 +628,6 @@
   },
   {
    "branches": [
-    "develop",
-    "feat/bound-simulation-inputs",
-    "feat/e2e-result-oracle",
-    "feat/fix-copeland-participation",
-    "feat/polity-ui-macro-curves",
-    "feat/polity-ui-population-map",
-    "feat/polity-ui-route-shell",
-    "feat/polity-ui-timeline-player"
-   ],
-   "category": "unknown",
-   "count": 11,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [],
-    "pr": [],
-    "sha": "597a5f2aadeb1192e687188b980bbdd814356246",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35055666733"
-   },
-   "last_seen": "2026-09-16T04:27:24Z",
-   "signature": "unknown: Visual regression (screenshots) / Run visual regression tests (log unavailable)",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/globals-17.11.0",
-    "dependabot/npm_and_yarn/voter-app/zustand-5.0.15",
-    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
-    "develop",
-    "feat/backend-ratelimit-v2-and-sockets",
-    "mergify/merge-queue/7980717d8d",
-    "polity"
-   ],
-   "category": "code",
-   "count": 10,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toHaveAttribute(expected) failed",
-     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "99f6fc371fd1283a386b8eb990e823ae504c861a",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34854784476"
-   },
-   "last_seen": "2026-09-14T14:18:43Z",
-   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "chore/apply-ci-health-check-live",
-    "chore/ci-health-snapshot-20260918-125539",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 10,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
-     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "ab0aefe797421794af7fcc1177b64169965924d0",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142179317"
-   },
-   "last_seen": "2026-09-25T13:37:53Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "chore/sonarjs-high-confidence-fixes",
     "develop",
     "feat/dedupe-election-workers-jscpd-clones",
@@ -650,10 +662,11 @@
     "feat/polity-emotions-prerequisite-verdict",
     "feat/rng-fix-followup-recovery",
     "feat/runtime-coverage-e2e",
+    "fix/polity-ui-explorer-hardening",
     "polity"
    ],
    "category": "code",
-   "count": 8,
+   "count": 9,
    "example": {
     "job": "Code Quality (dead code, duplication & complexity)",
     "lines": [
@@ -673,6 +686,40 @@
    "signature": "code: jscpd (duplicate clones)                      #     #      +#",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "chore/python-3.14",
+    "ci/required-checks-and-caching",
+    "dependabot/github_actions/actions/setup-node-7.0.0",
+    "dependabot/npm_and_yarn/voter-app/react-router-dom-7.18.3",
+    "dependabot/npm_and_yarn/voter-app/testing-library/react-16.3.3",
+    "dependabot/npm_and_yarn/voter-app/types/react-19.2.18",
+    "dependabot/npm_and_yarn/voter-app/types/react-dom-19.2.5",
+    "feat/bound-simulation-inputs"
+   ],
+   "category": "code",
+   "count": 9,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [
+     "\ud83d\udd34 The generated API contract is out of date.",
+     "   A route or Pydantic schema changed without regenerating it. Run:",
+     "     cd fast_api_voter && python scripts/gen_openapi.py",
+     "     cd voter-app && npm run gen:api",
+     "   then commit the updated files.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "fd6fdcc2973adcd62b6aea1466e62c34282e82ca",
+    "step": "API contract drift",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35052772919"
+   },
+   "last_seen": "2026-09-16T03:41:56Z",
+   "signature": "code: then commit the updated files.",
+   "workflows": [
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -707,39 +754,6 @@
   },
   {
    "branches": [
-    "chore/python-3.14",
-    "ci/required-checks-and-caching",
-    "dependabot/github_actions/actions/setup-node-7.0.0",
-    "dependabot/npm_and_yarn/voter-app/react-router-dom-7.18.3",
-    "dependabot/npm_and_yarn/voter-app/testing-library/react-16.3.3",
-    "dependabot/npm_and_yarn/voter-app/types/react-19.2.18",
-    "dependabot/npm_and_yarn/voter-app/types/react-dom-19.2.5"
-   ],
-   "category": "code",
-   "count": 8,
-   "example": {
-    "job": "Generated artifacts in sync",
-    "lines": [
-     "             /** Message */",
-     "   A route or Pydantic schema changed without regenerating it. Run:",
-     "     cd fast_api_voter && python scripts/gen_openapi.py",
-     "     cd voter-app && npm run gen:api",
-     "   then commit the updated files.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "29bd4a9fb99fd633ce98bfc67e404b99cda0e579",
-    "step": "API contract drift",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/33973287041"
-   },
-   "last_seen": "2026-09-05T14:56:22Z",
-   "signature": "code: then commit the updated files.",
-   "workflows": [
-    "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
     "chore/ci-health-snapshot-20260913-144749"
    ],
    "category": "infra",
@@ -763,6 +777,35 @@
     "Frontend CI",
     "Generated Artifacts Contract",
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "ci/python-lockfile-freshness-check",
+    "develop",
+    "fix/playground-lens-click-layout-shift"
+   ],
+   "category": "test-flaky",
+   "count": 8,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
+     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "ddd0ae26358b8bb58043ac8abc80dca658c09e88",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142252246"
+   },
+   "last_seen": "2026-09-25T13:38:35Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -827,29 +870,6 @@
   },
   {
    "branches": [
-    "chore/ci-health-snapshot-20260915-025105",
-    "ci/python-lockfile-freshness-check",
-    "develop",
-    "fix/playground-lens-click-layout-shift"
-   ],
-   "category": "unknown",
-   "count": 6,
-   "example": {
-    "job": "CI health check",
-    "lines": [],
-    "pr": [],
-    "sha": "d5edb13086f249d5ab39b57b590064a95fc394ae",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34922753359"
-   },
-   "last_seen": "2026-09-15T02:51:11Z",
-   "signature": "unknown: CI health check / Verify (log unavailable)",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/react-router-dom-7.18.3",
     "dependabot/npm_and_yarn/voter-app/recharts-3.10.1",
     "dependabot/npm_and_yarn/voter-app/testing-library/react-16.3.3",
@@ -907,34 +927,6 @@
   },
   {
    "branches": [
-    "chore/sync-develop-into-polity-20260927",
-    "develop",
-    "docs/plan-surface-2l-small-accuracies",
-    "feat/restore-arrow-theorem-fiche",
-    "refactor/enable-exhaustive-deps-lint"
-   ],
-   "category": "code",
-   "count": 5,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "48a93f777cc24d0b57403e66ad059d3d1795f64f",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36293452615"
-   },
-   "last_seen": "2026-09-27T04:08:42Z",
-   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -955,33 +947,6 @@
    "signature": "code: [gw#] [ #%] FAILED api/tests/test_polity_golden.py::test_prompts_and_journals_match_the_golden_references",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 5,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
-     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "ddd0ae26358b8bb58043ac8abc80dca658c09e88",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142252246"
-   },
-   "last_seen": "2026-09-25T13:38:35Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -1009,6 +974,63 @@
    "workflows": [
     "Backend CI",
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-ui-fixture-run",
+    "polity"
+   ],
+   "category": "code",
+   "count": 4,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "\t\tUndefined: 0",
+     "\t\tLow: 0",
+     "\t\tMedium: 14",
+     "\t\tHigh: 4754",
+     "Files skipped (0):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "1420c9245eb1c63c42d4a84b89cdab8b2f10aaef",
+    "step": "Bandit (Python SAST \u2014 gating)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34962631914"
+   },
+   "last_seen": "2026-09-15T11:19:04Z",
+   "signature": "code: Files skipped (#):",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "chore/bump-typescript-6-size-limit-13",
+    "ci/fix-ci-health-self-reference-deadlock",
+    "feat/polity-full-run-prep"
+   ],
+   "category": "code",
+   "count": 4,
+   "example": {
+    "job": "Semgrep SAST",
+    "lines": [
+     "   \u25e6 Files larger than  files 1.0 MB: 1",
+     "   \u25e6 Files matching .semgrepignore patterns: 36",
+     " \u2022 Scan was limited to files tracked by git",
+     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
+     "Ran 385 rules on 1287 files: 1 finding.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "8aac9698f762b75f018d66f79fca192a061f6814",
+    "step": "Run Semgrep (gating)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36249993030"
+   },
+   "last_seen": "2026-09-26T14:52:34Z",
+   "signature": "code: Ran # rules on # files: # finding.",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -1091,33 +1113,6 @@
   },
   {
    "branches": [
-    "polity"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "\t\tUndefined: 0",
-     "\t\tLow: 0",
-     "\t\tMedium: 4",
-     "\t\tHigh: 4148",
-     "Files skipped (0):",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "e4ac23c6bd4441a3b770f72e145483ffa4760285",
-    "step": "Bandit (Python SAST \u2014 gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34781592064"
-   },
-   "last_seen": "2026-09-13T20:42:19Z",
-   "signature": "code: Files skipped (#):",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/patch-and-minor-61e849eaae"
    ],
    "category": "code",
@@ -1166,6 +1161,31 @@
   },
   {
    "branches": [
+    "feat/prune-i18n-keys",
+    "fix/polity-ui-review-follow-ups",
+    "refactor/vote-step-bars"
+   ],
+   "category": "test-flaky",
+   "count": 3,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: page.goto: WebKit encountered an internal error",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "e63636ff9e0127c93c641d63fd545053c2a75736",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35291015585"
+   },
+   "last_seen": "2026-09-18T00:23:54Z",
+   "signature": "test-flaky: Error: page.goto: WebKit encountered an internal error",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "fix/election-method-names",
     "fix/no-best-method-from-a-tie"
    ],
@@ -1188,26 +1208,6 @@
    "signature": "test-flaky: error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
    "workflows": [
     "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "feat/polity-ui-route-shell"
-   ],
-   "category": "unknown",
-   "count": 3,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [],
-    "pr": [],
-    "sha": "2488bc57eeb12f889e9c7283d97ca6c74c7cc7a7",
-    "step": "Run E2E tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34967987253"
-   },
-   "last_seen": "2026-09-15T12:17:22Z",
-   "signature": "unknown: Playwright E2E / Run E2E tests (log unavailable)",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -1337,33 +1337,6 @@
    "signature": "code: FAILED api/tests/test_polity_golden.py::test_prompts_and_journals_match_the_golden_references - Failed: Polity golden references changed:",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "feat/polity-full-run-prep"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Semgrep SAST",
-    "lines": [
-     "   \u25e6 Files larger than  files 1.0 MB: 1",
-     "   \u25e6 Files matching .semgrepignore patterns: 36",
-     " \u2022 Scan was limited to files tracked by git",
-     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
-     "Ran 385 rules on 1287 files: 1 finding.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "8aac9698f762b75f018d66f79fca192a061f6814",
-    "step": "Run Semgrep (gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36249993030"
-   },
-   "last_seen": "2026-09-26T14:52:34Z",
-   "signature": "code: Ran # rules on # files: # finding.",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -1522,51 +1495,6 @@
    },
    "last_seen": "2026-09-13T22:52:09Z",
    "signature": "test-flaky: Error: locator.click: Test timeout of # exceeded.",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "feat/prune-i18n-keys",
-    "refactor/vote-step-bars"
-   ],
-   "category": "test-flaky",
-   "count": 2,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: page.goto: WebKit encountered an internal error",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "e63636ff9e0127c93c641d63fd545053c2a75736",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35291015585"
-   },
-   "last_seen": "2026-09-18T00:23:54Z",
-   "signature": "test-flaky: Error: page.goto: WebKit encountered an internal error",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "fix/polity-ui-review-follow-ups",
-    "polity-ui"
-   ],
-   "category": "unknown",
-   "count": 2,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [],
-    "pr": [],
-    "sha": "d416d203e6b4234359e715182c6b522b563cc45b",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35047429948"
-   },
-   "last_seen": "2026-09-16T02:17:45Z",
-   "signature": "unknown: Playwright E2E / Fail on flaky tests (log unavailable)",
    "workflows": [
     "E2E Tests"
    ]
@@ -1777,16 +1705,111 @@
    "workflows": [
     "Coverage-Guided Fuzzing (atheris)"
    ]
+  },
+  {
+   "branches": [
+    "feat/lot7-pseudo-locale"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
+     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "a41a91bdb448a23454a99c3e050b8f982b1c1665",
+    "step": "Run E2E tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34611444845"
+   },
+   "last_seen": "2026-09-11T14:39:39Z",
+   "signature": "code: Error: /decouvrir: page is #px wider than the viewport in pseudo-locale",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-ui-route-shell"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale",
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "2067ed44f5313532e8eb8c577ebd4cd355d0dc32",
+    "step": "Run E2E tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34965260043"
+   },
+   "last_seen": "2026-09-15T11:48:09Z",
+   "signature": "code: Error: /polity: page is #px wider than the viewport in pseudo-locale",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-ui-route-shell"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px",
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "67fee9b4b61b29fee51babdebc27a2eb7f3d432d",
+    "step": "Run E2E tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34966783361"
+   },
+   "last_seen": "2026-09-15T12:04:39Z",
+   "signature": "code: Error: /polity: page is #px wider than the viewport in pseudo-locale; past its edge: <ellipse > #\u2013#px; <ellipse > #\u2013#px; <ellipse > #\u2013#px",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-ui-route-shell"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: none found",
+     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: none found",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "2488bc57eeb12f889e9c7283d97ca6c74c7cc7a7",
+    "step": "Run E2E tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34967987253"
+   },
+   "last_seen": "2026-09-15T12:17:22Z",
+   "signature": "code: Error: /polity: page is #px wider than the viewport in pseudo-locale; past its edge: none found",
+   "workflows": [
+    "E2E Tests"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 435,
+  "code": 458,
   "infra": 11,
-  "test-flaky": 24,
-  "unknown": 26
+  "test-flaky": 28
  },
- "generated_at": "2026-10-05T03:07:21Z",
+ "generated_at": "2026-10-05T03:12:43Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1967,7 +1990,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 12
+    "failure": 13
    }
   },
   "CI Health Watchdog": {
@@ -2830,9 +2853,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T03:02:05Z",
+   "created_at": "2026-10-05T03:07:12Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2919,7 +2942,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257480430"
   }
  },
- "runs": 11461,
+ "runs": 11462,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3421,9 +3444,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T03:02:05Z",
+     "created_at": "2026-10-05T03:07:12Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257749870"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
