@@ -1811,7 +1811,20 @@ vote by 10-45 points depending on the conditions; it does not reliably defeat th
 "contested rather than rubber-stamped" outcome, and calling it closed was the same overstatement OBS-030
 made from one favourable condition.
 
-*Status: fixed* on `fix/polity-ballot-self-interest`.
+*Closed, 2026-10-05: the term limit is entrenched at 75% (#784).* The owner chose the stronger fix the
+correction above pointed to. In a 15-seat chamber 75% needs 12 votes, so at the per-member yes rates measured
+here a framed third term ratifies at most ~6% of the time, while a change with broad support (80% per-member
+yes) still passes ~65%. Measured live, framed third term with the self-interest line on:
+
+| approval | threshold 50% (before) | threshold 75% (now) |
+|---:|---|---|
+| 25% | 47% yes, ratified 40% of the time | 37% yes, ratified 0% |
+| 50% | 37% yes, ratified 14% | 43% yes, ratified 0% |
+
+Showing the higher bar on the ballot did not make members vote yes more freely: the shifts are mixed and
+inside the noise band. 0.75 is also the height the amendment procedure itself is entrenched at.
+
+*Status: fixed* -- narrowed by `fix/polity-ballot-self-interest` (#748), closed by `feat/polity-entrench-term-limit` (#784).
 
 ### OBS-039
 
