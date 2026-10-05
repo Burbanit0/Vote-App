@@ -140,10 +140,12 @@ jobs:
         # those every run. See PLAN_SOLIDITE_TECHNIQUE.md §6.7.
 
       # ── Type checking ─────────────────────────────────────────────────────
-      - name: Mypy (strict type checking on api/)
+      # scripts/llm_test_harness is a library 8 experiment scripts import (CI
+      # plan W4): it already passes the same strict config, so it is held to it.
+      - name: Mypy (strict type checking on api/ and the LLM test harness)
         run: |
           cd fast_api_voter
-          python -m mypy api/ --config-file mypy.ini
+          python -m mypy api/ scripts/llm_test_harness --config-file mypy.ini
 
       # ── Tests + Coverage ───────────────────────────────────────────────────
       # -n auto (pytest-xdist): measured 1508 passed/41 skipped, 89.63%
@@ -161,6 +163,19 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-fail-under=90
+
+      # The LLM test harness's own suite (CI plan W4): 47 tests that never ran in
+      # CI before, kept out of the api/ step so its coverage gate and
+      # diff-cover stay unchanged. Coverage is the library's alone (its .coveragerc
+      # leaves the test files out). The floor is the measured value (75.37% on
+      # 2026-10-05; cli.py and example_experiment.py have no tests yet), a
+      # ratchet to raise, never to lower.
+      - name: LLM harness tests (blocking)
+        run: |
+          cd fast_api_voter
+          python -m pytest scripts/llm_test_harness/tests -q -o addopts="" -p no:randomly \
+            --cov=scripts/llm_test_harness --cov-config=scripts/llm_test_harness/.coveragerc \
+            --cov-report=term-missing --cov-fail-under=75
 
       # Codecov (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): PR coverage comment +
       # trend over time. Purely informational — see codecov.yml
