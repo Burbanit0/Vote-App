@@ -158,6 +158,11 @@ def error_lines(log: str) -> list[str]:
         end = next(i for i, ln in enumerate(lines) if GENERIC.search(ln))
         context = [ln for ln in lines[:end] if ln.strip() and not ln.startswith(("##[", "[command]"))]
         return (context[-(ERROR_LINES - 1):] + [lines[end]])
+    if len(hits) > ERROR_LINES:
+        # Head and tail: the cause is usually stated first (npm's ERESOLVE, the
+        # first FAILED test), the tally last.
+        half = ERROR_LINES // 2
+        hits = hits[:half] + hits[-half:]
     return (hits or [ln for ln in lines if ln.strip()])[-ERROR_LINES:]
 
 
@@ -169,6 +174,16 @@ def categorize(lines: list[str]) -> str:
     return "code"
 
 
+TALLY = re.compile(r"fixable with the `--fix` option|^Found \d+ errors?|problems? \(\d+ errors?|"
+                   r"For a full report see|A complete log of this run|/\.npm/_logs/")
+
+
+def informative(line: str) -> bool:
+    """Enough words to name a cause once the runner's markers are dropped."""
+    words = re.sub(r"##\[error\]|::error::|npm (ERR!|error)|[^A-Za-z]+", " ", line).split()
+    return len("".join(words)) >= 12 and not TALLY.search(line) and not GENERIC.search(line)
+
+
 def signature(category: str, lines: list[str]) -> str:
     """A stable key for grouping the same failure across runs."""
     # The runner's closing "Process completed with exit code N" says nothing about
@@ -176,7 +191,10 @@ def signature(category: str, lines: list[str]) -> str:
     hits = [ln for ln in lines if ERROR_RE.search(ln)]
     specific = [ln for ln in hits if not GENERIC.search(ln)]
     context = [ln for ln in lines if not GENERIC.search(ln)]
-    first = (specific or context[-1:] or hits or [""])[0]
+    # A bare "npm error", a "-----" rule or a linter's "N fixable" tally names
+    # nothing: prefer a line that says what went wrong.
+    telling = [ln for ln in specific + context[::-1] if informative(ln)]
+    first = (telling or specific or context[-1:] or hits or [""])[0]
     return f"{category}: {NOISE.sub('#', first).strip()[:140]}"
 
 
@@ -211,7 +229,7 @@ def needs_log(r: dict, now: datetime) -> bool:
         return True
     created = iso(r["created_at"])
     vague = f.get("category") == "unknown" or (
-        bool(f.get("lines")) and all(GENERIC.search(ln) for ln in f["lines"]))
+        bool(f.get("lines")) and not any(informative(ln) for ln in f["lines"]))
     return (vague and r.get("log_tries", 1) < LOG_RETRIES
             and created is not None and now - created < LOG_MAX_AGE)
 
