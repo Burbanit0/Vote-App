@@ -40,7 +40,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -153,6 +152,11 @@ def run_pytest(tree: Path, files: dict[str, list[str]], py_root: str, out: Path)
                     "-p", "no:cacheprovider", "-p", "no:randomly", "--continue-on-collection-errors",
                     f"--junitxml={out}"],
                    cwd=tree / py_root if py_root else tree, capture_output=True, text=True)
+    # The report is pytest's own output, but produced by running the PR's code:
+    # parse it XXE-safely, as scripts/check_flaky_backend.py does. Imported here,
+    # not at the top, so the no-tests job runs on a bare interpreter.
+    import defusedxml.ElementTree as ET
+
     seen: dict[tuple[str, str], str] = {}
     if out.exists():
         for case in ET.parse(out).iter("testcase"):
