@@ -74,6 +74,35 @@ class Classify(unittest.TestCase):
     def test_npm_errors_are_error_lines(self):
         self.assertEqual(collect.error_lines("npm error code ERESOLVE\nnoise\n"), ["npm error code ERESOLVE"])
 
+    def test_long_error_output_keeps_its_head_and_tail(self):
+        log = "\n".join(["npm error code ERESOLVE", "npm error ERESOLVE could not resolve peer dependency"]
+                        + [f"npm error detail {i}" for i in range(10)]
+                        + ["npm error For a full report see:", "npm error A complete log of this run can be found in: x",
+                           "##[error]Process completed with exit code 1."])
+        lines = collect.error_lines(log)
+        self.assertEqual(lines[:2], ["npm error code ERESOLVE", "npm error ERESOLVE could not resolve peer dependency"])
+        self.assertEqual(lines[-1], "##[error]Process completed with exit code 1.")
+        self.assertEqual(collect.signature("code", lines),
+                         "code: npm error code ERESOLVE")
+
+    def test_a_failure_with_only_boilerplate_is_read_again(self):
+        r = collect.record(run(1, conclusion="failure"))
+        r["failure"] = {"category": "code", "signature": "code: x", "lines": [
+            "npm error", "npm error For a full report see:", "npm error /home/runner/.npm/_logs/x-eresolve-report.txt",
+            "##[error]Process completed with exit code 1."]}
+        r["log_tries"] = 1
+        self.assertTrue(collect.needs_log(r, NOW))
+
+    def test_signature_skips_lines_that_name_nothing(self):
+        npm = ["npm error", "npm error code E404", "npm error 404 Not Found - GET https://registry/foo",
+               "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", npm), "code: npm error # Not Found - GET https://registry/foo")
+        ruff = ["F401 `os` imported but unused", "Found 3 errors.", "[*] 3 fixable with the `--fix` option.",
+                "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", ruff), "code: F# `os` imported but unused")
+        rule = ["-------------", "##[error]Process completed with exit code 1."]
+        self.assertEqual(collect.signature("code", rule), "code: -------------")  # nothing better: kept
+
     def test_signature_skips_the_runners_generic_exit_line(self):
         lines = ["Error: browserType.launch: Executable doesn't exist", "##[error]Process completed with exit code 1."]
         self.assertEqual(collect.signature("code", lines), "code: Error: browserType.launch: Executable doesn't exist")
@@ -177,7 +206,7 @@ class Fetch(unittest.TestCase):
         r["log_tries"] = 1
         self.assertTrue(collect.needs_log(r, NOW + timedelta(days=20)))  # GitHub still has the log
         self.assertFalse(collect.needs_log(r, NOW + timedelta(days=86)))  # GitHub has deleted it
-        r["failure"] = {"category": "code", "signature": "code: y", "lines": ["E   assert 1"]}
+        r["failure"] = {"category": "code", "signature": "code: y", "lines": ["E   assert response.status_code == 200"]}
         self.assertFalse(collect.needs_log(r, NOW))  # read fine: never again
         r["failure"] = {"category": "code", "signature": "code: #",
                         "lines": ["##[error]Process completed with exit code 1."]}
@@ -217,14 +246,14 @@ class Rekey(unittest.TestCase):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%dT10:00:00Z")
         old = collect.record(run(1, conclusion="failure", created=today))
         old["failure"] = {"category": "code", "job": "j", "step": "s",
-                          "lines": ["E   assert 1 == 2", "##[error]Process completed with exit code 1."],
+                          "lines": ["E   assert result.winner == 'Alice'", "##[error]Process completed with exit code 1."],
                           "signature": "code: ##[error]Process completed with exit code #."}
         with tempfile.TemporaryDirectory() as d, \
                 mock.patch.object(collect, "gh_json", return_value={"workflow_runs": []}):
             (Path(d) / "runs.jsonl").write_text(json.dumps(old) + "\n")
             collect.main(["--data", d])
             got = json.loads((Path(d) / "runs.jsonl").read_text().splitlines()[0])
-        self.assertEqual(got["failure"]["signature"], "code: E   assert # == #")
+        self.assertEqual(got["failure"]["signature"], "code: E   assert result.winner == 'Alice'")
 
 
 class Main(unittest.TestCase):
