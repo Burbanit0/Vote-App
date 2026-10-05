@@ -7,7 +7,7 @@
  * of comparing pixels. The real rasterization is left to the pinned-image
  * screenshot baselines.
  */
-import { MAP_COLORS, type MapPoint, type Scene } from './mapScene';
+import { type MapColor, type MapPoint, type Scene } from './mapScene';
 
 export type DrawContext = Pick<
   CanvasRenderingContext2D,
@@ -65,11 +65,16 @@ function tracePoint(ctx: DrawContext, point: MapPoint, r: number): void {
  * Clears the canvas at its device-pixel size and draws every citizen. Outline
  * shapes (ring, cross) are stroked; the others are filled.
  */
-export function drawScene(ctx: DrawContext, scene: Scene, pixelRatio: number): void {
+export function drawScene(
+  ctx: DrawContext,
+  scene: Scene,
+  pixelRatio: number,
+  colors: Readonly<Record<MapColor, string>>
+): void {
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   ctx.clearRect(0, 0, scene.width, scene.height);
   for (const point of scene.points) {
-    const color = MAP_COLORS[point.color];
+    const color = colors[point.color];
     ctx.beginPath();
     tracePoint(ctx, point, POINT_RADIUS);
     if (point.shape === 'ring' || point.shape === 'cross') {

@@ -50,6 +50,7 @@ const LEGEND = [
   ['bill', ['legislative', 'bill', 'coalition']],
   ['amended', ['amended']],
   ['amendment', ['amendment']],
+  ['party', ['party']],
   ['other', ['scandal', 'shock', 'rotation', 'other']],
 ] as const;
 
@@ -109,6 +110,18 @@ const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyp
           d={`M${x - 4},${y} L${x + 4},${y} M${x},${y - 4} L${x},${y + 4}`}
           className="stroke-emerald-700"
           strokeWidth={2}
+        />
+      );
+    case 'party':
+      // An outlined square: a party is the frame citizens gather in, not yet seats (a filled square).
+      return (
+        <rect
+          x={x - 4}
+          y={y - 4}
+          width={8}
+          height={8}
+          className="fill-background stroke-indigo-700"
+          strokeWidth={1.5}
         />
       );
     default:
