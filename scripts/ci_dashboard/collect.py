@@ -111,6 +111,14 @@ def record(run: dict) -> dict:
     }
 
 
+def own_superseded(run: dict) -> bool:
+    """A dashboard run cancelled by its own concurrency group: every CI completion
+    starts one, so a burst leaves dozens of these. They say nothing about CI; the
+    dashboard's own successes and failures are kept."""
+    path = (run.get("path") or "").split("@")[0]
+    return path.endswith("/ci-dashboard.yml") and run.get("conclusion") == "cancelled"
+
+
 def fetch_runs(repo: str, since: datetime, now: datetime) -> list[dict]:
     """Completed runs created since `since`, one day per query: a filtered
     listing stops at 1000 results, so a busy window queried at once loses runs."""
@@ -124,7 +132,7 @@ def fetch_runs(repo: str, since: datetime, now: datetime) -> list[dict]:
             runs = data.get("workflow_runs", [])
             # "dynamic" runs are GitHub's own (Dependabot graph updates, Pages
             # builds), each instance under its own name: not this repo's CI.
-            out += [record(r) for r in runs if r.get("event") != "dynamic"]
+            out += [record(r) for r in runs if r.get("event") != "dynamic" and not own_superseded(r)]
             if len(runs) < 100:
                 break
             page += 1
@@ -257,7 +265,8 @@ def merge(history: list[dict], fresh: list[dict], since: datetime) -> list[dict]
     by_key = {(r["id"], r["attempt"]): r for r in history}
     for r in fresh:
         by_key.setdefault((r["id"], r["attempt"]), r)
-    keep = [r for r in by_key.values() if (iso(r["created_at"]) or since) >= since]
+    keep = [r for r in by_key.values()
+            if (iso(r["created_at"]) or since) >= since and not own_superseded(r)]
     return sorted(keep, key=lambda r: (r["created_at"], r["id"], r["attempt"]))
 
 
