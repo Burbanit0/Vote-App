@@ -126,7 +126,7 @@
     "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
    ],
    "category": "code",
-   "count": 134,
+   "count": 144,
    "example": {
     "job": "Playwright E2E",
     "lines": [
@@ -225,20 +225,20 @@
     "develop"
    ],
    "category": "code",
-   "count": 16,
+   "count": 17,
    "example": {
     "job": "Publish to GitHub Pages",
     "lines": [
      "##[error]Creating Pages deployment failed",
      "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 6C10:24BE2A:68AEF00:158F0437:6AC31598 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 8421:26ED67:7261E6E:178A10A4:6AC316CF Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
     "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
     "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258502785"
    },
-   "last_seen": "2026-10-05T03:07:12Z",
+   "last_seen": "2026-10-05T03:12:35Z",
    "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
@@ -505,34 +505,6 @@
    "signature": "code: Exemple : feature/vote-blanc-toggle",
    "workflows": [
     "Branch Policy"
-   ]
-  },
-  {
-   "branches": [
-    "chore/bump-typescript-6-size-limit-13",
-    "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3"
-   ],
-   "category": "code",
-   "count": 11,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "##[error]Process completed with exit code 1.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3aa654449ef93ce14780d7ddda8e2220ada35ef3",
-    "step": "Install frontend deps",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34804353099"
-   },
-   "last_seen": "2026-09-14T03:57:43Z",
-   "signature": "code: ##[error]Process completed with exit code #.",
-   "workflows": [
-    "E2E Tests",
-    "Frontend CI",
-    "Generated Artifacts Contract",
-    "Security Audit"
    ]
   },
   {
@@ -927,6 +899,35 @@
   },
   {
    "branches": [
+    "chore/bump-typescript-6-size-limit-13",
+    "ci/fix-ci-health-self-reference-deadlock",
+    "feat/polity-full-run-prep"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Semgrep SAST",
+    "lines": [
+     "   \u25e6 Files larger than  files 1.0 MB: 1",
+     "   \u25e6 Files matching .semgrepignore patterns: 36",
+     " \u2022 Scan was limited to files tracked by git",
+     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
+     "Ran 385 rules on 1287 files: 1 finding.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "8aac9698f762b75f018d66f79fca192a061f6814",
+    "step": "Run Semgrep (gating)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36249993030"
+   },
+   "last_seen": "2026-09-26T14:52:34Z",
+   "signature": "code: Ran # rules on # files: # finding.",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "polity"
    ],
    "category": "code",
@@ -1002,35 +1003,6 @@
    "signature": "code: Files skipped (#):",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "chore/bump-typescript-6-size-limit-13",
-    "ci/fix-ci-health-self-reference-deadlock",
-    "feat/polity-full-run-prep"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Semgrep SAST",
-    "lines": [
-     "   \u25e6 Files larger than  files 1.0 MB: 1",
-     "   \u25e6 Files matching .semgrepignore patterns: 36",
-     " \u2022 Scan was limited to files tracked by git",
-     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
-     "Ran 385 rules on 1287 files: 1 finding.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "8aac9698f762b75f018d66f79fca192a061f6814",
-    "step": "Run Semgrep (gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36249993030"
-   },
-   "last_seen": "2026-09-26T14:52:34Z",
-   "signature": "code: Ran # rules on # files: # finding.",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -1801,15 +1773,38 @@
    "workflows": [
     "E2E Tests"
    ]
+  },
+  {
+   "branches": [
+    "chore/bump-size-limit-14"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: fiches that never rendered in \"theory\"",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "584cbf66a9d47216037a0211c0556f1aef7d17fb",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36279747572"
+   },
+   "last_seen": "2026-09-26T23:32:07Z",
+   "signature": "code: Error: fiches that never rendered in \"theory\"",
+   "workflows": [
+    "E2E Tests"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 458,
+  "code": 459,
   "infra": 11,
   "test-flaky": 28
  },
- "generated_at": "2026-10-05T03:12:43Z",
+ "generated_at": "2026-10-05T03:17:52Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1990,7 +1985,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 13
+    "failure": 14
    }
   },
   "CI Health Watchdog": {
@@ -2575,7 +2570,7 @@
   "OpenSSF Scorecard": {
    "2026-09-05": {
     "cancelled": 8,
-    "success": 9
+    "success": 8
    },
    "2026-09-06": {
     "cancelled": 3,
@@ -2723,7 +2718,7 @@
   "Security Audit": {
    "2026-09-05": {
     "cancelled": 9,
-    "success": 11
+    "success": 9
    },
    "2026-09-06": {
     "cancelled": 4,
@@ -2853,9 +2848,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T03:07:12Z",
+   "created_at": "2026-10-05T03:12:35Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258502785"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2942,7 +2937,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37257480430"
   }
  },
- "runs": 11462,
+ "runs": 11460,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3315,7 +3310,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-05": 38,
+    "2026-09-05": 38.0,
     "2026-09-06": 39.0,
     "2026-09-07": 41,
     "2026-09-08": 39,
@@ -3343,7 +3338,7 @@
    "p50_s": 42,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 321
+   "runs": 320
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3372,7 +3367,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-05": 180.5,
+    "2026-09-05": 200.5,
     "2026-09-06": 232,
     "2026-09-07": 96.5,
     "2026-09-08": 94.5,
@@ -3404,7 +3399,7 @@
    "p50_s": 120,
    "p95_s": 385,
    "queue_p50_s": 0,
-   "runs": 1348
+   "runs": 1346
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -3444,9 +3439,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T03:07:12Z",
+     "created_at": "2026-10-05T03:12:35Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258107891"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37258502785"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
