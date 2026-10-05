@@ -67,7 +67,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
 | [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
-| [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | open |
+| [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | open |
 
 ---
@@ -451,6 +451,10 @@ prompts don't depend on either rule, and `citizens` stays whole for perceived su
 positioning electorate mean. `check_observations.py term-limit` now shows 11 distinct presidents on
 both engines. The golden references are unchanged (no term limit, no invalidated election). No
 recorded run changes, for the reason above.
+
+*Since [OBS-041](#obs-041) (2026-10-05),* the deterministic engine shows 10 distinct presidents, not 11:
+its run has recalls, and their snap winners now serve only until the calendar's next election, so the
+elections fall on different ticks. The LLM engine still shows 11.
 
 ### OBS-013
 
@@ -1946,8 +1950,25 @@ C3 rules out. Every run with a recall or an invalidated election since those rer
 a full term against `president_term_limit`. Some constitutions do not count a short remainder (the US 22nd
 Amendment counts more than two years of someone else's term). Whether this one should is the owner's call.
 
-*Status: open* -- the fix, giving an off-calendar winner the next calendar election as its term end, follows
-on its own branch.
+*Status: fixed* on `fix/polity-snap-term-end`. An off-calendar winner's `term_end_tick` is now
+`InstitutionalClock.next_presidential_election`, which on the calendar is the value it always had; the
+refusal path uses the same rule. The two system prompts no longer say a president "is elected for 4
+years": a president is elected until the next scheduled election. What moved:
+
+- **The golden reference**, in its fake-LLM scenario only (the one with a snap election): the snap
+  president's briefings carry the true `ticks_left`, pressure actions fall from 73 to 62 and petition
+  signatures from 18 to 14 (a nearer election raises the awakening threshold), and the confidence vote the
+  run used to reach no longer happens. `test_polity_run_simulation`'s petition run now pins that vote's
+  journaled shape instead.
+- **The explorer fixture**, regenerated: its second recall (tick 11) no longer happens, so the e2e spec
+  expects one recall glyph and jumps to tick 9, and the `/polity` surface baseline is regenerated.
+- **Deterministic runs**: [OBS-012](#obs-012)'s figure moves from 11 distinct presidents to 10.
+
+*What it opens.* A term-limited president who wins a rerun on the last tick before a calendar election is
+now offered `refuse_to_leave` on the tick they take office, as ADR-022 words it ("the last tick of your
+final term"); the seed-9 president at tick 15 above is that case. Whether a minimum tenure should come first is the
+owner's call, with whether a snap term counts against the limit. A run resumed from a checkpoint written
+before the fix keeps its holder's old `term_end_tick` until the next calendar election.
 
 ### OBS-042
 
