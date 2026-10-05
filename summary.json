@@ -156,20 +156,20 @@
     "develop"
    ],
    "category": "code",
-   "count": 24,
+   "count": 25,
    "example": {
     "job": "Publish to GitHub Pages",
     "lines": [
      "##[error]Creating Pages deployment failed",
      "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version e51a63e6fdf2c96257ee5468e64d606d87ba52f1. Request ID F430:8FF09:BF931A:286555E:6AC3ACAD Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "##[error]Error: Failed to create deployment (status: 404) with build version e51a63e6fdf2c96257ee5468e64d606d87ba52f1. Request ID F941:144AF:CCC610:2B859A8:6AC3AE00 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
     "sha": "e51a63e6fdf2c96257ee5468e64d606d87ba52f1",
     "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319986144"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320586824"
    },
-   "last_seen": "2026-10-05T13:51:00Z",
+   "last_seen": "2026-10-05T13:55:35Z",
    "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
@@ -1071,6 +1071,33 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 3,
+   "example": {
+    "job": "Secret Scan",
+    "lines": [
+     "[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path",
+     "/github/runner_temp/git-credentials-be2034a2-af2c-48f9-aa3d-29fb319f0b72.config",
+     "[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \\/github\\/runner_temp\\/git\\-credentials\\-be2034a2\\-af2c\\-48f9\\-aa3d\\-29fb319f0b72\\.config",
+     "[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url",
+     "Removing credentials config '/home/runner/work/_temp/git-credentials-be2034a2-af2c-48f9-aa3d-29fb319f0b72.config'",
+     "Cleaning up orphan processes"
+    ],
+    "pr": [],
+    "sha": "e51a63e6fdf2c96257ee5468e64d606d87ba52f1",
+    "step": "Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321508449"
+   },
+   "last_seen": "2026-10-05T14:02:30Z",
+   "signature": "test-flaky: Cleaning up orphan processes",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "feat/prune-i18n-keys",
     "fix/polity-ui-review-follow-ups",
     "refactor/vote-step-bars"
@@ -1361,6 +1388,31 @@
   },
   {
    "branches": [
+    "develop",
+    "mergify/merge-queue/a5f026ad07"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Collect run history",
+    "lines": [
+     "Traceback (most recent call last):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "e51a63e6fdf2c96257ee5468e64d606d87ba52f1",
+    "step": "Collect",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321311042"
+   },
+   "last_seen": "2026-10-05T14:01:01Z",
+   "signature": "code: Traceback (most recent call last):",
+   "workflows": [
+    "Backend CI",
+    "CI Dashboard"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-president-agent"
    ],
    "category": "code",
@@ -1438,33 +1490,6 @@
    "signature": "infra: E        +  where # = <Response [# Service Unavailable]>.status_code",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 2,
-   "example": {
-    "job": "Secret Scan",
-    "lines": [
-     "[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path",
-     "/github/runner_temp/git-credentials-7ad17665-43b9-4bc7-bcb2-ffd47fb62180.config",
-     "[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \\/github\\/runner_temp\\/git\\-credentials\\-7ad17665\\-43b9\\-4bc7\\-bcb2\\-ffd47fb62180\\.config",
-     "[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url",
-     "Removing credentials config '/home/runner/work/_temp/git-credentials-7ad17665-43b9-4bc7-bcb2-ffd47fb62180.config'",
-     "Cleaning up orphan processes"
-    ],
-    "pr": [],
-    "sha": "a87b23adb06693f0dc538b80883e0dc32f030e5f",
-    "step": "Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36427791139"
-   },
-   "last_seen": "2026-09-28T13:19:23Z",
-   "signature": "test-flaky: Cleaning up orphan processes",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -1772,39 +1797,15 @@
    "workflows": [
     "E2E Tests"
    ]
-  },
-  {
-   "branches": [
-    "feat/polity-ui-route-shell"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px",
-     "    Error: /polity: page is 15px wider than the viewport in pseudo-locale; past its edge: <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px; <ellipse > 1245\u20131289px",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "67fee9b4b61b29fee51babdebc27a2eb7f3d432d",
-    "step": "Run E2E tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34966783361"
-   },
-   "last_seen": "2026-09-15T12:04:39Z",
-   "signature": "code: Error: /polity: page is #px wider than the viewport in pseudo-locale; past its edge: <ellipse > #\u2013#px; <ellipse > #\u2013#px; <ellipse > #\u2013#px",
-   "workflows": [
-    "E2E Tests"
-   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 456,
+  "code": 458,
   "infra": 11,
-  "test-flaky": 28
+  "test-flaky": 29
  },
- "generated_at": "2026-10-05T13:57:13Z",
+ "generated_at": "2026-10-05T14:05:02Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1901,7 +1902,7 @@
     "success": 25
    },
    "2026-10-05": {
-    "success": 10
+    "success": 11
    }
   },
   "Backend Flaky Test Hunt": {
@@ -1988,8 +1989,8 @@
     "failure": 3
    },
    "2026-10-05": {
-    "cancelled": 12,
-    "failure": 21
+    "cancelled": 14,
+    "failure": 23
    }
   },
   "CI Health Watchdog": {
@@ -2304,7 +2305,7 @@
    },
    "2026-10-05": {
     "cancelled": 2,
-    "success": 8
+    "success": 9
    }
   },
   "Frontend CI": {
@@ -2506,7 +2507,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 22,
+    "skipped": 24,
     "success": 2
    }
   },
@@ -2831,6 +2832,7 @@
    },
    "2026-10-05": {
     "cancelled": 1,
+    "failure": 1,
     "success": 10
    }
   },
@@ -2841,19 +2843,19 @@
     "success": 123
    },
    "2026-10-05": {
-    "cancelled": 11,
-    "skipped": 72,
-    "success": 62
+    "cancelled": 12,
+    "skipped": 80,
+    "success": 65
    }
   }
  },
  "latest_runs": {
   "Backend CI": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T13:47:52Z",
+   "created_at": "2026-10-05T13:56:34Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319583350"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718607"
   },
   "Backend Flaky Test Hunt": {
    "branch": "polity",
@@ -2865,9 +2867,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "cancelled",
-   "created_at": "2026-10-05T13:59:53Z",
+   "created_at": "2026-10-05T14:05:18Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321151516"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321875210"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2891,11 +2893,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718507"
   },
   "E2E Tests": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T13:47:52Z",
+   "created_at": "2026-10-05T13:56:34Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319583386"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718495"
   },
   "Frontend CI": {
    "branch": "polity",
@@ -2914,9 +2916,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T13:47:33Z",
+   "created_at": "2026-10-05T14:09:17Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319542168"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37322405699"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2940,21 +2942,21 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319015203"
   },
   "Security Audit": {
-   "branch": "polity",
-   "conclusion": "success",
-   "created_at": "2026-10-05T13:56:34Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718438"
+   "branch": "develop",
+   "conclusion": "failure",
+   "created_at": "2026-10-05T14:02:30Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321508449"
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-05T14:01:01Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-05T14:09:38Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37321310804"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37322451567"
   }
  },
- "runs": 11533,
+ "runs": 11571,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2985,12 +2987,12 @@
     "2026-10-02": 128.5,
     "2026-10-03": 13,
     "2026-10-04": 12,
-    "2026-10-05": 10.5
+    "2026-10-05": 11
    },
    "p50_s": 144,
-   "p95_s": 410,
+   "p95_s": 411,
    "queue_p50_s": 0,
-   "runs": 1325
+   "runs": 1328
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3054,12 +3056,12 @@
     "2026-10-02": 11,
     "2026-10-03": 10.0,
     "2026-10-04": 10,
-    "2026-10-05": 10
+    "2026-10-05": 11
    },
    "p50_s": 8,
    "p95_s": 74,
    "queue_p50_s": 0,
-   "runs": 1011
+   "runs": 1013
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3086,7 +3088,7 @@
    "p50_s": 10,
    "p95_s": 33,
    "queue_p50_s": 0,
-   "runs": 536
+   "runs": 538
   },
   "Check Merge Source": {
    "daily_p50_s": {
@@ -3186,7 +3188,7 @@
    "p50_s": 11,
    "p95_s": 83,
    "queue_p50_s": 0,
-   "runs": 928
+   "runs": 930
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3217,12 +3219,12 @@
     "2026-10-02": 573,
     "2026-10-03": 46,
     "2026-10-04": 663.5,
-    "2026-10-05": 679
+    "2026-10-05": 663
    },
-   "p50_s": 537,
+   "p50_s": 536,
    "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1147
+   "runs": 1149
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3253,12 +3255,12 @@
     "2026-10-02": 12,
     "2026-10-03": 13,
     "2026-10-04": 197.0,
-    "2026-10-05": 243.0
+    "2026-10-05": 241.0
    },
    "p50_s": 20,
    "p95_s": 285,
    "queue_p50_s": 0,
-   "runs": 1268
+   "runs": 1270
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3294,7 +3296,7 @@
    "p50_s": 73,
    "p95_s": 207,
    "queue_p50_s": 0,
-   "runs": 1375
+   "runs": 1377
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3306,7 +3308,7 @@
    "p50_s": 14,
    "p95_s": 23,
    "queue_p50_s": 0,
-   "runs": 95
+   "runs": 97
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3420,17 +3422,17 @@
    "p50_s": 120,
    "p95_s": 343,
    "queue_p50_s": 0,
-   "runs": 1339
+   "runs": 1341
   },
   "polity red alert": {
    "daily_p50_s": {
     "2026-10-04": 22,
-    "2026-10-05": 25.0
+    "2026-10-05": 25
    },
    "p50_s": 23,
    "p95_s": 48,
    "queue_p50_s": 0,
-   "runs": 185
+   "runs": 188
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -3572,9 +3574,9 @@
    "workflows": {
     "Backend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-05T13:43:29Z",
-     "sha": "717d306b6d10f0e5e04918d2a460a750d253e082",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319014932"
+     "created_at": "2026-10-05T13:56:34Z",
+     "sha": "38b83b886ea1932d04c36eaf0bf666c62257bc1e",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718607"
     },
     "Backend Flaky Test Hunt": {
      "conclusion": "success",
@@ -3596,9 +3598,9 @@
     },
     "E2E Tests": {
      "conclusion": "success",
-     "created_at": "2026-10-05T13:43:29Z",
-     "sha": "717d306b6d10f0e5e04918d2a460a750d253e082",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37319015006"
+     "created_at": "2026-10-05T13:56:34Z",
+     "sha": "38b83b886ea1932d04c36eaf0bf666c62257bc1e",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37320718495"
     },
     "Frontend CI": {
      "conclusion": "success",
