@@ -1,4 +1,11 @@
-import { MAP_PADDING, buildScene, censusAt, styleOf, type SceneInput } from './mapScene';
+import {
+  MAP_PADDING,
+  buildScene,
+  censusAt,
+  partyStyles,
+  styleOf,
+  type SceneInput,
+} from './mapScene';
 import { POLITY_LENSES } from './urlState';
 
 const input = (overrides: Partial<SceneInput> = {}): SceneInput => ({
@@ -16,6 +23,7 @@ const input = (overrides: Partial<SceneInput> = {}): SceneInput => ({
     candidacy: [-1, 0, 2, 4],
   },
   citizenParties: [0, 1, null, 7],
+  partyStyle: partyStyles([{ parties: [0, 1, null, 7] }]),
   parties: [
     { party_id: 0, xy: [0.5, 0.5] },
     { party_id: 1, xy: [1.5, 0.5] },
@@ -107,7 +115,7 @@ describe('population map scene', () => {
       ['party0', 'blue'],
       ['party1', 'orange'],
       ['noParty', 'muted'],
-      ['party7', 'blue'],
+      ['party7', 'green'], // its own colour: no longer party 0's blue, as 7 % 7 made it
     ]);
     for (const lens of POLITY_LENSES) {
       for (let id = 0; id < 4; id += 1) expect(styleOf(lens, input(), id)).toHaveLength(3);
@@ -131,6 +139,45 @@ describe('population map scene', () => {
     );
     expect(empty.points).toEqual([]);
     expect(empty.project([0, 0])).toEqual([50, 50]);
+  });
+});
+
+describe('partyStyles', () => {
+  const census = (...parties: (number | null)[]) => ({ parties });
+  const look = (style: ReturnType<typeof partyStyles>, party: number) => {
+    const { shape, color } = style(party);
+    return `${color} ${shape}`;
+  };
+
+  it('gives up to six parties at once a colour each, all of them dots', () => {
+    const style = partyStyles([census(0, 1, 2, 3, 4, 5, null)]);
+    expect([0, 1, 2, 3, 4, 5].map((party) => look(style, party))).toEqual([
+      'blue circle',
+      'orange circle',
+      'green circle',
+      'purple circle',
+      'sky circle',
+      'vermillion circle',
+    ]);
+  });
+
+  it('tells apart by shape the parties past the colours', () => {
+    const style = partyStyles([census(...Array.from({ length: 14 }, (_, i) => i))]);
+    expect([6, 7, 12, 13].map((party) => look(style, party))).toEqual([
+      'blue square',
+      'orange square',
+      'blue triangle',
+      'orange triangle',
+    ]);
+  });
+
+  it('keeps a party its style for life, and passes on a dissolved one’s', () => {
+    // Party 9 lives in censuses 0-2 and party 20 is founded once 9 is gone; 21 overlaps 9.
+    const style = partyStyles([census(0, 9), census(9, 0, 21), census(9, 21), census(20, 21)]);
+    expect(look(style, 9)).toBe('orange circle');
+    expect(look(style, 21)).toBe('green circle'); // alive with 0 and 9: neither's style
+    expect(look(style, 20)).toBe('blue circle'); // 0 and 9 are gone: the first free style
+    expect(look(style, 42)).toBe(look(partyStyles([]), 42)); // no census shows it: by its id
   });
 });
 
