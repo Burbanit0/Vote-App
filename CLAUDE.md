@@ -119,6 +119,19 @@ libs in `src/lib/` with a thin component each.
   and the type; `playground.en.ts` must mirror it key-for-key — tsc enforces this).
 - **Tests run in English** (jsdom). Assert EN strings, not FR.
 
+## Definition of done
+
+A change is done when it does **what was asked**, not when it compiles and CI is green.
+Before opening a PR:
+
+- Run `/verify "<the original request, verbatim>"`. It runs `scripts/fast-gate.sh`, then
+  the `spec-checker` agent, which sees only the request and the diff, never your summary.
+  A `FAIL` (something asked is missing) means no PR yet.
+- Fill the PR template's `## Demande` (verbatim), `## Critères d'acceptation` and
+  `## Preuves` (commands actually run and their output) sections.
+- The **Non vérifié** line is mandatory: say what you did not check and why. "rien" only
+  when true. An unverified claim stated as done is worse than a gap stated plainly.
+
 ## Workflow (mandated)
 
 - **`polity` is the working branch** (since the 2026-09-27 convergence, #671/#674/#675,
