@@ -115,11 +115,11 @@ def test_a_run_that_builds_its_own_vllm_client_records_the_server(monkeypatch: p
     probed: list[str] = []
     monkeypatch.setattr(
         run_provenance, "vllm_server_provenance",
-        lambda base_url: probed.append(base_url) or {**dict.fromkeys(run_provenance.SERVER_FIELDS), "vllm_version": "0.28.0"},
+        lambda base_url: probed.append(base_url) or {**dict.fromkeys(run_provenance.SERVER_FIELDS), "vllm_version": "0.31.0"},
     )
     provenance = run_provenance.code_and_server_provenance(config, llm_client=None)
     assert probed == [config.llm.base_url]
-    assert provenance["vllm_version"] == "0.28.0"
+    assert provenance["vllm_version"] == "0.31.0"
     assert provenance["llm_client_injected"] is None
 
 
@@ -136,11 +136,11 @@ class _FakeResponse:
 
 def _fake_server(monkeypatch: pytest.MonkeyPatch, commands: list[list[str]]) -> None:
     pages = {
-        "http://localhost:8000/version": {"version": "0.28.0"},
+        "http://localhost:8000/version": {"version": "0.31.0"},
         "http://localhost:8000/v1/models": {"data": [{"id": "qwen3:8b", "root": "Qwen/Qwen3-8B-AWQ"}]},
     }
     monkeypatch.setattr(httpx, "get", lambda url, timeout: _FakeResponse(pages[url]))
-    inspected = {"Image": "sha256:4f3c", "Config": {"Image": "vllm/vllm-openai:v0.28.0", "Cmd": _VLLM_CONTAINER_CMD}}
+    inspected = {"Image": "sha256:4f3c", "Config": {"Image": "vllm/vllm-openai:v0.31.0", "Cmd": _VLLM_CONTAINER_CMD}}
 
     def run_command(args: list[str], cwd: Path | None = None) -> str | None:
         commands.append(args)
@@ -155,8 +155,8 @@ def test_vllm_server_provenance_reads_the_server_and_the_container_serving_it(mo
     commands: list[list[str]] = []
     _fake_server(monkeypatch, commands)
     assert run_provenance.vllm_server_provenance("http://localhost:8000/v1") == {
-        "vllm_version": "0.28.0",
-        "vllm_image": "vllm/vllm-openai:v0.28.0",
+        "vllm_version": "0.31.0",
+        "vllm_image": "vllm/vllm-openai:v0.31.0",
         "vllm_image_id": "sha256:4f3c",
         "served_model_name": "qwen3:8b",
         "served_model_repo": "Qwen/Qwen3-8B-AWQ",
@@ -169,11 +169,11 @@ def test_a_remote_server_is_asked_over_http_only(monkeypatch: pytest.MonkeyPatch
     commands: list[list[str]] = []
     _fake_server(monkeypatch, commands)
     monkeypatch.setattr(
-        httpx, "get", lambda url, timeout: _FakeResponse({"version": "0.28.0"} if url.endswith("/version") else {"data": []})
+        httpx, "get", lambda url, timeout: _FakeResponse({"version": "0.31.0"} if url.endswith("/version") else {"data": []})
     )
     provenance = run_provenance.vllm_server_provenance("http://gpu-box:8000/v1")
     assert commands == []  # the local docker daemon does not run gpu-box's container
-    assert provenance["vllm_version"] == "0.28.0"
+    assert provenance["vllm_version"] == "0.31.0"
     assert provenance["served_model_revision"] is None
 
 
@@ -199,14 +199,14 @@ def test_container_fields_stay_null_when_the_container_cannot_be_identified(
 
 
 def test_a_server_launched_without_a_pinned_revision_records_the_revision_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
-    unpinned = {"Image": "sha256:4f3c", "Config": {"Image": "vllm/vllm-openai:v0.28.0", "Cmd": ["--model", "Qwen/Qwen3-8B-AWQ"]}}
+    unpinned = {"Image": "sha256:4f3c", "Config": {"Image": "vllm/vllm-openai:v0.31.0", "Cmd": ["--model", "Qwen/Qwen3-8B-AWQ"]}}
     _fake_server(monkeypatch, [])
     monkeypatch.setattr(
         run_provenance, "_run_command",
         lambda args, cwd=None: "c0ffee\n" if args[:2] == ["docker", "ps"] else json.dumps(unpinned),
     )
     provenance = run_provenance.vllm_server_provenance("http://localhost:8000/v1")
-    assert provenance["vllm_image"] == "vllm/vllm-openai:v0.28.0"
+    assert provenance["vllm_image"] == "vllm/vllm-openai:v0.31.0"
     assert provenance["served_model_revision"] is None  # whatever the hub served at launch: not reconstructible
 
 

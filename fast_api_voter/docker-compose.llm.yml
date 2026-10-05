@@ -70,13 +70,12 @@ name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
 
 services:
   vllm:
-    # Pinned 2026-09-24 (scripts/check_vllm_030_bump_results.md): confirmed to exist on
-    # Docker Hub directly by check_llm_stack_versions.py (the latest stable tag,
-    # pushed 2026-09-22), amd64. Was v0.29.0 (pushed 2026-09-09) until then, v0.28.0
-    # (pushed 2026-08-26) before. 0.30.0 still warns that `--model` will be removed
-    # in a future version (it still works); move to the positional form when a
-    # release removes it.
-    image: vllm/vllm-openai:v0.30.0
+    # v0.31.0 (pushed 2026-10-04, amd64), the latest stable tag, confirmed to exist on Docker
+    # Hub by check_llm_stack_versions.py. Was v0.30.0 until then
+    # (scripts/check_vllm_030_bump_results.md). 0.30.0 warned that `--model` will be removed in a
+    # future version; 0.31.0's release notes do not remove it. Move to the positional form when a
+    # release does.
+    image: vllm/vllm-openai:v0.31.0
     container_name: vllm-polity
     command:
       - "--model"

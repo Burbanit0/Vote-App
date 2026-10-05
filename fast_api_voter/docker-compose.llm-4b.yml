@@ -51,7 +51,7 @@ name: polity-vllm-4b   # distinct from polity-vllm, same reasoning as
                        # docker-compose.llm.yml's own `name:` comment
 
 x-common: &common
-  image: vllm/vllm-openai:v0.28.0   # identical server build to the shipped
+  image: vllm/vllm-openai:v0.31.0   # identical server build to the shipped
                                     # stack — the serving layer must not be a
                                     # variable in this comparison
   ports:
