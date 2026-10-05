@@ -52,7 +52,9 @@ const polityFr = {
     jump: 'Tick {{tick}} : {{event}}',
     eventList: 'Événements, pour aller à leur tick',
     legendLabel: 'Légende de la frise',
+    vacancy: 'Présidence vacante du tick {{start}} jusqu’au tick {{end}}',
     legend: {
+      vacancy: 'présidence vacante',
       elected: 'élection gagnée',
       noWinner: 'élection sans vainqueur ou invalidée',
       snap: 'élection anticipée',

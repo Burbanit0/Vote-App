@@ -51,7 +51,9 @@ const polityPseudo: PolityKeys = {
     jump: '⟦Tíçk~~ {{tick}} :~ {{event}}⟧',
     eventList: '⟦Évéñéméñts,~~~~ póúr~~ állér~~ à~ léúr~~ tíçk~~⟧',
     legendLabel: '⟦Légéñdé~~~ dé~ lá~ frísé~~⟧',
+    vacancy: '⟦Présídéñçé~~~~ váçáñté~~~ dú~ tíçk~~ {{start}} júsqú’áú~~~ tíçk~~ {{end}}⟧',
     legend: {
+      vacancy: '⟦présídéñçé~~~~ váçáñté~~~⟧',
       elected: '⟦éléçtíóñ~~~ gágñéé~~~⟧',
       noWinner: '⟦éléçtíóñ~~~ sáñs~~ váíñqúéúr~~~~ óú~ íñválídéé~~~~⟧',
       snap: '⟦éléçtíóñ~~~ áñtíçípéé~~~~⟧',

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWidth } from '../../hooks/useWidth';
 import {
   LANE_HEIGHT,
   TIMELINE_LANES,
+  glyphOf,
   layoutTimeline,
   tickAtX,
   type Glyph,
@@ -16,7 +17,10 @@ import { usePolityCtx } from './PolityController';
 // and society, and a playhead at the current tick. A click moves the player.
 
 const UNMEASURED_WIDTH = 800;
+/** Below this many pixels a tick, a long run's glyphs merge into bars: the lanes scroll instead. */
+const MIN_TICK_WIDTH = 8;
 const BAND_CLASSES = ['fill-primary/25', 'fill-primary/45'];
+const VACANCY_CLASS = 'fill-none stroke-muted-foreground';
 
 const LANE_KEYS: Record<TimelineLane, string> = {
   presidency: 'timeline.lanePresidency',
@@ -115,17 +119,38 @@ const GlyphShape: React.FC<{ glyph: Pick<Glyph, 'x' | 'y' | 'kind'> }> = ({ glyp
 const InstitutionalTimeline: React.FC = () => {
   const { t } = useTranslation('polity');
   const { overview, tick, setTick } = usePolityCtx();
-  const [holder, width] = useWidth(UNMEASURED_WIDTH);
+  const [measure, width] = useWidth(UNMEASURED_WIDTH);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const holder = useCallback(
+    (element: HTMLDivElement | null) => {
+      measure(element);
+      scroller.current = element;
+    },
+    [measure]
+  );
+  const lastTick = overview?.last_tick ?? 0;
+  const svgWidth = Math.max(width, (lastTick + 1) * MIN_TICK_WIDTH);
+  const geometry = overview
+    ? layoutTimeline(overview.terms, overview.timeline, lastTick, svgWidth)
+    : null;
+  const playheadX = geometry?.tickX(tick);
 
-  if (!overview) return null;
+  // When the lanes scroll, playback and jumps bring the playhead back into view.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element || playheadX === undefined) return;
+    if (playheadX < element.scrollLeft || playheadX > element.scrollLeft + element.clientWidth) {
+      element.scrollLeft = playheadX - element.clientWidth / 2;
+    }
+  }, [playheadX]);
 
-  const lastTick = overview.last_tick;
-  const geometry = layoutTimeline(overview.terms, overview.timeline, lastTick, width);
+  if (!overview || !geometry) return null;
+
   const eventName = (type: string) => t(`timeline.eventNames.${type}`, { defaultValue: type });
   const drawn = new Set(geometry.glyphs.map((glyph) => glyph.kind));
   const onClick = (event: React.MouseEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
-    setTick(tickAtX(event.clientX - box.left, lastTick, width));
+    setTick(tickAtX(event.clientX - box.left, lastTick, svgWidth));
   };
 
   return (
@@ -142,7 +167,7 @@ const InstitutionalTimeline: React.FC = () => {
             </li>
           ))}
         </ul>
-        <div ref={holder} className="min-w-0 flex-1">
+        <div ref={holder} className="min-w-0 flex-1 overflow-x-auto">
           <svg
             data-testid="timeline-svg"
             role="img"
@@ -151,7 +176,7 @@ const InstitutionalTimeline: React.FC = () => {
               events: overview.timeline.length,
               ticks: lastTick + 1,
             })}
-            width={width}
+            width={svgWidth}
             height={geometry.height}
             className="block cursor-pointer"
             onClick={onClick}
@@ -173,6 +198,23 @@ const InstitutionalTimeline: React.FC = () => {
                     start: band.startTick,
                     end: t(ENDED_KEYS[band.endedBy] ?? 'timeline.endedElection'),
                   })}
+                </title>
+              </rect>
+            ))}
+            {geometry.vacancies.map((vacancy) => (
+              <rect
+                key={vacancy.startTick}
+                data-testid="timeline-vacancy"
+                x={vacancy.x}
+                y={geometry.laneY.presidency - 7}
+                width={vacancy.width}
+                height={14}
+                rx={2}
+                className={VACANCY_CLASS}
+                strokeDasharray="3 2"
+              >
+                <title>
+                  {t('timeline.vacancy', { start: vacancy.startTick, end: vacancy.endTick })}
                 </title>
               </rect>
             ))}
@@ -201,6 +243,22 @@ const InstitutionalTimeline: React.FC = () => {
         aria-label={t('timeline.legendLabel')}
         className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs"
       >
+        {geometry.vacancies.length > 0 && (
+          <li data-testid="timeline-legend-vacancy" className="flex items-center gap-1.5">
+            <svg width={16} height={12} aria-hidden="true" className="shrink-0">
+              <rect
+                x={1}
+                y={2}
+                width={14}
+                height={8}
+                rx={2}
+                className={VACANCY_CLASS}
+                strokeDasharray="3 2"
+              />
+            </svg>
+            {t('timeline.legend.vacancy')}
+          </li>
+        )}
         {LEGEND.filter(([, kinds]) => kinds.some((kind) => drawn.has(kind))).map(([key, kinds]) => (
           <li
             key={key}
@@ -218,22 +276,41 @@ const InstitutionalTimeline: React.FC = () => {
         <summary className="cursor-pointer text-muted-foreground">
           {t('timeline.eventList')}
         </summary>
-        <ol className="mt-1 flex flex-wrap gap-1">
-          {overview.timeline.map((entry, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                data-testid="timeline-event-jump"
-                data-tick={entry.tick}
-                data-event={entry.event_type}
-                className="rounded border border-border px-1.5 py-0.5"
-                onClick={() => setTick(entry.tick)}
-              >
-                {t('timeline.jump', { tick: entry.tick, event: eventName(entry.event_type) })}
-              </button>
-            </li>
-          ))}
-        </ol>
+        {/* By lane, each folded under its count: a long run has a hundred events and more. */}
+        {TIMELINE_LANES.map((lane) => {
+          const entries = overview.timeline.filter(
+            (entry) => glyphOf(entry.event_type)[0] === lane
+          );
+          return (
+            entries.length > 0 && (
+              <details key={lane} data-testid={`timeline-events-${lane}`} className="ml-3 mt-1">
+                <summary className="cursor-pointer">
+                  {t(LANE_KEYS[lane])}{' '}
+                  <span className="text-muted-foreground">{entries.length}</span>
+                </summary>
+                <ol className="mt-1 flex flex-wrap gap-1">
+                  {entries.map((entry, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        data-testid="timeline-event-jump"
+                        data-tick={entry.tick}
+                        data-event={entry.event_type}
+                        className="rounded border border-border px-1.5 py-0.5"
+                        onClick={() => setTick(entry.tick)}
+                      >
+                        {t('timeline.jump', {
+                          tick: entry.tick,
+                          event: eventName(entry.event_type),
+                        })}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )
+          );
+        })}
       </details>
     </section>
   );

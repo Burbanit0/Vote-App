@@ -58,8 +58,10 @@ CATEGORIES: list[tuple[str, re.Pattern[str]]] = [
 ]
 ERROR_RE = re.compile(
     r"##\[error\]|(^|\s)(FAILED|ERROR|Error:|error:|AssertionError|Traceback|✗|×|::error::|"
-    r"error TS\d+|E\s{3}|FAIL\s|Process completed with exit code [1-9])")
+    r"error TS\d+|E\s{3}|FAIL\s|npm (ERR!|error)|Process completed with exit code [1-9])")
+GENERIC = re.compile(r"Process completed with exit code")
 TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 NOISE = re.compile(r"[0-9a-f]{7,40}|\d+(\.\d+)?(ms|s)?|/tmp/\S+|line \d+")
 
 
@@ -70,9 +72,14 @@ def gh_json(path: str) -> Any:
     return json.loads(res.stdout)
 
 
-def gh_text(path: str) -> str | None:
-    res = subprocess.run(["gh", "api", path], capture_output=True, text=True, check=False)
-    return res.stdout if res.returncode == 0 else None
+def gh_text(path: str) -> tuple[str, str]:
+    """(body, error): a job log is not JSON and may not be valid UTF-8, and it is
+    full of colour codes, which gh refuses to output unless told to."""
+    res = subprocess.run(["gh", "api", "--allow-escape-sequences", path], capture_output=True, check=False)
+    if res.returncode != 0:
+        err = res.stderr.decode("utf-8", "replace").strip().splitlines()
+        return "", (err[-1] if err else f"gh exited {res.returncode}")[:300]
+    return res.stdout.decode("utf-8", "replace"), ""
 
 
 def iso(ts: str | None) -> datetime | None:
@@ -143,8 +150,19 @@ def earlier_attempts(repo: str, fresh: list[dict], seen: set) -> list[dict]:
 # ── Failures ───────────────────────────────────────────────────────────────
 
 def error_lines(log: str) -> list[str]:
-    lines = [TIMESTAMP.sub("", ln).rstrip() for ln in log.splitlines()]
+    lines = [TIMESTAMP.sub("", ANSI.sub("", ln)).rstrip() for ln in log.splitlines()]
     hits = [ln for ln in lines if ERROR_RE.search(ln) and "##[group]" not in ln]
+    if hits and all(GENERIC.search(h) for h in hits):
+        # Only the runner's closing exit-code line matched: keep what the failing
+        # command printed just before it, which is where the cause is.
+        end = next(i for i, ln in enumerate(lines) if GENERIC.search(ln))
+        context = [ln for ln in lines[:end] if ln.strip() and not ln.startswith(("##[", "[command]"))]
+        return (context[-(ERROR_LINES - 1):] + [lines[end]])
+    if len(hits) > ERROR_LINES:
+        # Head and tail: the cause is usually stated first (npm's ERESOLVE, the
+        # first FAILED test), the tally last.
+        half = ERROR_LINES // 2
+        hits = hits[:half] + hits[-half:]
     return (hits or [ln for ln in lines if ln.strip()])[-ERROR_LINES:]
 
 
@@ -156,9 +174,27 @@ def categorize(lines: list[str]) -> str:
     return "code"
 
 
+TALLY = re.compile(r"fixable with the `--fix` option|^Found \d+ errors?|problems? \(\d+ errors?|"
+                   r"For a full report see|A complete log of this run|/\.npm/_logs/")
+
+
+def informative(line: str) -> bool:
+    """Enough words to name a cause once the runner's markers are dropped."""
+    words = re.sub(r"##\[error\]|::error::|npm (ERR!|error)|[^A-Za-z]+", " ", line).split()
+    return len("".join(words)) >= 12 and not TALLY.search(line) and not GENERIC.search(line)
+
+
 def signature(category: str, lines: list[str]) -> str:
     """A stable key for grouping the same failure across runs."""
-    first = next((ln for ln in lines if ERROR_RE.search(ln)), lines[0] if lines else "")
+    # The runner's closing "Process completed with exit code N" says nothing about
+    # the cause and would lump every failure together: prefer the line before it.
+    hits = [ln for ln in lines if ERROR_RE.search(ln)]
+    specific = [ln for ln in hits if not GENERIC.search(ln)]
+    context = [ln for ln in lines if not GENERIC.search(ln)]
+    # A bare "npm error", a "-----" rule or a linter's "N fixable" tally names
+    # nothing: prefer a line that says what went wrong.
+    telling = [ln for ln in specific + context[::-1] if informative(ln)]
+    first = (telling or specific or context[-1:] or hits or [""])[0]
     return f"{category}: {NOISE.sub('#', first).strip()[:140]}"
 
 
@@ -169,14 +205,33 @@ def failure_detail(repo: str, run: dict) -> dict:
         return {"category": "infra", "job": None, "step": None, "lines": [], "signature": "infra: no failed job"}
     job = failed[0]
     step = next((s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"), None)
-    log = gh_text(f"repos/{repo}/actions/jobs/{job['id']}/logs") or ""
-    if not log.strip():  # expired (90 days) or unreachable: say so, group by where it failed
+    log, error = gh_text(f"repos/{repo}/actions/jobs/{job['id']}/logs")
+    if not log.strip():  # expired (90 days) or unreachable: say why, group by where it failed
+        print(f"collect: log of job {job['id']} unavailable: {error or 'empty'}", file=sys.stderr)
         return {"category": "unknown", "job": job.get("name"), "step": step, "lines": [],
+                "log_error": error or "empty log",
                 "signature": f"unknown: {job.get('name')} / {step or '?'} (log unavailable)"}
     lines = error_lines(log[-200_000:])
     category = "timeout" if job.get("conclusion") == "timed_out" else categorize(lines)
     return {"category": category, "job": job.get("name"), "step": step,
             "lines": lines, "signature": signature(category, lines)}
+
+
+LOG_RETRIES = 3
+LOG_MAX_AGE = timedelta(days=85)  # GitHub keeps job logs 90 days
+
+
+def needs_log(r: dict, now: datetime) -> bool:
+    """Unread, or unreadable or reduced to the runner's bare exit line last time
+    (a few retries while GitHub still has the log)."""
+    f = r.get("failure")
+    if f is None:
+        return True
+    created = iso(r["created_at"])
+    vague = f.get("category") == "unknown" or (
+        bool(f.get("lines")) and not any(informative(ln) for ln in f["lines"]))
+    return (vague and r.get("log_tries", 1) < LOG_RETRIES
+            and created is not None and now - created < LOG_MAX_AGE)
 
 
 def mark_flaky(records: list[dict]) -> None:
@@ -316,12 +371,14 @@ def main(argv: list[str] | None = None) -> int:
     fresh += earlier_attempts(args.repo, fresh, seen)
 
     records = merge(history, fresh, since)
-    # Newest unread failures first; whatever the cap leaves is read next time.
+    # Never-read failures first, then retries of unreadable logs, newest first in
+    # each; whatever the cap leaves is read next time.
     fetched = 0
-    for r in sorted(records, key=lambda r: r["created_at"], reverse=True):
+    for r in sorted(records, key=lambda r: ("failure" not in r, r["created_at"]), reverse=True):
         if fetched >= MAX_LOG_FETCHES:
             break
-        if r["conclusion"] in ("failure", "timed_out") and "failure" not in r:
+        if r["conclusion"] in ("failure", "timed_out") and needs_log(r, now):
+            r["log_tries"] = r.get("log_tries", 0) + 1
             try:
                 r["failure"] = failure_detail(args.repo, r)
             except RuntimeError as exc:  # one unreadable run never stops the collection
@@ -329,6 +386,12 @@ def main(argv: list[str] | None = None) -> int:
                 r["failure"] = {"category": "unknown", "job": None, "step": None, "lines": [],
                                 "signature": "unknown: run details unavailable"}
             fetched += 1
+    # Re-key stored failures from their error lines, so a better signature rule
+    # also regroups the history (mark_flaky then re-applies its own prefix).
+    for r in records:
+        f = r.get("failure")
+        if f and f.get("lines") and f["category"] != "test-flaky":
+            f["signature"] = signature(f["category"], f["lines"])
     mark_flaky(records)
     history_path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in records), encoding="utf-8")
     summary = summarize(records, read_baselines(ROOT), now)

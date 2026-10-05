@@ -50,7 +50,9 @@ test.describe('Polity — run explorer', () => {
     await expect(timeline.getByTestId('timeline-term')).toHaveCount(3);
     await expect(timeline.getByTestId('timeline-legend-recall')).toBeVisible();
 
-    await timeline.locator('details > summary').click();
+    // The event list folds by lane: a recall is under the checks.
+    await timeline.locator('details > summary').first().click();
+    await timeline.getByTestId('timeline-events-accountability').locator('summary').click();
     await timeline
       .locator('[data-testid="timeline-event-jump"][data-event="recalled"][data-tick="11"]')
       .click();
@@ -91,7 +93,7 @@ test.describe('Polity — run explorer', () => {
     for (const tick of [0, 10, 12]) {
       await expect(page.getByTestId(`polity-election-${tick}`)).toBeVisible();
     }
-    await page.getByTestId('polity-election-10').getByRole('button').click();
+    await page.getByTestId('polity-election-10').getByRole('button', { name: '10' }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('10');
   });
 
@@ -106,13 +108,14 @@ test.describe('Polity — run explorer', () => {
 
     const biography = page.getByTestId('polity-biography');
     await expect(biography).toBeVisible();
+    // Acts on the same motive share one entry, each act a tick chip of its own.
     const acts = biography
       .getByTestId('biography-section-pressure_acts')
-      .getByTestId('biography-entry');
+      .getByTestId('biography-tick');
     await expect(acts.first()).toBeVisible();
     expect(await acts.count()).toBeGreaterThan(5);
 
-    await acts.nth(2).getByTestId('biography-tick').click();
+    await acts.nth(2).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).not.toBeNull();
     await biography.getByTestId('polity-biography-close').click();
     await expect.poll(() => new URL(page.url()).searchParams.get('citizen')).toBeNull();
