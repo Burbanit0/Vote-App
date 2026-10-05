@@ -124,7 +124,7 @@
     "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
    ],
    "category": "code",
-   "count": 70,
+   "count": 93,
    "example": {
     "job": "Code Quality (dead code, duplication & complexity)",
     "lines": [
@@ -284,6 +284,43 @@
   },
   {
    "branches": [
+    "chore/sync-develop-into-polity-2026-09-10",
+    "feat/basedpyright-second-opinion",
+    "feat/centralize-except-exception-logging",
+    "feat/decompose-democratic-backsliding-worker",
+    "feat/decompose-start-monte-carlo",
+    "feat/dedupe-election-workers-jscpd-clones",
+    "feat/lot10-opentelemetry-tracing",
+    "feat/lot14-refurb-perflint-fix",
+    "feat/lot9-atheris-coverage-fuzzing",
+    "feat/schemathesis-contract-fuzzing",
+    "feat/semgrep-custom-rules"
+   ],
+   "category": "code",
+   "count": 14,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "-------------",
+     "Total:   66 lines",
+     "Missing: 1 line",
+     "Coverage: 98%",
+     "-------------",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "d642aae5450b0246408055c31f0b5b1649251ff5",
+    "step": "diff-cover \u2014 100% coverage on changed lines",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34734519162"
+   },
+   "last_seen": "2026-09-13T03:03:00Z",
+   "signature": "code: -------------",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
     "chore/bump-typescript-6-size-limit-13",
     "dependabot/npm_and_yarn/voter-app/dependency-cruiser-18.2.0",
     "dependabot/npm_and_yarn/voter-app/license-checker-rseidelsohn-5.0.1",
@@ -407,36 +444,26 @@
   },
   {
    "branches": [
-    "feat/basedpyright-second-opinion",
-    "feat/centralize-except-exception-logging",
-    "feat/decompose-democratic-backsliding-worker",
-    "feat/decompose-start-monte-carlo",
-    "feat/dedupe-election-workers-jscpd-clones",
-    "feat/lot10-opentelemetry-tracing",
-    "feat/lot14-refurb-perflint-fix",
-    "feat/lot9-atheris-coverage-fuzzing"
+    "develop"
    ],
    "category": "code",
    "count": 10,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
+    "job": "Publish to GitHub Pages",
     "lines": [
-     "-------------",
-     "Total:   66 lines",
-     "Missing: 1 line",
-     "Coverage: 98%",
-     "-------------",
-     "##[error]Process completed with exit code 1."
+     "##[error]Creating Pages deployment failed",
+     "##[error]HttpError: Not Found",
+     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID 7808:306A88:1CAFC7:5EFD2D:6AC30DE1 Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
     ],
     "pr": [],
-    "sha": "d642aae5450b0246408055c31f0b5b1649251ff5",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34734519162"
+    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
+    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255900154"
    },
-   "last_seen": "2026-09-13T03:03:00Z",
-   "signature": "code: -------------",
+   "last_seen": "2026-10-05T02:33:55Z",
+   "signature": "code: ##[error]Creating Pages deployment failed",
    "workflows": [
-    "Backend CI"
+    "CI Dashboard"
    ]
   },
   {
@@ -501,21 +528,24 @@
    "category": "code",
    "count": 9,
    "example": {
-    "job": "Publish to GitHub Pages",
+    "job": "Backend mutation score (mutmut, floor 70%)",
     "lines": [
-     "##[error]Creating Pages deployment failed",
-     "##[error]HttpError: Not Found",
-     "##[error]Error: Failed to create deployment (status: 404) with build version afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe. Request ID B008:18CFA1:67D3F50:156DF8AF:6AC30C8A Ensure GitHub Pages has been enabled: https://github.com/Burbanit0/Vote-App/settings/pages"
+     "==================================== ERRORS ====================================",
+     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
+     "Traceback:",
+     "E   ImportError: cannot load module more than once per process",
+     "ERROR api/tests/test_anti_plurality.py",
+     "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-    "step": "Run actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255530027"
+    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
+    "step": "Mutation score floor (70%)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
    },
-   "last_seen": "2026-10-05T02:28:17Z",
-   "signature": "code: ##[error]Creating Pages deployment failed",
+   "last_seen": "2026-09-13T02:15:34Z",
+   "signature": "code: ==================================== ERRORS ====================================",
    "workflows": [
-    "CI Dashboard"
+    "Mutation Testing"
    ]
   },
   {
@@ -548,6 +578,34 @@
   },
   {
    "branches": [
+    "docs/polity-llm-protocol-and-theory-program",
+    "polity"
+   ],
+   "category": "code",
+   "count": 9,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          140    144      +4 \ud83d\udd34",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)            104    104      +0",
+     "jscpd (duplicate clones)                      36     38      +2 \ud83d\udd34",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "1edd5c659dfd2223a93e3afc0e371bbe25a2aa3b",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34694591907"
+   },
+   "last_seen": "2026-09-12T12:46:26Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "chore/ci-health-snapshot-20260913-144749"
    ],
    "category": "infra",
@@ -571,33 +629,6 @@
     "Frontend CI",
     "Generated Artifacts Contract",
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 7,
-   "example": {
-    "job": "Backend mutation score (mutmut, floor 70%)",
-    "lines": [
-     "==================================== ERRORS ====================================",
-     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
-     "Traceback:",
-     "E   ImportError: cannot load module more than once per process",
-     "ERROR api/tests/test_anti_plurality.py",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
-    "step": "Mutation score floor (70%)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
-   },
-   "last_seen": "2026-09-13T02:15:34Z",
-   "signature": "code: ==================================== ERRORS ====================================",
-   "workflows": [
-    "Mutation Testing"
    ]
   },
   {
@@ -628,33 +659,6 @@
    },
    "last_seen": "2026-09-14T01:07:25Z",
    "signature": "code: jscpd (duplicate clones)                      #     #      +#",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "polity"
-   ],
-   "category": "code",
-   "count": 7,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          140    144      +4 \ud83d\udd34",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)            104    104      +0",
-     "jscpd (duplicate clones)                      36     38      +2 \ud83d\udd34",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "1edd5c659dfd2223a93e3afc0e371bbe25a2aa3b",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34694591907"
-   },
-   "last_seen": "2026-09-12T12:46:26Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
    "workflows": [
     "Security Audit"
    ]
@@ -766,6 +770,33 @@
   },
   {
    "branches": [
+    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
+    "develop",
+    "mergify/merge-queue/7980717d8d",
+    "polity"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toHaveAttribute(expected) failed",
+     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "99f6fc371fd1283a386b8eb990e823ae504c861a",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34854784476"
+   },
+   "last_seen": "2026-09-14T14:18:43Z",
+   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "polity"
    ],
    "category": "code",
@@ -806,33 +837,6 @@
    "signature": "unknown: API contract fuzzing (Schemathesis) / Run contract fuzzing (log unavailable)",
    "workflows": [
     "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
-    "develop",
-    "mergify/merge-queue/7980717d8d",
-    "polity"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toHaveAttribute(expected) failed",
-     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "99f6fc371fd1283a386b8eb990e823ae504c861a",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34854784476"
-   },
-   "last_seen": "2026-09-14T14:18:43Z",
-   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -882,6 +886,31 @@
    "signature": "code: Files skipped (#):",
    "workflows": [
     "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "feat/backend-uv-in-ci"
+   ],
+   "category": "code",
+   "count": 3,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "error: No system Python installation found for Python 3.14",
+     "##[error]Process completed with exit code 2."
+    ],
+    "pr": [],
+    "sha": "2b30dea2b46ff8a2b82ce08565f358e167347d61",
+    "step": "Install production + dev dependencies",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34341325134"
+   },
+   "last_seen": "2026-09-09T10:38:46Z",
+   "signature": "code: error: No system Python installation found for Python #",
+   "workflows": [
+    "Backend CI",
+    "E2E Tests",
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -1000,6 +1029,34 @@
   },
   {
    "branches": [
+    "feat/diff-cover-changed-lines",
+    "feat/test-order-randomization-and-flake-hunt"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Semgrep SAST",
+    "lines": [
+     " \u2022 Scan skipped:",
+     "   \u25e6 Files matching .semgrepignore patterns: 24",
+     " \u2022 Scan was limited to files tracked by git",
+     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
+     "Ran 383 rules on 832 files: 2 findings.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "5a1ca6b189694809a62a12c3847fb615ac53ddd8",
+    "step": "Run Semgrep (gating)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34553448036"
+   },
+   "last_seen": "2026-09-11T02:08:22Z",
+   "signature": "code: Ran # rules on # files: # findings.",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "code",
@@ -1023,6 +1080,34 @@
    "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
    "workflows": [
     "Schemathesis Contract Fuzzing"
+   ]
+  },
+  {
+   "branches": [
+    "feat/socket-disconnect-orphaned-run",
+    "feat/worker-timeouts-backpressure"
+   ],
+   "category": "infra",
+   "count": 2,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "E       assert 503 == 200",
+     "E        +  where 503 = <Response [503 Service Unavailable]>.status_code",
+     "api/tests/test_simulations_whatif_campaign.py:47: AssertionError",
+     "ERROR    api.core.worker_dispatch:worker_dispatch.py:110 2026-09-10T14:40:52.880530Z [error    ] worker_dispatch.timeout        [api.core.worker_dispatch] timeout_s=180.0 worker=_what_if_worker",
+     "FAILED api/tests/test_simulations_whatif_campaign.py::TestWhatIf::test_caps_at_10_values - AssertionError: {\"detail\":\"Request took too long to process\"}",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "47c7763aa074dc63cf59627cf8c9dc88a8585369",
+    "step": "Tests with coverage (85% minimum)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34489988713"
+   },
+   "last_seen": "2026-09-10T14:34:51Z",
+   "signature": "infra: E       assert # == #",
+   "workflows": [
+    "Backend CI"
    ]
   },
   {
@@ -1422,33 +1507,6 @@
   },
   {
    "branches": [
-    "feat/test-order-randomization-and-flake-hunt"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Semgrep SAST",
-    "lines": [
-     " \u2022 Scan skipped:",
-     "   \u25e6 Files matching .semgrepignore patterns: 24",
-     " \u2022 Scan was limited to files tracked by git",
-     " \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag",
-     "Ran 383 rules on 832 files: 2 findings.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "5a1ca6b189694809a62a12c3847fb615ac53ddd8",
-    "step": "Run Semgrep (gating)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34553448036"
-   },
-   "last_seen": "2026-09-11T02:08:22Z",
-   "signature": "code: Ran # rules on # files: # findings.",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "mergify/merge-queue/a5f026ad07"
    ],
    "category": "code",
@@ -1497,6 +1555,33 @@
    "signature": "code: genuinely improved \u2014 never to get a red run green.",
    "workflows": [
     "Mutation Testing"
+   ]
+  },
+  {
+   "branches": [
+    "feat/schemathesis-contract-fuzzing"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          137    137      +0",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)            104    104      +0",
+     "jscpd (duplicate clones)                      34     33      -1 \ud83d\udfe2",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "bef7fb604a02f8acd1ba9b089be4449a964f7032",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34435990882"
+   },
+   "last_seen": "2026-09-10T04:08:16Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      -# \ud83d\udfe2",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -1579,82 +1664,15 @@
    "workflows": [
     "Schemathesis Contract Fuzzing"
    ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/pylint-4.0.8"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "  \u00d7 No solution found when resolving dependencies:",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "838122a13add1283145e6a3695f569b98c81bf68",
-    "step": "Install production + dev dependencies",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34572130061"
-   },
-   "last_seen": "2026-09-11T06:56:54Z",
-   "signature": "code: \u00d7 No solution found when resolving dependencies:",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "infra",
-   "count": 1,
-   "example": {
-    "job": "Scorecard analysis",
-    "lines": [
-     "2026/09/17 16:46:43 scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv4.Query: non-200 OK status code: 503 Service Unavailable body: \"upstream connect error or disconnect/reset before headers. reset reason: connection termination\""
-    ],
-    "pr": [],
-    "sha": "473dfea881ca82b0f067c4ead602a411de40f4e6",
-    "step": "Run ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35248660283"
-   },
-   "last_seen": "2026-09-17T16:46:33Z",
-   "signature": "infra: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: non-# OK ",
-   "workflows": [
-    "OpenSSF Scorecard"
-   ]
-  },
-  {
-   "branches": [
-    "feat/visual-regression-lot7"
-   ],
-   "category": "test-flaky",
-   "count": 1,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "##[error]Failed to FinalizeArtifact: Received non-retryable error: Failed request: (403) Forbidden: Error from intermediary with HTTP status code 403 \"Forbidden\""
-    ],
-    "pr": [],
-    "sha": "59e5b3964af32970b4417741c46e6b4c6b8ec172",
-    "step": "Upload Playwright report",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34614610423"
-   },
-   "last_seen": "2026-09-11T15:11:09Z",
-   "signature": "test-flaky: ##[error]Failed to FinalizeArtifact: Received non-retryable error: Failed request: (#) Forbidden: Error from intermediary with HTTP status c",
-   "workflows": [
-    "E2E Tests"
-   ]
   }
  ],
  "failures_by_category": {
-  "code": 229,
-  "infra": 9,
+  "code": 267,
+  "infra": 11,
   "test-flaky": 9,
   "unknown": 153
  },
- "generated_at": "2026-10-05T02:34:05Z",
+ "generated_at": "2026-10-05T02:39:57Z",
  "grid": {
   "Backend CI": {
    "2026-09-05": {
@@ -1751,7 +1769,7 @@
     "success": 25
    },
    "2026-10-05": {
-    "success": 5
+    "success": 6
    }
   },
   "Backend Flaky Test Hunt": {
@@ -1835,7 +1853,7 @@
     "failure": 3
    },
    "2026-10-05": {
-    "failure": 6
+    "failure": 7
    }
   },
   "CI Health Watchdog": {
@@ -2332,7 +2350,7 @@
     "success": 25
    },
    "2026-10-05": {
-    "success": 5
+    "success": 6
    }
   },
   "Human review attestation": {
@@ -2349,7 +2367,7 @@
     "success": 6
    },
    "2026-10-05": {
-    "skipped": 9
+    "skipped": 10
    }
   },
   "Mutation Testing": {
@@ -2419,7 +2437,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-05": {
-    "cancelled": 9,
+    "cancelled": 8,
     "success": 10
    },
    "2026-09-06": {
@@ -2567,7 +2585,7 @@
   },
   "Security Audit": {
    "2026-09-05": {
-    "cancelled": 10,
+    "cancelled": 9,
     "success": 14
    },
    "2026-09-06": {
@@ -2676,7 +2694,7 @@
    "2026-10-05": {
     "cancelled": 8,
     "skipped": 38,
-    "success": 26
+    "success": 28
    }
   }
  },
@@ -2684,9 +2702,9 @@
   "Backend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T02:10:55Z",
+   "created_at": "2026-10-05T02:41:51Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254366587"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256407110"
   },
   "Backend Flaky Test Hunt": {
    "branch": "develop",
@@ -2698,9 +2716,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-05T02:28:17Z",
+   "created_at": "2026-10-05T02:33:55Z",
    "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255530027"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255900154"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2740,16 +2758,16 @@
   "Generated Artifacts Contract": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T02:10:55Z",
+   "created_at": "2026-10-05T02:41:51Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254366552"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256407136"
   },
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-05T02:26:33Z",
+   "created_at": "2026-10-05T02:41:39Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255417800"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256394976"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2781,13 +2799,13 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-10-05T02:25:55Z",
+   "conclusion": "success",
+   "created_at": "2026-10-05T02:42:03Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255375734"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256420501"
   }
  },
- "runs": 11447,
+ "runs": 11451,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2818,12 +2836,12 @@
     "2026-10-02": 128.5,
     "2026-10-03": 13,
     "2026-10-04": 12,
-    "2026-10-05": 10
+    "2026-10-05": 10.0
    },
    "p50_s": 148,
    "p95_s": 434,
    "queue_p50_s": 0,
-   "runs": 1325
+   "runs": 1326
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3121,12 +3139,12 @@
     "2026-10-02": 90.5,
     "2026-10-03": 41.5,
     "2026-10-04": 11,
-    "2026-10-05": 11
+    "2026-10-05": 11.0
    },
    "p50_s": 73,
    "p95_s": 216,
    "queue_p50_s": 0,
-   "runs": 1366
+   "runs": 1367
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3254,12 +3272,12 @@
   "polity red alert": {
    "daily_p50_s": {
     "2026-10-04": 22,
-    "2026-10-05": 21.5
+    "2026-10-05": 22.0
    },
    "p50_s": 22,
    "p95_s": 44,
    "queue_p50_s": 0,
-   "runs": 149
+   "runs": 151
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -3289,9 +3307,9 @@
     },
     "CI Dashboard": {
      "conclusion": "failure",
-     "created_at": "2026-10-05T02:28:17Z",
+     "created_at": "2026-10-05T02:33:55Z",
      "sha": "afe8f4e9e8f48146434f5ea2bee4e681fb98cdfe",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255530027"
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37255900154"
     },
     "CI Health Watchdog": {
      "conclusion": "success",
@@ -3397,13 +3415,13 @@
    }
   },
   "polity": {
-   "sha": "98f9819464209337118ce780bf70ff4fb31c62a4",
+   "sha": "f66184e88d5aaa0ff91247244da85bf6e2e844d0",
    "workflows": {
     "Backend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-05T02:10:55Z",
-     "sha": "98f9819464209337118ce780bf70ff4fb31c62a4",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254366587"
+     "created_at": "2026-10-05T02:41:51Z",
+     "sha": "f66184e88d5aaa0ff91247244da85bf6e2e844d0",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256407110"
     },
     "Backend Flaky Test Hunt": {
      "conclusion": "success",
@@ -3437,9 +3455,9 @@
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
-     "created_at": "2026-10-05T02:10:55Z",
-     "sha": "98f9819464209337118ce780bf70ff4fb31c62a4",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37254366552"
+     "created_at": "2026-10-05T02:41:51Z",
+     "sha": "f66184e88d5aaa0ff91247244da85bf6e2e844d0",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37256407136"
     },
     "Mutation Testing": {
      "conclusion": "success",
