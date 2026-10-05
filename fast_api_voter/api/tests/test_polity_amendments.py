@@ -50,6 +50,7 @@ from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _p
 
 _CONFIG = load_config()
 _METHOD = "institutions.presidential_method"
+_TERM = "institutions.president_term_limit"
 _PROPOSAL = Proposal(article=_METHOD, value="borda", proposer=30, tick=3, threshold=0.6, reason="fairer")
 
 
@@ -67,6 +68,8 @@ def test_an_entrenched_article_needs_more_than_the_general_threshold() -> None:
     assert threshold_for(_CONFIG, "legitimacy.recall_floor") == 0.5
     assert threshold_for(_CONFIG, _METHOD) == 0.6
     assert threshold_for(_CONFIG, "constitution.amendment_threshold") == 0.75
+    # OBS-038: how long one person may hold power is entrenched as high as the amendment procedure.
+    assert threshold_for(_CONFIG, _TERM) == 0.75
     stricter = amended(_CONFIG, "constitution.amendment_threshold", 0.7)
     assert (threshold_for(stricter, "legitimacy.recall_floor"), threshold_for(stricter, _METHOD)) == (0.7, 0.7)
 
@@ -100,7 +103,9 @@ def test_an_entrenchment_the_constitution_cannot_hold_is_refused(tmp_path: Path,
 
 
 def test_a_config_file_states_the_entrenchment() -> None:
-    assert _CONFIG.constitution.entrenched == {_METHOD: 0.6, "constitution.amendment_threshold": 0.75}
+    assert _CONFIG.constitution.entrenched == {
+        _METHOD: 0.6, "constitution.amendment_threshold": 0.75, _TERM: 0.75,
+    }
 
 
 def test_amending_needs_the_president_the_chamber_and_the_model() -> None:
@@ -204,9 +209,6 @@ def test_a_ballot_tells_the_member_who_asks_in_facts_and_not_whether_it_serves_t
     user = ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="", proposer=line)
     assert line in user and "benefit" not in user
     assert line not in ballot_user_prompt(_PROPOSAL, tick=4, old="two_round", members=30, memory="")
-
-
-_TERM = "institutions.president_term_limit"
 
 
 def _proposal(article: str, value: Any) -> Proposal:

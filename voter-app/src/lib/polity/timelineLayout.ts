@@ -36,6 +36,7 @@ export type GlyphKind =
   | 'amendment'
   | 'extraLegal'
   | 'campaign'
+  | 'party'
   | 'other';
 
 const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
@@ -66,6 +67,11 @@ const GLYPHS: Record<string, [TimelineLane, GlyphKind]> = {
   // accountability (it is the opposite of a recall); a campaign belongs to the election it precedes.
   extra_legal_act: ['accountability', 'extraLegal'],
   campaign_run: ['elections', 'campaign'],
+  // Phase 4 (ADR-018): both are institutional, so they reached the timeline from the start --
+  // as the society lane's generic 'other' bar, lumped with scandals and rotations. Founding and
+  // dissolving share a shape, as a bill's proposal and enactment do; the event list tells them apart.
+  party_founded: ['society', 'party'],
+  party_dissolved: ['society', 'party'],
 };
 
 export interface TermInput {

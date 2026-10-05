@@ -51,6 +51,7 @@
     "amendment_threshold": 0.5,
     "entrenched": {
       "constitution.amendment_threshold": 0.75,
+      "institutions.president_term_limit": 0.75,
       "institutions.presidential_method": 0.6
     },
     "referendum": "never",

@@ -185,6 +185,17 @@ class Fetch(unittest.TestCase):
             got = collect.fetch_runs("o/r", NOW, NOW)
         self.assertEqual([r["id"] for r in got], [2])
 
+    def test_the_dashboards_own_cancelled_runs_are_left_out(self):
+        own = {"path": ".github/workflows/ci-dashboard.yml@develop", "name": "CI Dashboard"}
+        runs = [{**run(1, conclusion="cancelled"), **own}, {**run(2, conclusion="failure"), **own},
+                run(3, conclusion="cancelled")]
+        with mock.patch.object(collect, "gh_json", return_value={"workflow_runs": runs}):
+            got = collect.fetch_runs("o/r", NOW, NOW)
+        self.assertEqual([r["id"] for r in got], [2, 3])
+        # ...and the ones collected before this rule are dropped from the history.
+        stored = [collect.record(r) for r in runs]
+        self.assertEqual([r["id"] for r in collect.merge(stored, [], NOW - timedelta(days=30))], [2, 3])
+
     def test_an_unreadable_log_is_unknown_not_code(self):
         jobs = {"jobs": [{"id": 9, "name": "Tests", "conclusion": "failure",
                           "steps": [{"name": "pytest", "conclusion": "failure"}]}]}

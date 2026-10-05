@@ -56,6 +56,12 @@ updates:
       # "No solution found"). Moves when marimo does.
       - dependency-name: "pymdown-extensions"
         versions: [">=12"]
+      # schemathesis==4.28.0 (dev-only: OpenAPI contract fuzzing) declares
+      # `jsonschema-rs>=0.57.1,<0.58.0`; #727 bumped the transitive pin in the
+      # dev lock to 0.58.0 and failed "No solution found". Moves when
+      # schemathesis does.
+      - dependency-name: "jsonschema-rs"
+        versions: [">=0.58.0"]
 
   - package-ecosystem: "npm"
     directory: "/voter-app"
