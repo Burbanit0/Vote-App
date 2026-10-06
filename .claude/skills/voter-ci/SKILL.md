@@ -5,7 +5,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 
 # voter-ci — CI gates, diagnosis, and the quality ratchet
 
-Vote-App's CI is 15 workflow files (`.github/workflows/`). Most PRs only ever
+Vote-App's CI is 21 workflow files (`.github/workflows/`). Most PRs only ever
 see four of them; this skill maps every gate to its config file, explains the
 two gates that most often surprise people (the quality ratchet, diff-cover's
 100%-changed-lines rule), and gives the actual recipe for turning a red check
@@ -13,11 +13,15 @@ into a real error message.
 
 ## The gates, job by job
 
-**Branches.** Every workflow below triggers on `develop` and `main`. The required ones also
-trigger on `polity` (the polity simulation's integration branch) and `polity-ui` (where the
-Polity run explorer page is built before merging into `polity`). Those two branches are
-protected with the same required checks as `develop`, minus "CI health check", which
-`ci-health.yml` runs only for `develop`/`main` (`scripts/setup-branch-protection.sh polity|polity-ui`).
+**Branches.** `polity` is the working branch (every feature PR targets it); `develop`
+only receives release syncs from it and is GitHub's default branch, so every
+`schedule`/`workflow_run`/`issue_comment`/`pull_request_target` workflow runs from
+develop's copy. The authoritative required-check list per branch is
+`bash scripts/setup-branch-protection.sh --print-contexts <branch>`: `polity` and
+`develop` require the same 16 (including "CI health check", "High-risk review gate"
+and "Workflow lint"), `main` the first 14, `polity-ui` main's set minus "CI health
+check". The script refuses to require a check before the workflow posting it runs
+on PRs to that branch (in its own copy and develop's).
 
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
 
@@ -49,11 +53,11 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 | Architecture boundaries | `npm run depcruise` | blocking | `voter-app/.dependency-cruiser.json` |
 | npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`; its own tests: `npm run test:scripts`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
 | License compliance | `license-checker-rseidelsohn --production` | blocking, production deps only | inline allowlist |
-| Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | reporters configured, no hard floor here | `voter-app/vitest.config.ts` |
+| Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | blocking on the `test.coverage.thresholds` floors (lines 86 / statements 84 / functions 75 / branches 74) | `voter-app/vitest.config.ts` |
 | diff-cover | see below | blocking, **100% on changed lines** | — |
 | Build | `npm run build` (`tsc --noEmit && vite build && npm run build:size`) | blocking — tsc, then Vite build, then `size-limit` (1 MB brotli budget) | `voter-app/.size-limit.json` |
 
-### `e2e.yml` — "Playwright E2E" (required) + "Visual regression" (not yet required — see EXP-004)
+### `e2e.yml` — "Playwright E2E" + "Playwright/Docker image version sync" (both required) + "Visual regression" (not yet required — see EXP-004)
 
 Called on every PR (paths-gated the same way: `voter-app/**`, or backend files outside
 `fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
@@ -75,9 +79,10 @@ passed only on retry.
 
 ### `openapi-contract.yml` — "Generated artifacts in sync" (required)
 
-Two independent generated-artifact drift checks, run back-to-back
-(`if: always()` on the second so both verdicts show up in one run even if the
-first fails):
+Three independent generated-artifact drift checks, run back-to-back
+(`if: always()` on the later ones so every verdict shows up in one run even if
+the first fails); the third, "Generated doc blocks in sync", is
+`./scripts/check_generated_docs.sh`. The first two:
 
 ```bash
 ./scripts/check_openapi_drift.sh          # openapi.gen.json + types.gen.ts
@@ -116,9 +121,32 @@ not a separate `codeql.yml`.
 - `dependency-review.yml` — required, fails a PR that *introduces* a
   vulnerable dependency (complements Dependabot, which only scans what's
   already there).
+- `workflow-lint.yml` — **required on polity/develop** ("Workflow lint"):
+  actionlint (+ shellcheck), `zizmor --offline --min-severity medium` and the
+  guard hooks' tests (`python3 -m unittest discover -s .claude/hooks/tests`).
+  Always triggers on PRs and pushes to polity/develop (not main or polity-ui);
+  the lint job is skipped when no workflow or hook changed,
+  and runs anyway if change detection fails. An accepted zizmor finding is a
+  `# zizmor: ignore[rule]` comment with its reason, at the end of the flagged
+  line itself (zizmor ignores it anywhere else).
+- `human-review.yml` — owns the required "High-risk review gate": red on a PR
+  touching a held path or weakening the tests until the owner comments
+  `/reviewed <sha>` on the head commit.
+- `red-on-base.yml` — advisory: a `feat/`/`fix/` PR's new or changed tests must
+  fail on the base code (`scripts/check_red_on_base.py`); a `refactor/` PR must
+  change no test.
+- `mutation-diff.yml` — advisory, PRs to `polity`: Stryker/mutmut on the changed
+  lines/functions only (`scripts/mutation_diff.py`), one sticky comment per tool.
+- `branch-red-alert.yml` — keeps one `polity-red` issue open while a watched
+  workflow's latest polity run is red. `ci-dashboard.yml` — the GitHub Pages CI
+  dashboard plus a Monday "CI weekly report" issue. Both run from develop's copy.
+- To diagnose a red run, `/ci-status` (polity tip, per workflow) and
+  `/ci-doctor <run|PR|branch>` (the `ci-doctor` agent: real log, category,
+  base-branch check, never "just re-run").
 - `mutation-testing.yml`, `schemathesis.yml`, `flaky-check-backend.yml`,
-  `atheris-fuzzing.yml` — never run on `pull_request` at all (push-to-`develop`
-  + cron + `workflow_dispatch` only), deliberately not required checks
+  `atheris-fuzzing.yml`, `dast.yml` — never run on `pull_request` at all (push to
+  `develop`/`polity` + cron + `workflow_dispatch` only; the crons check out
+  `polity`), deliberately not required checks
   (`scripts/setup-branch-protection.sh`'s own comment: a required check under
   a workflow that never triggers on a PR blocks that PR forever — the exact
   failure PR #205 hit). Their `schedule`/`workflow_dispatch` triggers resolve
