@@ -292,7 +292,16 @@ a suggestion to `--update`, not forced.
 ```
 
 Same "measure on an up-to-date branch" caveat as the quality ratchet — CI
-measures against the PR's merge result.
+measures against the PR's merge result. The log to `--update` from is the
+`mutmut-results` artifact (`mutmut-run.log`, next to the `mutants/` results
+`mutmut show` reads) of the latest green **polity** run, on its current tip
+(the workflow also runs on develop, under the same artifact name):
+
+```bash
+gh run list -w mutation-testing.yml -b polity -s success -L 1   # pick the run
+gh run download <run-id> -n mutmut-results -D fast_api_voter    # paths are relative to fast_api_voter/
+./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log --update
+```
 
 ## The type-coverage ratchet (frontend, `package.json`'s `typeCoverage.atLeast`)
 
