@@ -5,15 +5,20 @@
 ```
 main          ← branche officielle, dernière version release
   ↑ PR develop → main uniquement (via workflow Release)
-develop       ← branche d'intégration
-  ↑ PR feature/* | fix/* | hotfix/* | ... → develop
-feature/xxx   ← nouvelle fonctionnalité
-fix/xxx       ← correction de bug
-hotfix/xxx    ← correctif urgent
+develop       ← branche par défaut de GitHub ; ne reçoit que des
+  ↑             synchronisations depuis polity (chore/sync-polity-into-develop-<date>,
+  ↑             un vrai commit de merge)
+polity        ← branche de travail
+  ↑ PR feat/* | fix/* | refactor/* | ci/* | chore/* | ... → polity
+polity-ui     ← intégration de l'explorateur de runs (<type>/polity-ui-*)
 ```
 
-**Règle absolue** : on ne push jamais directement sur `main` ni `develop`.
-Tout changement passe par une PR soumise à validation CI.
+**Règle absolue** : on ne push jamais directement sur `main`, `develop` ni
+`polity`, et on ne réécrit jamais leur historique publié. Tout changement passe
+par une PR soumise à validation CI. Les déclencheurs `schedule` et
+`workflow_run` (crons, alerte `polity-red`, tableau de bord CI) sont lus depuis
+la branche par défaut (`develop`) : une modification de ces workflows ne prend
+effet qu'après la synchronisation suivante vers `develop`.
 
 ---
 
@@ -39,11 +44,11 @@ Tout changement passe par une PR soumise à validation CI.
 
 ## Workflow complet
 
-### 1. Créer une branche depuis develop
+### 1. Créer une branche depuis polity
 
 ```bash
-git checkout develop && git pull origin develop
-git checkout -b feature/ma-feature
+git checkout polity && git pull origin polity
+git checkout -b feat/ma-feature
 ```
 
 ### 2. Développer & commiter
@@ -55,26 +60,50 @@ Et à chaque `git push` :
 - Tests frontend + coverage (seuils de `vitest.config.ts`)
 - Tests backend + coverage >= 90 %
 
-### 3. Ouvrir une PR vers develop
+### 3. Vérifier, puis ouvrir une PR vers polity
+
+Avant d'ouvrir la PR : `/verify "<la demande d'origine, mot pour mot>"` (dans
+Claude Code) lance `scripts/fast-gate.sh` puis l'agent `spec-checker`, qui ne
+voit que la demande et le diff. Un `FAIL` (quelque chose de demandé manque) =
+pas de PR. Une section `SKIPPED` de fast-gate (par exemple un `python3` plus
+ancien que le `python_version` de `mypy.ini`, ou des dépendances absentes)
+n'est pas un succès. Le modèle de PR demande `## Demande` (mot pour mot),
+`## Critères d'acceptation`, `## Preuves` (commandes réellement lancées et leur
+sortie) et une ligne **Non vérifié** obligatoire (« rien » seulement si c'est
+vrai).
 
 ```bash
-git push origin feature/ma-feature
-# Ouvrir la PR : feature/ma-feature -> develop
+git push origin feat/ma-feature
+# Ouvrir la PR : feat/ma-feature -> polity
 ```
+
+La liste exacte des checks requis d'une branche :
+`bash scripts/setup-branch-protection.sh --print-contexts polity` (16 sur
+`polity` et `develop`, 14 sur `main`).
 
 **La CI vérifie automatiquement :**
 
 | Vérification | Bloque la PR si... |
 |---|---|
-| Branch Policy | Branche source sans préfixe valide |
+| Branch Policy | Branche source sans préfixe valide, titre hors Conventional Commits, ou un motif de chemin protégé de `.mergify.yml` qui ne correspond plus à aucun fichier |
+| High-risk review gate | La PR touche un chemin à risque (workflows, `.claude/`, moteur de vote, baselines…) ou affaiblit la suite de tests, tant que le propriétaire n'a pas commenté `/reviewed <sha>` sur le commit de tête (voir plus bas) |
+| Workflow lint | actionlint (+ shellcheck), zizmor `--offline` (medium et plus) ou les tests des hooks `.claude/hooks/tests` échouent ; le job est sauté si aucun workflow ni hook ne change |
+| CI health check | Instantané `.github/ci-health.json` périmé, workflow surveillé en échec ou inerte, ou protection de branche en dérive |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 90 %, mypy, ruff, ou la couche `routes → domain → engine` en erreur |
+| Backend CI | Tests échouent, coverage < 90 %, une ligne modifiée non couverte (diff-cover 100 %), mypy, ruff, ou la couche `routes → domain → engine` en erreur |
 | npm audit | CVE haute détectée, hors exception datée de `.github/npm-audit-allowlist.json` (une exception expirée fait aussi échouer) |
-| E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
-| Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
+| E2E (Playwright) | Un parcours utilisateur casse sur Chromium, Firefox, WebKit ou mobile — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
+| Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts`, `engineParity.json` **ou** les blocs de doc générés désynchronisés du code (voir `scripts/check_openapi_drift.sh`, `scripts/check_engine_parity_drift.sh` et `scripts/check_generated_docs.sh`) |
 | Engine perf ceilings | Une règle de vote (`simulation_ranked_utils.py`/`simulation_score_utils.py`) dépasse son plafond de temps absolu — généreux exprès (100-500 ms, 15-500x la mesure réelle), pensé pour attraper une régression algorithmique, pas du bruit machine (voir `fast_api_voter/api/tests/test_engine_benchmarks.py`) |
-| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd/sonarjs a augmenté (voir « Code mort » plus bas) |
+| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd/sonarjs, ou le nombre d'erreurs mypy strict sur `fast_api_voter/scripts/` (`mypy_scripts`), a augmenté ; ou la complexité moyenne passe sous le rang A (`xenon -a A`) (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
+
+**Consultatif (n'empêche pas le merge, mais se lit) :**
+
+| Vérification | Ce qu'elle signale |
+|---|---|
+| Red on base | Pour une PR `feat/`/`fix/`, aucun des tests nouveaux ou modifiés n'échoue sur le code de la base : ils ne couvrent pas le changement. Pour `refactor/`, un fichier de test a changé (`scripts/check_red_on_base.py`) |
+| Diff Mutation | Mutants survivants (Stryker / mutmut) sur les seules lignes modifiées par la PR, en commentaire unique par outil : chacun est une ligne modifiée qu'aucun test n'attraperait (`scripts/mutation_diff.py`) |
 
 ### 4. Release : develop → main
 
@@ -84,8 +113,8 @@ Uniquement via le workflow **Release Vote Lab** :
 
 Le workflow exige `ci-frontend`, `ci-backend` **et `e2e` (Playwright)** verts
 avant de taguer/pousser sur `main`. La suite E2E tourne aussi sur chaque PR
-`develop` : la réserver à la release avait laissé les specs pourrir deux mois
-face à une UI qui avait bougé.
+vers `polity` et `develop` : la réserver à la release avait laissé les specs
+pourrir deux mois face à une UI qui avait bougé.
 
 Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 
@@ -102,13 +131,20 @@ cd voter-app && npm install
 pip install pre-commit
 pre-commit install
 pre-commit install --hook-type pre-push
+pre-commit install --hook-type post-commit
 ```
 
 ### Setup admin (droits admin GitHub requis)
 
 ```bash
-bash scripts/setup-branch-protection.sh
+bash scripts/setup-branch-protection.sh            # main + develop
+bash scripts/setup-branch-protection.sh polity     # puis polity (et polity-ui)
+bash scripts/setup-branch-protection.sh --print-contexts polity   # liste seule, ne touche à rien
 ```
+
+Le script refuse d'exiger un check tant que le workflow qui le poste ne tourne
+pas sur les PR vers la branche visée (sur sa copie **et** sur celle de
+`develop`) : un check requis que rien ne poste bloquerait toutes les PR (#205).
 
 **Merge queue** : [Mergify](https://mergify.com) (`.mergify.yml`), pas la
 merge queue native GitHub — celle-ci est réservée aux repos publics
@@ -140,7 +176,7 @@ comportement qu'il faut relire. Seul le propriétaire du repo peut
 approuver ; un agent ne doit jamais le faire. Si vous renommez un fichier
 protégé, mettez son motif à jour dans la même PR (`branch-policy.yml` échoue
 sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont retestées contre
-l'état à jour de `develop` avant de vraiment merger (évite la classe de
+l'état à jour de la branche cible avant de vraiment merger (évite la classe de
 problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
 #188). Une fois Mergify vérifié en marche, désactiver *"Require branches to
 be up to date before merging"* (`strict`) sur la branch protection —
@@ -156,30 +192,40 @@ merger.
 |---|---|---|
 | `git commit` | detect-secrets, bandit, ruff, eslint, npm audit | Oui |
 | `git push` | Tests + coverage (front + back) | Oui |
-| PR ouverte | Branch Policy, CI complète, build | Oui |
+| PR ouverte | Les checks requis (`scripts/setup-branch-protection.sh --print-contexts polity`), dont `High-risk review gate` et `Workflow lint` ; plus les jobs consultatifs Red on base et Diff Mutation | Oui pour les requis |
 
 ---
 
-## Carte des 11 workflows CI
+## Carte des 21 workflows CI
 
-11 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
-source de vérité redevient "lire les 11 YAML". Si vous changez un déclencheur
-ou un gate, mettez cette table à jour dans la même PR.
+21 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
+source de vérité redevient "lire les 21 YAML". Si vous changez un déclencheur
+ou un gate, mettez cette table à jour dans la même PR. Sauf mention contraire,
+« push/PR » couvre `develop`, `main`, `polity` et `polity-ui`.
 
-| Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `develop`) ? | Durée typique |
+| Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `polity` et `develop`) ? | Durée typique |
 |---|---|---|---|---|
-| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, toujours (le filtre `paths` vit maintenant dans un job `changes` interne, pas au niveau du déclencheur) | Oui, quand `fast_api_voter/**` a changé — sinon le job `test` est `skipped` | Oui | ~12-14 min (skip quasi instantané sinon) |
-| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, toujours (même schéma `changes`) | Oui, quand `voter-app/**` a changé — sinon `skipped` | Oui | ~2-3 min (skip quasi instantané sinon) |
-| `e2e.yml` (E2E Tests) | push/PR + `workflow_dispatch` + `workflow_call` (depuis `release.yml`), toujours (même schéma `changes` ; dispatch/call ignorent le filtre) | Oui, quand `voter-app/**`/`fast_api_voter/**` a changé, ou toujours pour dispatch/call — sinon `skipped` | Oui | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
-| `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) et la source pour les PR vers `main` (`Check source is develop`) | Oui | ~10-30 s |
+| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR, toujours (le filtre `paths` vit maintenant dans un job `changes` interne, pas au niveau du déclencheur) | Oui, quand `fast_api_voter/**` a changé — sinon le job `test` est `skipped` | Oui | ~12-14 min (skip quasi instantané sinon) |
+| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR, toujours (même schéma `changes`) | Oui, quand `voter-app/**` a changé — sinon `skipped` | Oui | ~2-3 min (skip quasi instantané sinon) |
+| `e2e.yml` (E2E Tests) | push (`develop`, `polity`, `polity-ui`) / PR + `workflow_dispatch` + `workflow_call` (depuis `release.yml`), toujours (même schéma `changes` ; dispatch/call ignorent le filtre) | Oui, quand `voter-app/**`/`fast_api_voter/**` a changé (hors scripts, tests backend et `.md`), ou toujours pour dispatch/call — sinon `skipped`. Deux jobs requis : `Playwright E2E` et `Playwright/Docker image version sync` (tag de l'image Docker = version de `@playwright/test`) ; `Visual regression` ne l'est pas | Oui (les deux) | ~5-7 min (timeout du job E2E : 20 min) |
+| `branch-policy.yml` (Branch Policy) | PR | Oui : préfixe de branche, nommage des PR vers `polity`/`polity-ui`, format du titre (Conventional Commits), source pour les PR vers `main` (`Check source is develop`), motifs de chemins protégés de `.mergify.yml` et tests `scripts/tests` | Oui | ~10-30 s |
 | `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
-| `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd/sonarjs) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de l'image, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
-| `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
-| `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
-| `flaky-check-backend.yml` (Backend Flaky Test Hunt) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron quotidien 03:13 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~1 min en local (3 exécutions parallélisées `-n auto`, ~16-18s chacune) |
+| `dependency-review.yml` (Dependency Review) | PR | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd/sonarjs, mypy strict sur `fast_api_voter/scripts/`) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) ou complexité moyenne sous le rang A (`xenon -a A`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/`polity` ou cron — jamais sur une PR (build de l'image, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
+| `mutation-testing.yml` (Mutation Testing) | push sur `develop`/`polity` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Oui, hors PR : le run échoue (et l'alerte `polity-red` s'ouvre) si Stryker passe sous `thresholds.break` (80) ou si le score mutmut baisse au-delà du bruit (`check_mutation_score.sh`) | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
+| `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop`/`polity` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
+| `flaky-check-backend.yml` (Backend Flaky Test Hunt) | push sur `develop`/`polity` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron quotidien 03:13 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~1 min en local (3 exécutions parallélisées `-n auto`, ~16-18s chacune) |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
+| `workflow-lint.yml` (Workflow Lint) | push/PR sur `polity`/`develop`, toujours (schéma `changes`) | Oui : actionlint (+ shellcheck), zizmor `--offline` (medium et plus ; une trouvaille acceptée porte un commentaire `# zizmor: ignore[règle]` avec sa raison, en fin de la ligne signalée elle-même) et les tests des hooks `.claude/hooks/tests`. Job `skipped` si aucun workflow/hook ne change ; lancé quand même si la détection échoue | Oui (`Workflow lint`, pas sur `main`) | ~1 min |
+| `human-review.yml` (Human review attestation) | `pull_request_target` (PR vers `polity`/`develop`) + `issue_comment` | Oui : pose le statut `High-risk review gate`, rouge sur une PR à chemin à risque ou qui affaiblit les tests jusqu'au `/reviewed <sha>` du propriétaire | Oui (pas sur `main` ni `polity-ui`) | quelques secondes |
+| `ci-health.yml` (CI Health Watchdog) | PR (`main`/`develop`/`polity`) + push `develop` + cron quotidien 08:07 UTC + `workflow_dispatch` | Job `CI health check` : oui (vérifie l'instantané `.github/ci-health.json`) · job `audit` : ouvre/rafraîchit la PR `chore/ci-health-snapshot` | Oui (aussi sur `main`) | <1 min |
+| `red-on-base.yml` (Red on base) | PR vers `polity`/`develop` | Non — consultatif (voir le tableau des checks plus haut) | Non | ~2-5 min |
+| `mutation-diff.yml` (Diff Mutation) | PR vers `polity` | Non — consultatif, commentaire unique par outil | Non | quelques minutes, selon les lignes modifiées |
+| `atheris-fuzzing.yml` (Coverage-Guided Fuzzing) | push `develop`/`polity` (moteur, parseurs LLM) + cron jeudi 04:44 UTC + `workflow_dispatch` | Non — jamais sur PR | Non | variable |
+| `dast.yml` (DAST — ZAP Baseline) | push `develop`/`polity` + cron nocturne 02:42 UTC + `workflow_dispatch` | Non — jamais sur PR | Non | variable |
+| `branch-red-alert.yml` (polity red alert) | `workflow_run` des workflows surveillés + cron quotidien 09:23 UTC + `workflow_dispatch` (copie de `develop`) | Non — tient une issue `polity-red` ouverte tant qu'un workflow surveillé est rouge sur `polity` | Non | <1 min |
+| `ci-dashboard.yml` (CI Dashboard) | `workflow_run` (`polity`/`develop`) + cron horaire + lundi 06:47 UTC + `workflow_dispatch` (copie de `develop`) | Non — tableau de bord GitHub Pages et issue `CI weekly report` le lundi | Non | ~1-2 min |
 
 **`merge-to-main.yml` (Check Merge Source) a été supprimé** : son unique
 vérification ("seule `develop` peut merger dans `main`") faisait double emploi
@@ -208,14 +254,13 @@ indéfiniment. **Piège à éviter** : si vous réintroduisez un `paths:` au niv
 d'abord de `REQUIRED_CONTEXTS` dans `scripts/setup-branch-protection.sh` — sinon
 c'est exactement le bug de la PR #205 qui revient.
 
-`schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml`,
-`schemathesis.yml` et `audit.yml`) sont résolus par GitHub contre la **branche
-par défaut du dépôt**, pas contre une branche en particulier — un workflow
-qui n'existe que sur une branche non-défaut ne se déclenche jamais sur ces
-deux triggers, même s'il est mergé et présent dans le fichier. Pour
-`schemathesis.yml`, c'est `push: develop` (scopé à `fast_api_voter/api/**`)
-qui fait réellement tourner le job aujourd'hui — le cron/dispatch ne
-deviendront actifs qu'après un `develop → main`.
+`schedule`, `workflow_dispatch`, `workflow_run`, `issue_comment` et
+`pull_request_target` sont résolus par GitHub contre la **branche par défaut du
+dépôt** (`develop`), pas contre la branche où vit le fichier. Un changement
+d'un de ces workflows (crons, `branch-red-alert.yml`, `ci-dashboard.yml`,
+`human-review.yml`…) ne prend effet qu'après la synchronisation `polity →
+develop` suivante. Les crons des tests profonds sortent `polity` eux-mêmes
+(`ref: polity`), pour tester la branche de travail.
 
 ---
 
@@ -238,12 +283,15 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Coverage frontend | lines 86 % · statements 84 % · functions 75 % · branches 74 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
 | Coverage backend | 90 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
 | eslint | 0 **erreur** (les warnings passent) | `voter-app/eslint.config.js` |
-| ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) | `fast_api_voter/pyproject.toml` |
+| ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) et `NPY002` | `fast_api_voter/pyproject.toml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |
 | Couches `routes → domain → engine` | bloquant, 0 import remontant | `fast_api_voter/pyproject.toml` (`[tool.importlinter]`) |
 | `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
-| Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs) | ne doit jamais augmenter | `.github/quality-baseline.json` |
+| Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs, et `mypy_scripts` : erreurs mypy strict sur `fast_api_voter/scripts/`) | ne doit jamais augmenter (ni baisser sans `--update`) | `.github/quality-baseline.json` via `scripts/check_quality_ratchet.sh` |
+| Complexité moyenne (radon) | rang A, bloquant | `xenon -a A` dans `audit.yml` |
+| Couverture des lignes modifiées | 100 %, bloquant (backend et frontend) | `diff-cover` dans les workflows Backend/Frontend CI |
+| Score de mutation backend | ne baisse pas au-delà du bruit (hors PR) | `.github/mutation-baseline.json` via `scripts/check_mutation_score.sh` |
 | npm audit severity | high (arbre complet, exceptions datées) | `npm run audit:gate` + `.github/npm-audit-allowlist.json` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 | Licence des dépendances de *production* | allow-list MIT/BSD/Apache/MPL-2.0/PSF-2.0-like, 0 exception | `fast_api_voter/scripts/check_license_compliance.sh` (backend, venv isolé) ; `license-checker-rseidelsohn --production --onlyAllow` (frontend, `frontend-ci-cd-pipeline.yml`) |
@@ -260,7 +308,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 ```bash
 cd fast_api_voter && uvicorn api.main:app --port 4434   # Assemblée + 2 fiches du Lab en ont besoin
-cd voter-app && npm run test:e2e                        # chromium + firefox + mobile, ~1 min
+cd voter-app && npm run test:e2e                        # chromium + firefox + webkit + mobile
 ```
 
 La suite a déjà pourri une fois : 5 specs figées sur une UI qui avait bougé
@@ -268,7 +316,7 @@ pendant deux mois, chaque test brûlant son timeout de 60 s jusqu'à ce que le j
 soit tué à 25 min sans rapport. Trois garde-fous, dans l'ordre d'efficacité :
 
 1. **Elle tourne sur chaque PR** (`e2e.yml`, déclenché par tout changement dans
-   `voter-app/` ou `fast_api_voter/`). Une dérive se voit en une PR, pas en deux
+   `voter-app/` ou `fast_api_voter/`, hors scripts, tests backend et `.md`). Une dérive se voit en une PR, pas en deux
    mois. C'est 90 % du sujet.
 2. **Les routes sont des données.** `voter-app/src/routes.ts` liste les surfaces
    et les redirections ; `App.tsx` en dérive ses `<Route>` et
@@ -355,7 +403,7 @@ Si votre PR fait *baisser* un compte, le cliquet échoue aussi — c'est voulu, 
 baseline que seul un humain pense à resserrer ne se resserre jamais :
 
 ```bash
-git rebase develop                            # ← indispensable, voir ci-dessous
+git merge origin/polity                       # ← indispensable, voir ci-dessous
 ./scripts/check_quality_ratchet.sh --update   # puis committez .github/quality-baseline.json
 ```
 
@@ -639,7 +687,7 @@ marcher) : [`docs/exploration/EXP-002-z3-formal-voting-proofs.md`](docs/explorat
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un
 test sans `expect` la fait monter autant qu'un vrai. Le workflow
-`mutation-testing.yml` (jamais bloquant) mesure la différence sur les deux
+`mutation-testing.yml` (jamais sur une PR, mais rouge sur une régression) mesure la différence sur les deux
 moitiés du moteur de vote :
 
 ```bash
@@ -647,16 +695,23 @@ cd fast_api_voter && python -m mutmut run   # backend  (Linux/WSL uniquement)
 cd voter-app && npm run test:mutation       # frontend (Stryker)
 ```
 
-Il se déclenche sur **push vers `develop` touchant un fichier moteur** — un score
-de mutation ne peut bouger que si le code muté bouge.
+Il se déclenche sur **push vers `develop` ou `polity` touchant un fichier
+moteur** (un score de mutation ne peut bouger que si le code muté bouge), en cron
+le lundi à 04:17 UTC et à la demande. Le cliquet `scripts/check_mutation_score.sh`
+(baseline `.github/mutation-baseline.json`) n'échoue que sur une vraie baisse,
+jamais sur une hausse : après une amélioration, lancez-le avec `--update` sur le
+log du run et committez la baseline.
+
+Sur chaque PR vers `polity`, **`mutation-diff.yml`** (consultatif) ne mute que
+les lignes (Stryker) ou les fonctions (mutmut) que la PR modifie et poste un
+commentaire unique par outil : chaque mutant survivant est une ligne modifiée
+qu'aucun test n'attraperait.
 
 > **Piège GitHub Actions à connaître.** `schedule` et `workflow_dispatch` sont
-> résolus contre la **branche par défaut**, pas contre celle où vit le fichier.
-> Ce workflow n'existait que sur `develop` : son cron « hebdomadaire » n'a donc
-> **jamais tourné une seule fois**, et `gh workflow run` répondait 404. `push` et
-> `pull_request`, eux, utilisent le fichier de la branche poussée. Un nouveau
-> workflow qui ne serait déclenché que par `schedule`/`workflow_dispatch` sera
-> inerte tant que `main` n'aura pas rattrapé `develop`.
+> résolus contre la **branche par défaut** (`develop`), pas contre celle où vit
+> le fichier : un cron ajouté sur `polity` ne tourne qu'après la synchronisation
+> vers `develop`. `push` et `pull_request`, eux, utilisent le fichier de la
+> branche poussée.
 
 ### Ordre de test aléatoire et chasse au flake (Lot 5)
 
@@ -677,7 +732,7 @@ python scripts/check_flaky_backend.py --runs 3
 ```
 
 `.github/workflows/flaky-check-backend.yml` l'exécute nightly + sur push
-`develop` touchant le moteur + `workflow_dispatch`, jamais bloquant sur PR
+`develop`/`polity` touchant le moteur + `workflow_dispatch`, jamais bloquant sur PR
 (coût de 3 passes complètes, pas de place dans un gate par PR). Détecteur
 vérifié en direct sur un couplage synthétique injecté avant de lui faire
 confiance ; 3 exécutions réelles de la suite complète pendant le

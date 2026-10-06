@@ -49,6 +49,14 @@ python -m pytest <paths> -o addopts="" -q   # -o addopts="" disables the coverag
 mypy api/                                    # strict, must stay clean
 ```
 
+`scripts/fast-gate.sh <base>` runs the relevant subset of all of the above on a branch's
+changed files (the push guard runs it before every `git push`). A `SKIPPED` section is not a
+pass: it means the tool could not run here (missing deps, or a `python3`/`python` older than
+`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Non vérifié**.
+A PR touching `.github/workflows/` or `.claude/hooks/` must also pass the required
+`Workflow lint` (actionlint + `zizmor --offline` + `python3 -m unittest discover -s
+.claude/hooks/tests`).
+
 `-o addopts=""` only skips coverage for the quick local run — full coverage is
 still enforced by `ci-local/` and GitHub CI, so never use this flag to judge
 whether a change is actually covered.
