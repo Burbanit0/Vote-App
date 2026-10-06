@@ -67,8 +67,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
 | [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
-| [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | open |
-| [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | open |
+| [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
+| [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | cause found |
 
 ---
 
@@ -451,6 +451,10 @@ prompts don't depend on either rule, and `citizens` stays whole for perceived su
 positioning electorate mean. `check_observations.py term-limit` now shows 11 distinct presidents on
 both engines. The golden references are unchanged (no term limit, no invalidated election). No
 recorded run changes, for the reason above.
+
+*Since [OBS-041](#obs-041) (2026-10-05),* the deterministic engine shows 10 distinct presidents, not 11:
+its run has recalls, and their snap winners now serve only until the calendar's next election, so the
+elections fall on different ticks. The LLM engine still shows 11.
 
 ### OBS-013
 
@@ -1635,6 +1639,14 @@ when" table has no row for this; it belongs there, as "add when the log shows de
 see them, is untested: the only act on the menu is `refuse_to_leave`, under a condition (the last tick of a
 final term) that arises once or twice in an 8-year run. A run that offers a second act would separate the two.
 
+*The ten-seed ensemble, 2026-10-05 ([OBS-040](#obs-040)).* 322 entries, every one from a nominee; presidents
+wrote none in 330 turns. 301 (93%) restate an act the turn already has -- the speech, the platform move, or
+since 5.2 the campaign. The rest: 8 public forums or town halls, 7 policy proposals with no act attached, 3
+social-media campaigns, 2 rallies, 1 endorsement. Nothing extra-legal and nothing institutional, so the log
+still asks for no new mechanism. On the extra-legal side the question above stayed untested: the condition
+never arose with the act visible, because the kernel told every president who reached it the wrong election
+date ([OBS-041](#obs-041), fixed).
+
 *Status: open.*
 
 ### OBS-036
@@ -1910,6 +1922,21 @@ are the band, `parties.founding_ratio` (OBS-034 found 0.08 would leave 2 citizen
 default electoral threshold, the seated-party exemption from dissolution, or nothing: the polity amends the
 first two itself.
 
+*The threshold is a cliff, not a dial (measured 2026-10-06).* Re-seating each seed's last recorded vote with the
+engine's own `allocate_seats` (it reproduces the recorded seats at 0.05):
+
+| threshold | effective parties, median (range) | inside 1.5-8 | parties seated, median |
+|---:|---|---:|---:|
+| 0.03 | 16.81 (11.76-19.46) | 0/10 | 18.5 |
+| 0.05 | 8.42 (5.81-13.48) | 5/10 | 9 |
+| 0.07 | 1.99 (0-5.93) | 7/10 | 2 |
+| 0.10 | 0 (0-1.98) | 1/10 | 0 |
+
+The largest party polls 8-16%, so a higher bar does not consolidate the assembly, it empties it: at 0.10 no
+party clears it in 9 of 10 seeds. Static -- voters and founders did not see the higher bar -- but it places the
+fragmentation in the vote, not in the seat rule. The article allows up to 0.15, so a polity can amend itself
+into an empty assembly; the kernel then forms no coalition (`form_coalition` returns None), it does not fail.
+
 *Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
 
 ### OBS-041
@@ -1946,8 +1973,25 @@ C3 rules out. Every run with a recall or an invalidated election since those rer
 a full term against `president_term_limit`. Some constitutions do not count a short remainder (the US 22nd
 Amendment counts more than two years of someone else's term). Whether this one should is the owner's call.
 
-*Status: open* -- the fix, giving an off-calendar winner the next calendar election as its term end, follows
-on its own branch.
+*Status: fixed* on `fix/polity-snap-term-end`. An off-calendar winner's `term_end_tick` is now
+`InstitutionalClock.next_presidential_election`, which on the calendar is the value it always had; the
+refusal path uses the same rule. The two system prompts no longer say a president "is elected for 4
+years": a president is elected until the next scheduled election. What moved:
+
+- **The golden reference**, in its fake-LLM scenario only (the one with a snap election): the snap
+  president's briefings carry the true `ticks_left`, pressure actions fall from 73 to 62 and petition
+  signatures from 18 to 14 (a nearer election raises the awakening threshold), and the confidence vote the
+  run used to reach no longer happens. `test_polity_run_simulation`'s petition run now pins that vote's
+  journaled shape instead.
+- **The explorer fixture**, regenerated: its second recall (tick 11) no longer happens, so the e2e spec
+  expects one recall glyph and jumps to tick 9, and the `/polity` surface baseline is regenerated.
+- **Deterministic runs**: [OBS-012](#obs-012)'s figure moves from 11 distinct presidents to 10.
+
+*What it opens.* A term-limited president who wins a rerun on the last tick before a calendar election is
+now offered `refuse_to_leave` on the tick they take office, as ADR-022 words it ("the last tick of your
+final term"); the seed-9 president at tick 15 above is that case. Whether a minimum tenure should come first is the
+owner's call, with whether a snap term counts against the limit. A run resumed from a checkpoint written
+before the fix keeps its holder's old `term_end_tick` until the next calendar election.
 
 ### OBS-042
 
@@ -1963,16 +2007,28 @@ best option beats the *next best* by less than `vote.turnout_cost` (0.04, `LLM_T
 `run_polity_flagship.py` for every LLM run). Taking the disengaged and exited citizens out leaves a median of
 44 indifferent abstainers per regular election, and already 23-48 at tick 0, before anyone has disengaged.
 
-*Suspected cause.* Measured against the runner-up, indifference grows common once a ballot carries many
-candidates. The ensemble does not show it growing with the field once tick 0 is set aside (medians 72, 70
-and 72 across fields of 5-9, 10-14 and 15-19 campaigning nominees, on 17 elections), so this stays a
-suspicion.
+*Cause -- measured 2026-10-06: the rule grows with the field.* One population of 100 from
+`generate_population`, the ensemble's vote weights, k candidates drawn from it (40 draws each), and the share
+of the other citizens who stay home:
+
+| candidates | current rule: best vs next best | best vs blank ballot | best vs field mean |
+|---:|---:|---:|---:|
+| 2 | 27% | 12% | 42% |
+| 5 | 45% | 12% | 2% |
+| 10 | 62% | 11% | 0% |
+| 20 | 80% | 10% | 0% |
+| 30 | 87% | 9% | 0% |
+
+Same voters, same cost; only the field grows. With twenty candidates a voter's favourite and runner-up are
+nearly always close, though the voter is far from indifferent about who wins. Comparing the best candidate
+with the blank ballot holds steady at about a tenth, while the field mean swings the other way and keeps no
+one home. The ensemble could not show the curve because its fields were already 10 or more after tick 0,
+where the rule sits at 62-80% of engaged voters -- consistent with its plateau at about 70 of 100.
 
 *Why it matters.* A result that reads this turnout as disaffection would be reading a rule written with a
 field of a few candidates in mind.
 
-*What would settle it.* Re-scoring the recorded elections with the rule comparing the best option with
-something that does not shrink as the field grows (the blank ballot alone, or the voter's mean over the
-field). Whether to change the rule is a modelling call.
+*What is left.* Whether to change the rule, and to what, is a modelling call: best against blank is the
+measured candidate that does not depend on the field's size.
 
-*Status: open.*
+*Status: cause found* -- whether and how to change the rule is the owner's decision.

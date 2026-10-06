@@ -151,12 +151,13 @@ jobs:
           python -m mypy api/ scripts/llm_test_harness --config-file mypy.ini
 
       # ── Tests + Coverage ───────────────────────────────────────────────────
-      # -n auto (pytest-xdist): measured 1508 passed/41 skipped, 89.63%
-      # coverage, identical to sequential — ~14min -> ~8min on this same
+      # -n auto (pytest-xdist): when introduced, measured 1508 passed/41
+      # skipped and the same coverage as sequential (89.63% then; the floor
+      # is now 90, see --cov-fail-under below) — ~14min -> ~8min on this same
       # 4-vCPU runner class. Coverage combines fine across workers (pytest-cov
       # handles this automatically); test_sockets.py already uses a random
       # free port per test (_free_port()), so no cross-worker port collision.
-      - name: Tests with coverage (85% minimum)
+      - name: Tests with coverage (90% minimum)
         env:
           FLASK_ENV: testing
         run: |

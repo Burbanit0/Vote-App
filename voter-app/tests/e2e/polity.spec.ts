@@ -46,7 +46,7 @@ test.describe('Polity — run explorer', () => {
     const timeline = page.getByTestId('polity-timeline');
     await expect(
       timeline.locator('[data-testid="timeline-glyph"][data-kind="recall"]')
-    ).toHaveCount(2);
+    ).toHaveCount(1);
     await expect(timeline.getByTestId('timeline-term')).toHaveCount(3);
     await expect(timeline.getByTestId('timeline-legend-recall')).toBeVisible();
 
@@ -54,9 +54,9 @@ test.describe('Polity — run explorer', () => {
     await timeline.locator('details > summary').first().click();
     await timeline.getByTestId('timeline-events-accountability').locator('summary').click();
     await timeline
-      .locator('[data-testid="timeline-event-jump"][data-event="recalled"][data-tick="11"]')
+      .locator('[data-testid="timeline-event-jump"][data-event="recalled"][data-tick="9"]')
       .click();
-    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('11');
+    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('9');
   });
 
   test('the map follows the player, switches lenses and selects a citizen', async ({ page }) => {

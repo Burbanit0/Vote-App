@@ -115,6 +115,12 @@ class InstitutionalClock:
         election_tick = self._next_election(tick, self.president_term_ticks, 0)
         return None if election_tick is None else election_tick - tick
 
+    def next_presidential_election(self, tick: int) -> int:
+        """The first presidential election strictly after `tick`: where the term of a president who
+        wins at `tick` ends, on the calendar or off it (OBS-041). Not capped at the run's end, unlike
+        `_next_election`: a term can outlive the run."""
+        return (tick // self.president_term_ticks + 1) * self.president_term_ticks
+
     def ticks_to_legislative(self, tick: int) -> int | None:
         election_tick = self._next_election(tick, self.assembly_term_ticks, self.assembly_offset_ticks)
         return None if election_tick is None else election_tick - tick

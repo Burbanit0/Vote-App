@@ -315,7 +315,9 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     inst, mandate, legislation = config.institutions, config.mandate, config.legislation
     limit = "with no limit on terms" if inst.president_term_limit is None else f"for at most {inst.president_term_limit} terms"
     rules = [
-        f"Each tick is a quarter of a year. The president is elected for {inst.president_term_years} years, {limit}.",
+        # Until the calendar's next election, not for a full term: a snap winner serves only the rest (OBS-041).
+        f"Each tick is a quarter of a year. A president is elected until the next scheduled election, held every "
+        f"{inst.president_term_years} years, {limit}.",
         "Each tick a poll measures your approval: the share of citizens who approve of your conduct -- the positions "
         "you state in office and the policy enacted during your term.",
         f"Each tick you may restate your position on up to {mandate.max_response_shifts} issues: name the position you "
@@ -419,7 +421,8 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
     election, so a prefix. As for the president: the rules, never what to do (C4)."""
     inst, campaign = config.institutions, config.campaign
     rules = [
-        f"The president is elected by {inst.presidential_method.replace('_', ' ')} for {inst.president_term_years} years.",
+        f"The president is elected by {inst.presidential_method.replace('_', ' ')} until the next scheduled election, held "
+        f"every {inst.president_term_years} years.",
         "Each citizen ranks the candidates by how close their platforms are to the citizen's own views, weighted "
         "by what the citizen cares about; a candidate of the citizen's own party counts for more; a citizen who "
         "finds no candidate close enough votes blank, and one who finds the choice indifferent may stay home.",
