@@ -49,7 +49,24 @@ mapfile -t TS < <(pick '^voter-app/.*\.(ts|tsx|js|jsx|mjs)$')
 mapfile -t ENGINE < <(pick '^(fast_api_voter/api/engine/utils/simulation_(ranked|score)_utils\.py|voter-app/src/lib/playgroundVoting\.ts|fast_api_voter/scripts/gen_engine_parity\.py)$')
 mapfile -t NPM < <(pick '^(voter-app/package(-lock)?\.json|\.github/npm-audit-allowlist\.json)$')
 
-backend_deps() { python3 -c 'import fastapi, pydantic' 2>/dev/null; }
+# The backend sections need an interpreter at the version the repo targets
+# (mypy.ini's python_version): an older one with fastapi installed passed the
+# import probe alone, then failed mypy, pytest and the OpenAPI check on syntax it
+# cannot parse (PEP 695 generics), which read as this branch's failure. Both
+# names are checked: mypy and pytest run `python3`, the parity and OpenAPI drift
+# scripts (shared with CI) run `python`. Too old or no deps: those sections are
+# SKIPPED with the reason, and CI runs them.
+NEED_PY=$(sed -nE 's/^python_version *= *([0-9]+\.[0-9]+).*/\1/p' fast_api_voter/mypy.ini | head -1)
+BACKEND_WHY=""
+for py in python3 python; do
+  if ! "$py" -c "import sys; sys.exit(sys.version_info[:2] < tuple(map(int, '${NEED_PY:-0.0}'.split('.'))))" 2>/dev/null; then
+    BACKEND_WHY="$py is $("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo missing), the backend needs ${NEED_PY} (put a ${NEED_PY} venv first on PATH)"
+  elif ! "$py" -c 'import fastapi, pydantic' 2>/dev/null; then
+    BACKEND_WHY="backend deps not installed for $py (pip install -r fast_api_voter/requirements-dev.lock.txt)"
+  fi
+  [ -n "$BACKEND_WHY" ] && break
+done
+backend_deps() { [ -z "$BACKEND_WHY" ]; }
 front_deps() { [ -d voter-app/node_modules ]; }
 
 # ── Python ──────────────────────────────────────────────────────────────────
@@ -62,7 +79,7 @@ if [ "${#PY[@]}" -gt 0 ]; then
 fi
 if [ "${#PY_API[@]}" -gt 0 ]; then
   if ! backend_deps; then
-    skip "mypy / import layering / pytest" "backend deps not installed (pip install -r fast_api_voter/requirements-dev.lock.txt)"
+    skip "mypy / import layering / pytest" "$BACKEND_WHY"
   else
     run "mypy api/ (strict)" bash -c 'cd fast_api_voter && python3 -m mypy api/ --config-file mypy.ini'
     if command -v lint-imports >/dev/null; then
@@ -104,14 +121,14 @@ if [ "${#ENGINE[@]}" -gt 0 ]; then
   if backend_deps; then
     run "engine parity fixture in sync" ./scripts/check_engine_parity_drift.sh
   else
-    skip "engine parity fixture" "backend deps not installed"
+    skip "engine parity fixture" "$BACKEND_WHY"
   fi
 fi
 if [ "${#PY_API[@]}" -gt 0 ]; then
   if backend_deps && front_deps; then
     run "OpenAPI contract in sync" ./scripts/check_openapi_drift.sh
   else
-    skip "OpenAPI contract" "needs backend deps and voter-app/node_modules"
+    skip "OpenAPI contract" "${BACKEND_WHY:-voter-app/node_modules missing}"
   fi
 fi
 if [ "${#NPM[@]}" -gt 0 ]; then
