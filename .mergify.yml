@@ -11,8 +11,9 @@
 # for CI (the one exception is the `human-review` attestation in
 # merge_protections below, which is not a CI check and must stay): Mergify
 # auto-detects this repo's branch
-# protection (`required_status_checks`, restored to its documented 12-context
-# list via scripts/setup-branch-protection.sh) and injects it as merge
+# protection (`required_status_checks`, the per-branch list that
+# scripts/setup-branch-protection.sh applies: `--print-contexts <branch>`
+# prints it) and injects it as merge
 # conditions for both queuing and merging — duplicating that list here would
 # just be a second place for it to drift out of sync.
 queue_rules:

@@ -23,6 +23,8 @@ jobs:
       # pattern that stops matching any tracked file (a renamed config, a moved
       # oracle) would silently drop that file out of the hold. Runs on every PR.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - name: Review-hold path patterns still match files
         run: python3 scripts/check_mergify_protected_paths.py
       # The same script classifies every PR for the required `High-risk review

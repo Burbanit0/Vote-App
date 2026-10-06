@@ -1,6 +1,26 @@
+## Demande
+
+<!-- La demande d'origine, mot pour mot (lien vers l'issue ou citation). Pas un résumé écrit après coup. -->
+
 ## Description
 
 <!-- Décris les changements apportés et pourquoi -->
+
+## Critères d'acceptation
+
+<!-- Un critère vérifiable par ligne, tiré de la demande. Coche seulement ce qu'une preuve ci-dessous montre. -->
+
+- [ ] C1 —
+- [ ] C2 —
+
+## Preuves
+
+<!--
+Les commandes lancées et leur résultat réel (dernières lignes utiles), captures pour l'UI.
+Le bloc que `/verify` imprime convient tel quel.
+-->
+
+**Non vérifié :** <!-- obligatoire : ce qui n'a pas été vérifié et pourquoi ; « rien » seulement si c'est vrai -->
 
 ## Type de changement
 

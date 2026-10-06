@@ -12,7 +12,7 @@ name: CI Dashboard
 # Pushes made with GITHUB_TOKEN start no workflow, so writing `ci-data` here
 # cannot loop.
 
-on:
+on: # zizmor: ignore[dangerous-triggers] reads run metadata via the API, never checks out or runs the triggering code
   # GitHub drops schedule events under load (the hourly slot fired once in its
   # first seven hours), so a finished CI run on polity or develop also starts a
   # collection. The names must match each workflow's `name:` exactly: a test
@@ -30,6 +30,7 @@ on:
       - Schemathesis Contract Fuzzing
       - Backend Flaky Test Hunt
       - CI Health Watchdog
+      - Workflow Lint
     types: [completed]
     branches: [polity, develop]
   schedule:

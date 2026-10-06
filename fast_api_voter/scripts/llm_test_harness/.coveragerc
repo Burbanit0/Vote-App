@@ -1,0 +1,5 @@
+# Coverage of the LLM test harness library alone (backend-ci-cd-pipeline.yml,
+# "LLM harness tests"): its own test files would otherwise count toward the
+# figure and mask untested modules.
+[run]
+omit = */tests/*
