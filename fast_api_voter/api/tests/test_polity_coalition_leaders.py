@@ -38,6 +38,7 @@ def test_the_leaders_need_the_model() -> None:
     validate_config(_coalition(_CONFIG))
 
 
+@pytest.mark.behavior("PAR-01")
 def test_a_party_is_led_by_its_most_ambitious_member_and_no_one_leads_two() -> None:
     def member(cid: int, party: int | None, ambition: float) -> Citizen:
         return dataclasses.replace(_president(), citizen_id=cid, party_affiliation=party, ambition_score=ambition)

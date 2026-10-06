@@ -5,10 +5,13 @@ leaves a journal readable up to the last complete event.
 """
 import json
 
+import pytest
+
 from api.domain.polity.config import load_config
 from api.domain.polity.journal import Journal, truncate_journal
 
 
+@pytest.mark.behavior("JRN-01")
 def test_events_get_sequential_ids_in_write_order(tmp_path):
     journal = Journal(tmp_path / "run.jsonl", run_id="r1")
     ids = [journal.write(tick=t, event_type="vote_cast", payload={"t": t}) for t in range(5)]
@@ -109,6 +112,7 @@ def test_next_event_id_tracks_writes(tmp_path):
         assert journal.next_event_id == 2
 
 
+@pytest.mark.behavior("JRN-01")
 def test_start_event_id_resumes_numbering_where_a_prior_journal_left_off(tmp_path):
     path = tmp_path / "run.jsonl"
     with Journal(path, run_id="r1") as journal:
