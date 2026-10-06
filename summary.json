@@ -1803,7 +1803,7 @@
   "infra": 18,
   "test-flaky": 35
  },
- "generated_at": "2026-10-06T15:43:26Z",
+ "generated_at": "2026-10-06T15:49:19Z",
  "grid": {
   "Backend CI": {
    "2026-09-06": {
@@ -1994,7 +1994,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 57
+    "success": 58
    }
   },
   "CI Health Watchdog": {
@@ -2518,7 +2518,7 @@
     "success": 8
    },
    "2026-10-06": {
-    "skipped": 46,
+    "skipped": 47,
     "success": 14
    }
   },
@@ -2861,7 +2861,7 @@
    },
    "2026-10-06": {
     "cancelled": 30,
-    "skipped": 147,
+    "skipped": 148,
     "success": 119
    }
   }
@@ -2884,9 +2884,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T15:37:12Z",
+   "created_at": "2026-10-06T15:40:19Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37489042182"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37489469242"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2933,9 +2933,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-06T15:45:45Z",
+   "created_at": "2026-10-06T15:51:10Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37490222319"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37490966881"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -2974,17 +2974,17 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-06T15:46:26Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-06T15:50:32Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37490318731"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37490878681"
   }
  },
- "runs": 12044,
+ "runs": 12041,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-06": 94.5,
+    "2026-09-06": 91,
     "2026-09-07": 10,
     "2026-09-08": 10,
     "2026-09-09": 13,
@@ -3016,7 +3016,7 @@
    "p50_s": 146,
    "p95_s": 417,
    "queue_p50_s": 0,
-   "runs": 1304
+   "runs": 1303
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3054,7 +3054,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-06": 38,
+    "2026-09-06": 38.0,
     "2026-09-07": 7.5,
     "2026-09-08": 7.0,
     "2026-09-09": 7.5,
@@ -3086,17 +3086,17 @@
    "p50_s": 8,
    "p95_s": 46,
    "queue_p50_s": 0,
-   "runs": 961
+   "runs": 960
   },
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 386
+    "2026-10-06": 386.5
    },
    "p50_s": 382,
    "p95_s": 562,
    "queue_p50_s": 0,
-   "runs": 88
+   "runs": 89
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3184,7 +3184,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-06": 32,
+    "2026-09-06": 32.0,
     "2026-09-07": 9.0,
     "2026-09-08": 11,
     "2026-09-09": 12.0,
@@ -3214,9 +3214,9 @@
     "2026-10-06": 12.0
    },
    "p50_s": 11,
-   "p95_s": 48,
+   "p95_s": 47,
    "queue_p50_s": 0,
-   "runs": 894
+   "runs": 893
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3230,7 +3230,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-06": 381,
+    "2026-09-06": 382.5,
     "2026-09-07": 11,
     "2026-09-08": 10.0,
     "2026-09-09": 342.5,
@@ -3257,7 +3257,7 @@
     "2026-10-03": 46,
     "2026-10-04": 663.5,
     "2026-10-05": 663,
-    "2026-10-06": 598.0
+    "2026-10-06": 598
    },
    "p50_s": 572,
    "p95_s": 844,
@@ -3266,7 +3266,7 @@
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-06": 204.0,
+    "2026-09-06": 196,
     "2026-09-07": 11,
     "2026-09-08": 10,
     "2026-09-09": 12,
@@ -3295,14 +3295,14 @@
     "2026-10-05": 213,
     "2026-10-06": 230.5
    },
-   "p50_s": 18,
+   "p50_s": 17,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 1259
+   "runs": 1258
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-06": 157,
+    "2026-09-06": 158.0,
     "2026-09-07": 10,
     "2026-09-08": 11,
     "2026-09-09": 15,
@@ -3331,10 +3331,10 @@
     "2026-10-05": 12.0,
     "2026-10-06": 93
    },
-   "p50_s": 73,
+   "p50_s": 72,
    "p95_s": 152,
    "queue_p50_s": 0,
-   "runs": 1367
+   "runs": 1366
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3441,7 +3441,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-06": 247.5,
+    "2026-09-06": 247,
     "2026-09-07": 96.5,
     "2026-09-08": 94.5,
     "2026-09-09": 102,
@@ -3473,7 +3473,7 @@
    "p50_s": 121,
    "p95_s": 240,
    "queue_p50_s": 0,
-   "runs": 1311
+   "runs": 1310
   },
   "Workflow Lint": {
    "daily_p50_s": {
