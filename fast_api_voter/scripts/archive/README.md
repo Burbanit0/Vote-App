@@ -15,7 +15,12 @@ What is here:
   results are in `docs/plan/polity/plan-pressure-action-resolution.md`.
 - **The Lot 0 Ollama structured-output spike** (`check_ollama_structured_output`).
 - **The one-off LLM spikes and calibrations** (`check_vllm_*`, `check_pressure_*`,
-  `stage4_llm_*`, …). Nothing outside their own `_results.md` refers to them.
+  `stage4_llm_*`, …). Apart from their own `_results.md` and the journal, nothing refers to them.
+
+Other files still mention these scripts. Where a path was written out (`scripts/<name>.py`),
+it now reads `scripts/archive/<name>.py`. Where only the file name is given (in docstrings,
+ADRs, plan docs and `_results.md` files), it stays as written: look for it here. The journal
+keeps its dated paths.
 
 They are not maintained:
 
@@ -26,5 +31,12 @@ They are not maintained:
 - They were written against the `api/` of their day, and most of them add `parents[1]` to
   `sys.path`, so they no longer run from this folder.
 
-To rerun one, go back to the commit before it moved: `git log -- fast_api_voter/scripts/<name>.py`
-gives that commit.
+To rerun one, check out the commit **before** the one that moved it:
+
+```bash
+moved=$(git log -1 --diff-filter=D --format=%H -- fast_api_voter/scripts/<name>.py)
+git switch --detach "$moved^"   # the script is back at fast_api_voter/scripts/<name>.py
+```
+
+Any rerun command still quoted in a `_results.md` (for example
+`ollama_structured_output_results.md`) works only from that commit.

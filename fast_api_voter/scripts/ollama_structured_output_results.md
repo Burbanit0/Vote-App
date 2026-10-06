@@ -268,7 +268,7 @@ re-guessing `think=True`):
 ```bash
 docker run -d -p 11434:11434 --name ollama ollama/ollama
 docker exec ollama ollama pull qwen3:8b
-python fast_api_voter/scripts/archive/check_ollama_structured_output.py --results fast_api_voter/scripts/ollama_structured_output_results.md
+python fast_api_voter/scripts/check_ollama_structured_output.py --results fast_api_voter/scripts/ollama_structured_output_results.md
 ```
 
 Raw output of the final run (script already includes both fixes):
