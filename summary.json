@@ -1801,7 +1801,7 @@
   "infra": 18,
   "test-flaky": 34
  },
- "generated_at": "2026-10-06T03:06:58Z",
+ "generated_at": "2026-10-06T03:12:14Z",
  "grid": {
   "Backend CI": {
    "2026-09-06": {
@@ -1993,7 +1993,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 31
+    "success": 32
    }
   },
   "CI Health Watchdog": {
@@ -2315,7 +2315,7 @@
     "success": 19
    },
    "2026-10-06": {
-    "success": 10
+    "success": 11
    }
   },
   "Frontend CI": {
@@ -2868,8 +2868,8 @@
    },
    "2026-10-06": {
     "cancelled": 23,
-    "skipped": 99,
-    "success": 74
+    "skipped": 105,
+    "success": 75
    }
   }
  },
@@ -2891,9 +2891,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T03:00:24Z",
+   "created_at": "2026-10-06T03:06:48Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37406901066"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37407436704"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2919,9 +2919,9 @@
   "E2E Tests": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-06T02:51:21Z",
+   "created_at": "2026-10-06T03:03:18Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37406165815"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37407144264"
   },
   "Frontend CI": {
    "branch": "polity",
@@ -2981,13 +2981,13 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-06T03:10:53Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-06T03:16:07Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37407760439"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37408175072"
   }
  },
- "runs": 12185,
+ "runs": 12206,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3018,12 +3018,12 @@
     "2026-10-03": 13,
     "2026-10-04": 12,
     "2026-10-05": 12.5,
-    "2026-10-06": 451
+    "2026-10-06": 450.0
    },
    "p50_s": 148,
    "p95_s": 435,
    "queue_p50_s": 0,
-   "runs": 1353
+   "runs": 1354
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3088,22 +3088,22 @@
     "2026-10-03": 10.0,
     "2026-10-04": 10,
     "2026-10-05": 11,
-    "2026-10-06": 14
+    "2026-10-06": 13.0
    },
    "p50_s": 8,
    "p95_s": 56,
    "queue_p50_s": 0,
-   "runs": 1000
+   "runs": 1001
   },
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 382
+    "2026-10-06": 378.0
    },
    "p50_s": 374,
    "p95_s": 550,
    "queue_p50_s": 0,
-   "runs": 62
+   "runs": 63
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3126,12 +3126,12 @@
     "2026-10-03": 11,
     "2026-10-04": 11,
     "2026-10-05": 11.0,
-    "2026-10-06": 13
+    "2026-10-06": 13.0
    },
    "p50_s": 11,
    "p95_s": 45,
    "queue_p50_s": 0,
-   "runs": 581
+   "runs": 582
   },
   "Check Merge Source": {
    "daily_p50_s": {
@@ -3227,22 +3227,22 @@
     "2026-10-03": 10.0,
     "2026-10-04": 10.0,
     "2026-10-05": 12,
-    "2026-10-06": 13
+    "2026-10-06": 12.5
    },
    "p50_s": 11,
    "p95_s": 67,
    "queue_p50_s": 0,
-   "runs": 934
+   "runs": 935
   },
   "Diff Mutation": {
    "daily_p50_s": {
     "2026-10-05": 11,
-    "2026-10-06": 14
+    "2026-10-06": 13.5
    },
    "p50_s": 12,
    "p95_s": 42,
    "queue_p50_s": 0,
-   "runs": 26
+   "runs": 27
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3278,7 +3278,7 @@
    "p50_s": 561,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1169
+   "runs": 1171
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3309,12 +3309,12 @@
     "2026-10-03": 13,
     "2026-10-04": 197.0,
     "2026-10-05": 213,
-    "2026-10-06": 221
+    "2026-10-06": 206.5
    },
    "p50_s": 20,
    "p95_s": 283,
    "queue_p50_s": 0,
-   "runs": 1299
+   "runs": 1300
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3345,12 +3345,12 @@
     "2026-10-03": 41.5,
     "2026-10-04": 11,
     "2026-10-05": 12.0,
-    "2026-10-06": 100.5
+    "2026-10-06": 101
    },
    "p50_s": 73,
    "p95_s": 184,
    "queue_p50_s": 0,
-   "runs": 1408
+   "runs": 1409
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3358,12 +3358,12 @@
     "2026-10-03": 13.5,
     "2026-10-04": 13.5,
     "2026-10-05": 14,
-    "2026-10-06": 20
+    "2026-10-06": 19.5
    },
    "p50_s": 14,
    "p95_s": 47,
    "queue_p50_s": 0,
-   "runs": 158
+   "runs": 159
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3420,12 +3420,12 @@
   "Red on base": {
    "daily_p50_s": {
     "2026-10-05": 22,
-    "2026-10-06": 50
+    "2026-10-06": 40.5
    },
-   "p50_s": 31,
+   "p50_s": 27,
    "p95_s": 677,
    "queue_p50_s": 0,
-   "runs": 28
+   "runs": 29
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3483,32 +3483,32 @@
     "2026-10-03": 121.0,
     "2026-10-04": 128,
     "2026-10-05": 142.5,
-    "2026-10-06": 169.0
+    "2026-10-06": 168
    },
    "p50_s": 121,
    "p95_s": 288,
    "queue_p50_s": 0,
-   "runs": 1358
+   "runs": 1359
   },
   "Workflow Lint": {
    "daily_p50_s": {
-    "2026-10-06": 28.5
+    "2026-10-06": 28
    },
    "p50_s": 28,
    "p95_s": 118,
    "queue_p50_s": 0,
-   "runs": 22
+   "runs": 23
   },
   "polity red alert": {
    "daily_p50_s": {
     "2026-10-04": 22,
     "2026-10-05": 26.0,
-    "2026-10-06": 25.0
+    "2026-10-06": 25
    },
    "p50_s": 24,
    "p95_s": 54,
    "queue_p50_s": 0,
-   "runs": 327
+   "runs": 328
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -3680,9 +3680,9 @@
     },
     "E2E Tests": {
      "conclusion": "success",
-     "created_at": "2026-10-06T02:51:21Z",
-     "sha": "813b46cab9f46a4c20f3ab5cc192a39b5386e89e",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37406165815"
+     "created_at": "2026-10-06T03:03:18Z",
+     "sha": "ec29667e572046f78b4d0b0afbe8316301a19c2a",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37407144264"
     },
     "Frontend CI": {
      "conclusion": "success",
