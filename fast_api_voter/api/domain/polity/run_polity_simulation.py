@@ -1039,7 +1039,7 @@ def _resolve_refusal(context: TickContext, state: TickState) -> bool:
         vacate_office(holder)
         return False
     holder.mandates_served += 1
-    holder.term_end_tick = context.tick + config.institutions.president_term_years * config.run.ticks_per_year
+    holder.term_end_tick = context.clock.next_presidential_election(context.tick)
     return True
 
 
@@ -2194,18 +2194,11 @@ def _hold_presidential_election(
     # `staggered` (S4.4): this election's campaign already declared, nominated and
     # positioned (_run_staggered_campaign), so its field is every citizen holding
     # Role.CANDIDATE and nothing is decided again here.
-    # The outgoing president's term always ends exactly at this tick
-    # (InstitutionalClock schedules the next presidential election at
-    # term_end_tick by construction -- president_term_years*ticks_per_year
-    # after the winning tick, same arithmetic as the term_end_tick assignment
-    # below), regardless of whether this election produces a new winner.
-    # Without this reset a past president keeps role=ELECTED/office=PRESIDENT
-    # forever once not immediately re-nominated, so a later election leaves
-    # two citizens simultaneously holding Office.PRESIDENT -- nothing reads
-    # this state today, but "who currently holds office" must be a real
-    # invariant for any future increment that does (representative_response,
-    # term limits, legitimacy). A re-elected incumbent is simply reset here
-    # and re-promoted below, same as any other winner.
+    # The outgoing president's term always ends at this tick, whether or not
+    # this election produces a new winner. Without this reset a past president
+    # keeps role=ELECTED/office=PRESIDENT once not immediately re-nominated, and
+    # a later election leaves two citizens holding Office.PRESIDENT. A
+    # re-elected incumbent is simply reset here and re-promoted below.
     # S4.1: whose record this election judges -- the holder whose term ends now, or, for a
     # rerun, the president its PendingRerun carries (the recalled one, for a snap election).
     holder = next((c for c in citizens if c.office == Office.PRESIDENT), None)
@@ -2278,8 +2271,11 @@ def _hold_presidential_election(
                 winner = next(c for c in nominees if c.citizen_id == winner_id)
                 winner.role = Role.ELECTED
                 winner.office = Office.PRESIDENT
-                term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
-                winner.term_end_tick = tick + term_ticks
+                # Not tick + term: the calendar resumes after a rerun, so a winner off it serves only
+                # until the calendar's next election (OBS-041).
+                winner.term_end_tick = InstitutionalClock.from_config(
+                    config.institutions, config.run, config.sortition_chamber,
+                ).next_presidential_election(tick)
                 winner.mandates_served += 1
                 if config.legitimacy.enabled:
                     # Independent of config.mandate.enabled: m only needs
