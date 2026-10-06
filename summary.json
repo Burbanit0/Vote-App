@@ -1801,7 +1801,7 @@
   "infra": 18,
   "test-flaky": 34
  },
- "generated_at": "2026-10-06T02:38:25Z",
+ "generated_at": "2026-10-06T02:43:11Z",
  "grid": {
   "Backend CI": {
    "2026-09-06": {
@@ -1993,7 +1993,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 26
+    "success": 27
    }
   },
   "CI Health Watchdog": {
@@ -2520,7 +2520,7 @@
     "success": 8
    },
    "2026-10-06": {
-    "skipped": 26,
+    "skipped": 29,
     "success": 7
    }
   },
@@ -2867,7 +2867,7 @@
    },
    "2026-10-06": {
     "cancelled": 18,
-    "skipped": 95,
+    "skipped": 97,
     "success": 60
    }
   }
@@ -2890,9 +2890,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T02:30:36Z",
+   "created_at": "2026-10-06T02:36:51Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37404474979"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37404979949"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2939,9 +2939,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-06T02:27:01Z",
+   "created_at": "2026-10-06T02:46:27Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37404180314"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37405766702"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -2981,12 +2981,12 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-06T02:41:43Z",
+   "created_at": "2026-10-06T02:45:28Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37405375528"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37405686273"
   }
  },
- "runs": 12121,
+ "runs": 12129,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3017,12 +3017,12 @@
     "2026-10-03": 13,
     "2026-10-04": 12,
     "2026-10-05": 12.5,
-    "2026-10-06": 449
+    "2026-10-06": 447.5
    },
    "p50_s": 148,
    "p95_s": 433,
    "queue_p50_s": 0,
-   "runs": 1349
+   "runs": 1350
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3097,12 +3097,12 @@
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 372.0
+    "2026-10-06": 374
    },
    "p50_s": 374,
    "p95_s": 550,
    "queue_p50_s": 0,
-   "runs": 57
+   "runs": 58
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3272,12 +3272,12 @@
     "2026-10-03": 46,
     "2026-10-04": 663.5,
     "2026-10-05": 663,
-    "2026-10-06": 680.5
+    "2026-10-06": 675
    },
    "p50_s": 561,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1166
+   "runs": 1167
   },
   "Frontend CI": {
    "daily_p50_s": {
