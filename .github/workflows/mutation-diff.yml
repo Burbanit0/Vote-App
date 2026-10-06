@@ -32,6 +32,8 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -58,6 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Fetch base branch
         env:
@@ -92,9 +95,11 @@ jobs:
         env:
           SAMPLED: ${{ steps.plan.outputs.sampled }}
         run: |
+          sampled=()
+          [ "$SAMPLED" = true ] && sampled=(--sampled)
           python3 scripts/mutation_diff.py report --tool stryker \
             --input voter-app/reports/mutation-diff/mutation.json \
-            $([ "$SAMPLED" = true ] && echo --sampled) > "$RUNNER_TEMP/summary.md"
+            "${sampled[@]}" > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Sticky PR comment
         if: always() && steps.plan.outputs.count != '0'
@@ -126,6 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Fetch base branch
         env:

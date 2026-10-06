@@ -45,7 +45,7 @@ name: Human review attestation
 # agent using the owner's own credentials can comment as the owner; that has to
 # be denied on the agent side (.claude/hooks), not here.
 
-on:
+on: # zizmor: ignore[dangerous-triggers] pull_request_target classifies the PR paths (data fetched by SHA, never run); it must run from the base branch
   issue_comment:
     types: [created]
   pull_request_target:
