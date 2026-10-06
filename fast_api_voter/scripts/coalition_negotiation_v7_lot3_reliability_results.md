@@ -17,7 +17,7 @@ negotiation loop's own control flow (fixed-point / hard-cap stop) end to end.
 
 ## Method
 
-`scripts/check_coalition_negotiation_reliability.py`. Four scenarios varying party composition
+`scripts/archive/check_coalition_negotiation_reliability.py`. Four scenarios varying party composition
 (tight majority, two-bloc-plus-kingmaker, fragmented, near-parity) at 5 reps each, plus one
 scenario (`genuine_shortfall_forces_reconsideration`) purpose-built to pressure-test round 2's
 actual value proposition, at 10 reps. Real `OllamaJsonClient`, shipped model (`qwen3:8b`), GPU,

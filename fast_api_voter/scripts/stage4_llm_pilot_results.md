@@ -1,6 +1,6 @@
 # Stage 4 on the LLM path: the pilot
 
-`scripts/stage4_llm_pilot.py`, run on 2026-09-16 against the pinned vLLM 0.28.0 serving
+`scripts/archive/stage4_llm_pilot.py`, run on 2026-09-16 against the pinned vLLM 0.28.0 serving
 `Qwen/Qwen3-8B-AWQ`, with the shipped defaults (the `vote_cast` grammar and the 2048-token thinking
 budget adopted in #528). It measures what a Stage 4 calibration run costs on the LLM path, and
 checks the one shortcut the design rests on, before anything is pre-registered.

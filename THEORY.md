@@ -1373,7 +1373,7 @@ choses, séparément :
 | Pression atomisée | v4/v5 | Non | Non, par construction |
 | Pression avec contagion | v6a | Oui | Oui, jamais imposée |
 
-**Le run d'acceptation** (`scripts/run_v6a_acceptance.py`, résultats dans
+**Le run d'acceptation** (`scripts/archive/run_v6a_acceptance.py`, résultats dans
 `scripts/acceptance_v6a_results.md`) compare les deux régimes sur une
 configuration par ailleurs strictement identique (`mobilization_only`, seed
 42, `population_size=100`, 8 ans) — la seule variable qui change est
