@@ -7,6 +7,11 @@ below has no such test, when a test names an ID that is not here, or when an ID 
 listed twice. The voting-rule axioms have their own matrix
 (`test_voting_criteria_matrix.py`); this file is about the simulation around them.
 
+The invariants a journal shows on its own (JRN-01/02, ELE-01/02/05/10, CIT-01/10) are
+also checked line by line by `api/domain/polity/journal_invariants.py`, which
+`test_polity_journal_invariants.py` runs over small runs Hypothesis draws: any seed,
+population, mechanism switches and scripted amendments, not one hand-picked config.
+
 Changing what an invariant says changes what the simulator promises: this file is
 held for the owner's review like the tests it points to. Removing an ID needs the
 same review, and its tests keep their marker until then.
@@ -21,8 +26,8 @@ accountability, JRN the journal, DET determinism.
 
 | ID | Invariant | Stated in |
 |---|---|---|
-| ELE-01 | Every legislative result allocates all of the assembly's seats. | `ballot_and_aggregation.py` (`allocate_seats`) |
-| ELE-02 | Over a run, the presidential outcomes (`elected` or `election_no_winner`) and the legislative results match the electoral calendar. | `institutional_clock.py` |
+| ELE-01 | Every legislative result allocates all of the assembly's seats in force (amendments included), or none when no party clears the threshold. | `ballot_and_aggregation.py` (`allocate_seats`) |
+| ELE-02 | Over a run, the presidential outcomes (`elected`, `election_no_winner` or `election_invalidated`) and the legislative results match the electoral calendar: one per election tick, none elsewhere. A pending rerun or snap election replaces the presidential calendar until it resolves, and a successful `refuse_to_leave` cancels that tick's election. | `institutional_clock.py` |
 | ELE-03 | A term-limited incumbent is never re-nominated. | `run_polity_simulation.py` (`run_simulation`) |
 | ELE-04 | A barred candidate cannot declare a rupture candidacy. | `run_polity_simulation.py` (`_phase_rupture_candidacies`) |
 | ELE-05 | An `elected` event never carries a `reason`. | `events.py` |
@@ -30,6 +35,7 @@ accountability, JRN the journal, DET determinism.
 | ELE-07 | With the policy weight at zero, a government's policy record changes no party choice and no ballot. | ADR-009 |
 | ELE-08 | Every configured ranked and score method elects a unanimous winner, and empty ballots elect no one. | `ballot_and_aggregation.py` |
 | ELE-09 | The winner of a rerun serves until the calendar's next election, not a full term from the rerun (OBS-041). | `observations.md` (OBS-041) |
+| ELE-10 | A citizen casts at most one counted `vote_cast` per election tick; an audit ballot, journaled beside the utility vote, is never counted. | `events.py` (`VoteCast.audit`), `run_polity_simulation.py` |
 
 ## Legislation
 
@@ -68,6 +74,7 @@ accountability, JRN the journal, DET determinism.
 | CIT-07 | Event salience never writes legitimacy or the representation gap directly. | ADR-023 |
 | CIT-08 | The sortition chamber's occupancy never drops below its seat count. | `sortition_chamber.py` |
 | CIT-09 | The electoral-only arm never returns a petition or a mobilize act. | `simple_rules.py` |
+| CIT-10 | The population's mean emotions (`emotions_updated`) each lie in [0, 1]. | `emotions.py`, `events.py` (`EmotionsUpdated`) |
 
 ## The journal
 
@@ -95,10 +102,9 @@ accountability, JRN the journal, DET determinism.
 ## Candidates (stated, not yet tested)
 
 Stated somewhere, with no test that checks them directly. They get an ID when a test
-does (Phase 13c's journal checker is meant to take several of them):
+does:
 
-- One counted `vote_cast` per citizen per election (an audit ballot, journaled beside
-  the utility vote, is never counted). `events.py`, `run_polity_simulation.py`
 - The founding config, its checkpoint hash and `config.json` never move. ADR-015
 - The sortition chamber never initiates an amendment. ADR-015
-- Emotions each stay in [0, 1]. `emotions.py`, `citizen.py`
+- Each citizen's own emotions stay in [0, 1] (CIT-10 checks only the journaled
+  population means). `emotions.py`, `citizen.py`
