@@ -57,6 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           # Scheduled runs use develop's copy of this file (the default branch);
           # test polity, the working branch, rather than develop's older tree.
           ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
@@ -71,8 +72,7 @@ jobs:
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements.txt
-          uv pip install --system -r fast_api_voter/requirements-dev.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
       - name: Run the suite 3x and diff outcomes
         run: python scripts/check_flaky_backend.py --runs 3
