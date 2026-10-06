@@ -49,7 +49,9 @@ jobs:
 
   lint:
     needs: changes
-    if: needs.changes.outputs.lint == 'true'
+    # A failed or cancelled detector runs the lint anyway: skipped would pass
+    # the required check without linting anything.
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.lint == 'true')
     name: Workflow lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
