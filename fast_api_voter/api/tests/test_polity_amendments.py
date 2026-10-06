@@ -353,6 +353,7 @@ def test_a_run_resumes_across_a_pending_proposal_and_the_vote_after_it(tmp_path:
     assert resumed.read_bytes() == uninterrupted.read_bytes()
 
 
+@pytest.mark.behavior("CON-03")
 def test_a_proposal_made_while_another_is_pending_or_with_no_chamber_is_dropped(tmp_path: Path) -> None:
     config = _amending(_CONFIG)
     journal = SimpleNamespace(events=[], write_event=lambda **kw: journal.events.append(kw))

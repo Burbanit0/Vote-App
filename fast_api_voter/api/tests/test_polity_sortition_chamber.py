@@ -5,6 +5,7 @@ while it can fill `seats`; once it can't, eligibility relaxes to "not
 currently seated" -- v6b Lot 2's own measured pool-exhaustion finding.
 """
 import numpy as np
+import pytest
 
 from api.domain.polity.citizen import Citizen, Office
 from api.domain.polity.config import SortitionChamberConfig
@@ -87,6 +88,7 @@ def test_drawn_ids_are_ascending_and_distinct():
     assert len(set(drawn)) == len(drawn)
 
 
+@pytest.mark.behavior("DET-04")
 def test_same_seed_produces_the_same_draw():
     citizens = [_citizen(i) for i in range(20)]
     drawn_a, _ = select_sortition_chamber(citizens, _config(seats=7), np.random.default_rng(42))

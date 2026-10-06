@@ -67,6 +67,7 @@ def _electorates(draw: st.DrawFn) -> tuple[Citizen, list[Citizen], IncumbentReco
     return voter, candidates, incumbent, valence
 
 
+@pytest.mark.behavior("ELE-06")
 @settings(max_examples=400, deadline=None)
 @given(_electorates())
 def test_with_every_term_at_zero_the_utility_ballot_is_build_rankings_ballot(electorate: tuple) -> None:
@@ -201,6 +202,7 @@ def test_a_rerun_judges_the_president_its_pending_rerun_carries(tmp_path: Path) 
     assert engine._judged_incumbent([_citizen(1, (0.5,), (1.0,))], 1, untracked) is None
 
 
+@pytest.mark.behavior("ELE-09")
 def test_a_rerun_winner_serves_until_the_calendar_s_next_election(tmp_path: Path) -> None:
     # OBS-041: the calendar resumes after a rerun, so a winner off it serves until the next calendar
     # election, not a full term from its own win -- on the last tick before it, one tick left.

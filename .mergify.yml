@@ -167,6 +167,10 @@ merge_protections:
           - files = fast_api_voter/api/tests/test_polity_golden.py
           - files ~= ^fast_api_voter/api/tests/test_hypothesis_
           - files = fast_api_voter/api/tests/test_voting_criteria_matrix.py
+          # The behaviour catalogue and its check: removing an invariant (row and
+          # marker together) passes every test, so a person reads it.
+          - files ~= ^docs/spec/
+          - files = fast_api_voter/api/tests/test_behavior_catalogue.py
           - files = fast_api_voter/api/tests/test_engine_benchmarks.py
           - files ~= (^|/)__snapshots__/
           - files ~= -snapshots/

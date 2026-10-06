@@ -192,6 +192,7 @@ def _target(dimension: int, target: float) -> IssueTarget:
     return IssueTarget(dimension=dimension, target=target)
 
 
+@pytest.mark.behavior("LEG-04")
 @pytest.mark.parametrize("positions,message", [
     ([_target(0, 0.1), _target(1, 0.1), _target(2, 0.1), _target(3, 0.1)], "4 issues, at most 3"),
     ([_target(0, 0.1), _target(0, 0.9)], "the same issue twice"),
@@ -209,6 +210,7 @@ def test_a_bill_is_checked_only_when_the_agenda_is_open() -> None:
         validate_turn(oversized, _CONFIG, max_positions=3, agenda_open=True)
 
 
+@pytest.mark.behavior("LEG-04")
 def test_the_kernel_steps_toward_each_target_by_at_most_the_bound() -> None:
     steps = steps_toward([_target(0, 1.0), _target(1, 0.9), _target(2, 0.1), _target(3, 0.5)], (0.5, 0.9, 0.2, 0.503), 0.3)
     # issue 1 is already there, and issue 3 only by the shown precision's rounding
