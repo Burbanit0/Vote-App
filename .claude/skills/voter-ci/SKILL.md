@@ -79,7 +79,13 @@ Called on every PR (paths-gated the same way: `voter-app/**`, or backend files o
 `fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
 `polity` and `polity-ui`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
-as a fixture, then `npm run test:e2e` (chromium + firefox + mobile). A
+as a fixture, then runs the suite (chromium + firefox + webkit + mobile) in two
+shards (`Playwright E2E (shard 1/2)`, `(shard 2/2)`, `--shard=N/2 --reporter=blob`).
+The required "Playwright E2E" is the job after them: it checks both shards left a
+blob report, merges them (`playwright merge-reports --config playwright.config.ts`),
+runs `check-flaky.mjs` on the merged `results.json`, uploads `playwright-report`,
+and fails unless both shards succeeded. A red shard's own log names the failing
+tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. A
 separate `visual-regression` job runs pixel-diff screenshots inside an
 **exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
 has the current tag; must match `voter-app/package.json`'s
