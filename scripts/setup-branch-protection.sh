@@ -128,31 +128,48 @@ require_gate_workflow() {
   done
 }
 
-# Requiring "CI health check" on a branch before that branch's ci-health.yml
-# runs on PRs to it blocks every PR forever (the PR #205 lesson above). PRs run
-# the workflow from their own merge commit, so the branch's copy is the one that
-# must list it under pull_request.
-require_ci_health_on() {
-  local workflow
-  if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/$1/.github/workflows/ci-health.yml"); then
-    echo "❌  could not fetch $1's ci-health.yml (missing on that branch, or a network error)."
-    exit 1
-  fi
-  if ! awk '/^  pull_request:/{f=1} f && /branches:/{print; exit}' <<< "$workflow" | grep -qE "branches: \[(.*[ ,])?$1([ ,].*)?\]"; then
-    echo "❌  $1's ci-health.yml doesn't run on PRs to $1 yet: merge that first,"
-    echo "    or every PR to '$1' would wait forever on 'CI health check'."
-    exit 1
-  fi
+# Requiring a check on a branch before the workflow that posts it runs on PRs
+# to that branch blocks every PR forever (the PR #205 lesson above).
+#   require_pr_trigger_on <target branch> <workflow file> <context> <copy branch>...
+# checks each named branch's copy of the workflow: the target's own (PRs run the
+# workflow from their merge commit) and, where given, develop's: the ci-health
+# audit runs from develop and reads develop's copy of THIS script, so protection
+# applied before the develop sync reads as drift there.
+# Matches the inline form `branches: [a, b]` that every workflow here uses.
+require_pr_trigger_on() {
+  local target="$1" file="$2" context="$3" branch workflow
+  shift 3
+  for branch in "$@"; do
+    if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/${file}"); then
+      echo "❌  could not fetch ${branch}'s ${file} (not on that branch yet, or a network error)."
+      echo "    Merge (or sync) it there first, or every PR to '${target}' would wait forever on '${context}'."
+      exit 1
+    fi
+    if ! awk '/^  pull_request:/{f=1} f && /branches:/{print; exit}' <<< "$workflow" | grep -qE "branches: \[(.*[ ,])?${target}([ ,].*)?\]"; then
+      echo "❌  ${branch}'s ${file} doesn't run on PRs to ${target} yet: merge (or sync) that first,"
+      echo "    or every PR to '${target}' would wait forever on '${context}'."
+      exit 1
+    fi
+  done
 }
+
+require_ci_health_on() { require_pr_trigger_on "$1" ci-health.yml "CI health check" "$1"; }
+
+# "Workflow lint" (workflow-lint.yml): actionlint, zizmor and the guard hooks'
+# tests on PRs touching workflows or hooks. Required once the target's AND
+# develop's copies run on PRs to the target, i.e. after the develop sync that
+# carries it: see require_pr_trigger_on.
+WORKFLOW_LINT="Workflow lint"
+require_workflow_lint_on() { require_pr_trigger_on "$1" workflow-lint.yml "$WORKFLOW_LINT" "$1" develop; }
 
 # The required-contexts list for one branch, as compact JSON: the one place it is
 # decided, read both by the protect_* functions below and by
 # scripts/check_ci_health.py (--print-contexts), so the drift check can never
 # expect something other than what this script applies.
 #   main:      REQUIRED_CONTEXTS.
-#   develop:   + the review gate.
-#   polity:    + the review gate. "CI health check" too, now that ci-health.yml
-#              runs on PRs to polity.
+#   develop:   + the review gate and "Workflow lint".
+#   polity:    + the review gate and "Workflow lint". "CI health check" too,
+#              now that ci-health.yml runs on PRs to polity.
 #   polity-ui: less "CI health check": ci-health.yml doesn't run on PRs to it,
 #              and a required check that never reports blocks every PR
 #              forever (the PR #205 lesson above).
@@ -160,7 +177,7 @@ require_ci_health_on() {
 contexts_for() {
   case "$1" in
     main)           printf '%s' "$REQUIRED_CONTEXTS" | jq -c . ;;
-    develop|polity) printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" '. + [$g]' ;;
+    develop|polity) printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" --arg w "$WORKFLOW_LINT" '. + [$g, $w]' ;;
     polity-ui)      printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))' ;;
     *) echo "contexts_for: unknown branch '$1'" >&2; return 1 ;;
   esac
@@ -172,6 +189,7 @@ protect_polity_branch() {
   if [ "$branch" = polity ]; then
     require_gate_workflow polity
     require_ci_health_on polity
+    require_workflow_lint_on polity
   fi
   POLITY_CONTEXTS=$(contexts_for "$branch")
   echo "Protecting '${branch}'..."
@@ -217,6 +235,7 @@ protect_main() {
 protect_develop() {
   local DEVELOP_CONTEXTS
   require_gate_workflow develop
+  require_workflow_lint_on develop
   DEVELOP_CONTEXTS=$(contexts_for develop)
   echo "Protecting 'develop'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{

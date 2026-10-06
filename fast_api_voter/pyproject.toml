@@ -240,6 +240,13 @@ pytest_add_cli_args = ["-o", "addopts="]
 # this list is hand-curated, not auto-discovered, and neither new file had
 # been added to it — the exact tests written to catch the tie-break bugs never
 # ran under mutmut at all.
+#
+# It drifted a third time (6 matching files missing, test_borda.py among them,
+# so Borda's own tests never ran against Borda's mutants). The list is now
+# locked to the rule above by api/tests/test_mutmut_selection.py: a file the
+# rule selects must be listed here or named, with its reason, in that test's
+# EXCLUDED (the benchmarks, and the two whole-engine suites too slow to run
+# per mutant).
 pytest_add_cli_args_test_selection = [
     "api/tests/test_anonymity.py",
     "api/tests/test_anti_plurality.py",
@@ -248,21 +255,25 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_ballot_dict_format.py",
     "api/tests/test_benham.py",
     "api/tests/test_black.py",
+    "api/tests/test_borda.py",
     "api/tests/test_bucklin_cumulative.py",
     "api/tests/test_cardinal_batch.py",
     "api/tests/test_cardinal_orphans.py",
     "api/tests/test_condorcet.py",
     "api/tests/test_copeland.py",
     "api/tests/test_dowdall.py",
+    "api/tests/test_gibbard_satterthwaite.py",
     # Property-based suites: the most effective mutant killers in the selection,
     # and both were previously left out.
     "api/tests/test_hypothesis_condorcet.py",
     "api/tests/test_hypothesis_monotonicity.py",
     "api/tests/test_irv_coombs_elimination.py",
     "api/tests/test_kemeny_young.py",
+    "api/tests/test_literature_counterexamples.py",
     "api/tests/test_minimax.py",
     "api/tests/test_nanson.py",
     "api/tests/test_plurality.py",
+    "api/tests/test_positional_score.py",
     "api/tests/test_ranked_pairs_random_ballot.py",
     "api/tests/test_raynaud.py",
     "api/tests/test_river.py",
@@ -270,8 +281,10 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_smith_irv.py",
     "api/tests/test_split_cycle.py",
     "api/tests/test_star_runoff_tie.py",
+    "api/tests/test_tally_ties_by_name.py",
     "api/tests/test_theory_pure.py",
     "api/tests/test_two_round.py",
+    "api/tests/test_workers_behavioral.py",
 ]
 
 # Makes the voter-api skill's documented layering blocking instead of just

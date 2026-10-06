@@ -43,3 +43,18 @@ def test_borda_ballots_with_no_ranked_candidates():
     # Non-empty ballot list, but every ranking is itself empty -> no scores
     # ever get recorded, distinct from the get_borda_winner([]) case above.
     assert get_borda_winner([[], []]) is None
+
+
+def test_borda_truncated_ballot_scores_by_its_own_length():
+    """A truncated ballot scores its ranked candidates n-1-k with n the BALLOT's
+    length, so its last-ranked candidate gets 0, the same as an unranked one.
+    On complete ballots, any offset added to every score (n+1-k, n-2-k) never
+    changes the winner; truncated ballots are the case where it does, so this
+    pins the exact weights.
+
+    Scores: ["A"] -> A 0; ["A", "C"] -> A 1, C 0; ["C", "B", "A"] -> C 2, B 1, A 0.
+    Totals A 1, B 1, C 2 -> C. With n+1-k, A wins (7 vs C 6); with n-2-k, B
+    (tied with C at 0, ahead alphabetically; A -2).
+    """
+    ballots = [["A"], ["A", "C"], ["C", "B", "A"]]
+    assert get_borda_winner(ballots) == "C"

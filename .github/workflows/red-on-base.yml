@@ -1,0 +1,134 @@
+name: Red on base
+
+# CI hardening plan, phase 13a. A PR's new or changed tests are run against the
+# base branch's code (with the PR's test files laid over it): a test that also
+# passes there does not exercise the change. scripts/check_red_on_base.py
+# decides by the branch prefix (feat/fix: at least one new test must be red on
+# base; refactor: no test file may change; anything else is skipped) and writes
+# a table to the run summary.
+#
+# Advisory: not a required check, and the script exits 0 on a warning. It is
+# meant to become required (--strict) once a couple of weeks of runs show its
+# noise level, the same path the diff-mutation job will take.
+#
+# Plain pull_request: it runs the PR's own test code, with no secrets and a
+# read-only token, like the rest of CI.
+
+on:
+  pull_request:
+    branches: [polity, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: red-on-base-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect test changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      py: ${{ steps.filter.outputs.py }}
+      js: ${{ steps.filter.outputs.js }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            py:
+              - 'fast_api_voter/**/test_*.py'
+              - 'fast_api_voter/**/*_test.py'
+            js:
+              # what vitest collects (voter-app/vitest.config.ts); Playwright
+              # specs are e2e, not unit tests
+              - 'voter-app/src/**/*.test.ts'
+              - 'voter-app/src/**/*.test.tsx'
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.py == 'true'
+    name: "Red on base: backend (advisory)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+      - name: Install production + dev dependencies (from the lockfile)
+        run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+      - name: Run the new Python tests on the base code
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: python scripts/check_red_on_base.py --base "$BASE_REF" --branch "$HEAD_REF" --only py --summary "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    name: "Red on base: frontend (advisory)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./voter-app
+      - name: Run the new JS/TS tests on the base code
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: python3 scripts/check_red_on_base.py --base "$BASE_REF" --branch "$HEAD_REF" --only js --summary "$GITHUB_STEP_SUMMARY"
+
+  # No test file changed: nothing to run, but a feat/fix with no test is
+  # itself the finding (and a refactor that leaves the tests alone is the
+  # expected case). No dependencies needed.
+  no-tests:
+    needs: changes
+    if: needs.changes.outputs.py != 'true' && needs.changes.outputs.js != 'true'
+    name: "Red on base: no test changed (advisory)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+      - name: Report
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: python3 scripts/check_red_on_base.py --base "$BASE_REF" --branch "$HEAD_REF" --summary "$GITHUB_STEP_SUMMARY"
