@@ -336,6 +336,16 @@ jobs:
         continue-on-error: true
         run: python -m deptry . | tee deptry.txt
 
+      # fast_api_voter/scripts (~140 files, outside the mypy gate on api/): the
+      # same strict mypy.ini, counted by the ratchet below so the type debt
+      # there can only shrink. --explicit-package-bases: two scripts import
+      # `scripts.run_polity_flagship`, which mypy otherwise sees twice and
+      # stops at. CI plan, phase 12b-2.
+      - name: Scripts type debt (mypy strict)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m mypy scripts/*.py --config-file mypy.ini --follow-imports=silent --explicit-package-bases | tee mypy-scripts.txt
+
       - name: Install frontend deps
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
@@ -399,7 +409,8 @@ jobs:
           {
             echo "### Code Quality (raw tool output — the ratchet step is what gates)"
             for f in fast_api_voter/vulture.txt fast_api_voter/radon.txt voter-app/knip.txt \
-                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt; do
+                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt \
+                     fast_api_voter/mypy-scripts.txt; do
               echo; echo "<details><summary>$f</summary>"; echo; echo '```'
               cat "$f" 2>/dev/null || echo "(no output)"
               echo '```'; echo "</details>"
@@ -416,6 +427,7 @@ jobs:
             voter-app/sonarjs.txt
             fast_api_voter/deptry.txt
             jscpd.txt
+            fast_api_voter/mypy-scripts.txt
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------

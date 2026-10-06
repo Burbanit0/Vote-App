@@ -98,7 +98,7 @@ watching requirements too.
 | Semgrep SAST | **required**, `--error` on any finding | rules in `.semgrep/vote-app-rules.yml` + `p/python`, `p/javascript`, `p/react`, `p/security-audit`, `p/secrets`, `p/sql-injection`, `p/owasp-top-ten` |
 | Secret Scan (Gitleaks) | **required** | `.gitleaks.toml`; TruffleHog alongside is informational only |
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
-| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
+| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/mypy-scripts/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
 | GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
 
@@ -152,8 +152,10 @@ pattern, or does it still filter at the trigger?
 `audit.yml`'s `code-quality` job runs vulture (Python dead code), radon
 (cyclomatic complexity, rank C+), deptry (unused/undeclared deps), knip (TS
 dead code/unused deps), sonarjs (`eslint-plugin-sonarjs`'s full recommended
-ruleset, informational-only in the blocking `eslint.config.js`), and jscpd
-(cross-language duplication) — all with `continue-on-error: true`, because
+ruleset, informational-only in the blocking `eslint.config.js`), jscpd
+(cross-language duplication), and strict mypy over `fast_api_voter/scripts`
+(`mypy_scripts`: the scripts sit outside the blocking mypy gate on `api/`, so
+their type debt is counted here instead) — all with `continue-on-error: true`, because
 the repo never did a full cleanup pass and failing outright on the existing
 backlog would just get the job disabled.
 
