@@ -48,6 +48,8 @@ mapfile -t PY_API < <(pick '^fast_api_voter/api/.*\.py$')
 mapfile -t TS < <(pick '^voter-app/.*\.(ts|tsx|js|jsx|mjs)$')
 mapfile -t ENGINE < <(pick '^(fast_api_voter/api/engine/utils/simulation_(ranked|score)_utils\.py|voter-app/src/lib/playgroundVoting\.ts|fast_api_voter/scripts/gen_engine_parity\.py)$')
 mapfile -t NPM < <(pick '^(voter-app/package(-lock)?\.json|\.github/npm-audit-allowlist\.json)$')
+# Every change, deletions included (CHANGED leaves them out): removing a workflow moves the counts.
+mapfile -t CI_FACTS < <(git diff --name-only "$MB" HEAD | grep -E '^(CONTRIBUTING\.md|\.claude/skills/voter-ci/SKILL\.md|scripts/(ci_facts|check_ci_health)\.py|scripts/setup-branch-protection\.sh|\.github/workflows/[^/]+\.ya?ml)$' || true)
 
 # The backend sections need an interpreter at the version the repo targets
 # (mypy.ini's python_version): an older one with fastapi installed passed the
@@ -129,6 +131,13 @@ if [ "${#PY_API[@]}" -gt 0 ]; then
     run "OpenAPI contract in sync" ./scripts/check_openapi_drift.sh
   else
     skip "OpenAPI contract" "${BACKEND_WHY:-voter-app/node_modules missing}"
+  fi
+fi
+if [ "${#CI_FACTS[@]}" -gt 0 ]; then
+  if python3 -c 'import cogapp' 2>/dev/null; then
+    run "CI counts in the docs in sync" env PYTHON=python3 ./scripts/check_generated_docs.sh CONTRIBUTING.md .claude/skills/voter-ci/SKILL.md
+  else
+    skip "CI counts in the docs" "cogapp not installed (fast_api_voter/requirements-dev.txt)"
   fi
 fi
 if [ "${#NPM[@]}" -gt 0 ]; then

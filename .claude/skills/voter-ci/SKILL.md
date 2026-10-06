@@ -5,9 +5,14 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 
 # voter-ci — CI gates, diagnosis, and the quality ratchet
 
-Vote-App's CI is 21 workflow files (`.github/workflows/`). Most PRs only ever
-see four of them; this skill maps every gate to its config file, explains the
-two gates that most often surprise people (the quality ratchet, diff-cover's
+<!-- [[[cog
+import cog, ci_facts
+cog.outl(f"Vote-App's CI is {len(ci_facts.workflow_files())} workflow files (`.github/workflows/`; generated count).")
+]]] -->
+Vote-App's CI is 21 workflow files (`.github/workflows/`; generated count).
+<!-- [[[end]]] -->
+Most PRs only ever see four of them; this skill maps every gate to its config
+file, explains the two gates that most often surprise people (the quality ratchet, diff-cover's
 100%-changed-lines rule), and gives the actual recipe for turning a red check
 into a real error message.
 
@@ -17,10 +22,21 @@ into a real error message.
 only receives release syncs from it and is GitHub's default branch, so every
 `schedule`/`workflow_run`/`issue_comment`/`pull_request_target` workflow runs from
 develop's copy. The authoritative required-check list per branch is
-`bash scripts/setup-branch-protection.sh --print-contexts <branch>`: `polity` and
-`develop` require the same 16 (including "CI health check", "High-risk review gate"
-and "Workflow lint"), `main` the first 14, `polity-ui` main's set minus "CI health
-check". The script refuses to require a check before the workflow posting it runs
+`bash scripts/setup-branch-protection.sh --print-contexts <branch>`:
+<!-- [[[cog
+import cog, ci_facts
+c = {b: ci_facts.required_contexts(b) for b in ci_facts.BRANCHES}
+assert c["polity"] == c["develop"], "polity and develop no longer require the same set: rewrite this paragraph"
+extra = [x for x in c["polity"] if x not in c["main"]]
+gone = [x for x in c["main"] if x not in c["polity-ui"]]
+assert c["main"] == c["polity"][:len(c["main"])] and c["polity-ui"] == [x for x in c["main"] if x not in gone]
+cog.outl(f"`polity` and `develop` require the same {len(c['polity'])} (main's plus " + ", ".join(f'"{x}"' for x in extra) + "),")
+cog.outl(f"`main` {len(c['main'])}, `polity-ui` {len(c['polity-ui'])} (main's set minus " + ", ".join(f'"{x}"' for x in gone) + "; generated).")
+]]] -->
+`polity` and `develop` require the same 16 (main's plus "High-risk review gate", "Workflow lint"),
+`main` 14, `polity-ui` 13 (main's set minus "CI health check"; generated).
+<!-- [[[end]]] -->
+The script refuses to require a check before the workflow posting it runs
 on PRs to that branch (in its own copy and develop's).
 
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
@@ -95,6 +111,16 @@ the failure. Triggered not just by `fast_api_voter/api/**` but also by
 `ValidationError` shape once (fastapi 0.121.2 → 0.141.1, PR #253) without
 touching `api/**` at all, and that went uncaught until the filter started
 watching requirements too.
+
+The doc-block check also covers CI itself: CONTRIBUTING's and this skill's
+workflow and required-check counts, and CONTRIBUTING's workflow table (one row
+per file in `.github/workflows/`, no row for a deleted one), rendered from
+`scripts/ci_facts.py`. So a PR that adds, removes or renames a workflow, or
+changes `setup-branch-protection.sh`'s lists, fails here until it runs
+`./scripts/check_generated_docs.sh --update` (after adding the new workflow's
+row by hand). Such a PR, with no API change, runs only this step: the npm install
+and the first two checks are skipped. `fast-gate.sh` runs the same check on these
+two docs before a push.
 
 ### `audit.yml` — "Security Audit" (four required jobs, several informational)
 
