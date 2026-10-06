@@ -93,7 +93,7 @@ def test_flags_that_cannot_be_evaluated_say_so() -> None:
 
 
 def _provenance(sha: str, **overrides: object) -> dict[str, object]:
-    return {"git_sha": sha, "git_dirty_paths": [], "prompt_source_sha256": "p" * 64, "vllm_version": "0.28.0",
+    return {"git_sha": sha, "git_dirty_paths": [], "prompt_source_sha256": "p" * 64, "vllm_version": "0.31.0",
             "vllm_image_id": "sha256:61fc", "served_model_repo": "Qwen/Qwen3-8B-AWQ", "served_model_revision": "4da05a8e",
             **overrides}
 

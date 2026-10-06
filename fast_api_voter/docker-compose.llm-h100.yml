@@ -20,7 +20,7 @@
 # Qwen3.8 is multimodal (vision tower); polity sends text only.
 #
 # Rented pods (RunPod): a pod IS a container, so docker compose is not available inside it. Use the same
-# values in the pod template instead: image vllm/vllm-openai:v0.30.0, the `command` list below as the
+# values in the pod template instead: image vllm/vllm-openai:v0.31.0, the `command` list below as the
 # container start command, a network volume mounted at /root/.cache/huggingface, port 8000 left unexposed
 # (reach it through an SSH tunnel to localhost:8000). Pick the SXM H100, not PCIe: PCIe has A100-class
 # memory bandwidth.
@@ -33,7 +33,7 @@ name: polity-vllm-h100
 
 services:
   vllm:
-    image: vllm/vllm-openai:v0.30.0
+    image: vllm/vllm-openai:v0.31.0
     container_name: vllm-polity
     ports:
       - "8000:8000"
