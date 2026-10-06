@@ -152,8 +152,9 @@ def test_the_review_gate_develop_requires_is_expected_not_drift(watchdog):
 
 
 def test_each_branch_expects_what_the_setup_script_applies(watchdog):
-    """Read through the script's own --print-contexts: polity now requires the CI
-    health check (ci-health.yml runs on PRs to it), polity-ui still can't."""
+    """Read through the script's own --print-contexts: polity requires the CI
+    health check (ci-health.yml runs on PRs to it), polity-ui can't; polity and
+    develop require Workflow lint."""
     develop, _ = watchdog.parse_setup_script_expectations("develop")
     polity, strict = watchdog.parse_setup_script_expectations("polity")
     polity_ui, _ = watchdog.parse_setup_script_expectations("polity-ui")
@@ -161,6 +162,9 @@ def test_each_branch_expects_what_the_setup_script_applies(watchdog):
     assert sorted(polity) == sorted(develop)
     assert "CI health check" in polity and "High-risk review gate" in polity
     assert "CI health check" not in polity_ui
+    # Workflow lint runs on PRs to polity and develop only (workflow-lint.yml).
+    assert "Workflow lint" in polity and "Workflow lint" in develop
+    assert "Workflow lint" not in polity_ui
 
 
 def _verify_with(watchdog, monkeypatch, tmp_path, protections, snoozes=None):
@@ -215,3 +219,18 @@ def test_an_unreadable_expectation_is_reported_not_crashed(watchdog, monkeypatch
     result = watchdog.check_branch_protection_drift("polity")
     assert result["status"] == "unhealthy"
     assert "jq: command not found" in result["detail"]
+
+
+def test_every_branch_requiring_workflow_lint_triggers_it_on_prs(watchdog):
+    """A required check nothing posts blocks every PR forever (PR #205): each
+    branch whose contexts include "Workflow lint" must be a pull_request branch
+    of workflow-lint.yml."""
+    import yaml
+
+    workflow = SCRIPT.parents[1] / ".github" / "workflows" / "workflow-lint.yml"
+    triggers = yaml.safe_load(workflow.read_text(encoding="utf-8"))[True]  # `on:` parses as True
+    pr_branches = set(triggers["pull_request"]["branches"])
+    requiring = {b for b in ("main", "develop", "polity", "polity-ui")
+                 if "Workflow lint" in watchdog.parse_setup_script_expectations(b)[0]}
+    assert requiring == {"develop", "polity"}
+    assert requiring <= pr_branches

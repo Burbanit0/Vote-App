@@ -37,9 +37,9 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Backend deps — cached unless requirements.txt changes.
-COPY fast_api_voter/requirements.txt fast_api_voter/
-RUN uv pip install --system -r fast_api_voter/requirements.txt
+# Backend deps — cached unless the lock changes. The compiled lock, like e2e.yml.
+COPY fast_api_voter/requirements.lock.txt fast_api_voter/
+RUN uv pip install --system -r fast_api_voter/requirements.lock.txt
 
 # Frontend deps — cached unless the lockfile changes.
 WORKDIR /app/voter-app

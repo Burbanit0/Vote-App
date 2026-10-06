@@ -28,7 +28,7 @@ on:
 
 permissions:
   contents: read
-  security-events: write # upload SARIF to the Security tab (Semgrep, Trivy, CodeQL)
+  security-events: write # zizmor: ignore[excessive-permissions] SARIF upload to the Security tab (Semgrep, Trivy, CodeQL); follow-up: move to those jobs
   actions: read
 
 concurrency:
@@ -43,6 +43,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.14", cache: "pip" }
       - run: pip install semgrep
@@ -83,6 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
@@ -109,6 +112,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       # 1) SARIF report → Security tab (non-gating).
       - name: Trivy (SARIF report)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -174,6 +179,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           # Scheduled runs use develop's copy of this file (the default branch);
           # test polity, the working branch, rather than develop's older tree.
           ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
@@ -235,6 +241,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           # Scheduled runs use develop's copy of this file (the default branch);
           # test polity, the working branch, rather than develop's older tree.
           ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
@@ -301,6 +308,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.14" }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -335,6 +344,16 @@ jobs:
         working-directory: fast_api_voter
         continue-on-error: true
         run: python -m deptry . | tee deptry.txt
+
+      # fast_api_voter/scripts (~140 files, outside the mypy gate on api/): the
+      # same strict mypy.ini, counted by the ratchet below so the type debt
+      # there can only shrink. --explicit-package-bases: two scripts import
+      # `scripts.run_polity_flagship`, which mypy otherwise sees twice and
+      # stops at. CI plan, phase 12b-2.
+      - name: Scripts type debt (mypy strict)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m mypy scripts/*.py --config-file mypy.ini --follow-imports=silent --explicit-package-bases | tee mypy-scripts.txt
 
       - name: Install frontend deps
         working-directory: voter-app
@@ -399,7 +418,8 @@ jobs:
           {
             echo "### Code Quality (raw tool output — the ratchet step is what gates)"
             for f in fast_api_voter/vulture.txt fast_api_voter/radon.txt voter-app/knip.txt \
-                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt; do
+                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt \
+                     fast_api_voter/mypy-scripts.txt; do
               echo; echo "<details><summary>$f</summary>"; echo; echo '```'
               cat "$f" 2>/dev/null || echo "(no output)"
               echo '```'; echo "</details>"
@@ -416,6 +436,7 @@ jobs:
             voter-app/sonarjs.txt
             fast_api_voter/deptry.txt
             jscpd.txt
+            fast_api_voter/mypy-scripts.txt
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------
@@ -431,6 +452,8 @@ jobs:
         language: [javascript-typescript, python]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - name: Initialize CodeQL
         uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3
         with:

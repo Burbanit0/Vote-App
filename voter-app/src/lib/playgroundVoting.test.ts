@@ -11,6 +11,8 @@ import {
   applyTurnout,
   applyBlankVote,
   smithSet,
+  pluralityCounts,
+  argmax,
   RULE_LABELS,
   type NamedPt,
   type Pt,
@@ -1003,5 +1005,40 @@ describe('kemeny exact DP', () => {
     // The DP's mask loop never runs at m = 0, so a zero-filled lead array would
     // have made this a confident-looking index 0.
     expect(ruleWinnerFromRanks([], 0, 'kemeny')).toBe(-1);
+  });
+});
+
+// Two primitives every round-based rule goes through. Diff-mutation testing
+// (CI plan, phase 6) found both could be broken without any test noticing.
+describe('pluralityCounts / argmax', () => {
+  it('gives each ballot to its best candidate still standing', () => {
+    const ranks = [
+      [0, 1, 2],
+      [1, 0, 2],
+      [0, 2, 1],
+    ];
+    expect(pluralityCounts(ranks, [true, true, true], 3)).toEqual([2, 1, 0]);
+    // Candidate 0 out: its ballots move to their next choice.
+    expect(pluralityCounts(ranks, [false, true, true], 3)).toEqual([0, 2, 1]);
+  });
+
+  it('counts a ballot with no candidate standing for nobody', () => {
+    const counts = pluralityCounts(
+      [
+        [0, 1],
+        [1, 0],
+      ],
+      [false, false],
+      2
+    );
+    expect(counts).toEqual([0, 0]);
+    // Only the candidate slots exist: nothing was tallied under a missing index.
+    expect(Object.keys(counts)).toEqual(['0', '1']);
+  });
+
+  it('breaks an exact tie toward the lowest index', () => {
+    expect(argmax([1, 5, 5, 2])).toBe(1);
+    expect(argmax([3, 3])).toBe(0);
+    expect(argmax([0, 2, 7])).toBe(2);
   });
 });

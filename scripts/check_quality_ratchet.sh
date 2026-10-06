@@ -30,6 +30,7 @@
 # Expects, relative to the repo root (produced by the code-quality job):
 #   fast_api_voter/vulture.txt  fast_api_voter/radon.txt  fast_api_voter/deptry.txt
 #   voter-app/knip.txt          jscpd.txt          voter-app/sonarjs.txt
+#   fast_api_voter/mypy-scripts.txt (strict mypy over fast_api_voter/scripts)
 
 set -euo pipefail
 
@@ -67,6 +68,7 @@ require fast_api_voter/deptry.txt
 require voter-app/knip.txt
 require jscpd.txt
 require voter-app/sonarjs.txt
+require fast_api_voter/mypy-scripts.txt
 
 # vulture: one finding per line.
 vulture=$(strip_ansi < fast_api_voter/vulture.txt | grep -cve '^[[:space:]]*$' || true)
@@ -101,14 +103,32 @@ jscpd=${jscpd:-0}
 sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems?.*/\1/p' | tail -1)
 sonarjs=${sonarjs:-0}
 
+# mypy over fast_api_voter/scripts: its own summary line, "Found 150 errors in
+# 50 files (checked 143 source files)", or "Success: no issues found in ..." at
+# zero. Anything else means mypy never got to check the files ("errors
+# prevented further checking", a crash, a bad flag): no count can be read from
+# that, and reading it as 0 would pass the ratchet on absent data.
+mypy_out=$(strip_ansi < fast_api_voter/mypy-scripts.txt)
+if mypy_scripts=$(sed -nE 's/^Found ([0-9]+) errors? in [0-9]+ files? \(checked [0-9]+ source files?\)$/\1/p' <<< "$mypy_out" | tail -1) \
+    && [[ -n "$mypy_scripts" ]]; then
+  :
+elif grep -qE '^Success: no issues found in [0-9]+ source files?$' <<< "$mypy_out"; then
+  mypy_scripts=0
+else
+  echo "🔴 fast_api_voter/mypy-scripts.txt has no mypy summary line — mypy did not check the scripts:" >&2
+  tail -5 <<< "$mypy_out" | sed 's/^/   /' >&2
+  echo "   Refusing to report a passing ratchet on absent data." >&2
+  exit 1
+fi
+
 if [[ $UPDATE -eq 1 ]]; then
   python -c "
 import json, sys
-json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd, 'sonarjs': $sonarjs},
+json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd, 'sonarjs': $sonarjs, 'mypy_scripts': $mypy_scripts},
           open('$BASELINE', 'w'), indent=2)
 open('$BASELINE', 'a').write('\n')
 "
-  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd sonarjs=$sonarjs"
+  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd sonarjs=$sonarjs mypy_scripts=$mypy_scripts"
   exit 0
 fi
 
@@ -119,11 +139,11 @@ fi
 
 # One python call does the compare + the report: the exit code and the table have
 # to agree, and splitting them across bash and python is how they drift apart.
-python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" "$sonarjs" <<'PY'
+python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" "$sonarjs" "$mypy_scripts" <<'PY'
 import json, sys
 
 baseline_path, *counts = sys.argv[1:]
-vulture, radon, deptry, knip, jscpd, sonarjs = (int(c) for c in counts)
+vulture, radon, deptry, knip, jscpd, sonarjs, mypy_scripts = (int(c) for c in counts)
 
 with open(baseline_path) as f:
     base = json.load(f)
@@ -135,6 +155,7 @@ rows = [
     ("knip (TS dead code / unused deps)", "knip",         knip),
     ("jscpd (duplicate clones)",          "jscpd_clones", jscpd),
     ("sonarjs (informational overlay)",   "sonarjs",      sonarjs),
+    ("mypy strict (fast_api_voter/scripts)", "mypy_scripts", mypy_scripts),
 ]
 
 grown, shrunk = [], []
@@ -162,6 +183,9 @@ if grown:
     print("   [tool.deptry], voter-app/knip.json, .jscpd.json, or for sonarjs a", file=sys.stderr)
     print("   `// eslint-disable-next-line sonarjs/<rule>` comment / rule override in", file=sys.stderr)
     print("   voter-app/eslint.sonarjs.config.js) rather than raising the baseline.", file=sys.stderr)
+    print("   For mypy_scripts, type the new code (cd fast_api_voter && python -m mypy", file=sys.stderr)
+    print("   scripts/*.py --config-file mypy.ini --follow-imports=silent", file=sys.stderr)
+    print("   --explicit-package-bases lists every error).", file=sys.stderr)
     sys.exit(1)
 
 if shrunk:

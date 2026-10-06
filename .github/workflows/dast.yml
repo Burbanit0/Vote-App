@@ -73,6 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
+          persist-credentials: false
           # Scheduled runs use develop's copy of this file (the default branch);
           # test polity, the working branch, rather than develop's older tree.
           ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
@@ -89,7 +90,7 @@ jobs:
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
       - name: Start FastAPI backend (testing mode)
         run: |

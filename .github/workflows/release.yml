@@ -36,6 +36,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -56,6 +58,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
@@ -95,7 +99,7 @@ jobs:
       contents: write   # needed to push tags and create releases
 
     steps:
-      - name: Checkout main
+      - name: Checkout main # zizmor: ignore[artipacked] this job pushes the tag and bump commit with the checkout token
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: main
@@ -124,12 +128,14 @@ jobs:
             exit 1
           fi
 
+      # No npm cache in this job: it only runs `npm version` (no install), and a
+      # job that tags and publishes must not restore a cache other runs wrote
+      # (zizmor cache-poisoning).
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: voter-app/package-lock.json
+          package-manager-cache: false
 
       - name: Bump version in package.json
         id: bump
@@ -139,7 +145,7 @@ jobs:
         run: |
           npm version "$VERSION_TYPE" --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Bumped to v${VERSION}"
 
       - name: Configure git identity
