@@ -1798,7 +1798,7 @@
   "infra": 18,
   "test-flaky": 34
  },
- "generated_at": "2026-10-06T00:14:56Z",
+ "generated_at": "2026-10-06T00:19:47Z",
  "grid": {
   "Backend CI": {
    "2026-09-06": {
@@ -1986,7 +1986,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
@@ -2297,6 +2297,9 @@
    "2026-10-05": {
     "cancelled": 3,
     "success": 19
+   },
+   "2026-10-06": {
+    "success": 1
    }
   },
   "Frontend CI": {
@@ -2500,7 +2503,7 @@
     "success": 8
    },
    "2026-10-06": {
-    "skipped": 3,
+    "skipped": 5,
     "success": 1
    }
   },
@@ -2832,8 +2835,8 @@
     "success": 130
    },
    "2026-10-06": {
-    "skipped": 9,
-    "success": 4
+    "skipped": 10,
+    "success": 5
    }
   }
  },
@@ -2855,9 +2858,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T00:10:08Z",
+   "created_at": "2026-10-06T00:12:35Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37392549506"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37392772603"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2883,9 +2886,9 @@
   "E2E Tests": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-05T23:29:02Z",
+   "created_at": "2026-10-06T00:08:20Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37388735241"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37392385212"
   },
   "Frontend CI": {
    "branch": "polity",
@@ -2904,9 +2907,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-06T00:15:10Z",
+   "created_at": "2026-10-06T00:23:14Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37393007357"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37393728620"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2939,12 +2942,12 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-06T00:18:02Z",
+   "created_at": "2026-10-06T00:21:58Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37393266604"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37393616013"
   }
  },
- "runs": 11611,
+ "runs": 11618,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3054,12 +3057,12 @@
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 281
+    "2026-10-06": 352.5
    },
    "p50_s": 374,
    "p95_s": 571,
    "queue_p50_s": 0,
-   "runs": 32
+   "runs": 33
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3227,12 +3230,12 @@
     "2026-10-03": 46,
     "2026-10-04": 663.5,
     "2026-10-05": 663,
-    "2026-10-06": 8
+    "2026-10-06": 675
    },
-   "p50_s": 553,
+   "p50_s": 555,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1141
+   "runs": 1143
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3446,12 +3449,12 @@
    "daily_p50_s": {
     "2026-10-04": 22,
     "2026-10-05": 26.0,
-    "2026-10-06": 23.5
+    "2026-10-06": 23
    },
    "p50_s": 24,
    "p95_s": 50,
    "queue_p50_s": 0,
-   "runs": 257
+   "runs": 258
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
@@ -3617,9 +3620,9 @@
     },
     "E2E Tests": {
      "conclusion": "success",
-     "created_at": "2026-10-05T23:29:02Z",
-     "sha": "0cd34a0c470b4185e1c17d337cdc9453fc6d77b3",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37388735241"
+     "created_at": "2026-10-06T00:08:20Z",
+     "sha": "aa12d9026c4844240ba9b8f10f71910a17af87e6",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37392385212"
     },
     "Frontend CI": {
      "conclusion": "success",
