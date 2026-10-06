@@ -1801,7 +1801,7 @@
   "infra": 18,
   "test-flaky": 34
  },
- "generated_at": "2026-10-06T04:56:45Z",
+ "generated_at": "2026-10-06T09:26:05Z",
  "grid": {
   "Backend CI": {
    "2026-09-06": {
@@ -1993,7 +1993,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 35
+    "success": 36
    }
   },
   "CI Health Watchdog": {
@@ -2202,7 +2202,7 @@
     "success": 13
    },
    "2026-10-06": {
-    "success": 8
+    "success": 9
    }
   },
   "E2E Tests": {
@@ -2870,7 +2870,7 @@
    "2026-10-06": {
     "cancelled": 23,
     "skipped": 105,
-    "success": 77
+    "success": 78
    }
   }
  },
@@ -2892,9 +2892,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T04:09:21Z",
+   "created_at": "2026-10-06T04:56:37Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37412344873"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37416097460"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2911,11 +2911,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37402422416"
   },
   "DAST \u2014 ZAP Baseline": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T03:03:18Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37407144299"
+   "created_at": "2026-10-06T09:23:14Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37442588716"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2983,12 +2983,12 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T04:56:37Z",
+   "created_at": "2026-10-06T09:25:58Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37416097654"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37442904682"
   }
  },
- "runs": 12215,
+ "runs": 12218,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3099,12 +3099,12 @@
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 382
+    "2026-10-06": 378.0
    },
    "p50_s": 374,
    "p95_s": 550,
    "queue_p50_s": 0,
-   "runs": 66
+   "runs": 67
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3192,12 +3192,12 @@
     "2026-10-03": 144,
     "2026-10-04": 179,
     "2026-10-05": 185,
-    "2026-10-06": 184.5
+    "2026-10-06": 181
    },
    "p50_s": 176,
    "p95_s": 198,
    "queue_p50_s": 0,
-   "runs": 207
+   "runs": 208
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3505,12 +3505,12 @@
    "daily_p50_s": {
     "2026-10-04": 22,
     "2026-10-05": 26.0,
-    "2026-10-06": 25
+    "2026-10-06": 24.5
    },
    "p50_s": 24,
    "p95_s": 54,
    "queue_p50_s": 0,
-   "runs": 330
+   "runs": 331
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
