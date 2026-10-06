@@ -19,6 +19,7 @@ from api.domain.polity.snapshots import expected_snapshot_rows
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, PolityConfigError, load_config
+from api.domain.polity.events import validate_event
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_behavior_engine import (
     _VOTE_CAST_RETRY_SEED_BASE,
@@ -1596,6 +1597,12 @@ def test_petition_only_run_journals_a_complete_petition_lifecycle(tmp_path):
     assert [e for e in events if e["event_type"] == "petition_signed"]
     assert [e for e in events if e["event_type"] == "confidence_vote_triggered"]
     assert [e for e in events if e["event_type"] == "confidence_vote_result"]
+    # The golden reference stopped reaching a confidence vote (OBS-041), so its journaled shape is pinned here.
+    assert [problem for event in events for problem in validate_event(event)] == []
+    trigger = next(e for e in events if e["event_type"] == "confidence_vote_triggered")["payload"]
+    result = next(e for e in events if e["event_type"] == "confidence_vote_result")["payload"]
+    assert {"opened_at_tick", "signatures", "signed_ratio"} <= trigger.keys()
+    assert {"bf", "ballots", "keep", "keep_ratio", "retained", "averted_recall"} <= result.keys()
 
     # Walk the journal reconstructing petition "epochs": launch resets the
     # signature count to 1, each sign increments it by exactly 1, and a

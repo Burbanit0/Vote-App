@@ -214,16 +214,11 @@ def is_irregular(citizen: Citizen, term_limit: int | None) -> bool:
 
 
 def ticks_to_election(tick: int, term_end_tick: int | None) -> int | None:
-    """term_end_tick - tick, or None with no sitting officeholder. Two real
-    consumers (v4 Lot 6): election_proximity (which delegates here) and
-    dt=6's ResponseContext.ticks_left. No InstitutionalClock needed --
-    term_end_tick is only ever assigned at a presidential election tick, to
-    exactly tick_of_election + president_term_years*ticks_per_year, so it
-    already IS the next scheduled presidential election; a recall (Lot 3)
-    clears it via vacate_office, so a stale value is unreachable. Lot 4
-    already proved the range is [1, president_term_ticks] for a sitting
-    holder (the accountability phase runs after the election block, so 0 is
-    unreachable) -- never 0, never negative, in the caller's own tests."""
+    """term_end_tick - tick, or None with no sitting officeholder. term_end_tick is the
+    calendar's next presidential election from the tick its holder won, off-calendar reruns
+    included (InstitutionalClock.next_presidential_election, OBS-041), and a recall clears it
+    (vacate_office). 0 is reachable: a phase that runs before the election phase on an
+    election tick (the chamber's amendment ballot) reads the outgoing holder's last tick."""
     if term_end_tick is None:
         return None
     return term_end_tick - tick
