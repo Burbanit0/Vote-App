@@ -16,14 +16,14 @@
   },
   "GHSA-p6vx-979v-rg4c": {
     "until": "2026-11-05",
-    "reason": "Critical: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools -> @tanstack/query-devtools -> solid-js -> seroval, rendered only when NODE_ENV !== 'production' (src/index.tsx); a production build contains no seroval, solid-js or query-devtools code (checked 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
+    "reason": "Critical: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools (a devDependency since 2026-10-06, so Trivy skips it) -> @tanstack/query-devtools -> solid-js -> seroval, lazily imported only when NODE_ENV !== 'production' (src/index.tsx); a production build neither resolves nor contains it (built without the package installed, 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
     "nodes": [
       "node_modules/seroval"
     ]
   },
   "GHSA-jp82-f5mq-hwhp": {
     "until": "2026-11-05",
-    "reason": "High: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools -> @tanstack/query-devtools -> solid-js -> seroval, rendered only when NODE_ENV !== 'production' (src/index.tsx); a production build contains no seroval, solid-js or query-devtools code (checked 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
+    "reason": "High: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools (a devDependency since 2026-10-06, so Trivy skips it) -> @tanstack/query-devtools -> solid-js -> seroval, lazily imported only when NODE_ENV !== 'production' (src/index.tsx); a production build neither resolves nor contains it (built without the package installed, 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
     "nodes": [
       "node_modules/seroval"
     ]
