@@ -201,6 +201,23 @@ def test_a_rerun_judges_the_president_its_pending_rerun_carries(tmp_path: Path) 
     assert engine._judged_incumbent([_citizen(1, (0.5,), (1.0,))], 1, untracked) is None
 
 
+def test_a_rerun_winner_serves_until_the_calendar_s_next_election(tmp_path: Path) -> None:
+    # OBS-041: the calendar resumes after a rerun, so a winner off it serves until the next calendar
+    # election, not a full term from its own win -- on the last tick before it, one tick left.
+    config = load_config()
+    term = config.institutions.president_term_years * config.run.ticks_per_year
+    rerun_tick = 2 * term - 1
+    candidate = _citizen(1, (0.5,), (1.0,), party=0)
+    candidate.ambition_score = 1.0
+    electors = [_citizen(cid, (0.5,), (1.0,), threshold=0.9) for cid in range(2, 8)]
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        engine._hold_presidential_election(
+            [candidate, *electors], [Party(party_id=0, platform=(0.5,))], config, journal, tick=rerun_tick, llm_client=None,
+            pending_rerun=PendingRerun(attempt=1, next_tick=rerun_tick, barred_candidate_ids=frozenset(), incumbent_id=None),
+        )
+    assert candidate.term_end_tick == 2 * term
+
+
 def test_an_invalidated_election_carries_the_outgoing_president_into_its_rerun(tmp_path: Path) -> None:
     config = dataclasses.replace(load_config(), institutions=dataclasses.replace(load_config().institutions, blank_vote_competitive=True))
     president = _citizen(9, (0.9,), (1.0,), threshold=0.0)

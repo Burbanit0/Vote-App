@@ -5,18 +5,23 @@
 #
 #   ./scripts/check_generated_docs.sh            # check (what CI runs)
 #   ./scripts/check_generated_docs.sh --update   # regenerate the blocks in place
+#   ./scripts/check_generated_docs.sh [--update] DOC...   # only these docs (fast-gate)
 #
 # Run from the repository root. Needs cogapp (fast_api_voter/requirements-dev.txt) and
-# the backend importable: the blocks import from fast_api_voter/api.
+# the backend importable: the blocks import from fast_api_voter/api, and the CI
+# counts from scripts/ci_facts.py.
 set -euo pipefail
 
+# Keep in step with openapi-contract.yml's path filter (scripts/tests/test_ci_facts.py
+# checks it): a doc the filter misses never gets checked on the PR that drifts it.
 DOCS=(
   docs/plan/polity/polity-llm-reference.md
+  CONTRIBUTING.md
+  .claude/skills/voter-ci/SKILL.md
 )
 
 PYTHON="${PYTHON:-python}"
-if [[ "${1:-}" == "--update" ]]; then
-  "$PYTHON" -m cogapp -r -I fast_api_voter "${DOCS[@]}"
-else
-  "$PYTHON" -m cogapp --check -I fast_api_voter "${DOCS[@]}"
-fi
+MODE=(--check)
+if [[ "${1:-}" == "--update" ]]; then MODE=(-r); shift; fi
+if [ "$#" -gt 0 ]; then DOCS=("$@"); fi
+"$PYTHON" -m cogapp "${MODE[@]}" -I fast_api_voter -I scripts "${DOCS[@]}"

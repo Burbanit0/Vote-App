@@ -11,6 +11,7 @@ Usage (from fast_api_voter/):
     python scripts/check_observations.py chamber <run_dir>                         # OBS-004
     python scripts/check_observations.py kernels                                   # OBS-009 (~25 min, CPU)
     python scripts/check_observations.py term-limit                                # OBS-012
+    python scripts/check_observations.py indifference                              # OBS-042
 
 <run_dir> is the directory holding events.jsonl (and llm_calls.jsonl, for calls logged
 since S0.5). A run still in progress can be read; a torn final line is skipped.
@@ -280,6 +281,38 @@ def term_limit() -> None:
                 print(f"{engine}, president_term_limit={limit}: {len({cid for _, cid in winners})} distinct presidents, elected {winners}")
 
 
+def indifference() -> None:
+    """Share of citizens the indifference rule keeps home as the field grows, against two rules
+    that compare the best candidate with something else: one population, k candidates drawn from it."""
+    import random
+    import statistics
+
+    from api.domain.polity.citizen import generate_population
+    from api.domain.polity.config import load_config
+    from api.domain.polity.simple_rules import abstains, candidate_utility
+    from run_polity_flagship import LLM_TURNOUT_COST
+
+    config = load_config()
+    vote, cost = config.vote, LLM_TURNOUT_COST
+    citizens = generate_population(config.citizens, 100, 7)
+    print("candidates  best vs next best  best vs blank  best vs field mean")
+    for k in (2, 3, 5, 10, 15, 20, 30):
+        shares: list[list[float]] = [[], [], []]
+        for draw in range(40):
+            field = random.Random(draw).sample(citizens, k)
+            voters = [c for c in citizens if c not in field]
+            homes = [0, 0, 0]
+            for voter in voters:
+                utilities = [candidate_utility(voter, c, vote, platform=tuple(c.issue_positions)) for c in field]
+                best = max(utilities)
+                homes[0] += abstains(voter, utilities, cost)
+                homes[1] += abs(best + voter.blank_threshold) < cost
+                homes[2] += best - statistics.mean(utilities) < cost
+            for share, home in zip(shares, homes):
+                share.append(home / len(voters))
+        print(f"{k:>10}  " + "  ".join(f"{statistics.mean(s):>{w}.0%}" for s, w in zip(shares, (17, 13, 18))))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -291,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("chamber").add_argument("run_dir", type=Path)
     sub.add_parser("kernels")
     sub.add_parser("term-limit")
+    sub.add_parser("indifference")
     kernel_run = sub.add_parser("_kernel-run")
     kernel_run.add_argument("seed", type=int)
     kernel_run.add_argument("population", type=int)
@@ -309,6 +343,8 @@ def main(argv: list[str] | None = None) -> int:
         kernels()
     elif args.command == "term-limit":
         term_limit()
+    elif args.command == "indifference":
+        indifference()
     else:
         print(json.dumps(_kernel_run(args.seed, args.population, args.engine)))
     return 0

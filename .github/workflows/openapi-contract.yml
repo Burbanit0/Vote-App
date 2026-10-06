@@ -13,9 +13,12 @@ name: Generated Artifacts Contract
 #     winners, leaving the parity test green against a frozen snapshot while the
 #     two engines diverged. See scripts/check_engine_parity_drift.sh.
 #  3. Generated doc blocks — cog blocks in docs that render facts owned by code
-#     (polity's model profiles, the journal event registry). A code change that
-#     leaves the doc behind, or a hand edit of generated text, fails here. See
-#     scripts/check_generated_docs.sh.
+#     (polity's model profiles, the journal event registry; and, from
+#     scripts/ci_facts.py, CONTRIBUTING's and the voter-ci skill's workflow and
+#     required-check counts, plus CONTRIBUTING's one-row-per-workflow table, so
+#     adding or removing a workflow or a required check is checked here). A
+#     change that leaves the doc behind, or a hand edit of generated text, fails
+#     here. See scripts/check_generated_docs.sh.
 
 # No top-level `paths:` filter (moved to the `changes` job below, on purpose):
 # this workflow is a required status check, and a required check scoped by
@@ -45,6 +48,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -73,10 +77,22 @@ jobs:
               - "scripts/check_*_drift.sh"
               - "scripts/check_generated_docs.sh"
               - "docs/plan/polity/polity-llm-reference.md"
+            # Only the doc blocks can move: the job runs, but skips the npm
+            # install and the contract and parity checks.
+            # The CI counts in CONTRIBUTING and the voter-ci skill
+            # (scripts/ci_facts.py): a new workflow or required check moves them.
+            docs:
+              - "CONTRIBUTING.md"
+              - ".claude/skills/voter-ci/SKILL.md"
+              - "scripts/ci_facts.py"
+              - "scripts/check_ci_health.py"
+              - "scripts/setup-branch-protection.sh"
+              - ".github/workflows/*.yml"
+              - ".github/workflows/*.yaml"
 
   drift-check:
     needs: changes
-    if: needs.changes.outputs.relevant == 'true'
+    if: needs.changes.outputs.relevant == 'true' || needs.changes.outputs.docs == 'true'
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -99,22 +115,25 @@ jobs:
         run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: needs.changes.outputs.relevant == 'true'
         with:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 
       - name: Install frontend dependencies
+        if: needs.changes.outputs.relevant == 'true'
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
 
       - name: API contract drift
+        if: needs.changes.outputs.relevant == 'true'
         run: ./scripts/check_openapi_drift.sh
 
       # Runs even if the contract check failed: two independent artifacts, and
       # seeing both verdicts in one run beats fixing them one push at a time.
       - name: Engine parity fixture drift
-        if: always()
+        if: always() && needs.changes.outputs.relevant == 'true'
         run: ./scripts/check_engine_parity_drift.sh
 
       - name: Generated doc blocks in sync

@@ -27,7 +27,7 @@ name: polity-vllm-granite
 
 services:
   vllm:
-    image: vllm/vllm-openai:v0.30.0
+    image: vllm/vllm-openai:v0.31.0
     container_name: vllm-polity
     ports:
       - "8000:8000"
