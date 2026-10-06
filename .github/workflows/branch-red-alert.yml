@@ -13,7 +13,7 @@ name: polity red alert
 # the one event, so a queued run replaced by a newer one loses nothing, and the
 # daily cron catches any event GitHub never delivered.
 
-on:
+on: # zizmor: ignore[dangerous-triggers] reads run metadata via the API, never checks out or runs the triggering code
   workflow_run:
     # The literal `name:` of each watched workflow; keep in step with WATCHED in
     # scripts/branch_red_alert.py (keyed by file name).
@@ -28,6 +28,7 @@ on:
       - Coverage-Guided Fuzzing (atheris)
       - Backend Flaky Test Hunt
       - DAST — ZAP Baseline
+      - Workflow Lint
     types: [completed]
   schedule:
     - cron: '23 9 * * *' # daily, distinct from every other cron in this repo
