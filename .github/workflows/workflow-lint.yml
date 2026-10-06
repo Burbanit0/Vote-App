@@ -8,8 +8,9 @@ name: Workflow Lint
 #     over-broad permissions, cache poisoning...). It passes clean today; the
 #     few accepted findings are `# zizmor: ignore[rule]` comments, with the
 #     reason, at the end of the flagged line itself (zizmor only honours them
-#     there), in the workflow (held for review like any workflow change). --offline: the audits that query the GitHub API are a
-#     follow-up, once one run shows their output;
+#     there), in the workflow (held for review like any workflow change).
+#     --offline: the audits that query the GitHub API are a follow-up, once
+#     one run shows their output;
 #   - the guard hooks' own tests (.claude/hooks/tests), which ran nowhere.
 #
 # Always triggers (a required check that never reports blocks a PR forever);

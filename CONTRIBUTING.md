@@ -78,8 +78,16 @@ git push origin feat/ma-feature
 ```
 
 La liste exacte des checks requis d'une branche :
-`bash scripts/setup-branch-protection.sh --print-contexts polity` (16 sur
-`polity` et `develop`, 14 sur `main`).
+`bash scripts/setup-branch-protection.sh --print-contexts polity`.
+<!-- [[[cog
+import cog, ci_facts
+n = {b: len(ci_facts.required_contexts(b)) for b in ci_facts.BRANCHES}
+cog.outl(f"Aujourd'hui : {n['polity']} sur `polity`, {n['develop']} sur `develop`, {n['main']} sur `main`,")
+cog.outl(f"{n['polity-ui']} sur `polity-ui` (généré depuis le script, vérifié par `scripts/check_generated_docs.sh`).")
+]]] -->
+Aujourd'hui : 16 sur `polity`, 16 sur `develop`, 14 sur `main`,
+13 sur `polity-ui` (généré depuis le script, vérifié par `scripts/check_generated_docs.sh`).
+<!-- [[[end]]] -->
 
 **La CI vérifie automatiquement :**
 
@@ -196,10 +204,22 @@ merger.
 
 ---
 
-## Carte des 21 workflows CI
+## Carte des workflows CI
 
-21 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
-source de vérité redevient "lire les 21 YAML". Si vous changez un déclencheur
+<!-- [[[cog
+import cog, ci_facts
+ci_facts.require_workflow_table_in_sync(cog.inFile)
+n = len(ci_facts.workflow_files())
+cog.outl(f"{n} fichiers dans `.github/workflows/`, une ligne chacun dans la table ci-dessous (nombre")
+cog.outl("généré ; `scripts/check_generated_docs.sh` échoue si un workflow n'a pas sa ligne, ou si")
+cog.outl("une ligne nomme un workflow qui n'existe plus).")
+]]] -->
+21 fichiers dans `.github/workflows/`, une ligne chacun dans la table ci-dessous (nombre
+généré ; `scripts/check_generated_docs.sh` échoue si un workflow n'a pas sa ligne, ou si
+une ligne nomme un workflow qui n'existe plus).
+<!-- [[[end]]] -->
+Sans une table à jour ici, la seule source de vérité redevient « lire tous
+les YAML ». Si vous changez un déclencheur
 ou un gate, mettez cette table à jour dans la même PR. Sauf mention contraire,
 « push/PR » couvre `develop`, `main`, `polity` et `polity-ui`.
 
