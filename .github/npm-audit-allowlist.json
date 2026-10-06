@@ -3,11 +3,36 @@
   "GHSA-vfj7-8cjw-p6xm": {
     "until": "2026-11-02",
     "reason": "braces <=3.0.3 stack-exhaustion DoS on deeply nested patterns. Covers the latest release, so no patched version exists yet. Dev-only: type-coverage -> type-coverage-core -> fast-glob -> micromatch -> braces, run in CI on our own source globs, never shipped (npm's only offer is a semver-major downgrade of type-coverage). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once braces ships a fix.",
-    "nodes": ["node_modules/braces"]
+    "nodes": [
+      "node_modules/braces"
+    ]
   },
   "GHSA-ch52-4w7c-c8xp": {
     "until": "2026-11-02",
     "reason": "http-cache-semantics <=4.2.0 max-stale handling can disclose cross-user cached responses. Covers the latest release, so no patched version exists yet. Dev-only: license-checker-rseidelsohn -> @npmcli/arborist -> npm-registry-fetch -> make-fetch-happen -> http-cache-semantics, a single-user CLI cache in CI, never shipped (npm's only offer is a semver-major downgrade of license-checker). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once http-cache-semantics ships a fix.",
-    "nodes": ["node_modules/http-cache-semantics"]
+    "nodes": [
+      "node_modules/http-cache-semantics"
+    ]
+  },
+  "GHSA-p6vx-979v-rg4c": {
+    "until": "2026-11-05",
+    "reason": "Critical: fromJSON() Promise thenable assimilation. seroval <=1.6.2 (installed 1.5.6). Not shipped: it comes only through @tanstack/react-query-devtools -> @tanstack/query-devtools -> solid-js, and the devtools entry is `process.env.NODE_ENV !== \"development\" ? () => null : ...`, so the production build drops solid-js and seroval (checked: no `seroval`, `solid-js` or devtools panel in the built bundle). No usable fix: solid-js 1.9.15 is the latest and pins seroval ~1.5.4; npm only offers a semver-major devtools downgrade. Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once solid-js accepts seroval >= 1.6.3.",
+    "nodes": [
+      "node_modules/seroval"
+    ]
+  },
+  "GHSA-jp82-f5mq-hwhp": {
+    "until": "2026-11-05",
+    "reason": "High: memory exhaustion via unchecked TypedArray length in fromJSON(). seroval <=1.6.2 (installed 1.5.6). Not shipped: it comes only through @tanstack/react-query-devtools -> @tanstack/query-devtools -> solid-js, and the devtools entry is `process.env.NODE_ENV !== \"development\" ? () => null : ...`, so the production build drops solid-js and seroval (checked: no `seroval`, `solid-js` or devtools panel in the built bundle). No usable fix: solid-js 1.9.15 is the latest and pins seroval ~1.5.4; npm only offers a semver-major devtools downgrade. Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once solid-js accepts seroval >= 1.6.3.",
+    "nodes": [
+      "node_modules/seroval"
+    ]
+  },
+  "GHSA-68fv-2mgg-jv7q": {
+    "until": "2026-10-14",
+    "reason": "source-map-js 1.0.0-1.2.1 event-loop DoS on crafted indexed source maps. Dev-only (vite/postcss, @tailwindcss/node, jsdom, @vitest/coverage-v8), processing our own source maps, never shipped. 1.2.2 fixes it but was published 2026-09-30T14:08Z, inside .npmrc's min-release-age=7 until 2026-10-07T14:08Z. After that: `npm audit fix --package-lock-only` (npm >= 11.10) and delete this entry.",
+    "nodes": [
+      "node_modules/source-map-js"
+    ]
   }
 }
