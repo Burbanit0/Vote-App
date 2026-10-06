@@ -119,7 +119,7 @@ def mean_legitimacy(values: Sequence[float]) -> float:
 def office_occupancy(presided_ticks: int, total_ticks: int) -> float:
     """Track A5 (2026-09-11, lets-build-a-solid-spicy-otter.md): fraction of
     the run's own ticks with a sitting president. Promoted from an ad-hoc,
-    LLM-path-only computation in scripts/run_v6b_acceptance.py (which could
+    LLM-path-only computation in scripts/archive/run_v6b_acceptance.py (which could
     only read it off mandate_deviation's own "ctx" series, so it was null
     on every deterministic-engine run) to a real metric derived from
     `terms` directly -- Track 0b's own finding is exactly why this needed

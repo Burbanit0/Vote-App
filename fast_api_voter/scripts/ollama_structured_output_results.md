@@ -7,7 +7,7 @@ at) supports what the production client needs from `qwen3:8b`, the pinned model.
 
 **Setup**: `docker run -d -p 11434:11434 --name ollama ollama/ollama`,
 `docker exec ollama ollama pull qwen3:8b` (5.2GB), CPU-only (no GPU on this machine).
-Script: `fast_api_voter/scripts/check_ollama_structured_output.py`.
+Script: `fast_api_voter/scripts/archive/check_ollama_structured_output.py`.
 
 ## Result: three real, load-bearing findings, all understood and actionable
 
@@ -268,7 +268,7 @@ re-guessing `think=True`):
 ```bash
 docker run -d -p 11434:11434 --name ollama ollama/ollama
 docker exec ollama ollama pull qwen3:8b
-python fast_api_voter/scripts/check_ollama_structured_output.py --results fast_api_voter/scripts/ollama_structured_output_results.md
+python fast_api_voter/scripts/archive/check_ollama_structured_output.py --results fast_api_voter/scripts/ollama_structured_output_results.md
 ```
 
 Raw output of the final run (script already includes both fixes):
