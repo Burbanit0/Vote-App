@@ -128,22 +128,34 @@ def presidential_calendar(events: Sequence[Event], config: PolityConfig) -> Iter
     pending: int | None = None
     for tick in range(clock.total_ticks + 1):
         tick_events = by_tick.get(tick, [])
-        if pending is not None:
-            held = tick == pending
-        else:
-            held = tick in calendar and not any(_kept_in_office(event) for event in tick_events)
+        held = _election_held(tick, pending, calendar, tick_events)
         outcomes = [event for event in tick_events if event["event_type"] in PRESIDENT_ELECTION_OUTCOMES]
         if len(outcomes) != int(held):
             yield Violation(
                 "ELE-02", outcomes[0].get("event_id") if outcomes else None,
                 f"tick {tick}: {len(outcomes)} presidential outcome(s), {int(held)} expected",
             )
-        for event in tick_events:
-            event_type = event["event_type"]
-            if event_type in ("election_invalidated", "snap_election_triggered") and "next_attempt_tick" in event["payload"]:
-                pending = event["payload"]["next_attempt_tick"]
-            elif event_type in ("elected", "election_no_winner"):
-                pending = None
+        pending = _pending_after(pending, tick_events)
+
+
+def _election_held(tick: int, pending: int | None, calendar: set[int], tick_events: Sequence[Event]) -> bool:
+    """A pending rerun or snap election replaces the calendar; otherwise the calendar
+    holds, unless a successful refuse_to_leave keeps the president on."""
+    if pending is not None:
+        return tick == pending
+    return tick in calendar and not any(_kept_in_office(event) for event in tick_events)
+
+
+def _pending_after(pending: int | None, tick_events: Sequence[Event]) -> int | None:
+    """The election still pending once this tick's events are read, in journal order:
+    an invalidation or a snap election schedules one, an accepted outcome clears it."""
+    for event in tick_events:
+        event_type, payload = event["event_type"], event["payload"]
+        if event_type in ("election_invalidated", "snap_election_triggered") and "next_attempt_tick" in payload:
+            pending = payload["next_attempt_tick"]
+        elif event_type in ("elected", "election_no_winner"):
+            pending = None
+    return pending
 
 
 def _kept_in_office(event: Event) -> bool:
