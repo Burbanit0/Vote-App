@@ -29,6 +29,7 @@ on: # zizmor: ignore[dangerous-triggers] reads run metadata via the API, never c
       - Backend Flaky Test Hunt
       - DAST — ZAP Baseline
       - Workflow Lint
+      - zizmor online
     types: [completed]
   schedule:
     - cron: '23 9 * * *' # daily, distinct from every other cron in this repo
