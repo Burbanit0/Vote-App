@@ -1,0 +1,67 @@
+name: Diff Mutation comment
+
+# Posts the Diff Mutation summaries as sticky PR comments.
+#
+# mutation-diff.yml runs the PR's code, so its jobs hold a read-only token and
+# keep their summary as an artifact (diff-mutation-comment-<tool>: summary.md
+# and pr.txt). This workflow runs from the default branch once that run ends,
+# runs no PR code, and is the only one with pull-requests: write. Being a
+# workflow_run, it also comments on PRs from forks, which the old in-run step
+# could not.
+#
+# Everything read from the artifact is data: the PR number must be digits and
+# that PR's head must still be the commit the run tested, and the summary is
+# only ever a comment body.
+
+on: # zizmor: ignore[dangerous-triggers] downloads two data files from the run, never checks out or runs the PR's code
+  workflow_run:
+    workflows: [Diff Mutation]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    name: Post the Diff Mutation comments
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read # the run's artifacts
+      pull-requests: write # the sticky comments
+    steps:
+      # The default branch's copy of the comment script, not the PR's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/sticky_comment.sh
+          sparse-checkout-cone-mode: false
+      - name: Post one comment per tool
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          for tool in stryker mutmut; do
+            dir="$RUNNER_TEMP/$tool"
+            if ! gh run download "$RUN_ID" --repo "$REPO" -n "diff-mutation-comment-$tool" -D "$dir" 2>/dev/null; then
+              echo "$tool: no summary in run $RUN_ID (no change to mutate)."
+              continue
+            fi
+            pr=$(head -c 16 "$dir/pr.txt" | tr -d '[:space:]')
+            if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+              echo "::warning::$tool: pr.txt is not a PR number; skipped."
+              continue
+            fi
+            # The PR must still point at the commit this run tested; if it has
+            # moved on, the newer run posts its own summary.
+            head=$(gh api "repos/$REPO/pulls/$pr" --jq .head.sha)
+            if [ "$head" != "$HEAD_SHA" ]; then
+              echo "$tool: PR #$pr is now at $head, not $HEAD_SHA; skipped."
+              continue
+            fi
+            head -c 60000 "$dir/summary.md" > "$dir/body.md"
+            bash scripts/sticky_comment.sh "$REPO" "$pr" "diff-mutation:$tool" "$dir/body.md"
+          done

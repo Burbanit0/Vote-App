@@ -10,6 +10,10 @@ name: Diff Mutation
 #
 # Advisory: not a required check, no score threshold. The full-file baselines
 # with their floors stay in mutation-testing.yml.
+#
+# These jobs run the PR's code, so they hold no write token: each keeps its
+# summary as an artifact, and mutation-diff-comment.yml (workflow_run, from
+# the default branch) posts it as the sticky comment.
 
 on:
   pull_request:
@@ -54,9 +58,6 @@ jobs:
     name: "Diff mutation: frontend (advisory)"
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      pull-requests: write # the sticky summary comment
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -101,16 +102,21 @@ jobs:
             --input voter-app/reports/mutation-diff/mutation.json \
             "${sampled[@]}" > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
-      - name: Sticky PR comment
+      - name: Keep the summary for the PR comment
         if: always() && steps.plan.outputs.count != '0'
-        # A PR from a fork gets a read-only token: the summary above still
-        # carries the result, and the advisory job must not turn red for it.
-        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: bash scripts/sticky_comment.sh "$REPO" "$PR" diff-mutation:stryker "$RUNNER_TEMP/summary.md"
+        run: |
+          mkdir -p "$RUNNER_TEMP/comment"
+          cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/comment/summary.md"
+          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+      - name: Upload the summary for the PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: diff-mutation-comment-stryker
+          path: ${{ runner.temp }}/comment
+          retention-days: 3
       - name: Upload the Stryker report
         if: always() && steps.plan.outputs.count != '0'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -125,9 +131,6 @@ jobs:
     name: "Diff mutation: backend (advisory)"
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      pull-requests: write # the sticky summary comment
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -173,13 +176,18 @@ jobs:
             --input "$RUNNER_TEMP/mutmut-results.txt" --patterns "$RUNNER_TEMP/patterns.txt" \
             > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
-      - name: Sticky PR comment
+      - name: Keep the summary for the PR comment
         if: always() && steps.plan.outputs.count != '0'
-        # A PR from a fork gets a read-only token: the summary above still
-        # carries the result, and the advisory job must not turn red for it.
-        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: bash scripts/sticky_comment.sh "$REPO" "$PR" diff-mutation:mutmut "$RUNNER_TEMP/summary.md"
+        run: |
+          mkdir -p "$RUNNER_TEMP/comment"
+          cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/comment/summary.md"
+          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+      - name: Upload the summary for the PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: diff-mutation-comment-mutmut
+          path: ${{ runner.temp }}/comment
+          retention-days: 3
