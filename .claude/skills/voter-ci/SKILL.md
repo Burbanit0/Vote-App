@@ -55,9 +55,9 @@ gates it — see "Why no top-level `paths:` filter" below). In order:
 | pip-audit | `pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip` | blocking (CVEs), on the exact pins the production image installs | — |
 | License compliance | `bash fast_api_voter/scripts/check_license_compliance.sh` | blocking, production deps only | script |
 | Mypy | `python -m mypy api/ scripts/llm_test_harness --config-file mypy.ini` | blocking, strict (the harness is a library 8 scripts import) | `fast_api_voter/mypy.ini` |
-| Tests + coverage | `pytest api/tests -n auto --cov=api --cov-fail-under=90` | blocking, 90% global floor | `pyproject.toml` addopts |
+| Tests + coverage | `pytest api/tests -n auto --cov=api --cov-fail-under=90` | blocking, 90% global floor on lines + branches combined (`branch = true`; 96% measured 2026-10-07) | `pyproject.toml` addopts |
 | LLM harness tests | `pytest scripts/llm_test_harness/tests -o addopts="" --cov=scripts/llm_test_harness --cov-fail-under=75` | blocking, 75% floor on the harness | `scripts/llm_test_harness/.coveragerc` |
-| diff-cover | see its own section below | blocking, **100% on changed lines** | — |
+| diff-cover | see its own section below | blocking, **100% on changed lines and branches** | — |
 | Engine perf ceilings | `pytest api/tests/test_engine_benchmarks.py -o addopts=""` | blocking, generous absolute ceilings (15-500x baseline) | see `docs/exploration/EXP-006` |
 
 ### `frontend-ci-cd-pipeline.yml` — "Frontend: Tests + Coverage + Security" (required)
@@ -71,7 +71,7 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 | npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`; its own tests: `npm run test:scripts`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
 | License compliance | `license-checker-rseidelsohn --production` | blocking, production deps only | inline allowlist |
 | Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | blocking on the `test.coverage.thresholds` floors (lines 86 / statements 84 / functions 75 / branches 74) | `voter-app/vitest.config.ts` |
-| diff-cover | see below | blocking, **100% on changed lines** | — |
+| diff-cover | see below | blocking, **100% on changed lines and branches** | — |
 | Build | `npm run build` (`tsc --noEmit && vite build && npm run build:size`) | blocking — tsc, then Vite build, then `size-limit` (1 MB brotli budget) | `voter-app/.size-limit.json` |
 
 ### `e2e.yml` — "Playwright E2E" + "Playwright/Docker image version sync" (both required) + "Visual regression" (not yet required — see EXP-004)
@@ -345,16 +345,26 @@ to compare against) — never hand-edit the number down to make a red run
 green; that's a real regression, not noise, since `type-coverage` is fully
 deterministic (unlike mutmut, there's no tolerance band here).
 
-## diff-cover — 100% coverage on changed lines
+## diff-cover — 100% coverage on changed lines and branches
 
 This is a *different, stricter* gate than the 90%/global coverage floor:
 diff-cover only looks at lines your PR actually changed, so a large
-already-tested codebase can't dilute it. Reproduce it locally before pushing:
+already-tested codebase can't dilute it. With `--branch-coverage`, a changed
+line that is a branch (`if`/`else`, ternary, `&&`/`||`, `??`, `?.`) must also
+have been taken every way: a line that ran but whose `else` no test reaches
+fails as "Missing". A branch no test can reach (a loop that always returns
+from inside, an exhaustive `if`/`elif`) takes `# pragma: no branch` (Python)
+or `/* v8 ignore else */` / `/* v8 ignore next */` (frontend), with the reason
+next to it; both are silencers, so `edit_guard` asks and fast-gate reports
+them. Backend branch data comes from pyproject's
+`[tool.coverage.run] branch = true`; the frontend's from vitest's `cobertura`
+reporter (diff-cover's lcov reader ignores partly-taken branches). Reproduce
+it locally before pushing:
 
 ```bash
 # Backend, from fast_api_voter/ — verified working:
 python -m pytest api/tests --cov-report=xml -q
-diff-cover coverage.xml --compare-branch=origin/polity --fail-under=100
+diff-cover coverage.xml --compare-branch=origin/polity --branch-coverage --fail-under=100
 ```
 
 **The gotcha**: `--cov-report=xml` is not in `pyproject.toml`'s default
@@ -368,10 +378,9 @@ works but then you lose the default coverage flags entirely and must pass
 # Frontend — mirrors frontend-ci-cd-pipeline.yml exactly, including the cwd
 # (test:coverage runs inside voter-app/, diff-cover itself runs from repo root):
 (cd voter-app && npm run test:coverage)
-# vitest writes lcov.info with SF: paths relative to voter-app/ (its own cwd),
-# but git diff (and diff-cover's lcov reader) expect repo-root-relative paths:
-sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
-diff-cover voter-app/coverage/lcov-diffcover.info --compare-branch=origin/polity --fail-under=100
+# the Cobertura report's <source> is voter-app/, so its paths already line up
+# with git's (repo-root-relative):
+diff-cover voter-app/coverage/cobertura-coverage.xml --compare-branch=origin/polity --branch-coverage --fail-under=100
 ```
 
 Both commands compare against `origin/polity`, the working branch (CI uses the

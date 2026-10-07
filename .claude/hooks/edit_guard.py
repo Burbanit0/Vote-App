@@ -30,6 +30,8 @@ SILENCERS = {
     "`# noqa`": r"#\s*noqa\b",
     "`type: ignore`": r"#\s*type:\s*ignore\b",
     "`pragma: no cover`": r"pragma:\s*no\s*cover",
+    "`pragma: no branch`": r"pragma:\s*no\s*branch",
+    "`v8 ignore`": r"\b(?:v8|c8|istanbul)\s+ignore\b",
     "`eslint-disable`": r"eslint-disable",
     "`@ts-ignore` / `@ts-expect-error`": r"@ts-(?:ignore|expect-error|nocheck)\b",
     "`as any`": r"\bas\s+any\b",

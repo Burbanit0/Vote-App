@@ -214,15 +214,18 @@ jobs:
       # *changed* by this PR — far more mordant than the 90% global floor
       # above, which a large already-tested codebase dilutes. Cobertura XML
       # (coverage.xml) carries its own <source> root, so no path massaging is
-      # needed here (unlike the frontend's lcov.info — see
-      # frontend-ci-cd-pipeline.yml).
-      - name: diff-cover — 100% coverage on changed lines
+      # needed here (the frontend's diff-cover reads Cobertura too).
+      # --branch-coverage: a changed line that is a branch must have taken
+      # every way out (pyproject's [tool.coverage.run] branch = true records it),
+      # not merely have run.
+      - name: diff-cover — 100% coverage on changed lines and branches
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           diff-cover fast_api_voter/coverage.xml \
             --compare-branch="$BASE_REF" \
+            --branch-coverage \
             --fail-under=100
 
       # ── Performance ──────────────────────────────────────────────────────
