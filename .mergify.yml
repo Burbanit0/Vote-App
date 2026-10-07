@@ -126,6 +126,19 @@ merge_protections:
           - files ~= ^\.claude/
           - files ~= ^scripts/check_
           - files = scripts/setup-branch-protection.sh
+          # Gate scripts outside scripts/check_*: what the push hook runs, the
+          # gate's own oracle report, the doc-count and diff-mutation checks.
+          - files = scripts/fast-gate.sh
+          - files = scripts/oracle_diff_report.py
+          - files = scripts/ci_facts.py
+          - files = scripts/mutation_diff.py
+          - files = fast_api_voter/scripts/check_license_compliance.sh
+          - files = voter-app/vitest.stryker.config.ts
+          - files = voter-app/vitest.stryker.diff.config.ts
+          - files = voter-app/stryker.diff.config.json
+          - files = .pre-commit-config.yaml
+          # The agent's own rules.
+          - files = CLAUDE.md
           - files ~= ^voter-app/scripts/check-
           - files = fast_api_voter/pyproject.toml
           - files = fast_api_voter/mypy.ini
@@ -172,6 +185,10 @@ merge_protections:
           # marker together) passes every test, so a person reads it.
           - files ~= ^docs/spec/
           - files = fast_api_voter/api/tests/test_behavior_catalogue.py
+          # The journal checker and its property tests: weakening a check inside
+          # it removes no test, so the test-integrity hold would not see it.
+          - files = fast_api_voter/api/domain/polity/journal_invariants.py
+          - files = fast_api_voter/api/tests/test_polity_journal_invariants.py
           - files = fast_api_voter/api/tests/test_engine_benchmarks.py
           - files ~= (^|/)__snapshots__/
           - files ~= -snapshots/
