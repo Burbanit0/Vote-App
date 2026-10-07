@@ -64,8 +64,9 @@ api_call() {
   fi
 }
 
-# Same required checks for both branches — main will need everything develop
-# needs once a real develop→main release resumes.
+# The base list: main requires exactly this (its PRs come from develop, which
+# already passed all of it); develop and polity add the review gate and
+# Workflow lint (contexts_for below).
 #
 # Backend CI / Frontend CI / E2E / OpenAPI Contract used to be excluded here:
 # each was scoped by a `paths:` filter at the workflow-trigger level, and a
@@ -211,21 +212,36 @@ protect_polity_branch() {
   echo "✅  '${branch}' protected."
 }
 
+# main: PRs only (develop -> main, see the release skill), the same required
+# checks, no direct pushes for anyone but an admin, and none at all from the
+# release workflow's token (release.yml only pushes a tag).
+#   - 0 approvals: the repo has one maintainer, and GitHub never lets a PR's
+#     author approve it, so 1 would block every release.
+#   - enforce_admins false, as on polity and develop: the owner can override a
+#     red check that isn't a regression. The develop -> main PR is where that
+#     happens (diff-cover re-counts against a far-behind main, #669).
+#   - no linear history: the release PR is merged with a merge commit.
+#   - strict false, unlike polity and develop: that merge commit lands on main
+#     and never on develop, so with strict every next develop -> main PR would
+#     be "behind" main, and its "Update branch" would push to the protected
+#     develop. Nothing else merges into main, and the release job re-tests the
+#     exact commit it tags, so strict buys nothing here.
 protect_main() {
+  local MAIN_CONTEXTS
+  MAIN_CONTEXTS=$(contexts_for main)
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
     \"required_status_checks\": {
-      \"strict\": true,
-      \"contexts\": ${REQUIRED_CONTEXTS}
+      \"strict\": false,
+      \"contexts\": ${MAIN_CONTEXTS}
     },
-    \"enforce_admins\": true,
+    \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
-      \"required_approving_review_count\": 1,
-      \"dismiss_stale_reviews\": true,
-      \"require_last_push_approval\": true
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
     },
     \"restrictions\": null,
-    \"required_linear_history\": true,
+    \"required_linear_history\": false,
     \"allow_force_pushes\": false,
     \"allow_deletions\": false
   }"
