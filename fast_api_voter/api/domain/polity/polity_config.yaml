@@ -270,8 +270,8 @@ vote:
   approval_party_carryover: 0.0 # part de ce bilan reportée sur un autre candidat
                                 #   du parti du sortant
   valence: 0.0                  # poids de la valence (aucune source encore : 0)
-  turnout_cost: 0.0             # abstention si la meilleure option ne dépasse la
-                                #   suivante que de moins que ce coût
+  turnout_cost: 0.0             # abstention si le meilleur candidat vaut le vote
+                                #   blanc à moins de ce coût près (OBS-042)
   policy_retrospection: 0.0     # S4.2 (ADR-009) : poids du chemin parcouru par la
                                 #   politique vers l'électeur pendant le mandat —
                                 #   sur le sortant jugé et, aux législatives, sur

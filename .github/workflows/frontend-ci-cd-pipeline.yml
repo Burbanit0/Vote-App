@@ -44,7 +44,10 @@ jobs:
 
   test:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    # A detector that did not succeed (failed, or its job cancelled) runs this
+    # anyway: skipped would pass the required check without testing anything.
+    # !cancelled() rather than always(): a superseded run still stops.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.frontend == 'true') }}
     # Prefixed to disambiguate from Backend CI's identically-named job: GitHub
     # matches required status checks on this literal name, and two check-runs
     # sharing one name are indistinguishable to branch protection.
