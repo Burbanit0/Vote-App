@@ -217,7 +217,7 @@ cog.outl(f"{n} fichiers dans `.github/workflows/`, une ligne chacun dans la tabl
 cog.outl("généré ; `scripts/check_generated_docs.sh` échoue si un workflow n'a pas sa ligne, ou si")
 cog.outl("une ligne nomme un workflow qui n'existe plus).")
 ]]] -->
-22 fichiers dans `.github/workflows/`, une ligne chacun dans la table ci-dessous (nombre
+23 fichiers dans `.github/workflows/`, une ligne chacun dans la table ci-dessous (nombre
 généré ; `scripts/check_generated_docs.sh` échoue si un workflow n'a pas sa ligne, ou si
 une ligne nomme un workflow qui n'existe plus).
 <!-- [[[end]]] -->

@@ -9,7 +9,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 import cog, ci_facts
 cog.outl(f"Vote-App's CI is {len(ci_facts.workflow_files())} workflow files (`.github/workflows/`; generated count).")
 ]]] -->
-Vote-App's CI is 22 workflow files (`.github/workflows/`; generated count).
+Vote-App's CI is 23 workflow files (`.github/workflows/`; generated count).
 <!-- [[[end]]] -->
 Most PRs only ever see four of them; this skill maps every gate to its config
 file, explains the two gates that most often surprise people (the quality ratchet, diff-cover's
