@@ -96,23 +96,71 @@ jobs:
       # fixed afterwards in hotfix PR #478. This job turns that same class of
       # break into a fast, explicit failure on the PR that introduces it,
       # instead of a cryptic missing-browser error discovered later.
-      - name: Assert @playwright/test matches the visual-regression image tag
+      # The image is pinned by tag AND digest, and Docker pulls by the digest:
+      # a later bump of the tag alone would keep running the old browser. So
+      # when the pin itself changes (the `image:` line or the @playwright/test
+      # version differs from the commit this one builds on), the digest is also
+      # checked against what the registry serves for the tag. A run that does
+      # not move the pin (any other PR, a dispatch, the release) never asks the
+      # registry, so a tag Microsoft re-pushes cannot turn it red.
+      - name: Assert @playwright/test matches the visual-regression image pin
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
           # so a non-matching grep (exit 1) would otherwise abort the script
-          # right here -- before the explicit empty-value
-          # diagnostic below ever gets a chance to run.
-          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
-          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)
+          # right here -- before the explicit diagnostics below.
+          pin_of() { # $1: e2e.yml content, $2: package.json content
+            local image pkg
+            image=$(grep -m1 -oP '^\s+image:\s*\Kmcr\.microsoft\.com/playwright:\S+' <<< "$1" || true)
+            pkg=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' <<< "$2" || true)
+            echo "$image $pkg"
+          }
+          read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package.json)")"
+          image_version=$(grep -oP 'playwright:v\K[0-9.]+(?=-noble)' <<< "$image" || true)
+          digest=$(grep -oP '@\Ksha256:[0-9a-f]{64}$' <<< "$image" || true)
           if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
-            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image_version='$image_version') -- this check itself needs fixing, not just the versions it compares."
+            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image='$image') -- this check itself needs fixing, not just the versions it compares."
             exit 1
           fi
           if [ "$pkg_version" != "$image_version" ]; then
-            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble."
+            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble with that tag's digest."
             exit 1
           fi
-          echo "OK: @playwright/test and the visual-regression Docker image both pinned to $pkg_version"
+          if [ -z "$digest" ]; then
+            echo "::error::The visual-regression image must be pinned by digest too: image: mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
+            exit 1
+          fi
+          echo "OK: @playwright/test and the visual-regression image both pinned to $pkg_version ($digest)"
+
+          moved=true
+          if [ "$EVENT" != pull_request ] && [ "$EVENT" != push ]; then
+            moved=false # a dispatch or the release does not change the pin
+          elif [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != 0000000000* ]] \
+              && git fetch --quiet --depth 1 origin "$BASE_SHA" 2>/dev/null; then
+            base_pin=$(pin_of "$(git show "$BASE_SHA:.github/workflows/e2e.yml" 2>/dev/null)" \
+                              "$(git show "$BASE_SHA:voter-app/package.json" 2>/dev/null)")
+            [ "$base_pin" != "$image $pkg_version" ] || moved=false
+          fi
+          if [ "$moved" = false ]; then
+            echo "OK: the pin did not change here, registry lookup skipped"
+            exit 0
+          fi
+          tag="v$pkg_version-noble"
+          served=$(curl -fsSI --retry 3 --max-time 30 \
+            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            "https://mcr.microsoft.com/v2/playwright/manifests/$tag" \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "docker-content-digest" { print $2 }')
+          if [ -z "$served" ]; then
+            echo "::error::Could not read the digest of mcr.microsoft.com/playwright:$tag from the registry; re-run this job."
+            exit 1
+          fi
+          if [ "$served" != "$digest" ]; then
+            echo "::error::The pinned digest is not the one mcr.microsoft.com/playwright:$tag serves, so Docker would run another browser than the tag says. Pin mcr.microsoft.com/playwright:$tag@$served, then regenerate the visual baselines in that image (voter-app/scripts/test-visual-docker.sh --update-snapshots) and review the PNG diff."
+            exit 1
+          fi
+          echo "OK: $digest is what the registry serves for $tag"
 
   # Two shards, then one `Playwright E2E` job that merges their reports. The
   # suite took ~10 of the job's 11 minutes; split in two (198 + 197 tests) it
@@ -315,7 +363,7 @@ jobs:
     # missing-browser error, right alongside the fast one.
     needs: [changes, playwright-image-sync]
     if: |
-      !cancelled() &&
+      !cancelled() && needs.playwright-image-sync.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
@@ -335,7 +383,9 @@ jobs:
     # find the pre-installed browsers or silently compares against a different
     # renderer than the one that generated the committed baselines.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Tag for readers, digest for Docker; the playwright-image-sync job
+      # checks both against @playwright/test and the registry.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --ipc=host
 
     steps:
