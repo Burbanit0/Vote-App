@@ -48,6 +48,7 @@ WATCHED = {
     "flaky-check-backend.yml": True,
     "dast.yml": True,
     "workflow-lint.yml": False,
+    "zizmor-online.yml": True,  # weekly, audits polity
 }
 RED = {"failure", "timed_out", "startup_failure"}
 NO_VERDICT = {"cancelled", "skipped", "neutral", "stale", "action_required", None}
