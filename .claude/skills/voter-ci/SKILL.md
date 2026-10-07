@@ -167,7 +167,10 @@ not a separate `codeql.yml`.
   line itself (zizmor ignores it anywhere else).
 - `human-review.yml` — owns the required "High-risk review gate": red on a PR
   touching a held path or weakening the tests until the owner comments
-  `/reviewed <sha>` on the head commit.
+  `/reviewed <sha>` on the head commit. Once the review-gate GitHub App is set
+  up (CONTRIBUTING.md, "GitHub App de la revue"), it posts with the App's token
+  and protection accepts the gate only from that App; until then, any
+  workflow's `GITHUB_TOKEN` could post it.
 - `red-on-base.yml` — advisory: a `feat/`/`fix/` PR's new or changed tests must
   fail on the base code (`scripts/check_red_on_base.py`); a `refactor/` PR must
   change no test.
