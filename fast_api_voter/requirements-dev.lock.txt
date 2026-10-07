@@ -50,7 +50,7 @@ certifi==2026.7.22
     #   sentry-sdk
 chardet==7.6.0
     # via diff-cover
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via
     #   -c requirements.lock.txt
     #   requests
@@ -67,7 +67,7 @@ cogapp==3.6.0
     # via -r requirements-dev.txt
 colorama==0.4.6
     # via radon
-coverage==7.16.1
+coverage==7.16.2
     # via
     #   mutmut
     #   pytest-cov
@@ -87,27 +87,27 @@ diff-cover==10.6.0
     # via -r requirements-dev.txt
 docutils==0.23
     # via marimo
-duckdb==1.5.5
+duckdb==1.5.6
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
 execnet==2.1.2
     # via pytest-xdist
-fastapi==0.141.1
+fastapi==0.142.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-filelock==4.0.3
+filelock==4.0.7
     # via cachecontrol
 frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-googleapis-common-protos==1.75.4
+googleapis-common-protos==1.75.5
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-graphql-core==3.2.12
+graphql-core==3.2.13
     # via hypothesis-graphql
 grimp==3.17
     # via import-linter
@@ -131,7 +131,7 @@ httpx==0.28.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-hypothesis==6.168.1
+hypothesis==6.168.3
     # via
     #   -r requirements-dev.txt
     #   hypothesis-graphql
@@ -159,7 +159,7 @@ jsonschema-rs==0.57.1
     # via schemathesis
 libcst==1.9.0
     # via mutmut
-librt==0.15.0
+librt==0.16.0
     # via mypy
 license-expression==30.4.4
     # via cyclonedx-python-lib
@@ -192,9 +192,9 @@ mdit-py-plugins==0.6.1
     # via textual
 mdurl==0.1.2
     # via markdown-it-py
-msgpack==1.2.2
+msgpack==1.2.3
     # via cachecontrol
-msgspec==0.21.1
+msgspec==0.22.0
     # via marimo
 multidict==6.9.1
     # via
@@ -217,7 +217,7 @@ numpy==2.5.3
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   scipy
-opentelemetry-api==1.44.0
+opentelemetry-api==1.45.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -227,45 +227,45 @@ opentelemetry-api==1.44.0
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.44.0
+opentelemetry-exporter-otlp-proto-common==1.45.0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.44.0
+opentelemetry-exporter-otlp-proto-http==1.45.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-opentelemetry-instrumentation==0.65b0
+opentelemetry-instrumentation==0.66b0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-asgi==0.65b0
+opentelemetry-instrumentation-asgi==0.66b0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-fastapi==0.65b0
+opentelemetry-instrumentation-fastapi==0.66b0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-opentelemetry-proto==1.44.0
+opentelemetry-proto==1.45.0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.44.0
+opentelemetry-sdk==1.45.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.65b0
+opentelemetry-semantic-conventions==0.66b0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.65b0
+opentelemetry-util-http==0.66b0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
@@ -295,7 +295,7 @@ pip-audit==2.10.1
     # via -r requirements-dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
-platformdirs==4.11.13
+platformdirs==4.12.2
     # via
     #   pip-audit
     #   textual
@@ -438,7 +438,7 @@ scipy==1.18.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-sentry-sdk==2.70.0
+sentry-sdk==2.71.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -532,9 +532,9 @@ websockets==17.1
     #   -c requirements.lock.txt
     #   marimo
     #   uvicorn
-werkzeug==3.1.8
+werkzeug==3.1.9
     # via schemathesis
-wrapt==2.4.1
+wrapt==2.5.0
     # via
     #   -c requirements.lock.txt
     #   deprecated
