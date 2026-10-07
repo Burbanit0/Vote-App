@@ -475,9 +475,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
     block (even at 0 required approvals) makes GitHub reject any raw push
-    with "Changes must be made through a pull request" — meaning
-    `release.yml`'s own direct push to `main` has the same latent bug and
-    has simply never been exercised for real yet (no release has shipped).
+    with "Changes must be made through a pull request". `release.yml` used
+    to push its version bump straight to `main` too (it worked for v0.2.0
+    because `main` was unprotected); now `main` is protected and the release
+    only pushes a tag.
   - `GITHUB_TOKEN` couldn't open the PR at all at first either — GitHub
     blocks Actions from creating PRs by default (`gh api repos/.../actions/
     permissions/workflow`'s `can_approve_pull_request_reviews`, confusingly
@@ -511,10 +512,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
     commits) is `unhealthy` (≥2 consecutive real failures),
     `inert` (no run within 1.5× its own cron-derived cadence), or
     `never_run`, or
-  - `develop`'s or `polity`'s live branch protection has drifted from
-    `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>` is
-    the expected list; polity has its own snapshot key and snooze,
-    `branch-protection-polity`).
+  - `develop`'s, `polity`'s or `main`'s live branch protection has drifted
+    from `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>`
+    is the expected list; polity and main each have their own snapshot key and
+    snooze, `branch-protection-polity` and `branch-protection-main`).
 
 **`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
 this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't

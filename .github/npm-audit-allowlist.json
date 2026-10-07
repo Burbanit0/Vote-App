@@ -27,12 +27,5 @@
     "nodes": [
       "node_modules/seroval"
     ]
-  },
-  "GHSA-68fv-2mgg-jv7q": {
-    "until": "2026-10-14",
-    "reason": "source-map-js <=1.2.1 event-loop DoS on crafted indexed source maps. 1.2.2 fixes it but was published 2026-09-30, so .npmrc's min-release-age=7 refuses it until 2026-10-07. Build tooling only: postcss (vite), @tailwindcss/node, jsdom's css-tree, magicast (coverage), reading our own files; a production build contains none of it (checked 2026-10-06). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) from 2026-10-07 and delete this entry.",
-    "nodes": [
-      "node_modules/source-map-js"
-    ]
   }
 }

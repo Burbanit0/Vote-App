@@ -62,6 +62,12 @@ updates:
       # schemathesis does.
       - dependency-name: "jsonschema-rs"
         versions: [">=0.58.0"]
+      # hypothesis-graphql==0.13.2 (dev-only: GraphQL strategies for
+      # schemathesis) declares `graphql-core>=3.1.0,<3.3.0`; #791 and #830
+      # bumped graphql-core to 3.3.0 and failed "No solution found". Moves
+      # when hypothesis-graphql does (latest is 0.13.2, checked 2026-10-07).
+      - dependency-name: "graphql-core"
+        versions: [">=3.3.0"]
 
   - package-ecosystem: "npm"
     directory: "/voter-app"

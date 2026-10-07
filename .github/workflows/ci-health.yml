@@ -94,6 +94,7 @@ jobs:
       # a pull request" -- confirmed live (this job's first real run, 2026-
       # 09-13), regardless of which token pushes it. The only legitimate
       # path is the same one every other change in this repo takes: a PR.
+      # (release.yml no longer pushes to main either: it only pushes a tag.)
       # Only opened when scripts/check_ci_health.py --update's own
       # pr_needed decision says so (a real status change, or a heartbeat
       # refresh at most once a week) -- a raw `git diff` on the file would
