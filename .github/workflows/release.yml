@@ -3,15 +3,6 @@ name: 🚀 Release Vote Lab
 on:
   workflow_dispatch:
     inputs:
-      version_type:
-        description: 'Type de version'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch    # 1.0.0 → 1.0.1  (bugfix)
-          - minor    # 1.0.0 → 1.1.0  (nouvelle feature)
-          - major    # 1.0.0 → 2.0.0  (changement majeur)
       release_notes:
         description: 'Notes de release (optionnel — GitHub génère les siennes sinon)'
         required: false
@@ -99,14 +90,14 @@ jobs:
       contents: write   # needed to push tags and create releases
 
     steps:
-      - name: Checkout main # zizmor: ignore[artipacked] this job pushes the tag and bump commit with the checkout token
+      - name: Checkout main # zizmor: ignore[artipacked] this job pushes the release tag with the checkout token
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # This job always tags/pushes `main`, regardless of which ref the
+      # This job always tags `main`, regardless of which ref the
       # workflow_dispatch was actually fired against — ci-frontend/ci-backend/
       # e2e above test whatever ref the dispatch used, not necessarily `main`.
       # Since the repo's default branch is `develop`, a dispatch without an
@@ -117,9 +108,7 @@ jobs:
       # triggered this run must already be reachable from `main`, which is
       # only true once the develop → main PR (see the `release` skill) has
       # merged and this was dispatched with `--ref main`.
-      # Exact match, not ancestry: an ancestor check also passes a second
-      # (queued) dispatch or a re-run after this job has pushed its bump commit,
-      # which would publish a duplicate release, and passes when main moved
+      # Exact match, not ancestry: an ancestor check passes when main moved
       # during CI, which would tag commits this run never tested.
       - name: Verify main is exactly the commit that was tested
         run: |
@@ -128,52 +117,68 @@ jobs:
             exit 1
           fi
 
-      # No npm cache in this job: it only runs `npm version` (no install), and a
-      # job that tags and publishes must not restore a cache other runs wrote
-      # (zizmor cache-poisoning).
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-          package-manager-cache: false
-
-      - name: Bump version in package.json
-        id: bump
-        working-directory: ./voter-app
-        env:
-          VERSION_TYPE: ${{ inputs.version_type }}   # via env (constrained choice, but never interpolate into the shell)
+      # main is protected (PRs only, admins included), so this job no longer
+      # commits a version bump to it: the version is whatever
+      # voter-app/package.json says on main, set by a bump PR that went
+      # polity -> develop -> main like any other change (see the release
+      # skill). The job only pushes a tag, which branch protection doesn't
+      # cover. An existing tag on another commit fails here (that version was
+      # already released); one already on this commit, a re-run after a failed
+      # release step, is reused.
+      - name: Read the version to release
+        id: version
         run: |
-          npm version "$VERSION_TYPE" --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Bumped to v${VERSION}"
+          VERSION="v$(jq -r .version voter-app/package.json)"
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::voter-app/package.json has version '${VERSION#v}', expected X.Y.Z." >&2
+            exit 1
+          fi
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            git fetch --quiet --no-tags origin "+refs/tags/${VERSION}:refs/tags/${VERSION}"
+            if [ "$(git rev-parse "refs/tags/${VERSION}^{commit}")" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::${VERSION} is already tagged on another commit. Bump voter-app/package.json in a PR to polity (npm version <patch|minor|major> --no-git-tag-version), carry it to main, then dispatch again." >&2
+              exit 1
+            fi
+            # A re-run after the tag push but before the release was created.
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -eq 2 ]; then
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not list the remote tags (git ls-remote exit ${rc}); re-run this job." >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${VERSION}"
 
       - name: Configure git identity
+        if: steps.version.outputs.tagged == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit + tag + push
+      - name: Tag + push the tag
+        if: steps.version.outputs.tagged == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.bump.outputs.version }}"
-          git add voter-app/package.json voter-app/package-lock.json
-          git commit -m "chore: bump to ${VERSION} [skip ci]"
           git tag -a "${VERSION}" -m "Release ${VERSION}"
-          git push --atomic origin main --follow-tags
+          git push origin "refs/tags/${VERSION}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ steps.bump.outputs.version }}
-          name: "🗳️ Vote Lab ${{ steps.bump.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "🗳️ Vote Lab ${{ steps.version.outputs.version }}"
           body: |
-            ## Vote Lab ${{ steps.bump.outputs.version }}
+            ## Vote Lab ${{ steps.version.outputs.version }}
 
             ${{ inputs.release_notes != '' && inputs.release_notes || 'Voir les commits ci-dessous pour le détail des changements.' }}
 
             ---
             **Liens**
-            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ steps.bump.outputs.version }}/THEORY.md)
+            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ steps.version.outputs.version }}/THEORY.md)
             - 🐛 [Signaler un bug](${{ github.server_url }}/${{ github.repository }}/issues/new)
           generate_release_notes: true   # GitHub auto-generates changelog from commits
           make_latest: true

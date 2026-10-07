@@ -258,10 +258,13 @@ avec l'étape `Check source is develop (PRs to main)` de `branch-policy.yml`
 ci-dessus — mais sous `pull_request_target` plutôt que le `pull_request` plus
 sûr utilisé par `branch-policy.yml`, sans bloc `permissions:`. Son job
 (`check-branch`) n'était pas dans la liste des checks requis de `develop` —
-suppression sans impact sur `scripts/setup-branch-protection.sh`. (Le script
-sait protéger `main`, `protect_main`, mais en direct `main` n'a aujourd'hui
-aucun check requis : constaté le 2026-10-06, décision du propriétaire en
-attente, car `release.yml` y pousse directement.)
+suppression sans impact sur `scripts/setup-branch-protection.sh`. (`main` est
+protégée par `protect_main` : PR obligatoire, mêmes checks requis que
+`develop` sans la porte de revue ni Workflow lint, qui ne tournent pas sur les
+PR vers `main`, 0 approbation, `enforce_admins: false` comme `polity` et
+`develop`. `release.yml` n'y pousse plus rien : la version vient de
+`voter-app/package.json`, montée par une PR, et le job ne pousse que le tag.
+Voir le skill `release`.)
 
 **Comment Backend/Frontend CI, E2E et OpenAPI Contract sont devenus des checks
 requis malgré leur portée `paths`** : les quatre étaient auparavant scopés par

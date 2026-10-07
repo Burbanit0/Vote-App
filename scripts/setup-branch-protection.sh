@@ -211,6 +211,15 @@ protect_polity_branch() {
   echo "✅  '${branch}' protected."
 }
 
+# main: PRs only (develop -> main, see the release skill), the same required
+# checks, no direct pushes for anyone but an admin, and none at all from the
+# release workflow's token (release.yml only pushes a tag).
+#   - 0 approvals: the repo has one maintainer, and GitHub never lets a PR's
+#     author approve it, so 1 would block every release.
+#   - enforce_admins false, as on polity and develop: the owner can override a
+#     red check that isn't a regression. The develop -> main PR is where that
+#     happens (diff-cover re-counts against a far-behind main, #669).
+#   - no linear history: the release PR is merged with a merge commit.
 protect_main() {
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
@@ -218,14 +227,13 @@ protect_main() {
       \"strict\": true,
       \"contexts\": ${REQUIRED_CONTEXTS}
     },
-    \"enforce_admins\": true,
+    \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
-      \"required_approving_review_count\": 1,
-      \"dismiss_stale_reviews\": true,
-      \"require_last_push_approval\": true
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
     },
     \"restrictions\": null,
-    \"required_linear_history\": true,
+    \"required_linear_history\": false,
     \"allow_force_pushes\": false,
     \"allow_deletions\": false
   }"
