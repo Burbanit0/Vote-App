@@ -313,6 +313,10 @@ graphify-out/
 # pourquoi. Le garder hors du dépôt le laissait sur un seul disque, exactement
 # le risque évité pour le correctif de prompt et les commits de distribution.
 !/docs/journal/
+# The behaviour catalogue (docs/spec/behaviors.md) is checked by a backend test
+# (test_behavior_catalogue.py): ignored, it would exist only on one disk and the
+# test would fail everywhere else.
+!/docs/spec/
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/

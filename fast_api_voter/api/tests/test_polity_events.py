@@ -28,6 +28,7 @@ from api.tests.polity_golden import LLM_DECISION_TYPES, golden_config
 from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient, _events
 
 
+@pytest.mark.behavior("JRN-02")
 def test_every_line_of_both_golden_journals_validates(tmp_path: Path) -> None:
     for llm in (False, True):
         journal = run_simulation(

@@ -7,8 +7,9 @@ description: >
   actual current state of the repo, and report concrete drift — a path that no
   longer exists, a command whose target script/subcommand changed, a plan-doc
   "done" marker whose backing config no longer matches, a stale numeric claim.
-  Run it on demand after a documentation-touching PR, or on the monthly cron
-  schedule. Never edits anything: it produces a cited findings report for a
+  Run it on demand after a documentation-touching PR; a cloud Routine,
+  `doc-drift-monthly` (1st of the month, 08:00 UTC, on develop), also runs it.
+  No GitHub workflow does. Never edits anything: it produces a cited findings report for a
   human to act on. This is mechanical verification, not narrative writing —
   every finding must be backed by a command actually run and its output, not
   an impression.

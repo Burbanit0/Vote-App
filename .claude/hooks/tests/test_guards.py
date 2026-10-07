@@ -131,6 +131,80 @@ class BashGuard(unittest.TestCase):
         self.assertEqual(self.bash("echo hi 2>&1 | tee .mergify.yml"), "ask")
         self.assertIsNone(self.bash("python3 x.py 2>&1 | tail -5"))
 
+    def test_audit_bypasses_are_closed(self):
+        """The 2026-10-06 CI audit: routes to merge or approve that the REST
+        path checks above did not see."""
+        rv = "/review" + "ed"
+        flagged = Path(self.tmp.name, "flagged.md")
+        flagged.write_text(f"looks good\n{rv} abc1234\n")
+        plain = Path(self.tmp.name, "plain.md")
+        plain.write_text("looks good\n")
+        for cmd in ['gh api graphql -f query="mutation { mergePullRequest(input: {pullRequestId: 1}) { clientMutationId } }"',
+                    'gh api graphql -f query="mutation { enablePullRequestAutoMerge(input: {pullRequestId: 1}) { clientMutationId } }"',
+                    "curl -X PUT -H 'Authorization: token t' https://api.github.com/repos/o/r/pulls/1/merge",
+                    "curl -d '{\"state\":\"success\"}' https://api.github.com/repos/o/r/statuses/abc",
+                    "wget --post-data=x https://api.github.com/graphql",
+                    f"gh pr comment 1 --body-file {flagged}",
+                    f"gh pr comment 1 --body-file={flagged}",
+                    f"gh api repos/o/r/issues/1/comments -F body=@{flagged}",
+                    "gh pr comment 1 --body-file -",
+                    "gh issue edit 5 --add-label reviewed"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.bash(cmd), "deny")
+        for cmd in ['gh api graphql -f query="{ viewer { login } }"',
+                    "curl -s https://api.github.com/repos/o/r/pulls/1",
+                    f"gh pr comment 1 --body-file {plain}",
+                    "gh issue edit 5 --add-label bug"]:
+            with self.subTest(cmd=cmd):
+                self.assertIsNone(self.bash(cmd))
+
+    def test_file_borne_bodies_and_queries_are_read(self):
+        """Review of the audit fix: every way gh takes a body, field or query from
+        a file, resolved against the command's own working directory."""
+        rv = "/review" + "ed"
+        d = Path(self.tmp.name)
+        (d / "c.md").write_text(f"{rv} abc1234\n")
+        (d / "c.json").write_text('{"body": "%s abc1234"}' % rv)
+        (d / "m.graphql").write_text("mutation { merge" + "PullRequest(input: {pullRequestId: 1}) { clientMutationId } }")
+        (d / "q.graphql").write_text("{ viewer { login } }")
+        (d / "ok.md").write_text("looks good\n")
+
+        def at(cmd: str) -> str | None:  # run with the payload's cwd set to the temp dir
+            payload = {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": str(d)}
+            return decision(run("bash_guard.py", payload, self.env))
+
+        for cmd in ["gh pr comment 1 -F c.md", "gh issue comment 1 --body-file c.md",
+                    "gh api repos/o/r/issues/1/comments --input c.json",
+                    "gh api repos/o/r/issues/1/comments --field=body=@c.md",
+                    "gh api repos/o/r/issues/1/comments -Fbody=@c.md",
+                    "gh api graphql -F query=@m.graphql",
+                    "gh pr comment 1 --body-file missing.md",
+                    "gh pr comment 1 --body-file -",
+                    "gh api repos/o/r/issues/1/comments --input -",
+                    "gh api -X POST repos/o/r/merges -f base=polity -f head=feat/x",
+                    "gh pr edit 1 --add-label=reviewed",
+                    "gh api graphql -f query='mutation{addLabelsToLabelable(input:{labelableId:\"PR_x\",labelIds:[\"LA_1\"]}){clientMutationId}}'",
+                    "gh api graphql -f query='mutation{submitPullRequestReview(input:{pullRequestReviewId:\"R\",event:APPROVE}){clientMutationId}}'",
+                    "curl -X POST -d '{\"labels\":[\"x\"]}' https://api.github.com/repos/o/r/issues/1/labels",
+                    "https POST api.github.com/repos/o/r/pulls/1/merge"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(at(cmd), "deny")
+        (d / "pr.md").write_text(f"Held: the owner comments {rv} abc1234 after reading.\n")
+        for cmd in ["gh pr comment 1 -F ok.md", "gh api graphql -F query=@q.graphql",
+                    "gh pr create --title t --body-file -", "gh pr edit 1 --add-label=bug",
+                    # A PR description may quote the approval command; only comments count.
+                    "gh pr create --title t --body-file pr.md",
+                    "gh api repos/o/r/pulls --input -", "gh api repos/o/r/pulls/9 -X PATCH --input pr.md"]:
+            with self.subTest(cmd=cmd):
+                self.assertIsNone(at(cmd))
+
+    def test_shell_writes_to_generated_oracles_ask(self):
+        for path in ["voter-app/src/lib/__fixtures__/engineParity.json", "fast_api_voter/openapi.gen.json",
+                     "voter-app/src/api/types.gen.ts", "CLAUDE.md", "scripts/oracle_diff_report.py",
+                     "fast_api_voter/api/domain/polity/journal_invariants.py"]:
+            with self.subTest(path=path):
+                self.assertEqual(self.bash(f"sed -i s/a/b/ {path}"), "ask")
+
     def test_push_runs_the_fast_gate(self):
         self.assertIsNone(self.bash(f"{PUSH} -u origin feat/x"))
         out = run("bash_guard.py", {"tool_input": {"command": f"{PUSH} -u origin feat/x"}},
@@ -154,6 +228,14 @@ class EditGuard(unittest.TestCase):
         for path, old, new in cases:
             with self.subTest(path=path, new=new):
                 self.assertEqual(edit(path, old, new), "ask")
+
+    def test_asks_on_the_disablers_the_ci_integrity_check_counts(self):
+        """Kept in step with scripts/check_test_integrity.py: what CI holds, the
+        local edit asks about."""
+        for new in ["suite.skip('x', () => {})", "it.concurrent.skip('x', () => {})", "test.fixme('x', () => {})",
+                    "it.skipIf(cond)('x', () => {})", "pytest.importorskip('numpy')"]:
+            with self.subTest(new=new):
+                self.assertEqual(edit("voter-app/src/lib/x.test.ts", "", new), "ask")
 
     def test_removing_a_silencer_is_fine(self):
         self.assertIsNone(edit("fast_api_voter/api/x.py", "import os  # noqa: F401", "import os"))

@@ -33,7 +33,7 @@ mobilization (synchronized spikes), not its aggregate volume, on this one seed (
 "spark, not cascade" framing, consistent with §7bis.9e's own three-ingredient claim (v4+v5+v6a
 together) never having been run as one composite.
 
-**A real bug was caught by testing, not assumed away.** `scripts/run_v6a_acceptance.py`'s own
+**A real bug was caught by testing, not assumed away.** `scripts/archive/run_v6a_acceptance.py`'s own
 `_metrics_to_json` never serialized `petition_success_rate`/`petition_removal_rate`/
 `petition_downgrades` even though `summarize()` read them — `KeyError` on the very first
 `--summarize` invocation, after the ~2-hour LLM run had already completed. Fixed by adding the three

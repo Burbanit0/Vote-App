@@ -30,6 +30,7 @@ from api.tests.polity_golden import golden_config
 _CONFIG = load_config()
 
 
+@pytest.mark.behavior("CON-01")
 def test_an_article_allows_only_its_values() -> None:
     method = ARTICLES["institutions.presidential_method"]
     assert method.allows("borda") and not method.allows("star") and not method.allows(True)
@@ -77,6 +78,7 @@ def test_a_scripted_amendment_the_constitution_cannot_make_is_refused(tmp_path: 
         _load(tmp_path, scripted)
 
 
+@pytest.mark.behavior("CON-02")
 def test_the_rules_are_checked_after_each_amendment(monkeypatch: pytest.MonkeyPatch) -> None:
     config = dataclasses.replace(_CONFIG, constitution=dataclasses.replace(
         _CONFIG.constitution, scripted=(ScriptedAmendment(tick=8, article="legitimacy.recall_floor", value=0.4),),
@@ -153,6 +155,7 @@ def _legal_value(article: Article) -> st.SearchStrategy[Any]:
     return st.floats(article.low, article.high, allow_nan=False)
 
 
+@pytest.mark.behavior("CON-04")
 @settings(max_examples=12, deadline=None)
 @given(constitution=st.fixed_dictionaries({path: _legal_value(article) for path, article in ARTICLES.items()}))
 def test_any_legal_constitution_keeps_the_rules_and_runs(tmp_path_factory: pytest.TempPathFactory, constitution: dict[str, Any]) -> None:

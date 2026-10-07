@@ -24,8 +24,10 @@ npm run build              # tsc --noEmit && vite build && size-limit (1 MB brot
 npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile
 ```
 
-**The e2e suite is a gate on every PR** (`.github/workflows/e2e.yml`), not just at
-release. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
+**The e2e suite is a required gate** (`.github/workflows/e2e.yml`), not just at release.
+It runs on every PR that touches `voter-app/**`, `e2e.yml` itself, or the backend's
+runtime code (`fast_api_voter/**` minus `scripts/`, `api/tests/` and `*.md`), in two shards; the required
+"Playwright E2E" is the aggregator job that merges their reports. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
 starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
 serves exactly the committed fixture run (`fast_api_voter/polity_fixtures/`).
@@ -56,6 +58,11 @@ pass: it means the tool could not run here (missing deps, or a `python3`/`python
 A PR touching `.github/workflows/` or `.claude/hooks/` must also pass the required
 `Workflow lint` (actionlint + `zizmor --offline` + `python3 -m unittest discover -s
 .claude/hooks/tests`).
+
+A test that checks an invariant of `docs/spec/behaviors.md` carries
+`@pytest.mark.behavior("<ID>")`; `api/tests/test_behavior_catalogue.py` keeps the catalogue
+and the markers in step. Finished experiment scripts live in `fast_api_voter/scripts/archive/`
+(see its README): not imported, type-checked or import-smoked.
 
 `-o addopts=""` only skips coverage for the quick local run — full coverage is
 still enforced by `ci-local/` and GitHub CI, so never use this flag to judge
@@ -157,7 +164,12 @@ Before opening a PR:
   config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
   the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
-  been) raced and skipped entirely. PRs touching the high-risk paths listed in
+  been) raced and skipped entirely. It runs locally on the branch's diff and needs
+  no PR or GitHub remote, so there's no reason to wait for one. It exists and is
+  underused — standard CI gates catch regressions in what's already tested, not a
+  subtly-wrong new rule implementation or a logic error a human reviewer would
+  have caught.
+- PRs touching the high-risk paths listed in
   `.mergify.yml`, or that weaken the test suite (fewer tests in the changed test
   files, or an added skip/only/xfail: `scripts/check_test_integrity.py`, which
   `scripts/fast-gate.sh` also reports before a push), are held until the owner comments `/reviewed <sha>`
@@ -167,8 +179,4 @@ Before opening a PR:
   `scripts/oracle_diff_report.py` spells out what it changed (winners by rule, moved values)
   in the gate's run summary and in fast-gate: say it in the PR too. **Never post
   `/reviewed`, add a `reviewed` label, set a `human-review` or `High-risk review gate` status, or merge a PR
-  yourself** — that approval is the owner's alone. It runs locally on the branch's diff and needs
-  no PR or GitHub remote, so there's no reason to wait for one.
-  It exists and is underused — standard CI gates catch regressions in what's
-  already tested, not a subtly-wrong new rule implementation or a logic error a
-  human reviewer would have caught.
+  yourself** — that approval is the owner's alone.

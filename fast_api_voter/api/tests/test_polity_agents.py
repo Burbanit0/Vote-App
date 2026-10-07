@@ -133,6 +133,12 @@ def test_the_assembly_median_counts_each_party_once_per_seat() -> None:
 def test_a_nominee_campaigns_on_the_poll_under_the_campaign_s_rules() -> None:
     system = nominee_system_prompt(_president(), _CONFIG)
     assert "your party's nominee" in system and "up to 3 issues" in system and "leave \"bill\" empty" in system
+    # Staying home is stated only where the rule can keep anyone home (OBS-042): a cost, and the utility vote.
+    assert "may stay home" not in system  # polity_config.yaml's cost is 0
+    costly = dataclasses.replace(_CONFIG, vote=dataclasses.replace(_CONFIG.vote, turnout_cost=0.15))
+    assert "favourite is worth about as much as a blank ballot may stay home" in nominee_system_prompt(_president(), costly)
+    model_votes = dataclasses.replace(costly, vote=dataclasses.replace(costly.vote, mode="llm"))
+    assert "may stay home" not in nominee_system_prompt(_president(), model_votes)
     briefing = NomineeBriefing(
         tick=16, field=((30, 2), (7, None)), poll={30: 0.4, 7: 0.25}, blank=0.2, abstain=0.15,
         platform=(0.3,) * _N, public_median=(0.5,) * _N,
@@ -192,6 +198,7 @@ def _target(dimension: int, target: float) -> IssueTarget:
     return IssueTarget(dimension=dimension, target=target)
 
 
+@pytest.mark.behavior("LEG-04")
 @pytest.mark.parametrize("positions,message", [
     ([_target(0, 0.1), _target(1, 0.1), _target(2, 0.1), _target(3, 0.1)], "4 issues, at most 3"),
     ([_target(0, 0.1), _target(0, 0.9)], "the same issue twice"),
@@ -209,6 +216,7 @@ def test_a_bill_is_checked_only_when_the_agenda_is_open() -> None:
         validate_turn(oversized, _CONFIG, max_positions=3, agenda_open=True)
 
 
+@pytest.mark.behavior("LEG-04")
 def test_the_kernel_steps_toward_each_target_by_at_most_the_bound() -> None:
     steps = steps_toward([_target(0, 1.0), _target(1, 0.9), _target(2, 0.1), _target(3, 0.5)], (0.5, 0.9, 0.2, 0.503), 0.3)
     # issue 1 is already there, and issue 3 only by the shown precision's rounding

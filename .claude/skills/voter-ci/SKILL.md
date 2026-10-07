@@ -41,21 +41,22 @@ on PRs to that branch (in its own copy and develop's).
 
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
 
-Triggers on every push/PR to `develop`/`main` but only *runs* its real job
-when `fast_api_voter/**` changed (a `changes` job with `dorny/paths-filter`
+Triggers on every push/PR to `develop`/`main`/`polity`/`polity-ui` but only *runs* its real job
+when `fast_api_voter/**` (or `docs/spec/**`, or the workflow itself) changed (a `changes` job with `dorny/paths-filter`
 gates it — see "Why no top-level `paths:` filter" below). In order:
 
 | Step | Tool | Gate | Config |
 |---|---|---|---|
-| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | informational (`continue-on-error`) | see the script's own header |
+| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | blocking | see the script's own header |
 | Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
 | Ruff | `ruff check fast_api_voter` | blocking, pyflakes (`F`) only | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |
-| pip-audit | `pip-audit --requirement fast_api_voter/requirements.txt` | blocking (CVEs) | — |
+| pip-audit | `pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip` | blocking (CVEs), on the exact pins the production image installs | — |
 | License compliance | `bash fast_api_voter/scripts/check_license_compliance.sh` | blocking, production deps only | script |
-| Mypy | `python -m mypy api/ --config-file mypy.ini` | blocking, strict | `fast_api_voter/mypy.ini` |
+| Mypy | `python -m mypy api/ scripts/llm_test_harness --config-file mypy.ini` | blocking, strict (the harness is a library 8 scripts import) | `fast_api_voter/mypy.ini` |
 | Tests + coverage | `pytest api/tests -n auto --cov=api --cov-fail-under=90` | blocking, 90% global floor | `pyproject.toml` addopts |
+| LLM harness tests | `pytest scripts/llm_test_harness/tests -o addopts="" --cov=scripts/llm_test_harness --cov-fail-under=75` | blocking, 75% floor on the harness | `scripts/llm_test_harness/.coveragerc` |
 | diff-cover | see its own section below | blocking, **100% on changed lines** | — |
 | Engine perf ceilings | `pytest api/tests/test_engine_benchmarks.py -o addopts=""` | blocking, generous absolute ceilings (15-500x baseline) | see `docs/exploration/EXP-006` |
 
@@ -95,8 +96,8 @@ browser build than the one that produced the committed baselines, e.g.
 PR #477's live break when a Dependabot `@playwright/test` bump landed
 without this tag moving in lockstep) — never on a bare `ubuntu-latest`,
 because the OS image itself can silently drift renderer output between
-runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
-runs after the main e2e job (`if: always()`) and fails the run if any test
+runs (`docs/exploration/EXP-004`). `check-flaky.mjs` runs inside the
+"Playwright E2E" aggregator, on the merged report, and fails it if any test
 passed only on retry.
 
 ### `openapi-contract.yml` — "Generated artifacts in sync" (required)
@@ -213,9 +214,10 @@ pattern, or does it still filter at the trigger?
 (cyclomatic complexity, rank C+), deptry (unused/undeclared deps), knip (TS
 dead code/unused deps), sonarjs (`eslint-plugin-sonarjs`'s full recommended
 ruleset, informational-only in the blocking `eslint.config.js`), jscpd
-(cross-language duplication), and strict mypy over `fast_api_voter/scripts`
+(cross-language duplication), and strict mypy over `fast_api_voter/scripts/*.py`
 (`mypy_scripts`: the scripts sit outside the blocking mypy gate on `api/`, so
-their type debt is counted here instead) — all with `continue-on-error: true`, because
+their type debt is counted here instead; the top level only, so neither
+`archive/` nor `llm_test_harness/`, which Backend CI type-checks itself) — all with `continue-on-error: true`, because
 the repo never did a full cleanup pass and failing outright on the existing
 backlog would just get the job disabled.
 
@@ -247,9 +249,9 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   `voter-app/eslint.sonarjs.config.js`), not to launder it into the baseline.
 - **Measure `--update` on an up-to-date branch.** CI runs these tools against
   the PR's merge result; the script's own header notes a real incident where a
-  baseline measured one merge behind `develop` disagreed with CI by exactly
-  the one finding the missing merge had added. Rebase on `develop` before
-  running `--update`.
+  baseline measured one merge behind its base disagreed with CI by exactly
+  the one finding the missing merge had added. Merge the latest `polity` (the
+  PR's base) before running `--update`.
 - A missing input `.txt` file is treated as a hard error, not "0 findings" —
   `require()` refuses to report a passing ratchet on data that was never
   produced (a broken install or renamed tool step would otherwise silently
@@ -263,7 +265,7 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
 ## The mutation score ratchet (`scripts/check_mutation_score.sh`)
 
 **Scope first, because the number invites over-reading**: the baseline score
-(66.57% as of this writing) is measured over a deliberately narrow,
+(68.17% as of this writing, `.github/mutation-baseline.json`) is measured over a deliberately narrow,
 hand-picked file selection (`[tool.mutmut]` in `fast_api_voter/pyproject.toml`
 — currently 3 backend files, ~4,700 of the repo's ~40,000 backend lines;
 Stryker's frontend half is narrower still, one file,
@@ -399,8 +401,8 @@ Reach for a **real GitHub Actions log** instead when:
 
 Known fidelity gaps (from `ci-local/README.md`, verify against it before
 trusting a fully-green local mirror over a red PR): the local backend
-coverage gate is 85%, real CI is 90%; `pip-audit` doesn't fail the local
-mirror even though the real workflow gates on it; the `audit` target only
+coverage gate is 85%, real CI is 90%; the local mypy covers `api/` only, not
+`scripts/llm_test_harness`, and the harness tests don't run there; the `audit` target only
 covers Semgrep/Gitleaks/filesystem-Trivy, not `image-scan`, `code-quality`,
 or CodeQL.
 
@@ -496,11 +498,15 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   diff, caught by `/code-review ultra` before it shipped. Fails if:
   - the snapshot is stale (the scheduled `audit` job has gone quiet — its
     own silence has to be as loud as any other failure it reports), or
-  - any watched workflow is `unhealthy` (≥2 consecutive real failures),
+  - any watched workflow (`WATCHED_WORKFLOWS` in the script; `audit.yml` is
+    judged on its scheduled runs alone, since its PR runs only scan new
+    commits) is `unhealthy` (≥2 consecutive real failures),
     `inert` (no run within 1.5× its own cron-derived cadence), or
     `never_run`, or
-  - `develop`'s live branch protection has drifted from
-    `scripts/setup-branch-protection.sh`.
+  - `develop`'s or `polity`'s live branch protection has drifted from
+    `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>` is
+    the expected list; polity has its own snapshot key and snooze,
+    `branch-protection-polity`).
 
 **`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
 this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't
@@ -563,7 +569,7 @@ detection were each verified against constructed fixtures
 4. Reproduce locally with the exact command from that section (not a
    paraphrase) before pushing a fix — diff-cover and the quality ratchet
    especially depend on flags (`--cov-report=xml`, an up-to-date
-   `origin/develop`) that are easy to omit locally and then be surprised by.
+   base: `origin/polity` for most PRs) that are easy to omit locally and then be surprised by.
 5. If the fix touches `engineParity.json` or `openapi.gen.json`/`types.gen.ts`,
    regenerate them via their scripts (never hand-edit) and re-run the drift
    checks before pushing again.

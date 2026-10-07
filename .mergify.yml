@@ -28,12 +28,13 @@ queue_rules:
     # timeout down to ~1 minute, so the next PR needing a real Playwright
     # E2E run (~10-13 min observed) got dequeued as "checks timed out" while
     # every one of its checks was still green and simply still running.
-    # 35 minutes covers the slowest required chain: since 2026-10-06 the
-    # required "Playwright E2E" waits for two e2e shards (20 min timeout
-    # each, run in parallel) and then merges their reports (10 min timeout).
+    # The slowest required chain: since 2026-10-06 the required "Playwright
+    # E2E" waits for the changes job (5 min timeout), two e2e shards (20 min,
+    # in parallel), then their report merge (10 min): 35 minutes of timeouts
+    # before any runner queueing, so the limit leaves 10 minutes for that.
     # (mutation-testing.yml's stryker job is the only one over this, and it
     # doesn't gate the merge queue).
-    checks_timeout: "35 minutes"
+    checks_timeout: "45 minutes"
     # batch_size: 1 (PLAN_REMEDIATION_CI_CD.md §2.2) — GitHub's "require
     # branches to be up to date before merging" branch protection setting
     # (re-enabled 2026-09-13) is incompatible with batching: Mergify tests a
@@ -125,6 +126,19 @@ merge_protections:
           - files ~= ^\.claude/
           - files ~= ^scripts/check_
           - files = scripts/setup-branch-protection.sh
+          # Gate scripts outside scripts/check_*: what the push hook runs, the
+          # gate's own oracle report, the doc-count and diff-mutation checks.
+          - files = scripts/fast-gate.sh
+          - files = scripts/oracle_diff_report.py
+          - files = scripts/ci_facts.py
+          - files = scripts/mutation_diff.py
+          - files = fast_api_voter/scripts/check_license_compliance.sh
+          - files = voter-app/vitest.stryker.config.ts
+          - files = voter-app/vitest.stryker.diff.config.ts
+          - files = voter-app/stryker.diff.config.json
+          - files = .pre-commit-config.yaml
+          # The agent's own rules.
+          - files = CLAUDE.md
           - files ~= ^voter-app/scripts/check-
           - files = fast_api_voter/pyproject.toml
           - files = fast_api_voter/mypy.ini
@@ -167,6 +181,14 @@ merge_protections:
           - files = fast_api_voter/api/tests/test_polity_golden.py
           - files ~= ^fast_api_voter/api/tests/test_hypothesis_
           - files = fast_api_voter/api/tests/test_voting_criteria_matrix.py
+          # The behaviour catalogue and its check: removing an invariant (row and
+          # marker together) passes every test, so a person reads it.
+          - files ~= ^docs/spec/
+          - files = fast_api_voter/api/tests/test_behavior_catalogue.py
+          # The journal checker and its property tests: weakening a check inside
+          # it removes no test, so the test-integrity hold would not see it.
+          - files = fast_api_voter/api/domain/polity/journal_invariants.py
+          - files = fast_api_voter/api/tests/test_polity_journal_invariants.py
           - files = fast_api_voter/api/tests/test_engine_benchmarks.py
           - files ~= (^|/)__snapshots__/
           - files ~= -snapshots/

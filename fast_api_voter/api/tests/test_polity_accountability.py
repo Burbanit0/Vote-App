@@ -555,6 +555,7 @@ def test_select_consulted_base_threshold_one_consults_nobody():
     assert result == []
 
 
+@pytest.mark.behavior("CIT-05")
 def test_select_consulted_never_includes_the_holder_even_with_a_nonzero_self_gap():
     holder = _citizen(
         0, (0.0,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(1.0,), base_threshold=0.0
@@ -803,6 +804,7 @@ def test_petition_has_expired_is_false_with_no_open_petition():
     assert petition_has_expired(holder, 10, _PETITION_CONFIG) is False
 
 
+@pytest.mark.behavior("CIT-04")
 def test_petition_is_launchable_only_with_no_open_petition_and_no_cooldown():
     open_petition = _citizen(1, (0.5,), petition_open_since_tick=0)
     in_cooldown = _citizen(2, (0.5,), petition_cooldown_until_tick=10)
@@ -820,6 +822,7 @@ def test_cooldown_blocks_launching_for_exactly_cooldown_ticks():
     assert petition_is_launchable(holder, 14) is True
 
 
+@pytest.mark.behavior("CIT-04")
 def test_an_active_cooldown_never_coexists_with_an_open_petition():
     holder = _citizen(1, (0.5,))
     resolve_petition(holder, tick=10, config=_PETITION_CONFIG)
