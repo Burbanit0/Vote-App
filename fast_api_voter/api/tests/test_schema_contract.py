@@ -38,7 +38,7 @@ Design decisions, each earned by running this against the real app:
   meet the contract, that decision belongs in a PR description, not a silent
   set literal.
 - **Runs in its own workflow, not backend-ci-cd-pipeline.yml.** A full pass
-  measures ~220s (~3.5-4 min) locally (95 operations, KNOWN_FAILURES ones fire-and-forget
+  measures ~220s (~3.5-4 min) locally (95 operations then, 69 as of 2026-10-07; KNOWN_FAILURES ones fire-and-forget
   rather than validate — see below), but HTTP-level fuzzing has more runtime
   variance than a deterministic lint/type check and this wasn't independently
   measured against a real GitHub Actions runner — see

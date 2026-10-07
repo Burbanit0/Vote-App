@@ -61,8 +61,8 @@ pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
 `bandit -r fast_api_voter/api -ll --skip B104,B311`
 (gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
 of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
-`pip-audit --requirement fast_api_voter/requirements.lock.txt` (gating, as in the
-GitHub workflow) → `mypy api/` (gating) →
+`pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip`
+(gating, as in the GitHub workflow) → `mypy api/` (gating) →
 `pytest api/tests --cov=api --cov-fail-under=85` (gating; the GitHub workflow and
 pre-commit hook both gate at 90% — see Fidelity caveats).
 
@@ -148,6 +148,9 @@ because it isn't *testing the app* — it's testing the workflow itself.
   GitHub workflow (and the repo's own pre-commit hook) gate at 90%. Measured
   coverage is currently ~91%, comfortably above both, but a change that drops
   coverage into the 85–90% band would pass here and fail on the PR.
+- Backend mypy: this mirror runs `mypy api/` only; the GitHub workflow also
+  type-checks `scripts/llm_test_harness` and runs that harness's own tests
+  (75% coverage floor). Neither runs here.
 - `audit.yml` now has more jobs than this `audit` target reproduces: this
   mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
   **not** run the `image-scan` job (Trivy image scan + SBOM on the production

@@ -7,8 +7,9 @@ description: >
   actual current state of the repo, and report concrete drift — a path that no
   longer exists, a command whose target script/subcommand changed, a plan-doc
   "done" marker whose backing config no longer matches, a stale numeric claim.
-  Run it on demand after a documentation-touching PR (no workflow or cron
-  runs it). Never edits anything: it produces a cited findings report for a
+  Run it on demand after a documentation-touching PR; a cloud Routine,
+  `doc-drift-monthly` (1st of the month, 08:00 UTC, on develop), also runs it.
+  No GitHub workflow does. Never edits anything: it produces a cited findings report for a
   human to act on. This is mechanical verification, not narrative writing —
   every finding must be backed by a command actually run and its output, not
   an impression.
@@ -181,6 +182,6 @@ listed finding must be something a human would actually act on.
   heuristic (`docs/exploration/EXP-001-...`), already a distinct tool.
 - Do not run the full frontend or backend test suites, the e2e suite, or
   anything that takes more than a couple of minutes — this agent must stay
-  cheap enough to run after any docs PR without becoming its own maintenance burden.
+  cheap enough to run monthly without becoming its own maintenance burden.
 - Do not open PRs, commit, or edit `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md`,
   `CLAUDE.md`, `README.md`, or any `SKILL.md` — ever. Findings only.

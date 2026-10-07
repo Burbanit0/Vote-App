@@ -25,8 +25,8 @@ npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile
 ```
 
 **The e2e suite is a required gate** (`.github/workflows/e2e.yml`), not just at release.
-It runs on every PR that touches `voter-app/**` or the backend's runtime code (not
-`fast_api_voter/scripts/`, `api/tests/` or Markdown), in two shards; the required
+It runs on every PR that touches `voter-app/**`, `e2e.yml` itself, or the backend's
+runtime code (`fast_api_voter/**` minus `scripts/`, `api/tests/` and `*.md`), in two shards; the required
 "Playwright E2E" is the aggregator job that merges their reports. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
 starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
