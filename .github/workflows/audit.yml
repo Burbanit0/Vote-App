@@ -32,7 +32,10 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The weekly cron fires on refs/heads/develop: on its own group, a develop push
+  # can no longer cancel it (the CI health watchdog judges this workflow on its
+  # scheduled runs alone, and a cancelled one is no signal).
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -87,10 +90,14 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          # The weekly cron fires from develop; scan the working branch's full
+          # history, as the scheduled guarddog and image-scan jobs below do.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml # default ruleset + triaged FP allowlist
+          GITLEAKS_VERSION: 8.24.3 # the version .gitleaks.toml's allowlist was verified on
       # TruffleHog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): complements Gitleaks'
       # pattern match with LIVE credential verification against the
       # provider's own API — a secret that doesn't actually work is a much
