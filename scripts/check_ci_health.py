@@ -17,8 +17,8 @@ memory:
              workflow (never-PR-gated: mutation-testing.yml,
              schemathesis.yml, atheris-fuzzing.yml, flaky-check-backend.yml,
              dast.yml, scorecard.yml; and audit.yml, on its scheduled runs
-             alone) plus develop's live branch-protection
-             settings, and writes a snapshot to .github/ci-health.json.
+             alone) plus the live branch-protection settings of develop,
+             polity and main (PROTECTED_BRANCHES), and writes a snapshot to .github/ci-health.json.
              Run on a schedule (see ci-health.yml), never on a PR -- it's
              the thing being watched, not the watcher. Also decides (and
              prints, and writes to $GITHUB_OUTPUT as `pr_needed` when that
@@ -36,8 +36,8 @@ memory:
                    failure mode this exists to catch, so its own silence
                    must be loud), or
                (b) any watched workflow is unhealthy/inert/never-run, or
-               (c) develop's branch protection has drifted from the setup
-                   script,
+               (c) develop's, polity's or main's branch protection has
+                   drifted from the setup script,
              unless a live, unexpired entry in .github/ci-health-snoozes.json
              covers it.
 
@@ -75,7 +75,19 @@ BRANCH = "develop"
 # Branches whose protection is checked for drift, keyed by the snapshot field
 # that records it ("branch_protection" stays develop's, so an older snapshot
 # still reads the same).
-PROTECTED_BRANCHES = {"branch_protection": "develop", "branch_protection_polity": "polity"}
+PROTECTED_BRANCHES = {
+    "branch_protection": "develop",
+    "branch_protection_polity": "polity",
+    "branch_protection_main": "main",
+}
+# The setup-script function that protects each branch (its strict flag is read
+# from that function's body).
+PROTECT_FUNCTIONS = {
+    "develop": "protect_develop",
+    "polity": "protect_polity_branch",
+    "polity-ui": "protect_polity_branch",
+    "main": "protect_main",
+}
 # Branches whose runs count for a watched workflow's health.
 RUN_BRANCHES = ("develop", "polity")
 
@@ -269,9 +281,12 @@ def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str],
     required_contexts = json.loads(result.stdout)
 
     text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
-    fn = "protect_develop" if branch == "develop" else "protect_polity_branch"
-    fn_match = re.search(rf"{fn}\(\)\s*\{{(.*?)\n\}}", text, re.DOTALL)
-    fn_body = fn_match.group(1) if fn_match else ""
+    fn = PROTECT_FUNCTIONS.get(branch)
+    fn_match = re.search(rf"{fn}\(\)\s*\{{(.*?)\n\}}", text, re.DOTALL) if fn else None
+    if fn_match is None:
+        # Fail loudly: a silent default would expect the wrong strict flag.
+        raise ValueError(f"no protect function for {branch} in setup-branch-protection.sh")
+    fn_body = fn_match.group(1)
     # The JSON is embedded in a bash double-quoted string, so its own quotes
     # are backslash-escaped in the raw file text (\"strict\": true) -- match
     # loosely rather than requiring literal unescaped quotes.
@@ -283,7 +298,7 @@ def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str],
 def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
     try:
         expected_contexts, expected_strict = parse_setup_script_expectations(branch)
-    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError) as exc:
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError, ValueError) as exc:
         reason = getattr(exc, "stderr", None) or str(exc)
         sys.stderr.write(f"setup-branch-protection.sh --print-contexts {branch}: {reason}\n")
         return {

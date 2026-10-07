@@ -227,11 +227,13 @@ protect_polity_branch() {
 #     develop. Nothing else merges into main, and the release job re-tests the
 #     exact commit it tags, so strict buys nothing here.
 protect_main() {
+  local MAIN_CONTEXTS
+  MAIN_CONTEXTS=$(contexts_for main)
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
     \"required_status_checks\": {
       \"strict\": false,
-      \"contexts\": ${REQUIRED_CONTEXTS}
+      \"contexts\": ${MAIN_CONTEXTS}
     },
     \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
