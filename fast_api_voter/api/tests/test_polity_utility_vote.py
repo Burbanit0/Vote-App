@@ -3,6 +3,7 @@ when every new term at zero reproduces build_ranking exactly -- the property bel
 from __future__ import annotations
 
 import dataclasses
+import random
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from hypothesis import strategies as st
 
 import api.domain.polity.run_polity_simulation as engine
 from api.domain.polity.checkpoint import load_checkpoint
-from api.domain.polity.citizen import Citizen
+from api.domain.polity.citizen import Citizen, generate_population
 from api.domain.polity.config import PolityConfig, VoteConfig, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.parties import Party
@@ -22,6 +23,7 @@ from api.domain.polity.simple_rules import (
     abstains,
     build_ranking,
     candidate_label,
+    candidate_utility,
     incumbent_record,
     utility_ballot,
 )
@@ -119,6 +121,25 @@ def test_a_voter_stays_home_when_their_best_candidate_is_worth_about_a_blank_bal
     assert abstains(voter, [], 0.05) is False  # no field: nothing to be indifferent about
     assert abstains(voter, [-0.3], 0.01) is True  # the only candidate is worth exactly the blank ballot
     assert abstains(voter, [-0.32], 0.05) is True  # a little worse than blank counts too
+
+
+def test_how_many_stay_home_does_not_grow_with_the_field() -> None:
+    # OBS-042: the rule it replaced kept 27% of this population home against 2 candidates and 80%
+    # against 20; best-against-blank stays near a tenth at the shipped LLM cost, whatever the field.
+    citizens = generate_population(load_config().citizens, 100, 7)
+
+    def home(k: int) -> float:
+        shares = []
+        for draw in range(10):
+            field = random.Random(draw).sample(citizens, k)
+            utilities = {c.citizen_id: [candidate_utility(c, x, ZERO, platform=tuple(x.issue_positions)) for x in field]
+                         for c in citizens if c not in field}
+            shares.append(sum(abstains(v, utilities[v.citizen_id], 0.04) for v in citizens if v.citizen_id in utilities)
+                          / len(utilities))
+        return sum(shares) / len(shares)
+
+    small, large = home(2), home(20)
+    assert small < 0.2 and large < 0.2 and abs(small - large) < 0.05
 
 
 def test_a_presidents_record_follows_their_legitimacy() -> None:
