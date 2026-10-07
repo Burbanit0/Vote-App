@@ -93,7 +93,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail  # -E: the ERR trap below also covers status()/reviewed()
           status() {  # sha state context description
             gh api "repos/$REPO/statuses/$1" > /dev/null \
               -f state="$2" -f context="$3" -f description="$4" -f target_url="$RUN_URL"
@@ -105,7 +105,8 @@ jobs:
           # A command failing before a status is posted (the files API, the
           # classifier) would leave the required gate "Expected" forever: post an
           # error instead, so the PR shows red with a reason. ERR skips commands
-          # tested by if/||/&&, so the deliberate fallbacks below are unaffected.
+          # tested by if/||/&&, so the deliberate fallbacks below are unaffected;
+          # API calls with a deterministic failure fall back to holding the PR.
           trap 'status "$HEAD" error "$GATE" "The gate crashed before deciding: see the run log, then re-run it" || true' ERR
           # Both sides of a rename: moving a protected file out of its path is held too.
           gh api --paginate "repos/$REPO/pulls/$PR/files" \
@@ -158,11 +159,11 @@ jobs:
           if [ "$ACTION" = synchronize ] \
               && { [ "$SENDER" = "mergify[bot]" ] || [ "$SENDER" = "$OWNER" ]; } \
               && [ "$(reviewed "$BEFORE")" = success ]; then
-            parents=$(gh api "repos/$REPO/commits/$HEAD" --jq '[.parents[].sha] | join(" ")')
+            parents=$(gh api "repos/$REPO/commits/$HEAD" --jq '[.parents[].sha] | join(" ")') || parents=""
             read -r first second extra <<< "$parents"
             rel=""
             if [ "$first" = "$BEFORE" ] && [ -n "$second" ] && [ -z "${extra:-}" ]; then
-              rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status)
+              rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status) || rel=""
             fi
             # The parents alone don't show what the merge commit contains: a
             # conflict resolution or an edit slipped into it (an agent pushing

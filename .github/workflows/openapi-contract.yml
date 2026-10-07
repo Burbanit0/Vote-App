@@ -92,12 +92,17 @@ jobs:
 
   drift-check:
     needs: changes
-    # A failed detector runs the job, and every check in it,: skipped would pass the required
-    # check without testing anything (the pattern of workflow-lint.yml).
+    # A detector that did not succeed (failed, or its job cancelled) runs this
+    # job and every check in it: skipped would pass the required check without testing anything.
+    # !cancelled() rather than always(): a superseded run still stops.
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true' || needs.changes.outputs.docs == 'true') }}
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Decided once for every step below: the contract and parity checks run
+      # when the detector found relevant paths or did not succeed.
+      FULL_CHECK: ${{ needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -117,25 +122,25 @@ jobs:
         run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true'
+        if: env.FULL_CHECK == 'true'
         with:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 
       - name: Install frontend dependencies
-        if: needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true'
+        if: env.FULL_CHECK == 'true'
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
 
       - name: API contract drift
-        if: needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true'
+        if: env.FULL_CHECK == 'true'
         run: ./scripts/check_openapi_drift.sh
 
       # Runs even if the contract check failed: two independent artifacts, and
       # seeing both verdicts in one run beats fixing them one push at a time.
       - name: Engine parity fixture drift
-        if: always() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true')
+        if: always() && env.FULL_CHECK == 'true'
         run: ./scripts/check_engine_parity_drift.sh
 
       - name: Generated doc blocks in sync

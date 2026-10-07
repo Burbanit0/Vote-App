@@ -73,7 +73,7 @@ jobs:
     # check that never reports blocks the PR forever (see the top-of-file
     # comment on `pull_request` triggers, PR #205's real incident).
     if: |
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
@@ -123,7 +123,7 @@ jobs:
     # Always run for a manual dispatch or the release-gate call (no paths to
     # filter on); otherwise only when the changes job found something relevant.
     if: |
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
@@ -231,7 +231,7 @@ jobs:
   e2e-report:
     needs: [changes, e2e]
     if: |
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
@@ -315,7 +315,7 @@ jobs:
     # missing-browser error, right alongside the fast one.
     needs: [changes, playwright-image-sync]
     if: |
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
