@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-10-04T18:15:17Z",
+  "generated_at": "2026-10-07T15:29:57Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-04T10:56:17Z",
+      "last_run_at": "2026-10-07T13:16:17Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -19,7 +19,7 @@
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-04T18:04:59Z",
+      "last_run_at": "2026-10-07T13:16:17Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -34,7 +34,7 @@
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-04T11:24:38Z",
+      "last_run_at": "2026-10-06T02:05:17Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +49,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-04T18:04:59Z",
+      "last_run_at": "2026-10-07T13:16:17Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-04T18:04:59Z",
+      "last_run_at": "2026-10-07T15:17:22Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-04T18:04:58Z",
+      "last_run_at": "2026-10-07T14:24:03Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -90,6 +90,21 @@
       "consecutive_failures": 0,
       "status": "healthy",
       "detail": "ok"
+    },
+    "audit.yml": {
+      "display_name": "Security Audit",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-10-05T14:02:30Z",
+      "recent_conclusions": [
+        "failure",
+        "failure",
+        "failure",
+        "failure",
+        "success"
+      ],
+      "consecutive_failures": 4,
+      "status": "unhealthy",
+      "detail": "last 4 completed runs all failed"
     }
   },
   "branch_protection": {
