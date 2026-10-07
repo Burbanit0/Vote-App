@@ -13,16 +13,17 @@ name: zizmor online
 # A tool error (not a finding) turns the run red.
 #
 # The schedule fires from the default branch (develop) once it carries this
-# file; the push trigger works from polity right away.
+# file and audits polity; the push trigger works from polity right away. Only
+# a run that audited polity touches the issue. A failed run (zizmor itself
+# broke) is caught by branch-red-alert.yml, which watches this workflow.
 
 on:
   schedule:
     - cron: "37 5 * * 2" # Tuesdays
   push:
-    branches: [polity]
+    branches: [develop, polity]
     paths:
       - ".github/workflows/**"
-      - ".github/zizmor.yml"
   workflow_dispatch:
 
 permissions: {}
@@ -56,10 +57,13 @@ jobs:
         run: |
           set -uo pipefail
           rc=0
-          zizmor --min-severity medium --format plain .github/workflows > "$RUNNER_TEMP/zizmor.txt" 2>&1 || rc=$?
-          cat "$RUNNER_TEMP/zizmor.txt"
+          # Findings only in the issue; zizmor's own notices go to the log.
+          zizmor --min-severity medium --format plain .github/workflows \
+            > "$RUNNER_TEMP/zizmor.txt" 2> "$RUNNER_TEMP/zizmor.log" || rc=$?
+          cat "$RUNNER_TEMP/zizmor.txt" "$RUNNER_TEMP/zizmor.log"
           # 0: no finding. 10 and up: findings (10 + the highest severity).
-          # Anything else is zizmor failing, not a finding.
+          # Anything else (1 error, 3 no inputs...) is zizmor failing.
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           if [ "$rc" -eq 0 ]; then
             echo "findings=false" >> "$GITHUB_OUTPUT"
           elif [ "$rc" -ge 10 ]; then
@@ -69,12 +73,14 @@ jobs:
             exit 1
           fi
       - name: Keep one issue open while there are findings
+        # Only a run that audited polity speaks for polity.
+        if: github.event_name == 'schedule' || github.ref == 'refs/heads/polity'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           FINDINGS: ${{ steps.zizmor.outputs.findings }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ steps.zizmor.outputs.sha }}
         run: |
           set -euo pipefail
           gh label create zizmor-online --repo "$REPO" --color b60205 \
@@ -88,8 +94,10 @@ jobs:
               echo "This issue closes itself on the next clean run."
               echo
               echo '```'
-              head -c 60000 "$RUNNER_TEMP/zizmor.txt"
+              head -n 500 "$RUNNER_TEMP/zizmor.txt"
+              echo
               echo '```'
+              [ "$(wc -l < "$RUNNER_TEMP/zizmor.txt")" -le 500 ] || echo "Truncated at 500 lines: the full output is in the run.
             } > "$RUNNER_TEMP/body.md"
             if [ -n "$number" ]; then
               gh issue edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/body.md" > /dev/null
