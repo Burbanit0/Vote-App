@@ -569,7 +569,7 @@ detection were each verified against constructed fixtures
 4. Reproduce locally with the exact command from that section (not a
    paraphrase) before pushing a fix — diff-cover and the quality ratchet
    especially depend on flags (`--cov-report=xml`, an up-to-date
-   `origin/develop`) that are easy to omit locally and then be surprised by.
+   base: `origin/polity` for most PRs) that are easy to omit locally and then be surprised by.
 5. If the fix touches `engineParity.json` or `openapi.gen.json`/`types.gen.ts`,
    regenerate them via their scripts (never hand-edit) and re-run the drift
    checks before pushing again.
