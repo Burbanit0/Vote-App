@@ -91,6 +91,15 @@ jobs:
         # One --mutate with every range comma-joined: Stryker keeps only the last
         # value when the flag is repeated.
         run: npx stryker run stryker.diff.config.json --concurrency 4 --mutate "$(paste -sd, "$RUNNER_TEMP/ranges.txt")"
+      - name: Prepare the PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/comment"
+          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+          # Replaced by the Summary step below when it succeeds.
+          echo "The summary could not be produced: see the run log." > "$RUNNER_TEMP/comment/summary.md"
       - name: Summary
         if: always() && steps.plan.outputs.count != '0'
         env:
@@ -102,14 +111,9 @@ jobs:
             --input voter-app/reports/mutation-diff/mutation.json \
             "${sampled[@]}" > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
-      - name: Keep the summary for the PR comment
-        if: always() && steps.plan.outputs.count != '0'
-        env:
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/comment"
           cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/comment/summary.md"
-          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+      # mutation-diff-comment.yml posts this as the PR's sticky comment. A
+      # Summary step that failed still leaves a note, so the comment says so.
       - name: Upload the summary for the PR comment
         if: always() && steps.plan.outputs.count != '0'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -117,6 +121,7 @@ jobs:
           name: diff-mutation-comment-stryker
           path: ${{ runner.temp }}/comment
           retention-days: 3
+          overwrite: true # a re-run replaces it
       - name: Upload the Stryker report
         if: always() && steps.plan.outputs.count != '0'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -169,6 +174,15 @@ jobs:
           python -m mutmut run --max-children 4 "${patterns[@]}" || status=$?
           python -m mutmut results --all true > "$RUNNER_TEMP/mutmut-results.txt" 2>&1 || true
           exit "$status"
+      - name: Prepare the PR comment
+        if: always() && steps.plan.outputs.count != '0'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/comment"
+          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+          # Replaced by the Summary step below when it succeeds.
+          echo "The summary could not be produced: see the run log." > "$RUNNER_TEMP/comment/summary.md"
       - name: Summary
         if: always() && steps.plan.outputs.count != '0'
         run: |
@@ -176,14 +190,9 @@ jobs:
             --input "$RUNNER_TEMP/mutmut-results.txt" --patterns "$RUNNER_TEMP/patterns.txt" \
             > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
-      - name: Keep the summary for the PR comment
-        if: always() && steps.plan.outputs.count != '0'
-        env:
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/comment"
           cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/comment/summary.md"
-          echo "$PR" > "$RUNNER_TEMP/comment/pr.txt"
+      # mutation-diff-comment.yml posts this as the PR's sticky comment. A
+      # Summary step that failed still leaves a note, so the comment says so.
       - name: Upload the summary for the PR comment
         if: always() && steps.plan.outputs.count != '0'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -191,3 +200,4 @@ jobs:
           name: diff-mutation-comment-mutmut
           path: ${{ runner.temp }}/comment
           retention-days: 3
+          overwrite: true # a re-run replaces it
