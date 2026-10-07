@@ -198,15 +198,24 @@ def test_main_is_checked_without_strict_and_has_its_own_snooze(watchdog, monkeyp
     develop, _ = watchdog.parse_setup_script_expectations("develop")
     main, strict = watchdog.parse_setup_script_expectations("main")
     assert not strict
-    assert sorted(main) == sorted(set(develop) - {"High-risk review gate", "Workflow lint"})
+    assert sorted(main) == sorted(c for c in develop if c not in {"High-risk review gate", "Workflow lint"})
     healthy = {"status": "healthy", "detail": ""}
     drifted = {"status": "drifted", "detail": "missing live required contexts: ['Playwright E2E']"}
     snap = {"branch_protection": healthy, "branch_protection_polity": healthy,
             "branch_protection_main": drifted}
     assert _verify_with(watchdog, monkeypatch, tmp_path, snap) == 1
     snooze = {"until": "2026-12-31", "reason": "x"}
+    assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection": snooze}) == 1
     assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection-polity": snooze}) == 1
     assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection-main": snooze}) == 0
+
+
+def test_a_branch_without_a_protect_function_is_an_error_not_a_guess(watchdog, monkeypatch):
+    """A branch the map doesn't know must not inherit another branch's strict flag."""
+    monkeypatch.delitem(watchdog.PROTECT_FUNCTIONS, "main")
+    with pytest.raises(ValueError, match="no protect function for main"):
+        watchdog.parse_setup_script_expectations("main")
+    assert watchdog.check_branch_protection_drift("main")["status"] == "unhealthy"
 
 
 def test_a_snapshot_from_before_polity_was_checked_still_verifies(watchdog, monkeypatch, tmp_path):
