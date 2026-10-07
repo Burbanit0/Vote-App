@@ -999,7 +999,9 @@ exactly as pre-registered:
 `polity_config.yaml`. That file is shared with the deterministic twin, on which nothing qualified,
 and it keeps 0. `approval_party_carryover` is not carried over: with `approval` and
 `policy_retrospection` at 0 it multiplies only zero terms, so the measured runs are the same without
-it. The adoption records how thin the pass is, in the constant's docstring. Step 5 still runs on the
+it. The adoption records how thin the pass is, in the constant's docstring. *Amended 2026-10-06
+(OBS-042):* the abstention rule changed (best candidate against the blank ballot); `LLM_TURNOUT_COST`
+stays 0.04, against ADR-011's turnout fact on the twin (`scripts/calibrate_turnout_rule_results.md`). Step 5 still runs on the
 bench as signed, from fe4bad5a, with the vote weights at 0.
 
 *Result of step 5's first level, 2026-09-17* (`scripts/stage4_llm_emotions_results.md`, recorded and

@@ -210,6 +210,32 @@ def test_runs_from_both_branches_count_once_each(watchdog, monkeypatch):
     assert health["status"] == "unhealthy"
 
 
+def test_the_security_audit_is_judged_on_its_scheduled_runs_alone(watchdog, monkeypatch):
+    """audit.yml runs on every push and PR, which scan only new commits; their
+    green buried the weekly full-history Secret Scan failing four Mondays
+    running. Its runs are queried with --event=schedule, the others' are not."""
+    monkeypatch.setattr(watchdog, "_now", lambda: NOW)
+    queried: list[list[str]] = []
+    scheduled = [{"databaseId": 1, "status": "completed", "conclusion": "failure", "createdAt": _iso(24), "event": "schedule"},
+                 {"databaseId": 2, "status": "completed", "conclusion": "failure", "createdAt": _iso(192), "event": "schedule"}]
+    pushes = [{"databaseId": 3, "status": "completed", "conclusion": "success", "createdAt": _iso(1), "event": "push"}]
+
+    def fake_gh(args):
+        queried.append(args)
+        return scheduled if "--event=schedule" in args else pushes + scheduled
+
+    monkeypatch.setattr(watchdog, "_run_gh_json", fake_gh)
+    health = watchdog.query_workflow_health("audit.yml")
+    assert health["status"] == "unhealthy"
+    assert health["expected_cadence_hours"] == 24 * 7
+    assert all("--event=schedule" in args for args in queried)
+    assert {a for args in queried for a in args if a.startswith("--branch=")} == {f"--branch={watchdog.BRANCH}"}
+
+    queried.clear()
+    watchdog.query_workflow_health("dast.yml")
+    assert not any("--event=schedule" in args for args in queried)
+
+
 def test_an_unreadable_expectation_is_reported_not_crashed(watchdog, monkeypatch, tmp_path):
     """--update must still write the snapshot (workflow health included) when the
     setup script can't print a branch's contexts, e.g. jq missing."""
