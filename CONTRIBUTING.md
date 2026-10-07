@@ -190,10 +190,11 @@ sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont ret
 l'état à jour de la branche cible avant de vraiment merger (évite la classe de
 problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
 #188). `scripts/setup-branch-protection.sh` garde *"Require branches to be up
-to date before merging"* (`strict: true`) sur chaque branche protégée ; Mergify
-le documente comme incompatible avec ses checks parallèles et re-teste de
-toute façon avant de merger, mais le retirer est une décision du propriétaire,
-pas encore prise : en attendant, le script fait foi.
+to date before merging"* (`strict: true`) sur chaque branche protégée, par
+décision du propriétaire (2026-10-07). Le prix : Mergify ne peut ni grouper ni
+tester en parallèle avec `strict` (`batch_size: 1` et `max_parallel_checks: 1`
+dans `.mergify.yml`), donc la file traite une PR à la fois. Le gain : un merge
+fait à la main, hors de la file, doit lui aussi être à jour de la branche cible.
 
 ---
 
