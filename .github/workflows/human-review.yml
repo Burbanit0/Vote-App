@@ -38,12 +38,25 @@ name: Human review attestation
 # the classifier and the path list); untrusted event fields only reach the
 # shell through env.
 #
-# Limits: anyone able to run a workflow in this repo can post a status with
-# these names, so this guards against accidental and lazy merges, not
-# deliberate forgery (a PR doing that edits .github/workflows/, which is held;
-# the unforgeable version is a GitHub App pinned in branch protection). And an
-# agent using the owner's own credentials can comment as the owner; that has to
-# be denied on the agent side (.claude/hooks), not here.
+# Who may post the statuses (Phase 3b). Any workflow run in this repo can post
+# a commit status under any name with its GITHUB_TOKEN, including a PR's own
+# `pull_request` workflow. So when the review-gate GitHub App is configured
+# (repository variable REVIEW_GATE_APP_CLIENT_ID, private key in the secret
+# REVIEW_GATE_APP_KEY of the `review-gate` environment), both jobs post with
+# the App's token instead, and:
+#  - branch protection pins `High-risk review gate` to the App's id
+#    (REVIEW_GATE_APP_ID=<id> scripts/setup-branch-protection.sh), so a status
+#    of that name from anything else does not count;
+#  - a `human-review` status counts only when the App posted it (its creator
+#    is the App's bot), so a forged one cannot turn the gate green;
+#  - the key is reachable only from runs on a protected branch: the
+#    environment's deployment branches are "Protected branches only", and a
+#    PR's own workflow runs on refs/pull/N/merge, which is not one.
+# Until the variable is set, both jobs post with GITHUB_TOKEN exactly as
+# before (the forgeable version: it stops accidental and lazy merges, not a
+# deliberate forgery). CONTRIBUTING.md has the setup steps, in order.
+# An agent using the owner's own credentials can still comment as the owner;
+# that has to be denied on the agent side (.claude/hooks), not here.
 
 on: # zizmor: ignore[dangerous-triggers] pull_request_target classifies the PR paths (data fetched by SHA, never run); it must run from the base branch
   issue_comment:
@@ -67,11 +80,28 @@ jobs:
     concurrency:
       group: human-review-gate-${{ github.event.pull_request.number }}
       cancel-in-progress: false
+    # The App's key lives in this environment (see the header); deployment:
+    # false reads its secrets without adding a deployment to every PR. Without
+    # the App configured, the environment holds nothing and the job runs as before.
+    environment:
+      name: review-gate
+      deployment: false
     permissions:
       statuses: write
       contents: read
       pull-requests: read
     steps:
+      # A failed mint (App uninstalled, key rotated or missing) must not leave
+      # the required gate "Expected" with no reason: the next step reports it.
+      - name: Mint the review-gate App token
+        id: app
+        if: vars.REVIEW_GATE_APP_CLIENT_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.REVIEW_GATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEW_GATE_APP_KEY }}
+          permission-statuses: write
       # The default branch (pull_request_target's ref): the classifier, the path
       # list and the test-integrity check a PR cannot rewrite for itself.
       # Full history, for the merge-base the integrity diff starts from.
@@ -82,6 +112,12 @@ jobs:
       - name: Classify the changed paths and test changes, then post the gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Posts the statuses: the App's token when configured, else GITHUB_TOKEN.
+          STATUS_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_CONFIGURED: ${{ vars.REVIEW_GATE_APP_CLIENT_ID != '' }}
+          MINT: ${{ steps.app.outcome }}
+          # Only a human-review status from this bot counts ("" = any, no App).
+          APP_BOT: ${{ steps.app.outputs.app-slug && format('{0}[bot]', steps.app.outputs.app-slug) || '' }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -95,12 +131,13 @@ jobs:
         run: |
           set -Eeuo pipefail  # -E: the ERR trap below also covers status()/reviewed()
           status() {  # sha state context description
-            gh api "repos/$REPO/statuses/$1" > /dev/null \
+            GH_TOKEN="$STATUS_TOKEN" gh api "repos/$REPO/statuses/$1" > /dev/null \
               -f state="$2" -f context="$3" -f description="$4" -f target_url="$RUN_URL"
           }
-          reviewed() {  # latest human-review state on a commit ("" if none)
+          reviewed() {  # latest human-review state on a commit from the App ("" if none)
             gh api "repos/$REPO/commits/$1/statuses" \
-              --jq '[.[] | select(.context == "human-review")][0].state // ""'
+              --jq '[.[] | select(.context == "human-review"
+                       and (env.APP_BOT == "" or .creator.login == env.APP_BOT))][0].state // ""'
           }
           # A command failing before a status is posted (the files API, the
           # classifier) would leave the required gate "Expected" forever: post an
@@ -108,6 +145,17 @@ jobs:
           # tested by if/||/&&, so the deliberate fallbacks below are unaffected;
           # API calls with a deterministic failure fall back to holding the PR.
           trap 'status "$HEAD" error "$GATE" "The gate crashed before deciding: see the run log, then re-run it" || true' ERR
+          # The App is configured but its token could not be minted: never fall
+          # back to GITHUB_TOKEN (pinned protection would not count it anyway).
+          # Say why with an error status, which can never release the gate.
+          if [ "$APP_CONFIGURED" = true ] && [ "$MINT" != success ]; then
+            trap - ERR
+            gh api "repos/$REPO/statuses/$HEAD" > /dev/null \
+              -f state=error -f context="$GATE" -f target_url="$RUN_URL" \
+              -f description="The review-gate App token could not be minted: see the run log"
+            echo "::error::REVIEW_GATE_APP_CLIENT_ID is set but the App token step failed (installation, key or environment secret)."
+            exit 1
+          fi
           # Both sides of a rename: moving a protected file out of its path is held too.
           gh api --paginate "repos/$REPO/pulls/$PR/files" \
             --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
@@ -205,6 +253,9 @@ jobs:
     concurrency:
       group: human-review-attest-${{ github.event.issue.number }}
       cancel-in-progress: false
+    environment:
+      name: review-gate
+      deployment: false
     permissions:
       statuses: write
       # The reply goes through the issues API, but on a pull request the token
@@ -212,9 +263,23 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      # Minted only for the owner's own comment: anyone else's is answered
+      # below without it.
+      - name: Mint the review-gate App token
+        id: app
+        if: vars.REVIEW_GATE_APP_CLIENT_ID != '' && github.event.comment.user.login == github.repository_owner
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.REVIEW_GATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEW_GATE_APP_KEY }}
+          permission-statuses: write
       - name: Check the commenter and the SHA, then post the statuses
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATUS_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_CONFIGURED: ${{ vars.REVIEW_GATE_APP_CLIENT_ID != '' }}
+          MINT: ${{ steps.app.outcome }}
           REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           PR: ${{ github.event.issue.number }}
@@ -232,6 +297,10 @@ jobs:
             reply "Usage: \`/reviewed <sha>\` with the head commit you reviewed (at least 7 hex characters)."
             exit 0
           fi
+          if [ "$APP_CONFIGURED" = true ] && [ "$MINT" != success ]; then
+            reply "Not recorded: the review-gate App token could not be minted (see $RUN_URL). Fix the App or its key, then comment again."
+            exit 1
+          fi
           head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
           case "$head" in
             "$named"*) ;;
@@ -241,7 +310,7 @@ jobs:
               ;;
           esac
           for ctx in human-review "$GATE"; do
-            gh api "repos/$REPO/statuses/$head" > /dev/null \
+            GH_TOKEN="$STATUS_TOKEN" gh api "repos/$REPO/statuses/$head" > /dev/null \
               -f state=success -f context="$ctx" \
               -f description="Reviewed by @$AUTHOR" -f target_url="$RUN_URL"
           done

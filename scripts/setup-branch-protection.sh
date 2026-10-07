@@ -107,6 +107,21 @@ REQUIRED_CONTEXTS='[
 # reports blocks every PR forever (the PR #205 lesson above).
 REVIEW_GATE="High-risk review gate"
 
+# Phase 3b: the numeric id of the review-gate GitHub App (its settings page,
+# "App ID"). When set, the gate is required FROM THAT APP only, so a status of
+# the same name posted by any workflow's GITHUB_TOKEN no longer satisfies it;
+# every other context stays "any source" (app_id -1), as before. Unset: the
+# plain contexts list, as before. Pin only once develop's human-review.yml posts
+# with the App (CONTRIBUTING.md, "GitHub App de la revue"), or every PR waits
+# forever on a gate nothing can post.
+#   REVIEW_GATE_APP_ID=123456 bash scripts/setup-branch-protection.sh polity
+REVIEW_GATE_APP_ID="${REVIEW_GATE_APP_ID:-}"
+REVIEW_GATE_APP_ID="${REVIEW_GATE_APP_ID//[[:space:]]/}"  # a pasted variable may carry a newline
+if [ -n "$REVIEW_GATE_APP_ID" ] && ! [[ "$REVIEW_GATE_APP_ID" =~ ^[0-9]+$ ]]; then
+  echo "❌  REVIEW_GATE_APP_ID must be the App's numeric id, got '${REVIEW_GATE_APP_ID}'."
+  exit 1
+fi
+
 # Requiring the gate before the workflow that posts it is live blocks every PR,
 # including the one that would bring the workflow in. PRs to a branch run that
 # branch's human-review.yml (pull_request_target); `/reviewed` runs develop's
@@ -126,7 +141,46 @@ require_gate_workflow() {
       echo "    or every PR to '$1' would wait forever on a status nothing posts."
       exit 1
     fi
+    if [ -n "$REVIEW_GATE_APP_ID" ] && ! grep -qF "actions/create-github-app-token" <<< "$workflow"; then
+      echo "❌  ${branch}'s human-review.yml doesn't post with the review-gate App yet: pinning"
+      echo "    the gate to App ${REVIEW_GATE_APP_ID} now would hold every PR to '$1' forever."
+      exit 1
+    fi
   done
+  if [ -n "$REVIEW_GATE_APP_ID" ]; then require_gate_posted_by_app; fi
+}
+
+# The workflow naming the App is not enough (the variable or the key may be
+# missing, or the id mistyped): before pinning, the newest gate status on a PR
+# to polity or develop must have been posted by the App with this very id.
+require_gate_posted_by_app() {
+  local sha creator="" app_id
+  if ! command -v gh &>/dev/null; then
+    echo "❌  pinning the gate to an App needs the gh CLI (it checks who posts the gate)."
+    exit 1
+  fi
+  for sha in $(gh api "repos/${OWNER}/${REPO}/pulls?state=all&sort=updated&direction=desc&per_page=30" \
+      --jq '.[] | select(.base.ref == "polity" or .base.ref == "develop") | .head.sha'); do
+    creator=$(GATE="$REVIEW_GATE" gh api "repos/${OWNER}/${REPO}/commits/${sha}/statuses" \
+      --jq '[.[] | select(.context == env.GATE)][0].creator.login // ""')
+    [ -n "$creator" ] && break
+  done
+  if [ -z "$creator" ]; then
+    echo "❌  no '${REVIEW_GATE}' status on the last 30 PRs to polity or develop: open one, then retry."
+    exit 1
+  fi
+  app_id=""
+  if [[ "$creator" == *"[bot]" ]]; then
+    app_id=$(gh api "apps/${creator%\[bot\]}" --jq .id 2>/dev/null) || app_id=""
+  fi
+  if [ "$app_id" != "$REVIEW_GATE_APP_ID" ]; then
+    echo "❌  the newest '${REVIEW_GATE}' was posted by '${creator}' (app id: ${app_id:-none}),"
+    echo "    not by App ${REVIEW_GATE_APP_ID}: finish CONTRIBUTING.md's App setup (variable"
+    echo "    REVIEW_GATE_APP_CLIENT_ID, key in the review-gate environment), let the gate run"
+    echo "    once on a PR, then retry. Pinning now would hold every PR forever."
+    exit 1
+  fi
+  echo "✅  '${REVIEW_GATE}' is posted by '${creator}' (App ${app_id})."
 }
 
 # Requiring a check on a branch before the workflow that posts it runs on PRs
@@ -184,20 +238,34 @@ contexts_for() {
   esac
 }
 
+# The required_status_checks entry for one branch: `"contexts": [...]`, or, with
+# REVIEW_GATE_APP_ID set and the gate required there, `"checks": [...]` with the
+# gate pinned to the App and every other context from any source (-1).
+status_checks_for() {
+  local contexts
+  contexts=$(contexts_for "$1")
+  if [ -n "$REVIEW_GATE_APP_ID" ] && jq -e --arg g "$REVIEW_GATE" 'index($g) != null' <<< "$contexts" > /dev/null; then
+    printf '"checks": %s' "$(jq -c --arg g "$REVIEW_GATE" --argjson id "$REVIEW_GATE_APP_ID" \
+      'map({context: ., app_id: (if . == $g then $id else -1 end)})' <<< "$contexts")"
+  else
+    printf '"contexts": %s' "$contexts"
+  fi
+}
+
 protect_polity_branch() {
   local branch="$1"
-  local POLITY_CONTEXTS
+  local POLITY_CHECKS
   if [ "$branch" = polity ]; then
     require_gate_workflow polity
     require_ci_health_on polity
     require_workflow_lint_on polity
   fi
-  POLITY_CONTEXTS=$(contexts_for "$branch")
+  POLITY_CHECKS=$(status_checks_for "$branch")
   echo "Protecting '${branch}'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/${branch}/protection" "{
     \"required_status_checks\": {
       \"strict\": true,
-      \"contexts\": ${POLITY_CONTEXTS}
+      ${POLITY_CHECKS}
     },
     \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
@@ -249,15 +317,15 @@ protect_main() {
 }
 
 protect_develop() {
-  local DEVELOP_CONTEXTS
+  local DEVELOP_CHECKS
   require_gate_workflow develop
   require_workflow_lint_on develop
-  DEVELOP_CONTEXTS=$(contexts_for develop)
+  DEVELOP_CHECKS=$(status_checks_for develop)
   echo "Protecting 'develop'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{
     \"required_status_checks\": {
       \"strict\": true,
-      \"contexts\": ${DEVELOP_CONTEXTS}
+      ${DEVELOP_CHECKS}
     },
     \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
@@ -276,6 +344,13 @@ protect_develop() {
 # scripts/check_ci_health.py's drift check): --print-contexts <branch>.
 if [ "$TARGET" = --print-contexts ]; then
   contexts_for "${2:?usage: $0 --print-contexts <main|develop|polity|polity-ui>}"
+  exit
+fi
+# The required_status_checks entry a run would apply (with REVIEW_GATE_APP_ID:
+# the gate pinned to the App), touching nothing: --print-checks <branch>.
+if [ "$TARGET" = --print-checks ]; then
+  status_checks_for "${2:?usage: $0 --print-checks <main|develop|polity|polity-ui>}"
+  echo
   exit
 fi
 
