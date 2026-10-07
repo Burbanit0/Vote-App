@@ -512,10 +512,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
     commits) is `unhealthy` (≥2 consecutive real failures),
     `inert` (no run within 1.5× its own cron-derived cadence), or
     `never_run`, or
-  - `develop`'s or `polity`'s live branch protection has drifted from
-    `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>` is
-    the expected list; polity has its own snapshot key and snooze,
-    `branch-protection-polity`).
+  - `develop`'s, `polity`'s or `main`'s live branch protection has drifted
+    from `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>`
+    is the expected list; polity and main each have their own snapshot key and
+    snooze, `branch-protection-polity` and `branch-protection-main`).
 
 **`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
 this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't

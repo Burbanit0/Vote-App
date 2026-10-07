@@ -75,7 +75,11 @@ BRANCH = "develop"
 # Branches whose protection is checked for drift, keyed by the snapshot field
 # that records it ("branch_protection" stays develop's, so an older snapshot
 # still reads the same).
-PROTECTED_BRANCHES = {"branch_protection": "develop", "branch_protection_polity": "polity"}
+PROTECTED_BRANCHES = {
+    "branch_protection": "develop",
+    "branch_protection_polity": "polity",
+    "branch_protection_main": "main",
+}
 # Branches whose runs count for a watched workflow's health.
 RUN_BRANCHES = ("develop", "polity")
 
@@ -269,7 +273,7 @@ def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str],
     required_contexts = json.loads(result.stdout)
 
     text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
-    fn = "protect_develop" if branch == "develop" else "protect_polity_branch"
+    fn = {"develop": "protect_develop", "main": "protect_main"}.get(branch, "protect_polity_branch")
     fn_match = re.search(rf"{fn}\(\)\s*\{{(.*?)\n\}}", text, re.DOTALL)
     fn_body = fn_match.group(1) if fn_match else ""
     # The JSON is embedded in a bash double-quoted string, so its own quotes
