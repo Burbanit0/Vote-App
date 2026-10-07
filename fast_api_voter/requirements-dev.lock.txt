@@ -196,7 +196,7 @@ msgpack==1.2.2
     # via cachecontrol
 msgspec==0.21.1
     # via marimo
-multidict==6.9.1
+multidict==7.0.0
     # via
     #   aiohttp
     #   yarl
