@@ -262,7 +262,9 @@ suppression sans impact sur `scripts/setup-branch-protection.sh`. (`main` est
 protégée par `protect_main` : PR obligatoire, mêmes checks requis que
 `develop` sans la porte de revue ni Workflow lint, qui ne tournent pas sur les
 PR vers `main`, 0 approbation, `enforce_admins: false` comme `polity` et
-`develop`. `release.yml` n'y pousse plus rien : la version vient de
+`develop`, mais `strict: false` : le commit de merge de chaque release reste sur
+`main` sans revenir dans `develop`, donc avec `strict` la PR de release suivante
+serait toujours « en retard ». `release.yml` n'y pousse plus rien : la version vient de
 `voter-app/package.json`, montée par une PR, et le job ne pousse que le tag.
 Voir le skill `release`.)
 

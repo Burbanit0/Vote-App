@@ -20,9 +20,75 @@ permissions:
   contents: read
 
 jobs:
+  # ── 0. The version to release, checked before ~20 min of CI ───────────────
+  # main is protected (PRs only), so no job commits a version bump to it: the
+  # release is whatever voter-app/package.json says on the dispatched commit,
+  # set by a bump PR that went polity -> develop -> main (see the release
+  # skill). Refused up front: a malformed version, one not above the highest
+  # vX.Y.Z tag (it would be published as "latest"), and one already released
+  # (tag and GitHub Release both exist). A tag on this commit with no release
+  # is a release whose last step failed: the run finishes it.
+  version:
+    name: Version à publier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tagged: ${{ steps.version.outputs.tagged }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: voter-app/package.json
+          sparse-checkout-cone-mode: false
+      - name: Check the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION="v$(jq -r .version voter-app/package.json)"
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::voter-app/package.json has version '${VERSION#v}', expected X.Y.Z." >&2
+            exit 1
+          fi
+          bump="Set the next version in a PR to polity (npm version <X.Y.Z> --no-git-tag-version in voter-app/), carry it to main, then dispatch again."
+          tags=$(git ls-remote --tags origin) || { echo "::error::Could not list the remote tags; re-run this job." >&2; exit 1; }
+          # The commit a tag points to: the peeled line (^{}) for an annotated tag.
+          tag_sha=$(awk -v t="refs/tags/${VERSION}" '$2==t"^{}"{p=$1} $2==t{l=$1} END{print (p!=""?p:l)}' <<< "$tags")
+          if [ -n "$tag_sha" ]; then
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::${VERSION} is already tagged on another commit (${tag_sha:0:7}). ${bump}" >&2
+              exit 1
+            fi
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/${REPO}/releases/tags/${VERSION}")
+            if [ "$code" = 200 ]; then
+              echo "::error::${VERSION} is already released (tag and GitHub Release exist). Nothing to do." >&2
+              exit 1
+            elif [ "$code" != 404 ]; then
+              echo "::error::Could not check the ${VERSION} release (HTTP ${code}); re-run this job." >&2
+              exit 1
+            fi
+            echo "::notice::${VERSION} is tagged on this commit with no release yet: finishing it."
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          else
+            latest=$(awk '{sub("refs/tags/","",$2)} $2 ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ {print $2}' <<< "$tags" | sort -V | tail -n1)
+            if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "$latest" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+              echo "::error::${VERSION} is not above the latest release ${latest}. ${bump}" >&2
+              exit 1
+            fi
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${VERSION}"
+
   # ── 1. CI — tests must pass before any release ─────────────────────────────
   ci-frontend:
     name: Tests frontend
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +111,7 @@ jobs:
 
   ci-backend:
     name: Tests backend
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -78,12 +145,13 @@ jobs:
   # it, so the release re-runs it on the exact commit it tags.
   e2e:
     name: E2E (Playwright)
+    needs: version
     uses: ./.github/workflows/e2e.yml
 
   # ── 2. Release — only if CI + E2E all pass ─────────────────────────────────
   release:
     name: Créer la release
-    needs: [ci-frontend, ci-backend, e2e]
+    needs: [version, ci-frontend, ci-backend, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -117,51 +185,16 @@ jobs:
             exit 1
           fi
 
-      # main is protected (PRs only, admins included), so this job no longer
-      # commits a version bump to it: the version is whatever
-      # voter-app/package.json says on main, set by a bump PR that went
-      # polity -> develop -> main like any other change (see the release
-      # skill). The job only pushes a tag, which branch protection doesn't
-      # cover. An existing tag on another commit fails here (that version was
-      # already released); one already on this commit, a re-run after a failed
-      # release step, is reused.
-      - name: Read the version to release
-        id: version
-        run: |
-          VERSION="v$(jq -r .version voter-app/package.json)"
-          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::voter-app/package.json has version '${VERSION#v}', expected X.Y.Z." >&2
-            exit 1
-          fi
-          rc=0
-          git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null || rc=$?
-          if [ "$rc" -eq 0 ]; then
-            git fetch --quiet --no-tags origin "+refs/tags/${VERSION}:refs/tags/${VERSION}"
-            if [ "$(git rev-parse "refs/tags/${VERSION}^{commit}")" != "$(git rev-parse HEAD)" ]; then
-              echo "::error::${VERSION} is already tagged on another commit. Bump voter-app/package.json in a PR to polity (npm version <patch|minor|major> --no-git-tag-version), carry it to main, then dispatch again." >&2
-              exit 1
-            fi
-            # A re-run after the tag push but before the release was created.
-            echo "tagged=true" >> "$GITHUB_OUTPUT"
-          elif [ "$rc" -eq 2 ]; then
-            echo "tagged=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::Could not list the remote tags (git ls-remote exit ${rc}); re-run this job." >&2
-            exit 1
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Releasing ${VERSION}"
-
       - name: Configure git identity
-        if: steps.version.outputs.tagged == 'false'
+        if: needs.version.outputs.tagged == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Tag + push the tag
-        if: steps.version.outputs.tagged == 'false'
+        if: needs.version.outputs.tagged == 'false'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
           git tag -a "${VERSION}" -m "Release ${VERSION}"
           git push origin "refs/tags/${VERSION}"
@@ -169,16 +202,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: "🗳️ Vote Lab ${{ steps.version.outputs.version }}"
+          tag_name: ${{ needs.version.outputs.version }}
+          name: "🗳️ Vote Lab ${{ needs.version.outputs.version }}"
           body: |
-            ## Vote Lab ${{ steps.version.outputs.version }}
+            ## Vote Lab ${{ needs.version.outputs.version }}
 
             ${{ inputs.release_notes != '' && inputs.release_notes || 'Voir les commits ci-dessous pour le détail des changements.' }}
 
             ---
             **Liens**
-            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ steps.version.outputs.version }}/THEORY.md)
+            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ needs.version.outputs.version }}/THEORY.md)
             - 🐛 [Signaler un bug](${{ github.server_url }}/${{ github.repository }}/issues/new)
           generate_release_notes: true   # GitHub auto-generates changelog from commits
           make_latest: true

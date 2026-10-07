@@ -19,9 +19,12 @@ so a release has three hops: polity → develop → main → tag.
       only), so the release job no longer commits a bump: it releases whatever
       `voter-app/package.json` says on `main`, and refuses a version that is
       already tagged on another commit. Branch `chore/release-vX.Y.Z` from
-      polity, run `npm version <patch|minor|major> --no-git-tag-version` in
-      `voter-app/` (it updates `package.json` and `package-lock.json`), and
-      merge it like any PR before the sync below.
+      polity, run `npm version X.Y.Z --no-git-tag-version` in `voter-app/`
+      with an explicit version above the latest tag
+      (`git ls-remote --tags origin 'v*'`; not `patch`/`minor`, which count
+      from polity's own value and polity was left at 0.1.0 while v0.2.0
+      shipped), and merge it like any PR before the sync below. The release
+      job refuses a version that is not above the latest tag, before CI runs.
 - [ ] **Sync polity into develop.** Cut `chore/sync-polity-into-develop-<date>`
       from `origin/develop`, merge `origin/polity` (a real merge commit), and
       open a PR into `develop`. Its diff-cover gate measures every polity line
@@ -36,15 +39,16 @@ so a release has three hops: polity → develop → main → tag.
 - [ ] **Expect red checks on it, and know which ones matter.** diff-cover
       compares against `main`. When `main` is far behind, it re-counts code that
       already passed diff-cover on its way into develop (#669: 55 lines). Scorecard
-      can list alerts that were there before. `main` requires the same checks as
-      `develop`, but `enforce_admins` is off, so the owner can merge over a red
-      check after confirming it is one of these, never a real regression.
+      can list alerts that were there before. `main` requires the base checks
+      (`develop`'s minus the review gate and Workflow lint, which don't run on
+      PRs to `main`), but `enforce_admins` is off, so the owner can merge over
+      a red check after confirming it is one of these, never a real regression.
 - [ ] **Merge it by hand.** Mergify's queue only covers PRs into `develop` and
       `polity`. A PR into `main` gets the `dequeued` label and sits there.
 - [ ] **Version field:** the PR's `voter-app/package.json` must carry the new
-      version. v0.2.0's bump commit was pushed straight to `main`, which still
-      says 0.2.0 while polity and develop say 0.1.0, so the first release after
-      this change conflicts there: keep the new, higher version.
+      version. v0.2.0's bump commit was pushed straight to `main`, which says
+      0.2.0 while polity and develop say 0.1.0, so the first release after this
+      change may conflict there: keep the new, higher version.
 - [ ] **Hold the next polity → develop sync until the tag exists.** The
       develop → main PR's head is `develop` itself, so anything merged into
       develop first ships with it.
@@ -78,14 +82,16 @@ made it fail. It also can't pass the exact-commit check once `main` has moved.
    on pushes to `main`, because their paths filter sees no change. See #683 for
    making the release job reuse them instead of copying them.
 2. Then `main` is tagged `vX.Y.Z` from `voter-app/package.json`, and only
-   the tag is pushed. A tag already on this commit (a re-run after the release
-   step failed) is reused; one on another commit fails the job.
+   the tag is pushed. The `version` job checked it before CI started: above
+   the latest tag, not already released. A tag on this commit with no GitHub
+   Release (a dispatch whose release step failed) is reused by a fresh
+   dispatch, which then creates the release.
 3. A GitHub Release is created from that tag (`generate_release_notes: true`,
    `make_latest: true`).
 
 `concurrency` is `cancel-in-progress: false`, so a second dispatch queues
-behind the first instead of racing it. The queued one finds the tag already on
-this commit and only updates the same release.
+behind the first instead of racing it. The queued one then fails in its
+`version` job, before any CI: that version is already released.
 
 ## Afterwards
 

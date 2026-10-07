@@ -64,8 +64,9 @@ api_call() {
   fi
 }
 
-# Same required checks for both branches — main will need everything develop
-# needs once a real develop→main release resumes.
+# The base list: main requires exactly this (its PRs come from develop, which
+# already passed all of it); develop and polity add the review gate and
+# Workflow lint (contexts_for below).
 #
 # Backend CI / Frontend CI / E2E / OpenAPI Contract used to be excluded here:
 # each was scoped by a `paths:` filter at the workflow-trigger level, and a
@@ -220,11 +221,16 @@ protect_polity_branch() {
 #     red check that isn't a regression. The develop -> main PR is where that
 #     happens (diff-cover re-counts against a far-behind main, #669).
 #   - no linear history: the release PR is merged with a merge commit.
+#   - strict false, unlike polity and develop: that merge commit lands on main
+#     and never on develop, so with strict every next develop -> main PR would
+#     be "behind" main, and its "Update branch" would push to the protected
+#     develop. Nothing else merges into main, and the release job re-tests the
+#     exact commit it tags, so strict buys nothing here.
 protect_main() {
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
     \"required_status_checks\": {
-      \"strict\": true,
+      \"strict\": false,
       \"contexts\": ${REQUIRED_CONTEXTS}
     },
     \"enforce_admins\": false,
