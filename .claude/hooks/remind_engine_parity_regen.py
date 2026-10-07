@@ -41,7 +41,7 @@ def main() -> None:
             "Reminder (CLAUDE.md — dual voting engine): this file backs one "
             "side of the client/backend voting engine. If you changed rule "
             "behavior, regenerate the parity fixture — "
-            "python fast_api_voter/scripts/gen_engine_parity.py — then run "
+            "PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py — then run "
             "playgroundVoting.parity.test.ts before committing."
         )
     }))

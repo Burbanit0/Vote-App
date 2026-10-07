@@ -106,12 +106,18 @@ def classify(argv: list[str]) -> tuple[str, str] | None:
     if prog == "gh":
         if argv[1:3] == ["pr", "merge"]:
             return "deny", f"`gh pr merge`: {APPROVAL}. Mergify merges once checks and the review hold pass."
-        if argv[1:2] == ["pr"] and "--add-label" in argv and re.search(r"\breviewed\b", joined):
+        if argv[1:2] in (["pr"], ["issue"]) and "--add-label" in argv and re.search(r"\breviewed\b", joined):
             return "deny", f"adding the `reviewed` label: {APPROVAL}"
         if re.search(r"(^|\s)/reviewed\b", joined):
             return "deny", f"posting `/reviewed`: {APPROVAL}"
         if argv[1:2] == ["api"] and re.search(r"/statuses/|human-review|/merge\b|labels.*reviewed|reviewed.*labels", joined):
             return "deny", f"setting statuses, review labels or merging through the API: {APPROVAL}"
+        if argv[1:3] == ["api", "graphql"] and _GRAPHQL_APPROVAL.search(joined):
+            return "deny", f"merging or approving through the GraphQL API: {APPROVAL}"
+        if _body_file_has_reviewed(argv):
+            return "deny", f"posting `/reviewed` from a file: {APPROVAL}"
+    if prog in {"curl", "wget", "http", "xh", "httpie"} and _RAW_GITHUB_APPROVAL.search(joined):
+        return "deny", f"merging, setting statuses or calling GraphQL on GitHub outside gh: {APPROVAL}"
     if re.search(r"(^|/)gen_(engine_parity|polity_golden|openapi)\.py\b", joined) or re.search(
             r"--snapshot-update\b|--update-snapshots\b|(^|\s)-u(\s|$).*(vitest|playwright)|(vitest|playwright).*\s-u(\s|$)", joined):
         return "ask", ("this regenerates a test oracle. After a behaviour change that makes the oracle's own check pass "
@@ -119,6 +125,35 @@ def classify(argv: list[str]) -> tuple[str, str] | None:
     if re.search(r"check_(quality_ratchet|mutation_score)\.sh\b.*--update|type-coverage.*--update", joined):
         return "ask", "this re-records a ratchet baseline. Only legitimate after a real improvement (voter-ci skill)."
     return None
+
+
+# GraphQL mutations that merge or approve; `gh api graphql` bypasses the REST path checks above.
+_GRAPHQL_APPROVAL = re.compile(
+    r"mergePullRequest|PullRequestAutoMerge|enqueuePullRequest|mergeBranch|createCommitStatus"
+    r"|addPullRequestReview\b.*APPROVE|addLabelsToLabelable.*reviewed")
+# The same endpoints reached without gh (curl and friends): merges, statuses, GraphQL.
+_RAW_GITHUB_APPROVAL = re.compile(r"api\.github\.com/(?:\S*/(?:merges?|statuses)\b|graphql\b)")
+
+
+def _body_file_has_reviewed(argv: list[str]) -> bool:
+    """`gh pr|issue comment --body-file f` and `gh api ... -F body=@f`: the command
+    line never shows the body, so read the file it names."""
+    paths = []
+    for k, tok in enumerate(argv):
+        if tok in {"--body-file", "-F", "--field"} and k + 1 < len(argv):
+            nxt = argv[k + 1]
+            paths.append(nxt[nxt.index("=@") + 2:] if "=@" in nxt else nxt if tok == "--body-file" else "")
+        elif tok.startswith("--body-file="):
+            paths.append(tok.split("=", 1)[1])
+    for path in filter(None, paths):
+        if path == "-":
+            return True  # a body read from stdin can't be checked: refuse rather than guess
+        try:
+            if re.search(r"(^|\s)/reviewed\b", (ROOT / path if not os.path.isabs(path) else Path(path)).read_text(errors="ignore")):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 _ALL_ARGS_WRITE = {"tee", "mv", "rm", "truncate", "ln", "chmod", "install", "dd", "unlink", "shred"}

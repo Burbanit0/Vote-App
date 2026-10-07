@@ -23,8 +23,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from guardlib import ROOT, decide, is_guardrail, read_payload, rel_path  # noqa: E402
 
 SILENCERS = {
-    "skipped/focused test": r"\b(?:it|test|describe)\.(?:skip|only|todo)\s*\(|\bx(?:it|describe|test)\s*\(|\bf(?:it|describe)\s*\(",
-    "pytest skip/xfail": r"pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail)\s*\(",
+    # Kept in step with scripts/check_test_integrity.py's JS_DISABLER / PY_DISABLERS.
+    "skipped/focused test": r"(?<![\w.$])(?:it|test|describe|suite)(?:\.\w+)*?\.(?:skip|only|todo|fixme|fails|skipIf|runIf)\b"
+                            r"|(?<![\w.$])x(?:it|describe|test)\s*\(|(?<![\w.$])f(?:it|describe)\s*\(",
+    "pytest skip/xfail": r"pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\s*\(",
     "`# noqa`": r"#\s*noqa\b",
     "`type: ignore`": r"#\s*type:\s*ignore\b",
     "`pragma: no cover`": r"pragma:\s*no\s*cover",
