@@ -156,12 +156,22 @@ jobs:
       # the diff-cover step's voter-app/-prefixed copy) — Codecov resolves
       # paths against its own uploaded-from directory, unlike diff-cover's
       # git-diff-path matching.
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      # Handed to the `codecov` job below, which uploads it with a short-lived
+      # OIDC token: this job runs the PR's code, so it holds neither the
+      # upload token nor id-token: write.
+      # Never blocks this required check: an artifact-service hiccup must not
+      # stop a merge over an informational upload. Runs as soon as the report
+      # exists, so a later failing gate (diff-cover, build) still gets its
+      # Codecov comment.
+      - name: Keep the coverage report for the Codecov upload
+        if: ${{ !cancelled() && hashFiles('voter-app/coverage/lcov.info') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: voter-app/coverage/lcov.info
-          flags: frontend
+          name: coverage-frontend
+          path: voter-app/coverage/lcov.info
+          retention-days: 1
+          overwrite: true # a re-run of this job replaces it
 
       # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
       # *changed* by this PR — far more mordant than vitest.config.ts's global
@@ -186,3 +196,34 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: ./voter-app
+
+  # Uploads the coverage report kept by `test`. It runs no repository code
+  # (checkout only gives Codecov the file list to map paths), so test code and
+  # its dependencies never hold an upload credential. Informational: it never
+  # turns the run red (continue-on-error), whether the report is missing, the
+  # PR comes from a fork (no OIDC token there) or Codecov is down.
+  codecov:
+    name: Upload frontend coverage to Codecov
+    needs: test
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload, instead of a stored token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # the PR merge commit's parents: Codecov files the report on the PR head
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-frontend
+          path: voter-app/coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: voter-app/coverage/lcov.info
+          flags: frontend
