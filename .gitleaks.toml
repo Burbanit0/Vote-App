@@ -19,9 +19,20 @@ title = "Vote-App"
 useDefault = true
 
 [allowlist]
-description = "Triaged false positives — generated OpenAPI files + bibliography data"
+description = "Triaged false positives — generated OpenAPI files, bibliography data, token-count constants"
 paths = [
   '''voter-app/src/api/types\.gen\.ts''',
   '''fast_api_voter/openapi\.gen\.json''',
   '''voter-app/src/data/methodReferences\.ts''',
+]
+# generic-api-key on the *_THINK_TOKEN_ALLOWANCE constants of llm_behavior_engine.py
+# (first in 7fb05c28, 2026-09-13): the names contain "TOKEN" and the value is a model
+# profile's attribute, a token COUNT (e.g. 12000), not a credential. Push and PR scans
+# only read new commits, so this surfaced as the weekly full-history Secret Scan failing
+# from 2026-09-14 on. Matched on the whole line, and only when the right-hand side is an
+# attribute reference: a quoted literal assigned to such a name is still reported.
+# (gitleaks 8.24.3 ignores regexTarget in an [[allowlists]] array: it has to live here.)
+regexTarget = "line"
+regexes = [
+  '''_THINK_TOKEN_ALLOWANCE = [A-Z0-9_]+\.[a-z_]+_think_allowance\b''',
 ]

@@ -92,7 +92,14 @@ WATCHED_WORKFLOWS = [
     "flaky-check-backend.yml",
     "dast.yml",
     "scorecard.yml",
+    "audit.yml",
 ]
+
+# Workflows judged on their scheduled runs alone. audit.yml also runs on every
+# push and PR, and those scan only the new commits: green, they buried the
+# weekly full-history Secret Scan failing four Mondays running (2026-09-14 to
+# 10-05) with nothing watching it.
+SCHEDULE_ONLY_WORKFLOWS = frozenset({"audit.yml"})
 
 # How many of the most recent *completed, non-cancelled* runs to look at
 # when deciding whether a workflow is failing consistently rather than
@@ -189,6 +196,7 @@ def query_workflow_health(workflow_file: str) -> dict[str, Any]:
                 f"--branch={branch}",
                 "--limit=8",
                 "--json=databaseId,status,conclusion,createdAt,event",
+                *(["--event=schedule"] if workflow_file in SCHEDULE_ONLY_WORKFLOWS else []),
             ]
         ):
             seen[run["databaseId"]] = run
