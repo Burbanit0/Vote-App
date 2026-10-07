@@ -425,7 +425,9 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
         f"every {inst.president_term_years} years.",
         "Each citizen ranks the candidates by how close their platforms are to the citizen's own views, weighted "
         "by what the citizen cares about; a candidate of the citizen's own party counts for more; a citizen who "
-        "finds no candidate close enough votes blank, and one who finds the choice indifferent may stay home.",
+        "finds no candidate close enough votes blank"
+        + (", and one whose favourite is worth about as much as a blank ballot may stay home."
+           if config.vote.mode == "utility" and config.vote.turnout_cost > 0 else "."),
         f"You may campaign on a platform: name the position you take on up to {campaign.max_positioning_shifts} issues, "
         f"and your platform moves toward it by at most {campaign.max_positioning_delta:.2f} on each.",
         "If elected, your platform is your pledge: the gap between it and what you later say is public, and "
