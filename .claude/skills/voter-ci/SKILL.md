@@ -88,8 +88,11 @@ runs `check-flaky.mjs` on the merged `results.json`, uploads `playwright-report`
 and fails unless both shards succeeded. A red shard's own log names the failing
 tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. A
 separate `visual-regression` job runs pixel-diff screenshots inside an
-**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
-has the current tag; must match `voter-app/package.json`'s
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble@sha256:<digest>` image
+(`e2e.yml` has the current pin; Docker pulls by the digest, so when bumping,
+change the tag **and** the digest: the sync job checks the digest against what
+the registry serves for the tag whenever `e2e.yml` or `package.json` changes,
+and its error prints the right one. The tag must match `voter-app/package.json`'s
 `@playwright/test` version exactly — a mismatch fails to find the
 pre-installed browsers, or worse, silently renders against a different
 browser build than the one that produced the committed baselines, e.g.
