@@ -475,9 +475,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
     block (even at 0 required approvals) makes GitHub reject any raw push
-    with "Changes must be made through a pull request" — meaning
-    `release.yml`'s own direct push to `main` has the same latent bug and
-    has simply never been exercised for real yet (no release has shipped).
+    with "Changes must be made through a pull request". `release.yml` used
+    to push its version bump straight to `main` too (it worked for v0.2.0
+    because `main` was unprotected); now `main` is protected and the release
+    only pushes a tag.
   - `GITHUB_TOKEN` couldn't open the PR at all at first either — GitHub
     blocks Actions from creating PRs by default (`gh api repos/.../actions/
     permissions/workflow`'s `can_approve_pull_request_reviews`, confusingly

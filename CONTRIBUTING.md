@@ -190,10 +190,11 @@ sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont ret
 l'état à jour de la branche cible avant de vraiment merger (évite la classe de
 problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
 #188). `scripts/setup-branch-protection.sh` garde *"Require branches to be up
-to date before merging"* (`strict: true`) sur chaque branche protégée ; Mergify
-le documente comme incompatible avec ses checks parallèles et re-teste de
-toute façon avant de merger, mais le retirer est une décision du propriétaire,
-pas encore prise : en attendant, le script fait foi.
+to date before merging"* (`strict: true`) sur chaque branche protégée, par
+décision du propriétaire (2026-10-07). Le prix : Mergify ne peut ni grouper ni
+tester en parallèle avec `strict` (`batch_size: 1` et `max_parallel_checks: 1`
+dans `.mergify.yml`), donc la file traite une PR à la fois. Le gain : un merge
+fait à la main, hors de la file, doit lui aussi être à jour de la branche cible.
 
 ---
 
@@ -258,10 +259,15 @@ avec l'étape `Check source is develop (PRs to main)` de `branch-policy.yml`
 ci-dessus — mais sous `pull_request_target` plutôt que le `pull_request` plus
 sûr utilisé par `branch-policy.yml`, sans bloc `permissions:`. Son job
 (`check-branch`) n'était pas dans la liste des checks requis de `develop` —
-suppression sans impact sur `scripts/setup-branch-protection.sh`. (Le script
-sait protéger `main`, `protect_main`, mais en direct `main` n'a aujourd'hui
-aucun check requis : constaté le 2026-10-06, décision du propriétaire en
-attente, car `release.yml` y pousse directement.)
+suppression sans impact sur `scripts/setup-branch-protection.sh`. (`main` est
+protégée par `protect_main` : PR obligatoire, mêmes checks requis que
+`develop` sans la porte de revue ni Workflow lint, qui ne tournent pas sur les
+PR vers `main`, 0 approbation, `enforce_admins: false` comme `polity` et
+`develop`, mais `strict: false` : le commit de merge de chaque release reste sur
+`main` sans revenir dans `develop`, donc avec `strict` la PR de release suivante
+serait toujours « en retard ». `release.yml` n'y pousse plus rien : la version vient de
+`voter-app/package.json`, montée par une PR, et le job ne pousse que le tag.
+Voir le skill `release`.)
 
 **Comment Backend/Frontend CI, E2E et OpenAPI Contract sont devenus des checks
 requis malgré leur portée `paths`** : les quatre étaient auparavant scopés par
