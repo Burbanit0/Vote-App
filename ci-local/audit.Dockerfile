@@ -13,7 +13,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Semgrep (multi-language SAST) via pip.
-RUN pip install --no-cache-dir semgrep
+# Same version as audit.yml's Semgrep SAST job: ci-local mirrors CI.
+RUN pip install --no-cache-dir semgrep==1.179.0
 
 # Gitleaks (secret scanning) — pinned release tarball.
 RUN curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
