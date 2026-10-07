@@ -1,6 +1,6 @@
 {
   "audit.yml": {
-    "until": "2026-10-14",
-    "reason": "the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml line allowlist in fix/scheduled-secret-scan. The first scheduled run that can be green is Monday 2026-10-12, after the develop sync carries the fix (the cron fires from develop). The mutation-testing snooze that was here expired on 2026-09-27 and is dropped."
+    "until": "2026-10-21",
+    "reason": "the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped."
   }
 }

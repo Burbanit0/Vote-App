@@ -229,6 +229,7 @@ def test_the_security_audit_is_judged_on_its_scheduled_runs_alone(watchdog, monk
     assert health["status"] == "unhealthy"
     assert health["expected_cadence_hours"] == 24 * 7
     assert all("--event=schedule" in args for args in queried)
+    assert {a for args in queried for a in args if a.startswith("--branch=")} == {f"--branch={watchdog.BRANCH}"}
 
     queried.clear()
     watchdog.query_workflow_health("dast.yml")

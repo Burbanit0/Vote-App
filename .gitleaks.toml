@@ -29,10 +29,12 @@ paths = [
 # (first in 7fb05c28, 2026-09-13): the names contain "TOKEN" and the value is a model
 # profile's attribute, a token COUNT (e.g. 12000), not a credential. Push and PR scans
 # only read new commits, so this surfaced as the weekly full-history Secret Scan failing
-# from 2026-09-14 on. Matched on the whole line, and only when the right-hand side is an
-# attribute reference: a quoted literal assigned to such a name is still reported.
-# (gitleaks 8.24.3 ignores regexTarget in an [[allowlists]] array: it has to live here.)
-regexTarget = "line"
+# from 2026-09-14 on. Matched against the finding's own text, and only when the
+# right-hand side is an attribute reference: a quoted literal assigned to such a name,
+# or a secret elsewhere on the same line, is still reported (a "line" target would hide
+# the latter). gitleaks 8.24.3 ignores regexTarget in an [[allowlists]] array, so it
+# lives here, and audit.yml pins GITLEAKS_VERSION to the version this was checked on.
+regexTarget = "match"
 regexes = [
   '''_THINK_TOKEN_ALLOWANCE = [A-Z0-9_]+\.[a-z_]+_think_allowance\b''',
 ]
