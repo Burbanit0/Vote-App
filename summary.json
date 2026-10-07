@@ -1801,11 +1801,11 @@
   "infra": 18,
   "test-flaky": 35
  },
- "generated_at": "2026-10-06T22:53:03Z",
+ "generated_at": "2026-10-07T01:31:26Z",
  "grid": {
   "Backend CI": {
    "2026-09-07": {
-    "success": 3
+    "success": 2
    },
    "2026-09-08": {
     "cancelled": 1,
@@ -1989,7 +1989,7 @@
     "success": 31
    },
    "2026-10-06": {
-    "success": 77
+    "success": 78
    }
   },
   "CI Health Watchdog": {
@@ -2203,7 +2203,7 @@
   },
   "E2E Tests": {
    "2026-09-07": {
-    "success": 3
+    "success": 2
    },
    "2026-09-08": {
     "cancelled": 1,
@@ -2312,7 +2312,7 @@
   },
   "Frontend CI": {
    "2026-09-07": {
-    "success": 3
+    "success": 2
    },
    "2026-09-08": {
     "success": 8
@@ -2405,7 +2405,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-07": {
-    "success": 3
+    "success": 2
    },
    "2026-09-08": {
     "success": 8
@@ -2574,7 +2574,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-07": {
-    "success": 3
+    "success": 2
    },
    "2026-09-08": {
     "success": 9
@@ -2727,7 +2727,7 @@
   },
   "Security Audit": {
    "2026-09-07": {
-    "success": 4
+    "success": 3
    },
    "2026-09-08": {
     "cancelled": 1,
@@ -2864,9 +2864,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-06T22:45:08Z",
+   "created_at": "2026-10-06T22:52:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37542547680"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37543328519"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2960,7 +2960,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37543328347"
   }
  },
- "runs": 11704,
+ "runs": 11692,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2992,10 +2992,10 @@
     "2026-10-05": 12.5,
     "2026-10-06": 444.5
    },
-   "p50_s": 149,
+   "p50_s": 150,
    "p95_s": 420,
    "queue_p50_s": 0,
-   "runs": 1246
+   "runs": 1244
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3033,7 +3033,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-07": 7.5,
+    "2026-09-07": 7,
     "2026-09-08": 7.0,
     "2026-09-09": 7.5,
     "2026-09-10": 7,
@@ -3064,17 +3064,17 @@
    "p50_s": 7,
    "p95_s": 33,
    "queue_p50_s": 0,
-   "runs": 900
+   "runs": 899
   },
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
-    "2026-10-06": 388
+    "2026-10-06": 387.5
    },
-   "p50_s": 387,
+   "p50_s": 386,
    "p95_s": 552,
    "queue_p50_s": 0,
-   "runs": 108
+   "runs": 109
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3162,7 +3162,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-07": 9.0,
+    "2026-09-07": 10,
     "2026-09-08": 11,
     "2026-09-09": 12.0,
     "2026-09-10": 11,
@@ -3193,7 +3193,7 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 832
+   "runs": 831
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3207,7 +3207,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-07": 11,
+    "2026-09-07": 10,
     "2026-09-08": 10.0,
     "2026-09-09": 342.5,
     "2026-09-10": 322.0,
@@ -3238,7 +3238,7 @@
    "p50_s": 590,
    "p95_s": 845,
    "queue_p50_s": 0,
-   "runs": 1096
+   "runs": 1094
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3273,7 +3273,7 @@
    "p50_s": 13,
    "p95_s": 267,
    "queue_p50_s": 0,
-   "runs": 1192
+   "runs": 1190
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3308,7 +3308,7 @@
    "p50_s": 71,
    "p95_s": 117,
    "queue_p50_s": 0,
-   "runs": 1301
+   "runs": 1299
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3345,7 +3345,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-07": 41,
+    "2026-09-07": 39.0,
     "2026-09-08": 39,
     "2026-09-09": 37.0,
     "2026-09-10": 44,
@@ -3373,7 +3373,7 @@
    "p50_s": 43,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 296
+   "runs": 295
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3414,7 +3414,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-07": 96.5,
+    "2026-09-07": 96.0,
     "2026-09-08": 94.5,
     "2026-09-09": 102,
     "2026-09-10": 91.5,
@@ -3445,7 +3445,7 @@
    "p50_s": 121,
    "p95_s": 221,
    "queue_p50_s": 0,
-   "runs": 1243
+   "runs": 1241
   },
   "Workflow Lint": {
    "daily_p50_s": {
