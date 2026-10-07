@@ -158,10 +158,11 @@ Before opening a PR:
   release syncs (`chore/sync-polity-into-develop-<date>`, a real merge commit), and
   `develop → main` is the release (see the `release` skill).
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
-- **Run `/code-review max` on the branch *before opening* a PR that touches the
-  voting engine** (`simulation_ranked_utils.py`, `simulation_score_utils.py`,
-  `playgroundVoting.ts`) or any other high-blast-radius surface (auth-adjacent
-  config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
+- **Run `/code-review high` on the branch *before opening* any PR**, once, then fix
+  what it finds rather than re-running it. It matters most on the voting engine
+  (`simulation_ranked_utils.py`, `simulation_score_utils.py`, `playgroundVoting.ts`)
+  and other high-blast-radius surfaces (auth-adjacent config, CI/CD workflows, the
+  parity/axiom test harnesses). Run it before opening, not "before merging":
   the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
   been) raced and skipped entirely. It runs locally on the branch's diff and needs
