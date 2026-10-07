@@ -15,6 +15,16 @@ so a release has three hops: polity → develop → main → tag.
 
 ## Before dispatching
 
+- [ ] **Bump the version in a PR to polity first.** `main` is protected (PRs
+      only), so the release job no longer commits a bump: it releases whatever
+      `voter-app/package.json` says on `main`, and refuses a version that is
+      already tagged on another commit. Branch `chore/release-vX.Y.Z` from
+      polity, run `npm version X.Y.Z --no-git-tag-version` in `voter-app/`
+      with an explicit version above the latest tag
+      (`git ls-remote --tags origin 'v*'`; not `patch`/`minor`, which count
+      from polity's own value and polity was left at 0.1.0 while v0.2.0
+      shipped), and merge it like any PR before the sync below. The release
+      job refuses a version that is not above the latest tag, before CI runs.
 - [ ] **Sync polity into develop.** Cut `chore/sync-polity-into-develop-<date>`
       from `origin/develop`, merge `origin/polity` (a real merge commit), and
       open a PR into `develop`. Its diff-cover gate measures every polity line
@@ -29,14 +39,16 @@ so a release has three hops: polity → develop → main → tag.
 - [ ] **Expect red checks on it, and know which ones matter.** diff-cover
       compares against `main`. When `main` is far behind, it re-counts code that
       already passed diff-cover on its way into develop (#669: 55 lines). Scorecard
-      can list alerts that were there before. `main` has no branch protection, so
-      the PR can be merged with those red.
+      can list alerts that were there before. `main` requires the base checks
+      (`develop`'s minus the review gate and Workflow lint, which don't run on
+      PRs to `main`), but `enforce_admins` is off, so the owner can merge over
+      a red check after confirming it is one of these, never a real regression.
 - [ ] **Merge it by hand.** Mergify's queue only covers PRs into `develop` and
       `polity`. A PR into `main` gets the `dequeued` label and sits there.
-- [ ] **Version field:** the release job's bump commit lands only on `main`
-      (`voter-app/package.json` says 0.2.0 on `main` and 0.1.0 on `develop`).
-      If a develop → main PR conflicts on it, keep `main`'s value: the workflow
-      bumps from whatever is on `main`.
+- [ ] **Version field:** the PR's `voter-app/package.json` must carry the new
+      version. v0.2.0's bump commit was pushed straight to `main`, which says
+      0.2.0 while polity and develop say 0.1.0, so the first release after this
+      change may conflict there: keep the new, higher version.
 - [ ] **Hold the next polity → develop sync until the tag exists.** The
       develop → main PR's head is `develop` itself, so anything merged into
       develop first ships with it.
@@ -44,12 +56,12 @@ so a release has three hops: polity → develop → main → tag.
 ## Dispatching
 
 ```bash
-gh workflow run release.yml --ref main -f version_type=minor   # or patch / major
+gh workflow run release.yml --ref main   # optional: -f release_notes='...'
 ```
 
 Dispatch **after** the develop → main PR has merged, with `--ref main`. The
 `release` job requires `main` to be **exactly** the commit the run tested.
-Ancestry isn't enough, and anything else fails the job before any bump, tag or
+Ancestry isn't enough, and anything else fails the job before any tag or
 push. This also makes a dry run safe: dispatching on a feature branch runs the
 gates, then stops at that check.
 
@@ -69,15 +81,17 @@ made it fail. It also can't pass the exact-commit check once `main` has moved.
    Nothing else tests this commit. Backend and Frontend CI skip their test jobs
    on pushes to `main`, because their paths filter sees no change. See #683 for
    making the release job reuse them instead of copying them.
-2. Then `voter-app/package.json` is bumped, committed as
-   `chore: bump to vX.Y.Z [skip ci]`, tagged `vX.Y.Z`, and pushed with
-   `git push --atomic` (branch and tag together, or neither).
+2. Then `main` is tagged `vX.Y.Z` from `voter-app/package.json`, and only
+   the tag is pushed. The `version` job checked it before CI started: above
+   the latest tag, not already released. A tag on this commit with no GitHub
+   Release (a dispatch whose release step failed) is reused by a fresh
+   dispatch, which then creates the release.
 3. A GitHub Release is created from that tag (`generate_release_notes: true`,
    `make_latest: true`).
 
 `concurrency` is `cancel-in-progress: false`, so a second dispatch queues
-behind the first instead of racing it. The exact-commit check then stops the
-queued one, because `main` has moved to the bump commit.
+behind the first instead of racing it. The queued one then fails in its
+`version` job, before any CI: that version is already released.
 
 ## Afterwards
 
