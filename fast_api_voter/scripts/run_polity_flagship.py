@@ -105,17 +105,17 @@ from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
 
-LLM_TURNOUT_COST = 0.15
-"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"), re-set for OBS-042's rule.
-0.04 was adopted when a voter stayed home if their two best options were close, a rule that kept more
-voters home the larger the field. Under the rule that replaced it (best candidate against the blank
-ballot) 0.15 is the cost at which ADR-011's four facts all hold on the deterministic twin, at both
-settings this path runs (approval 0 here, 0.1 in the exploration profile), and the one ADR-011's
-selection order picks; turnout 66.7% and 66.1%, against 65.9% and 66.8% for the old rule at 0.04
-(scripts/calibrate_turnout_rule_results.md). Chosen after the fact, not pre-registered, and thin as
-before: the twin's fields are 3-7 candidates, the LLM path's reach 20 once parties are founded, where
-this rule keeps fewer voters home than on the twin (OBS-042). The deterministic twin, which shares
-polity_config.yaml, qualified nothing in S4.1, so the file keeps 0."""
+LLM_TURNOUT_COST = 0.04
+"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"), kept through OBS-042's rule.
+Adopted when a voter stayed home if their two best options were close, a rule that kept more voters
+home the larger the field. Under the rule that replaced it (best candidate against the blank ballot)
+it keeps about a tenth of voters home whatever the field's size -- the property the change was made
+for -- and was kept for that on 2026-10-06, against ADR-011's turnout fact: on the deterministic twin,
+which has no disengagement, it gives 90% turnout, past the 85% ceiling. 0.15 is where all four facts
+hold on the twin (scripts/calibrate_turnout_rule_results.md), but keeps 44% home with 2 candidates and
+28% with 30. In the exploration profile, where agents run, ADR-021's disengagement already keeps about
+a quarter of citizens home. The deterministic twin, which shares polity_config.yaml, qualified nothing
+in S4.1, so the file keeps 0."""
 
 
 def _flagship_config(
