@@ -139,6 +139,7 @@ libs in `src/lib/` with a thin component each.
 A change is done when it does **what was asked**, not when it compiles and CI is green.
 Before opening a PR:
 
+- Run `/code-review high` once and handle its findings (see Workflow below).
 - Run `/verify "<the original request, verbatim>"`. It runs `scripts/fast-gate.sh`, then
   the `spec-checker` agent, which sees only the request and the diff, never your summary.
   A `FAIL` (something asked is missing) means no PR yet.
@@ -158,17 +159,23 @@ Before opening a PR:
   release syncs (`chore/sync-polity-into-develop-<date>`, a real merge commit), and
   `develop → main` is the release (see the `release` skill).
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
-- **Run `/code-review high` on the branch *before opening* any PR**, once, then fix
-  what it finds rather than re-running it. It matters most on the voting engine
-  (`simulation_ranked_utils.py`, `simulation_score_utils.py`, `playgroundVoting.ts`)
-  and other high-blast-radius surfaces (auth-adjacent config, CI/CD workflows, the
-  parity/axiom test harnesses). Run it before opening, not "before merging":
+- **Run `/code-review high` on the branch *before opening* any PR**, once (the
+  owner's call, 2026-10-07: one `high` pass everywhere, the voting engine included,
+  in place of `max` on engine PRs only). Each finding is a claim, not an order:
+  check it against the code (and a test, when it says something breaks) before
+  changing anything, fix the real ones, and say in the PR which you left and why.
+  It matters most on the voting engine (`simulation_ranked_utils.py`,
+  `simulation_score_utils.py`, `playgroundVoting.ts`) and other high-blast-radius
+  surfaces (auth-adjacent config, CI/CD workflows, the parity/axiom test harnesses).
+  Release syncs (`chore/sync-polity-into-develop-*`, develop → main) are exempt:
+  every PR they carry was reviewed on its own, and their check is the tree
+  comparison against the source branch. Run it before opening, not "before merging":
   the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
   been) raced and skipped entirely. It runs locally on the branch's diff and needs
-  no PR or GitHub remote, so there's no reason to wait for one. It exists and is
-  underused — standard CI gates catch regressions in what's already tested, not a
-  subtly-wrong new rule implementation or a logic error a human reviewer would
+  no PR or GitHub remote, so there's no reason to wait for one. Standard CI gates
+  catch regressions in what's already tested, not a logic error in new code (a
+  subtly-wrong rule, a workflow condition, a hook) that a human reviewer would
   have caught.
 - PRs touching the high-risk paths listed in
   `.mergify.yml`, or that weaken the test suite (fewer tests in the changed test
