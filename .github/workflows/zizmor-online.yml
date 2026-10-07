@@ -97,7 +97,7 @@ jobs:
               head -n 500 "$RUNNER_TEMP/zizmor.txt"
               echo
               echo '```'
-              [ "$(wc -l < "$RUNNER_TEMP/zizmor.txt")" -le 500 ] || echo "Truncated at 500 lines: the full output is in the run.
+              [ "$(wc -l < "$RUNNER_TEMP/zizmor.txt")" -le 500 ] || echo "Truncated at 500 lines: the full output is in the run."
             } > "$RUNNER_TEMP/body.md"
             if [ -n "$number" ]; then
               gh issue edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/body.md" > /dev/null
