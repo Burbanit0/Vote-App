@@ -117,6 +117,13 @@ jobs:
             pkg=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' <<< "$2" || true)
             echo "$image $pkg"
           }
+          # The e2e shards and visual-regression both run in the image; one pin for both, so the
+          # first `image:` line (read here and by voter-app/scripts/test-visual-docker.sh) is it.
+          pins=$(grep -oP '^\s+image:\s*\Kmcr\.microsoft\.com/playwright:\S+' .github/workflows/e2e.yml | sort -u || true)
+          if [ "$(grep -c . <<< "$pins")" -ne 1 ]; then
+            echo "::error::Every job in this workflow must pin the same Playwright image; found: $(tr '\n' ' ' <<< "$pins")"
+            exit 1
+          fi
           read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package.json)")"
           image_version=$(grep -oP 'playwright:v\K[0-9.]+(?=-noble)' <<< "$image" || true)
           digest=$(grep -oP '@\Ksha256:[0-9a-f]{64}$' <<< "$image" || true)
@@ -179,6 +186,15 @@ jobs:
     name: Playwright E2E (shard ${{ matrix.shard }}/${{ matrix.total }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The same pinned image as visual-regression: browsers and their system libraries come
+    # with it, so a shard runs no apt and downloads no browser. On 2026-10-07 the runner's
+    # Ubuntu mirror stalled `playwright install --with-deps` until this job's limit in 4 of 8
+    # runs (polity's included); apt was out of reach of any timeout set here, because
+    # Playwright runs it as root. --user 1001 is the runner's uid: Firefox will not start as
+    # root under a $HOME owned by another user, and the workspace stays the runner's.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host --user 1001
     strategy:
       # Both shards always finish: a failure in one says nothing about the other.
       fail-fast: false
@@ -227,31 +243,10 @@ jobs:
             exit 1
           fi
 
-      # ── Node / Frontend ───────────────────────────────────────────────────────
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: voter-app/package-lock.json
-
+      # No setup-node, no browser cache, no `playwright install`: the image ships the Node it
+      # was built with and the browsers @playwright/test expects.
       - name: Install frontend dependencies
         run: npm ci
-        working-directory: ./voter-app
-
-      # ── Playwright ────────────────────────────────────────────────────────────
-      # Browser binaries keyed on package-lock.json, where the Playwright
-      # version is pinned — a version bump naturally invalidates the cache.
-      # `playwright install` still runs unconditionally below: it already
-      # skips re-downloading browsers present in this cache dir, but still
-      # needs to run apt for --with-deps' system libraries either way.
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./voter-app
 
       # blob replaces the config's html/json (the aggregator merges both shards'
