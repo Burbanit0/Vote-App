@@ -76,6 +76,7 @@ jobs:
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Playwright/Docker image version sync
     runs-on: ubuntu-latest
@@ -125,6 +126,7 @@ jobs:
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Playwright E2E (shard ${{ matrix.shard }}/${{ matrix.total }})
     runs-on: ubuntu-latest
@@ -232,6 +234,7 @@ jobs:
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Playwright E2E
     runs-on: ubuntu-latest
@@ -315,6 +318,7 @@ jobs:
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Visual regression (screenshots)
     runs-on: ubuntu-latest
