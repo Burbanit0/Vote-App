@@ -1,0 +1,99 @@
+name: Diff Mutation comment
+
+# Posts the Diff Mutation summaries as sticky PR comments.
+#
+# mutation-diff.yml runs the PR's code, so its jobs hold a read-only token and
+# keep their summary as an artifact (diff-mutation-comment-<tool>: summary.md
+# and pr.txt). This workflow runs from the default branch once that run ends,
+# runs no PR code, and is the only one with pull-requests: write. Being a
+# workflow_run, it also comments on PRs from forks, which the old in-run step
+# could not.
+#
+# Everything read from the artifact is data: the PR number must be digits and
+# that PR's head must still be the commit the run tested, and the summary is
+# only ever a comment body.
+
+on: # zizmor: ignore[dangerous-triggers] downloads two data files from the run, never checks out or runs the PR's code
+  workflow_run:
+    workflows: [Diff Mutation]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    name: Post the Diff Mutation comments
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # the checkout below
+      actions: read # the run's artifacts
+      pull-requests: write # the sticky comments
+    steps:
+      # The default branch's copy of the comment script, not the PR's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/sticky_comment.sh
+          sparse-checkout-cone-mode: false
+      - name: Post one comment per tool
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Empty for a fork's PR; then only the artifact names the PR.
+          EVENT_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          set -uo pipefail
+          warn() { echo "::warning::$*"; }
+
+          # Sets pr to $1 if it is a PR whose head is still the commit this run
+          # tested; otherwise leaves it empty (a newer run reports instead).
+          current_pr() {
+            pr="" local_head=""
+            [[ "$1" =~ ^[0-9]+$ ]] || { warn "not a PR number: '${1:0:20}'"; return; }
+            local_head=$(gh api "repos/$REPO/pulls/$1" --jq .head.sha) || { warn "PR #$1: lookup failed"; return; }
+            if [ "$local_head" != "$HEAD_SHA" ]; then
+              echo "PR #$1 is now at $local_head, not $HEAD_SHA: a newer run reports."
+              return
+            fi
+            pr="$1"
+          }
+
+          for tool in stryker mutmut; do
+            dir="$RUNNER_TEMP/$tool"
+            if err=$(gh run download "$RUN_ID" --repo "$REPO" -n "diff-mutation-comment-$tool" -D "$dir" 2>&1); then
+              current_pr "$(head -c 32 "$dir/pr.txt")"
+              [ -n "$pr" ] || continue
+              # At most 60000 characters (not bytes), and say so when cut.
+              python3 - "$dir/summary.md" "$dir/body.md" "$RUN_URL" <<'PY'
+          import sys
+          src, dst, url = sys.argv[1:]
+          text = open(src, encoding="utf-8", errors="replace").read()
+          if len(text) > 60000:
+              text = text[:60000] + f"\n\n… truncated; the full summary is in the run: {url}\n"
+          open(dst, "w", encoding="utf-8").write(text)
+          PY
+            elif grep -qiE "no (valid )?artifacts? (match|found)" <<< "$err"; then
+              # Nothing to mutate for this tool in this run. Only clear an
+              # earlier comment, so it does not keep reporting old survivors.
+              [ -n "$EVENT_PR" ] || { echo "$tool: no summary, and no same-repo PR to clear."; continue; }
+              current_pr "$EVENT_PR"
+              [ -n "$pr" ] || continue
+              marker="<!-- diff-mutation:$tool -->"
+              id=$(gh api --paginate "repos/$REPO/issues/$pr/comments" \
+                --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" \
+                | head -1) || { warn "$tool: listing the comments of #$pr failed"; continue; }
+              [ -n "$id" ] || { echo "$tool: nothing to mutate, no earlier comment."; continue; }
+              printf 'No changed %s code to mutate at %s.\n' "$tool" "${HEAD_SHA:0:7}" > "$dir.md"
+              mkdir -p "$dir"; mv "$dir.md" "$dir/body.md"
+            else
+              warn "$tool: downloading the summary of run $RUN_ID failed: $err"
+              continue
+            fi
+            bash scripts/sticky_comment.sh "$REPO" "$pr" "diff-mutation:$tool" "$dir/body.md" \
+              || warn "$tool: posting on #$pr failed"
+          done

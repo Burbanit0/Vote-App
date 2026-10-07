@@ -9,7 +9,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 import cog, ci_facts
 cog.outl(f"Vote-App's CI is {len(ci_facts.workflow_files())} workflow files (`.github/workflows/`; generated count).")
 ]]] -->
-Vote-App's CI is 21 workflow files (`.github/workflows/`; generated count).
+Vote-App's CI is 22 workflow files (`.github/workflows/`; generated count).
 <!-- [[[end]]] -->
 Most PRs only ever see four of them; this skill maps every gate to its config
 file, explains the two gates that most often surprise people (the quality ratchet, diff-cover's
@@ -88,8 +88,11 @@ runs `check-flaky.mjs` on the merged `results.json`, uploads `playwright-report`
 and fails unless both shards succeeded. A red shard's own log names the failing
 tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. A
 separate `visual-regression` job runs pixel-diff screenshots inside an
-**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
-has the current tag; must match `voter-app/package.json`'s
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble@sha256:<digest>` image
+(`e2e.yml` has the current pin; Docker pulls by the digest, so when bumping,
+change the tag **and** the digest: the sync job checks the digest against what
+the registry serves for the tag whenever `e2e.yml` or `package.json` changes,
+and its error prints the right one. The tag must match `voter-app/package.json`'s
 `@playwright/test` version exactly — a mismatch fails to find the
 pre-installed browsers, or worse, silently renders against a different
 browser build than the one that produced the committed baselines, e.g.
@@ -169,7 +172,9 @@ not a separate `codeql.yml`.
   fail on the base code (`scripts/check_red_on_base.py`); a `refactor/` PR must
   change no test.
 - `mutation-diff.yml` — advisory, PRs to `polity`: Stryker/mutmut on the changed
-  lines/functions only (`scripts/mutation_diff.py`), one sticky comment per tool.
+  lines/functions only (`scripts/mutation_diff.py`), read-only token; it keeps
+  each summary as an artifact, and `mutation-diff-comment.yml` (`workflow_run`,
+  develop's copy) posts one sticky comment per tool.
 - `branch-red-alert.yml` — keeps one `polity-red` issue open while a watched
   workflow's latest polity run is red. `ci-dashboard.yml` — the GitHub Pages CI
   dashboard plus a Monday "CI weekly report" issue. Both run from develop's copy.
