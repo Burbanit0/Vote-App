@@ -7,27 +7,6 @@
       "node_modules/braces"
     ]
   },
-  "GHSA-ch52-4w7c-c8xp": {
-    "until": "2026-11-02",
-    "reason": "http-cache-semantics <=4.2.0 max-stale handling can disclose cross-user cached responses. Covers the latest release, so no patched version exists yet. Dev-only: license-checker-rseidelsohn -> @npmcli/arborist -> npm-registry-fetch -> make-fetch-happen -> http-cache-semantics, a single-user CLI cache in CI, never shipped (npm's only offer is a semver-major downgrade of license-checker). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) once http-cache-semantics ships a fix.",
-    "nodes": [
-      "node_modules/http-cache-semantics"
-    ]
-  },
-  "GHSA-p6vx-979v-rg4c": {
-    "until": "2026-11-05",
-    "reason": "Critical: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools (a devDependency since 2026-10-06, so Trivy skips it) -> @tanstack/query-devtools -> solid-js -> seroval, lazily imported only when NODE_ENV !== 'production' (src/index.tsx); a production build neither resolves nor contains it (built without the package installed, 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
-    "nodes": [
-      "node_modules/seroval"
-    ]
-  },
-  "GHSA-jp82-f5mq-hwhp": {
-    "until": "2026-11-05",
-    "reason": "High: seroval <=1.6.2 (fixed from 1.6.3). No fixed version is reachable: solid-js 1.9.15, the latest stable, pins seroval ~1.5.4, and npm's only offer is downgrading @tanstack/react-query-devtools to 5.102.8. Dev-only: @tanstack/react-query-devtools (a devDependency since 2026-10-06, so Trivy skips it) -> @tanstack/query-devtools -> solid-js -> seroval, lazily imported only when NODE_ENV !== 'production' (src/index.tsx); a production build neither resolves nor contains it (built without the package installed, 2026-10-06). Replace with `npm audit fix --package-lock-only` once solid-js 1.x accepts seroval >=1.6.3 or the devtools drop it.",
-    "nodes": [
-      "node_modules/seroval"
-    ]
-  },
   "GHSA-68fv-2mgg-jv7q": {
     "until": "2026-10-14",
     "reason": "source-map-js <=1.2.1 event-loop DoS on crafted indexed source maps. 1.2.2 fixes it but was published 2026-09-30, so .npmrc's min-release-age=7 refuses it until 2026-10-07. Build tooling only: postcss (vite), @tailwindcss/node, jsdom's css-tree, magicast (coverage), reading our own files; a production build contains none of it (checked 2026-10-06). Replace with `npm audit fix --package-lock-only` (npm >= 11.10) from 2026-10-07 and delete this entry.",
