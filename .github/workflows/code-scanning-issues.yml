@@ -1,0 +1,56 @@
+name: Code scanning issues
+
+# Groups the open code-scanning alerts on develop into a handful of tracking
+# issues labelled `code-scanning` (scripts/code_scanning_issues.py): one per
+# scanned file for Trivy (base-image packages, lockfiles), one per rule for the
+# other tools. Idempotent: each issue is refreshed from the live alerts and
+# closed when its group empties.
+#
+# schedule and workflow_dispatch only run from the DEFAULT branch's copy of this
+# file (develop), so this does nothing until it is synced to develop. The cron
+# runs the day after the weekly Security Audit, so the alerts it reads are fresh.
+# Run it by hand with dry_run=true first to see what it would open.
+
+on:
+  schedule:
+    - cron: '41 7 * * 2' # weekly, Tuesday, after audit.yml's Monday 06:00 run
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the plan, change nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-scanning-issues
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync code-scanning issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: read # list the code-scanning alerts
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+          ref: develop
+      - name: Sync the issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          gh label create code-scanning --repo "$GITHUB_REPOSITORY" --color D93F0B \
+            --description "Tracks open code-scanning alerts on develop" 2>/dev/null || true
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 scripts/code_scanning_issues.py --dry-run
+          else
+            python3 scripts/code_scanning_issues.py
+          fi
