@@ -39,6 +39,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant == 'true' || steps.backend.outputs.runtime == 'true' }}
+      pin: ${{ steps.filter.outputs.pin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -50,6 +51,10 @@ jobs:
             relevant:
               - 'voter-app/**'
               - '.github/workflows/e2e.yml'
+            # Where the visual-regression image pin and @playwright/test live.
+            pin:
+              - '.github/workflows/e2e.yml'
+              - 'voter-app/package.json'
       # The backend counts only where the running app can change: a change confined to
       # backend scripts, backend tests or Markdown cannot alter what the e2e suite drives.
       # `every` makes a file match only when it passes all four patterns -- inside
@@ -96,7 +101,15 @@ jobs:
       # fixed afterwards in hotfix PR #478. This job turns that same class of
       # break into a fast, explicit failure on the PR that introduces it,
       # instead of a cryptic missing-browser error discovered later.
+      # The image is pinned by tag AND digest, and Docker pulls by the digest:
+      # a later bump of the tag alone would keep running the old browser. So
+      # when the pin can have moved (this change touches e2e.yml or
+      # package.json; or a dispatch, or the release), the digest is also
+      # checked against what the registry serves for the tag. Other runs skip
+      # that lookup, so a tag Microsoft re-pushes cannot turn unrelated PRs red.
       - name: Assert @playwright/test matches the visual-regression image tag
+        env:
+          PIN_CHANGED: ${{ needs.changes.outputs.pin }}
         run: |
           # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
           # so a non-matching grep (exit 1) would otherwise abort the script
@@ -113,6 +126,30 @@ jobs:
             exit 1
           fi
           echo "OK: @playwright/test and the visual-regression Docker image both pinned to $pkg_version"
+
+          digest=$(grep -oP 'mcr\.microsoft\.com/playwright:v[0-9.]+-noble@\Ksha256:[0-9a-f]{64}' .github/workflows/e2e.yml || true)
+          if [ -z "$digest" ]; then
+            echo "::error::The visual-regression image must be pinned by digest too: image: mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
+            exit 1
+          fi
+          if [ "$PIN_CHANGED" = false ]; then
+            echo "OK: pinned to $digest (the pin did not change here: registry lookup skipped)"
+            exit 0
+          fi
+          tag="v$pkg_version-noble"
+          served=$(curl -fsSI --retry 3 --max-time 30 \
+            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            "https://mcr.microsoft.com/v2/playwright/manifests/$tag" \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "docker-content-digest" { print $2 }')
+          if [ -z "$served" ]; then
+            echo "::error::Could not read the digest of mcr.microsoft.com/playwright:$tag from the registry; re-run this job."
+            exit 1
+          fi
+          if [ "$served" != "$digest" ]; then
+            echo "::error::The pinned digest is not the one mcr.microsoft.com/playwright:$tag serves: Docker would run another browser than the tag says. Set the image line to mcr.microsoft.com/playwright:$tag@$served."
+            exit 1
+          fi
+          echo "OK: $digest is what the registry serves for $tag"
 
   # Two shards, then one `Playwright E2E` job that merges their reports. The
   # suite took ~10 of the job's 11 minutes; split in two (198 + 197 tests) it
@@ -335,7 +372,9 @@ jobs:
     # find the pre-installed browsers or silently compares against a different
     # renderer than the one that generated the committed baselines.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Tag for readers, digest for Docker; the playwright-image-sync job
+      # checks both against @playwright/test and the registry.
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --ipc=host
 
     steps:

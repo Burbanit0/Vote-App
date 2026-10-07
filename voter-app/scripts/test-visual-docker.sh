@@ -25,14 +25,19 @@
 #   scripts/test-visual-docker.sh                 # run the suite, compare to committed baselines
 #   scripts/test-visual-docker.sh --update-snapshots   # (re)generate baselines
 #
-# The image tag is derived from package.json's pinned @playwright/test version
-# so a version bump can't silently drift the two out of sync.
+# The image is the one CI's visual-regression job pins (tag and digest, in
+# .github/workflows/e2e.yml), so local and CI baselines come from the same
+# browser build; it must match package.json's @playwright/test version.
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 PW_VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
-IMAGE="mcr.microsoft.com/playwright:v${PW_VERSION}-noble"
+IMAGE=$(grep -oE 'mcr\.microsoft\.com/playwright:v[0-9.]+-noble@sha256:[0-9a-f]{64}' ../.github/workflows/e2e.yml | head -1)
+if [ -z "$IMAGE" ] || [[ "$IMAGE" != *":v${PW_VERSION}-noble@"* ]]; then
+  echo "The image pinned in .github/workflows/e2e.yml ('${IMAGE:-none}') is not v${PW_VERSION}-noble with a digest: fix the pin first." >&2
+  exit 1
+fi
 
 echo "Running visual regression suite in ${IMAGE}"
 
