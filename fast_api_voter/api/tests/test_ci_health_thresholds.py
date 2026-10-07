@@ -218,6 +218,36 @@ def test_a_branch_without_a_protect_function_is_an_error_not_a_guess(watchdog, m
     assert watchdog.check_branch_protection_drift("main")["status"] == "unhealthy"
 
 
+@pytest.mark.parametrize(
+    ("app_var", "branch", "live_app", "expected"),
+    [
+        ("", "polity", -1, "healthy"),  # no App configured: any source, as before
+        ("424242", "polity", 424242, "healthy"),  # pinned to the configured App
+        ("424242", "polity", -1, "drifted"),  # App configured, gate left unpinned
+        ("424242", "develop", 15368, "drifted"),  # pinned to another app (Actions)
+        ("424242", "main", None, "healthy"),  # main never requires the gate
+        (" 424242\n", "polity", 424242, "healthy"),  # a pasted variable's whitespace
+    ],
+)
+def test_the_review_gate_must_be_pinned_to_the_configured_app(
+    watchdog, monkeypatch, app_var, branch, live_app, expected
+):
+    """Phase 3b: with REVIEW_GATE_APP_ID set, an unpinned (or wrongly pinned)
+    gate is drift, since any workflow's GITHUB_TOKEN could then satisfy it."""
+    assert watchdog.review_gate_name() == "High-risk review gate"  # read from the script
+    contexts, strict = watchdog.parse_setup_script_expectations(branch)
+    checks = [
+        {"context": c, "app_id": live_app if c == watchdog.review_gate_name() else -1} for c in contexts
+    ]
+    live = {"required_status_checks": {"strict": strict, "checks": checks}}
+    monkeypatch.setattr(watchdog, "_run_gh_json", lambda _args: live)
+    monkeypatch.setenv("REVIEW_GATE_APP_ID", app_var)
+    result = watchdog.check_branch_protection_drift(branch)
+    assert result["status"] == expected, result
+    if expected == "drifted":
+        assert "REVIEW_GATE_APP_ID" in result["detail"]
+
+
 def test_a_snapshot_from_before_polity_was_checked_still_verifies(watchdog, monkeypatch, tmp_path):
     """PRs read develop's snapshot, which predates this check until the next audit."""
     assert _verify_with(watchdog, monkeypatch, tmp_path, {"branch_protection": {"status": "healthy"}}) == 0
