@@ -1,0 +1,104 @@
+name: zizmor online
+
+# zizmor's online audits, which the required "Workflow lint" job skips
+# (it runs --offline): they call the GitHub API to catch a pinned action SHA
+# that is not on the action's repository (impostor-commit), a ref that names
+# both a branch and a tag (ref-confusion), an action version with a known
+# advisory (known-vulnerable-actions), and similar.
+#
+# Not a PR check: the results depend on the outside world (a new advisory can
+# appear on any day), so a PR would go red for nothing it changed. Instead,
+# weekly and after every workflow change on polity, the findings are kept in
+# one open issue labelled `zizmor-online`; it is closed when a run is clean.
+# A tool error (not a finding) turns the run red.
+#
+# The schedule fires from the default branch (develop) once it carries this
+# file; the push trigger works from polity right away.
+
+on:
+  schedule:
+    - cron: "37 5 * * 2" # Tuesdays
+  push:
+    branches: [polity]
+    paths:
+      - ".github/workflows/**"
+      - ".github/zizmor.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: zizmor-online
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: zizmor (online audits)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # the zizmor-online issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install zizmor
+        run: python -m pip install zizmor==1.30.1 # same version as workflow-lint.yml
+      - name: Run the online audits
+        id: zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          rc=0
+          zizmor --min-severity medium --format plain .github/workflows > "$RUNNER_TEMP/zizmor.txt" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/zizmor.txt"
+          # 0: no finding. 10 and up: findings (10 + the highest severity).
+          # Anything else is zizmor failing, not a finding.
+          if [ "$rc" -eq 0 ]; then
+            echo "findings=false" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ge 10 ]; then
+            echo "findings=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::zizmor exited $rc: see the output above"
+            exit 1
+          fi
+      - name: Keep one issue open while there are findings
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          FINDINGS: ${{ steps.zizmor.outputs.findings }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh label create zizmor-online --repo "$REPO" --color b60205 \
+            --description "zizmor online audit findings (zizmor-online.yml)" 2>/dev/null || true
+          number=$(gh issue list --repo "$REPO" --label zizmor-online --state open \
+            --json number --jq '.[0].number // empty')
+          if [ "$FINDINGS" = true ]; then
+            {
+              echo "zizmor's online audits report findings on \`${SHA:0:7}\` ([run]($RUN_URL))."
+              echo "Fix them, or accept one with a \`# zizmor: ignore[rule]\` comment and its reason."
+              echo "This issue closes itself on the next clean run."
+              echo
+              echo '```'
+              head -c 60000 "$RUNNER_TEMP/zizmor.txt"
+              echo '```'
+            } > "$RUNNER_TEMP/body.md"
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/body.md" > /dev/null
+              echo "Updated #$number."
+            else
+              gh issue create --repo "$REPO" --title "zizmor online audit findings" \
+                --label zizmor-online --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --repo "$REPO" \
+              --comment "Clean on \`${SHA:0:7}\` ([run]($RUN_URL))."
+          fi

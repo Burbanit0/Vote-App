@@ -9,7 +9,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 import cog, ci_facts
 cog.outl(f"Vote-App's CI is {len(ci_facts.workflow_files())} workflow files (`.github/workflows/`; generated count).")
 ]]] -->
-Vote-App's CI is 21 workflow files (`.github/workflows/`; generated count).
+Vote-App's CI is 22 workflow files (`.github/workflows/`; generated count).
 <!-- [[[end]]] -->
 Most PRs only ever see four of them; this skill maps every gate to its config
 file, explains the two gates that most often surprise people (the quality ratchet, diff-cover's
@@ -168,6 +168,9 @@ not a separate `codeql.yml`.
 - `red-on-base.yml` — advisory: a `feat/`/`fix/` PR's new or changed tests must
   fail on the base code (`scripts/check_red_on_base.py`); a `refactor/` PR must
   change no test.
+- `zizmor-online.yml` — not a PR check: zizmor's online audits (impostor
+  commits, ref confusion, known-vulnerable actions) weekly and on polity
+  workflow pushes; findings live in one `zizmor-online` issue, closed when clean.
 - `mutation-diff.yml` — advisory, PRs to `polity`: Stryker/mutmut on the changed
   lines/functions only (`scripts/mutation_diff.py`), one sticky comment per tool.
 - `branch-red-alert.yml` — keeps one `polity-red` issue open while a watched
