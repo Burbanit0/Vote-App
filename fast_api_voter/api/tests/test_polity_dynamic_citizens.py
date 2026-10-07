@@ -112,6 +112,7 @@ def _worlds(draw: st.DrawFn) -> tuple[np.ndarray, np.ndarray, NeighbourEdges, fl
     return factors, anchors, NeighbourEdges.from_graph(_graph(ties, n)), draw(unit), draw(unit), draw(st.floats(0.0, 5.0))
 
 
+@pytest.mark.behavior("CIT-02")
 @settings(max_examples=300, deadline=None)
 @given(_worlds())
 def test_at_the_neutral_settings_nobody_moves_at_all(world: tuple) -> None:
@@ -121,6 +122,7 @@ def test_at_the_neutral_settings_nobody_moves_at_all(world: tuple) -> None:
     assert step.mean_shift == 0.0 and step.max_shift == 0.0
 
 
+@pytest.mark.behavior("CIT-02")
 @settings(max_examples=300, deadline=None)
 @given(_worlds())
 def test_without_drift_every_citizen_stays_within_the_span_of_where_citizens_are_and_started(world: tuple) -> None:

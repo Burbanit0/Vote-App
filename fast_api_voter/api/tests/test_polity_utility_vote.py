@@ -3,6 +3,7 @@ when every new term at zero reproduces build_ranking exactly -- the property bel
 from __future__ import annotations
 
 import dataclasses
+import random
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from hypothesis import strategies as st
 
 import api.domain.polity.run_polity_simulation as engine
 from api.domain.polity.checkpoint import load_checkpoint
-from api.domain.polity.citizen import Citizen
+from api.domain.polity.citizen import Citizen, generate_population
 from api.domain.polity.config import PolityConfig, VoteConfig, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.parties import Party
@@ -22,6 +23,7 @@ from api.domain.polity.simple_rules import (
     abstains,
     build_ranking,
     candidate_label,
+    candidate_utility,
     incumbent_record,
     utility_ballot,
 )
@@ -67,6 +69,7 @@ def _electorates(draw: st.DrawFn) -> tuple[Citizen, list[Citizen], IncumbentReco
     return voter, candidates, incumbent, valence
 
 
+@pytest.mark.behavior("ELE-06")
 @settings(max_examples=400, deadline=None)
 @given(_electorates())
 def test_with_every_term_at_zero_the_utility_ballot_is_build_rankings_ballot(electorate: tuple) -> None:
@@ -106,13 +109,37 @@ def test_valence_moves_a_candidate() -> None:
     assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, valence=1.0), valence={further.citizen_id: 0.2})[0] == candidate_label(further)
 
 
-def test_an_indifferent_voter_abstains_once_turning_out_has_a_cost() -> None:
-    voter, near, further = _field()
-    tight = _citizen(4, (0.56,), (1.0,), party=3, candidate=True)  # distance 0.06: 0.01 behind `near`
-    assert utility_ballot(voter, [near, tight], dataclasses.replace(ZERO, turnout_cost=0.02)) is None
-    assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None  # 0.1 ahead
+def test_a_voter_stays_home_when_their_best_candidate_is_worth_about_a_blank_ballot() -> None:
+    voter, near, further = _field()  # the voter's blank ballot is worth -0.3
+    marginal = _citizen(4, (0.79,), (1.0,), party=3, candidate=True)  # distance 0.29: 0.01 better than blank
+    assert utility_ballot(voter, [marginal], dataclasses.replace(ZERO, turnout_cost=0.02)) is None
+    assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None
+    # OBS-042: two close candidates, both far better than blank, no longer keep the voter home.
+    tight = _citizen(5, (0.56,), (1.0,), party=3, candidate=True)  # distance 0.06: 0.01 behind `near`
+    assert utility_ballot(voter, [near, tight], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None
     assert abstains(voter, [], 0.0) is False
+    assert abstains(voter, [], 0.05) is False  # no field: nothing to be indifferent about
     assert abstains(voter, [-0.3], 0.01) is True  # the only candidate is worth exactly the blank ballot
+    assert abstains(voter, [-0.32], 0.05) is True  # a little worse than blank counts too
+
+
+def test_how_many_stay_home_does_not_grow_with_the_field() -> None:
+    # OBS-042: the rule it replaced kept 27% of this population home against 2 candidates and 80%
+    # against 20; best-against-blank stays near a tenth at the shipped LLM cost, whatever the field.
+    citizens = generate_population(load_config().citizens, 100, 7)
+
+    def home(k: int) -> float:
+        shares = []
+        for draw in range(10):
+            field = random.Random(draw).sample(citizens, k)
+            utilities = {c.citizen_id: [candidate_utility(c, x, ZERO, platform=tuple(x.issue_positions)) for x in field]
+                         for c in citizens if c not in field}
+            shares.append(sum(abstains(v, utilities[v.citizen_id], 0.04) for v in citizens if v.citizen_id in utilities)
+                          / len(utilities))
+        return sum(shares) / len(shares)
+
+    small, large = home(2), home(20)
+    assert small < 0.2 and large < 0.2 and abs(small - large) < 0.05
 
 
 def test_a_presidents_record_follows_their_legitimacy() -> None:
@@ -201,6 +228,7 @@ def test_a_rerun_judges_the_president_its_pending_rerun_carries(tmp_path: Path) 
     assert engine._judged_incumbent([_citizen(1, (0.5,), (1.0,))], 1, untracked) is None
 
 
+@pytest.mark.behavior("ELE-09")
 def test_a_rerun_winner_serves_until_the_calendar_s_next_election(tmp_path: Path) -> None:
     # OBS-041: the calendar resumes after a rerun, so a winner off it serves until the next calendar
     # election, not a full term from its own win -- on the last tick before it, one tick left.

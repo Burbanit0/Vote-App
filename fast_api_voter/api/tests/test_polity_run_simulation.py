@@ -212,6 +212,7 @@ def test_run_simulation_writes_no_duckdb_when_index_after_run_is_false(tmp_path)
     assert not journal_path.with_name("events.duckdb").exists()
 
 
+@pytest.mark.behavior("JRN-07")
 def test_compaction_does_not_change_a_single_journal_byte(tmp_path):
     # The non-negotiable check: compacting must never perturb journal.py's
     # writer behavior or any existing journal byte.
@@ -235,6 +236,7 @@ def test_full_run_completes_and_produces_a_non_empty_journal(tmp_path):
         json.loads(line)  # every line is valid, complete JSON
 
 
+@pytest.mark.behavior("ELE-02")
 def test_election_counts_match_the_calendar(tmp_path):
     journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
     events = _events(journal_path)
@@ -244,6 +246,7 @@ def test_election_counts_match_the_calendar(tmp_path):
     assert len(legislative_results) == 8
 
 
+@pytest.mark.behavior("ELE-01")
 def test_every_legislative_result_allocates_all_seats(tmp_path):
     journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
     config = load_config()
@@ -252,12 +255,14 @@ def test_every_legislative_result_allocates_all_seats(tmp_path):
             assert sum(event["payload"]["seats"].values()) == config.institutions.assembly_seats
 
 
+@pytest.mark.behavior("DET-01")
 def test_two_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
     path_a = run_simulation(_config_with_output_dir(tmp_path / "a"), run_id="same-run-id")
     path_b = run_simulation(_config_with_output_dir(tmp_path / "b"), run_id="same-run-id")
     assert path_a.read_bytes() == path_b.read_bytes()
 
 
+@pytest.mark.behavior("DET-02")
 def test_different_seed_produces_a_different_journal(tmp_path):
     config_a = _config_with_output_dir(tmp_path / "a")
     config_b = _config_with_output_dir(tmp_path / "b")
@@ -582,6 +587,7 @@ def test_accountability_phase_records_deviation_only_above_the_threshold(tmp_pat
 
 # ── term limits (v4 Lot 2, §6bis.1) ──────────────────────────────────────
 
+@pytest.mark.behavior("ELE-03")
 def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
     config = dataclasses.replace(
         load_config(), institutions=dataclasses.replace(load_config().institutions, president_term_limit=1)
@@ -735,6 +741,7 @@ def test_a_structurally_empty_candidate_field_really_is_empty(tmp_path):
     assert all(e["payload"]["reason"] == "no_candidates" for e in no_winner)
 
 
+@pytest.mark.behavior("DET-05")
 def test_blank_vote_competitive_enabled_but_never_triggered_matches_the_default_journal_byte_for_byte(tmp_path):
     # The load-bearing off-vs-on proof. With an empty candidate field, nominees
     # is always [] and the invalidation check inside `if nominees:` never even
@@ -885,6 +892,7 @@ def test_barred_candidates_are_excluded_from_the_next_partys_nomination(tmp_path
     assert result is None
 
 
+@pytest.mark.behavior("ELE-04")
 def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
     # blank_vote_competitive itself is irrelevant to this call --
     # _attempt_rupture_candidacies only reads config.candidacy and the
@@ -1882,6 +1890,7 @@ def test_a_survived_confidence_vote_leaves_legitimacy_untouched_and_opens_the_co
     assert holder.petition_cooldown_until_tick == 7 + config.petition.cooldown_ticks
 
 
+@pytest.mark.behavior("CIT-04")
 def test_a_second_petition_cannot_launch_during_the_cooldown(tmp_path):
     config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
     config = dataclasses.replace(
@@ -2265,6 +2274,7 @@ def test_mandate_tracking_without_the_llm_never_moves_revealed_position(tmp_path
     assert not [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
 
 
+@pytest.mark.behavior("JRN-03")
 def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
     config = _config_with_mandate_llm_enabled(tmp_path)
     journal_path = run_simulation(config, run_id="dt6", llm_client=_ElectingFakeLlmClient())
@@ -2783,6 +2793,7 @@ def test_awakening_without_the_llm_still_uses_the_deterministic_baseline(tmp_pat
         assert e["codebook_version"] == ""
 
 
+@pytest.mark.behavior("JRN-04")
 def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(tmp_path):
     config = _config_with_awakening_llm_enabled(tmp_path)
     # street_pressure.enabled with it: the menu flag and the lever describe one fact, and
@@ -2982,6 +2993,7 @@ def test_pressure_action_ctx_reflects_this_ticks_revealed_position(tmp_path):
     assert seen_self_gap[0] == pytest.approx(expected_gap)
 
 
+@pytest.mark.behavior("CIT-06")
 def test_pressure_action_ctx_never_carries_street_pressure(tmp_path):
     # The asymmetry with dt=6 asserted, not just implemented: the same run's
     # representative_response.ctx.street is populated while
@@ -3453,6 +3465,7 @@ def test_sortition_chamber_enabled_without_the_llm_never_moves_chamber_position(
     assert [e for e in events if e["event_type"] == "sortition_rotation"]  # the chamber IS seated
 
 
+@pytest.mark.behavior("CIT-08")
 def test_sortition_chamber_occupancy_never_drops_below_seats(tmp_path):
     # Track A4 (2026-09-11, lets-build-a-solid-spicy-otter.md): the
     # continuity contrast the presidency's own chronic vacancy is measured
@@ -3482,6 +3495,7 @@ def test_sortition_chamber_occupancy_never_drops_below_seats(tmp_path):
         assert occupancy == config.sortition_chamber.seats
 
 
+@pytest.mark.behavior("JRN-05")
 def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_path):
     config = _config_with_sortition_llm_enabled(tmp_path, seats=3)
     journal_path = run_simulation(config, run_id="chamber-deliberation", llm_client=_FakeLlmClient())
@@ -4389,6 +4403,7 @@ def test_shock_ticks_measurably_raise_consultation_rate(tmp_path):
     assert sum(shock_rates) / len(shock_rates) > sum(quiet_rates) / len(quiet_rates)
 
 
+@pytest.mark.behavior("CIT-07")
 def test_event_salience_never_writes_legitimacy_or_ecart_directly(tmp_path):
     # Non-regression proof: under electoral_only (shipped default -- no
     # petition, no mobilization), deterministic_pressure_action always
@@ -4446,6 +4461,7 @@ def test_events_enabled_without_the_llm_still_uses_the_deterministic_baseline(tm
         assert e["payload"]["salience_delta"] == pytest.approx(config.events.scandal_magnitude)
 
 
+@pytest.mark.behavior("JRN-06")
 def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_with_its_ctx(tmp_path):
     config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
     journal_path = run_simulation(config, run_id="reaction-llm", llm_client=_FakeLlmClient())
@@ -4664,6 +4680,7 @@ def test_election_no_winner_omits_reason_when_candidates_actually_ran(tmp_path):
         assert "reason" not in event["payload"]
 
 
+@pytest.mark.behavior("ELE-05")
 def test_elected_never_carries_a_reason(tmp_path):
     config = _config_with_output_dir(tmp_path)
     config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
@@ -4721,6 +4738,7 @@ def _events_ignoring_run_id(journal_path):
     return [{k: v for k, v in e.items() if k != "run_id"} for e in _events(journal_path)]
 
 
+@pytest.mark.behavior("DET-03")
 def test_resume_after_a_simulated_crash_mid_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
     config_a = _resumable_config(tmp_path / "uninterrupted")
     journal_a = run_simulation(config_a, run_id="run")
@@ -4754,6 +4772,7 @@ def test_resume_after_a_simulated_crash_mid_tick_matches_an_uninterrupted_run(tm
     assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
 
 
+@pytest.mark.behavior("DET-03")
 def test_resume_after_a_clean_stop_between_ticks_matches_an_uninterrupted_run(tmp_path, monkeypatch):
     # The simpler case Phase 3's own gate also names, and genuinely distinct
     # from the mid-tick-crash test above: interrupted CLEANLY between two
@@ -4966,6 +4985,7 @@ def test_expected_snapshot_rows_matches_what_an_uninterrupted_run_actually_write
     assert len(rows) == expected_snapshot_rows(last_tick, config.run.ticks_per_year, config.run.population_size)
 
 
+@pytest.mark.behavior("DET-03")
 def test_resume_after_a_crash_on_a_snapshot_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
     # The specific case is_snapshot_tick's own docstring calls out: a crash
     # on a tick that is BOTH a snapshot tick AND never finishes must not

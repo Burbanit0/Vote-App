@@ -30,6 +30,11 @@ addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v 
 # Ini keys, not addopts: they hold under `-o addopts=""` (fast-gate, local runs).
 strict_markers = true
 xfail_strict = true
+# behavior("ELE-01", ...): the docs/spec/behaviors.md invariants a test checks;
+# test_behavior_catalogue.py keeps the catalogue and the markers in step.
+markers = [
+    "behavior(*ids): the docs/spec/behaviors.md invariant IDs this test checks",
+]
 
 [tool.coverage.run]
 source = ["api"]

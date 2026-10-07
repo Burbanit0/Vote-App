@@ -566,6 +566,7 @@ def test_electoral_only_at_or_above_blank_threshold_is_wait_for_election():
     assert deterministic_pressure_action(citizen, gap=0.9, menu=_ELECTORAL_ONLY_MENU) == PressureAct.WAIT_FOR_ELECTION
 
 
+@pytest.mark.behavior("CIT-09")
 def test_electoral_only_never_returns_a_petition_or_mobilize_act():
     for gap in (0.0, 0.1, 0.3, 0.5, 0.9, 1.0):
         citizen = _citizen(1, (0.5,), blank_threshold=0.3)

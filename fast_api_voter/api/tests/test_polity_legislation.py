@@ -83,6 +83,7 @@ def test_the_status_quo_starts_at_each_issue_s_median() -> None:
     assert population_median([_citizen(0, (0.2,)), _citizen(1, (0.6,))]) == (0.4,)
 
 
+@pytest.mark.behavior("LEG-01")
 def test_a_bill_moves_the_largest_weighted_gaps_by_at_most_the_step() -> None:
     policy = (0.5, 0.5, 0.5, 0.5)
     aim = (0.9, 0.55, 0.1, 0.9)
@@ -96,6 +97,7 @@ def test_a_bill_moves_the_largest_weighted_gaps_by_at_most_the_step() -> None:
     assert draft_bill(policy, policy, priorities, RULES, bill_id=1, agenda_setter=PRESIDENT, proposer=7) is None
 
 
+@pytest.mark.behavior("LEG-02")
 def test_the_assembly_passes_a_bill_only_with_more_than_the_majority_of_seats() -> None:
     parties = [Party(0, (0.8, 0.8)), Party(1, (0.2, 0.2)), Party(2, (0.7, 0.6))]
     bill = Bill(bill_id=1, agenda_setter=PRESIDENT, proposer=9, dimensions=(0,), proposal=(0.6,))
@@ -141,6 +143,7 @@ def _judged_elections(draw: st.DrawFn) -> tuple[Citizen, list[Party], GoverningR
     return voter, parties, governing, candidates, incumbent
 
 
+@pytest.mark.behavior("ELE-07")
 @settings(max_examples=300, deadline=None)
 @given(_judged_elections())
 def test_with_the_weight_at_zero_a_policy_record_changes_no_party_choice_and_no_ballot(election: tuple) -> None:
@@ -268,6 +271,7 @@ def test_under_cohabitation_the_government_proposes_and_the_president_blocks_wha
     assert [e["type"] for e in events] == ["bill_proposed", "bill_voted", "bill_enacted"]
 
 
+@pytest.mark.behavior("LEG-03")
 def test_nothing_is_read_without_an_assembly_or_a_president_or_off_the_interval(tmp_path: Path) -> None:
     config = _config()
     no_assembly = _state([_president(0, (0.9, 0.9), party=0)], Legislature(policy=(0.5, 0.5)))
@@ -318,6 +322,7 @@ def test_a_legislating_run_keeps_its_assembly_journals_yearly_policy_and_enacts_
     assert legislature.bills_enacted == len(enacted)
 
 
+@pytest.mark.behavior("DET-03")
 def test_legislation_off_writes_no_legislature_and_a_legislating_run_resumes_byte_identical(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     static = run_simulation(golden_config(tmp_path / "static", llm=False), run_id="run")
     assert "legislature" not in json.loads((static.parent / "checkpoint.json").read_text())

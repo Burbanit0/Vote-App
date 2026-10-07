@@ -33,12 +33,14 @@ def test_every_configured_presidential_method_has_a_dispatch_entry():
     assert set(RANKED_METHODS) | set(SCORE_METHODS) == _ALL_PRESIDENTIAL_METHODS
 
 
+@pytest.mark.behavior("ELE-08")
 def test_every_ranked_method_picks_the_unanimous_winner():
     ballots = [["A", "B", "C"]] * 7 + [["B", "A", "C"]] * 3
     for method in RANKED_METHODS:
         assert get_presidential_winner(ballots, method) == "A", method
 
 
+@pytest.mark.behavior("ELE-08")
 def test_every_score_method_picks_the_unanimous_winner():
     ballots = [{"A": 5, "B": 1, "C": 0}] * 10
     for method in SCORE_METHODS:
@@ -56,9 +58,10 @@ def test_two_round_resolves_a_case_plurality_gets_wrong():
     assert get_presidential_winner(ballots, "two_round") == "B"
 
 
+@pytest.mark.behavior("ELE-08")
 def test_empty_ballots_return_no_winner():
-    assert get_presidential_winner([], "plurality") is None
-    assert get_presidential_winner([], "star") is None
+    for method in (*RANKED_METHODS, *SCORE_METHODS):
+        assert get_presidential_winner([], method) is None, method
 
 
 def test_unknown_method_raises():

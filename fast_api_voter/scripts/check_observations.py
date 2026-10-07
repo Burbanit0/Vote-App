@@ -282,8 +282,9 @@ def term_limit() -> None:
 
 
 def indifference() -> None:
-    """Share of citizens the indifference rule keeps home as the field grows, against two rules
-    that compare the best candidate with something else: one population, k candidates drawn from it."""
+    """Share of citizens indifference rules keep home as the field grows: the one OBS-042 replaced
+    (best against next best) and two that compare the best candidate with something else, at the old
+    cost 0.04, then the shipped rule at the shipped cost. One population, k candidates drawn from it."""
     import random
     import statistics
 
@@ -293,24 +294,26 @@ def indifference() -> None:
     from run_polity_flagship import LLM_TURNOUT_COST
 
     config = load_config()
-    vote, cost = config.vote, LLM_TURNOUT_COST
+    vote, cost = config.vote, 0.04  # LLM_TURNOUT_COST when OBS-042 measured it
     citizens = generate_population(config.citizens, 100, 7)
-    print("candidates  best vs next best  best vs blank  best vs field mean")
+    print(f"candidates  best vs next best  best vs blank  best vs field mean  shipped, {LLM_TURNOUT_COST}")
     for k in (2, 3, 5, 10, 15, 20, 30):
-        shares: list[list[float]] = [[], [], []]
+        shares: list[list[float]] = [[], [], [], []]
         for draw in range(40):
             field = random.Random(draw).sample(citizens, k)
             voters = [c for c in citizens if c not in field]
-            homes = [0, 0, 0]
+            homes = [0, 0, 0, 0]
             for voter in voters:
                 utilities = [candidate_utility(voter, c, vote, platform=tuple(c.issue_positions)) for c in field]
                 best = max(utilities)
-                homes[0] += abstains(voter, utilities, cost)
+                options = sorted([*utilities, -voter.blank_threshold], reverse=True)
+                homes[0] += options[0] - options[1] < cost
                 homes[1] += abs(best + voter.blank_threshold) < cost
                 homes[2] += best - statistics.mean(utilities) < cost
+                homes[3] += abstains(voter, utilities, LLM_TURNOUT_COST)
             for share, home in zip(shares, homes):
                 share.append(home / len(voters))
-        print(f"{k:>10}  " + "  ".join(f"{statistics.mean(s):>{w}.0%}" for s, w in zip(shares, (17, 13, 18))))
+        print(f"{k:>10}  " + "  ".join(f"{statistics.mean(s):>{w}.0%}" for s, w in zip(shares, (17, 13, 18, 14))))
 
 
 def main(argv: list[str] | None = None) -> int:

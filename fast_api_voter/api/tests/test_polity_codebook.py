@@ -54,6 +54,7 @@ def test_check_codebook_version_rejects_a_mismatch():
         check_codebook_version("0.9")
 
 
+@pytest.mark.behavior("JRN-08")
 def test_decision_type_never_reassigns_the_retired_code_7():
     assert 7 not in {member.value for member in DecisionType}
 

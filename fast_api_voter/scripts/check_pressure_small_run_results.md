@@ -7,7 +7,7 @@ vLLM server and look at what pressure_action does across a real run.
 
 ## Setup
 
-`scripts/check_pressure_small_run.py`: the shipped config (`load_config()`, vLLM already the
+`scripts/archive/check_pressure_small_run.py`: the shipped config (`load_config()`, vLLM already the
 default provider), with `llm.enabled=True`, `candidacy.ambition_threshold=0.1` (needed for any
 candidacy to occur at all — ADR-002/ADR-003), `run.population_size=20` (down from the shipped 100,
 purely to bound wall-clock — `_PRESSURE_CALIBRATED_CHUNK_SIZE=1` makes population size the

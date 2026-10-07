@@ -65,6 +65,8 @@ COPY scripts/check_python_lockfile_freshness.sh scripts/
 # api/tests/test_ci_health_thresholds.py imports this script (repo root, so its
 # own COPY); without it the mirror would skip those tests and still say PASS.
 COPY scripts/check_ci_health.py scripts/
+# test_behavior_catalogue.py reads the catalogue at the repo root.
+COPY docs/spec/ docs/spec/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # Lockfile freshness, ruff (replaces flake8, Lot 1), bandit and pip-audit (on
