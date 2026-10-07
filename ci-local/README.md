@@ -61,10 +61,8 @@ pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
 `bandit -r fast_api_voter/api -ll --skip B104,B311`
 (gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
 of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
-`pip-audit` (non-blocking **in this local mirror only** — the actual GitHub
-workflow removed pip-audit's `continue-on-error` and now gates on it too; the
-local Dockerfile still swallows its failure for offline/flaky-network runs, a
-known fidelity gap) → `mypy api/` (gating) →
+`pip-audit --requirement fast_api_voter/requirements.lock.txt` (gating, as in the
+GitHub workflow) → `mypy api/` (gating) →
 `pytest api/tests --cov=api --cov-fail-under=85` (gating; the GitHub workflow and
 pre-commit hook both gate at 90% — see Fidelity caveats).
 
