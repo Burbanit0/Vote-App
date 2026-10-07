@@ -50,9 +50,10 @@ jobs:
 
   lint:
     needs: changes
-    # A failed or cancelled detector runs the lint anyway: skipped would pass
-    # the required check without linting anything.
-    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.lint == 'true')
+    # A detector that did not succeed (failed, or its job cancelled) runs the
+    # lint anyway: skipped would pass the required check without linting
+    # anything. !cancelled() rather than always(): a superseded run still stops.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.lint == 'true') }}
     name: Workflow lint
     runs-on: ubuntu-latest
     timeout-minutes: 10

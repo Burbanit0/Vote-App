@@ -15,7 +15,9 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The weekly cron fires on refs/heads/develop: on its own group, a develop
+  # push can no longer cancel it (the CI health watchdog judges this workflow).
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
   cancel-in-progress: true
 
 permissions: read-all
