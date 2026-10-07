@@ -158,9 +158,50 @@ class BashGuard(unittest.TestCase):
             with self.subTest(cmd=cmd):
                 self.assertIsNone(self.bash(cmd))
 
+    def test_file_borne_bodies_and_queries_are_read(self):
+        """Review of the audit fix: every way gh takes a body, field or query from
+        a file, resolved against the command's own working directory."""
+        rv = "/review" + "ed"
+        d = Path(self.tmp.name)
+        (d / "c.md").write_text(f"{rv} abc1234\n")
+        (d / "c.json").write_text('{"body": "%s abc1234"}' % rv)
+        (d / "m.graphql").write_text("mutation { merge" + "PullRequest(input: {pullRequestId: 1}) { clientMutationId } }")
+        (d / "q.graphql").write_text("{ viewer { login } }")
+        (d / "ok.md").write_text("looks good\n")
+
+        def at(cmd: str) -> str | None:  # run with the payload's cwd set to the temp dir
+            payload = {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": str(d)}
+            return decision(run("bash_guard.py", payload, self.env))
+
+        for cmd in ["gh pr comment 1 -F c.md", "gh issue comment 1 --body-file c.md",
+                    "gh api repos/o/r/issues/1/comments --input c.json",
+                    "gh api repos/o/r/issues/1/comments --field=body=@c.md",
+                    "gh api repos/o/r/issues/1/comments -Fbody=@c.md",
+                    "gh api graphql -F query=@m.graphql",
+                    "gh pr comment 1 --body-file missing.md",
+                    "gh pr comment 1 --body-file -",
+                    "gh api repos/o/r/issues/1/comments --input -",
+                    "gh api -X POST repos/o/r/merges -f base=polity -f head=feat/x",
+                    "gh pr edit 1 --add-label=reviewed",
+                    "gh api graphql -f query='mutation{addLabelsToLabelable(input:{labelableId:\"PR_x\",labelIds:[\"LA_1\"]}){clientMutationId}}'",
+                    "gh api graphql -f query='mutation{submitPullRequestReview(input:{pullRequestReviewId:\"R\",event:APPROVE}){clientMutationId}}'",
+                    "curl -X POST -d '{\"labels\":[\"x\"]}' https://api.github.com/repos/o/r/issues/1/labels",
+                    "https POST api.github.com/repos/o/r/pulls/1/merge"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(at(cmd), "deny")
+        (d / "pr.md").write_text(f"Held: the owner comments {rv} abc1234 after reading.\n")
+        for cmd in ["gh pr comment 1 -F ok.md", "gh api graphql -F query=@q.graphql",
+                    "gh pr create --title t --body-file -", "gh pr edit 1 --add-label=bug",
+                    # A PR description may quote the approval command; only comments count.
+                    "gh pr create --title t --body-file pr.md",
+                    "gh api repos/o/r/pulls --input -", "gh api repos/o/r/pulls/9 -X PATCH --input pr.md"]:
+            with self.subTest(cmd=cmd):
+                self.assertIsNone(at(cmd))
+
     def test_shell_writes_to_generated_oracles_ask(self):
         for path in ["voter-app/src/lib/__fixtures__/engineParity.json", "fast_api_voter/openapi.gen.json",
-                     "voter-app/src/api/types.gen.ts"]:
+                     "voter-app/src/api/types.gen.ts", "CLAUDE.md", "scripts/oracle_diff_report.py",
+                     "fast_api_voter/api/domain/polity/journal_invariants.py"]:
             with self.subTest(path=path):
                 self.assertEqual(self.bash(f"sed -i s/a/b/ {path}"), "ask")
 
