@@ -107,13 +107,18 @@ def test_valence_moves_a_candidate() -> None:
     assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, valence=1.0), valence={further.citizen_id: 0.2})[0] == candidate_label(further)
 
 
-def test_an_indifferent_voter_abstains_once_turning_out_has_a_cost() -> None:
-    voter, near, further = _field()
-    tight = _citizen(4, (0.56,), (1.0,), party=3, candidate=True)  # distance 0.06: 0.01 behind `near`
-    assert utility_ballot(voter, [near, tight], dataclasses.replace(ZERO, turnout_cost=0.02)) is None
-    assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None  # 0.1 ahead
+def test_a_voter_stays_home_when_their_best_candidate_is_worth_about_a_blank_ballot() -> None:
+    voter, near, further = _field()  # the voter's blank ballot is worth -0.3
+    marginal = _citizen(4, (0.79,), (1.0,), party=3, candidate=True)  # distance 0.29: 0.01 better than blank
+    assert utility_ballot(voter, [marginal], dataclasses.replace(ZERO, turnout_cost=0.02)) is None
+    assert utility_ballot(voter, [near, further], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None
+    # OBS-042: two close candidates, both far better than blank, no longer keep the voter home.
+    tight = _citizen(5, (0.56,), (1.0,), party=3, candidate=True)  # distance 0.06: 0.01 behind `near`
+    assert utility_ballot(voter, [near, tight], dataclasses.replace(ZERO, turnout_cost=0.02)) is not None
     assert abstains(voter, [], 0.0) is False
+    assert abstains(voter, [], 0.05) is False  # no field: nothing to be indifferent about
     assert abstains(voter, [-0.3], 0.01) is True  # the only candidate is worth exactly the blank ballot
+    assert abstains(voter, [-0.32], 0.05) is True  # a little worse than blank counts too
 
 
 def test_a_presidents_record_follows_their_legitimacy() -> None:

@@ -180,13 +180,14 @@ def candidate_utility(
 
 
 def abstains(voter: Citizen, utilities: Sequence[float], turnout_cost: float) -> bool:
-    """Indifference abstention: the voter stays home when their best option -- a candidate
-    or the blank ballot, worth minus their blank threshold -- beats the next by less than
-    the cost of turning out. A zero cost never keeps anyone home."""
-    if turnout_cost <= 0:
+    """Indifference abstention: the voter stays home when their best candidate is worth about
+    what a blank ballot is (minus their blank threshold) -- within the cost of turning out, either
+    way. Not against the runner-up: in a large field the two best are nearly always close, and
+    that rule kept most voters home for the field's size alone (OBS-042). A zero cost, or an empty
+    field, never keeps anyone home."""
+    if turnout_cost <= 0 or not utilities:
         return False
-    options = sorted([*utilities, -voter.blank_threshold], reverse=True)
-    return options[0] - options[1] < turnout_cost
+    return abs(max(utilities) + voter.blank_threshold) < turnout_cost
 
 
 def utility_ballot(

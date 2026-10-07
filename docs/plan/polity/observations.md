@@ -68,7 +68,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
 | [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
-| [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | cause found |
+| [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 
 ---
 
@@ -2031,4 +2031,25 @@ field of a few candidates in mind.
 *What is left.* Whether to change the rule, and to what, is a modelling call: best against blank is the
 measured candidate that does not depend on the field's size.
 
-*Status: cause found* -- whether and how to change the rule is the owner's decision.
+*Fixed 2026-10-06* on `feat/polity-abstain-vs-blank`: `simple_rules.abstains` compares the best candidate with
+the blank ballot, and `LLM_TURNOUT_COST` moves from 0.04 to 0.15. `scripts/calibrate_turnout_rule.py` re-runs
+ADR-011's four facts on the deterministic twin (ten seeds, 8 years) for both settings the LLM path runs:
+
+| | old rule, 0.04 | new rule, 0.04 | new rule, 0.15 |
+|---|---:|---:|---:|
+| approval 0 (flagship) | 65.9%, three facts of four | 90.2%, past the 85% ceiling | **66.7%, all four** |
+| approval 0.1 (exploration) | 66.8%, all four | 89.7% | **66.1%, all four** |
+
+0.15 is the only cost on the grid (0.04-0.20) where all four hold at approval 0.1, and ADR-011's selection order
+picks it at approval 0 too -- applied after the fact, not pre-registered.
+
+*What this does not show.* The twin's fields are 3-7 candidates; the LLM path's reach 20 once parties are
+founded, and at 0.15 the new rule keeps fewer voters home the larger the field -- 44% with 2 candidates, 34%
+with 10, 28% with 30 on the population above (`check_observations.py indifference`). That is a third of the old
+rule's swing and in the other direction, plausible as more choice drawing more voters, but LLM-path turnout at
+0.15 has not been measured: the next ensemble is its first. Every LLM run before this fix carries the old rule,
+so turnout and vote shares are not comparable across it, and a run resumed across the change switches rule
+mid-run (the config hash does not see it). The golden references and the explorer fixture run at cost 0 and do
+not move.
+
+*Status: fixed.*

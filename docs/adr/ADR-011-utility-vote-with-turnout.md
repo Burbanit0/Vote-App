@@ -43,6 +43,12 @@ first, then blank. Three findings made the model vote the wrong tool for the pop
 3. **Turnout is indifference abstention.** A voter stays home when their best option — a candidate,
    or the blank ballot worth minus their threshold — beats the next by less than
    `vote.turnout_cost`. The number who abstained is journaled on the election's outcome event.
+   **Amended 2026-10-06 (OBS-042):** against the runner-up, this kept more voters home the larger
+   the field -- 27% with 2 candidates, 80% with 20, same voters -- and party founding made fields
+   of 20. A voter now stays home when their best candidate is within `turnout_cost` of the blank
+   ballot, either way. The LLM path's cost moves from 0.04 to 0.15, the cost at which this ADR's four
+   facts hold on the twin at approval 0 and 0.1, picked by its selection order but after the fact
+   (`scripts/calibrate_turnout_rule_results.md`).
 4. **The model audits.** With `vote.mode: utility` (shipped), a run with a model asks `vote_cast`
    for a sample of voters: each is in with probability `vote.audit_fraction` (0.1), decided by a
    hash of seed, tick and citizen. The sample's ballots are journaled with `audit: 1` and never
