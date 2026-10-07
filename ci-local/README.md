@@ -126,8 +126,9 @@ rather than diffing locally, so a fake number just returns zero files.
 - Actions that call the GitHub API (`paths-filter`'s file list, anything
   needing `secrets.GITHUB_TOKEN` for real) need a real, reachable PR/repo — a
   local-only simulation can't fully replace pushing to an actual PR.
-- Repo secrets (`CODECOV_TOKEN`, etc.) aren't available locally unless passed
-  explicitly (`act -s CODECOV_TOKEN=...` or a gitignored `.secrets` file).
+- Repo secrets aren't available locally unless passed explicitly (`act -s NAME=...`
+  or a gitignored `.secrets` file). The Codecov upload uses OIDC, not a secret,
+  and does not run under `act`.
 - CodeQL and OpenSSF Scorecard are GitHub-native and don't run under `act` at
   all.
 

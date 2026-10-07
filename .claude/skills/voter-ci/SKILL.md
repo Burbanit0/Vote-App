@@ -172,7 +172,9 @@ not a separate `codeql.yml`.
   commits, ref confusion, known-vulnerable actions) weekly and on polity
   workflow pushes; findings live in one `zizmor-online` issue, closed when clean.
 - `mutation-diff.yml` — advisory, PRs to `polity`: Stryker/mutmut on the changed
-  lines/functions only (`scripts/mutation_diff.py`), one sticky comment per tool.
+  lines/functions only (`scripts/mutation_diff.py`), read-only token; it keeps
+  each summary as an artifact, and `mutation-diff-comment.yml` (`workflow_run`,
+  develop's copy) posts one sticky comment per tool.
 - `branch-red-alert.yml` — keeps one `polity-red` issue open while a watched
   workflow's latest polity run is red. `ci-dashboard.yml` — the GitHub Pages CI
   dashboard plus a Monday "CI weekly report" issue. Both run from develop's copy.

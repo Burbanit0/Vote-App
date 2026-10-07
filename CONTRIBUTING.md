@@ -245,7 +245,8 @@ ou un gate, mettez cette table à jour dans la même PR. Sauf mention contraire,
 | `human-review.yml` (Human review attestation) | `pull_request_target` (PR vers `polity`/`develop`) + `issue_comment` | Oui : pose le statut `High-risk review gate`, rouge sur une PR à chemin à risque ou qui affaiblit les tests jusqu'au `/reviewed <sha>` du propriétaire | Oui (pas sur `main` ni `polity-ui`) | quelques secondes |
 | `ci-health.yml` (CI Health Watchdog) | PR (`main`/`develop`/`polity`) + push `develop` + cron quotidien 08:07 UTC + `workflow_dispatch` | Job `CI health check` : oui (vérifie l'instantané `.github/ci-health.json`) · job `audit` : ouvre/rafraîchit la PR `chore/ci-health-snapshot` | Oui (aussi sur `main`) | <1 min |
 | `red-on-base.yml` (Red on base) | PR vers `polity`/`develop` | Non — consultatif (voir le tableau des checks plus haut) | Non | ~2-5 min |
-| `mutation-diff.yml` (Diff Mutation) | PR vers `polity` | Non — consultatif, commentaire unique par outil | Non | quelques minutes, selon les lignes modifiées |
+| `mutation-diff.yml` (Diff Mutation) | PR vers `polity` | Non — consultatif ; jeton en lecture seule, le résumé part en artefact | Non | quelques minutes, selon les lignes modifiées |
+| `mutation-diff-comment.yml` (Diff Mutation comment) | `workflow_run` de Diff Mutation (copie de `develop`) | Non — poste le résumé de chaque outil en commentaire unique, sans exécuter le code de la PR | Non | quelques secondes |
 | `atheris-fuzzing.yml` (Coverage-Guided Fuzzing) | push `develop`/`polity` (moteur, parseurs LLM) + cron jeudi 04:44 UTC + `workflow_dispatch` | Non — jamais sur PR | Non | variable |
 | `dast.yml` (DAST — ZAP Baseline) | push `develop`/`polity` + cron nocturne 02:42 UTC + `workflow_dispatch` | Non — jamais sur PR | Non | variable |
 | `branch-red-alert.yml` (polity red alert) | `workflow_run` des workflows surveillés + cron quotidien 09:23 UTC + `workflow_dispatch` (copie de `develop`) | Non — tient une issue `polity-red` ouverte tant qu'un workflow surveillé est rouge sur `polity` | Non | <1 min |
@@ -729,9 +730,11 @@ jamais sur une hausse : après une amélioration, lancez-le avec `--update` sur 
 log du run et committez la baseline.
 
 Sur chaque PR vers `polity`, **`mutation-diff.yml`** (consultatif) ne mute que
-les lignes (Stryker) ou les fonctions (mutmut) que la PR modifie et poste un
-commentaire unique par outil : chaque mutant survivant est une ligne modifiée
-qu'aucun test n'attraperait.
+les lignes (Stryker) ou les fonctions (mutmut) que la PR modifie ; chaque
+mutant survivant est une ligne modifiée qu'aucun test n'attraperait. Ses jobs
+exécutent le code de la PR, donc sans jeton d'écriture : le commentaire unique
+par outil est posté ensuite par `mutation-diff-comment.yml` (`workflow_run`,
+depuis `develop`).
 
 > **Piège GitHub Actions à connaître.** `schedule` et `workflow_dispatch` sont
 > résolus contre la **branche par défaut** (`develop`), pas contre celle où vit
