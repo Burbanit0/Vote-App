@@ -70,6 +70,15 @@ jobs:
       - name: zizmor (offline, medium and up)
         if: always()
         run: zizmor --offline --min-severity medium .github/workflows
+      # The online audits (impostor-commit, ref-confusion, known-vulnerable-actions)
+      # are the ones that validate the SHA pins. Advisory on push until their
+      # findings are triaged: a new upstream advisory must not turn polity red.
+      - name: zizmor (online, advisory)
+        if: always() && github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --min-severity medium .github/workflows
       - name: Guard hook tests
         if: always()
         run: python3 -m unittest discover -s .claude/hooks/tests -v

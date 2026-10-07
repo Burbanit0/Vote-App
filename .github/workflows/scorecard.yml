@@ -18,7 +18,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: read-all
+permissions: {} # the one job grants what it needs
 
 jobs:
   analysis:
