@@ -16,7 +16,8 @@ memory:
   --update   Queries the real GitHub Actions run history for each watched
              workflow (never-PR-gated: mutation-testing.yml,
              schemathesis.yml, atheris-fuzzing.yml, flaky-check-backend.yml,
-             dast.yml, scorecard.yml) plus develop's live branch-protection
+             dast.yml, scorecard.yml; and audit.yml, on its scheduled runs
+             alone) plus develop's live branch-protection
              settings, and writes a snapshot to .github/ci-health.json.
              Run on a schedule (see ci-health.yml), never on a PR -- it's
              the thing being watched, not the watcher. Also decides (and
@@ -84,7 +85,10 @@ RUN_BRANCHES = ("develop", "polity")
 # their own signal (mutation score, contract fuzzing, coverage-guided
 # fuzzing, flake hunting, DAST, supply-chain scorecard). Required-check
 # workflows (Backend CI, Frontend CI, E2E, ...) self-heal: a human is
-# blocked until they're green, so they don't belong on this list.
+# blocked until they're green, so they don't belong on this list. audit.yml
+# is the exception that proves the rule: its push and PR runs are required and
+# self-heal, but its weekly full-history scan is a schedule-only signal of the
+# kind above, so it is watched on that alone (SCHEDULE_ONLY_WORKFLOWS).
 WATCHED_WORKFLOWS = [
     "mutation-testing.yml",
     "schemathesis.yml",
@@ -92,7 +96,14 @@ WATCHED_WORKFLOWS = [
     "flaky-check-backend.yml",
     "dast.yml",
     "scorecard.yml",
+    "audit.yml",
 ]
+
+# Workflows judged on their scheduled runs alone. audit.yml also runs on every
+# push and PR, and those scan only the new commits: green, they buried the
+# weekly full-history Secret Scan failing four Mondays running (2026-09-14 to
+# 10-05) with nothing watching it.
+SCHEDULE_ONLY_WORKFLOWS = frozenset({"audit.yml"})
 
 # How many of the most recent *completed, non-cancelled* runs to look at
 # when deciding whether a workflow is failing consistently rather than
@@ -180,7 +191,9 @@ def query_workflow_health(workflow_file: str) -> dict[str, Any]:
     # Both branches: scheduled runs report develop (the default branch they fire
     # from) though they test polity, and pushes to polity run the deep tests too.
     seen: dict[int, dict[str, Any]] = {}
-    for branch in RUN_BRANCHES:
+    schedule_only = workflow_file in SCHEDULE_ONLY_WORKFLOWS
+    # A scheduled run always reports the default branch it fires from.
+    for branch in (BRANCH,) if schedule_only else RUN_BRANCHES:
         for run in _run_gh_json(
             [
                 "run",
@@ -189,6 +202,7 @@ def query_workflow_health(workflow_file: str) -> dict[str, Any]:
                 f"--branch={branch}",
                 "--limit=8",
                 "--json=databaseId,status,conclusion,createdAt,event",
+                *(["--event=schedule"] if schedule_only else []),
             ]
         ):
             seen[run["databaseId"]] = run
