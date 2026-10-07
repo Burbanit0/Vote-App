@@ -35,8 +35,11 @@ effet qu'après la synchronisation suivante vers `develop`.
 | `test/` | Ajout / amélioration de tests |
 | `ci/` | Modifications de la CI/CD |
 | `perf/` | Amélioration de performance |
-| `security/` | Correctif sécurité |
 | `dependabot/` | Mises à jour automatiques (Dependabot — préfixe imposé, pas de choix) |
+
+Un correctif de sécurité prend une branche `fix/` (ou `hotfix/`) : `security` n'existe
+que comme préfixe de **titre** de PR (`security: …`), pas de branche — `branch-policy.yml`
+refuse une branche `security/…`.
 
 **Exemple :** `git checkout -b feature/vote-blanc-toggle`
 
@@ -103,7 +106,7 @@ Aujourd'hui : 16 sur `polity`, 16 sur `develop`, 14 sur `main`,
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium, Firefox, WebKit ou mobile — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts`, `engineParity.json` **ou** les blocs de doc générés désynchronisés du code (voir `scripts/check_openapi_drift.sh`, `scripts/check_engine_parity_drift.sh` et `scripts/check_generated_docs.sh`) |
 | Engine perf ceilings | Une règle de vote (`simulation_ranked_utils.py`/`simulation_score_utils.py`) dépasse son plafond de temps absolu — généreux exprès (100-500 ms, 15-500x la mesure réelle), pensé pour attraper une régression algorithmique, pas du bruit machine (voir `fast_api_voter/api/tests/test_engine_benchmarks.py`) |
-| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd/sonarjs, ou le nombre d'erreurs mypy strict sur `fast_api_voter/scripts/` (`mypy_scripts`), a augmenté ; ou la complexité moyenne passe sous le rang A (`xenon -a A`) (voir « Code mort » plus bas) |
+| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd/sonarjs, ou le nombre d'erreurs mypy strict sur `fast_api_voter/scripts/*.py` (`mypy_scripts`), a augmenté ; ou la complexité moyenne passe sous le rang A (`xenon -a A`) (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
 
 **Consultatif (n'empêche pas le merge, mais se lit) :**
@@ -186,11 +189,11 @@ protégé, mettez son motif à jour dans la même PR (`branch-policy.yml` échou
 sinon, via `scripts/check_mergify_protected_paths.py`). Les PR mergées sont retestées contre
 l'état à jour de la branche cible avant de vraiment merger (évite la classe de
 problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
-#188). Une fois Mergify vérifié en marche, désactiver *"Require branches to
-be up to date before merging"* (`strict`) sur la branch protection —
-Mergify le documente lui-même comme incompatible avec ses checks
-parallèles, et re-teste de toute façon contre la dernière version avant de
-merger.
+#188). `scripts/setup-branch-protection.sh` garde *"Require branches to be up
+to date before merging"* (`strict: true`) sur chaque branche protégée ; Mergify
+le documente comme incompatible avec ses checks parallèles et re-teste de
+toute façon avant de merger, mais le retirer est une décision du propriétaire,
+pas encore prise : en attendant, le script fait foi.
 
 ---
 
@@ -231,7 +234,7 @@ ou un gate, mettez cette table à jour dans la même PR. Sauf mention contraire,
 | `branch-policy.yml` (Branch Policy) | PR | Oui : préfixe de branche, nommage des PR vers `polity`/`polity-ui`, format du titre (Conventional Commits), source pour les PR vers `main` (`Check source is develop`), motifs de chemins protégés de `.mergify.yml` et tests `scripts/tests` | Oui | ~10-30 s |
 | `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
 | `dependency-review.yml` (Dependency Review) | PR | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd/sonarjs, mypy strict sur `fast_api_voter/scripts/`) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) ou complexité moyenne sous le rang A (`xenon -a A`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/`polity` ou cron — jamais sur une PR (build de l'image, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd/sonarjs, mypy strict sur `fast_api_voter/scripts/*.py`) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) ou complexité moyenne sous le rang A (`xenon -a A`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/`polity` ou cron — jamais sur une PR (build de l'image, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop`/`polity` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Oui, hors PR : le run échoue (et l'alerte `polity-red` s'ouvre) si Stryker passe sous `thresholds.break` (80) ou si le score mutmut baisse au-delà du bruit (`check_mutation_score.sh`) | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
 | `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop`/`polity` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
 | `flaky-check-backend.yml` (Backend Flaky Test Hunt) | push sur `develop`/`polity` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron quotidien 03:13 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~1 min en local (3 exécutions parallélisées `-n auto`, ~16-18s chacune) |
@@ -252,9 +255,11 @@ vérification ("seule `develop` peut merger dans `main`") faisait double emploi
 avec l'étape `Check source is develop (PRs to main)` de `branch-policy.yml`
 ci-dessus — mais sous `pull_request_target` plutôt que le `pull_request` plus
 sûr utilisé par `branch-policy.yml`, sans bloc `permissions:`. Son job
-(`check-branch`) n'était pas dans la liste des checks requis de `develop`, et
-`main` elle-même n'a pas de protection de branche configurée — suppression
-sans impact sur `scripts/setup-branch-protection.sh`.
+(`check-branch`) n'était pas dans la liste des checks requis de `develop` —
+suppression sans impact sur `scripts/setup-branch-protection.sh`. (Le script
+sait protéger `main`, `protect_main`, mais en direct `main` n'a aujourd'hui
+aucun check requis : constaté le 2026-10-06, décision du propriétaire en
+attente, car `release.yml` y pousse directement.)
 
 **Comment Backend/Frontend CI, E2E et OpenAPI Contract sont devenus des checks
 requis malgré leur portée `paths`** : les quatre étaient auparavant scopés par
@@ -308,7 +313,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Couches `routes → domain → engine` | bloquant, 0 import remontant | `fast_api_voter/pyproject.toml` (`[tool.importlinter]`) |
 | `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
-| Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs, et `mypy_scripts` : erreurs mypy strict sur `fast_api_voter/scripts/`) | ne doit jamais augmenter (ni baisser sans `--update`) | `.github/quality-baseline.json` via `scripts/check_quality_ratchet.sh` |
+| Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs, et `mypy_scripts` : erreurs mypy strict sur `fast_api_voter/scripts/*.py`, sans ses sous-dossiers) | ne doit jamais augmenter (ni baisser sans `--update`) | `.github/quality-baseline.json` via `scripts/check_quality_ratchet.sh` |
 | Complexité moyenne (radon) | rang A, bloquant | `xenon -a A` dans `audit.yml` |
 | Couverture des lignes modifiées | 100 %, bloquant (backend et frontend) | `diff-cover` dans les workflows Backend/Frontend CI |
 | Score de mutation backend | ne baisse pas au-delà du bruit (hors PR) | `.github/mutation-baseline.json` via `scripts/check_mutation_score.sh` |
@@ -463,7 +468,7 @@ qu'un pattern-match.
 `openapi.gen.json` a un gate de drift (`openapi-contract.yml`) contre ce que
 FastAPI *déclare*, mais rien ne vérifiait que l'implémentation tient
 réellement cette promesse. `api/tests/test_schema_contract.py` génère des
-requêtes valides pour chacune des 95 opérations et vérifie que la réponse
+requêtes valides pour chacune des 69 opérations (au 2026-10-07) et vérifie que la réponse
 correspond aux codes/schémas documentés :
 
 ```bash
@@ -885,7 +890,7 @@ latence — pas en erreurs) :
 pre-commit run --all-files                              # lancer tous les hooks
 detect-secrets scan --update .secrets.baseline         # mettre a jour la baseline
 cd voter-app && npm test -- --coverage                 # coverage frontend
-cd fast_api_voter && python -m pytest tests --cov=app  # coverage backend
-pip-audit --requirement fast_api_voter/requirements.txt # CVE Python
+cd fast_api_voter && python -m pytest api/tests -n auto --cov=api  # coverage backend
+pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip  # CVE Python
 ./scripts/check_openapi_drift.sh                        # contrat API à jour ?
 ```

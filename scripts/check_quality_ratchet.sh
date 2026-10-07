@@ -30,7 +30,7 @@
 # Expects, relative to the repo root (produced by the code-quality job):
 #   fast_api_voter/vulture.txt  fast_api_voter/radon.txt  fast_api_voter/deptry.txt
 #   voter-app/knip.txt          jscpd.txt          voter-app/sonarjs.txt
-#   fast_api_voter/mypy-scripts.txt (strict mypy over fast_api_voter/scripts)
+#   fast_api_voter/mypy-scripts.txt (strict mypy over fast_api_voter/scripts/*.py, top level only)
 
 set -euo pipefail
 
@@ -103,7 +103,7 @@ jscpd=${jscpd:-0}
 sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems?.*/\1/p' | tail -1)
 sonarjs=${sonarjs:-0}
 
-# mypy over fast_api_voter/scripts: its own summary line, "Found 150 errors in
+# mypy over fast_api_voter/scripts/*.py: its own summary line, "Found 150 errors in
 # 50 files (checked 143 source files)", or "Success: no issues found in ..." at
 # zero. Anything else means mypy never got to check the files ("errors
 # prevented further checking", a crash, a bad flag): no count can be read from
