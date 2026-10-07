@@ -39,7 +39,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant == 'true' || steps.backend.outputs.runtime == 'true' }}
-      pin: ${{ steps.filter.outputs.pin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -51,10 +50,6 @@ jobs:
             relevant:
               - 'voter-app/**'
               - '.github/workflows/e2e.yml'
-            # Where the visual-regression image pin and @playwright/test live.
-            pin:
-              - '.github/workflows/e2e.yml'
-              - 'voter-app/package.json'
       # The backend counts only where the running app can change: a change confined to
       # backend scripts, backend tests or Markdown cannot alter what the e2e suite drives.
       # `every` makes a file match only when it passes all four patterns -- inside
@@ -103,37 +98,53 @@ jobs:
       # instead of a cryptic missing-browser error discovered later.
       # The image is pinned by tag AND digest, and Docker pulls by the digest:
       # a later bump of the tag alone would keep running the old browser. So
-      # when the pin can have moved (this change touches e2e.yml or
-      # package.json; or a dispatch, or the release), the digest is also
-      # checked against what the registry serves for the tag. Other runs skip
-      # that lookup, so a tag Microsoft re-pushes cannot turn unrelated PRs red.
-      - name: Assert @playwright/test matches the visual-regression image tag
+      # when the pin itself changes (the `image:` line or the @playwright/test
+      # version differs from the commit this one builds on), the digest is also
+      # checked against what the registry serves for the tag. A run that does
+      # not move the pin (any other PR, a dispatch, the release) never asks the
+      # registry, so a tag Microsoft re-pushes cannot turn it red.
+      - name: Assert @playwright/test matches the visual-regression image pin
         env:
-          PIN_CHANGED: ${{ needs.changes.outputs.pin }}
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
           # so a non-matching grep (exit 1) would otherwise abort the script
-          # right here -- before the explicit empty-value
-          # diagnostic below ever gets a chance to run.
-          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
-          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)
+          # right here -- before the explicit diagnostics below.
+          pin_of() { # $1: e2e.yml content, $2: package.json content
+            local image pkg
+            image=$(grep -m1 -oP '^\s+image:\s*\Kmcr\.microsoft\.com/playwright:\S+' <<< "$1" || true)
+            pkg=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' <<< "$2" || true)
+            echo "$image $pkg"
+          }
+          read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package.json)")"
+          image_version=$(grep -oP 'playwright:v\K[0-9.]+(?=-noble)' <<< "$image" || true)
+          digest=$(grep -oP '@\Ksha256:[0-9a-f]{64}$' <<< "$image" || true)
           if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
-            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image_version='$image_version') -- this check itself needs fixing, not just the versions it compares."
+            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image='$image') -- this check itself needs fixing, not just the versions it compares."
             exit 1
           fi
           if [ "$pkg_version" != "$image_version" ]; then
-            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble."
+            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble with that tag's digest."
             exit 1
           fi
-          echo "OK: @playwright/test and the visual-regression Docker image both pinned to $pkg_version"
-
-          digest=$(grep -oP 'mcr\.microsoft\.com/playwright:v[0-9.]+-noble@\Ksha256:[0-9a-f]{64}' .github/workflows/e2e.yml || true)
           if [ -z "$digest" ]; then
             echo "::error::The visual-regression image must be pinned by digest too: image: mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
             exit 1
           fi
-          if [ "$PIN_CHANGED" = false ]; then
-            echo "OK: pinned to $digest (the pin did not change here: registry lookup skipped)"
+          echo "OK: @playwright/test and the visual-regression image both pinned to $pkg_version ($digest)"
+
+          moved=true
+          if [ "$EVENT" != pull_request ] && [ "$EVENT" != push ]; then
+            moved=false # a dispatch or the release does not change the pin
+          elif [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != 0000000000* ]] \
+              && git fetch --quiet --depth 1 origin "$BASE_SHA" 2>/dev/null; then
+            base_pin=$(pin_of "$(git show "$BASE_SHA:.github/workflows/e2e.yml" 2>/dev/null)" \
+                              "$(git show "$BASE_SHA:voter-app/package.json" 2>/dev/null)")
+            [ "$base_pin" != "$image $pkg_version" ] || moved=false
+          fi
+          if [ "$moved" = false ]; then
+            echo "OK: the pin did not change here, registry lookup skipped"
             exit 0
           fi
           tag="v$pkg_version-noble"
@@ -146,7 +157,7 @@ jobs:
             exit 1
           fi
           if [ "$served" != "$digest" ]; then
-            echo "::error::The pinned digest is not the one mcr.microsoft.com/playwright:$tag serves: Docker would run another browser than the tag says. Set the image line to mcr.microsoft.com/playwright:$tag@$served."
+            echo "::error::The pinned digest is not the one mcr.microsoft.com/playwright:$tag serves, so Docker would run another browser than the tag says. Pin mcr.microsoft.com/playwright:$tag@$served, then regenerate the visual baselines in that image (voter-app/scripts/test-visual-docker.sh --update-snapshots) and review the PNG diff."
             exit 1
           fi
           echo "OK: $digest is what the registry serves for $tag"
@@ -352,7 +363,7 @@ jobs:
     # missing-browser error, right alongside the fast one.
     needs: [changes, playwright-image-sync]
     if: |
-      !cancelled() &&
+      !cancelled() && needs.playwright-image-sync.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||

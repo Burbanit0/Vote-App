@@ -33,8 +33,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 PW_VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
-IMAGE=$(grep -oE 'mcr\.microsoft\.com/playwright:v[0-9.]+-noble@sha256:[0-9a-f]{64}' ../.github/workflows/e2e.yml | head -1)
-if [ -z "$IMAGE" ] || [[ "$IMAGE" != *":v${PW_VERSION}-noble@"* ]]; then
+IMAGE=$(grep -m1 -oE '^\s+image:\s*mcr\.microsoft\.com/playwright:\S+' ../.github/workflows/e2e.yml \
+  | sed -E 's/^\s+image:\s*//' || true)
+if [ -z "$IMAGE" ] || ! [[ "$IMAGE" =~ :v${PW_VERSION//./\\.}-noble@sha256:[0-9a-f]{64}$ ]]; then
   echo "The image pinned in .github/workflows/e2e.yml ('${IMAGE:-none}') is not v${PW_VERSION}-noble with a digest: fix the pin first." >&2
   exit 1
 fi
