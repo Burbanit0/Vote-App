@@ -224,7 +224,7 @@ class VoteConfig:
     valence: float
     """Weight of a candidate's valence (none is sourced yet: every valence is 0)."""
     turnout_cost: float
-    """A voter abstains when their best option beats the next by less than this."""
+    """A voter abstains when their best candidate is within this of the blank ballot (OBS-042)."""
     policy_retrospection: float
     """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
     term, on the judged incumbent and, in legislative elections, the governing parties."""

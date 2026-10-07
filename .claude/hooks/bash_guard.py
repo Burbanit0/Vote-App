@@ -106,12 +106,30 @@ def classify(argv: list[str]) -> tuple[str, str] | None:
     if prog == "gh":
         if argv[1:3] == ["pr", "merge"]:
             return "deny", f"`gh pr merge`: {APPROVAL}. Mergify merges once checks and the review hold pass."
-        if argv[1:2] == ["pr"] and "--add-label" in argv and re.search(r"\breviewed\b", joined):
+        if argv[1:2] in (["pr"], ["issue"]) and re.search(r"--add-label(?:=|\s)\S*\breviewed\b", joined):
             return "deny", f"adding the `reviewed` label: {APPROVAL}"
         if re.search(r"(^|\s)/reviewed\b", joined):
             return "deny", f"posting `/reviewed`: {APPROVAL}"
-        if argv[1:2] == ["api"] and re.search(r"/statuses/|human-review|/merge\b|labels.*reviewed|reviewed.*labels", joined):
+        if argv[1:2] == ["api"] and re.search(r"/statuses/|human-review|/merges?\b|labels.*reviewed|reviewed.*labels", joined):
             return "deny", f"setting statuses, review labels or merging through the API: {APPROVAL}"
+        # What the command line doesn't show: bodies, fields and queries read from
+        # files. Only where it matters: the approval is a comment starting with
+        # `/reviewed`, and GraphQL can merge; a PR description may quote the command.
+        graphql = argv[1:3] == ["api", "graphql"]
+        posts = argv[2:3] == ["comment"] or (
+            argv[1:2] == ["api"] and bool(re.search(r"/(?:comments|reviews)\b", joined)))
+        if graphql or posts:
+            contents = _gh_file_contents(argv)
+            if any(c is None for c in contents):
+                return "deny", ("this command reads a comment body or query from stdin or a file the guard "
+                                f"can't read, so it can't rule out a merge or `/reviewed`: {APPROVAL}")
+            texts = [c for c in contents if c is not None]
+            if graphql and any(_GRAPHQL_APPROVAL.search(t) for t in [joined, *texts]):
+                return "deny", f"merging, labelling or approving through the GraphQL API: {APPROVAL}"
+            if any(re.search(r"(?:^|[\s\"'])/reviewed\b", t) for t in texts):
+                return "deny", f"posting `/reviewed` from a file: {APPROVAL}"
+    if prog in _HTTP_CLIENTS and _RAW_GITHUB_APPROVAL.search(joined):
+        return "deny", f"merging, labelling, setting statuses or calling GraphQL on GitHub outside gh: {APPROVAL}"
     if re.search(r"(^|/)gen_(engine_parity|polity_golden|openapi)\.py\b", joined) or re.search(
             r"--snapshot-update\b|--update-snapshots\b|(^|\s)-u(\s|$).*(vitest|playwright)|(vitest|playwright).*\s-u(\s|$)", joined):
         return "ask", ("this regenerates a test oracle. After a behaviour change that makes the oracle's own check pass "
@@ -119,6 +137,56 @@ def classify(argv: list[str]) -> tuple[str, str] | None:
     if re.search(r"check_(quality_ratchet|mutation_score)\.sh\b.*--update|type-coverage.*--update", joined):
         return "ask", "this re-records a ratchet baseline. Only legitimate after a real improvement (voter-ci skill)."
     return None
+
+
+# GraphQL mutations that merge, label or approve; `gh api graphql` bypasses the REST
+# path checks above. Labels go by node ID there, so any label mutation is refused.
+_GRAPHQL_APPROVAL = re.compile(
+    r"mergePullRequest|PullRequestAutoMerge|enqueuePullRequest|mergeBranch|createCommitStatus"
+    r"|addLabelsToLabelable|updateLabelable|(?:add|submit)PullRequestReview\b[\s\S]*\bAPPROVE\b")
+# The same endpoints reached without gh: merges, statuses, labels, GraphQL.
+_HTTP_CLIENTS = {"curl", "wget", "http", "https", "httpie", "xh", "xhs"}
+_RAW_GITHUB_APPROVAL = re.compile(r"api\.github\.com/(?:\S*/(?:merges?|statuses|labels)\b|graphql\b)")
+# gh subcommands where `-F` is the short form of --body-file, not gh api's --field.
+_BODY_FILE_SUBCOMMANDS = {"comment", "create", "edit", "review"}
+
+# The command's own working directory (the hook payload's `cwd`); relative paths
+# resolve against it, not against the repo root.
+CWD = ROOT
+
+
+def _gh_file_contents(argv: list[str]) -> list[str | None]:
+    """Contents of every file a gh command reads its body, fields or query from:
+    --body-file / -F (pr|issue comment, create, edit), gh api's `-F k=@f`,
+    `--field=k=@f`, `-Fk=@f` and `--input f`. None for one the guard can't read,
+    stdin included."""
+    sub = argv[2] if len(argv) > 2 else ""
+    is_api = argv[1:2] == ["api"]
+    paths: list[str] = []
+    for k, tok in enumerate(argv):
+        nxt = argv[k + 1] if k + 1 < len(argv) else ""
+        if tok in {"--body-file", "--input"}:
+            paths.append(nxt)
+        elif tok.startswith(("--body-file=", "--input=")):
+            paths.append(tok.split("=", 1)[1])
+        elif tok in {"-F", "--field"}:
+            if "=@" in nxt:
+                paths.append(nxt.split("=@", 1)[1])
+            elif not is_api and sub in _BODY_FILE_SUBCOMMANDS:
+                paths.append(nxt)
+        elif re.match(r"^(?:-F|--field=)[^=]*=@", tok):
+            paths.append(tok.split("=@", 1)[1])
+    out: list[str | None] = []
+    for path in paths:
+        if path == "-":
+            out.append(None)  # stdin: unreadable here (callers only ask where it matters)
+            continue
+        try:
+            target = Path(path) if os.path.isabs(path) else Path(CWD, path)
+            out.append(target.read_text(errors="ignore"))
+        except OSError:
+            out.append(None)
+    return out
 
 
 _ALL_ARGS_WRITE = {"tee", "mv", "rm", "truncate", "ln", "chmod", "install", "dd", "unlink", "shred"}
@@ -176,6 +244,8 @@ def run_fast_gate() -> tuple[int, str]:
 
 def main() -> None:
     payload = read_payload()
+    global CWD
+    CWD = Path(str(payload.get("cwd") or ROOT))
     command = str((payload.get("tool_input") or {}).get("command") or "")
     if not command:
         return
@@ -183,7 +253,7 @@ def main() -> None:
     # a file, or `$'...'` quoting that the per-command split doesn't see.
     segments = shell_segments(command)
     if re.search(r"/reviewed\b", command) and any(
-            Path(a[0]).name in {"gh", "curl", "wget", "http", "xh"} for a in segments):
+            Path(a[0]).name in {"gh", *_HTTP_CLIENTS} for a in segments):
         decide("deny", f"posting `/reviewed`: {APPROVAL}")
         return
     pushes = False

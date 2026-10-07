@@ -106,11 +106,16 @@ from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
 
 LLM_TURNOUT_COST = 0.04
-"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"): the only setting of the
-first group meeting ADR-011's four facts, adopted for the LLM engine only. The deterministic twin,
-which shares polity_config.yaml, qualified nothing, so the file keeps 0. The pass is thin: its
-retrospective voting rests on 10 incumbents with `approval` at 0, and what the cost does is make
-about 40% of voters abstain."""
+"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"), kept through OBS-042's rule.
+Adopted when a voter stayed home if their two best options were close, a rule that kept more voters
+home the larger the field. Under the rule that replaced it (best candidate against the blank ballot)
+it keeps about a tenth of voters home whatever the field's size -- the property the change was made
+for -- and was kept for that on 2026-10-06, against ADR-011's turnout fact: on the deterministic twin,
+which has no disengagement, it gives 90% turnout, past the 85% ceiling. 0.15 is where all four facts
+hold on the twin (scripts/calibrate_turnout_rule_results.md), but keeps 44% home with 2 candidates and
+28% with 30. In the exploration profile, where agents run, ADR-021's disengagement already keeps about
+a quarter of citizens home. The deterministic twin, which shares polity_config.yaml, qualified nothing
+in S4.1, so the file keeps 0."""
 
 
 def _flagship_config(

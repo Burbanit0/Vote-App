@@ -163,6 +163,10 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "polity"
+    # A Conventional Commits title, which branch-policy.yml checks on every PR
+    # (live once develop carries this file: Dependabot reads the default branch).
+    commit-message:
+      prefix: "ci"
     schedule:
       interval: "weekly"
     labels:
@@ -183,6 +187,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     target-branch: "polity"
+    commit-message:
+      prefix: "chore"
     schedule:
       interval: "weekly"
     labels:
@@ -200,6 +206,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/fast_api_voter"
     target-branch: "polity"
+    commit-message:
+      prefix: "chore"
     schedule:
       interval: "weekly"
     labels:

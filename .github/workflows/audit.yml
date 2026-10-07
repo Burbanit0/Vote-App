@@ -28,7 +28,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write # zizmor: ignore[excessive-permissions] SARIF upload to the Security tab (Semgrep, Trivy, CodeQL); follow-up: move to those jobs
   actions: read
 
 concurrency:
@@ -42,6 +41,10 @@ jobs:
   # ---------------------------------------------------------------
   semgrep:
     name: Semgrep SAST
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # SARIF upload to the Security tab
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -50,7 +53,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.14", cache: "pip" }
-      - run: pip install semgrep
+      - run: pip install semgrep==1.179.0 # pinned: it feeds the required Semgrep SAST check
       # Strict: --error makes Semgrep exit non-zero on any finding → the job fails.
       # The report is still uploaded (if: always()) so findings are downloadable.
       - name: Run Semgrep (gating)
@@ -115,6 +118,10 @@ jobs:
   # ---------------------------------------------------------------
   trivy:
     name: Dependencies, Containers & Misconfig
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # SARIF upload to the Security tab
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -242,6 +249,10 @@ jobs:
   # entries (mirroring the fs job's existing pattern) clears the backlog.
   image-scan:
     name: Docker image scan & SBOM
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # SARIF upload to the Security tab
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.event_name == 'schedule' || (github.event_name == 'push' && contains(fromJSON('["refs/heads/develop","refs/heads/polity"]'), github.ref))
@@ -392,7 +403,8 @@ jobs:
 
       - name: Cross-language duplication (jscpd)
         continue-on-error: true
-        run: npx --yes jscpd --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
+        shell: bash # with pipefail: a failed fetch shows here, not only as a 0 the ratchet rejects
+        run: npx --yes jscpd@5.4.0 --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
 
       # THE gating step of this job. Every tool above stays non-blocking; this
       # compares their counts to .github/quality-baseline.json and fails only on
@@ -451,6 +463,10 @@ jobs:
   # in the Security tab. Non-gating by itself; severities show up as alerts.
   codeql:
     name: CodeQL
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # SARIF upload to the Security tab
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
