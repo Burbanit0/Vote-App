@@ -131,7 +131,7 @@ correctement bornée (10/min sur `/simulate`, 5/min sur `/compare`,
 `ge=`/`le=` ; Kemeny-Young n'est pas NP-dur ici (`_KY_EXACT_CAP = 10`) ; CORS
 est en liste blanche, pas `*`.
 
-### 2.B 🔴 Deux affirmations fausses dans le contenu pédagogique
+### 2.B 🟢 Deux affirmations fausses dans le contenu pédagogique
 
 Pour une app qui **enseigne** la théorie du vote, c'est la classe de bug la
 plus grave — et les deux sont contredites par le `THEORY.md` du projet
@@ -167,6 +167,11 @@ fois ailleurs.
 
 **Effort** : S (les deux corrections) → M (le garde-fou) · **Priorité** :
 haute — c'est du contenu faux, publié, sur le cœur de métier.
+
+**Fait** (`c4d021d2`) : les deux corrections, plus un garde-fou limité au
+théorème de Moulin (`methodCriteria.test.ts`). Le garde-fou général (tableau
+contre THEORY.md et contre les tests du moteur) est repris par
+`docs/plan/PLAN_BEYOND_CI.md` W1.2, qui a trouvé d'autres cellules fausses.
 
 ### 2.C 🟢 Décision structurante : publier, ou dire qu'on ne publie pas
 

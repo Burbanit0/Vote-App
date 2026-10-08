@@ -2,7 +2,7 @@
 
 Plan d'exécution auto-suffisant. Une branche `feat/*` + une PR par phase.
 Écrit pour être exécuté phase par phase (par moi ou un autre agent), sans
-contexte préalable. Fichier local, hors repo (gitignoré).
+contexte préalable. (Écrit comme fichier local gitignoré ; versionné depuis.)
 
 ## Mission
 

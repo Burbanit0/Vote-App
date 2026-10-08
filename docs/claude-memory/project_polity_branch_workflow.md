@@ -8,6 +8,8 @@ metadata:
   modified: 2026-08-30T12:49:32.220Z
 ---
 
+**Superseded 2026-09-27**: `polity` is the working branch; branch from it and PR into it, and `develop` only receives release syncs. See CLAUDE.md, "Workflow (mandated)". The text below is kept as history.
+
 As of 2026-08-29, a long-lived `polity` branch exists in `Burbanit0/Vote-App`
 (created from `origin/develop` at that date, commit `db77561` — the merge of
 PR #216, the cast_votes/distribution/ADR-002/ADR-003 chain). Every

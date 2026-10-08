@@ -1,41 +1,49 @@
-# Les surfaces de documentation
+# Documentation surfaces
 
-Vote-App a plusieurs supports qui se chevauchaient mal avant ce document
-(Lot 0.1 du [plan de solidité technique](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
-Chacun a un rôle et un rythme distincts — la confusion entre eux, plus qu'un
-manque de discipline, est ce qui les faisait dériver.
+Vote-App has several documentation surfaces, and they used to overlap badly
+(Lot 0.1 of the [technical solidity plan](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
+Each one has its own job and its own rhythm. Mixing them up, more than any lack
+of discipline, is what made them drift.
 
-| Surface | Rôle | Rythme | Existe ? |
-|---|---|---|---|
-| `docs/journal/JOURNAL_DE_BORD.md` | Chronologie narrative, par session de travail : ce qui a avancé, les blocages, les décisions, les prochaines étapes. | Par session (`/log-session`) | ✅ |
-| `docs/exploration/EXP-*.md` | Par expérience/outil essayé : verdict (adopté/rejeté/suspendu) + ce que ça a réellement trouvé et coûté. | Par expérience close (`/log-experiment`) | ✅ (ce lot) |
-| `docs/exploration/README.md` | Index de tous les verdicts — le livrable partageable du projet. | Mis à jour à chaque expérience close | ✅ (ce lot) |
-| `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity + application — ADR-004 à 007, Lot 0.6) |
-| `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity uniquement — `scripts/git_commit_capture.py` se garde sur le nom du worktree) | ✅ (Lot 0.5, tier 1 ; script générique sur `develop`, activation via `pre-commit install --hook-type post-commit`) |
-| `…/flagship_runs/<run>/run/<run>/digest.json` + `digest.jsonl` | Trace machine d'un run de simulation : issue (terminé/crashé/interrompu), ticks atteints, comptage complet des 30 types d'événements par année, impact population. Générée, jamais rédigée. | À **chaque** fin de run, y compris crash et interruption (`api/domain/polity/run_digest.py`, appelé par le runner) | ✅ |
-| `…/flagship_runs/<run>/run/<run>/progress.json` | État vivant d'un run en cours : tick complété **et tick en cours**, décisions par type, replis, et un **battement de cœur LLM** (`last_llm_response_at`). C'est la seule surface qui répond à « ce run est-il vivant ? » — lue par `scripts/check_run_liveness.py`, jamais à l'œil nu. | Par tick **et** à chaque réponse LLM (throttlé à 5 s) | ✅ (battement intra-tick ajouté le 2026-09-11, après qu'un run sain a été tué faute de pouvoir répondre à cette question) |
-| `…/flagship_runs/<run>/run/<run>/TIMELINE.md` | Le récit lisible d'un run : ce qu'a vécu cette société simulée, et ce que la population a fait. Rédigé à partir du digest, jamais des logs bruts. | Par run terminé (`/log-run` → sub-agent `run-narrator`) ; les runs non racontés sont signalés au démarrage de session | ✅ |
-| Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
-| `docs/plan/vote-app/CODE_AUDIT.md` | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
+| Surface | Job | Rhythm |
+|---|---|---|
+| [`docs/STATUS.md`](STATUS.md) | **Start here.** Where each part stands, the next 3 steps, the open questions. One page. | At the end of each plan phase, and whenever the next steps change |
+| `docs/plan/` | Plans. The live one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Most other plans are finished and kept as history; few say so yet (`PLAN_BEYOND_CI.md` W4 adds a status line to each). | Per plan |
+| `docs/exploration/EXP-*.md` | One file per tool or method tried: the verdict (adopted, rejected or suspended), plus what it actually found and cost. | Per closed experiment (`/log-experiment`) |
+| `docs/exploration/README.md` | Index of every verdict. | Each time an experiment closes |
+| `docs/adr/` | Binding architecture decisions, with the alternatives that were rejected. | Rarely |
+| `docs/spec/behaviors.md` | Polity's behaviour catalogue: each invariant, with the test that locks it (`@pytest.mark.behavior`). | With the code |
+| `docs/journal/commits.jsonl` | Generated machine trace of every commit, for archaeology. | Per commit, in the polity worktree only (`scripts/git_commit_capture.py`); enable it once per clone with `pre-commit install --hook-type post-commit` |
+| `…/run/<run>/digest.json` + `digest.jsonl` | Machine trace of a simulation run: outcome (finished, crashed or interrupted), ticks reached, counts of every event type per year, population impact. Generated, never written by hand. | At **every** run end, crashes and interruptions included (`api/domain/polity/run_digest.py`) |
+| `…/run/<run>/progress.json` | Live state of a running run: the completed tick **and the one in progress**, decisions by type, fallbacks, and an **LLM heartbeat** (`last_llm_response_at`). The only surface that answers "is this run alive?"; read it with `fast_api_voter/scripts/check_run_liveness.py`. | Per tick **and** on every LLM response (throttled to 5 s) |
+| `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. | Per finished run (`/log-run` → `run-narrator` sub-agent) |
+| `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
+| `docs/plan/vote-app/CODE_AUDIT.md` | Dated, replayable health check of the code. | Per cleanup pass |
+| `docs/journal/JOURNAL_DE_BORD.md` | **Retired 2026-10-08.** A narrative log per work session, from 2026-09-04 to 2026-09-27 (older, reconstructed history in `docs/journal/archive/`). Kept as history; `STATUS.md` and PR bodies carry the state now. | — |
 
-## Comment choisir la bonne surface
+## Which surface?
 
-- **Je viens de finir une session de travail, je veux qu'on se souvienne de ce
-  qui s'est passé** → `/log-session` → `docs/journal/JOURNAL_DE_BORD.md`.
-- **J'ai essayé un outil / une méthode et je veux garder trace du verdict**
-  → `/log-experiment` → `docs/exploration/EXP-*.md`, indexé dans
+- **What's the state of things, and what's next?** → `docs/STATUS.md`.
+- **I tried a tool or a method and want to keep the verdict** →
+  `/log-experiment` → `docs/exploration/EXP-*.md`, indexed in
   `docs/exploration/README.md`.
-- **Une décision structurante a été prise, avec des alternatives écartées, et
-  elle doit rester compréhensible dans un an** → un ADR dans `docs/adr/`.
-- **Un run de simulation vient de se terminer (ou de mourir) et je veux savoir
-  ce qui s'y est passé** → `/log-run` → `TIMELINE.md` à côté du `events.jsonl`
-  du run, rédigé depuis son `digest.json`.
-- **Je veux savoir où en est la qualité du code, dans l'ensemble** →
-  `docs/plan/vote-app/CODE_AUDIT.md`.
+- **A structural decision was taken, alternatives were rejected, and it must
+  still make sense in a year** → an ADR in `docs/adr/`.
+- **A simulation run just finished (or died) and I want to know what
+  happened** → `/log-run` → `TIMELINE.md` next to the run's `events.jsonl`,
+  written from its `digest.json`.
+- **How healthy is the code overall?** → `docs/plan/vote-app/CODE_AUDIT.md`.
 
-## Ce que ce document n'est pas
+## Language
 
-Ce n'est pas un journal de plus : il ne raconte rien lui-même, il pointe vers
-la bonne surface. S'il faut le mettre à jour à chaque session, c'est le signe
-qu'une nouvelle surface a été ajoutée et doit être documentée ici — pas qu'il
-doit devenir narratif.
+New docs are written in English (decided 2026-10-08, `PLAN_BEYOND_CI.md` D3).
+A living doc moves to English when it is next rewritten; a small fix keeps the
+doc's current language rather than mixing two in one paragraph. Finished plans stay in the
+language they were written in. THEORY.md and GUIDE_UTILISATEUR.md are
+user-facing French reference and stay French for now.
+
+## What this file is not
+
+It is not one more log. It tells nothing by itself; it points to the right
+surface. If it has to change every session, that means a new surface was added
+and belongs here, not that this file should turn narrative.

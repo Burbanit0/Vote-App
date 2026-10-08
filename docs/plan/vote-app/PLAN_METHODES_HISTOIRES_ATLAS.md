@@ -2,8 +2,8 @@
 
 Plan d'exécution auto-suffisant. **Une branche `feat/*` + une PR par étape**,
 contre `develop`, merge `--no-ff`. Écrit pour être exécuté étape par étape (par
-moi ou un autre agent) sans contexte préalable. Fichier **local, hors repo**
-(gitignoré, comme les autres plans).
+moi ou un autre agent) sans contexte préalable. (Écrit comme fichier local
+gitignoré ; versionné depuis.)
 
 ## Mission
 
