@@ -17,7 +17,7 @@ updates:
     labels:
       - "security"
       - "dependencies"
-      - "backend"
+      - "python"
     commit-message:
       prefix: "fix"
       include: "scope"
@@ -68,6 +68,12 @@ updates:
       # when hypothesis-graphql does (latest is 0.13.2, checked 2026-10-07).
       - dependency-name: "graphql-core"
         versions: [">=3.3.0"]
+      # aiohttp==3.14.3 (dev-only: socketio.AsyncClient's WebSocket transport in
+      # the socket tests) declares `multidict>=4.5,<7.0`; #844 bumped multidict to
+      # 7.0.0 and failed "No solution found". Moves when aiohttp does (latest is
+      # 3.14.4, same cap, checked 2026-10-08).
+      - dependency-name: "multidict"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "npm"
     directory: "/voter-app"
@@ -78,7 +84,7 @@ updates:
     labels:
       - "security"
       - "dependencies"
-      - "frontend"
+      - "javascript"
     commit-message:
       prefix: "fix"
       include: "scope"
@@ -200,7 +206,6 @@ updates:
     labels:
       - "security"
       - "dependencies"
-      - "docker"
     cooldown:
       default-days: 7
     groups:
@@ -219,8 +224,6 @@ updates:
     labels:
       - "security"
       - "dependencies"
-      - "docker"
-      - "backend"
     cooldown:
       default-days: 7
     groups:
