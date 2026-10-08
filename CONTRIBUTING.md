@@ -101,7 +101,7 @@ Aujourd'hui : 16 sur `polity`, 16 sur `develop`, 14 sur `main`,
 | Workflow lint | actionlint (+ shellcheck), zizmor `--offline` (medium et plus) ou les tests des hooks `.claude/hooks/tests` échouent ; le job est sauté si aucun workflow ni hook ne change |
 | CI health check | Instantané `.github/ci-health.json` périmé, workflow surveillé en échec ou inerte, ou protection de branche en dérive |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 90 %, une ligne modifiée non couverte (diff-cover 100 %), mypy, ruff, ou la couche `routes → domain → engine` en erreur |
+| Backend CI | Tests échouent, coverage (lignes + branches) < 90 %, une ligne modifiée non couverte ou une branche modifiée prise d'un seul côté (diff-cover 100 %), mypy, ruff, ou la couche `routes → domain → engine` en erreur |
 | npm audit | CVE haute détectée, hors exception datée de `.github/npm-audit-allowlist.json` (une exception expirée fait aussi échouer) |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium, Firefox, WebKit ou mobile — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts`, `engineParity.json` **ou** les blocs de doc générés désynchronisés du code (voir `scripts/check_openapi_drift.sh`, `scripts/check_engine_parity_drift.sh` et `scripts/check_generated_docs.sh`) |
@@ -151,6 +151,7 @@ pre-commit install --hook-type post-commit
 bash scripts/setup-branch-protection.sh            # main + develop
 bash scripts/setup-branch-protection.sh polity     # puis polity (et polity-ui)
 bash scripts/setup-branch-protection.sh --print-contexts polity   # liste seule, ne touche à rien
+bash scripts/setup-branch-protection.sh --print-checks polity     # l'entrée appliquée (gate épinglé si REVIEW_GATE_APP_ID)
 ```
 
 Le script refuse d'exiger un check tant que le workflow qui le poste ne tourne
@@ -195,6 +196,57 @@ décision du propriétaire (2026-10-07). Le prix : Mergify ne peut ni grouper ni
 tester en parallèle avec `strict` (`batch_size: 1` et `max_parallel_checks: 1`
 dans `.mergify.yml`), donc la file traite une PR à la fois. Le gain : un merge
 fait à la main, hors de la file, doit lui aussi être à jour de la branche cible.
+
+#### GitHub App de la revue (statut infalsifiable)
+
+Sans elle, n'importe quel workflow du repo peut poser un statut nommé
+`High-risk review gate` ou `human-review` avec son `GITHUB_TOKEN`, y compris le
+workflow `pull_request` d'une PR. Avec elle, `human-review.yml` poste ces
+statuts avec le jeton de l'App, la protection de branche n'accepte le gate que
+de cette App, et un `human-review` ne compte que s'il vient d'elle. Mise en
+place, **dans cet ordre** (en inverser deux peut bloquer toutes les PR) :
+
+1. **Créer l'App** : Settings (du compte) → Developer settings → GitHub Apps →
+   New GitHub App. Nom libre (par ex. `vote-app-review-gate`), Homepage URL :
+   le repo, **Webhook décoché**. Permissions de dépôt : *Commit statuses* →
+   Read and write, rien d'autre. « Only on this account ». Créer.
+2. Sur la page de l'App : noter l'**App ID** (numérique) et le **Client ID**,
+   puis *Generate a private key* (un `.pem` est téléchargé).
+3. *Install App* → ce compte → *Only select repositories* → `Vote-App`.
+4. **Environnement** : Settings du repo → Environments → New environment
+   `review-gate` (ou l'éditer : le workflow le crée vide à son premier run). *Deployment branches and tags* → **Protected branches
+   only**. Y ajouter le secret d'environnement `REVIEW_GATE_APP_KEY` = tout le
+   contenu du `.pem` (puis supprimer le fichier local).
+5. **Variable du repo** : Settings → Secrets and variables → Actions →
+   Variables : `REVIEW_GATE_APP_CLIENT_ID` = le Client ID. À partir de là, un
+   `human-review` ne compte que s'il vient de l'App : une PR à risque relue
+   avant cette étape doit être relue à nouveau (`/reviewed <sha>`).
+6. Vérifier sur la PR suivante vers `polity` : le statut `High-risk review gate`
+   doit apparaître posté par l'App (son avatar, « vote-app-review-gate »), pas
+   par GitHub Actions. Le workflow tourne depuis `develop` : la PR qui l'a
+   introduit doit déjà y être synchronisée.
+7. **Épingler** l'App dans la protection (le script refuse tant que la copie de
+   `human-review.yml` sur `develop` ne poste pas avec l'App) :
+
+   ```bash
+   REVIEW_GATE_APP_ID=<App ID> bash scripts/setup-branch-protection.sh polity
+   REVIEW_GATE_APP_ID=<App ID> bash scripts/setup-branch-protection.sh develop
+   ```
+
+   Le script vérifie d'abord que le dernier `High-risk review gate` posé sur une
+   PR vers `polity`/`develop` vient bien de l'App portant cet id. Une PR ouverte
+   dont le gate date d'avant l'étape 5 (posé par GitHub Actions) ne compte plus :
+   il suffit d'un nouveau commit ou d'un « Update branch » pour qu'il soit reposé.
+8. **Seulement après l'étape 7**, ajouter la variable du repo
+   `REVIEW_GATE_APP_ID` = l'App ID : l'audit CI-health quotidien la lit et signale
+   toute protection où le gate n'est pas épinglé sur cette App (l'ajouter plus
+   tôt ferait passer l'audit au rouge en attendant l'épinglage).
+
+Retour arrière, dans cet ordre : supprimer la variable `REVIEW_GATE_APP_ID`,
+relancer le script sans elle (le gate redevient « toute source »), puis supprimer
+`REVIEW_GATE_APP_CLIENT_ID` (le workflow reposte avec `GITHUB_TOKEN`). Limite qui reste : un agent qui utiliserait les
+identifiants du propriétaire peut commenter `/reviewed` en son nom ; c'est aux
+hooks de `.claude/` de l'interdire.
 
 ---
 
@@ -323,7 +375,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
 | Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs, et `mypy_scripts` : erreurs mypy strict sur `fast_api_voter/scripts/*.py`, sans ses sous-dossiers) | ne doit jamais augmenter (ni baisser sans `--update`) | `.github/quality-baseline.json` via `scripts/check_quality_ratchet.sh` |
 | Complexité moyenne (radon) | rang A, bloquant | `xenon -a A` dans `audit.yml` |
-| Couverture des lignes modifiées | 100 %, bloquant (backend et frontend) | `diff-cover` dans les workflows Backend/Frontend CI |
+| Couverture des lignes et branches modifiées | 100 %, bloquant (backend et frontend) : une ligne modifiée qui est une branche (`if`/`else`, ternaire, `&&`/`||`, `??`) doit avoir été prise dans tous les sens ; une branche inatteignable par construction prend `# pragma: no branch` ou `/* v8 ignore else */`, avec sa raison | `diff-cover --branch-coverage` dans les workflows Backend/Frontend CI |
 | Score de mutation backend | ne baisse pas au-delà du bruit (hors PR) | `.github/mutation-baseline.json` via `scripts/check_mutation_score.sh` |
 | npm audit severity | high (arbre complet, exceptions datées) | `npm run audit:gate` + `.github/npm-audit-allowlist.json` |
 | Bandit severity | medium+ | `-ll` dans args bandit |

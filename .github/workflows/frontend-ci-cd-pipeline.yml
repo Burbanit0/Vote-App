@@ -142,7 +142,8 @@ jobs:
 
       - name: Tests with coverage
         # Vitest (post Jest→Vitest migration): coverage reporters are configured
-        # in vitest.config.ts (text, lcov, html). test:coverage = `vitest run --coverage`.
+        # in vitest.config.ts (text, lcov, html, cobertura: diff-cover below reads
+        # the cobertura one). test:coverage = `vitest run --coverage`.
         run: npm run test:coverage
         working-directory: ./voter-app
         env:
@@ -152,10 +153,9 @@ jobs:
       # trend over time. Purely informational — see codecov.yml
       # (informational: true on both statuses); diff-cover below is the
       # actual enforced gate. Runs on push too (not just pull_request), so
-      # the develop-branch trend graph stays populated. Raw lcov.info (not
-      # the diff-cover step's voter-app/-prefixed copy) — Codecov resolves
-      # paths against its own uploaded-from directory, unlike diff-cover's
-      # git-diff-path matching.
+      # the develop-branch trend graph stays populated. lcov.info, as is —
+      # Codecov resolves paths against its own uploaded-from directory
+      # (diff-cover reads the Cobertura report instead, for its branch data).
       # Handed to the `codecov` job below, which uploads it with a short-lived
       # OIDC token: this job runs the PR's code, so it holds neither the
       # upload token nor id-token: write.
@@ -176,21 +176,23 @@ jobs:
       # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
       # *changed* by this PR — far more mordant than vitest.config.ts's global
       # thresholds, which a large already-tested codebase dilutes.
-      - name: diff-cover — 100% coverage on changed lines
+      # --branch-coverage: a changed line that is a branch (if/else, ternary,
+      # &&/||, ??) must have taken every way out, not merely have run. diff-cover
+      # reads branch data from Cobertura XML only (its lcov reader ignores a
+      # partly-taken branch), hence vitest's `cobertura` reporter; its <source>
+      # is voter-app/, so the paths line up with git's without rewriting.
+      - name: diff-cover — 100% coverage on changed lines and branches
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # vitest writes lcov.info with SF: paths relative to voter-app/ (its
-          # own cwd), but `git diff` (and diff-cover's lcov reader) expects
-          # paths relative to the repo root — prefix them so the two line up.
-          sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
           # pipx ships on the ubuntu runner, so no Python setup step just for this.
           # diff-cover and its dependencies come from the backend's dev lockfile,
           # the one place the version is pinned (Dependabot keeps it current).
           pipx run --pip-args='-c fast_api_voter/requirements-dev.lock.txt' --spec diff-cover \
-            diff-cover voter-app/coverage/lcov-diffcover.info \
+            diff-cover voter-app/coverage/cobertura-coverage.xml \
             --compare-branch="$BASE_REF" \
+            --branch-coverage \
             --fail-under=100
 
       - name: Build

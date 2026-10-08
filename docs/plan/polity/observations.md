@@ -69,6 +69,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
+| [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
 
 ---
 
@@ -2053,5 +2054,43 @@ turn out about 90%.
 Every LLM run before this fix carries the old rule, so turnout and vote shares are not comparable across it,
 and a run resumed across the change switches rule mid-run (the config hash does not see it). The golden
 references and the explorer fixture run at cost 0 and do not move.
+
+*Status: fixed.*
+
+### OBS-043
+
+**Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing.**
+
+*Seen.* Rewriting the nominee prompt's vote sentence for OBS-042. The nominee rules said "a candidate of the
+citizen's own party counts for more" (`nominee_system_prompt`, since 2026-09-28), and the forum's party-move
+rules said "At an election, citizens weigh a candidate of their own party more favourably" (`_party_move_rules`,
+since 2026-09-30, OBS-031..033). The term behind both is `vote.partisanship`: `polity_config.yaml` ships 0,
+neither the flagship nor the exploration profile overrides it, and ADR-011's calibration adopted no other value.
+So every nominee and every forum citizen in every run so far was told of an advantage that did not exist --
+what contract C3 rules out.
+
+*Measured: no behavioural effect shown.* `check_agent_prompt_neutrality.py`, forum and campaign probes, on the
+same citizens with the sentence (`polity` at be73caed) and without it, vLLM 0.31.0:
+
+| probe, cell | with the sentence | without |
+|---|---|---|
+| forum, too few would co-found: none / join | 94% / 6% | 100% / 0% |
+| forum, enough would co-found: found | 99% | 98% |
+| campaign, behind in the poll: none / base / undecided | 51% / 14% / 35% | 59% / 5% / 36% |
+| campaign, ahead in the poll: none / base / undecided | 74% / 14% / 12% | 75% / 15% / 10% |
+
+(n=80 per cell per wording, the two runs side by side.) The forum's 6% of joins is what the paraphrase of the
+new wording also gives; the campaign's shifts sit inside the harness's 13-15% noise band.
+
+*A caveat on the harness, from the same session.* At n=40 the campaign probe first showed a 30-point shift
+between the same two prompts (behind in the poll: 32% / 5% / 62% with the sentence, 60% / 8% / 32% without),
+which n=80 does not reproduce. The harness takes the first n citizens, so the n=80 runs include those 40:
+holding 62% undecided on the first 40 would need about 8% on the next 40. More likely one citizen's answer
+varies from run to run at temperature 0.6 more than the binomial noise band assumes. ADR-023's table (behind:
+32% / 8% / 60%) is one n=40 run of that first 40, and its shares should be read as such; its ordering (behind
+reaches for the undecided more than ahead, ahead mostly does not campaign) holds at n=80.
+
+*Fixed 2026-10-07* on `fix/polity-nominee-partisanship-claim`: both sentences appear only when
+`vote.partisanship` is above 0; the forum rules keep "a party nominates only its own members", which is true.
 
 *Status: fixed.*
