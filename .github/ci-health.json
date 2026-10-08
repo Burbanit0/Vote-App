@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-10-07T15:29:57Z",
+  "generated_at": "2026-10-08T15:31:46Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-07T13:16:17Z",
+      "last_run_at": "2026-10-07T20:19:09Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -19,7 +19,7 @@
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-07T13:16:17Z",
+      "last_run_at": "2026-10-07T21:11:50Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -34,7 +34,7 @@
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-06T02:05:17Z",
+      "last_run_at": "2026-10-08T11:37:29Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +49,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-07T13:16:17Z",
+      "last_run_at": "2026-10-08T10:27:23Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-07T15:17:22Z",
+      "last_run_at": "2026-10-08T09:26:01Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-07T14:24:03Z",
+      "last_run_at": "2026-10-07T16:47:36Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -112,6 +112,10 @@
     "detail": "matches setup-branch-protection.sh"
   },
   "branch_protection_polity": {
+    "status": "healthy",
+    "detail": "matches setup-branch-protection.sh"
+  },
+  "branch_protection_main": {
     "status": "healthy",
     "detail": "matches setup-branch-protection.sh"
   }
