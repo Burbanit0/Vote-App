@@ -15,6 +15,7 @@ from api.domain.polity.agents import (
     ISSUES,
     PRESIDENT_TURN,
     NomineeBriefing,
+    forum_system_prompt,
     nominee_system_prompt,
     nominee_user_prompt,
     AgentMemory,
@@ -147,6 +148,17 @@ def test_a_nominee_campaigns_on_the_poll_under_the_campaign_s_rules() -> None:
     assert "- you (party 2): 40% of first choices" in text and "- citizen 7 (no party): 25% of first choices" in text
     assert "voting blank 20%, staying home 15%" in text and "9 housing (the private market / public housing) | 0.30 | 0.50" in text
 
+
+
+def test_own_party_favour_is_stated_only_when_the_vote_gives_it() -> None:
+    # OBS-043: `vote.partisanship` is 0 in every profile agents have run, and both prompts said otherwise.
+    moves = dataclasses.replace(_CONFIG, agents=dataclasses.replace(_CONFIG.agents, party_moves=True))
+    partisan = dataclasses.replace(moves, vote=dataclasses.replace(moves.vote, partisanship=0.05))
+    for config, stated in ((moves, False), (partisan, True)):
+        assert ("own party counts for more" in nominee_system_prompt(_president(), config)) is stated
+        forum = forum_system_prompt(_president(), config)
+        assert ("own party more favourably" in forum) is stated
+        assert "a party nominates only its own members" in forum
 
 # ── memory ────────────────────────────────────────────────────────────────
 
