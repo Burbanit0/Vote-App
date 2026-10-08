@@ -156,6 +156,15 @@ class Compare(unittest.TestCase):
         self.assertEqual(sorted(report["silenced"]),
                          ["`as any` in src/rules.ts", "`eslint-disable` in src/rules.ts"])
 
+    def test_branch_coverage_escape_hatches_are_reported(self):
+        self.write("src/rules.ts", "/* v8 ignore else */\nexport const x = 1;\n")
+        self.write("api/rules.py", "for x in []:  # pragma: no branch\n    pass\n")
+        self.commit("hatches")
+        report = cti.compare("main", "pr")
+        self.assertEqual(cti.hold_reasons(report), [])
+        self.assertEqual(sorted(report["silenced"]),
+                         ["`pragma: no branch` in api/rules.py", "`v8 ignore` in src/rules.ts"])
+
     def test_renamed_file_keeps_its_silencers(self):
         self.write("src/rules.ts", "export const x = (1 as any);\n")
         self.commit("base silencer")

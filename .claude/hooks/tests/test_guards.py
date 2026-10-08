@@ -224,7 +224,9 @@ class EditGuard(unittest.TestCase):
                  ("voter-app/src/lib/x.ts", "const a = b", "const a = b as any"),
                  ("fast_api_voter/api/x.py", "import os", "import os  # noqa: F401"),
                  ("fast_api_voter/api/tests/test_x.py", "def test_a():", "@pytest.mark.skip\ndef test_a():"),
-                 ("voter-app/src/x.tsx", "f()", "// @ts-expect-error\nf()")]
+                 ("voter-app/src/x.tsx", "f()", "// @ts-expect-error\nf()"),
+                 ("fast_api_voter/api/x.py", "for x in xs:", "for x in xs:  # pragma: no branch"),
+                 ("voter-app/src/lib/x.ts", "if (a) {", "/* v8 ignore else */\nif (a) {")]
         for path, old, new in cases:
             with self.subTest(path=path, new=new):
                 self.assertEqual(edit(path, old, new), "ask")

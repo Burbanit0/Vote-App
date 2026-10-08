@@ -295,6 +295,21 @@ def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str],
     return required_contexts, expected_strict
 
 
+def review_gate_name() -> str:
+    """The review gate's context name, read from setup-branch-protection.sh
+    (`REVIEW_GATE="..."`), so a rename there can't silently switch off the pin
+    check below. Phase 3b: when the repository variable REVIEW_GATE_APP_ID is
+    set (ci-health.yml passes it in), protection must require this context
+    from that GitHub App, as `REVIEW_GATE_APP_ID=<id> setup-branch-protection.sh`
+    applies it: an unpinned gate accepts a status of the same name from any
+    workflow's GITHUB_TOKEN."""
+    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
+    match = re.search(r'^REVIEW_GATE="([^"]+)"', text, re.MULTILINE)
+    if match is None:
+        raise ValueError("no REVIEW_GATE= line in setup-branch-protection.sh")
+    return match.group(1)
+
+
 def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
     try:
         expected_contexts, expected_strict = parse_setup_script_expectations(branch)
@@ -316,9 +331,8 @@ def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
         }
 
     live_strict = bool(live.get("required_status_checks", {}).get("strict", False))
-    live_contexts = sorted(
-        c["context"] for c in live.get("required_status_checks", {}).get("checks", [])
-    )
+    live_checks = live.get("required_status_checks", {}).get("checks", [])
+    live_contexts = sorted(c["context"] for c in live_checks)
     expected_sorted = sorted(expected_contexts)
 
     problems = []
@@ -332,6 +346,16 @@ def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
         problems.append(f"missing live required contexts: {sorted(missing)}")
     if extra:
         problems.append(f"unexpected live required contexts: {sorted(extra)}")
+    expected_app = "".join(os.environ.get("REVIEW_GATE_APP_ID", "").split())
+    if expected_app:
+        gate = review_gate_name()
+        if gate in expected_contexts:
+            live_app = next((c.get("app_id") for c in live_checks if c["context"] == gate), None)
+            if str(live_app) != expected_app:
+                problems.append(
+                    f"{gate!r} is required from app_id {live_app} live, "
+                    f"{expected_app} expected (REVIEW_GATE_APP_ID): any workflow can satisfy it"
+                )
 
     if problems:
         return {"status": "drifted", "detail": "; ".join(problems)}

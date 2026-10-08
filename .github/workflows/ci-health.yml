@@ -73,6 +73,8 @@ jobs:
         id: audit
         env:
           GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
+          # Phase 3b: when set, the review gate must be pinned to this App id.
+          REVIEW_GATE_APP_ID: ${{ vars.REVIEW_GATE_APP_ID }}
         run: |
           # The default run shell is `bash -e`, without pipefail: a crash in
           # --update was masked by tee's exit 0, pr_needed never got written,

@@ -55,6 +55,10 @@ SILENCERS = {
     "`# noqa`": re.compile(r"#\s*noqa\b"),
     "`type: ignore`": re.compile(r"#\s*type:\s*ignore\b"),
     "`pragma: no cover`": re.compile(r"pragma:\s*no\s*cover"),
+    # diff-cover --branch-coverage's escape hatches for a branch no test can
+    # reach: allowed, but a reviewer should see each one.
+    "`pragma: no branch`": re.compile(r"pragma:\s*no\s*branch"),
+    "`v8 ignore`": re.compile(r"\b(?:v8|c8|istanbul)\s+ignore\b"),
     "`eslint-disable`": re.compile(r"eslint-disable"),
     "`@ts-ignore`/`@ts-expect-error`": re.compile(r"@ts-(?:ignore|expect-error|nocheck)\b"),
     "`as any`": re.compile(r"\bas\s+any\b"),

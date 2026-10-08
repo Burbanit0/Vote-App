@@ -38,6 +38,11 @@ markers = [
 
 [tool.coverage.run]
 source = ["api"]
+# Branch data: diff-cover --branch-coverage (backend-ci-cd-pipeline.yml) fails a
+# changed line whose branch was only taken one way (an `if` whose `else` no test
+# reaches), which line coverage alone counts as covered. It also makes the
+# fail_under total below combine lines and branches.
+branch = true
 omit = ["api/tests/*"]
 
 [tool.coverage.report]

@@ -424,8 +424,10 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
         f"The president is elected by {inst.presidential_method.replace('_', ' ')} until the next scheduled election, held "
         f"every {inst.president_term_years} years.",
         "Each citizen ranks the candidates by how close their platforms are to the citizen's own views, weighted "
-        "by what the citizen cares about; a candidate of the citizen's own party counts for more; a citizen who "
-        "finds no candidate close enough votes blank"
+        "by what the citizen cares about"
+        # Only where it is true: `vote.partisanship` is 0 in every profile agents have run (OBS-043).
+        + ("; a candidate of the citizen's own party counts for more" if config.vote.partisanship > 0 else "")
+        + "; a citizen who finds no candidate close enough votes blank"
         + (", and one whose favourite is worth about as much as a blank ballot may stay home."
            if config.vote.mode == "utility" and config.vote.turnout_cost > 0 else "."),
         f"You may campaign on a platform: name the position you take on up to {campaign.max_positioning_shifts} issues, "
@@ -724,8 +726,9 @@ def _party_move_rules(config: PolityConfig) -> str:
         "-1): a new party whose platform is your own positions, which comes into being only if at least "
         f"{config.parties.founding_ratio:.0%} of the citizens stand nearer to your positions than to their own party's "
         "platform -- your briefing says how many do -- and which holds no seats until the next legislative election. "
-        "\"none\" with -1 changes nothing. At an election, citizens weigh a candidate of their own party more "
-        "favourably, and a party nominates only its own members."
+        "\"none\" with -1 changes nothing. "
+        + ("At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only "
+           "its own members." if config.vote.partisanship > 0 else "At an election, a party nominates only its own members.")
     )
 
 

@@ -162,8 +162,8 @@ def _paraphrase(text: str, pairs: Sequence[tuple[str, str]]) -> str:
 
 _FORUM_PAIRS = (
     (
-        "At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only its own members.",
-        "At an election a candidate of a citizen's own party is weighed more favourably, and only its own members may be nominated by a party.",
+        "At an election, a party nominates only its own members.",
+        "At an election, only its own members may be nominated by a party.",
     ),
 )
 
