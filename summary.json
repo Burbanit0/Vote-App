@@ -1810,7 +1810,7 @@
   "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-08T20:54:59Z",
+ "generated_at": "2026-10-08T21:06:14Z",
  "grid": {
   "Backend CI": {
    "2026-09-08": {
@@ -2016,7 +2016,7 @@
    },
    "2026-10-08": {
     "failure": 1,
-    "success": 21
+    "success": 22
    }
   },
   "CI Health Watchdog": {
@@ -2153,7 +2153,7 @@
     "success": 2
    },
    "2026-10-08": {
-    "success": 1
+    "success": 2
    }
   },
   "DAST \u2014 ZAP Baseline": {
@@ -2642,6 +2642,9 @@
    "2026-10-07": {
     "cancelled": 1,
     "success": 1
+   },
+   "2026-10-08": {
+    "success": 1
    }
   },
   "OpenSSF Scorecard": {
@@ -2944,7 +2947,7 @@
    "2026-10-08": {
     "cancelled": 13,
     "skipped": 57,
-    "success": 43
+    "success": 45
    }
   },
   "zizmor online": {
@@ -2974,9 +2977,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-08T20:46:59Z",
+   "created_at": "2026-10-08T20:54:19Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37842014044"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37842906711"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2986,11 +2989,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376101"
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-08T11:37:29Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37771282468"
+   "created_at": "2026-10-08T20:37:01Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37840771094"
   },
   "DAST \u2014 ZAP Baseline": {
    "branch": "polity",
@@ -3035,11 +3038,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37842536165"
   },
   "Mutation Testing": {
-   "branch": "polity",
-   "conclusion": "cancelled",
-   "created_at": "2026-10-07T20:19:09Z",
+   "branch": "develop",
+   "conclusion": "success",
+   "created_at": "2026-10-08T18:11:37Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37681086935"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376294"
   },
   "OpenSSF Scorecard": {
    "branch": "develop",
@@ -3072,9 +3075,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-08T20:54:19Z",
+   "created_at": "2026-10-08T21:07:42Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37842906666"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37844553395"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3084,7 +3087,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376312"
   }
  },
- "runs": 13502,
+ "runs": 13507,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3199,12 +3202,12 @@
     "2026-10-05": 374,
     "2026-10-06": 387.5,
     "2026-10-07": 395,
-    "2026-10-08": 394
+    "2026-10-08": 395.0
    },
-   "p50_s": 391,
+   "p50_s": 394,
    "p95_s": 581,
    "queue_p50_s": 0,
-   "runs": 187
+   "runs": 188
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3252,12 +3255,12 @@
     "2026-10-02": 1949,
     "2026-10-04": 1837,
     "2026-10-06": 1862.5,
-    "2026-10-08": 1830
+    "2026-10-08": 1834.0
    },
-   "p50_s": 1836,
+   "p50_s": 1837,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 34
+   "runs": 35
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
@@ -3490,12 +3493,13 @@
     "2026-10-04": 8249.0,
     "2026-10-05": 7835,
     "2026-10-06": 10160,
-    "2026-10-07": 7571
+    "2026-10-07": 7571,
+    "2026-10-08": 10428
    },
    "p50_s": 10278,
    "p95_s": 10797,
    "queue_p50_s": 0,
-   "runs": 24
+   "runs": 25
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
@@ -3629,7 +3633,7 @@
    "p50_s": 27,
    "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 610
+   "runs": 612
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3711,9 +3715,9 @@
     },
     "Mutation Testing": {
      "conclusion": "success",
-     "created_at": "2026-10-07T13:16:17Z",
-     "sha": "1d2a5c0e65e5ca6ec859781694e947a59a02718a",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37627180680"
+     "created_at": "2026-10-08T18:11:37Z",
+     "sha": "f4962b601dd8e6136f95f383773de583a62609c1",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376294"
     },
     "OpenSSF Scorecard": {
      "conclusion": "success",
@@ -3805,9 +3809,9 @@
     },
     "Coverage-Guided Fuzzing (atheris)": {
      "conclusion": "success",
-     "created_at": "2026-10-06T01:15:16Z",
-     "sha": "23a74199eac5731cbdcfa25111348d66a912f6aa",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37398221255"
+     "created_at": "2026-10-08T20:37:01Z",
+     "sha": "68a11dca75ab1a1de4ed47a13d4412ca33a447e7",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37840771094"
     },
     "DAST \u2014 ZAP Baseline": {
      "conclusion": "success",
