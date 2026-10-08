@@ -380,7 +380,7 @@ const pgEn: PlaygroundKeys = {
     manipMid:
       ': {{pct}}% of voters tempted to vote tactically ({{compromise}} compromise · {{burying}} burying). Random ballot:',
     manipEnd:
-      ' — strategyproof; among lotteries, the only rule that is also Pareto-efficient and treats voters alike (Gibbard 1977). With three or more candidates, every deterministic, non-dictatorial ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
+      ' — strategyproof; among lotteries, the only rule that is also Pareto-efficient and treats voters alike (Gibbard 1977). As soon as three or more candidates can win, every deterministic, non-dictatorial ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
     methodHeader: 'Method',
     criteriaLegend:
       '✓ satisfied · ✗ violated · – not triggered on this electorate. Measured live — drag a candidate to provoke a violation. The Condorcet winner is ringed on the map.',
@@ -1278,7 +1278,7 @@ const pgEn: PlaygroundKeys = {
     },
     random_ballot: {
       label: 'Strategyproof — strategy gains nothing',
-      ref: 'Gibbard 1977 (the only strategyproof, Pareto-efficient lottery)',
+      ref: 'Gibbard 1977 (the only strategyproof, Pareto-efficient, anonymous lottery)',
     },
     anti_plurality: { label: 'P (veto)', ref: 'positional rule' },
     dowdall: { label: 'P (positional)', ref: 'positional rule' },

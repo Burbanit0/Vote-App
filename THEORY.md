@@ -11,7 +11,7 @@
 ## Table des matières
 
 1. [Fondements : la théorie du choix social](#1-fondements--la-théorie-du-choix-social)
-2. [Les méthodes de vote (29)](#2-les-méthodes-de-vote-29)
+2. [Les méthodes de vote](#2-les-méthodes-de-vote)
 3. [Les théorèmes d'impossibilité](#3-les-théorèmes-dimpossibilité)
 4. [Les paradoxes démocratiques](#4-les-paradoxes-démocratiques)
 5. [Modèles de comportement électoral](#5-modèles-de-comportement-électoral)
@@ -107,7 +107,7 @@ Beta(2,3)), `centrist` (Normal(0.5, 0.1)), `polarized` (bimodale 50/50),
 
 ---
 
-## 2. Les méthodes de vote (29)
+## 2. Les méthodes de vote
 
 ### 2.1 Méthodes de classement (Ranked)
 
@@ -527,8 +527,11 @@ la non-dictature (Arrow, 1951 ; Wilson, 1972 ; Geanakoplos, 2005).
 
 **Portée** : le théorème vaut pour les règles qui agrègent des **classements**
 en un classement collectif, avec au moins 3 alternatives. Les méthodes
-cardinales (vote par note, approbation) sortent de ce cadre, ce qui explique
-qu'elles puissent satisfaire l'IIA (§2.2).
+cardinales (vote par note, approbation) sortent de ce cadre : avec des notes
+absolues, qui ne dépendent pas des autres candidats, elles satisfont l'IIA.
+Mais des électeurs qui recalibrent leurs notes selon les candidats en lice —
+comme dans ce moteur, où chacun note de 0 (le pire) à 1 (le meilleur) — la
+violent : d'où le ✗ de la matrice des méthodes.
 
 **Interprétation** : toute méthode qui agrège des classements doit sacrifier au
 moins un de ces 5 axiomes. Le choix de l'axiome sacrifié définit le "profil éthique" de
@@ -544,15 +547,16 @@ gagner), est **manipulable** — il existe des profils
 de préférences où un électeur peut améliorer son résultat en déclarant
 des préférences différentes de ses vraies préférences.
 
-**Implication** : le "vote sincère" n'est jamais une stratégie dominante
-pour toutes les méthodes non-triviales.
+**Implication** : pour toute méthode de ce type, le vote sincère n'est pas
+*toujours* une stratégie dominante : il existe au moins un profil où un électeur
+gagne à mentir. Sur beaucoup d'autres profils, voter sincèrement reste optimal.
 
 **Nuance** : certaines méthodes (Majority Judgment, STAR) minimisent les
 situations où la manipulation est utile, sans l'éliminer entièrement.
 
 ---
 
-### 3.3 Théorème du chaos de McKelvey (1976, 1979)
+### 3.3 Théorème du chaos de McKelvey (1976)
 
 **Énoncé** : Dans un espace de politiques à ≥2 dimensions avec ≥3 électeurs,
 un vainqueur de Condorcet n'existe (presque) jamais. De plus, l'ensemble
@@ -610,8 +614,8 @@ compromis non-résolu entre ces deux valeurs.
 
 ### 3.6 Impossibilité d'apportionment (Balinski-Young, 1982)
 
-**Énoncé** : avec au moins 4 partis, aucune méthode de répartition de sièges
-entiers ne satisfait à la fois :
+**Énoncé** : avec au moins 4 partis et au moins 3 sièges de plus que de partis,
+aucune méthode de répartition de sièges entiers ne satisfait à la fois :
 - **Quotient** : chaque parti reçoit entre ⌊quota⌋ et ⌈quota⌉ sièges
 - **Monotonie de la population** : si les voix d'un parti A croissent
   relativement plus que celles d'un parti B, A ne peut pas perdre un siège au

@@ -385,7 +385,7 @@ const pgFr = {
     manipMid:
       ' : {{pct}}% des électeurs tentés de voter stratégiquement ({{compromise}} compromis · {{burying}} enterrement). Vote au sort :',
     manipEnd:
-      ' — inmanipulable ; parmi les loteries, la seule règle à la fois Pareto-efficace et égale entre électeurs (Gibbard 1977). Dès trois candidats, toute règle ordinale déterministe non dictatoriale est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
+      ' — inmanipulable ; parmi les loteries, la seule règle à la fois Pareto-efficace et égale entre électeurs (Gibbard 1977). Dès que trois candidats au moins peuvent gagner, toute règle ordinale déterministe non dictatoriale est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
     methodHeader: 'Méthode',
     criteriaLegend:
       '✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la carte.',
@@ -1299,7 +1299,7 @@ const pgFr = {
     },
     random_ballot: {
       label: 'Inmanipulable — la stratégie n’apporte rien',
-      ref: 'Gibbard 1977 (seule loterie inmanipulable et Pareto-efficace)',
+      ref: 'Gibbard 1977 (seule loterie inmanipulable, Pareto-efficace et anonyme)',
     },
     anti_plurality: { label: 'P (véto)', ref: 'règle positionnelle' },
     dowdall: { label: 'P (positionnel)', ref: 'règle positionnelle' },

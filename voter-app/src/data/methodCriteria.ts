@@ -166,7 +166,7 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
     reversal: 'yes',
   },
   // A lottery, not a deterministic rule: among probabilistic rules it is the only one
-  // that is both strategy-proof and ex-post Pareto efficient (Gibbard 1977). IIA holds vacuously.
+  // that is strategy-proof, ex-post Pareto efficient and anonymous (Gibbard 1977). IIA holds vacuously.
   random_ballot: {
     condorcet_winner: 'no',
     condorcet_loser: 'no',

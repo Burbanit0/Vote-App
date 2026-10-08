@@ -413,7 +413,7 @@ const pgPseudo: PlaygroundKeys = {
     manipMid:
       '⟦ :~ {{pct}}%~ dés~~ éléçtéúrs~~~~ téñtés~~~ dé~ vótér~~ strátégíqúéméñt~~~~~~ (~{{compromise}} çómprómís~~~~ ·~ {{burying}} éñtérréméñt).~~~~~ Vóté~~ áú~ sórt~~ :~⟧',
     manipEnd:
-      '⟦ —~ íñmáñípúláblé~~~~~ ;~ pármí~~ lés~~ lótéríés,~~~~ lá~ séúlé~~ règlé~~ à~ lá~ fóís~~ Párétó-éffíçáçé~~~~~~ ét~ égálé~~ éñtré~~ éléçtéúrs~~~~ (Gíbbárd~~~ 1977).~~~ Dès~~ tróís~~ çáñdídáts,~~~~ tóúté~~ règlé~~ órdíñálé~~~ détérmíñísté~~~~~ ñóñ~~ díçtátóríálé~~~~~ ést~~ máñípúláblé~~~~ :~ ç’ést~~ lá~ fróñtíèré~~~~ dé~ Gíbbárd-Sáttérthwáíté.~~~~~~~~⟧',
+      '⟦ —~ íñmáñípúláblé~~~~~ ;~ pármí~~ lés~~ lótéríés,~~~~ lá~ séúlé~~ règlé~~ à~ lá~ fóís~~ Párétó-éffíçáçé~~~~~~ ét~ égálé~~ éñtré~~ éléçtéúrs~~~~ (Gíbbárd~~~ 1977).~~~ Dès~~ qúé~~ tróís~~ çáñdídáts~~~~ áú~ móíñs~~ péúvéñt~~~ gágñér,~~~ tóúté~~ règlé~~ órdíñálé~~~ détérmíñísté~~~~~ ñóñ~~ díçtátóríálé~~~~~ ést~~ máñípúláblé~~~~ :~ ç’ést~~ lá~ fróñtíèré~~~~ dé~ Gíbbárd-Sáttérthwáíté.~~~~~~~~⟧',
     methodHeader: '⟦Méthódé~~~⟧',
     criteriaLegend:
       '⟦✓~ sátísfáít~~~~ ·~ ✗~ víólé~~ ·~ –~ ñóñ~~ déçléñçhé~~~~ súr~~ çét~~ éléçtórát.~~~~ Mésúré~~~ éñ~ díréçt~~~ —~ glísséz~~~ úñ~ çáñdídát~~~ póúr~~ próvóqúér~~~~ úñé~~ víólátíóñ.~~~~ Lé~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ ést~~ çérçlé~~~ súr~~ lá~ çárté.~~~⟧',
@@ -1413,7 +1413,7 @@ const pgPseudo: PlaygroundKeys = {
     },
     random_ballot: {
       label: '⟦Íñmáñípúláblé~~~~~ —~ lá~ strátégíé~~~~ ñ’áppórté~~~~ ríéñ~~⟧',
-      ref: '⟦Gíbbárd~~~ 1977~~ (séúlé~~~ lótéríé~~~ íñmáñípúláblé~~~~~ ét~ Párétó-éffíçáçé)~~~~~~⟧',
+      ref: '⟦Gíbbárd~~~ 1977~~ (séúlé~~~ lótéríé~~~ íñmáñípúláblé,~~~~~ Párétó-éffíçáçé~~~~~~ ét~ áñóñymé)~~~⟧',
     },
     anti_plurality: {
       label: '⟦P~ (vétó)~~~⟧',
