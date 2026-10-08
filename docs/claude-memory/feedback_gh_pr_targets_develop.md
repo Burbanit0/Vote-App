@@ -8,6 +8,8 @@ metadata:
   modified: 2026-08-29T15:19:01.533Z
 ---
 
+**Superseded 2026-09-27**: `polity` is the working branch; branch from it and PR into it, and `develop` only receives release syncs. See CLAUDE.md, "Workflow (mandated)". The text below is kept as history.
+
 `gh pr create` without an explicit `--base` targets the repo's default branch, which is `main` in this repo — but this repo's CI ("Validate branch source and naming") hard-rejects any PR into `main` whose source isn't `develop` itself. Every feature/lot PR must target `develop`, never `main` directly; `develop → main` is reserved for releases via the `🚀 Release Vote Lab` workflow.
 
 **Why:** hit this directly while landing the v4 vLLM switch (PR #139, [[project_polity_vllm_switch]]) — `gh pr create` silently opened against `main`, and the branch-naming check failed immediately (fixed with `gh pr edit 139 --base develop`, which re-triggered CI cleanly). Costs a wasted CI cycle each time it's missed.

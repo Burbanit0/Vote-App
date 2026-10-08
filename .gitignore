@@ -317,6 +317,8 @@ graphify-out/
 # (test_behavior_catalogue.py): ignored, it would exist only on one disk and the
 # test would fail everywhere else.
 !/docs/spec/
+# The project's one-page status: read first, so versioned.
+!/docs/STATUS.md
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/

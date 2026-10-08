@@ -8,6 +8,8 @@ metadata:
   modified: 2026-08-30T12:51:06.126Z
 ---
 
+**Superseded 2026-09-27** on branches: `polity` is the working branch and `develop` only receives release syncs (CLAUDE.md, "Workflow (mandated)"); any polity → develop merge rule below is history.
+
 **v7 closed (PR #227)**: the acceptance run (rounds=1 vs rounds=3 coalition negotiation, §3.4 Cas 2) confirmed parity and extended Lot 3's live-spike finding (zero observed revisions) to real journaled data. `run_v7_acceptance.py`'s own `summarize()` had a real bug — accepted `--results` but never wrote the file — fixed; verified the other four acceptance scripts didn't share it. Roadmap v0-v7 (`polity-simulation-design-v2.md` §13) is now fully complete and merged into `polity`.
 
 **Points ouverts triage (2026-08-30, PRs #228-231)**: the design doc's 21-item "Points ouverts" list was systematically audited against current code (not assumed accurate) via a Plan-Mode-approved triage into effort groups. Several entries marked "tranché" turned out to be stale — same class of staleness as the v6bis #12 fix from earlier in the week. Resolved/closed:
