@@ -198,7 +198,9 @@ au prochain candidat non-éliminé, jusqu'à majorité absolue.
 - Résistance à l'effet spoiler : meilleure que la pluralité
 
 **Usage réel** : Australie (Chambre des représentants), Irlande (présidentielle),
-Maine et Alaska (USA), Écosse (certaines élections), Londres (mairie).
+Maine et Alaska (USA), Écosse (certaines élections). Londres, souvent citée, n'a
+jamais utilisé l'IRV : son maire était élu au vote supplémentaire (deux choix
+seulement), puis au scrutin majoritaire à un tour depuis 2024.
 
 **Paradoxe de non-monotonie** : un candidat peut être éliminé parce qu'il a
 reçu trop de premières préférences, modifiant les duels au tour suivant.
@@ -451,9 +453,11 @@ d'électeurs. Redécouverte par la littérature contemporaine (Brill et al., 201
 
 ### 2.4 Méthodes supplémentaires
 
-Les 29 méthodes ci-dessus (2.1 à 2.4) sont toutes sélectionnables directement
-dans le **playground** — le rail Méthode les groupe en 5 familles (majoritaires,
-positionnelles, Condorcet, cardinales, autre). Le **laboratoire** (`/laboratoire`)
+Le **playground** propose 29 règles, que le rail Méthode groupe en 5 familles
+(majoritaires, positionnelles, Condorcet, cardinales, autre) : toutes les méthodes
+de 2.1 à 2.4, sauf le vote médian, le vote évaluatif, les hybrides moyenne-médiane
+et par variance (2.2) et les méthodes spéciales de 2.3, plus le **maximin
+d'utilité** (élire le candidat dont la plus mauvaise note est la meilleure). Le **laboratoire** (`/laboratoire`)
 ne rajoute pas de méthode : sa fiche « matrice complète des méthodes » lit le même
 jeu de règles pour les comparer plus en profondeur. Les 12 méthodes qui suivent
 partagent le même moteur (parité client⇄backend, voir §9.1) mais reçoivent ici un
@@ -472,7 +476,10 @@ règles à propriété particulière.
   exception sur marges exactement égales que Ranked Pairs ci-dessus.
 - **Split Cycle (Holliday & Pacuit, 2020)** — élimine, dans chaque cycle, l'arête
   de défaite la plus faible ; élit les candidats sans défaite restante. Résiste au
-  spoiler (independence of clones + immunité aux « pertes » de section).
+  spoiler (independence of clones + immunité aux « pertes » de section). Ces
+  propriétés valent pour l'**ensemble** des gagnants : notre moteur en retient un
+  seul par un départage de Borda, et ce départage peut, lui, être sensible aux
+  clones (`test_voting_criteria_matrix.py`).
 - **Smith/IRV (Smith-then-IRV)** — restreint d'abord à l'ensemble de Smith (plus
   petit ensemble battant tout le reste), puis applique IRV. Rend IRV cohérent avec
   Condorcet.
@@ -493,8 +500,10 @@ règles à propriété particulière.
   utilités (bien-être nashien) plutôt que la somme ; pénalise les résultats très
   inégalitaires.
 - **Random ballot (dictature aléatoire)** — tire un bulletin au hasard et élit son
-  premier choix. Seule règle **non manipulable** (strategyproof) et proportionnelle
-  en espérance ; sert de témoin théorique (Gibbard, 1977).
+  premier choix. **Non manipulable** (strategyproof) et proportionnelle en
+  espérance : parmi les loteries, c'est la seule règle à la fois inmanipulable,
+  Pareto-efficace et égale entre électeurs (Gibbard, 1977). Sert de témoin
+  théorique.
 
 ---
 
@@ -510,21 +519,28 @@ règles à propriété particulière.
 4. **Transitivité** : la relation collective est un ordre total
 5. **Non-dictature** : il n'existe pas d'individu dont la préférence prime toujours
 
-**Preuve (esquisse)** : par l'existence d'un "pivotal voter" — dans tout profil,
-il existe un électeur dont le changement de préférence entre deux alternatives
-détermine le résultat collectif, ce qui constitue une forme de dictature
-sur cette paire (Arrow, 1951 ; Wilson, 1972).
+**Preuve (esquisse)** : par l'existence d'un "pivotal voter" — on montre qu'il
+existe un électeur dont le changement de préférence entre deux alternatives
+fait basculer le résultat collectif, puis, grâce à l'IIA et à Pareto, que cet
+électeur décide de **toutes** les paires : c'est un dictateur, ce qui contredit
+la non-dictature (Arrow, 1951 ; Wilson, 1972 ; Geanakoplos, 2005).
 
-**Interprétation** : toute méthode de vote doit sacrifier au moins un de ces
-5 axiomes. Le choix de l'axiome sacrifié définit le "profil éthique" de
+**Portée** : le théorème vaut pour les règles qui agrègent des **classements**
+en un classement collectif, avec au moins 3 alternatives. Les méthodes
+cardinales (vote par note, approbation) sortent de ce cadre, ce qui explique
+qu'elles puissent satisfaire l'IIA (§2.2).
+
+**Interprétation** : toute méthode qui agrège des classements doit sacrifier au
+moins un de ces 5 axiomes. Le choix de l'axiome sacrifié définit le "profil éthique" de
 la méthode.
 
 ---
 
 ### 3.2 Théorème de Gibbard-Satterthwaite (1973-1975)
 
-**Énoncé** : Toute règle de choix social déterministe, non-dictatoriale, et
-applicable à ≥3 alternatives est **manipulable** — il existe des profils
+**Énoncé** : Toute règle de choix social déterministe et non-dictatoriale,
+dont au moins 3 issues sont possibles (≥3 candidats pouvant effectivement
+gagner), est **manipulable** — il existe des profils
 de préférences où un électeur peut améliorer son résultat en déclarant
 des préférences différentes de ses vraies préférences.
 
@@ -536,7 +552,7 @@ situations où la manipulation est utile, sans l'éliminer entièrement.
 
 ---
 
-### 3.3 Théorème du chaos de Plott (1967)
+### 3.3 Théorème du chaos de McKelvey (1976, 1979)
 
 **Énoncé** : Dans un espace de politiques à ≥2 dimensions avec ≥3 électeurs,
 un vainqueur de Condorcet n'existe (presque) jamais. De plus, l'ensemble
@@ -544,6 +560,10 @@ des alternatives non-dominées (le "top cycle") peut couvrir l'espace entier.
 
 **Implication directe** : l'agenda-setter peut produire n'importe quel résultat
 avec le même électorat en choisissant l'ordre des votes.
+
+Le résultat est de McKelvey ; Plott (1967) avait montré avant lui qu'un
+équilibre de la majorité exige une symétrie très particulière des électeurs,
+la condition ci-dessous.
 
 **Condition nécessaire pour un Condorcet winner en 2D** (Plott's condition) :
 les droites de médiane des électeurs doivent se croiser en un point unique —
@@ -590,11 +610,17 @@ compromis non-résolu entre ces deux valeurs.
 
 ### 3.6 Impossibilité d'apportionment (Balinski-Young, 1982)
 
-**Énoncé** : Il est impossible de répartir des sièges entiers entre des
-partis de façon à satisfaire simultanément :
+**Énoncé** : avec au moins 4 partis, aucune méthode de répartition de sièges
+entiers ne satisfait à la fois :
 - **Quotient** : chaque parti reçoit entre ⌊quota⌋ et ⌈quota⌉ sièges
-- **Monotonie de la population** : un parti ne perd pas de sièges en gagnant des voix
-- **Monotonie de la chambre** : personne ne perd de sièges quand on en ajoute
+- **Monotonie de la population** : si les voix d'un parti A croissent
+  relativement plus que celles d'un parti B, A ne peut pas perdre un siège au
+  profit de B
+
+La **monotonie de la chambre** (personne ne perd de siège quand on en ajoute)
+n'est pas en cause : elle est compatible avec le quotient (méthode du quota de
+Balinski-Young), et toutes les méthodes à diviseurs la respectent, au prix du
+quotient.
 
 **Paradoxes découverts** :
 - **Paradoxe d'Alabama (1880)** : l'Alabama perd un siège quand la chambre est agrandie
@@ -616,7 +642,8 @@ individuelle est transitive :
 Résultat : A > B (majorité), B > C (majorité), C > A (majorité) — cycle.
 
 **Fréquence** : augmente avec le nombre de candidats et la polarisation de l'électorat.
-Pour 3 candidats et 3 électeurs avec préférences uniformes : probabilité ≈ 8.8%.
+Pour 3 candidats et 3 électeurs avec préférences uniformes : probabilité 12/216 =
+1/18 ≈ 5,6 %. Elle tend vers ≈ 8,8 % quand le nombre d'électeurs devient grand.
 
 Reproduit et vérifié sur ce moteur : `test_condorcet_paradox`,
 `fast_api_voter/api/tests/test_literature_counterexamples.py` (Lot 4.5,
@@ -1973,11 +2000,14 @@ chantier, non publié dans ce dépôt.
 - **Condorcet, M.J.A.N.** (1785). *Essai sur l'application de l'analyse à la probabilité des décisions rendues à la pluralité des voix*. Paris.
 - **Downs, A.** (1957). *An Economic Theory of Democracy*. Harper & Row.
 - **Fishkin, J.** (2018). *Democracy When the People Are Thinking*. Oxford University Press.
+- **Geanakoplos, J.** (2005). "Three Brief Proofs of Arrow's Impossibility Theorem". *Economic Theory*, 26(1), 211–215.
 - **Gibbard, A.** (1973). "Manipulation of Voting Schemes". *Econometrica*, 41(4), 587–601.
+- **Gibbard, A.** (1977). "Manipulation of Schemes that Mix Voting with Chance". *Econometrica*, 45(3), 665–681.
 - **Hotelling, H.** (1929). "Stability in Competition". *The Economic Journal*, 39(153), 41–57.
 - **Kemeny, J.G.** (1959). "Mathematics Without Numbers". *Daedalus*, 88(4), 571–591.
 - **List, C. & Pettit, P.** (2002). "Aggregating Sets of Judgments". *Economics and Philosophy*, 18(1), 89–110.
 - **Lijphart, A.** (1999). *Patterns of Democracy*. Yale University Press.
+- **McKelvey, R.D.** (1976). "Intransitivities in Multidimensional Voting Models and Some Implications for Agenda Control". *Journal of Economic Theory*, 12(3), 472–482.
 - **Mouffe, C.** (1993). *The Return of the Political*. Verso.
 - **Pettit, P.** (1997). *Republicanism*. Oxford University Press.
 - **Plott, C.R.** (1967). "A Notion of Equilibrium and Its Possibility Under Majority Rule". *American Economic Review*, 57(4), 787–806.

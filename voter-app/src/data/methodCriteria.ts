@@ -42,7 +42,7 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
   },
   two_round: {
     condorcet_winner: 'no',
-    condorcet_loser: 'no',
+    condorcet_loser: 'yes',
     majority: 'yes',
     monotonicity: 'no',
     iia: 'no',
@@ -62,7 +62,7 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
   },
   borda: {
     condorcet_winner: 'no',
-    condorcet_loser: 'conditional',
+    condorcet_loser: 'yes',
     majority: 'no',
     monotonicity: 'yes',
     iia: 'no',
@@ -116,13 +116,13 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
     reversal: 'yes',
   },
   bucklin: {
-    condorcet_winner: 'conditional',
+    condorcet_winner: 'no',
     condorcet_loser: 'no',
     majority: 'yes',
     monotonicity: 'yes',
     iia: 'no',
     strategy_proof: 'no',
-    participation: 'yes',
+    participation: 'no',
     reversal: 'no',
   },
   coombs: {
@@ -165,7 +165,8 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
     participation: 'no',
     reversal: 'yes',
   },
-  // ponytail: only strategy-proof deterministic rule (Gibbard 1977); IIA holds vacuously
+  // A lottery, not a deterministic rule: among probabilistic rules it is the only one
+  // that is both strategy-proof and ex-post Pareto efficient (Gibbard 1977). IIA holds vacuously.
   random_ballot: {
     condorcet_winner: 'no',
     condorcet_loser: 'no',
@@ -178,22 +179,22 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
   },
   star: {
     condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'yes',
+    condorcet_loser: 'yes',
+    majority: 'no',
     monotonicity: 'yes',
     iia: 'no',
     strategy_proof: 'conditional',
-    participation: 'yes',
+    participation: 'no',
     reversal: 'no',
   },
   majority_judgment: {
     condorcet_winner: 'no',
     condorcet_loser: 'no',
-    majority: 'yes',
+    majority: 'conditional',
     monotonicity: 'yes',
     iia: 'no',
     strategy_proof: 'conditional',
-    participation: 'yes',
+    participation: 'no',
     reversal: 'yes',
   },
   score: {
