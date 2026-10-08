@@ -20,7 +20,11 @@ from api.core import tracing
 from api.core.config import Settings
 
 _exporter = InMemorySpanExporter()
-_provider = TracerProvider()
+# The same private id generator as configure_tracing(): this provider stays
+# installed for the whole session, and FastAPI 0.142+ opens a span on every
+# request, so the SDK's default generator would make every later request draw
+# from the global `random` (test_no_global_rng.py failed on #846 that way).
+_provider = TracerProvider(id_generator=tracing.PrivateRandomIdGenerator())
 _provider.add_span_processor(SimpleSpanProcessor(_exporter))
 trace.set_tracer_provider(_provider)
 
@@ -61,3 +65,38 @@ class TestConfigureTracingAndInstrumentApp:
         # the real app here would double-wrap it for every other test in the
         # suite that imports api.main.
         tracing.instrument_app(FastAPI())  # must not raise
+
+
+def test_span_ids_leave_the_process_wide_random_alone():
+    """Ids from the private generator never move the `random` singleton."""
+    import random
+
+    before = random.getstate()
+    generator = tracing.PrivateRandomIdGenerator()
+    ids = {generator.generate_span_id() for _ in range(50)} | {generator.generate_trace_id() for _ in range(50)}
+    assert random.getstate() == before
+    assert len(ids) == 100 and trace.INVALID_SPAN_ID not in ids
+    assert generator.is_trace_id_random()
+
+
+def test_an_invalid_id_is_drawn_again():
+    """Zero is the invalid span/trace id: the generator draws again."""
+    draws = iter([0, 7, 0, 9])
+
+    class Scripted:
+        def getrandbits(self, _bits):
+            return next(draws)
+
+    generator = tracing.PrivateRandomIdGenerator(rng=Scripted())
+    assert generator.generate_span_id() == 7
+    assert generator.generate_trace_id() == 9
+
+
+def test_configure_tracing_installs_the_private_id_generator(monkeypatch):
+    """The production provider gets the private generator, not the SDK default."""
+    installed = []
+    monkeypatch.setattr(tracing.trace, "set_tracer_provider", installed.append)
+    monkeypatch.setattr(tracing, "get_settings",
+                        lambda: Settings(otel_exporter_otlp_endpoint="http://localhost:4318"))
+    tracing.configure_tracing()
+    assert isinstance(installed[0].id_generator, tracing.PrivateRandomIdGenerator)
