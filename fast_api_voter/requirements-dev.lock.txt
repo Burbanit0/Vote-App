@@ -95,7 +95,7 @@ fastapi==0.142.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-filelock==4.0.7
+filelock==4.0.8
     # via cachecontrol
 frozenlist==1.8.0
     # via
@@ -385,7 +385,7 @@ pytest-randomly==5.0.0
     # via -r requirements-dev.txt
 pytest-xdist==3.8.0
     # via -r requirements-dev.txt
-python-dotenv==1.2.3
+python-dotenv==1.2.4
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -437,7 +437,7 @@ rich==15.0.0
     #   pip-audit
     #   schemathesis
     #   textual
-ruff==0.16.9
+ruff==0.16.10
     # via -r requirements-dev.txt
 schemathesis==4.28.0
     # via -r requirements-dev.txt
@@ -525,7 +525,7 @@ uvicorn==0.54.0
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   marimo
-uvloop==0.22.1
+uvloop==0.23.0
     # via
     #   -c requirements.lock.txt
     #   uvicorn
