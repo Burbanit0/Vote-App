@@ -70,7 +70,7 @@ const pgFr = {
         approval:
           'Passez au vote par approbation : cette fois, c’est Bob. Trois méthodes, trois vainqueurs.',
         condorcet:
-          'En duel un-contre-un, Alice bat les deux autres — la vainqueure de Condorcet. Et pourtant ni l’IRV ni l’approbation ne l’ont désignée : la méthode, à elle seule, change le président.',
+          'En duel un-contre-un, personne ne bat les deux autres : Alice bat Bob, Bob bat Carol, mais Carol bat Alice. Il n’y a pas de vainqueur de Condorcet — c’est le paradoxe de Condorcet. La règle « Condorcet (Copeland) » doit pourtant trancher : chacun gagne un duel, et c’est le départage (ici, l’ordre de la liste) qui désigne Alice. Quand la majorité tourne en rond, c’est la méthode qui choisit.',
       },
     },
     utile: {
@@ -385,7 +385,7 @@ const pgFr = {
     manipMid:
       ' : {{pct}}% des électeurs tentés de voter stratégiquement ({{compromise}} compromis · {{burying}} enterrement). Vote au sort :',
     manipEnd:
-      ' — la seule règle inmanipulable (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
+      ' — inmanipulable ; parmi les loteries, la seule règle à la fois Pareto-efficace et égale entre électeurs (Gibbard 1977). Dès que trois candidats au moins peuvent gagner, toute règle ordinale déterministe non dictatoriale est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
     methodHeader: 'Méthode',
     criteriaLegend:
       '✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la carte.',
@@ -1293,10 +1293,13 @@ const pgFr = {
       label: 'NP-difficile, même pour un seul manipulateur',
       ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
     },
-    ranked_pairs: { label: 'P (paires ordonnées)', ref: 'Tideman 1987 — calcul polynomial' },
+    ranked_pairs: {
+      label: 'NP-difficile, même pour un seul manipulateur',
+      ref: 'Xia et al. 2009',
+    },
     random_ballot: {
       label: 'Inmanipulable — la stratégie n’apporte rien',
-      ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+      ref: 'Gibbard 1977 (seule loterie inmanipulable, Pareto-efficace et anonyme)',
     },
     anti_plurality: { label: 'P (véto)', ref: 'règle positionnelle' },
     dowdall: { label: 'P (positionnel)', ref: 'règle positionnelle' },
