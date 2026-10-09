@@ -29,6 +29,34 @@ def _enp(seats: Mapping[str, int]) -> float | None:
     return round(effective_number_of_parties({int(p): n for p, n in seats.items()}), 4) if sum(seats.values()) > 0 else None
 
 
+def _election_row(
+    event: Mapping[str, Any], rules: Mapping[str, Any], seed: int, threshold: float | None,
+) -> dict[str, Any]:
+    """One election re-seated under the rules in force, at `threshold` if one is given."""
+    tick, payload = event["tick"], event["payload"]
+    in_force = float(rules["institutions.electoral_threshold"])
+    applied = in_force if threshold is None else threshold
+    seats = allocate_seats(
+        {str(party): float(votes) for party, votes in payload["votes"].items()},
+        total_seats=int(rules["institutions.assembly_seats"]),
+        method=str(rules["institutions.seat_allocation"]),
+        electoral_threshold=applied,
+        rng=random.Random(f"legislative-seats:{seed}:{tick}"),
+    )
+    recorded = {str(party): int(count) for party, count in payload["seats"].items()}
+    return {
+        "tick": tick,
+        "threshold_in_force": in_force,
+        "threshold_applied": applied,
+        "recorded_seats": recorded,
+        "reseated_seats": seats,
+        "recorded_enp": _enp(recorded),
+        "reseated_enp": _enp(seats),
+        "recorded_parties_seated": sum(n > 0 for n in recorded.values()),
+        "reseated_parties_seated": sum(n > 0 for n in seats.values()),
+    }
+
+
 def reseat(
     events: Iterable[Mapping[str, Any]], founding: Mapping[str, Any], *, threshold: float | None = None,
 ) -> list[dict[str, Any]]:
@@ -37,32 +65,10 @@ def reseat(
     `founding` is the run's config.json; `events` its journal, in order."""
     institutions = founding["institutions"]
     rules: dict[str, Any] = {path: institutions[path.removeprefix("institutions.")] for path in _RULES}
-    seed = founding["run"]["seed"]
     rows = []
     for event in events:
-        payload = event["payload"]
-        if event["event_type"] == "constitution_amended" and payload["article"] in _RULES:
-            rules[payload["article"]] = payload["new"]
+        if event["event_type"] == "constitution_amended" and event["payload"]["article"] in _RULES:
+            rules[event["payload"]["article"]] = event["payload"]["new"]
         elif event["event_type"] == "legislative_result":
-            tick = event["tick"]
-            in_force = float(rules["institutions.electoral_threshold"])
-            seats = allocate_seats(
-                {str(party): float(votes) for party, votes in payload["votes"].items()},
-                total_seats=int(rules["institutions.assembly_seats"]),
-                method=str(rules["institutions.seat_allocation"]),
-                electoral_threshold=in_force if threshold is None else threshold,
-                rng=random.Random(f"legislative-seats:{seed}:{tick}"),
-            )
-            recorded = {str(party): int(count) for party, count in payload["seats"].items()}
-            rows.append({
-                "tick": tick,
-                "threshold_in_force": in_force,
-                "threshold_applied": in_force if threshold is None else threshold,
-                "recorded_seats": recorded,
-                "reseated_seats": seats,
-                "recorded_enp": _enp(recorded),
-                "reseated_enp": _enp(seats),
-                "recorded_parties_seated": sum(1 for n in recorded.values() if n > 0),
-                "reseated_parties_seated": sum(1 for n in seats.values() if n > 0),
-            })
+            rows.append(_election_row(event, rules, founding["run"]["seed"], threshold))
     return rows
