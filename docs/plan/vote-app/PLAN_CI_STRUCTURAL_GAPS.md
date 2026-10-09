@@ -1,5 +1,7 @@
 # Plan — Angles morts structurels de la CI (évaluation notée du 2026-09-14)
 
+> **status:** done — 2.A, 2.B, 2.D and 2.E are closed. Left open: the rest of 2.C (8 workflows and 2 Dockerfiles still install `requirements*.txt` directly), parked by PLAN_BEYOND_CI's CI freeze. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Origine** : à la clôture de `PLAN_REMEDIATION_CI_CD.md` (6/6 items
 > fermés, voir sa mise à jour du 2026-09-14), l'utilisateur a demandé une
 > évaluation notée /5 de la CI, catégorie par catégorie, avec points

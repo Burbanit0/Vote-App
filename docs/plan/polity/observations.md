@@ -1,5 +1,7 @@
 # Polity — observation log
 
+> **status:** reference — the observation log: entries are re-statused, never deleted. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Strange behaviour seen in simulation runs, kept so it can be studied instead of forgotten in a
 commit message or a `TIMELINE.md`. An entry records **what was seen and how to see it again**. It
 is not a bug report and not a conclusion: most entries are open questions.

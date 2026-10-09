@@ -1,5 +1,7 @@
 # Plan — the full run: 30 simulated years at population 500
 
+> **status:** done — the run is done (2026-09-26). Backlog #1 moved to the agency roadmap (step 0.1); rows 2–8 are still open and tracked only here. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Living document, English, like `plan-flagship-30y-run.md`, which it picks up.** That plan built
 > the runner, checkpointing and observability (Phases 0-6) and left Phase 7, "the run", as `TODO`
 > since 2026-09-11. Since then the serving stack, the defaults and the known defects all moved.

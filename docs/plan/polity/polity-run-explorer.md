@@ -1,5 +1,7 @@
 # The run explorer (the Vote App's Polity page)
 
+> **status:** reference — feature documentation for /polity. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 `/polity` replays a finished polity simulation run tick by tick. It shows:
 
 - **Who governs, who runs, who votes and who protests**, on a map of the population.
