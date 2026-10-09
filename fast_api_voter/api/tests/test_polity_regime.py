@@ -88,6 +88,14 @@ def test_a_president_who_refuses_and_wins_the_roll_stays_and_no_election_is_held
     assert not [e for e in _of(events, "recalled") if e["citizen_id"] == first["citizen_id"] and e["tick"] >= 4]
 
 
+def test_a_president_s_answer_to_the_act_is_journaled_and_no_one_else_s(tmp_path: Path) -> None:
+    # OBS-044: the act was legal twice in ten seeds and its answer was only in the call log.
+    turns = _of(_run(tmp_path, SURE), "agent_turn")
+    presidents = [t for t in turns if t["payload"]["role"] == "president"]
+    assert presidents and all(t["payload"]["extra_legal"] == "refuse_to_leave" for t in presidents)
+    assert all("extra_legal" not in t["payload"] for t in turns if t["payload"]["role"] != "president")
+
+
 def test_a_president_who_refuses_and_loses_the_roll_is_replaced_at_that_election(tmp_path: Path) -> None:
     events = _run(tmp_path, DOOMED)
     first, *_ = _of(events, "extra_legal_act")

@@ -1299,6 +1299,7 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
             provenance=LlmProvenance(
                 llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
             ),
+            extra_legal=outcome.turn.extra_legal if isinstance(outcome.turn, ActingLeaderTurn) else OMIT,
         ),
         citizen_id=president.citizen_id,
         codebook_version=config.llm.codebook_version,
