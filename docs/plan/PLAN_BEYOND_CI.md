@@ -237,7 +237,8 @@ the expert review in W1.4.
 **W2.3 Fit-for-inference table**, one verdict per decision type:
 - validated: `vote_cast`;
 - unverified: candidacy, nomination, forum `party_move`;
-- collapsed: `pressure_action`, `representative_response`, `coalition_decision`.
+- collapsed: `representative_response`, `coalition_decision` (and `pressure_action` until its
+  2026-09-10 fix; unverified since, per the table).
 
 The experiment's claim rests only on its own channel, forum founding and leaving, and
 the gate probe is that channel's check.
@@ -257,6 +258,11 @@ the gate probe is that channel's check.
 - A `docs/stories/` piece on the logprob instrument: an aggregate metric conforms
   while every individual decision has collapsed, and the collapse persists across
   model families and across base vs instruct.
+  - Written 2026-10-09: `docs/stories/the-answer-that-did-not-depend-on-the-question.md`.
+    The sources narrow the line above: three decision types were flat, not every one;
+    the aggregate argument holds for `pressure_action`, whose flatness was the prompt's;
+    persistence across families is shown for `coalition_decision` and the president's
+    response, and across base vs instruct for `coalition_decision` only.
 - Then the preprint (D5).
 
 **Later, not in this plan:** run-level cross-model replication, prompt variants, and the
