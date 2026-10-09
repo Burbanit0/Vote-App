@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import ReportContentError from '../components/shared/ui/ReportContentError';
 import { Link, useSearchParams } from 'react-router';
 import {
   Columns2,
@@ -162,6 +163,9 @@ const BenchFiche: React.FC<{
           <Body />
         </React.Suspense>
       </div>
+      <footer className="border-t border-border/40 px-4 py-1.5 text-right">
+        <ReportContentError where={`lab:${experiment.id}`} />
+      </footer>
     </section>
   );
 };
