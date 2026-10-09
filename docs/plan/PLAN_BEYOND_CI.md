@@ -205,7 +205,7 @@ the expert review in W1.4.
    - If founding does not respond, **stop**. That is the finding, and it is cheap.
    - **Result (2026-10-09): STOP.** The gate asked only the range's ends, 3% and 7%
      (5% was not probed). Able founders found 59/60 both times (exact McNemar p = 1),
-     and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-044). Steps
+     and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-045). Steps
      2-5 and W2.4 do not run.
 2. **Pilot.** One run on the current tip with D2 applied, timed. The GPU cap is set
    from it.
@@ -242,7 +242,7 @@ the expert review in W1.4.
 The experiment's claim rests only on its own channel, forum founding and leaving, and
 the gate probe is that channel's check.
 
-**W2.4 Pre-registration, outside review, run.** Dropped: the W2.1 gate said STOP (OBS-044).
+**W2.4 Pre-registration, outside review, run.** Dropped: the W2.1 gate said STOP (OBS-045).
 - Use the D9/Stage 4 template (`plan-polity-build-order.md:828-905`).
 - Proof of order is the merge time, not a commit date.
 - Send the pre-registration for one outside read before spending GPU time.

@@ -10,7 +10,7 @@
 | Part | State | Plan workstream |
 |---|---|---|
 | **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches, with 28 methods parity-locked across the two engines. Merged: the paradox story's Condorcet claim, nine criteria cells and several THEORY.md statements (#859); the playground's quick fixes (#860); two more story figures caught by the new claims checks (#868). Held for review: one registry for the criteria matrix, checked by both engines (#869); a winner strip on every playground step, five methods by default, and "no fixed winner" for the lottery (#874); a "report a content error" form and an e2e winner oracle for the stories (#875). Still to do: the playground does not yet say *why* methods disagree (W3.3). | W1, W3 |
-| **Polity** (LLM-society research) | **The threshold experiment stops at its gate.** Told the seat threshold is 3% or 7%, founders found a party 59 times in 60 either way (exact McNemar p = 1), and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-044). By the plan's rule there is no pilot, no main run and no pre-registration, and Polity's Phase 2–3 time goes to the write-up (W2.6). The instrumentation stays merged (#861–#866). The phase11 ensemble (10 seeds, finished 2026-10-07) is still not analysed. | W2 |
+| **Polity** (LLM-society research) | **The threshold experiment stops at its gate.** Told the seat threshold is 3% or 7%, founders found a party 59 times in 60 either way (exact McNemar p = 1), and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-045). By the plan's rule there is no pilot, no main run and no pre-registration, and Polity's Phase 2–3 time goes to the write-up (W2.6). The instrumentation stays merged (#861–#866). The phase11 ensemble (10 seeds, finished 2026-10-07) is still not analysed. | W2 |
 | **Process** (CI, agents, docs) | **Frozen to maintenance.** Every plan states its status ([index](README.md#plans)); the journal is retired; the PR template and `/verify` are in English (#867). | W4, W5 |
 
 ## Rules while the plan runs
@@ -42,7 +42,7 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 ## Open questions
 
 - Phase 4 exit for Polity: does phase11 meet it, now that OBS-041/042/043 are fixed?
-- Why does founding not follow the stated threshold (OBS-044)? At least 13 of the 14 founders
+- Why does founding not follow the stated threshold (OBS-045)? At least 13 of the 14 founders
   it should have stopped founded anyway; a rerun logging each answer next to its backing would
   give the exact figure.
 - Expert review: are the 110 unsourced criteria cells right, and are W1.1's MJ

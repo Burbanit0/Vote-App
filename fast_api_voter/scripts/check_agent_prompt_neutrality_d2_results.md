@@ -69,16 +69,16 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
 exit 1
 ```
 
-Founding does not follow the stated threshold. Most of the 60 are told they have 7 or more backers, so founding at 7% is consistent with the rule for them; the 14 told 5 or 6 are the test, and at least 13 of them founded at 7% anyway (OBS-044 gives the backing counts).
+Founding does not follow the stated threshold. Most of the 60 are told they have 7 or more backers, so founding at 7% is consistent with the rule for them; the 14 told 5 or 6 are the test, and at least 13 of them founded at 7% anyway (OBS-045 gives the backing counts).
 By the plan's rule the threshold experiment stops here (`docs/plan/PLAN_BEYOND_CI.md` W2.1), and the finding is
-recorded as OBS-044 in `docs/plan/polity/observations.md`.
+recorded as OBS-045 in `docs/plan/polity/observations.md`.
 
 The first attempt (2026-10-08) hit an unattended NVIDIA library upgrade (kernel module 595.91, userspace 595.99:
 "Driver/library version mismatch"), so it ran only after a reboot.
 
-Its logic was checked with stand-in answers in place of the model, on the same checkpoint (30 able founders):
+Before the run, the gate's logic was checked with stand-in answers in place of the model, on the same checkpoint (30 able founders):
 
 - an agent that founds at 3% and never at 7%: 30/30 vs 0/30, exact McNemar p = 1.86e-09, **PASS**;
 - an agent that ignores the threshold: 30/30 vs 30/30, p = 1, **STOP**.
 
-The gate compares 3% with 7%, the ends of the plan's (3, 5, 7%) range. D1's main run compares 3% with 5%, so a PASS here does not promise a response at 3 vs 5. That is a reason to size the pilot on the 3-vs-5 difference, not to skip the gate.
+The gate compares 3% with 7%, the ends of the plan's (3, 5, 7%) range; 5% was not asked. A PASS would not have promised a response at D1's 3 vs 5, and the pilot would have been sized on that difference. With no response even between the ends, there is no pilot.
