@@ -1,5 +1,7 @@
 # Contrats de décision — ce que chaque type de décision LLM doit recevoir
 
+> **status:** reference — what every prompt change is checked against. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Document de spécification. Il définit, pour les 9 types de décision LLM du simulateur, **quel
 comportement est attendu** et **quelles informations le prompt doit porter pour que la question
 posée soit répondable**.

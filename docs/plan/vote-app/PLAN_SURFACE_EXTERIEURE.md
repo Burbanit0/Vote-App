@@ -1,5 +1,7 @@
 # Plan — La surface extérieure
 
+> **status:** live — only §2.D (a "busy" state, tied to publishing) is open; §2.A and §2.E are done; §2.F, §2.G and §2.I moved to PLAN_BEYOND_CI. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Origine** : audit demandé le 2026-09-16, après la clôture de
 > `PLAN_CI_STRUCTURAL_GAPS.md` (7 catégories à 5/5). La question posée était
 > « la CI est solide, quoi d'autre ? ». État vérifié **en direct** : six
@@ -20,11 +22,10 @@
 > - `PLAN_UX_ACCESSIBILITE.md` — **les 7 phases sont construites** (vérifié :
 >   `feat/play-analytics` … `feat/analogies-motion`, toutes présentes dans
 >   `git log --all`). Ce plan reprend là où celui-là s'arrête.
-> - `PLAN_METHODES_HISTOIRES_ATLAS.md` — **à moitié fait** (3 chantiers sur
->   6 : `promote-extra-rules`, `stories-batch`, `blank-in-electorate`
->   construits ; `method-coverage-audit`, `blank-engine-live`,
->   `blank-stories` non). Les items restants sont repris en §2.L, pas
->   réécrits.
+> - `PLAN_METHODES_HISTOIRES_ATLAS.md` — **à moitié fait** à la date de ce
+>   plan (3 chantiers sur 6). Depuis, il est **terminé** (C.1–C.4 fusionnés,
+>   PR #101, #102, #114 ; seul le D.4 optionnel reste). Les items repris en
+>   §2.L ne sont donc plus ouverts.
 
 ---
 

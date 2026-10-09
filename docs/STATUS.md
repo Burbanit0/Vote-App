@@ -1,16 +1,16 @@
 # Status
 
-> Where each part of the project stands and what comes next. One page; updated at
+> Where each part of the project stands and what comes next. One page, updated at
 > the end of each phase of [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md) and whenever
-> the next steps change. Last update: **2026-10-08**, Phase 0.
+> the next steps change. Last update: **2026-10-08**; Phase 1 is nearly done (W1.2, W1.3 and W3.1 are in PRs).
 
 ## The three parts
 
 | Part | State | Plan workstream |
 |---|---|---|
-| **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches; the dual engine is parity-locked on 28 methods. Some taught claims are wrong (the paradox story names a Condorcet winner where there is a cycle; STAR is marked as passing majority), and the playground shows *that* methods disagree but not *why*. | W1 (claims), W3 (playground) |
-| **Polity** (LLM-society research) | 30-year runs work (p500, about 2 h). The phase11 ensemble (10 seeds × 8 years, exploration profile) **finished on 2026-10-07; its analysis is pending**. The design's own experiment, two constitutions compared across seeds, has not been run. | W2 |
-| **Process** (CI, agents, docs) | 23 workflows, high-risk review hold, parity and axiom harnesses. **Frozen to maintenance** while the plan runs. | W4 (docs), W5 (engine tie bugs) |
+| **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches, with 28 methods parity-locked across the two engines. Fixed and merged: the paradox story's Condorcet claim, nine criteria cells, and several THEORY.md statements (#859). Queued to merge: two more story figures caught by the new claims checks (#868) and the playground's quick fixes (#860). Held for review: one registry for the criteria matrix, checked by both engines (#869). Still to do: the playground does not yet say *why* methods disagree (W3.2–W3.3). | W1, W3 |
+| **Polity** (LLM-society research) | The threshold experiment is instrumented. Merged: founders told the threshold (#861), paired statistics (#862), ENP in the digest (#863), the re-seating script (#864), the arms' run knobs (#865), the fit-for-inference table (#866). **Blocked:** the W2.1 gate probe needs the GPU, and an unattended NVIDIA library upgrade means it needs a reboot first. The phase11 ensemble (10 seeds, finished 2026-10-07) is still not analysed. | W2 |
+| **Process** (CI, agents, docs) | **Frozen to maintenance.** Every plan now states its status ([index](README.md#plans)); the journal is retired; the PR template and `/verify` move to English in #867, queued to merge. | W4, W5 |
 
 ## Rules while the plan runs
 
@@ -19,19 +19,22 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 
 ## Next 3 steps
 
-1. **W1.1:** fix the confirmed teaching errors (paradox story, STAR majority, three
-   THEORY.md facts), with a test that fails on today's paradox story.
-2. **W3.1:** playground quick fixes. One candidate palette, scroll reset, remove the
-   broken tour, English-mode leaks, one method count, `/polity` out of the main nav,
-   recharts out of the eager bundle.
-3. **W2.2 item 5, then the W2.1 gate probe:** tell party founders the electoral
-   threshold (ADR-018 amendment), then measure in minutes of GPU whether founding
-   responds to it.
+1. **W2.1 gate, after a reboot:** `python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60`.
+   It decides whether the threshold experiment runs at all.
+2. **W3.2:** a winner strip on every playground step, and 5 methods by default.
+3. **W1.4:** the expert-review packet (THEORY §2–4, the registry's 110 unsourced
+   cells) and a "report a content error" path.
 
 ## Waiting on the owner
 
-- `/reviewed` on held PRs. High-risk paths are listed in `.mergify.yml`.
-- **Outreach** (Phase 3–4): one social-choice researcher (W1.4), and one teacher for a
+- **A review** of #869, the one PR held (it touches the engine's test harness).
+- **#869's CI filter.** The push token lacks GitHub's `workflow` scope, so the 4-line
+  path-filter patch in #869's body is yours to apply.
+- **A reboot,** so the GPU works again (`/var/run/reboot-required`).
+- **The venv's stale scripts** (`.venv/bin/lint-imports` points at
+  `/home/burbanit0/Vote-App/...`), which make fast-gate's layering check fail locally.
+  Recreating the venv fixes it.
+- **Outreach** (Phases 3–4): one social-choice researcher (W1.4), and one teacher for a
   projector demo (W3.5).
 - **The Zenodo upload** of the archived runs (W2.5).
 
@@ -39,3 +42,5 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 
 - Phase 4 exit for Polity: does phase11 meet it, now that OBS-041/042/043 are fixed?
 - Does founding respond to a stated threshold at all (the W2.1 gate)?
+- Expert review: are the 110 unsourced criteria cells right, and are W1.1's MJ
+  "majority: conditional" and W1.2's two cell changes right?

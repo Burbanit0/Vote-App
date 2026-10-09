@@ -254,8 +254,8 @@ evidence, not just a claim.
   collisions revealed about running concurrent agents against the same repo.
 - **[`CODE_AUDIT.md`](docs/plan/vote-app/CODE_AUDIT.md)** and
   **[`PLAN_SOLIDITE_TECHNIQUE.md`](docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)**
-  (French) — the quantified baseline and the lot-by-lot plan behind all of
-  the above, both still maintained as the work continues.
+  (French) — the quantified baseline (a dated audit, 2026-08-20 to
+  2026-09-13) and the lot-by-lot plan behind all of the above.
 
 ---
 
