@@ -185,7 +185,8 @@ def _per_run_section(runs: list[SweepRun]) -> list[str]:
         over = {t: f"{rate:.1%}" for t, rate in r.fallback_rates().items() if rate > 0.10}
         occupancy = "-" if r.office_occupancy is None else f"{r.office_occupancy:.4f}"
         e = r.last_election
-        enp = "-" if e is None else f"t{e['tick']}: {e['by_seats']} / {e['by_votes']}, {e['parties_standing']}"
+        shown = {key: "-" if e is None or e[key] is None else e[key] for key in ("by_seats", "by_votes")}
+        enp = "-" if e is None else f"t{e['tick']}: {shown['by_seats']} / {shown['by_votes']}, {e['parties_standing']}"
         lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {enp} | {over or '-'} |")
     return [*lines, ""]
 
