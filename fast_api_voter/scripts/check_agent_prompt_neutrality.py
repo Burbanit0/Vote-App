@@ -46,6 +46,7 @@ Usage:
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py              # all probes, n=30
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --n 60
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe forum
+    python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60   # PLAN_BEYOND_CI W2.1's gate
 """
 from __future__ import annotations
 
