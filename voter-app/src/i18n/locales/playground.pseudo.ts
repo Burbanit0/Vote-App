@@ -86,7 +86,7 @@ const pgPseudo: PlaygroundKeys = {
         approval:
           '⟦Pásséz~~~ áú~ vóté~~ pár~~ áppróbátíóñ~~~~ :~ çétté~~ fóís,~~ ç’ést~~ Bób.~~ Tróís~~ méthódés,~~~~ tróís~~ váíñqúéúrs.~~~~⟧',
         condorcet:
-          '⟦Éñ~ dúél~~ úñ-çóñtré-úñ,~~~~~ Álíçé~~ bát~~ lés~~ déúx~~ áútrés~~~ —~ lá~ váíñqúéúré~~~~ dé~ Cóñdórçét.~~~~ Ét~ póúrtáñt~~~ ñí~ l’ÍRV~~ ñí~ l’áppróbátíóñ~~~~~ ñé~ l’óñt~~ désígñéé~~~ :~ lá~ méthódé,~~~ à~ éllé~~ séúlé,~~~ çháñgé~~~ lé~ présídéñt.~~~~⟧',
+          '⟦Éñ~ dúél~~ úñ-çóñtré-úñ,~~~~~ pérsóññé~~~ ñé~ bát~~ lés~~ déúx~~ áútrés~~~ :~ Álíçé~~ bát~~ Bób,~~ Bób~~ bát~~ Cáról,~~~ máís~~ Cáról~~ bát~~ Álíçé.~~~ Íl~ ñ’y~~ á~ pás~~ dé~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ ç’ést~~ lé~ párádóxé~~~ dé~ Cóñdórçét.~~~~ Lá~ règlé~~ «~ Cóñdórçét~~~~ (Cópéláñd)~~~~ »~ dóít~~ póúrtáñt~~~ tráñçhér~~~ :~ çháçúñ~~~ gágñé~~ úñ~ dúél,~~ ét~ ç’ést~~ lé~ dépártágé~~~~ (íçí,~~ l’órdré~~~ dé~ lá~ lísté)~~~ qúí~~ désígñé~~~ Álíçé.~~~ Qúáñd~~ lá~ májóríté~~~ tóúrñé~~~ éñ~ róñd,~~ ç’ést~~ lá~ méthódé~~~ qúí~~ çhóísít.~~~⟧',
       },
     },
     utile: {
@@ -413,7 +413,7 @@ const pgPseudo: PlaygroundKeys = {
     manipMid:
       '⟦ :~ {{pct}}%~ dés~~ éléçtéúrs~~~~ téñtés~~~ dé~ vótér~~ strátégíqúéméñt~~~~~~ (~{{compromise}} çómprómís~~~~ ·~ {{burying}} éñtérréméñt).~~~~~ Vóté~~ áú~ sórt~~ :~⟧',
     manipEnd:
-      '⟦ —~ lá~ séúlé~~ règlé~~ íñmáñípúláblé~~~~~ (Gíbbárd~~~ 1977).~~~ Tóúté~~ règlé~~ órdíñálé~~~ détérmíñísté~~~~~ ést~~ máñípúláblé~~~~ :~ ç’ést~~ lá~ fróñtíèré~~~~ dé~ Gíbbárd-Sáttérthwáíté.~~~~~~~~⟧',
+      '⟦ —~ íñmáñípúláblé~~~~~ ;~ pármí~~ lés~~ lótéríés,~~~~ lá~ séúlé~~ règlé~~ à~ lá~ fóís~~ Párétó-éffíçáçé~~~~~~ ét~ égálé~~ éñtré~~ éléçtéúrs~~~~ (Gíbbárd~~~ 1977).~~~ Dès~~ qúé~~ tróís~~ çáñdídáts~~~~ áú~ móíñs~~ péúvéñt~~~ gágñér,~~~ tóúté~~ règlé~~ órdíñálé~~~ détérmíñísté~~~~~ ñóñ~~ díçtátóríálé~~~~~ ést~~ máñípúláblé~~~~ :~ ç’ést~~ lá~ fróñtíèré~~~~ dé~ Gíbbárd-Sáttérthwáíté.~~~~~~~~⟧',
     methodHeader: '⟦Méthódé~~~⟧',
     criteriaLegend:
       '⟦✓~ sátísfáít~~~~ ·~ ✗~ víólé~~ ·~ –~ ñóñ~~ déçléñçhé~~~~ súr~~ çét~~ éléçtórát.~~~~ Mésúré~~~ éñ~ díréçt~~~ —~ glísséz~~~ úñ~ çáñdídát~~~ póúr~~ próvóqúér~~~~ úñé~~ víólátíóñ.~~~~ Lé~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ ést~~ çérçlé~~~ súr~~ lá~ çárté.~~~⟧',
@@ -1408,12 +1408,12 @@ const pgPseudo: PlaygroundKeys = {
       ref: '⟦Bárthóldí–Órlíñ~~~~~~ 1991~~ (STV/ÍRV)~~~~⟧',
     },
     ranked_pairs: {
-      label: '⟦P~ (páírés~~~ órdóññéés)~~~~⟧',
-      ref: '⟦Tídémáñ~~~ 1987~~ —~ çálçúl~~~ pólyñómíál~~~~⟧',
+      label: '⟦NP-díffíçílé,~~~~~ mêmé~~ póúr~~ úñ~ séúl~~ máñípúlátéúr~~~~~⟧',
+      ref: '⟦Xíá~~ ét~ ál.~~ 2009~~⟧',
     },
     random_ballot: {
       label: '⟦Íñmáñípúláblé~~~~~ —~ lá~ strátégíé~~~~ ñ’áppórté~~~~ ríéñ~~⟧',
-      ref: '⟦Gíbbárd~~~ 1977~~ (séúlé~~~ règlé~~ ñóñ-máñípúláblé,~~~~~~ áú~ príx~~ dú~ hásárd)~~~⟧',
+      ref: '⟦Gíbbárd~~~ 1977~~ (séúlé~~~ lótéríé~~~ íñmáñípúláblé,~~~~~ Párétó-éffíçáçé~~~~~~ ét~ áñóñymé)~~~⟧',
     },
     anti_plurality: {
       label: '⟦P~ (vétó)~~~⟧',
