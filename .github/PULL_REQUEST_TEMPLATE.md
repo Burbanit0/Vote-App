@@ -51,7 +51,8 @@ The block `/verify` prints can be pasted as is.
 
 ### Frontend (if applicable)
 - [ ] Checked in light and dark mode
-- [ ] Checked with plain-language and expert rule labels
+- [ ] Checked in Expert and Beginner mode
+- [ ] Checked with plain-language rule names on
 - [ ] Checked on mobile (responsive tables)
 - [ ] No regression on HomePage, PlaygroundPage, LaboratoirePage
 

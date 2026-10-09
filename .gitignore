@@ -263,8 +263,8 @@ Thumbs.db
 # repo file; settings.local.json, worktrees/ and scheduled_tasks.lock are
 # per-machine/per-session state (local permission grants tied to one temp
 # session dir, the local worktree registry, a lock file) and stay untracked.
-# The agents and commands write to tracked docs/ surfaces; keeping the tools
-# out of the repo while their output is in it made no sense ─────────────────
+# Agents, commands, hooks and skills are tracked so they reach every worktree
+# and branch like any other repo file ──────────────────────────────────────
 .claude/*
 !.claude/settings.json
 !.claude/skills/
