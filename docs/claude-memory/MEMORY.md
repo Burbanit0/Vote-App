@@ -3,8 +3,8 @@
 - [Polity vLLM switch](project_polity_vllm_switch.md) — attempted live 2026-08-30 (PR #231), blocked on WSL2/Docker UVA bug (upstream, unmerged fix); provider stays "ollama", dated reopening conditions
 - [Polity storage/DuckDB](project_polity_storage_duckdb.md) — §16.6 resolved (DuckDB, PR #140), compaction.py, motif-only decode, DuckDB `->>`/`AND` precedence gotcha
 - [Polity Lot 9 / blank voting](project_polity_lot9_blank_vote.md) — §6bis.2 done (PR #141), PendingRerun as local tick-loop state not Citizen field, real no-op-claim bug caught by testing
-- [gh pr create targets develop, not main](feedback_gh_pr_targets_develop.md) — pass --base develop (non-polity work); superseded for polity, see below
-- [Polity branch workflow](project_polity_branch_workflow.md) — branch `polity` stages all polity PRs (--base polity, not develop); merges to develop only once full v0-v8 roadmap is done (settled 2026-08-30)
+- [gh pr create targets develop, not main](feedback_gh_pr_targets_develop.md) — SUPERSEDED 2026-09-27: `polity` is the working branch (CLAUDE.md, Workflow)
+- [Polity branch workflow](project_polity_branch_workflow.md) — SUPERSEDED 2026-09-27: `polity` is the working branch (CLAUDE.md, Workflow)
 - [Polity v5 Lot 1 / events config](project_polity_v5_lot1_events_config.md) — §8 config+codebook done (PR #142), shock lands in awakening gate not écart(t), Lot 2 (shock.py) next, not yet authorized
 - [Polity v5 Lot 2 / shock.py](project_polity_v5_lot2_shock.md) — §8 generators done (PR #143), real awakening-gate landmine found+routed around, Lot 3 next, not yet authorized
 - [Polity v5 Lot 3 / event_salience](project_polity_v5_lot3_event_salience.md) — §8 awakening extension done (PR #144), 2 real bugs caught in planning (step-0 order, scandal-target timing), Lot 4 (LLM) next, needs batch-reliability spike first
