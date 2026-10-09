@@ -548,6 +548,16 @@ describe('PlaygroundPage (P0 shell)', () => {
       'Carol',
     ]);
   });
+
+  it('on a phone, the narration of a playing story sticks under the navbar (W3.4)', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    const bar = screen.getByTestId('story-bar');
+    expect(bar).toHaveClass('max-lg:sticky', 'max-lg:max-h-[40svh]', 'max-lg:overflow-y-auto');
+    // The page's scroll padding (tailwind.css) keys on this attribute.
+    expect(bar).toHaveAttribute('data-story-bar');
+  });
 });
 
 describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
