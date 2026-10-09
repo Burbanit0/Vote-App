@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { METHOD_CRITERIA } from './methodCriteria';
+import { METHOD_CRITERIA, METHOD_CRITERIA_ENTRIES, CRITERION_KEYS } from './methodCriteria';
+import { LEADER_RULES } from '../lib/scorecard';
+import { RULE_LABELS } from '../lib/playgroundVoting';
+import { RANDOM_BALLOT_PROPS } from '../lib/playgroundCriteria';
 
 // Guard-rail added after an audit (PLAN_SURFACE_EXTERIEURE.md §2.B) found
 // `condorcet` (Copeland) carrying an unearned `participation: 'yes'` —
@@ -21,6 +24,47 @@ describe('METHOD_CRITERIA invariants (THEORY.md)', () => {
             `it cannot fully satisfy participation — THEORY.md §4.6`
         ).not.toBe('yes');
       }
+    }
+  });
+});
+
+describe('the criteria registry (method_criteria.json, PLAN_BEYOND_CI W1.2)', () => {
+  const cells = Object.entries(METHOD_CRITERIA_ENTRIES).flatMap(([rule, row]) =>
+    CRITERION_KEYS.map((key) => ({ at: `${rule}.${key}`, ...row[key] }))
+  );
+
+  it('has every rule, and nothing else', () => {
+    // RULE_LABELS is a Record<Rule, ...> tsc keeps complete: a rule added to the union
+    // without a registry entry fails here.
+    expect(Object.keys(METHOD_CRITERIA).sort()).toEqual(Object.keys(RULE_LABELS).sort());
+    expect(Object.keys(METHOD_CRITERIA).sort()).toEqual([...LEADER_RULES].sort());
+  });
+
+  it('marks how each verdict is known', () => {
+    for (const cell of cells) {
+      expect(['engine-tested', 'literature', 'variant'], cell.at).toContain(cell.basis);
+      // A test is an engine-tested cell's source; 'conditional' is never what an engine set says.
+      if (cell.basis === 'engine-tested') expect(cell.verdict, cell.at).not.toBe('conditional');
+      if (cell.basis === 'variant') expect(cell.note, cell.at).toBeTruthy();
+    }
+  });
+
+  it("agrees with the map lens's stated properties of random ballot", () => {
+    const lens: [
+      keyof typeof RANDOM_BALLOT_PROPS,
+      keyof (typeof METHOD_CRITERIA)['random_ballot'],
+    ][] = [
+      ['condorcet', 'condorcet_winner'],
+      ['condorcet_loser', 'condorcet_loser'],
+      ['majority', 'majority'],
+      ['monotonic', 'monotonicity'],
+      ['iia', 'iia'],
+      ['reversal', 'reversal'],
+    ];
+    for (const [lensKey, key] of lens) {
+      const stated = RANDOM_BALLOT_PROPS[lensKey];
+      if (stated === null) continue; // the lens calls it not meaningful for a lottery
+      expect(METHOD_CRITERIA.random_ballot[key], key).toBe(stated ? 'yes' : 'no');
     }
   });
 });

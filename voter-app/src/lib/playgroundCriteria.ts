@@ -137,7 +137,7 @@ export const CRITERIA: CriterionMeta[] = [
 // Random ballot is a lottery; its deterministic representative is misleading, so
 // we state its known ex-post properties (Gibbard 1977). Reversal is not meaningful
 // for a first-preference lottery → null.
-const RANDOM_BALLOT_PROPS: Record<CriterionId, CritResult> = {
+export const RANDOM_BALLOT_PROPS: Record<CriterionId, CritResult> = {
   condorcet: false,
   majority: false,
   majority_loser: false,

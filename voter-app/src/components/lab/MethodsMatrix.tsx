@@ -5,13 +5,11 @@ import { ruleWinner, RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../lib/scorecard';
 import {
   METHOD_CRITERIA,
-  METHOD_FAMILY,
-  FAMILY_ORDER,
   CRITERION_KEYS,
   type CriterionKey,
   type Satisfaction,
-  type MethodFamily,
 } from '../../data/methodCriteria';
+import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../data/methodFamily';
 import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
 
 // Only the compared methods (Tier A) — Tier B extras live in the method gallery.

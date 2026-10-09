@@ -1,4 +1,5 @@
 import type { Rule } from '../lib/playgroundVoting';
+import registry from './method_criteria.json';
 
 export type Satisfaction = 'yes' | 'no' | 'conditional';
 
@@ -25,343 +26,48 @@ export const CRITERION_KEYS: CriterionKey[] = [
 
 export type MethodCriteriaRow = Record<CriterionKey, Satisfaction>;
 
-// Static satisfaction table — mathematical proofs, not empirical.
-// Sources: Arrow (1951), Gibbard (1973/1977), Young (1974), Tideman (1987),
-// Brandt et al. "Handbook of Computational Social Choice" (2016).
+// The verdicts live in method_criteria.json, one entry per (rule, criterion) with its basis
+// (engine-tested, literature or variant), its source and a note (PLAN_BEYOND_CI W1.2). This
+// file narrows them to the types the UI uses and refuses a missing or unknown verdict.
 // 'conditional' = holds under restricted conditions or is debated in the literature.
-export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
-  plurality: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  two_round: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  irv: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  borda: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'yes',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'yes',
-  },
-  approval: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'conditional',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'conditional',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  // Copeland's method
-  condorcet: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    // Moulin (1988): no Condorcet-consistent method fully satisfies
-    // participation. Copeland is Condorcet-consistent (condorcet_winner/
-    // condorcet_loser above), so this can't be 'yes' — matches minimax and
-    // schulze below, both also Condorcet-consistent and both 'no' here.
-    participation: 'no',
-    reversal: 'yes',
-  },
-  minimax: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'no',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  schulze: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  bucklin: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  coombs: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  nanson: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  baldwin: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  ranked_pairs: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  // A lottery, not a deterministic rule: among probabilistic rules it is the only one
-  // that is strategy-proof, ex-post Pareto efficient and anonymous (Gibbard 1977). IIA holds vacuously.
-  random_ballot: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'yes',
-    strategy_proof: 'yes',
-    participation: 'yes',
-    reversal: 'yes',
-  },
-  star: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'yes',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'conditional',
-    participation: 'no',
-    reversal: 'no',
-  },
-  majority_judgment: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'conditional',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'conditional',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  score: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'conditional',
-    participation: 'yes',
-    reversal: 'yes',
-  },
-  anti_plurality: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  dowdall: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  black: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'conditional',
-  },
-  smith_irv: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  split_cycle: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'conditional',
-    reversal: 'yes',
-  },
-  kemeny: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'yes',
-  },
-  cumulative: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  maximin: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'conditional',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  benham: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-  river: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'yes',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'conditional',
-  },
-  nash: {
-    condorcet_winner: 'no',
-    condorcet_loser: 'no',
-    majority: 'no',
-    monotonicity: 'yes',
-    iia: 'conditional',
-    strategy_proof: 'no',
-    participation: 'yes',
-    reversal: 'no',
-  },
-  raynaud: {
-    condorcet_winner: 'yes',
-    condorcet_loser: 'yes',
-    majority: 'yes',
-    monotonicity: 'no',
-    iia: 'no',
-    strategy_proof: 'no',
-    participation: 'no',
-    reversal: 'no',
-  },
-};
+const VERDICTS: readonly Satisfaction[] = ['yes', 'no', 'conditional'];
 
-// Method families for visual grouping in the matrix
-export type MethodFamily = 'majoritarian' | 'ordinal' | 'condorcet' | 'cardinal';
+export type CriterionBasis = 'engine-tested' | 'literature' | 'variant';
+export interface CriterionEntry {
+  verdict: Satisfaction;
+  basis: CriterionBasis;
+  source: string | null;
+  note?: string;
+}
 
-export const METHOD_FAMILY: Record<Rule, MethodFamily> = {
-  plurality: 'majoritarian',
-  two_round: 'majoritarian',
-  irv: 'ordinal',
-  borda: 'ordinal',
-  bucklin: 'ordinal',
-  coombs: 'ordinal',
-  nanson: 'ordinal',
-  baldwin: 'ordinal',
-  condorcet: 'condorcet',
-  minimax: 'condorcet',
-  schulze: 'condorcet',
-  ranked_pairs: 'condorcet',
-  approval: 'cardinal',
-  score: 'cardinal',
-  star: 'cardinal',
-  majority_judgment: 'cardinal',
-  random_ballot: 'cardinal',
-  anti_plurality: 'majoritarian',
-  dowdall: 'ordinal',
-  black: 'condorcet',
-  smith_irv: 'condorcet',
-  split_cycle: 'condorcet',
-  kemeny: 'condorcet',
-  cumulative: 'cardinal',
-  maximin: 'cardinal',
-  benham: 'condorcet',
-  river: 'condorcet',
-  nash: 'cardinal',
-  raynaud: 'condorcet',
-};
+function loadVerdicts(): Record<Rule, MethodCriteriaRow> {
+  if (registry.criteria.join() !== CRITERION_KEYS.join()) {
+    throw new Error(
+      `method_criteria.json: criteria ${registry.criteria.join()} are not ${CRITERION_KEYS.join()}`
+    );
+  }
+  const out = {} as Record<Rule, MethodCriteriaRow>;
+  for (const [rule, cells] of Object.entries(registry.rules)) {
+    const unknown = Object.keys(cells).filter(
+      (key) => !CRITERION_KEYS.includes(key as CriterionKey)
+    );
+    if (unknown.length)
+      throw new Error(`method_criteria.json: ${rule} has unknown criteria ${unknown.join()}`);
+    const row = {} as MethodCriteriaRow;
+    for (const key of CRITERION_KEYS) {
+      const verdict = (cells as Record<string, { verdict?: string }>)[key]?.verdict;
+      if (!VERDICTS.includes(verdict as Satisfaction)) {
+        throw new Error(`method_criteria.json: ${rule}.${key} has verdict ${String(verdict)}`);
+      }
+      row[key] = verdict as Satisfaction;
+    }
+    out[rule as Rule] = row;
+  }
+  return out;
+}
 
-export const FAMILY_ORDER: MethodFamily[] = ['majoritarian', 'ordinal', 'condorcet', 'cardinal'];
+export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = loadVerdicts();
+export const METHOD_CRITERIA_ENTRIES = registry.rules as unknown as Record<
+  Rule,
+  Record<CriterionKey, CriterionEntry>
+>;

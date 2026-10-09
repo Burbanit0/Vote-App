@@ -9,7 +9,7 @@ import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { ruleWinner, type Rule } from '../../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../../lib/scorecard';
-import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
+import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodFamily';
 import { CANDIDATE_COLORS_LIGHT } from '../../../constants/chartColors';
 
 const rulesByFamily = (rules: Rule[]): Record<MethodFamily, Rule[]> =>
