@@ -26,7 +26,8 @@ import {
   type Behavior,
   type StrategicOutcome,
 } from '../../lib/playgroundSincerity';
-import { condorcetFromRanks, LEADER_RULES } from '../../lib/scorecard';
+import { condorcetFromRanks, hasFixedWinner, LEADER_RULES } from '../../lib/scorecard';
+import NoFixedWinner from './NoFixedWinner';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 import NoShowParadox from './NoShowParadox';
 
@@ -282,7 +283,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </select>
             </label>
             <div className="flex items-center gap-2">
-              {strat ? (
+              {!hasFixedWinner(rule) && (
+                <span data-testid="field-winner" className="text-sm">
+                  {t('canvas.winnerLabel')} <NoFixedWinner />
+                </span>
+              )}
+              {hasFixedWinner(rule) && strat && (
                 <span data-testid="field-winner" className="flex items-center gap-1 text-sm">
                   {t('canvas.winnerLabel')}
                   {strat.flipped ? (
@@ -297,7 +303,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                     <strong>{strat.stratName ?? winner ?? '—'}</strong>
                   )}
                 </span>
-              ) : (
+              )}
+              {hasFixedWinner(rule) && !strat && (
                 <span data-testid="field-winner" className="text-sm">
                   {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
                 </span>
@@ -312,7 +319,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </button>
             </div>
           </div>
-          {sampleAtSeed && baseSeed != null && (
+          {sampleAtSeed && baseSeed != null && hasFixedWinner(rule) && (
             <WinnerRobustness
               sampleAtSeed={sampleAtSeed}
               candidates={candidates}

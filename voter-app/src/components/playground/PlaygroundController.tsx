@@ -24,6 +24,7 @@ import {
   manipulationProbe,
   LEADER_AXES_KEYS,
   LEADER_RULES,
+  INTRO_RULES,
   type LeaderScorecard,
   type LensItem,
 } from '../../lib/scorecard';
@@ -68,7 +69,7 @@ function useController() {
     track('rule_changed', { rule: r });
     _setLeaderRule(r);
   }, []);
-  const [enabledRules, setEnabledRules] = React.useState<Set<Rule>>(() => new Set(LEADER_RULES));
+  const [enabledRules, setEnabledRules] = React.useState<Set<Rule>>(() => new Set(INTRO_RULES));
   // Central-map lens: the moment sets a sensible default (Méthode → critères,
   // Stratégie → manipulation, sinon vainqueur). The user can still override it on
   // the instrument within the current moment.

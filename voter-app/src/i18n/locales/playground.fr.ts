@@ -1126,6 +1126,18 @@ const pgFr = {
     caption:
       'Positions déduites des bulletins (projection PCA), non choisies : les candidats ne sont pas déplaçables. Chaque candidat est placé au barycentre des électeurs qui le soutiennent.',
   },
+  // Winner strip, above every moment: the current rule's winner, and what the other
+  // ticked methods elect.
+  strip: {
+    under: 'Avec {{rule}} :',
+    noFixedWinner: 'pas de vainqueur fixe',
+    noFixedWinnerTitle:
+      'Un vote au sort tire un bulletin au hasard : chaque candidat gagne avec la part des électeurs qui le placent en tête.',
+    othersElect: 'Les autres méthodes cochées élisent :',
+    othersAgree_one: 'L’autre méthode cochée élit le même vainqueur.',
+    othersAgree_other: 'Les {{count}} autres méthodes cochées élisent le même vainqueur.',
+    sincere: '(votes sincères)',
+  },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',
     labelAssembly: 'Composition de l’assemblée',
@@ -1134,7 +1146,6 @@ const pgFr = {
     paradoxLoading: '· · ·',
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
-    condorcet: 'Condorcet : {{name}}',
     shake: '🎲 Secouer les hypothèses',
     shakeTitle:
       "Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi.",

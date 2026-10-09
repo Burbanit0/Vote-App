@@ -1104,6 +1104,16 @@ const pgEn: PlaygroundKeys = {
     caption:
       'Positions are inferred from the ballots (PCA projection), not chosen: candidates cannot be dragged. Each candidate sits at the centroid of the voters who support it.',
   },
+  strip: {
+    under: 'Under {{rule}}:',
+    noFixedWinner: 'no fixed winner',
+    noFixedWinnerTitle:
+      'A random ballot draws one ballot at random: each candidate wins with the share of voters who rank them first.',
+    othersElect: 'The other ticked methods elect:',
+    othersAgree_one: 'The other ticked method elects the same winner.',
+    othersAgree_other: 'The other {{count}} ticked methods elect the same winner.',
+    sincere: '(sincere votes)',
+  },
   instrument: {
     labelLeader: 'Ideology map — leader',
     labelAssembly: 'Composition of the assembly',
@@ -1112,7 +1122,6 @@ const pgEn: PlaygroundKeys = {
     paradoxLoading: '· · ·',
     paradoxTitle:
       'Share of resampled electorates with no Condorcet winner — a high rate signals the result depends heavily on the assumptions.',
-    condorcet: 'Condorcet: {{name}}',
     shake: '🎲 Shake the assumptions',
     shakeTitle:
       'Resamples the electorate 60 times (same assumptions, new draws) — separates a structural property from a chosen setting.',
