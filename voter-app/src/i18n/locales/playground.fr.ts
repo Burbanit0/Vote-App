@@ -757,7 +757,8 @@ const pgFr = {
       start: 'On fait s’affronter chaque paire de candidats en duel direct.',
       duel: '{{a}} vs {{b}} : {{av}}–{{bv}} → {{cand}} gagne le duel.',
       duelTie: '{{a}} vs {{b}} : {{av}}–{{bv}} → égalité, le duel ne compte pour personne.',
-      doneCopeland: '{{cand}} gagne le plus de duels (Copeland) : élu.',
+      doneCopeland:
+        'Copeland : {{cand}} a le meilleur bilan de duels gagnés moins duels perdus — élu.',
       doneMinimax: 'Minimax : {{cand}} a la plus petite pire défaite — élu.',
       doneSchulze: 'Schulze : {{cand}} l’emporte par les plus forts chemins de battage — élu.',
       doneRankedPairs:
@@ -952,7 +953,7 @@ const pgFr = {
     pairwise:
       '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
     pairwiseCycle:
-      '{{winner}} gagne {{wins}} de ses {{duels}} duels : ici, personne ne les gagne tous, et cette méthode tranche le cycle en faveur de {{winner}}.',
+      '{{winner}} ne bat pas tous ses rivaux en duel ({{wins}} duels gagnés sur {{duels}}) : cette méthode l’élit selon sa façon de peser les duels.',
     kickerRule: 'Pourquoi, avec {{rule}} ?',
     twophase:
       '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
@@ -964,7 +965,7 @@ const pgFr = {
     nash: '{{winner}} a la plus forte moyenne géométrique de satisfaction : {{winnerPct}} %, contre {{runnerUpPct}} % pour {{runnerUp}}.',
     irv: '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : le candidat qui a le moins de premiers choix est éliminé et ses bulletins sont reportés, jusqu’à ce que quelqu’un ait la majorité.',
     twoRound:
-      '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : sans majorité au premier tour, seuls les deux premiers vont au second.',
+      '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : une majorité au premier tour l’emporte d’emblée, sinon les deux premiers vont au second.',
     rule: {
       majority_judgment:
         '{{winner}} a la meilleure mention médiane : au moins la moitié des électeurs lui donnent cette mention ou mieux.',

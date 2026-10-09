@@ -740,7 +740,8 @@ const pgEn: PlaygroundKeys = {
       start: 'Every pair of candidates is put head-to-head.',
       duel: '{{a}} vs {{b}}: {{av}}–{{bv}} → {{cand}} wins the duel.',
       duelTie: '{{a}} vs {{b}}: {{av}}–{{bv}} → a tie, a win for neither.',
-      doneCopeland: '{{cand}} wins the most duels (Copeland): elected.',
+      doneCopeland:
+        'Copeland: {{cand}} has the best record of duels won minus duels lost — elected.',
       doneMinimax: 'Minimax: {{cand}} has the smallest worst defeat — elected.',
       doneSchulze: 'Schulze: {{cand}} wins by strongest beat-paths — elected.',
       doneRankedPairs: 'Ranked pairs: lock the clearest duels first, {{cand}} leads — elected.',
@@ -930,7 +931,7 @@ const pgEn: PlaygroundKeys = {
     pairwise:
       '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
     pairwiseCycle:
-      '{{winner}} wins {{wins}} of their {{duels}} duels: here nobody wins them all, and this method settles the cycle in {{winner}}’s favour.',
+      '{{winner}} does not beat every rival head to head ({{wins}} of {{duels}} duels won outright): this method elects them by how it weighs the duels.',
     kickerRule: 'Why, under {{rule}}?',
     twophase:
       '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
@@ -942,7 +943,7 @@ const pgEn: PlaygroundKeys = {
     nash: '{{winner}} has the highest geometric mean of satisfaction: {{winnerPct}}%, against {{runnerUpPct}}% for {{runnerUp}}.',
     irv: '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: the candidate with the fewest first choices is eliminated and their ballots transfer, until someone has a majority.',
     twoRound:
-      '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: without a first-round majority, only the top two go on to a second round.',
+      '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: a first-round majority wins outright, otherwise the top two go on to a second round.',
     rule: {
       majority_judgment:
         '{{winner}} has the best median grade: at least half the voters grade them that high or higher.',

@@ -41,29 +41,33 @@ export function explainWinner(trace: VoteTrace, cands: NamedPt[]): WinnerExplana
   const runnerUpVal = ru >= 0 ? r(bars[ru]) : 0;
 
   const base = { winner, runnerUp, winnerVal, runnerUpVal };
-  // A sentence with figures says the winner leads on them; if the final bars do not
-  // show that (a rounded or partial tally), say only that the rule elects them.
-  const leads = (bars[ru] ?? -Infinity) <= bars[w]; // no runner-up (bars[-1]): leading
-  const withFigures = (key: string, params: Record<string, string | number>): WinnerExplanation =>
-    leads ? { key, params } : { key: 'explain.byRule', params: { winner } };
   const pct = (v: number | undefined) => Math.round((v ?? 0) * 100); // no runner-up: 0
+  // A sentence with figures says the winner leads on them: only when the figures as
+  // shown (rounded) put the winner strictly ahead. A tie the engine broke, or a lead
+  // lost to rounding, gets only "the rule elects them".
+  const withFigures = (
+    key: string,
+    params: Record<string, string | number>,
+    shown: [number, number] = [winnerVal, runnerUpVal]
+  ): WinnerExplanation =>
+    ru < 0 || shown[0] > shown[1] ? { key, params } : { key: 'explain.byRule', params: { winner } };
 
   // Rules whose family sentence would be false: their own wording, from the engine's
   // definitions in playgroundVoting.ts. Their final bars are not a deciding total (only
   // the winner is left, or they hold grades or minima), so most carry no figures.
   switch (trace.rule) {
     case 'maximin':
-      return withFigures('explain.maximin', {
-        ...base,
-        winnerPct: pct(bars[w]),
-        runnerUpPct: pct(bars[ru]),
-      });
+      return withFigures(
+        'explain.maximin',
+        { ...base, winnerPct: pct(bars[w]), runnerUpPct: pct(bars[ru]) },
+        [pct(bars[w]), pct(bars[ru])]
+      );
     case 'nash':
-      return withFigures('explain.nash', {
-        ...base,
-        winnerPct: pct(bars[w]),
-        runnerUpPct: pct(bars[ru]),
-      });
+      return withFigures(
+        'explain.nash',
+        { ...base, winnerPct: pct(bars[w]), runnerUpPct: pct(bars[ru]) },
+        [pct(bars[w]), pct(bars[ru])]
+      );
     case 'irv':
       return withFigures('explain.irv', base);
     case 'two_round':
@@ -86,8 +90,8 @@ export function explainWinner(trace: VoteTrace, cands: NamedPt[]): WinnerExplana
       return { key: 'explain.byRule', params: { winner } };
     case 'pairwise': {
       // The final bars count duels won outright (a tied duel counts for nobody). "Wins
-      // every duel" is true only of a winner with all of them; in a cycle (no Condorcet
-      // winner) the method settles it otherwise.
+      // every duel" is true only of a winner with all of them; otherwise (a cycle, or a
+      // tied duel) the sentence says only that it does not beat every rival.
       const duels = cands.length - 1;
       return winnerVal >= duels
         ? { key: 'explain.pairwise', params: { winner } }

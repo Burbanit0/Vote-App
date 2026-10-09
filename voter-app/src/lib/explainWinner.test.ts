@@ -78,6 +78,18 @@ describe('explainWinner — names the mechanism, never re-derives the winner', (
     expect(e).toMatchObject({ key: 'explain.maximin', params: { winnerPct: 40, runnerUpPct: 0 } });
   });
 
+  it('a tie the engine broke is not presented as a lead', () => {
+    // Two-round, 50-50 in the runoff: the engine picks Alice, but "50 to 50" is no lead.
+    const e = explainWinner(trace('elim', 0, [50, 50, 0], 'two_round'), CANDS);
+    expect(e).toEqual({ key: 'explain.byRule', params: { winner: 'Alice' } });
+  });
+
+  it('a lead lost to rounding is not shown as figures', () => {
+    // Nash: 47.4% against 47.2% would both print as 47%.
+    const e = explainWinner(trace('count', 0, [0.474, 0.472, 0.1], 'nash'), CANDS);
+    expect(e.key).toBe('explain.byRule');
+  });
+
   it('drops the figures when the bars do not put the winner ahead', () => {
     const e = explainWinner(trace('count', 1, [16, 15, 3]), CANDS);
     expect(e).toEqual({ key: 'explain.byRule', params: { winner: 'Bruno' } });
