@@ -8,8 +8,9 @@
 // Percentages are as the copy prints them, and the test checks that the beat's EN and FR
 // text does print them (and names the winner), so the table and the copy cannot drift
 // apart. The copy rounds (38.5% is printed 38%), so the engine may differ by half a point. Claims stories.test.ts already asserts elsewhere (most winners, the
-// strict Condorcet winners) are not repeated. The parliament stories' seat figures come
-// from the backend and are recorded in stories.ts's comments instead.
+// strict Condorcet winners) are not repeated. The parliament stories' seats come from the
+// backend, so their figures are checked there:
+// fast_api_voter/api/tests/test_story_parliament_figures.py.
 
 type At = { story: string; step: string };
 export type StoryClaim =

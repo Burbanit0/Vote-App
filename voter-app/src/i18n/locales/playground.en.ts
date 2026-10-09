@@ -182,7 +182,7 @@ const pgEn: PlaygroundKeys = {
       tagline: 'Same ballots, same parties: proportional, first-past-the-post, or mixed?',
       steps: {
         pr: 'National proportional representation: every party gets roughly its vote share. The Gallagher index (votes-to-seats distortion) is very low.',
-        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 41 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
+        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 44 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
         mmp: 'Under mixed-member proportional, local winners are kept but compensatory seats restore the proportions: the fidelity of PR without giving up territorial representation.',
       },
     },

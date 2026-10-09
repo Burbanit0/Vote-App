@@ -208,7 +208,7 @@ const pgPseudo: PlaygroundKeys = {
         '⟦Mêmés~~ búllétíñs,~~~~ mêmés~~ pártís~~~ :~ própórtíóññéllé,~~~~~~ úñíñómíñál~~~~ óú~ míxté~~ ?~⟧',
       steps: {
         pr: '⟦Própórtíóññéllé~~~~~~ ñátíóñálé~~~~ :~ çháqúé~~~ pártí~~ réçóít~~~ à~ péú~~ près~~ sá~ párt~~ dé~ vóíx.~~ L’íñdíçé~~~ dé~ Gállághér~~~~ (lá~~ dístórsíóñ~~~~ vóíx→síègés)~~~~~ ést~~ très~~ bás.~~⟧',
-        fptp: '⟦Pásséz~~~ áú~ sçrútíñ~~~ úñíñómíñál~~~~ pár~~ çírçóñsçríptíóñ~~~~~~ :~ lé~ Céñtré,~~~ 35~ %~ dés~~ vóíx,~~ ráflé~~ 41~ %~ dés~~ síègés,~~~ táñdís~~~ qúé~~ lés~~ Vérts~~ —~ póúrtáñt~~~ à~ 19~ %~ —~ tómbéñt~~~ à~ 9~ %,~ fáúté~~ d’êtré~~~ májórítáírés~~~~~ qúélqúé~~~ párt.~~ Près~~ d’úñ~~ tíérs~~ dés~~ vóíx~~ ñé~ pèsé~~ plús~~ ríéñ.~~⟧',
+        fptp: '⟦Pásséz~~~ áú~ sçrútíñ~~~ úñíñómíñál~~~~ pár~~ çírçóñsçríptíóñ~~~~~~ :~ lé~ Céñtré,~~~ 35~ %~ dés~~ vóíx,~~ ráflé~~ 44~ %~ dés~~ síègés,~~~ táñdís~~~ qúé~~ lés~~ Vérts~~ —~ póúrtáñt~~~ à~ 19~ %~ —~ tómbéñt~~~ à~ 9~ %,~ fáúté~~ d’êtré~~~ májórítáírés~~~~~ qúélqúé~~~ párt.~~ Près~~ d’úñ~~ tíérs~~ dés~~ vóíx~~ ñé~ pèsé~~ plús~~ ríéñ.~~⟧',
         mmp: '⟦Éñ~ sçrútíñ~~~ míxté~~ çómpéñsátóíré,~~~~~ lés~~ élús~~ lóçáúx~~~ sóñt~~ çóñsérvés~~~~ máís~~ dés~~ síègés~~~ dé~ çómpéñsátíóñ~~~~~ rétáblísséñt~~~~~ lés~~ própórtíóñs~~~~ :~ óñ~ rétróúvé~~~ lá~ fídélíté~~~ dé~ lá~ própórtíóññéllé~~~~~~ sáñs~~ pérdré~~~ l’áñçrágé~~~~ térrítóríál.~~~~~⟧',
       },
     },
