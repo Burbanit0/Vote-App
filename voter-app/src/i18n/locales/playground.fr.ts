@@ -29,6 +29,12 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  // "Signaler une erreur de contenu": the issue form, from stories and Lab fiches.
+  report: {
+    contentError: 'Signaler une erreur de contenu',
+    contentErrorTitle:
+      'Une affirmation fausse sur le vote ? Ouvre un formulaire GitHub, avec cet endroit déjà rempli.',
+  },
   stories: {
     launch: 'Histoires',
     launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',

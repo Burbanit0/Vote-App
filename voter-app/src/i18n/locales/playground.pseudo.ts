@@ -41,6 +41,11 @@ const pgPseudo: PlaygroundKeys = {
     moment: '⟦Móméñt~~~ {{n}} /~ {{total}}⟧',
     next: '⟦{{label}} →~⟧',
   },
+  report: {
+    contentError: '⟦Sígñálér~~~ úñé~~ érréúr~~~ dé~ çóñtéñú~~~⟧',
+    contentErrorTitle:
+      '⟦Úñé~~ áffírmátíóñ~~~~ fáússé~~~ súr~~ lé~ vóté~~ ?~ Óúvré~~ úñ~ fórmúláíré~~~~ GítHúb,~~~ ávéç~~ çét~~ éñdróít~~~ déjà~~ rémplí.~~~⟧',
+  },
   stories: {
     launch: '⟦Hístóírés~~~~⟧',
     launchHint:
