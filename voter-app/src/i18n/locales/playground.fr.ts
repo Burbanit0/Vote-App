@@ -652,6 +652,8 @@ const pgFr = {
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
     fineTune: 'Réglage fin…',
+    dialTitle:
+      'Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible.',
     simpleDial: '← Cadran simple',
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',
@@ -1006,7 +1008,7 @@ const pgFr = {
       'Nombre d’électeurs qui partagent votre conviction et voteraient comme vous — votre levier collectif.',
     blocLabel: 'Électeurs comme vous : {{n}}',
     headlinePre: 'À votre place,',
-    headlineMid: '/15 méthodes récompensent la conviction ;',
+    headlineMid: '/{{total}} méthodes récompensent la conviction ;',
     headlineEnd: 'vous poussent au vote stratégique.',
     temptingHead: '⚠ Vous seriez tenté de trahir votre favori',
     temptSincere: 'sincère → {{winner}} ; mais votez',
@@ -1405,6 +1407,10 @@ const pgFr = {
     elecCurrent: 'Électorat actuel',
     matrix: {
       title: 'Comparaison des méthodes',
+      colMethod: 'Méthode',
+      yes: 'Oui',
+      no: 'Non',
+      conditional: 'Conditionnel',
       liveRow: 'Vainqueur avec votre électorat actuel',
       familyMajoritarian: 'Majorité',
       familyOrdinal: 'Ordinal',

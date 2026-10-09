@@ -11,10 +11,10 @@ import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Four destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
-// → À vous de jouer (cast one ballot yourself) → Polity (replay a simulated
-// society's run). Everything theory/mechanism/system lives inside the
-// Laboratoire's fiches now.
+// Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
+// → À vous de jouer (cast one ballot yourself). Everything theory/mechanism/system
+// lives inside the Laboratoire's fiches. Polity (a research run explorer, not part
+// of the teaching path) is linked from the home page footer; its route is unchanged.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -74,7 +74,7 @@ const Navbar: React.FC = () => {
 
   return (
     <BootstrapNavbar
-      data-tour="navbar"
+      data-testid="navbar"
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
@@ -96,7 +96,7 @@ const Navbar: React.FC = () => {
             variant="info"
             style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
           >
-            Bêta
+            {t('nav.beta')}
           </Badge>
         </BootstrapNavbar.Brand>
 
@@ -156,46 +156,10 @@ const Navbar: React.FC = () => {
             >
               ✍️ {t('nav.play')}
             </Nav.Link>
-
-            {/* Polity — the simulated society's run explorer */}
-            <Nav.Link
-              href="/polity"
-              data-testid="nav-polity"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/polity'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                color: currentPath === '/polity' ? 'var(--bs-primary)' : 'inherit',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              🏛 {t('nav.polity')}
-            </Nav.Link>
           </Nav>
 
           {/* ── Right side ── */}
           <Nav className="lg:items-center gap-2">
-            {/* Tour ? */}
-            <Nav.Link
-              href="/?tour=1"
-              className="flex items-center justify-center"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                border: '1.5px solid var(--bs-secondary-color, #6c757d)',
-                color: 'var(--bs-secondary-color, #6c757d)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                padding: 0,
-                flexShrink: 0,
-              }}
-              aria-label={t('nav.tourLabel')}
-            >
-              ?
-            </Nav.Link>
-
             {/* ── User / Settings dropdown ── */}
             <Dropdown>
               <Dropdown.Toggle

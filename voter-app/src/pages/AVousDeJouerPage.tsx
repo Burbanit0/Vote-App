@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Modal } from '@/components/ui/modal';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { candidateColor } from '../lib/palette';
+import { candidateColor, textTone } from '../lib/palette';
 import { track } from '../lib/analytics';
 import { useVotingLabels } from '../hooks/useVotingLabels';
 import { buildTraceFromBallots } from '../lib/voteTrace';
@@ -950,7 +950,10 @@ const AVousDeJouerPage: React.FC = () => {
                       {w >= 0 && (
                         <span
                           className="rounded px-1 font-mono text-[0.62rem] font-bold"
-                          style={{ color: candidateColor(w), background: `${candidateColor(w)}18` }}
+                          style={{
+                            color: textTone(candidateColor(w)),
+                            background: `${candidateColor(w)}18`,
+                          }}
                         >
                           {CANDIDATES[w].name}
                         </span>

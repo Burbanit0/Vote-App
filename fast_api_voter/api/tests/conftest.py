@@ -14,6 +14,8 @@ for real per-IP abuse, not a fast local test run.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -38,3 +40,20 @@ def _reset_rate_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+@pytest.fixture(scope="session")
+def flagship() -> Any:
+    """scripts/run_polity_flagship.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_flagship.py"
+    spec = importlib.util.spec_from_file_location("run_polity_flagship", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["run_polity_flagship"] = module
+    spec.loader.exec_module(module)
+    return module
+

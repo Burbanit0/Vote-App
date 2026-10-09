@@ -641,6 +641,8 @@ const pgEn: PlaygroundKeys = {
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
+    dialTitle:
+      'One dial that sets correlated weights (a stated convention) — fine-tuning stays available.',
     simpleDial: '← Simple dial',
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',
@@ -985,7 +987,7 @@ const pgEn: PlaygroundKeys = {
       'Number of voters who share your conviction and would vote like you — your collective leverage.',
     blocLabel: 'Voters like you: {{n}}',
     headlinePre: 'In your shoes,',
-    headlineMid: '/15 methods reward conviction;',
+    headlineMid: '/{{total}} methods reward conviction;',
     headlineEnd: 'push you toward a tactical vote.',
     temptingHead: '⚠ You would be tempted to betray your favourite',
     temptSincere: 'sincere → {{winner}} ; but vote',
@@ -1384,6 +1386,10 @@ const pgEn: PlaygroundKeys = {
     elecCurrent: 'Current electorate',
     matrix: {
       title: 'Method comparison',
+      colMethod: 'Method',
+      yes: 'Yes',
+      no: 'No',
+      conditional: 'Conditional',
       liveRow: 'Winner with your current electorate',
       familyMajoritarian: 'Majoritarian',
       familyOrdinal: 'Ordinal',
