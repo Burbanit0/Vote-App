@@ -176,7 +176,9 @@ const StoryPlayer: React.FC = () => {
         <p data-testid="story-beat" className="mt-2 text-sm leading-relaxed text-foreground">
           {t(step.beatKey)}
         </p>
-        <ReportContentError where={`story:${active.id}/${step.id}`} />
+        <p className="mt-1">
+          <ReportContentError where={`story:${active.id}/${step.id}`} />
+        </p>
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <Button

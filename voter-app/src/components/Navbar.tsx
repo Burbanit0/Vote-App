@@ -9,6 +9,7 @@ import { useExpertMode } from '../stores/useUIStore';
 import { usePlainLanguage } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
+import { NEW_ISSUE_URL } from '../lib/repo';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 // Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
@@ -218,7 +219,7 @@ const Navbar: React.FC = () => {
                 <hr className="my-1" style={{ borderColor: 'var(--bs-border-color)' }} />
 
                 <a
-                  href="https://github.com/Burbanit0/Vote-App/issues/new"
+                  href={NEW_ISSUE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="dropdown-item flex items-center gap-2 px-3 py-2"

@@ -164,7 +164,8 @@ const BenchFiche: React.FC<{
         </React.Suspense>
       </div>
       <footer className="border-t border-border/40 px-4 py-1.5 text-right">
-        <ReportContentError where={`lab:${experiment.id}`} />
+        {/* The electorate label says which column a compare-mode reader was on. */}
+        <ReportContentError where={`lab:${experiment.id} @ ${electorateLabel}`} />
       </footer>
     </section>
   );
