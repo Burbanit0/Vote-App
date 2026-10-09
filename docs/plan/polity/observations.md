@@ -72,7 +72,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
-| [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is offered and declined | 2026-10-09 | recorded |
+| [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 
 ---
 
@@ -1942,8 +1942,9 @@ fragmentation in the vote, not in the seat rule. The article allows up to 0.15, 
 into an empty assembly; the kernel then forms no coalition (`form_coalition` returns None), it does not fail.
 
 *Re-measured 2026-10-09 ([OBS-044](#obs-044)), with OBS-041-043 fixed:* inside the band at the last election in
-4 of 10 seeds and at both in 2, median 8.47 -- unchanged, so abstention was not what drove it. The two seeds
-inside at both elections are the two whose polities raised their own threshold, to 0.08 and 0.07, and landed
+4 of 10 seeds and at both in 2, median 8.47 -- unchanged despite turnout recovering, so abstention does not look
+like the driver. The two seeds inside at both elections are the two whose polities set their threshold above
+the 5% default, to 0.08 and 0.07, and landed
 at 2.67 and 1.89 effective parties: the cliff the re-seating above predicted, reached by amendment.
 `PLAN_BEYOND_CI.md`'s W2.1 is the controlled follow-up (3% against 5%, amendments frozen).
 
@@ -2003,12 +2004,13 @@ final term"); the seed-9 president at tick 15 above is that case. Whether a mini
 owner's call, with whether a snap term counts against the limit. A run resumed from a checkpoint written
 before the fix keeps its holder's old `term_end_tick` until the next calendar election.
 
-*Seen live, 2026-10-09 ([OBS-044](#obs-044)):* with the fix, the act was offered twice in ten seeds, both in
-seed 8, and declined both times (`"extra_legal": "none"` in the call log). One of the two is the case above: a
-president term-limited by a snap win at tick 31 was offered the act on the tick they took office. Of the other
+*Seen live, 2026-10-09 ([OBS-044](#obs-044)):* with the fix, the act became legal twice in ten seeds, both in
+seed 8, and was not taken either time (`"extra_legal": "none"` in the call log, and the act unmentioned in
+either turn's reasoning -- the field is answered, not deliberated). One of the two is the case above: a
+president term-limited by a snap win at tick 31 could take the act on the tick they took office. Of the other
 ten term-limited presidencies, five were recalled before the eve of their election and five began at tick 32,
 the run's last. The answer to the act is not journaled -- `agent_turn` carries no `extra_legal` -- so a
-declined offer is visible only in `llm_calls.jsonl`.
+refusal not taken is visible only in `llm_calls.jsonl`.
 
 ### OBS-042
 
@@ -2070,7 +2072,7 @@ turn out about 90%.
 *Measured 2026-10-09 ([OBS-044](#obs-044)): the estimate was low.* In the exploration profile's ten seeds a
 median of 15 of 100 citizens abstained at the regular presidential elections (6-32), against 66 before the fix --
 about 85% turnout, at ADR-011's 85% ceiling rather than near 70%. The estimate applied the end-of-run
-disengagement to every election; nobody is disengaged at tick 0, and by tick 32 abstention reaches 15-32.
+disengagement to every election; nobody is disengaged at tick 0, and at tick 32 abstention is 8-32.
 
 Every LLM run before this fix carries the old rule, so turnout and vote shares are not comparable across it,
 and a run resumed across the change switches rule mid-run (the config hash does not see it). The golden
@@ -2119,7 +2121,7 @@ reaches for the undecided more than ahead, ahead mostly does not campaign) holds
 ### OBS-044
 
 **Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is
-offered and declined.**
+reachable but not taken.**
 
 *Seen.* The ten-seed ensemble re-run on the fixed kernel (`~/Documents/Dev/polity-runs/phase11/`, code
 c063c8d5: the snap-term fix #801, the abstention rule #819, the partisanship prompts #849; before founders were
@@ -2133,7 +2135,7 @@ first attempt with no fallback alert.
 | inside 1.5-8 at the last election / at both | 5 / 0 of 10 | 4 / 2 of 10 |
 | parties founded / dissolved | 457 / 264 | 439 / 255 |
 | presidential wins / of them snap elections | 84 / 57 | 70 / 41 |
-| `refuse_to_leave` offered / taken | 0 / 0 | 2 / 0 |
+| `refuse_to_leave` legal / taken | 0 / 0 | 2 / 0 |
 | amendments ratified / to the electoral threshold | 6 / 1 | 11 / 6 |
 
 | seed | parties t8 / t16 / t24 / t32 | founded / dissolved | effective parties t8 -> t24 | threshold amended | abstained t0 / t16 / t32 |
@@ -2152,12 +2154,17 @@ first attempt with no fallback alert.
 - **Turnout is back** (OBS-042): about 85%, against the 34% the old indifference rule left.
 - **Fragmentation is not** (OBS-040): it did not depend on who stayed home. What changed is that the polities
   now steer it -- six of the eleven ratified amendments set the electoral threshold, in four seeds, up to 0.08
-  and down to 0.02, and the seeds that raised it are the two inside the band at both elections.
-- **The extra-legal act is reachable and was not taken** (OBS-041): offered twice, declined twice.
+  and down to 0.02, and the two seeds that set it above the 5% default are the two inside the band at both
+  elections.
+- **The extra-legal act is reachable and was not taken** (OBS-041): legal twice, answered `none` twice, never
+  reasoned about; 0 of 350 president turns chose it.
 - **Fewer snap elections** (41 against 57), with recalls falling with them.
 
-*What it does not settle.* One ensemble per code state, so the phase10-phase11 differences mix the three fixes
-with run-to-run variation; turnout's change is large enough to stand, the others are not attributed. The
+*What it does not settle.* One ensemble per code state, and more than the three fixes changed between them:
+phase10 ran on vLLM 0.30.0 and code faab0efb, which also lacks the term limit's entrenchment (#784) and two
+prompt rewordings (the president "elected until the next scheduled election", the nominee's "may stay home").
+Turnout's change is large enough to stand and follows from #819; the others, the amendment counts included,
+are not attributed. The
 threshold amendments make seeds incomparable with each other on fragmentation; W2.1 freezes amendments for
 exactly that reason.
 
