@@ -49,7 +49,9 @@ test.describe('Navigation — the five real surfaces', () => {
       .click();
     await expect(page).toHaveURL(/\/a-vous-de-jouer$/);
 
-    await page.getByTestId('nav-polity').click();
+    // Polity left the main nav (PLAN_BEYOND_CI W3.1): it is reached from the home footer.
+    await page.goto('/');
+    await page.getByTestId('home-foot-polity').click();
     await expect(page).toHaveURL(/\/polity$/);
   });
 

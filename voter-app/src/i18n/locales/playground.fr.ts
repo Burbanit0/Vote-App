@@ -652,6 +652,8 @@ const pgFr = {
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
     fineTune: 'Réglage fin…',
+    dialTitle:
+      'Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible.',
     simpleDial: '← Cadran simple',
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',

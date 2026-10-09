@@ -38,18 +38,19 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders the four destinations: Playground → Laboratoire → À vous de jouer → Polity', () => {
+  it('renders the three destinations: Playground → Laboratoire → À vous de jouer, and not Polity', () => {
     const { container } = renderNavbar();
     const hrefs = Array.from(container.querySelectorAll('nav a[href^="/"]')).map((a) =>
       a.getAttribute('href')
     );
     expect(hrefs).toEqual(
-      expect.arrayContaining(['/playground', '/laboratoire', '/a-vous-de-jouer', '/polity'])
+      expect.arrayContaining(['/playground', '/laboratoire', '/a-vous-de-jouer'])
     );
     expect(hrefs.indexOf('/playground')).toBeLessThan(hrefs.indexOf('/laboratoire'));
     expect(hrefs.indexOf('/laboratoire')).toBeLessThan(hrefs.indexOf('/a-vous-de-jouer'));
-    expect(hrefs.indexOf('/a-vous-de-jouer')).toBeLessThan(hrefs.indexOf('/polity'));
-    expect(screen.getByTestId('nav-polity')).toHaveTextContent('Polity');
+    // Polity is a research run explorer, not the teaching path: linked from the home footer.
+    expect(hrefs).not.toContain('/polity');
+    expect(screen.queryByTestId('nav-polity')).toBeNull();
   });
 
   it('tells assistive tech which destination is the current page', () => {
@@ -64,21 +65,21 @@ describe('Navbar', () => {
       'page'
     );
     expect(container.querySelector('a[href="/playground"]')).not.toHaveAttribute('aria-current');
-    expect(screen.getByTestId('nav-polity')).not.toHaveAttribute('aria-current');
+    expect(container.querySelector('a[href="/laboratoire"]')).not.toHaveAttribute('aria-current');
     Object.defineProperty(window, 'location', {
       value: { ...window.location, pathname: original },
       writable: true,
     });
   });
 
-  it('marks Polity as the current page there, and a click on it closes the collapsed menu', () => {
+  it('marks the Laboratoire as the current page there, and a click on it closes the collapsed menu', () => {
     const original = window.location.pathname;
     Object.defineProperty(window, 'location', {
-      value: { ...window.location, pathname: '/polity' },
+      value: { ...window.location, pathname: '/laboratoire' },
       writable: true,
     });
-    renderNavbar();
-    const link = screen.getByTestId('nav-polity');
+    const { container } = renderNavbar();
+    const link = container.querySelector('a[href="/laboratoire"]') as HTMLElement;
     expect(link).toHaveAttribute('aria-current', 'page');
     fireEvent.click(screen.getByTestId('navbar-toggle'));
     expect(screen.getByTestId('navbar-toggle')).toHaveAttribute('aria-expanded', 'true');

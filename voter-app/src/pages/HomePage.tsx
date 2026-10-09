@@ -18,6 +18,7 @@ const FOOTER_LINKS = [
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
   { href: '/laboratoire?exp=lexique', key: 'nav.lexique' },
+  { href: '/polity', key: 'nav.polity', testid: 'home-foot-polity' },
 ];
 
 const HomePage: React.FC = () => {
@@ -203,6 +204,7 @@ const HomePage: React.FC = () => {
               <Link
                 key={l.href}
                 to={l.href}
+                data-testid={l.testid}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 {t(l.key)}

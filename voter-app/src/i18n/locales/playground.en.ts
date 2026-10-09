@@ -641,6 +641,8 @@ const pgEn: PlaygroundKeys = {
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
+    dialTitle:
+      'One dial that sets correlated weights (a stated convention) — fine-tuning stays available.',
     simpleDial: '← Simple dial',
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',

@@ -692,6 +692,8 @@ const pgPseudo: PlaygroundKeys = {
     evaluatedFor: '⟦Éválúé~~~ póúr~~ :~⟧',
     sensibility: '⟦Vótré~~ séñsíbílíté~~~~⟧',
     fineTune: '⟦Réglágé~~~ fíñ…~~⟧',
+    dialTitle:
+      '⟦Úñ~ séúl~~ çádráñ~~~ qúí~~ règlé~~ dés~~ póñdérátíóñs~~~~~ çórréléés~~~~ (çóñvéñtíóñ~~~~ déçláréé)~~~~ —~ lé~ réglágé~~~ fíñ~~ résté~~ díspóñíblé.~~~~⟧',
     simpleDial: '⟦←~ Cádráñ~~~ símplé~~~⟧',
     majoritarian: '⟦Májórítáíré~~~~ (déçísíf)~~~~⟧',
     consensualist: '⟦Cóñséñsúálísté~~~~~ (íñçlúsíf)~~~~⟧',
