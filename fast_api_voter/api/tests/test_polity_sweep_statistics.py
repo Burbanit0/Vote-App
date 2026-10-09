@@ -145,3 +145,24 @@ def test_only_shared_seeds_are_paired() -> None:
     assert contrast is not None and contrast.seeds == (2, 3) and contrast.differences == (2.0, 0.0)
     assert paired_contrast({1: 1.0}, {2: 1.0}) is None
 
+
+def test_one_shared_seed_is_p_one_and_a_non_finite_value_raises() -> None:
+    one = paired_contrast({1: 0.0}, {1: 5.0})
+    assert one is not None and one.p_value == 1.0 and one.mean_difference == 5.0
+    with pytest.raises(ValueError, match="non-finite"):
+        paired_contrast({1: 1.0, 2: 2.0, 3: float("nan")}, {1: 2.0, 2: 3.0, 3: 1.0})
+
+
+def test_many_seeds_fall_back_to_seeded_random_flips() -> None:
+    arm_a = {seed: 0.0 for seed in range(30)}
+    arm_b = {seed: 1.0 for seed in range(30)}
+    contrast = paired_contrast(arm_a, arm_b)
+    assert contrast is not None and contrast.p_value < 1e-3
+    assert paired_contrast(arm_a, arm_b) == contrast  # seeded: the same p twice
+
+
+def test_two_arms_on_the_same_seed_stay_apart() -> None:
+    runs = [SweepRun(seed=1, repeat=1, run_id="a", outcome="completed", arm="3pct"),
+            SweepRun(seed=1, repeat=1, run_id="b", outcome="completed", arm="5pct")]
+    assert {run.run_id for run in first_completed_runs(runs)} == {"a", "b"}
+
