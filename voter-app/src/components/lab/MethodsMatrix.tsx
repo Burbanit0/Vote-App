@@ -163,11 +163,13 @@ const MethodsMatrix: React.FC = () => {
                     {CRITERION_KEYS.map((crit) => {
                       const sat = METHOD_CRITERIA[rule][crit];
                       const { symbol, cls } = CELL[sat];
+                      const criterion = t(`lab.matrix.criteria.${crit as CriterionKey}`);
+                      const verdict = t(`lab.matrix.${sat}`);
                       return (
                         <td
                           key={crit}
                           className="px-1 py-1.5 text-center"
-                          title={`${ruleLabels[rule]} — ${t(`lab.matrix.criteria.${crit as CriterionKey}`)}: ${t(`lab.matrix.${sat}`)}`}
+                          title={`${ruleLabels[rule]} — ${criterion}: ${verdict}`}
                         >
                           <span className={`inline-block rounded px-1 font-mono font-bold ${cls}`}>
                             {symbol}

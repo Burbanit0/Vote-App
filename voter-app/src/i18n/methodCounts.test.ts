@@ -24,7 +24,7 @@ describe('method and fiche counts shown to users', () => {
 
   it('the meta tags and the PWA manifest state the real method count', () => {
     const counts = (s: string) =>
-      [...s.matchAll(/(\d+) méthodes de vote/g)].map((m) => Number(m[1]));
+      [...s.matchAll(/(\d{1,4}) méthodes de vote/g)].map((m) => Number(m[1]));
     const html = counts(read('../../index.html'));
     const manifest = counts(read('../../vite.config.ts'));
     expect(html).toHaveLength(3);
