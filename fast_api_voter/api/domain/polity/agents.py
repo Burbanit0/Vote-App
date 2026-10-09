@@ -726,6 +726,8 @@ def _party_move_rules(config: PolityConfig) -> str:
         "-1): a new party whose platform is your own positions, which comes into being only if at least "
         f"{config.parties.founding_ratio:.0%} of the citizens stand nearer to your positions than to their own party's "
         "platform -- your briefing says how many do -- and which holds no seats until the next legislative election. "
+        f"At a legislative election, a party with less than {config.institutions.electoral_threshold * 100:g}% of "
+        "the votes cast for parties wins no seat. "
         "\"none\" with -1 changes nothing. "
         + ("At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only "
            "its own members." if config.vote.partisanship > 0 else "At an election, a party nominates only its own members.")

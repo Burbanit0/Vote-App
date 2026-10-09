@@ -36,6 +36,28 @@ moves ride on it.
 - **Journal.** The turn's `forum_post` carries `party_move`. `party_founded` and
   `party_dissolved` are institutional events, so they show on the explorer's timeline.
 
+## Amendment 2026-10-08: founders are told the seat threshold
+
+`docs/plan/PLAN_BEYOND_CI.md`, decision D2. The forum's party-move rules (`_party_move_rules`)
+now state the electoral threshold, read from the live constitution: "At a legislative election,
+a party with less than X% of the votes cast for parties wins no seat."
+
+- **Why.** Until now no agent saw the threshold, so the LLM could respond to it only through
+  rule-driven dissolution, never in its own founding decisions. The plan's first experiment
+  (W2.1) asks whether the threshold changes how often parties are founded. Without this line
+  it could only find "no effect", by construction.
+- **Neutrality.** It is a consequence, stated like the others, with no advice (C4). The forum
+  probe of `check_agent_prompt_neutrality.py` (n=30, qwen3:8b, seed-2 phase-4 citizens) gave
+  the same verdicts before and after the change: sensitivity to the co-founder count 97%
+  both times; the paraphrase moves 6%; `leave` is never taken in either run (a dead option
+  that predates this change). One cell moved: citizens who could not found answered `join`
+  12% of the time after, 0% before. That is just above the probe's ±7% noise band at n=30, and
+  the paraphrase stayed at 6%.
+- **The gate.** The harness gains a `threshold` probe: the same able founders, told 3% or 7%.
+  Its SENSITIVITY line is W2.1's gate. If founding does not move with the stated threshold,
+  the experiment stops there.
+- **Not changed.** The kernel: seats, founding and dissolution rules are as before.
+
 ## What this ADR does not settle
 
 - The party leader's `party_leader_turn`, which would move a platform. A platform is fixed at

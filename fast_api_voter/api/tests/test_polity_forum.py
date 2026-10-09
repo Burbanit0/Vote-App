@@ -264,6 +264,11 @@ def test_each_party_move_is_given_its_consequence_and_none_of_them_advice() -> N
     assert "counted among no party's members" in rules  # leave
     assert "5% of the citizens stand nearer to your positions" in rules  # found, with what it needs
     assert "holds no seats until the next legislative election" in rules  # and what it costs
+    # D2 (PLAN_BEYOND_CI): the seat threshold, read from the live constitution, so a founder can
+    # weigh it; a fact, like the others, not a reason to found or not.
+    assert "less than 5% of the votes cast for parties wins no seat" in rules
+    lower = dataclasses.replace(moving, institutions=dataclasses.replace(moving.institutions, electoral_threshold=0.03))
+    assert "less than 3% of the votes" in forum_system_prompt(_president(), lower)
     # OBS-031: the wording this replaced advocated founding ("a legitimate way to be heard") and the
     # neutrality harness measured the phrasing outweighing the citizen's own situation.
     assert "legitimate" not in rules and "should" not in rules

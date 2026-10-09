@@ -318,6 +318,17 @@ def _probes(citizens: list[Citizen], parties: list[Party]) -> dict[str, Probe]:
                 c, cell, para, cfg, cl, population=citizens, parties=parties, roll=roll,
             ),
         ),
+        # PLAN_BEYOND_CI W2.1's gate: the same founders, told a 3% or a 7% seat threshold (D2).
+        # If founding does not move with it, the threshold experiment stops there.
+        "threshold": Probe(
+            name="forum party move vs the stated seat threshold", options=("none", "join", "leave", "found"),
+            cells=("threshold 3%", "threshold 7%"), state_axis="the seat threshold the founder is told",
+            paraphrase=lambda text: _paraphrase(text, _FORUM_PAIRS),
+            ask=lambda c, cell, para, cfg, cl: _forum_ask(
+                c, cell, para, _with_threshold(cfg, 0.03 if cell == "threshold 3%" else 0.07), cl,
+                population=citizens, parties=parties, roll=roll,
+            ),
+        ),
         "ballot": Probe(
             name="chamber amendment ballot", options=("yes", "no"),
             cells=("self-serving", "neutral"), state_axis="whether the proposal serves its proposer",
@@ -337,6 +348,12 @@ def _probes(citizens: list[Citizen], parties: list[Party]) -> dict[str, Probe]:
             ask=_president_ask,
         ),
     }
+
+
+def _with_threshold(config: PolityConfig, threshold: float) -> PolityConfig:
+    return dataclasses.replace(
+        config, institutions=dataclasses.replace(config.institutions, electoral_threshold=threshold),
+    )
 
 
 # ── running one probe ─────────────────────────────────────────────────────
@@ -365,10 +382,13 @@ def _run_probe(
     probe: Probe, key: str, citizens: list[Citizen], parties: list[Party], n: int,
     config: PolityConfig, client: LlmClientProtocol,
 ) -> dict[tuple[str, bool], dict[str, float]]:
-    cells = (
-        _split_by_backing(citizens, parties, n, config) if key == "forum"
-        else {cell: citizens[:n] for cell in probe.cells}
-    )
+    if key == "forum":
+        cells = _split_by_backing(citizens, parties, n, config)
+    elif key == "threshold":  # only citizens who could found: for the others, `found` is refused anyway
+        able = _split_by_backing(citizens, parties, n, config)["enough would co-found"]
+        cells = {cell: able for cell in probe.cells}
+    else:
+        cells = {cell: citizens[:n] for cell in probe.cells}
     jobs = [
         (cell, paraphrased, citizen)
         for cell in probe.cells for paraphrased in (False, True) for citizen in cells[cell]
@@ -436,7 +456,7 @@ def _print_probe(probe: Probe, shares: dict[tuple[str, bool], dict[str, float]],
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--n", type=int, default=30, help="citizens per cell per wording (default 30)")
-    parser.add_argument("--probe", action="append", help="only this probe (forum, ballot, president)")
+    parser.add_argument("--probe", action="append", help="only this probe (forum, threshold, ballot, campaign, president)")
     parser.add_argument("--checkpoint", type=Path, default=Path(os.environ.get("POLITY_CHECKPOINT", _DEFAULT_CHECKPOINT)))
     args = parser.parse_args(argv)
 
