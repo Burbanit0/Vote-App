@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInstrumentCtx } from '../playground/PlaygroundController';
-import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
+import type { Rule } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { LEADER_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, hasFixedWinner, winnersByRule } from '../../lib/scorecard';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import {
   METHOD_CRITERIA,
   CRITERION_KEYS,
@@ -48,19 +49,13 @@ const FAMILY_HEADER_CLS: Record<MethodFamily, string> = {
 const MethodsMatrix: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
-  const { voters, leaderCandidates } = useInstrumentCtx();
+  const { expressedVoters, leaderCandidates } = useInstrumentCtx();
 
-  // Live winners — one ruleWinner() call per rule on the current electorate
-  const liveWinners = useMemo<Record<Rule, number>>(() => {
-    if (!voters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return LEADER_RULES.reduce(
-      (acc, rule) => {
-        acc[rule] = ruleWinner(voters, leaderCandidates, rule);
-        return acc;
-      },
-      {} as Record<Rule, number>
-    );
-  }, [voters, leaderCandidates]);
+  // Live winners on the expressed ballots, as in the playground.
+  const liveWinners = useMemo(
+    () => winnersByRule(expressedVoters, leaderCandidates, LEADER_RULES),
+    [expressedVoters, leaderCandidates]
+  );
 
   return (
     <div className="rounded-xl border border-border bg-card">
@@ -89,24 +84,28 @@ const MethodsMatrix: React.FC = () => {
               </span>
               <div className="flex flex-col gap-1">
                 {RULES_BY_FAMILY[fam].map((rule) => {
-                  const winIdx = liveWinners[rule] ?? 0;
-                  const winner = leaderCandidates[winIdx];
+                  const winIdx = liveWinners[rule] ?? -1;
+                  const winner = winIdx >= 0 ? leaderCandidates[winIdx] : undefined;
                   return (
                     <div key={rule} className="flex items-center gap-1.5">
                       <span className="w-36 shrink-0 text-[0.72rem] text-muted-foreground">
                         {ruleLabels[rule]}
                       </span>
-                      {winner && (
-                        <span
-                          className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
-                          style={{
-                            color: textTone(candidateColor(winIdx)),
-                            borderColor: candidateColor(winIdx) + '55',
-                            background: candidateColor(winIdx) + '12',
-                          }}
-                        >
-                          {winner.name}
-                        </span>
+                      {!hasFixedWinner(rule) ? (
+                        <NoFixedWinner className="text-[0.7rem] font-normal italic text-muted-foreground" />
+                      ) : (
+                        winner && (
+                          <span
+                            className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
+                            style={{
+                              color: textTone(candidateColor(winIdx)),
+                              borderColor: candidateColor(winIdx) + '55',
+                              background: candidateColor(winIdx) + '12',
+                            }}
+                          >
+                            {winner.name}
+                          </span>
+                        )
                       )}
                     </div>
                   );

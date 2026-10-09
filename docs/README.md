@@ -8,7 +8,7 @@ of discipline, is what made them drift.
 | Surface | Job | Rhythm |
 |---|---|---|
 | [`docs/STATUS.md`](STATUS.md) | **Start here.** Where each part stands, the next 3 steps, the open questions. One page. | At the end of each plan phase, and whenever the next steps change |
-| `docs/plan/` | Plans. The live one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Most other plans are finished and kept as history; few say so yet (`PLAN_BEYOND_CI.md` W4 adds a status line to each). | Per plan |
+| `docs/plan/` | Plans. The current one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Each plan's first lines say its status; [Plans](#plans) below lists them all. | Per plan |
 | `docs/exploration/EXP-*.md` | One file per tool or method tried: the verdict (adopted, rejected or suspended), plus what it actually found and cost. | Per closed experiment (`/log-experiment`) |
 | `docs/exploration/README.md` | Index of every verdict. | Each time an experiment closes |
 | `docs/adr/` | Binding architecture decisions, with the alternatives that were rejected. | Rarely |
@@ -18,7 +18,7 @@ of discipline, is what made them drift.
 | `…/run/<run>/progress.json` | Live state of a running run: the completed tick **and the one in progress**, decisions by type, fallbacks, and an **LLM heartbeat** (`last_llm_response_at`). The only surface that answers "is this run alive?"; read it with `fast_api_voter/scripts/check_run_liveness.py`. | Per tick **and** on every LLM response (throttled to 5 s) |
 | `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. | Per finished run (`/log-run` → `run-narrator` sub-agent) |
 | `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
-| `docs/plan/vote-app/CODE_AUDIT.md` | Dated, replayable health check of the code. | Per cleanup pass |
+| `docs/plan/vote-app/CODE_AUDIT.md` | Dated health check of the code (2026-08-20 to 2026-09-13), with the commands to replay it. Kept as history. | — |
 | `docs/journal/JOURNAL_DE_BORD.md` | **Retired 2026-10-08.** A narrative log per work session, from 2026-09-04 to 2026-09-27 (older, reconstructed history in `docs/journal/archive/`). Kept as history; `STATUS.md` and PR bodies carry the state now. | — |
 
 ## Which surface?
@@ -32,7 +32,43 @@ of discipline, is what made them drift.
 - **A simulation run just finished (or died) and I want to know what
   happened** → `/log-run` → `TIMELINE.md` next to the run's `events.jsonl`,
   written from its `digest.json`.
-- **How healthy is the code overall?** → `docs/plan/vote-app/CODE_AUDIT.md`.
+- **How healthy is the code overall?** → today's numbers are the CI ratchets
+  (`.github/quality-baseline.json`); `docs/plan/vote-app/CODE_AUDIT.md` is the dated
+  baseline they started from.
+
+## Plans
+
+Every plan's first lines say its status: **live** (being executed or maintained),
+**reference** (consulted, not executed), **done**, **superseded** (by another plan), or
+**history** (a record, not a plan to follow).
+
+| Live | Reference |
+|---|---|
+| [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md), the current plan | [`polity/polity-simulation-design-v2.md`](plan/polity/polity-simulation-design-v2.md), the authority on intent |
+| [`polity/plan-polity-agency-roadmap.md`](plan/polity/plan-polity-agency-roadmap.md) | [`polity/polity-llm-reference.md`](plan/polity/polity-llm-reference.md), what the simulator does today |
+| [`polity/plan-polity-build-order.md`](plan/polity/plan-polity-build-order.md) | [`polity/polity-decision-contracts.md`](plan/polity/polity-decision-contracts.md) |
+| [`vote-app/PLAN_SOLIDITE_TECHNIQUE.md`](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) | [`polity/observations.md`](plan/polity/observations.md), the OBS log |
+| [`vote-app/PLAN_SURFACE_EXTERIEURE.md`](plan/vote-app/PLAN_SURFACE_EXTERIEURE.md) | [`polity/fit-for-inference.md`](plan/polity/fit-for-inference.md) |
+| [`vote-app/LISTING_ORDER_TIES.md`](plan/vote-app/LISTING_ORDER_TIES.md) | [`polity/polity-run-explorer.md`](plan/polity/polity-run-explorer.md), [`polity/tech-radar.md`](plan/polity/tech-radar.md) |
+
+- **Done (16):** `vote-app/` PLAN, PLAN_A_VOUS_DE_JOUER, PLAN_CI_STRUCTURAL_GAPS,
+  PLAN_METHODES_HISTOIRES_ATLAS, PLAN_REMEDIATION_CI_CD, PLAN_UX_ACCESSIBILITE,
+  prompt-mutation-testing; `polity/` DEMARRAGE-polity-v0, dev-plan-v0-worktree,
+  plan-calibration-ambition, plan-coalition-negotiation-v7,
+  plan-distribution-positions-seeds, plan-full-run, plan-llm-decision-audit-sampling,
+  plan-rupture-candidacy-threshold, plan-vllm-switch-readiness.
+- **Superseded (1):** `polity/plan-flagship-30y-run.md` (by plan-full-run).
+- **History (10):** `vote-app/` CODE_AUDIT, RETROSPECTIVE, cihardeningplanv2;
+  `polity/` audit-precision-plan, plan-adversarial-framing-collapse,
+  plan-decision-quality-validation, plan-llm-protocol-and-theory-program,
+  plan-pressure-action-remediation, plan-pressure-action-resolution,
+  synthese-programme-llm-2026-09-10.
+
+A "done" plan can still name what it left open; its status line says so
+(plan-full-run, plan-distribution-positions-seeds, PLAN_CI_STRUCTURAL_GAPS).
+
+Finished plans stay where they are (moving them would break their links); their status
+line says what they are.
 
 ## Language
 

@@ -1,5 +1,7 @@
 # PLAN — Méthodes, histoires (dont vote blanc) & Atlas 3D
 
+> **status:** done — chantiers A, B, C and D complete; only the optional D.4 is left. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Plan d'exécution auto-suffisant. **Une branche `feat/*` + une PR par étape**,
 contre `develop`, merge `--no-ff`. Écrit pour être exécuté étape par étape (par
 moi ou un autre agent) sans contexte préalable. (Écrit comme fichier local

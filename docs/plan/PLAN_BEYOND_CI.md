@@ -62,7 +62,7 @@ it *claims*, and none of its three parts has a finish line or an outside reader.
 |---|---|---|
 | D1 | First Polity experiment (W2.1) | **The threshold's entry effect, 3% vs 5% (the default), on party founding.** Not 3% vs 7%: at 7% the assembly mostly empties (OBS-040: median 2 parties seated) |
 | D2 | Tell party founders the threshold? (`agents.py:719-732`; no agent sees it today) | **Yes, as a pre-registered model change**, with an ADR-018 amendment and the prompt-neutrality harness run before and after |
-| D3 | Documentation language | **English for new docs and living docs.** A living doc moves to English when it is next rewritten (W4); a one-line fix keeps the doc's language. Finished French plans are archived as they are. THEORY.md and GUIDE_UTILISATEUR, which are user-facing reference, are **not** translated in this plan. The app's FR/EN interface is unchanged |
+| D3 | Documentation language | **English for new docs and living docs.** A living doc moves to English when it is next rewritten (W4); a one-line fix keeps the doc's language. Finished French plans stay as they are. THEORY.md and GUIDE_UTILISATEUR, which are user-facing reference, are **not** translated in this plan. The app's FR/EN interface is unchanged |
 | D4 | Where this plan lives | `docs/plan/PLAN_BEYOND_CI.md`, pointed to by `docs/STATUS.md` |
 | D5 | LLM-collapse write-up (W2.6) | **A `docs/stories/` piece, then an arXiv preprint** (cs.MA / cs.CL) |
 | D6 | Teacher path (W3.5) | **A `?niveau=intro` mode** over the existing pages, plus a 1-page teacher guide |
@@ -203,6 +203,10 @@ the expert review in W1.4.
    - Give the same founder briefing with only the stated threshold changed (3, 5 or
      7%) and measure P(`found`).
    - If founding does not respond, **stop**. That is the finding, and it is cheap.
+   - **Result (2026-10-09): STOP.** The gate asked only the range's ends, 3% and 7%
+     (5% was not probed). Able founders found 59/60 both times (exact McNemar p = 1),
+     and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-045). Steps
+     2-5 and W2.4 do not run.
 2. **Pilot.** One run on the current tip with D2 applied, timed. The GPU cap is set
    from it.
 3. **Main run.** The LLM arm only: threshold 3% vs 5%, at least 10 paired seeds,
@@ -233,19 +237,20 @@ the expert review in W1.4.
 **W2.3 Fit-for-inference table**, one verdict per decision type:
 - validated: `vote_cast`;
 - unverified: candidacy, nomination, forum `party_move`;
-- collapsed: `pressure_action`, `representative_response`, `coalition_decision`.
+- collapsed: `representative_response`, `coalition_decision` (and `pressure_action` until its
+  2026-09-10 fix; unverified since, per the table).
 
 The experiment's claim rests only on its own channel, forum founding and leaving, and
 the gate probe is that channel's check.
 
-**W2.4 Pre-registration, outside review, run.**
+**W2.4 Pre-registration, outside review, run.** Dropped: the W2.1 gate said STOP (OBS-045).
 - Use the D9/Stage 4 template (`plan-polity-build-order.md:828-905`).
 - Proof of order is the merge time, not a commit date.
 - Send the pre-registration for one outside read before spending GPU time.
 - Run it through `gpu_queue.sh`.
 
 **W2.5 Archive.**
-- What goes in: the three 30-year runs and the experiment's runs, call logs included.
+- What goes in: the three 30-year runs, call logs included (the experiment's runs will not exist: the W2.1 gate said STOP).
 - Upload to Zenodo for a DOI. Add `CITATION.cff`, and pin vLLM by digest.
 - Check `llm_prompts.jsonl` for local paths before publishing.
 
@@ -253,6 +258,11 @@ the gate probe is that channel's check.
 - A `docs/stories/` piece on the logprob instrument: an aggregate metric conforms
   while every individual decision has collapsed, and the collapse persists across
   model families and across base vs instruct.
+  - Written 2026-10-09: `docs/stories/the-answer-that-did-not-depend-on-the-question.md`.
+    The sources narrow the line above: three decision types were flat, not every one;
+    the aggregate argument holds for `pressure_action`, whose flatness was the prompt's;
+    persistence across families is shown for `coalition_decision` and the president's
+    response, and across base vs instruct for `coalition_decision` only.
 - Then the preprint (D5).
 
 **Later, not in this plan:** run-level cross-model replication, prompt variants, and the
@@ -317,8 +327,9 @@ with the CPU throttled 4×).
   - `traceability.md`'s claim that polity has "no code link".
   - The status of `PLAN_SURFACE_EXTERIEURE` §2.B.
   - Two plans that say "gitignored" but are committed.
-- **Archive the finished plans** under `docs/plan/archive/`. Live plans carry a
-  `status:` line, and `docs/README.md` gets a plan index.
+- **Mark the finished plans.** Every plan carries a `status:` line, and `docs/README.md`
+  gets a plan index. They stay where they are: moving them to `docs/plan/archive/` would
+  break about 300 references across the repo.
 - **Journal (D7).**
   - Add a closing note.
   - Remove the journal surface from `docs/README.md`.
@@ -354,8 +365,8 @@ with the CPU throttled 4×).
 |---|---|---|---|
 | 0 · wk 1 | — | W2.2 item 5 (D2 founder briefing + ADR-018) | W0, W4 drift fixes + journal close |
 | 1 · wk 1–3 | W1.1 content fixes; W3.1 quick fixes | W2.2 instrumentation; W2.3 fit table; W2.1 gate probe | W4 living docs to English |
-| 2 · wk 3–6 | W1.2 registry; W1.3 story claims; W3.2 winner strip | pilot → W2.4 pre-registration + outside review → runs; W2.5 archive | W2.6 story draft |
-| 3 · wk 6–9 | W1.4 review packet → researcher; W3.3 "why"; W3.4 phone | analysis + write-up | W5 tie bugs |
+| 2 · wk 3–6 | W1.2 registry; W1.3 story claims; W3.2 winner strip | ~~pilot → W2.4 pre-registration + outside review → runs~~ (gate STOP); W2.5 archive; W2.6 | W2.6 story draft |
+| 3 · wk 6–9 | W1.4 review packet → researcher; W3.3 "why"; W3.4 phone | W2.6 write-up | W5 tie bugs |
 | 4 · wk 9–12 | W3.5 class mode → teacher; W3.6 | preprint | W6 spike + decision; close the plan |
 
 Each phase ends with a `STATUS.md` update. The CI freeze lifts at the end of Phase 4.
@@ -374,7 +385,7 @@ If the W2.1 gate probe stops the experiment, Polity's Phase 2–3 slots go to W2
 - a branch from `polity`;
 - `/code-review` before opening;
 - `/verify "<request verbatim>"`;
-- the PR template's sections, including **Non vérifié**.
+- the PR template's sections, including **Not verified**.
 
 High-risk paths wait for the owner's `/reviewed <sha>`.
 

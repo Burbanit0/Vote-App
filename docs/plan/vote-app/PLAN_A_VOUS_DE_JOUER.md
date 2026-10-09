@@ -1,5 +1,7 @@
 # Plan — « À vous de jouer »
 
+> **status:** done — tranches 2 and 3 done; /a-vous-de-jouer is live. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Page où l'utilisateur devient un électeur réel : il exprime **un** avis, le traduit dans
 **cinq langages de bulletin**, et découvre que le langage décide de ce que sa voix a le
 droit de dire — et de ce qu'il obtient.
