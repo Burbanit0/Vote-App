@@ -1,0 +1,26 @@
+# How to cite Vote Lab (PLAN_BEYOND_CI W2.5). The Polity run archive gets its own DOI when it is
+# uploaded to Zenodo; add it here as an `identifiers` entry then.
+cff-version: 1.2.0
+message: "If you use this software or its simulation data, please cite it as below."
+title: "Vote Lab: a voting-theory sandbox and Polity, an LLM-agent democracy simulator"
+type: software
+authors:
+  - given-names: Gaultier
+    family-names: Burban
+    alias: Burbanit0
+repository-code: "https://github.com/Burbanit0/Vote-App"
+license: MIT
+version: 0.2.0
+date-released: "2026-09-27"
+keywords:
+  - social choice
+  - voting methods
+  - electoral systems
+  - agent-based simulation
+  - large language models
+abstract: >-
+  Vote Lab shows that the choice of voting method changes the winner: 29 methods in a
+  browser playground and a FastAPI engine, 28 of them locked together across the two
+  implementations by a parity test. Polity simulates a democracy whose citizens, party
+  leaders and presidents can be played by a language model; in those runs every model call
+  is logged, and the run can be replayed from the log.

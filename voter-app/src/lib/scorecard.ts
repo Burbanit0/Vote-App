@@ -116,6 +116,44 @@ export const LEADER_RULES: Rule[] = [
   'random_ballot',
 ];
 
+/** The playground's default compared set: five methods a newcomer can follow, close to
+ * /decouvrir's DEMO_RULES. "Tout cocher" still turns on all of LEADER_RULES. */
+export const INTRO_RULES: Rule[] = ['plurality', 'two_round', 'irv', 'approval', 'condorcet'];
+
+/** A random ballot draws one ballot, so it has no fixed winner. The engine's
+ * deterministic stand-in (plurality's winner) is never shown as one. */
+export const hasFixedWinner = (rule: Rule): boolean => rule !== 'random_ballot';
+
+/** Each rule's winner on one electorate, ranking and scoring the voters once. Rules
+ * with no fixed winner are left out. */
+export function winnersByRule(
+  voters: Pt[],
+  cands: NamedPt[],
+  rules: readonly Rule[]
+): Partial<Record<Rule, number>> {
+  const m = cands.length;
+  const out: Partial<Record<Rule, number>> = {};
+  if (m === 0 || voters.length === 0) return out;
+  const ranks = computeRanks(voters, cands);
+  const scores = computeScores(voters, cands);
+  for (const r of rules) if (hasFixedWinner(r)) out[r] = ruleWinnerFromRanks(ranks, m, r, scores);
+  return out;
+}
+
+/** Rules grouped by the candidate they elect, most-backed first. */
+export function groupByWinner(
+  winners: Partial<Record<Rule, number>>,
+  rules: readonly Rule[]
+): [number, Rule[]][] {
+  const groups = new Map<number, Rule[]>();
+  for (const r of rules) {
+    const w = winners[r];
+    if (w == null || w < 0) continue;
+    groups.set(w, [...(groups.get(w) ?? []), r]);
+  }
+  return [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
+}
+
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
 export const EXTRA_RULES: Rule[] = [];
