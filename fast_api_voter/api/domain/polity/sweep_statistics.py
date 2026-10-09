@@ -85,8 +85,9 @@ def clopper_pearson(successes: int, trials: int, *, confidence: float = 0.95) ->
 class PairedContrast:
     """Arm B minus arm A, seed by seed (PLAN_BEYOND_CI W2.1). The test is the sign-flip permutation
     on the per-seed differences: under the null each difference is as likely to have either sign.
-    Up to EXACT_FLIPS_MAX_SEEDS every one of the 2^n flips is enumerated (exact p); beyond, 100,000
-    seeded random flips (2^n flips held at once would need gigabytes from about 20 seeds). The BCa
+    scipy enumerates every one of the 2^n flips whenever that is no more than the 100,000 asked
+    for (n <= 16: exact p), and draws 100,000 seeded random flips beyond (2^n flips held at once
+    would need gigabytes from about 20 seeds). The BCa
     interval on the differences is reported, not trusted, at n=10 (see mean_bca_interval)."""
 
     seeds: tuple[int, ...]
@@ -94,9 +95,6 @@ class PairedContrast:
     mean_difference: float
     p_value: float
     interval: tuple[float, float] | None
-
-
-EXACT_FLIPS_MAX_SEEDS = 16
 
 
 def paired_contrast(arm_a: Mapping[int, float], arm_b: Mapping[int, float]) -> PairedContrast | None:
@@ -113,10 +111,8 @@ def paired_contrast(arm_a: Mapping[int, float], arm_b: Mapping[int, float]) -> P
     if len(differences) < 2 or not any(differences):
         p_value = 1.0
     else:
-        exact = len(differences) <= EXACT_FLIPS_MAX_SEEDS
         p_value = float(stats.permutation_test(
-            (np.asarray(differences),), np.mean, permutation_type="samples",
-            n_resamples=np.inf if exact else 100_000, random_state=0,
+            (np.asarray(differences),), np.mean, permutation_type="samples", n_resamples=100_000, random_state=0,
         ).pvalue)
     return PairedContrast(
         seeds=seeds, differences=differences, mean_difference=float(np.mean(differences)),
