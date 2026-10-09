@@ -7,9 +7,15 @@ must not change the result. Where a rule reaches an exact tie, the tie is broken
 by the endpoint's seeded lot (`break_tie` / `top_k` in
 `api/engine/utils/simulation_multiwinner_utils.py`), never by position in the list.
 
-A name tie-break was considered and **parked**: it swaps order-dependence for
-name-dependence, and the client engine (`playgroundVoting.ts`) keeps listing
-order, so it would split the dual engine. Decide it on both engines at once.
+**Decided 2026-10-09 (owner): the seeded lot, on both engines.** A name tie-break was
+rejected: it swaps order-dependence for name-dependence (a candidate named Aaron wins
+every tie). So:
+- the backend's ranked rules move off their name tie-break, `(-score, name)`;
+- IRV and Coombs draw instead of returning no winner on a full tie;
+- the client engine (`playgroundVoting.ts`) gets the same draw, so parity holds and the
+  fixture is regenerated;
+- #667 and #662 implement it, and the strict xfails in `test_compare_all_methods_snapshot.py`
+  flip as they do.
 
 ## Fixed
 
