@@ -57,7 +57,8 @@ a party with less than X% of the votes cast for parties wins no seat."
   founders (the citizens who could found) once told 3% and once told 7%. It counts `found`
   only, and tests the paired answers with an exact McNemar test. If founding does not move
   (p >= 0.05), the experiment stops there (W2.1). A move in the wrong direction is reported as
-  such.
+  such. **Result, 2026-10-09: STOP.** 59/60 founded at both thresholds (p = 1), and at least 13 of
+  the 14 founders told fewer than 7 backers founded at 7% (OBS-044).
 - **A 0% threshold** (legal, and amendable to) drops the sentence rather than saying "less
   than 0%".
 - **Not changed.** The kernel: seats, founding and dissolution rules are as before.

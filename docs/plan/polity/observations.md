@@ -2103,8 +2103,8 @@ reaches for the undecided more than ahead, ahead mostly does not campaign) holds
 **Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way.**
 
 *Seen.* The W2.1 gate of `docs/plan/PLAN_BEYOND_CI.md`, on 2026-10-09: `python
-scripts/check_agent_prompt_neutrality.py --probe threshold --n 60` (from `fast_api_voter/`, backend at `polity`
-9201bc58), vLLM 0.31.0 serving `qwen3:8b` at temperature 0.6, the citizens of `eng-8y-p100-seed2` (phase 4).
+scripts/check_agent_prompt_neutrality.py --probe threshold --n 60`, from the `fast_api_voter/` of a worktree on
+`feat/winner-strip` (ae59f343, whose `fast_api_voter/` equals `polity` 9201bc58), vLLM 0.31.0 serving `qwen3:8b` at temperature 0.6, the citizens of `eng-8y-p100-seed2` (phase 4).
 Each of 60 citizens who could found a party (enough others would co-found) answers the same forum turn twice.
 The only change is the threshold in the sentence the founders have been told since PR #861: "a party with less
 than X% of the votes cast for parties wins no seat".
@@ -2117,16 +2117,21 @@ than X% of the votes cast for parties wins no seat".
 One citizen founded only at 3% and one only at 7%: exact McNemar p = 1. The output is in
 `fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
 
-*Reading.* With enough co-founders, founding sits at its ceiling: 97% in the D2 probe (n=30) and 98-99% in
-OBS-043's runs (n=80). Stating a higher bar to a seat does not pull it down. The same turn does respond to its
-state: `found` moves 97 points with the co-founder count (PR #861).
+*Reading.* Most of the 60 do not test the threshold. Each founder is told how many of the 100 citizens
+stand nearer to them than to their own party ("you included; founding a party needs 5"), and 46 of the 60 are
+told 7 or more, so founding at 7% is also what a founder who applies the rule would do. The 14 told 5 or 6 are
+the ones a 7% bar should stop. Since 59 of the 60 founded at 7%, at least 13 of those 14 founded anyway. The
+count, recomputed with `simple_rules.cofounders` on the same checkpoint and the gate's own selection
+(`_split_by_backing`): 5: 4, 6: 10, 7: 5, 8: 9, 9: 4, 10: 7, 11: 3, 12: 9, 13: 6, 14: 2, 16: 1.
+
+The same turn does respond to its state: `found` moves 97 points with the co-founder count (PR #861).
 
 *Suspected cause.* The forum turn weighs the co-founder count, which its prompt states as a fact about this
 citizen, and treats the threshold as a general rule it does not apply to its own party. Not tested.
 
-*What would settle it.* A probe that also states the consequence (that this party would win no seat) would
-separate "does not apply the rule" from "ignores it". But such a sentence leads the answer (contract C3), so
-it is not planned.
+*What would settle it.* The exact figure for the 14 needs a rerun that logs each founder's answer next to their
+backing; the gate prints only totals. Stating the consequence outright ("your party would win no seat") would
+lead the answer (contract C3), so that probe is not planned.
 
 *Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
 pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold

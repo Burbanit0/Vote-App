@@ -51,7 +51,7 @@ exit 1
 
 ## The W2.1 gate: STOP (2026-10-09)
 
-Run after the reboot, from `fast_api_voter/` with the backend at `polity` 9201bc58, vLLM 0.31.0 serving `qwen3:8b`:
+Run after the reboot, from the `fast_api_voter/` of a worktree on `feat/winner-strip` (ae59f343, whose `fast_api_voter/` equals `polity` 9201bc58), vLLM 0.31.0 serving `qwen3:8b`:
 
 ```
 python scripts/check_agent_prompt_neutrality.py --probe threshold --n 60
@@ -69,7 +69,7 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
 exit 1
 ```
 
-Founding does not follow the stated threshold: the able founders found at 3% and at 7% alike, at the ceiling.
+Founding does not follow the stated threshold. Most of the 60 are told they have 7 or more backers, so founding at 7% is consistent with the rule for them; the 14 told 5 or 6 are the test, and at least 13 of them founded at 7% anyway (OBS-044 gives the backing counts).
 By the plan's rule the threshold experiment stops here (`docs/plan/PLAN_BEYOND_CI.md` W2.1), and the finding is
 recorded as OBS-044 in `docs/plan/polity/observations.md`.
 

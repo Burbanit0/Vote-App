@@ -203,8 +203,10 @@ the expert review in W1.4.
    - Give the same founder briefing with only the stated threshold changed (3, 5 or
      7%) and measure P(`found`).
    - If founding does not respond, **stop**. That is the finding, and it is cheap.
-   - **Result (2026-10-09): STOP.** Told 3% or 7%, able founders found 59/60 both
-     times (exact McNemar p = 1; OBS-044). Steps 2-5 and W2.4 do not run.
+   - **Result (2026-10-09): STOP.** The gate asked only the range's ends, 3% and 7%
+     (5% was not probed). Able founders found 59/60 both times (exact McNemar p = 1),
+     and at least 13 of the 14 whose backing is below 7 founded at 7% (OBS-044). Steps
+     2-5 and W2.4 do not run.
 2. **Pilot.** One run on the current tip with D2 applied, timed. The GPU cap is set
    from it.
 3. **Main run.** The LLM arm only: threshold 3% vs 5%, at least 10 paired seeds,
@@ -247,7 +249,7 @@ the gate probe is that channel's check.
 - Run it through `gpu_queue.sh`.
 
 **W2.5 Archive.**
-- What goes in: the three 30-year runs and the experiment's runs, call logs included.
+- What goes in: the three 30-year runs, call logs included (the experiment's runs will not exist: the W2.1 gate said STOP).
 - Upload to Zenodo for a DOI. Add `CITATION.cff`, and pin vLLM by digest.
 - Check `llm_prompts.jsonl` for local paths before publishing.
 
@@ -357,8 +359,8 @@ with the CPU throttled 4×).
 |---|---|---|---|
 | 0 · wk 1 | — | W2.2 item 5 (D2 founder briefing + ADR-018) | W0, W4 drift fixes + journal close |
 | 1 · wk 1–3 | W1.1 content fixes; W3.1 quick fixes | W2.2 instrumentation; W2.3 fit table; W2.1 gate probe | W4 living docs to English |
-| 2 · wk 3–6 | W1.2 registry; W1.3 story claims; W3.2 winner strip | pilot → W2.4 pre-registration + outside review → runs; W2.5 archive | W2.6 story draft |
-| 3 · wk 6–9 | W1.4 review packet → researcher; W3.3 "why"; W3.4 phone | analysis + write-up | W5 tie bugs |
+| 2 · wk 3–6 | W1.2 registry; W1.3 story claims; W3.2 winner strip | ~~pilot → W2.4 pre-registration + outside review → runs~~ (gate STOP); W2.5 archive; W2.6 | W2.6 story draft |
+| 3 · wk 6–9 | W1.4 review packet → researcher; W3.3 "why"; W3.4 phone | W2.6 write-up | W5 tie bugs |
 | 4 · wk 9–12 | W3.5 class mode → teacher; W3.6 | preprint | W6 spike + decision; close the plan |
 
 Each phase ends with a `STATUS.md` update. The CI freeze lifts at the end of Phase 4.
