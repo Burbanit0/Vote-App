@@ -314,24 +314,28 @@ def legitimacy_trajectory(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def effective_parties(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _enp(counts: Mapping[Any, float]) -> float | None:
+    """None, not 0.0, when nothing was counted (no party cleared the threshold; every ballot
+    blank): the number of parties is then undefined, and 0.0 would read as "zero parties"."""
+    return round(effective_number_of_parties(counts), 4) if sum(counts.values()) > 0 else None
+
+
+def effective_parties(events: list[dict[str, Any]], config: PolityConfig) -> list[dict[str, Any]] | None:
     """Per legislative election: the effective number of parties on seats and on votes (blank
     ballots excluded, as the seat threshold excludes them), and how many parties stood. The
     outcomes of PLAN_BEYOND_CI W2.1; until now only metrics.json had the seat figure, and only
-    for a clean completion."""
-    rows = []
-    for event in events:
-        if event["event_type"] != "legislative_result":
-            continue
-        payload = event["payload"]
-        votes = {int(party): float(count) for party, count in payload["votes"].items()}
-        rows.append({
+    for a clean completion. None when config.metrics.effective_parties is off, as in metrics.json."""
+    if not config.metrics.effective_parties:
+        return None
+    return [
+        {
             "tick": event["tick"],
-            "by_seats": round(effective_number_of_parties({int(p): int(n) for p, n in payload["seats"].items()}), 4),
-            "by_votes": round(effective_number_of_parties(votes), 4),
-            "parties_standing": len(votes),
-        })
-    return rows
+            "by_seats": _enp(event["payload"]["seats"]),
+            "by_votes": _enp(event["payload"]["votes"]),
+            "parties_standing": len(event["payload"]["votes"]),
+        }
+        for event in events if event["event_type"] == "legislative_result"
+    ]
 
 
 def institutional_timeline(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -434,7 +438,7 @@ def build_digest(
             last_tick or 0,
         ),
         "institutional_timeline": institutional_timeline(events),
-        "effective_parties": effective_parties(events),
+        "effective_parties": effective_parties(events, config),
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
         "population_impact_by_year": population_impact_by_year(events, config),
         "legitimacy_trajectory": legitimacy_trajectory(events),

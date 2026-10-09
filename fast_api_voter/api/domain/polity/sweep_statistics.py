@@ -88,8 +88,9 @@ class SweepRun:
     run_id: str
     outcome: str
     office_occupancy: float | None = None
-    effective_parties: tuple[float, float] | None = None
-    """(by seats, by votes) at the run's last legislative election; None before the first."""
+    last_election: dict[str, Any] | None = None
+    """The digest's effective_parties row for the run's last legislative election (tick, by_seats,
+    by_votes, parties_standing); None before the first, or when the metric is off."""
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)
     run_metadata: dict[str, Any] = field(default_factory=dict)

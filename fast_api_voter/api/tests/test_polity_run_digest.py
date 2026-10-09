@@ -438,19 +438,26 @@ def test_build_digest_end_to_end_on_a_real_journal(tmp_path):
     assert digest["shape"]["population_size"] == 40
     assert len(digest["event_counts_by_year"]) == config.run.duration_years + 1  # tick 0 opens year 0
     assert digest["population_impact_by_year"][0]["year"] == 0
+    # The real journal's legislative_result payloads go through, one row per election.
+    assert digest["effective_parties"] and all(row["by_seats"] is not None for row in digest["effective_parties"])
 
 
 def test_effective_parties_per_legislative_election_on_seats_and_on_votes():
+    config = load_config()
     events = [
         _e(4, "legislative_result", {"seats": {"0": 50, "1": 50, "2": 0}, "votes": {"0": 40.0, "1": 40.0, "2": 20.0}, "blank_count": 7}),
         _e(5, "elected", {}),
         _e(20, "legislative_result", {"seats": {"0": 100}, "votes": {"0": 90.0, "1": 10.0}, "blank_count": 0}),
+        # No party cleared the threshold, and every ballot was blank: undefined, not zero.
+        _e(36, "legislative_result", {"seats": {"0": 0, "1": 0}, "votes": {"0": 0.0, "1": 0.0}, "blank_count": 40}),
     ]
-    rows = effective_parties(events)
+    rows = effective_parties(events, config)
     assert rows == [
         # Two equal seat-holders -> 2.0; votes 40/40/20 -> 1/(0.16+0.16+0.04) = 2.7778; blanks play no part.
         {"tick": 4, "by_seats": 2.0, "by_votes": 2.7778, "parties_standing": 3},
         {"tick": 20, "by_seats": 1.0, "by_votes": 1.2195, "parties_standing": 2},
+        {"tick": 36, "by_seats": None, "by_votes": None, "parties_standing": 2},
     ]
-    assert effective_parties([_e(1, "elected", {})]) == []
-
+    assert effective_parties([_e(1, "elected", {})], config) == []
+    off = dataclasses.replace(config, metrics=dataclasses.replace(config.metrics, effective_parties=False))
+    assert effective_parties(events, off) is None  # the flag is off: as in metrics.json
