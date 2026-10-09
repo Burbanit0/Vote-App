@@ -16,6 +16,7 @@ import { blankVerdict, type BlankVerdict } from './blankVote';
 import type { PlaygroundState } from '../stores/useElectionStore';
 import pgEn from '../i18n/locales/playground.en';
 import pgFr from '../i18n/locales/playground.fr';
+import { STORY_CLAIMS, type StoryClaim } from './storyClaims';
 
 // Resolve the electorate + candidates as they stand *at* a given step, by folding
 // the story's step patches up to and including it (steps patch only what changes).
@@ -280,5 +281,48 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
       return ranks.filter((r) => r[0] === idx).length / ranks.length;
     };
     expect(firstPrefShare('apres', 'Léa')).toBeCloseTo(firstPrefShare('avant', 'Léa'), 1);
+  });
+});
+
+// ── STORY_CLAIMS: every name and number the copy states (PLAN_BEYOND_CI W1.3) ───────
+
+// What the claim measures at its step, in percent (or the winner's name).
+function measured(claim: StoryClaim): string | number | null {
+  if (claim.kind === 'winner') return winnerAt(claim.story, claim.step);
+  if (claim.kind === 'winnerShareOfExprimes') {
+    return 100 * (blankVerdictAt(claim.story, claim.step)?.winnerShareOfExprimes ?? Number.NaN);
+  }
+  const { voters, cands, blank } = stateAt(claim.story, claim.step);
+  if (claim.kind === 'blankShare') {
+    const { blankCount } = applyBlankVote(voters, cands, true, blank?.intensity ?? 0);
+    return (100 * blankCount) / voters.length;
+  }
+  const idx = cands.findIndex((c) => c.name === claim.candidate);
+  if (claim.kind === 'approval') {
+    const approving = computeScores(voters, cands).filter((s) => s[idx] >= 0.5).length;
+    return (100 * approving) / voters.length;
+  }
+  return (100 * computeRanks(voters, cands).filter((r) => r[0] === idx).length) / voters.length;
+}
+
+describe('stories — every name and number the copy states holds on the engine (STORY_CLAIMS)', () => {
+  it.each(
+    STORY_CLAIMS.map(
+      (claim) => [`${claim.story}/${claim.step}: ${JSON.stringify(claim)}`, claim] as const
+    )
+  )('%s', (_, claim) => {
+    const value = measured(claim);
+    if (claim.kind === 'winner') expect(value).toBe(claim.expected);
+    // The copy rounds (38.5% is printed 38%), so one point either way.
+    else expect(Math.abs((value as number) - claim.pct)).toBeLessThanOrEqual(1);
+  });
+
+  it('every claim names a real story step', () => {
+    for (const claim of STORY_CLAIMS) {
+      expect(
+        storyById(claim.story)?.steps.some((st) => st.id === claim.step),
+        `${claim.story}/${claim.step}`
+      ).toBe(true);
+    }
   });
 });

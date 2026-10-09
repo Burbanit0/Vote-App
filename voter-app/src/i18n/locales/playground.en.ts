@@ -111,7 +111,7 @@ const pgEn: PlaygroundKeys = {
       tagline:
         'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
       steps: {
-        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 56% of the electorate and wins comfortably.',
         clone:
           'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
         condorcet:

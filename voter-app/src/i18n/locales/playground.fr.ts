@@ -114,7 +114,7 @@ const pgFr = {
       tagline:
         'Un candidat peut se faire élire en alignant un allié presque identique à lui — mais pas avec n’importe quelle méthode.',
       steps: {
-        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 54 % de l’électorat et l’emporte largement.',
+        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 56 % de l’électorat et l’emporte largement.',
         clone:
           'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
         condorcet:

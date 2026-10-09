@@ -134,7 +134,7 @@ const pgPseudo: PlaygroundKeys = {
       tagline:
         '⟦Úñ~ çáñdídát~~~ péút~~ sé~ fáíré~~ élíré~~ éñ~ álígñáñt~~~ úñ~ állíé~~ présqúé~~~ ídéñtíqúé~~~~ à~ lúí~~ —~ máís~~ pás~~ ávéç~~ ñ’ímpórté~~~~ qúéllé~~~ méthódé.~~~⟧',
       steps: {
-        duel: '⟦Déúx~~ çáñdídáts~~~~ súr~~ l’áxé~~ gáúçhé–dróíté.~~~~~ Éñ~ méthódé~~~ dé~ Bórdá,~~~ B~ rássémblé~~~~ 54~ %~ dé~ l’éléçtórát~~~~ ét~ l’émpórté~~~~ lárgéméñt.~~~~⟧',
+        duel: '⟦Déúx~~ çáñdídáts~~~~ súr~~ l’áxé~~ gáúçhé–dróíté.~~~~~ Éñ~ méthódé~~~ dé~ Bórdá,~~~ B~ rássémblé~~~~ 56~ %~ dé~ l’éléçtórát~~~~ ét~ l’émpórté~~~~ lárgéméñt.~~~~⟧',
         clone:
           '⟦Lé~ çámp~~ dé~ Á~ álígñé~~~ úñ~ séçóñd~~~ çáñdídát,~~~~ Á2,~~ présqúé~~~ ídéñtíqúé~~~~ à~ Á~ máís~~ úñ~ péú~~ plús~~ à~ gáúçhé.~~~ Áúçúñ~~ éléçtéúr~~~ ñ’á~~ çháñgé~~~ d’ávís~~~ —~ ét~ póúrtáñt,~~~~ éñ~ Bórdá,~~~ ç’ést~~ désórmáís~~~~ Á~ qúí~~ gágñé.~~~⟧',
         condorcet:
