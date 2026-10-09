@@ -62,7 +62,7 @@ it *claims*, and none of its three parts has a finish line or an outside reader.
 |---|---|---|
 | D1 | First Polity experiment (W2.1) | **The threshold's entry effect, 3% vs 5% (the default), on party founding.** Not 3% vs 7%: at 7% the assembly mostly empties (OBS-040: median 2 parties seated) |
 | D2 | Tell party founders the threshold? (`agents.py:719-732`; no agent sees it today) | **Yes, as a pre-registered model change**, with an ADR-018 amendment and the prompt-neutrality harness run before and after |
-| D3 | Documentation language | **English for new docs and living docs.** A living doc moves to English when it is next rewritten (W4); a one-line fix keeps the doc's language. Finished French plans are archived as they are. THEORY.md and GUIDE_UTILISATEUR, which are user-facing reference, are **not** translated in this plan. The app's FR/EN interface is unchanged |
+| D3 | Documentation language | **English for new docs and living docs.** A living doc moves to English when it is next rewritten (W4); a one-line fix keeps the doc's language. Finished French plans stay as they are. THEORY.md and GUIDE_UTILISATEUR, which are user-facing reference, are **not** translated in this plan. The app's FR/EN interface is unchanged |
 | D4 | Where this plan lives | `docs/plan/PLAN_BEYOND_CI.md`, pointed to by `docs/STATUS.md` |
 | D5 | LLM-collapse write-up (W2.6) | **A `docs/stories/` piece, then an arXiv preprint** (cs.MA / cs.CL) |
 | D6 | Teacher path (W3.5) | **A `?niveau=intro` mode** over the existing pages, plus a 1-page teacher guide |

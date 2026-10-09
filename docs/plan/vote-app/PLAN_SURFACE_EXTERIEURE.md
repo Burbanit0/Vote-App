@@ -1,6 +1,6 @@
 # Plan — La surface extérieure
 
-> **status:** live — only §2.D (a "busy" state, tied to publishing) is open; §2.A and §2.E are done; §2.F, §2.G and §2.I moved to PLAN_BEYOND_CI. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — §2.D (a "busy" state, tied to publishing) and §2.K (the two polity rank-F functions, sequenced by the polity work) are open; §2.A and §2.E are done; §2.B's general guard, §2.F, §2.G and §2.I moved to PLAN_BEYOND_CI. (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 > **Origine** : audit demandé le 2026-09-16, après la clôture de
 > `PLAN_CI_STRUCTURAL_GAPS.md` (7 catégories à 5/5). La question posée était

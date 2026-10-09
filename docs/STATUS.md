@@ -10,7 +10,7 @@
 |---|---|---|
 | **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches, with 28 methods parity-locked across the two engines. Merged: the paradox story's Condorcet claim, nine criteria cells and several THEORY.md statements (#859); the playground's quick fixes (#860). Queued to merge: two more story figures caught by the new claims checks (#868). Held for review: one registry for the criteria matrix, checked by both engines (#869). Still to do: the playground does not yet say *why* methods disagree (W3.2–W3.3). | W1, W3 |
 | **Polity** (LLM-society research) | The threshold experiment is instrumented. Merged: founders told the threshold (#861), paired statistics (#862), ENP in the digest (#863), the re-seating script (#864), the arms' run knobs (#865), the fit-for-inference table (#866). **Blocked:** the W2.1 gate probe needs the GPU, and an unattended NVIDIA library upgrade means it needs a reboot first. The phase11 ensemble (10 seeds, finished 2026-10-07) is still not analysed. | W2 |
-| **Process** (CI, agents, docs) | **Frozen to maintenance.** Every plan now states its status ([index](README.md#plans)); the journal is retired; the PR template and `/verify` move to English in #867, queued to merge. | W4, W5 |
+| **Process** (CI, agents, docs) | **Frozen to maintenance.** Every plan now states its status ([index](README.md#plans)); the journal is retired; the PR template and `/verify` are in English (#867). | W4, W5 |
 
 ## Rules while the plan runs
 
@@ -22,7 +22,7 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 1. **W2.1 gate, after a reboot:** `python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60`.
    It decides whether the threshold experiment runs at all.
 2. **W3.2:** a winner strip on every playground step, and 5 methods by default.
-3. **W1.4:** the expert-review packet (THEORY §2–4, the registry's 110 unsourced
+3. **W1.4,** once #868 and #869 merge: the expert-review packet (THEORY §2–4, the registry's 110 unsourced
    cells) and a "report a content error" path.
 
 ## Waiting on the owner
