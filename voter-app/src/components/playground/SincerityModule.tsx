@@ -141,7 +141,7 @@ const SincerityModule: React.FC<{
       <p data-testid="sincerity-headline" className="text-sm">
         {t('sincerity.headlinePre')}{' '}
         <strong className="text-green-700 dark:text-green-400">{safe.length}</strong>
-        {t('sincerity.headlineMid')}{' '}
+        {t('sincerity.headlineMid', { total: report.verdicts.length })}{' '}
         <strong className="text-amber-600 dark:text-amber-400">{tempting.length}</strong>{' '}
         {t('sincerity.headlineEnd')}
       </p>

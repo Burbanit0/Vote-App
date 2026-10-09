@@ -1,5 +1,6 @@
 const fr = {
   nav: {
+    beta: 'Bêta',
     play: 'À vous de jouer',
     polity: 'Polity',
     playground: 'Playground',
@@ -12,7 +13,6 @@ const fr = {
     plain: 'Sans jargon',
     lightModeTip: 'Mode clair',
     darkModeTip: 'Mode sombre',
-    tourLabel: 'Tour guidé',
     toggleLabel: 'Menu de navigation',
     reportBug: 'Signaler un bug',
   },
@@ -278,7 +278,7 @@ const fr = {
     discoverTag: '3 min',
     discoverBannerLead: 'Nouveau ici ?',
     discoverBannerText: 'Comprenez le vote en 3 minutes.',
-    reassure: 'Gratuit · sans compte · 15 méthodes · FR / EN',
+    reassure: 'Gratuit · sans compte · 29 méthodes · FR / EN',
     heroInstrLabel: 'Carte idéologique — démo',
     rulePick: 'Choisissez la règle',
     heroWinner: 'Vainqueur',
@@ -292,7 +292,7 @@ const fr = {
       'Du plus simple au plus complexe — chaque temps allume un réglage de plus sur le même appareil.',
     footMore: 'Aller plus loin',
     ctaLab: 'Découvrir le Lab →',
-    labLede: '17 méthodes, 47 phénomènes — explorez ce que le Playground effleure.',
+    labLede: '63 fiches — explorez ce que le Playground effleure.',
   },
 
   simulation: {
@@ -592,29 +592,6 @@ const fr = {
     randomDesc: 'Distribution uniforme',
   },
 
-  onboarding: {
-    step1Title: '🗳️ Bienvenue sur Vote Lab',
-    step1Content:
-      '3 outils sont disponibles dans ce menu : le Simulateur de scénario, la Comparaison des méthodes, et le Simulateur de crise constitutionnelle.',
-    step2Title: '▶ Simuler une élection',
-    step2Content:
-      "Commencez par construire votre propre élection : définissez les candidats, l'électorat et la règle du vote blanc, puis comparez les résultats sous 5 méthodes de vote différentes.",
-    step3Title: '⬜ Vote Blanc',
-    step3Content:
-      "Le vote blanc est modélisé comme un candidat à part entière. Chaque électeur possède un seuil d'insatisfaction qui détermine s'il le classe en tête. 4 règles constitutionnelles définissent les conséquences si le blanc gagne.",
-    step4Title: '⚖️ Régret bayésien',
-    step4Content:
-      "Le régret bayésien mesure l'insatisfaction collective générée par chaque méthode. Plus il est bas, plus la méthode élit un candidat proche des préférences réelles de la population.",
-    step5Title: '🗺️ Élections historiques',
-    step5Content:
-      'Testez sur des élections réelles : France 2002 (élimination de Jospin), France 2022 (fragmentation extrême), USA 1992 (effet Perot), et une « Élection de crise » pédagogique où le vote blanc gagne.',
-    back: 'Précédent',
-    close: 'Fermer',
-    last: 'Terminer',
-    next: 'Suivant',
-    open: 'Ouvrir le tour',
-    skip: 'Passer',
-  },
   combined: {
     compute: 'Analyser les effets combinés',
     computing: 'Calcul des 8 combinaisons…',

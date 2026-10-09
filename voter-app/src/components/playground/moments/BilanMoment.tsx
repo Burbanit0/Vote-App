@@ -10,7 +10,7 @@ import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { ruleWinner, type Rule } from '../../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../../lib/scorecard';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodFamily';
-import { CANDIDATE_COLORS_LIGHT } from '../../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../../lib/palette';
 
 const rulesByFamily = (rules: Rule[]): Record<MethodFamily, Rule[]> =>
   FAMILY_ORDER.reduce(
@@ -110,8 +110,6 @@ const BilanMoment: React.FC = () => {
     ? leaderCandidates.findIndex((c) => c.name === condorcetName)
     : -1;
 
-  const candColor = (idx: number) => CANDIDATE_COLORS_LIGHT[idx % CANDIDATE_COLORS_LIGHT.length];
-
   return (
     <div className="flex flex-col gap-4">
       {replayRule && (
@@ -144,7 +142,7 @@ const BilanMoment: React.FC = () => {
               <>
                 <p
                   className="mt-1 font-display text-2xl font-bold tracking-tight"
-                  style={{ color: candColor(winnerGroups[0]?.[0] ?? 0) }}
+                  style={{ color: textTone(candColor(winnerGroups[0]?.[0] ?? 0)) }}
                 >
                   {t('bilan.verdictConsensus', {
                     name: leaderCandidates[winnerGroups[0]?.[0] ?? 0]?.name ?? '—',
@@ -178,7 +176,7 @@ const BilanMoment: React.FC = () => {
                   />
                   <span
                     className="font-display text-lg font-bold"
-                    style={{ color: candColor(idx) }}
+                    style={{ color: textTone(candColor(idx)) }}
                   >
                     {leaderCandidates[idx]?.name ?? '—'}
                   </span>
@@ -280,7 +278,7 @@ const BilanMoment: React.FC = () => {
                                   <span
                                     className="rounded border px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold"
                                     style={{
-                                      color: candColor(winIdx),
+                                      color: textTone(candColor(winIdx)),
                                       borderColor: `${candColor(winIdx)}55`,
                                       background: `${candColor(winIdx)}12`,
                                     }}

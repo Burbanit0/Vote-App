@@ -692,6 +692,8 @@ const pgPseudo: PlaygroundKeys = {
     evaluatedFor: '⟦Éválúé~~~ póúr~~ :~⟧',
     sensibility: '⟦Vótré~~ séñsíbílíté~~~~⟧',
     fineTune: '⟦Réglágé~~~ fíñ…~~⟧',
+    dialTitle:
+      '⟦Úñ~ séúl~~ çádráñ~~~ qúí~~ règlé~~ dés~~ póñdérátíóñs~~~~~ çórréléés~~~~ (çóñvéñtíóñ~~~~ déçláréé)~~~~ —~ lé~ réglágé~~~ fíñ~~ résté~~ díspóñíblé.~~~~⟧',
     simpleDial: '⟦←~ Cádráñ~~~ símplé~~~⟧',
     majoritarian: '⟦Májórítáíré~~~~ (déçísíf)~~~~⟧',
     consensualist: '⟦Cóñséñsúálísté~~~~~ (íñçlúsíf)~~~~⟧',
@@ -1077,7 +1079,7 @@ const pgPseudo: PlaygroundKeys = {
       '⟦Nómbré~~~ d’éléçtéúrs~~~~ qúí~~ pártágéñt~~~~ vótré~~ çóñvíçtíóñ~~~~ ét~ vótéráíéñt~~~~ çómmé~~ vóús~~ —~ vótré~~ lévíér~~~ çólléçtíf.~~~~⟧',
     blocLabel: '⟦Éléçtéúrs~~~~ çómmé~~ vóús~~ :~ {{n}}⟧',
     headlinePre: '⟦À~ vótré~~ pláçé,~~~⟧',
-    headlineMid: '⟦/15~~ méthódés~~~ réçómpéñséñt~~~~~ lá~ çóñvíçtíóñ~~~~ ;~⟧',
+    headlineMid: '⟦/~{{total}} méthódés~~~ réçómpéñséñt~~~~~ lá~ çóñvíçtíóñ~~~~ ;~⟧',
     headlineEnd: '⟦vóús~~ póússéñt~~~ áú~ vóté~~ strátégíqúé.~~~~~⟧',
     temptingHead: '⟦⚠~ Vóús~~ séríéz~~~ téñté~~ dé~ tráhír~~~ vótré~~ fávórí~~~⟧',
     temptSincere: '⟦síñçèré~~~ →~ {{winner}} ;~ máís~~ vótéz~~⟧',
@@ -1560,6 +1562,10 @@ const pgPseudo: PlaygroundKeys = {
     elecCurrent: '⟦Éléçtórát~~~~ áçtúél~~~⟧',
     matrix: {
       title: '⟦Cómpáráísóñ~~~~ dés~~ méthódés~~~⟧',
+      colMethod: '⟦Méthódé~~~⟧',
+      yes: '⟦Óúí~~⟧',
+      no: '⟦Nóñ~~⟧',
+      conditional: '⟦Cóñdítíóññél~~~~~⟧',
       liveRow: '⟦Váíñqúéúr~~~~ ávéç~~ vótré~~ éléçtórát~~~~ áçtúél~~~⟧',
       familyMajoritarian: '⟦Májóríté~~~⟧',
       familyOrdinal: '⟦Órdíñál~~~⟧',
