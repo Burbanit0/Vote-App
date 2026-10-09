@@ -77,6 +77,15 @@ describe('StoryPlayer', () => {
     expect(screen.getByTestId('story-beat')).toHaveTextContent('That is the spoiler');
   });
 
+  it('each beat links to the content-error form, naming the story and the beat', () => {
+    render(<StoryPlayer />);
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    fireEvent.click(screen.getByTestId('story-next'));
+    const href = screen.getByTestId('report-content-error').getAttribute('href')!;
+    expect(new URL(href).searchParams.get('where')).toBe(`story:spoiler/${spoiler.steps[1].id}`);
+  });
+
   it('quit restores the pre-story sandbox verbatim', () => {
     render(<StoryPlayer />);
     fireEvent.click(screen.getByTestId('story-launch'));
