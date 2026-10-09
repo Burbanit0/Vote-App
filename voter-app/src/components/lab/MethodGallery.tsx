@@ -4,7 +4,8 @@ import { Play } from 'lucide-react';
 import { useInstrumentCtx } from '../playground/PlaygroundController';
 import MethodReplayModal from '../playground/MethodReplayModal';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
+import { NoFixedWinner } from '../playground/WinnerStrip';
 import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
 import { getMethodInfo, methodAnalogy, type Lang } from '../../lib/methodInfo';
 import { candidateColor as candColor, textTone } from '../../lib/palette';
@@ -37,7 +38,7 @@ const MethodGallery: React.FC = () => {
           const info = getMethodInfo(rule)?.[lang];
           const analogy = methodAnalogy(rule, lang);
           const winIdx =
-            votingVoters.length && leaderCandidates.length
+            hasFixedWinner(rule) && votingVoters.length && leaderCandidates.length
               ? ruleWinner(votingVoters, leaderCandidates, rule)
               : -1;
           const winner = winIdx >= 0 ? leaderCandidates[winIdx] : null;
@@ -49,6 +50,9 @@ const MethodGallery: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-sm font-semibold leading-tight">{ruleLabels[rule]}</h3>
+                {!hasFixedWinner(rule) && (
+                  <NoFixedWinner className="shrink-0 text-[0.62rem] font-normal italic text-muted-foreground" />
+                )}
                 {winner && (
                   <span
                     className="shrink-0 rounded border px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold"

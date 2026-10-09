@@ -1,51 +1,62 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import {
-  computeRanks,
-  computeScores,
-  ruleWinnerFromRanks,
-  type Rule,
-} from '../../lib/playgroundVoting';
-import { LEADER_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../lib/scorecard';
 import { candidateColor, textTone } from '../../lib/palette';
+import { isSpatialSource } from '../../stores/useElectionStore';
 import {
   useStoreCtx,
   useJourneyCtx,
   useInstrumentCtx,
+  useScorecardCtx,
   useMethodSelection,
 } from './PlaygroundController';
 
-/** Winner strip, above every moment: who the rule on the map elects, and what the
- * other ticked methods elect, on the same expressed ballots as the map. Leader mode
- * only; the assembly's result is its seat chart. A random ballot has no fixed winner
- * (the engine's deterministic stand-in is plurality's), so it never "elects" anyone. */
+/** "No fixed winner", for the random ballot wherever a winner would be shown. */
+export const NoFixedWinner: React.FC<{ className?: string }> = ({ className }) => {
+  const { t } = useTranslation('playground');
+  return (
+    <strong
+      data-testid="no-fixed-winner"
+      title={t('strip.noFixedWinnerTitle')}
+      className={className}
+    >
+      {t('strip.noFixedWinner')}
+    </strong>
+  );
+};
+
+/** Winner strip, above every moment: the map's rule and the winner the map shows
+ * (strategic, when voters are), then what the other ticked methods elect on the same
+ * expressed ballots, sincerely. Leader mode on a spatial electorate only: the
+ * assembly's result is its seat chart, and a non-spatial profile's map lists the
+ * backend's winners itself. */
 const WinnerStrip: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
-  const { mode, behavior } = useStoreCtx();
+  const { mode, behavior, prefSource } = useStoreCtx();
   const { leaderRule } = useJourneyCtx();
   const { expressedVoters, leaderCandidates } = useInstrumentCtx();
+  const { strategicOutcome } = useScorecardCtx();
   const { enabledRules } = useMethodSelection();
+  const shown = mode === 'leader' && isSpatialSource(prefSource);
 
-  const others = React.useMemo(() => {
-    const m = leaderCandidates.length;
-    if (mode !== 'leader' || m === 0 || expressedVoters.length === 0) return null;
-    const ranks = computeRanks(expressedVoters, leaderCandidates);
-    const scores = computeScores(expressedVoters, leaderCandidates);
-    const winnerOf = (r: Rule) => ruleWinnerFromRanks(ranks, m, r, scores);
-    const groups = new Map<number, Rule[]>();
-    for (const r of LEADER_RULES) {
-      if (r === leaderRule || r === 'random_ballot' || !enabledRules.has(r)) continue;
-      const w = winnerOf(r);
-      if (w >= 0) groups.set(w, [...(groups.get(w) ?? []), r]);
-    }
-    return { current: leaderRule === 'random_ballot' ? -1 : winnerOf(leaderRule), groups };
-  }, [mode, expressedVoters, leaderCandidates, leaderRule, enabledRules]);
+  const otherRules = React.useMemo(
+    () => LEADER_RULES.filter((r) => r !== leaderRule && hasFixedWinner(r) && enabledRules.has(r)),
+    [leaderRule, enabledRules]
+  );
+  const winners = React.useMemo(
+    () =>
+      shown ? winnersByRule(expressedVoters, leaderCandidates, [leaderRule, ...otherRules]) : {},
+    [shown, expressedVoters, leaderCandidates, leaderRule, otherRules]
+  );
 
-  if (!others) return null;
-  const { current, groups } = others;
-  const othersCount = [...groups.values()].reduce((n, rs) => n + rs.length, 0);
+  const sincere = winners[leaderRule];
+  if (!shown || (sincere == null && hasFixedWinner(leaderRule))) return null;
+  // The map's readout shows the strategic winner when voters are strategic; mirror it.
+  const current =
+    behavior !== 'sincere' && strategicOutcome ? strategicOutcome.strategicWinner : sincere;
+  const groups = groupByWinner(winners, otherRules);
   const name = (i: number) => (
     <strong style={{ color: textTone(candidateColor(i)) }}>{leaderCandidates[i]?.name}</strong>
   );
@@ -57,22 +68,20 @@ const WinnerStrip: React.FC = () => {
     >
       <span data-testid="winner-strip-current" className="font-display text-base">
         {t('strip.under', { rule: ruleLabels[leaderRule] })}{' '}
-        {current >= 0 ? (
-          name(current)
-        ) : (
-          <strong data-testid="no-fixed-winner" title={t('strip.noFixedWinnerTitle')}>
-            {t('strip.noFixedWinner')}
-          </strong>
-        )}
+        {hasFixedWinner(leaderRule) && current != null ? name(current) : <NoFixedWinner />}
       </span>
-      {othersCount > 0 && (
-        <span data-testid="winner-strip-others" className="text-muted-foreground">
-          {groups.size === 1 && groups.has(current) ? (
-            t('strip.othersAgree', { count: othersCount })
+      {otherRules.length > 0 && (
+        <span
+          data-testid="winner-strip-others"
+          data-rules={otherRules.join(',')}
+          className="text-muted-foreground"
+        >
+          {groups.length === 1 && groups[0][0] === current ? (
+            t('strip.othersAgree', { count: otherRules.length })
           ) : (
             <>
               {t('strip.othersElect')}{' '}
-              {[...groups.entries()].map(([w, rules], k) => (
+              {groups.map(([w, rules], k) => (
                 <span key={w} data-testid={`winner-strip-group-${w}`} data-rules={rules.join(',')}>
                   {k > 0 && ' · '}
                   {name(w)} ({rules.map((r) => ruleLabels[r]).join(', ')})
@@ -80,10 +89,8 @@ const WinnerStrip: React.FC = () => {
               ))}
             </>
           )}
+          {behavior !== 'sincere' && ` ${t('strip.sincere')}`}
         </span>
-      )}
-      {behavior !== 'sincere' && (
-        <span className="text-xs text-muted-foreground">{t('strip.sincere')}</span>
       )}
     </div>
   );

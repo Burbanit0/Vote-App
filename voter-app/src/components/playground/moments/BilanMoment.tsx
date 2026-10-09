@@ -7,8 +7,9 @@ import MethodInfo from '../MethodInfo';
 import MethodReplayModal from '../MethodReplayModal';
 import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
-import { ruleWinner, type Rule } from '../../../lib/playgroundVoting';
-import { LEADER_RULES } from '../../../lib/scorecard';
+import type { Rule } from '../../../lib/playgroundVoting';
+import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
+import { NoFixedWinner } from '../WinnerStrip';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
 import { candidateColor as candColor, textTone } from '../../../lib/palette';
 
@@ -89,32 +90,18 @@ const BilanMoment: React.FC = () => {
   const familyRules = useMemo(() => rulesByFamily(activeRules), [activeRules]);
 
   // Expressed ballots, as on the map and in the winner strip (blank votes excluded).
-  const liveWinners = useMemo(() => {
-    if (!expressedVoters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return activeRules.reduce(
-      (acc, rule) => {
-        acc[rule] = ruleWinner(expressedVoters, leaderCandidates, rule);
-        return acc;
-      },
-      {} as Record<Rule, number>
-    );
-  }, [expressedVoters, leaderCandidates, activeRules]);
+  const liveWinners = useMemo(
+    () => winnersByRule(expressedVoters, leaderCandidates, activeRules),
+    [expressedVoters, leaderCandidates, activeRules]
+  );
 
   // Group methods by the candidate they elect (most-backed first) — the synthesis
   // that makes the thesis literal: does the winner depend on the rule? The lottery
   // has no fixed winner, so it is listed apart rather than counted with anyone.
-  const winnerGroups = useMemo(() => {
-    const m = new Map<number, Rule[]>();
-    for (const rule of activeRules) {
-      if (rule === 'random_ballot') continue;
-      const idx = liveWinners[rule];
-      if (idx == null || idx < 0) continue;
-      const arr = m.get(idx) ?? [];
-      arr.push(rule);
-      m.set(idx, arr);
-    }
-    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
-  }, [liveWinners, activeRules]);
+  const winnerGroups = useMemo(
+    () => groupByWinner(liveWinners, activeRules),
+    [liveWinners, activeRules]
+  );
 
   const condorcetName = result?.condorcet_winner ?? null;
   const condorcetIdx = condorcetName
@@ -142,7 +129,11 @@ const BilanMoment: React.FC = () => {
             <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-primary">
               {t('bilan.verdictTitle')}
             </p>
-            {winnerGroups.length > 1 ? (
+            {winnerGroups.length === 0 ? (
+              <p className="mt-1 font-display text-2xl font-bold tracking-tight">
+                {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
+              </p>
+            ) : winnerGroups.length > 1 ? (
               <>
                 <p className="mt-1 font-display text-2xl font-bold tracking-tight">
                   {t('bilan.verdictSplit', { count: winnerGroups.length })}
@@ -211,10 +202,9 @@ const BilanMoment: React.FC = () => {
                 </div>
               </div>
             ))}
-            {enabledRules.has('random_ballot') && (
+            {winnerGroups.length > 0 && activeRules.some((r) => !hasFixedWinner(r)) && (
               <p data-testid="winner-group-lottery" className="text-xs text-muted-foreground">
-                {t('strip.under', { rule: ruleLabels.random_ballot })}{' '}
-                <strong title={t('strip.noFixedWinnerTitle')}>{t('strip.noFixedWinner')}</strong>
+                {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
               </p>
             )}
           </div>
@@ -271,8 +261,8 @@ const BilanMoment: React.FC = () => {
                           </td>
                         </tr>
                         {familyRules[fam].map((rule, i) => {
-                          const winIdx = liveWinners[rule] ?? 0;
-                          const winner = leaderCandidates[winIdx];
+                          const winIdx = liveWinners[rule] ?? -1;
+                          const winner = winIdx >= 0 ? leaderCandidates[winIdx] : undefined;
                           const axes = leaderSc?.[rule];
                           return (
                             <tr
@@ -291,6 +281,9 @@ const BilanMoment: React.FC = () => {
                                 </button>
                               </td>
                               <td className="px-2 py-1.5">
+                                {!hasFixedWinner(rule) && (
+                                  <NoFixedWinner className="text-[0.68rem] font-normal italic text-muted-foreground" />
+                                )}
                                 {winner && (
                                   <span
                                     className="rounded border px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold"

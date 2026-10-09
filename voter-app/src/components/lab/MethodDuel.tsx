@@ -5,7 +5,8 @@ import { useInstrumentCtx } from '../playground/PlaygroundController';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { useVoteReplay, SPEEDS } from '../../hooks/useVoteReplay';
 import ReplayStage from '../playground/ReplayStage';
-import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
+import { NoFixedWinner } from '../playground/WinnerStrip';
 import { sampleVoters } from '../../lib/voteTrace';
 import { ruleWinner, type Rule, type Pt, type NamedPt } from '../../lib/playgroundVoting';
 import { candidateColor as candColor, textTone } from '../../lib/palette';
@@ -93,6 +94,8 @@ const DuelSide: React.FC<{
           >
             {winner.name}
           </span>
+        ) : !hasFixedWinner(rule) ? (
+          <NoFixedWinner className="text-xs font-normal italic text-muted-foreground" />
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
@@ -127,11 +130,11 @@ const MethodDuel: React.FC = () => {
   );
   const ready = sample.length > 0 && leaderCandidates.length >= 2;
   const winA = useMemo(
-    () => (ready ? ruleWinner(sample, leaderCandidates, left) : -1),
+    () => (ready && hasFixedWinner(left) ? ruleWinner(sample, leaderCandidates, left) : -1),
     [ready, sample, leaderCandidates, left]
   );
   const winB = useMemo(
-    () => (ready ? ruleWinner(sample, leaderCandidates, right) : -1),
+    () => (ready && hasFixedWinner(right) ? ruleWinner(sample, leaderCandidates, right) : -1),
     [ready, sample, leaderCandidates, right]
   );
   const differ = winA >= 0 && winB >= 0 && winA !== winB;
