@@ -49,6 +49,7 @@ import json
 import statistics
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -82,7 +83,7 @@ def _digest_path(output_dir: Path, run_id: str) -> Path:
 
 def _run_one_seed(
     *, years: int, population: int, seed: int, repeat: int, seats: int, output_dir: Path, max_batch_replays: int,
-    resume_sweep: bool, model: str | None = None,
+    resume_sweep: bool, model: str | None = None, run_flags: Sequence[str] = ("--engine", "llm"),
 ) -> trial.TrialResult:
     run_id = _run_id_for(years, population, seed, repeat)
     run_dir = output_dir / run_id
@@ -95,7 +96,7 @@ def _run_one_seed(
 
     args = [
         sys.executable, str(_FLAGSHIP_SCRIPT),
-        "--engine", "llm",
+        *run_flags,
         "--years", str(years),
         "--population", str(population),
         "--seats", str(seats),
@@ -285,6 +286,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument("--model", default=None, help="passed to run_polity_flagship.py --model (S2.3)")
+    # PLAN_BEYOND_CI W2.1. One arm of a two-arm experiment is one sweep with its own --output-dir,
+    # so two arms never share a summary; paired_contrast pairs them afterwards.
+    parser.add_argument("--engine", choices=("llm", "deterministic"), default="llm")
+    parser.add_argument("--profile", choices=("flagship", "exploration"), default="flagship")
+    parser.add_argument("--threshold", type=float, default=None, help="passed to run_polity_flagship.py --threshold")
+    parser.add_argument("--freeze-amendments", action="store_true", help="passed to run_polity_flagship.py")
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/seed_sweep_runs"))
     parser.add_argument(
         "--resume-sweep", action="store_true",
@@ -298,6 +305,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--planned-n", type=int, default=None, help="defaults to len(seeds)")
     args = parser.parse_args(argv)
 
+    run_flags = [
+        "--engine", args.engine, "--profile", args.profile,
+        *(["--threshold", str(args.threshold)] if args.threshold is not None else []),
+        *(["--freeze-amendments"] if args.freeze_amendments else []),
+    ]
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
     if not seeds:
         parser.error("--seeds must name at least one seed")
@@ -316,7 +328,7 @@ def main(argv: list[str] | None = None) -> int:
             "qualitatively from the others (see the generated sweep summary, not this report)."
         ),
         planned_n=args.planned_n or len(seeds),
-        budget_description=f"{len(seeds)} seeds x ~{args.years}y/p{args.population} flagship runs",
+        budget_description=f"{len(seeds)} seeds x ~{args.years}y/p{args.population} runs: {' '.join(run_flags)}",
     )
     print(f"registered experiment {experiment.experiment_id}: {experiment.hypothesis}")
 
@@ -331,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
             run_call=lambda seed=seed, repeat=repeat: _run_one_seed(
                 years=args.years, population=args.population, seed=seed, repeat=repeat, seats=args.seats or 75,
                 output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
-                resume_sweep=args.resume_sweep, model=args.model,
+                resume_sweep=args.resume_sweep, model=args.model, run_flags=run_flags,
             ),
         )
         print(f"  -> ok={result.ok} detail={result.detail}", flush=True)
