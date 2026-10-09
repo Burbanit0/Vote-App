@@ -656,7 +656,8 @@ const pgFr = {
   },
   bilan: {
     whyTitle: 'Pourquoi elles divergent',
-    whyLine: '{{rule}} : {{reason}}',
+    whyDuel: 'En duel, {{x}} bat {{y}} : {{xv}} électeurs contre {{yv}}.',
+    whyAnyway: '{{rule}} élit pourtant {{y}}. {{reason}}',
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
     fineTune: 'Réglage fin…',
@@ -755,6 +756,7 @@ const pgFr = {
     pairwise: {
       start: 'On fait s’affronter chaque paire de candidats en duel direct.',
       duel: '{{a}} vs {{b}} : {{av}}–{{bv}} → {{cand}} gagne le duel.',
+      duelTie: '{{a}} vs {{b}} : {{av}}–{{bv}} → égalité, le duel ne compte pour personne.',
       doneCopeland: '{{cand}} gagne le plus de duels (Copeland) : élu.',
       doneMinimax: 'Minimax : {{cand}} a la plus petite pire défaite — élu.',
       doneSchulze: 'Schulze : {{cand}} l’emporte par les plus forts chemins de battage — élu.',
@@ -947,7 +949,6 @@ const pgFr = {
     kicker: 'Pourquoi ce gagnant ?',
     count:
       '{{winner}} l’emporte sur le plus haut total : {{winnerVal}} contre {{runnerUpVal}} pour {{runnerUp}}.',
-    elim: '{{winner}} gagne aux reports : à mesure que les moins bien placés sont éliminés, leurs voix se reportent, et {{winner}} finit devant {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     pairwise:
       '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
     pairwiseCycle:
@@ -957,6 +958,31 @@ const pgFr = {
       '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     lottery:
       '{{winner}} est tiré au sort : la probabilité de chacun était proportionnelle à ses soutiens.',
+    byRule: '{{winner}} est élu par la règle de cette méthode.',
+    maximin:
+      '{{winner}} laisse son électeur le moins satisfait le mieux loti : {{winnerPct}} % de satisfaction au pire, contre {{runnerUpPct}} % pour {{runnerUp}}.',
+    nash: '{{winner}} a la plus forte moyenne géométrique de satisfaction : {{winnerPct}} %, contre {{runnerUpPct}} % pour {{runnerUp}}.',
+    irv: '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : le candidat qui a le moins de premiers choix est éliminé et ses bulletins sont reportés, jusqu’à ce que quelqu’un ait la majorité.',
+    twoRound:
+      '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : sans majorité au premier tour, seuls les deux premiers vont au second.',
+    rule: {
+      majority_judgment:
+        '{{winner}} a la meilleure mention médiane : au moins la moitié des électeurs lui donnent cette mention ou mieux.',
+      bucklin:
+        '{{winner}} est le premier cité par une majorité : on compte les premiers choix, puis on ajoute les deuxièmes, et ainsi de suite.',
+      coombs:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat classé dernier par le plus d’électeurs sort, jusqu’à ce que quelqu’un ait la majorité.',
+      nanson:
+        '{{winner}} survit aux éliminations : à chaque tour, tous les candidats sous la moyenne des points Borda sortent.',
+      baldwin:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat qui a le moins de points Borda sort.',
+      raynaud:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat qui subit la plus lourde défaite en duel sort.',
+      benham:
+        '{{winner}} est élu par la règle de Benham : des éliminations comme au vote alternatif, mais dès qu’un candidat restant bat tous les autres en duel, il l’emporte.',
+      smith_irv:
+        '{{winner}} gagne le vote alternatif mené dans l’ensemble de Smith : le plus petit groupe de candidats qui battent chacun en duel tous ceux qui n’en font pas partie.',
+    },
   },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',

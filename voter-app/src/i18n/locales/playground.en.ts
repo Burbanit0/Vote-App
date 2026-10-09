@@ -644,7 +644,8 @@ const pgEn: PlaygroundKeys = {
   },
   bilan: {
     whyTitle: 'Why they disagree',
-    whyLine: '{{rule}}: {{reason}}',
+    whyDuel: 'Head to head, {{x}} beats {{y}}: {{xv}} voters to {{yv}}.',
+    whyAnyway: '{{rule}} elects {{y}} all the same. {{reason}}',
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
@@ -738,6 +739,7 @@ const pgEn: PlaygroundKeys = {
     pairwise: {
       start: 'Every pair of candidates is put head-to-head.',
       duel: '{{a}} vs {{b}}: {{av}}–{{bv}} → {{cand}} wins the duel.',
+      duelTie: '{{a}} vs {{b}}: {{av}}–{{bv}} → a tie, a win for neither.',
       doneCopeland: '{{cand}} wins the most duels (Copeland): elected.',
       doneMinimax: 'Minimax: {{cand}} has the smallest worst defeat — elected.',
       doneSchulze: 'Schulze: {{cand}} wins by strongest beat-paths — elected.',
@@ -925,7 +927,6 @@ const pgEn: PlaygroundKeys = {
   explain: {
     kicker: 'Why this winner?',
     count: '{{winner}} wins on the highest total: {{winnerVal}} to {{runnerUp}}’s {{runnerUpVal}}.',
-    elim: '{{winner}} wins on transfers: as the lowest-placed are eliminated their votes flow on, and {{winner}} ends ahead of {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     pairwise:
       '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
     pairwiseCycle:
@@ -935,6 +936,31 @@ const pgEn: PlaygroundKeys = {
       '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     lottery:
       '{{winner}} is drawn by lot: each candidate’s chance was proportional to their support.',
+    byRule: '{{winner}} is elected by this method’s rule.',
+    maximin:
+      '{{winner}} leaves its least-satisfied voter best off: {{winnerPct}}% satisfied at worst, against {{runnerUpPct}}% for {{runnerUp}}.',
+    nash: '{{winner}} has the highest geometric mean of satisfaction: {{winnerPct}}%, against {{runnerUpPct}}% for {{runnerUp}}.',
+    irv: '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: the candidate with the fewest first choices is eliminated and their ballots transfer, until someone has a majority.',
+    twoRound:
+      '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: without a first-round majority, only the top two go on to a second round.',
+    rule: {
+      majority_judgment:
+        '{{winner}} has the best median grade: at least half the voters grade them that high or higher.',
+      bucklin:
+        '{{winner}} is the first to be named by a majority: first choices are counted, then second choices are added, and so on.',
+      coombs:
+        '{{winner}} survives the eliminations: round by round, the candidate ranked last by the most voters goes out, until someone has a majority.',
+      nanson:
+        '{{winner}} survives the eliminations: round by round, every candidate below the average Borda score goes out.',
+      baldwin:
+        '{{winner}} survives the eliminations: round by round, the candidate with the lowest Borda score goes out.',
+      raynaud:
+        '{{winner}} survives the eliminations: round by round, the candidate with the heaviest defeat in a duel goes out.',
+      benham:
+        '{{winner}} is elected by Benham’s rule: eliminations as in IRV, but as soon as one remaining candidate beats every other in a duel, that candidate wins.',
+      smith_irv:
+        '{{winner}} wins IRV run within the Smith set: the smallest group of candidates who each beat everyone outside it in a duel.',
+    },
   },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',

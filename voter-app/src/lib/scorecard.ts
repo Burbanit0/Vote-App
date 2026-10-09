@@ -124,18 +124,20 @@ export const INTRO_RULES: Rule[] = ['plurality', 'two_round', 'irv', 'approval',
  * deterministic stand-in (plurality's winner) is never shown as one. */
 export const hasFixedWinner = (rule: Rule): boolean => rule !== 'random_ballot';
 
-/** Each rule's winner on one electorate, ranking and scoring the voters once. Rules
- * with no fixed winner are left out. */
+/** Each rule's winner on one electorate, ranking and scoring the voters once (or
+ * reusing `ballots`, when the caller already has them). Rules with no fixed winner are
+ * left out. */
 export function winnersByRule(
   voters: Pt[],
   cands: NamedPt[],
-  rules: readonly Rule[]
+  rules: readonly Rule[],
+  ballots?: { ranks: number[][]; scores: number[][] }
 ): Partial<Record<Rule, number>> {
   const m = cands.length;
   const out: Partial<Record<Rule, number>> = {};
   if (m === 0 || voters.length === 0) return out;
-  const ranks = computeRanks(voters, cands);
-  const scores = computeScores(voters, cands);
+  const ranks = ballots?.ranks ?? computeRanks(voters, cands);
+  const scores = ballots?.scores ?? computeScores(voters, cands);
   for (const r of rules) if (hasFixedWinner(r)) out[r] = ruleWinnerFromRanks(ranks, m, r, scores);
   return out;
 }

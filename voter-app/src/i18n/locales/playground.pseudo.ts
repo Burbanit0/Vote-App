@@ -695,7 +695,8 @@ const pgPseudo: PlaygroundKeys = {
   },
   bilan: {
     whyTitle: '⟦Póúrqúóí~~~ éllés~~ dívérgéñt~~~~⟧',
-    whyLine: '⟦{{rule}} :~ {{reason}}⟧',
+    whyDuel: '⟦Éñ~ dúél,~~ {{x}} bát~~ {{y}} :~ {{xv}} éléçtéúrs~~~~ çóñtré~~~ {{yv}}.~⟧',
+    whyAnyway: '⟦{{rule}} élít~~ póúrtáñt~~~ {{y}}.~ {{reason}}⟧',
     evaluatedFor: '⟦Éválúé~~~ póúr~~ :~⟧',
     sensibility: '⟦Vótré~~ séñsíbílíté~~~~⟧',
     fineTune: '⟦Réglágé~~~ fíñ…~~⟧',
@@ -810,6 +811,8 @@ const pgPseudo: PlaygroundKeys = {
       start:
         '⟦Óñ~ fáít~~ s’áffróñtér~~~~ çháqúé~~~ páíré~~ dé~ çáñdídáts~~~~ éñ~ dúél~~ díréçt.~~~⟧',
       duel: '⟦{{a}} vs~ {{b}} :~ {{av}}–~{{bv}} →~ {{cand}} gágñé~~ lé~ dúél.~~⟧',
+      duelTie:
+        '⟦{{a}} vs~ {{b}} :~ {{av}}–~{{bv}} →~ égálíté,~~~ lé~ dúél~~ ñé~ çómpté~~~ póúr~~ pérsóññé.~~~~⟧',
       doneCopeland: '⟦{{cand}} gágñé~~ lé~ plús~~ dé~ dúéls~~ (Cópéláñd)~~~~ :~ élú.~~⟧',
       doneMinimax: '⟦Míñímáx~~~ :~ {{cand}} á~ lá~ plús~~ pétíté~~~ píré~~ défáíté~~~ —~ élú.~~⟧',
       doneSchulze:
@@ -1015,7 +1018,6 @@ const pgPseudo: PlaygroundKeys = {
     kicker: '⟦Póúrqúóí~~~ çé~ gágñáñt~~~ ?~⟧',
     count:
       '⟦{{winner}} l’émpórté~~~~ súr~~ lé~ plús~~ háút~~ tótál~~ :~ {{winnerVal}} çóñtré~~~ {{runnerUpVal}} póúr~~ {{runnerUp}}.~⟧',
-    elim: '⟦{{winner}} gágñé~~ áúx~~ répórts~~~ :~ à~ mésúré~~~ qúé~~ lés~~ móíñs~~ bíéñ~~ pláçés~~~ sóñt~~ élímíñés,~~~~ léúrs~~ vóíx~~ sé~ répórtéñt,~~~~ ét~ {{winner}} fíñít~~ déváñt~~~ {{runnerUp}} (~{{winnerVal}} à~ {{runnerUpVal}}).~⟧',
     pairwise:
       '⟦{{winner}} gágñé~~ tóús~~ sés~~ dúéls~~ :~ ç’ést~~ lé~ çáñdídát~~~ qúé~~ lá~ májóríté~~~ préfèré~~~ fáçé~~ à~ çháqúé~~~ rívál,~~~ úñ~ çóñtré~~~ úñ.~~⟧',
     pairwiseCycle:
@@ -1025,6 +1027,31 @@ const pgPseudo: PlaygroundKeys = {
       '⟦{{winner}} l’émpórté~~~~ áú~ séçóñd~~~ tóúr~~ :~ dés~~ déúx~~ fíñálístés,~~~~ íl~ déváñçé~~~ {{runnerUp}} (~{{winnerVal}} à~ {{runnerUpVal}}).~⟧',
     lottery:
       '⟦{{winner}} ést~~ tíré~~ áú~ sórt~~ :~ lá~ próbábílíté~~~~ dé~ çháçúñ~~~ étáít~~ própórtíóññéllé~~~~~~ à~ sés~~ sóútíéñs.~~~~⟧',
+    byRule: '⟦{{winner}} ést~~ élú~~ pár~~ lá~ règlé~~ dé~ çétté~~ méthódé.~~~⟧',
+    maximin:
+      '⟦{{winner}} láíssé~~~ sóñ~~ éléçtéúr~~~ lé~ móíñs~~ sátísfáít~~~~ lé~ míéúx~~ lótí~~ :~ {{winnerPct}} %~ dé~ sátísfáçtíóñ~~~~~ áú~ píré,~~ çóñtré~~~ {{runnerUpPct}} %~ póúr~~ {{runnerUp}}.~⟧',
+    nash: '⟦{{winner}} á~ lá~ plús~~ fórté~~ móyéññé~~~ géómétríqúé~~~~ dé~ sátísfáçtíóñ~~~~~ :~ {{winnerPct}} %,~ çóñtré~~~ {{runnerUpPct}} %~ póúr~~ {{runnerUp}}.~⟧',
+    irv: '⟦{{winner}} fíñít~~ déváñt~~~ {{runnerUp}} áú~ dérñíér~~~ déçómpté,~~~~ {{winnerVal}} à~ {{runnerUpVal}} :~ lé~ çáñdídát~~~ qúí~~ á~ lé~ móíñs~~ dé~ prémíérs~~~ çhóíx~~ ést~~ élímíñé~~~ ét~ sés~~ búllétíñs~~~~ sóñt~~ répórtés,~~~~ júsqú’à~~~ çé~ qúé~~ qúélqú’úñ~~~~ áít~~ lá~ májóríté.~~~~⟧',
+    twoRound:
+      '⟦{{winner}} fíñít~~ déváñt~~~ {{runnerUp}} áú~ dérñíér~~~ déçómpté,~~~~ {{winnerVal}} à~ {{runnerUpVal}} :~ sáñs~~ májóríté~~~ áú~ prémíér~~~ tóúr,~~ séúls~~ lés~~ déúx~~ prémíérs~~~ vóñt~~ áú~ séçóñd.~~~⟧',
+    rule: {
+      majority_judgment:
+        '⟦{{winner}} á~ lá~ méílléúré~~~~ méñtíóñ~~~ médíáñé~~~ :~ áú~ móíñs~~ lá~ móítíé~~~ dés~~ éléçtéúrs~~~~ lúí~~ dóññéñt~~~ çétté~~ méñtíóñ~~~ óú~ míéúx.~~~⟧',
+      bucklin:
+        '⟦{{winner}} ést~~ lé~ prémíér~~~ çíté~~ pár~~ úñé~~ májóríté~~~ :~ óñ~ çómpté~~~ lés~~ prémíérs~~~ çhóíx,~~~ púís~~ óñ~ ájóúté~~~ lés~~ déúxíèmés,~~~~ ét~ áíñsí~~ dé~ súíté.~~~⟧',
+      coombs:
+        '⟦{{winner}} súrvít~~~ áúx~~ élímíñátíóñs~~~~~ :~ à~ çháqúé~~~ tóúr,~~ lé~ çáñdídát~~~ çlássé~~~ dérñíér~~~ pár~~ lé~ plús~~ d’éléçtéúrs~~~~ sórt,~~ júsqú’à~~~ çé~ qúé~~ qúélqú’úñ~~~~ áít~~ lá~ májóríté.~~~~⟧',
+      nanson:
+        '⟦{{winner}} súrvít~~~ áúx~~ élímíñátíóñs~~~~~ :~ à~ çháqúé~~~ tóúr,~~ tóús~~ lés~~ çáñdídáts~~~~ sóús~~ lá~ móyéññé~~~ dés~~ póíñts~~~ Bórdá~~ sórtéñt.~~~⟧',
+      baldwin:
+        '⟦{{winner}} súrvít~~~ áúx~~ élímíñátíóñs~~~~~ :~ à~ çháqúé~~~ tóúr,~~ lé~ çáñdídát~~~ qúí~~ á~ lé~ móíñs~~ dé~ póíñts~~~ Bórdá~~ sórt.~~⟧',
+      raynaud:
+        '⟦{{winner}} súrvít~~~ áúx~~ élímíñátíóñs~~~~~ :~ à~ çháqúé~~~ tóúr,~~ lé~ çáñdídát~~~ qúí~~ súbít~~ lá~ plús~~ lóúrdé~~~ défáíté~~~ éñ~ dúél~~ sórt.~~⟧',
+      benham:
+        '⟦{{winner}} ést~~ élú~~ pár~~ lá~ règlé~~ dé~ Béñhám~~~ :~ dés~~ élímíñátíóñs~~~~~ çómmé~~ áú~ vóté~~ áltérñátíf,~~~~ máís~~ dès~~ qú’úñ~~ çáñdídát~~~ réstáñt~~~ bát~~ tóús~~ lés~~ áútrés~~~ éñ~ dúél,~~ íl~ l’émpórté.~~~~⟧',
+      smith_irv:
+        '⟦{{winner}} gágñé~~ lé~ vóté~~ áltérñátíf~~~~ méñé~~ dáñs~~ l’éñsémblé~~~~ dé~ Smíth~~ :~ lé~ plús~~ pétít~~ gróúpé~~~ dé~ çáñdídáts~~~~ qúí~~ báttéñt~~~ çháçúñ~~~ éñ~ dúél~~ tóús~~ çéúx~~ qúí~~ ñ’éñ~~ fóñt~~ pás~~ pártíé.~~~⟧',
+    },
   },
   scorecard: {
     drillTitle: '⟦Ápprófóñdír~~~~ dáñs~~ lé~ Láb~~⟧',

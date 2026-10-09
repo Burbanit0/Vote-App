@@ -669,18 +669,22 @@ describe('PlaygroundPage — the Bilan says why (W3.3)', () => {
     }
   });
 
-  it('when methods disagree, sets the two largest groups side by side, on the full electorate', () => {
+  it('when methods disagree, puts their winners head to head, on the full electorate', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-bilan'));
     // The default electorate splits the five intro methods: plurality elects Alice alone.
     expect(screen.getAllByTestId(/^winner-group-\d+$/).length).toBeGreaterThan(1);
     const why = screen.getByTestId('bilan-why');
-    const lines = [...why.querySelectorAll('p')].slice(1).map((p) => p.textContent ?? '');
-    expect(lines).toHaveLength(2);
-    const plurality = lines.find((l) => l.startsWith('Plurality'));
-    expect(plurality).toMatch(/wins on the highest total: (\d+) to/);
-    // 300 voters, 3 candidates: the plurality winner has at least 100 first choices. The
-    // replay's animated sample is at most 60 ballots, so this is the full electorate.
-    expect(Number(plurality!.match(/highest total: (\d+)/)![1])).toBeGreaterThanOrEqual(100);
+    const [duel, anyway] = [...why.querySelectorAll('p')].slice(1).map((p) => p.textContent ?? '');
+    const m = duel.match(/^Head to head, (\w+) beats (\w+): (\d+) voters to (\d+)\.$/);
+    expect(m, duel).not.toBeNull();
+    // Every one of the 300 voters ranks the two, so the duel is on the full electorate
+    // (the replay's animated sample is at most 60 ballots).
+    expect(Number(m![3]) + Number(m![4])).toBe(300);
+    expect(Number(m![3])).toBeGreaterThan(Number(m![4]));
+    // The method that elects the duel's loser says why it does all the same.
+    expect(anyway).toMatch(
+      new RegExp(`^Plurality \\(1 round\\) elects ${m![2]} all the same\\. ${m![2]} wins`)
+    );
   });
 });
