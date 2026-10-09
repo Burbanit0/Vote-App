@@ -15,12 +15,16 @@ construction -- the same seed always produces the same electorate, and
 therefore the same report, which is the whole precondition for a snapshot
 being meaningful rather than flaky.
 """
+import copy
+from functools import cache
 from math import factorial
 import random
 
+import pytest
+
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.demographic_data import _seeded_rng_pair
-from api.engine.utils.simulation_metrics import compare_all_methods
+from api.engine.utils.simulation_metrics import RANKED_RULES, SCORE_RULES, compare_all_methods
 from api.engine.utils.simulation_voting_utils import (
     create_candidate,
     create_voter,
@@ -44,6 +48,93 @@ def test_compare_all_methods_snapshot(snapshot):
     report = compare_all_methods(voters, candidates, issues, compute_strategic=True)
 
     assert report == snapshot
+
+
+# ── Tied electorates (issue #666, docs/plan/vote-app/LISTING_ORDER_TIES.md) ──
+#
+# The snapshot above is unanimous (every method elects Carol), so no tie-break can
+# show in it. Here every voter has a mirror twin with Ann's and Ben's utilities
+# swapped, so the two tie exactly and Cy trails. The invariant is only that the
+# order the candidates are listed in does not change the result; how a tie should
+# then be broken (the endpoint's lot, or a name order) is #667's decision. Today the
+# ranked rules break an aggregate tie by name, `(-score, name)`.
+
+_TIE_NAMES = ("Ann", "Ben", "Cy")
+_MIRRORED = ((0.9, 0.6, 0.1), (0.8, 0.5, 0.3), (0.7, 0.2, 0.4), (1.0, 0.7, 0.0), (0.6, 0.4, 0.5))
+# A voter with Ann == Ben: their own ranking of the two is a tie, which
+# compare_all_methods resolves by a stable sort over the listing order (#662).
+_INDIFFERENT = (0.5, 0.5, 0.9)
+
+_METHODS = sorted([*RANKED_RULES, *SCORE_RULES, "evaluative", "quadratic", "random_ballot"])
+
+# Score rules whose aggregate ties still follow listing order (#667 names maximin and
+# median voting; the others share the mechanism). The cases below are strict: a fixed
+# rule fails until its name leaves this set.
+_TIES_FOLLOW_LISTING_ORDER = {
+    "cumulative", "majority_judgment", "maximin", "mean_median_hybrid", "median_voting",
+    "nash", "simple_score", "star_voting", "variance_based",
+}
+# On the exact two-way tie these return no winner at all, where the invariant wants a
+# lot. Pinned so that a change shows; no issue tracks it yet.
+_NO_WINNER_ON_A_FULL_TIE = {"coombs", "irv"}
+
+
+@cache
+def _tied_methods(order: tuple[str, ...], indifferent: bool = False) -> dict:
+    """compare_all_methods on the tied electorate, the candidates and every voter's
+    utilities listed in `order`. Cached: the tests below only read it."""
+    rows = [(ann, ben, cy) for a, b, cy in _MIRRORED for ann, ben in ((a, b), (b, a))]
+    if indifferent:
+        rows.append(_INDIFFERENT)
+    util = {
+        v: {n: dict(zip(_TIE_NAMES, row))[n] for n in order} for v, row in enumerate(rows)
+    }
+    report = compare_all_methods(
+        [{"id": v} for v in util], [{"name": n} for n in order], [], override_utilities=util,
+    )
+    return report["methods"]
+
+
+def test_compare_all_methods_snapshot_on_a_tied_electorate(snapshot):
+    assert copy.deepcopy(_tied_methods(_TIE_NAMES)) == snapshot
+
+
+def test_the_tie_tests_cover_every_method():
+    assert set(_METHODS) == set(_tied_methods(_TIE_NAMES))
+    assert _TIES_FOLLOW_LISTING_ORDER <= set(_METHODS)
+    assert _NO_WINNER_ON_A_FULL_TIE <= set(_METHODS)
+
+
+# On this electorate no voter has a tie of their own, so the ranked rules receive the same
+# rankings in both orders: their cases here only guard the report around them. Listing
+# order reaches a ranked rule through the ties inside a voter's ranking, which is what the
+# indifferent-voter test below exercises.
+@pytest.mark.parametrize("method", [
+    pytest.param(m, marks=pytest.mark.xfail(
+        strict=True, raises=AssertionError, reason="#667: the tie follows listing order"))
+    if m in _TIES_FOLLOW_LISTING_ORDER else m
+    for m in _METHODS
+])
+def test_a_tie_does_not_follow_listing_order(method):
+    """Reversing the candidates, and the order of every voter's utilities, must not
+    change a method's result."""
+    forward = _tied_methods(_TIE_NAMES)[method]
+    assert (forward["winner"] is None) == (method in _NO_WINNER_ON_A_FULL_TIE)
+    assert forward == _tied_methods(_TIE_NAMES[::-1])[method]
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="#662: an indifferent voter's ranking follows listing order")
+def test_an_indifferent_voter_does_not_make_the_result_follow_listing_order():
+    """One voter with Ann == Ben. Today that voter's ranking follows the listing order,
+    and with it 21 ranked winners and the Condorcet winner (so every method's
+    `condorcet_consistent`). The score rules are left out: they read utilities, and
+    their ties are #667's, tested above."""
+    def ranked_side(order):
+        methods = _tied_methods(order, True)
+        return {m: e for m, e in methods.items() if m not in SCORE_RULES}
+
+    assert ranked_side(_TIE_NAMES) == ranked_side(_TIE_NAMES[::-1])
 
 
 def test_the_default_report_omits_strategic_vulnerability():
