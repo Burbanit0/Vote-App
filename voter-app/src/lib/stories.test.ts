@@ -8,6 +8,7 @@ import {
   computeScores,
   ruleWinnerFromRanks,
   condorcetWinnerIdx,
+  pluralityCounts,
   type NamedPt,
   type Dims,
 } from './playgroundVoting';
@@ -288,22 +289,51 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
 
 // What the claim measures at its step, in percent (or the winner's name).
 function measured(claim: StoryClaim): string | number | null {
-  if (claim.kind === 'winner') return winnerAt(claim.story, claim.step);
-  if (claim.kind === 'winnerShareOfExprimes') {
-    return 100 * (blankVerdictAt(claim.story, claim.step)?.winnerShareOfExprimes ?? Number.NaN);
+  switch (claim.kind) {
+    case 'winner':
+      return winnerAt(claim.story, claim.step);
+    case 'winnerShareOfExprimes':
+      return 100 * (blankVerdictAt(claim.story, claim.step)?.winnerShareOfExprimes ?? Number.NaN);
+    case 'blankShare': {
+      const { voters, cands, blank } = stateAt(claim.story, claim.step);
+      const { blankCount } = applyBlankVote(voters, cands, true, blank?.intensity ?? 0);
+      return (100 * blankCount) / voters.length;
+    }
+    case 'firstPref':
+    case 'approval': {
+      const { voters, cands } = stateAt(claim.story, claim.step);
+      const idx = cands.findIndex((c) => c.name === claim.candidate);
+      expect(
+        idx,
+        `no candidate ${claim.candidate} at ${claim.story}/${claim.step}`
+      ).toBeGreaterThanOrEqual(0);
+      if (claim.kind === 'approval') {
+        // The client engine's approval rule (winApproval): a score of at least 0.5.
+        return (
+          (100 * computeScores(voters, cands).filter((s) => s[idx] >= 0.5).length) / voters.length
+        );
+      }
+      const counts = pluralityCounts(
+        computeRanks(voters, cands),
+        cands.map(() => true),
+        cands.length
+      );
+      return (100 * counts[idx]) / voters.length;
+    }
+    default: {
+      const unhandled: never = claim;
+      throw new Error(`unhandled claim ${JSON.stringify(unhandled)}`);
+    }
   }
-  const { voters, cands, blank } = stateAt(claim.story, claim.step);
-  if (claim.kind === 'blankShare') {
-    const { blankCount } = applyBlankVote(voters, cands, true, blank?.intensity ?? 0);
-    return (100 * blankCount) / voters.length;
-  }
-  const idx = cands.findIndex((c) => c.name === claim.candidate);
-  if (claim.kind === 'approval') {
-    const approving = computeScores(voters, cands).filter((s) => s[idx] >= 0.5).length;
-    return (100 * approving) / voters.length;
-  }
-  return (100 * computeRanks(voters, cands).filter((r) => r[0] === idx).length) / voters.length;
 }
+
+const beatText = (bundle: Record<string, unknown>, claim: StoryClaim): string => {
+  const step = storyById(claim.story)?.steps.find((st) => st.id === claim.step);
+  const text = step?.beatKey
+    .split('.')
+    .reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], bundle);
+  return typeof text === 'string' ? text : '';
+};
 
 describe('stories — every name and number the copy states holds on the engine (STORY_CLAIMS)', () => {
   it.each(
@@ -312,9 +342,17 @@ describe('stories — every name and number the copy states holds on the engine 
     )
   )('%s', (_, claim) => {
     const value = measured(claim);
-    if (claim.kind === 'winner') expect(value).toBe(claim.expected);
-    // The copy rounds (38.5% is printed 38%), so one point either way.
-    else expect(Math.abs((value as number) - claim.pct)).toBeLessThanOrEqual(1);
+    if (claim.kind === 'winner') {
+      expect(value).toBe(claim.expected);
+      for (const bundle of [pgEn, pgFr]) expect(beatText(bundle, claim)).toContain(claim.expected);
+    } else {
+      // The copy rounds (38.5% is printed 38%): half a point either way.
+      expect(Math.abs((value as number) - claim.pct)).toBeLessThanOrEqual(0.5);
+      // ...and the beat prints that number ("56%" in EN, "56 %" in FR).
+      for (const bundle of [pgEn, pgFr]) {
+        expect(beatText(bundle, claim)).toMatch(new RegExp(`\\b${claim.pct}\\s?%`));
+      }
+    }
   });
 
   it('every claim names a real story step', () => {
