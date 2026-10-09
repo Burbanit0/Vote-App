@@ -20,6 +20,7 @@ keywords:
   - large language models
 abstract: >-
   Vote Lab shows that the choice of voting method changes the winner: 29 methods in a
-  browser playground and a FastAPI engine, with the two implementations locked together by
-  a parity test. Polity simulates a democracy whose citizens, party leaders and presidents
-  are played by a language model, with every model decision logged and replayable.
+  browser playground and a FastAPI engine, 28 of them locked together across the two
+  implementations by a parity test. Polity simulates a democracy whose citizens, party
+  leaders and presidents can be played by a language model; in those runs every model call
+  is logged, and the run can be replayed from the log.
