@@ -387,6 +387,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
       <svg
         ref={svgRef}
+        data-testid="leader-map"
         viewBox={`0 0 ${SVG} ${SVG}`}
         role="group"
         aria-label={t('canvas.svgAria')}
