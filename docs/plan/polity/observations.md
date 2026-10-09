@@ -73,6 +73,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
+| [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 
 ---
 
@@ -1946,7 +1947,8 @@ into an empty assembly; the kernel then forms no coalition (`form_coalition` ret
 like the driver. The two seeds inside at both elections are the two whose polities set their threshold above
 the 5% default, to 0.08 and 0.07, and landed
 at 2.67 and 1.89 effective parties: the cliff the re-seating above predicted, reached by amendment.
-`PLAN_BEYOND_CI.md`'s W2.1 is the controlled follow-up (3% against 5%, amendments frozen).
+`PLAN_BEYOND_CI.md`'s W2.1 was to be the controlled follow-up (3% against 5%, amendments frozen); it stopped at
+its gate ([OBS-045](#obs-045)).
 
 *Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
 
@@ -2165,7 +2167,48 @@ phase10 ran on vLLM 0.30.0 and code faab0efb, which also lacks the term limit's 
 prompt rewordings (the president "elected until the next scheduled election", the nominee's "may stay home").
 Turnout's change is large enough to stand and follows from #819; the others, the amendment counts included,
 are not attributed. The
-threshold amendments make seeds incomparable with each other on fragmentation; W2.1 freezes amendments for
-exactly that reason.
+threshold amendments make seeds incomparable with each other on fragmentation; W2.1 was to freeze amendments for
+exactly that reason, but it stopped at its gate ([OBS-045](#obs-045)).
 
 *Status: recorded.*
+
+### OBS-045
+
+**Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way.**
+
+*Seen.* The W2.1 gate of `docs/plan/PLAN_BEYOND_CI.md`, on 2026-10-09: `python
+scripts/check_agent_prompt_neutrality.py --probe threshold --n 60`, from the `fast_api_voter/` of a worktree on
+`feat/winner-strip` (ae59f343, whose `fast_api_voter/` equals `polity` 9201bc58), vLLM 0.31.0 serving `qwen3:8b` at temperature 0.6, the citizens of `eng-8y-p100-seed2` (phase 4).
+Each of 60 citizens who could found a party (enough others would co-found) answers the same forum turn twice.
+The only change is the threshold in the sentence the founders have been told since PR #861: "a party with less
+than X% of the votes cast for parties wins no seat".
+
+| told | found |
+|---|---:|
+| 3% | 59 / 60 |
+| 7% | 59 / 60 |
+
+One citizen founded only at 3% and one only at 7%: exact McNemar p = 1. The output is in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
+
+*Reading.* Most of the 60 do not test the threshold. Each founder is told how many of the 100 citizens
+stand nearer to them than to their own party ("you included; founding a party needs 5"), and 46 of the 60 are
+told 7 or more, so founding at 7% is also what a founder who applies the rule would do. The 14 told 5 or 6 are
+the ones a 7% bar should stop. Since 59 of the 60 founded at 7%, at least 13 of those 14 founded anyway. The
+count, recomputed with `simple_rules.cofounders` on the same checkpoint and the gate's own selection
+(`_split_by_backing`): 5: 4, 6: 10, 7: 5, 8: 9, 9: 4, 10: 7, 11: 3, 12: 9, 13: 6, 14: 2, 16: 1.
+
+The same turn does respond to its state: `found` moves 97 points with the co-founder count (PR #861).
+
+*Suspected cause.* The forum turn weighs the co-founder count, which its prompt states as a fact about this
+citizen, and treats the threshold as a general rule it does not apply to its own party. Not tested.
+
+*What would settle it.* The exact figure for the 14 needs a rerun that logs each founder's answer next to their
+backing; the gate prints only totals. Stating the consequence outright ("your party would win no seat") would
+lead the answer (contract C3), so that probe is not planned.
+
+*Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
+pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold
+(`fit-for-inference.md`).
+
+*Status: open.*
