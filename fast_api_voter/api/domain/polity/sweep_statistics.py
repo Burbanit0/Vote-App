@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -82,11 +82,46 @@ def clopper_pearson(successes: int, trials: int, *, confidence: float = 0.95) ->
 
 
 @dataclass(frozen=True)
+class PairedContrast:
+    """Arm B minus arm A, seed by seed (PLAN_BEYOND_CI W2.1). The test is the exact sign-flip
+    permutation on the per-seed differences: under the null each difference is as likely to have
+    either sign, and at ten seeds every one of the 2^n flips is enumerated. The BCa interval on the
+    differences is reported, not trusted, at that n (see mean_bca_interval)."""
+
+    seeds: tuple[int, ...]
+    differences: tuple[float, ...]
+    mean_difference: float
+    p_value: float
+    interval: tuple[float, float] | None
+
+
+def paired_contrast(arm_a: Mapping[int, float], arm_b: Mapping[int, float]) -> PairedContrast | None:
+    """Pair the two arms on the seeds they share (a seed missing from one arm is dropped, never
+    imputed) and test whether B differs from A. None when no seed is shared."""
+    seeds = tuple(sorted(set(arm_a) & set(arm_b)))
+    if not seeds:
+        return None
+    differences = tuple(float(arm_b[seed]) - float(arm_a[seed]) for seed in seeds)
+    if all(d == 0 for d in differences):
+        p_value = 1.0
+    else:
+        p_value = float(stats.permutation_test(
+            (np.asarray(differences),), np.mean, permutation_type="samples", n_resamples=np.inf,
+        ).pvalue)
+    return PairedContrast(
+        seeds=seeds, differences=differences, mean_difference=float(np.mean(differences)),
+        p_value=min(1.0, p_value), interval=mean_bca_interval(differences),
+    )
+
+
+@dataclass(frozen=True)
 class SweepRun:
     seed: int
     repeat: int
     run_id: str
     outcome: str
+    arm: str = ""
+    """Which arm of a two-arm experiment this run belongs to; empty for a one-arm sweep."""
     office_occupancy: float | None = None
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)

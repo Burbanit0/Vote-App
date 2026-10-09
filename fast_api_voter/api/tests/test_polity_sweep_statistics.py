@@ -9,6 +9,7 @@ from api.domain.polity.sweep_statistics import (
     clopper_pearson,
     first_completed_runs,
     mean_bca_interval,
+    paired_contrast,
     prediction_interval,
     provenance_differences,
     red_flags,
@@ -114,3 +115,33 @@ def test_provenance_differences_name_the_runs_and_resumes_that_differ() -> None:
     differences = provenance_differences(runs)
     assert set(differences) == {"git_sha", "git_dirty_paths"}
     assert differences["git_sha"] == {"s1": "a" * 40, "s2": "a" * 40, "s2@resume1": "b" * 40}
+
+
+# ── paired_contrast (PLAN_BEYOND_CI W2.1) ──────────────────────────────────
+
+
+def test_a_shift_on_every_seed_is_significant_and_its_p_is_exact() -> None:
+    arm_a = {seed: 5.0 for seed in range(1, 11)}
+    arm_b = {seed: 6.0 + seed / 100 for seed in range(1, 11)}
+    contrast = paired_contrast(arm_a, arm_b)
+    assert contrast is not None
+    assert contrast.seeds == tuple(range(1, 11))
+    assert contrast.mean_difference == pytest.approx(1.055)
+    assert contrast.p_value == pytest.approx(2 / 2**10)  # only "all +" and "all -" are as extreme
+    assert contrast.interval is not None and contrast.interval[0] > 0
+
+
+def test_no_effect_gives_no_signal() -> None:
+    arm_a = {seed: 5.0 for seed in range(1, 11)}
+    arm_b = {seed: 5.0 + (1 if seed % 2 else -1) for seed in range(1, 11)}
+    contrast = paired_contrast(arm_a, arm_b)
+    assert contrast is not None and contrast.mean_difference == 0 and contrast.p_value == pytest.approx(1.0)
+    same = paired_contrast(arm_a, dict(arm_a))
+    assert same is not None and same.p_value == 1.0 and same.interval is None
+
+
+def test_only_shared_seeds_are_paired() -> None:
+    contrast = paired_contrast({1: 1.0, 2: 2.0, 3: 3.0}, {2: 4.0, 3: 3.0, 4: 9.0})
+    assert contrast is not None and contrast.seeds == (2, 3) and contrast.differences == (2.0, 0.0)
+    assert paired_contrast({1: 1.0}, {2: 1.0}) is None
+
