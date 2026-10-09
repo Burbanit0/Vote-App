@@ -26,11 +26,9 @@ describe('MethodsMatrix', () => {
   it('renders the static criteria grid with a row per compared method', () => {
     ctx = { voters, leaderCandidates: candidates };
     render(<MethodsMatrix />);
-    // RULE_LABELS (lib/playgroundVoting.ts) is a fixed, untranslated map used by
-    // the static grid — not the i18n'd useVotingLabels() output — so these are
-    // French regardless of the active test-run language. Each should appear at
-    // least once (live-winners row + grid row).
-    expect(screen.getAllByText('Pluralité (1 tour)').length).toBeGreaterThan(0);
+    // Rule names come from useVotingLabels(), so they follow the language (tests run
+    // in English). Each should appear at least once (live-winners row + grid row).
+    expect(screen.getAllByText('Plurality (1 round)').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Condorcet (Schulze)').length).toBeGreaterThan(0);
   });
 
@@ -46,7 +44,7 @@ describe('MethodsMatrix', () => {
   it('renders without crashing when there is no electorate yet', () => {
     ctx = { voters: [], leaderCandidates: [] };
     render(<MethodsMatrix />);
-    expect(screen.getByText('Méthode')).toBeInTheDocument();
+    expect(screen.getByText('Method')).toBeInTheDocument();
   });
 
   it('renders the legend for the three satisfaction symbols', () => {

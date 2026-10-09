@@ -1,5 +1,12 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+  useLocation,
+  useNavigationType,
+} from 'react-router';
 import { Spinner } from '@/components/ui/spinner';
 
 import Navbar from './components/Navbar';
@@ -32,11 +39,27 @@ const RouteFallback: React.FC = () => (
   </div>
 );
 
+// <BrowserRouter> restores no scroll position: a <Link> to another page kept the old
+// offset, so a phone tapping a story at the bottom of /decouvrir landed mid-page,
+// far from the story. Reset on a path change; back/forward (POP) keeps the browser's.
+export const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+  const navType = useNavigationType();
+  React.useEffect(() => {
+    if (navType !== 'POP') window.scrollTo(0, 0);
+    // Keyed on the path alone: a replace that keeps the path (a Lab fiche chip, the
+    // Polity tick slider writing the query) changes navType and must not jump.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+  return null;
+};
+
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
 
   return (
     <div className="App" data-bs-theme={theme}>
+      <ScrollToTop />
       <OfflineBanner />
       <Navbar />
       <ErrorBoundary>

@@ -38,6 +38,15 @@ export const candidateColor = (i: number): string =>
     ((i % CANDIDATE_PALETTE.length) + CANDIDATE_PALETTE.length) % CANDIDATE_PALETTE.length
   ];
 
+/**
+ * The same hue for TEXT (a winner's name, a badge): blended 30% toward the theme's
+ * ink, so all eight colours pass WCAG AA on both cards (≥ 4.9:1 on #fff, ≥ 5.1:1 on
+ * the dark card). Raw `candidateColor` stays for dots, bars and fills, where several
+ * of them (green, amber) would be too light as text on white.
+ */
+export const textTone = (color: string): string =>
+  `color-mix(in oklab, ${color} 70%, var(--foreground))`;
+
 /** Colour for a candidate looked up by name, or a neutral grey when unknown. */
 export const candidateColorByName = (name: string | null, names: string[]): string => {
   if (!name) return '#9ca3af';
