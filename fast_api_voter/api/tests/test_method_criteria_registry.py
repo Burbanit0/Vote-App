@@ -78,3 +78,18 @@ def test_every_cited_source_is_in_the_bibliography(registry: Any) -> None:
     keys = set(re.findall(r"^@\w+\{([^,]+),", BIBLIOGRAPHY_PATH.read_text(encoding="utf-8"), re.M))
     cited = {entry["source"] for row in registry["rules"].values() for entry in row.values() if entry["source"]}
     assert cited and cited <= keys, sorted(cited - keys)
+
+
+# Literature cells whose source nobody has confirmed yet (null, rather than a citation no one
+# checked). The expert review (PLAN_BEYOND_CI W1.4) fills them in; this ceiling only goes down.
+UNSOURCED_CEILING = 110
+
+
+def test_unsourced_literature_cells_only_decrease(registry: Any) -> None:
+    unsourced = sorted(
+        f"{rule}.{criterion}"
+        for rule, row in registry["rules"].items()
+        for criterion, entry in row.items()
+        if entry["basis"] == "literature" and not entry["source"]
+    )
+    assert len(unsourced) <= UNSOURCED_CEILING, f"{len(unsourced)} unsourced cells: lower nothing, cite them"
