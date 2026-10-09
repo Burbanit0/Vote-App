@@ -129,6 +129,9 @@ class SweepRun:
     arm: str = ""
     """Which arm of a two-arm experiment this run belongs to; empty for a one-arm sweep."""
     office_occupancy: float | None = None
+    last_election: dict[str, Any] | None = None
+    """The digest's effective_parties row for the run's last legislative election (tick, by_seats,
+    by_votes, parties_standing); None before the first, or when the metric is off."""
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)
     run_metadata: dict[str, Any] = field(default_factory=dict)
