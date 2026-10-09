@@ -5,9 +5,7 @@ message: "If you use this software or its simulation data, please cite it as bel
 title: "Vote Lab: a voting-theory sandbox and Polity, an LLM-agent democracy simulator"
 type: software
 authors:
-  - given-names: Gaultier
-    family-names: Burban
-    alias: Burbanit0
+  - alias: Burbanit0
 repository-code: "https://github.com/Burbanit0/Vote-App"
 license: MIT
 version: 0.2.0
