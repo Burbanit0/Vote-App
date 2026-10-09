@@ -20,6 +20,7 @@ follow `plan-decision-quality-validation.md`:
 before these sources were reread.
 - `candidacy_considered` keeps "unverified", but with its measured agreement shown.
 - `vote_cast` is validated **at the bar**, not above it.
+- `pressure_action` is **unverified**, not collapsed: the collapse was measured on the prompt that shipped before 2026-09-10.
 - Forum `party_move` is unverified for accuracy. It is sensitive to the co-founder count; no response to the stated threshold was detected (3% vs 7%, n=60, near the ceiling; the W2.1 gate, OBS-045).
 
 ## Crowd decisions (batched, closed codes)

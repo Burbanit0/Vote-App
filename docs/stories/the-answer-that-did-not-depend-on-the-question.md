@@ -9,9 +9,9 @@ a short JSON answer, and the simulation reads one number out of it.
 The runs looked plausible. Coalitions formed, presidents responded, elections came and
 went. Small spot checks had hinted at a problem: on four to six hand-built test cases,
 the same answer every time. This piece is about how we measured that three of those
-decisions did not depend on their inputs at all, and about the instrument that showed it. It is also about
-the part that surprised us most: one of the three was the prompt's fault, not the
-model's.
+decisions barely depended on their inputs, and about the instrument that showed it. It is also about
+the part that surprised us most: one of the three was entirely the prompt's fault, and
+another partly.
 
 ## Reading the decision, not the answer
 
@@ -19,7 +19,7 @@ A sampled answer tells you what the model said once. It does not tell you how cl
 came to saying something else. For a closed-code decision there is a better reading: the
 probability the model gives each code at the moment it writes it. vLLM returns the top
 token log-probabilities for every generated token, so if the answer is
-`{"action": 1}`, you can read P(1) against P(0) at the token where the `1` was written.
+`{"act": 4}`, you can read P(4) against P(0) at the token where the `4` was written.
 
 Doing this on the production prompts was the hard part. The answers are JSON constrained
 by a grammar, often preceded by a `<think>` block that the server strips from the text
@@ -67,10 +67,10 @@ what that menu predicts whether the decision works or not. A flat answer and a w
 one produce the same aggregate. Only a per-citizen reading can tell them apart.
 
 The other two do show in the totals, but a total cannot say whether the decision followed
-its inputs. Full runs a few days later, after a partial fix of the president's prompt,
-still had coalition offers accepted 152 times in 160 and presidents conceding in 299 of
-the 304 answers that did not fall back to a default. That could describe a cooperative
-society. Only varying the inputs shows whether the decision is listening to them.
+its inputs. In ten full runs, coalition offers were accepted 152 times in 160. After a
+partial fix of the president's prompt, two larger runs still had presidents conceding in
+33 of 33 answers and in 25 of 32. That could describe a cooperative society. Only varying
+the inputs shows whether the decision is listening to them.
 
 ## The constant that was the prompt's
 
@@ -91,13 +91,14 @@ its prompt is a slow copy of the rule, and the project forbids it. The shipped f
 calibration grid, prompts of that kind agreed with the rule at batch size 1 (on one side
 of the threshold only, a later correction found) and failed at batches of 5 and 25,
 mostly near the 50% a constant answer gets. Live, end to end, the shipped version agreed
-with the rule on 12 of 12 citizens, on both sides of the threshold. On a frozen bank of 24
-cases it agreed on 15. The decision is no longer constant, and it is not validated either.
+with the rule on 12 of 12 citizens, on both sides of the threshold, where a constant answer
+would get 6. On a frozen bank of 24 cases it agreed on 15, where a constant would get 12.
+The decision is no longer constant, and it is not validated either.
 
 So one of the three flat lines was a question nobody could have answered, asked of many
 citizens at once. That is worth checking first, every time a decision looks dead.
 
-## The constants that were the model's
+## The constants that stayed
 
 The other two did not go away so easily. Calibrating the president's prompt, by stating
 two facts that were always true (the bounds of two of its inputs), moved the calm pole:
@@ -108,15 +109,21 @@ Two questions then mattered: is this one model, and is it instruction tuning?
 
 - **Other model families.** The coalition probe was pre-registered for at least two
   non-Qwen families. It stayed flat on both: IBM's Granite 4.2 8B and Google's Gemma 4
-  12B. The constant was not the same everywhere: Granite almost always joined (with one
-  dip to 0.65), and Gemma never did (P(join) 0.000 at every level). The flatness
-  persisted; the value it settled on did not.
+  12B (Gemma's reading needed a thinking budget to be parsed). The constant was not the
+  same everywhere: Granite almost always joined (with one dip, to 0.65), and Gemma never
+  did (P(join) 0.000 at every level). The flatness persisted; the value it settled on did
+  not. The president's response was flat on both as well.
 - **Base versus instruct.** Qwen3-4B and Qwen3-4B-Base, both bf16, differ only in
   instruction tuning. The coalition decision was flat in both. For the citizen's action
   (with the old prompt), the base model's probabilities moved a little more with the gap
-  than the instruct model's, but neither cleared the pre-registered bar, and the emitted
-  decision was flat in all four cells (two models, two probe geometries). All of it is at
-  4B, so this narrows the question rather than closing it.
+  than the instruct model's, but on the main statistic neither cleared the pre-registered
+  bar (the base model's single-citizen control did, at +0.124), and the emitted decision
+  was flat in all four cells (two models, two probe geometries).
+- **One exception.** The president's response did not collapse on the 4B instruct model:
+  at the calm pole it chose silence, and the two poles were fully apart. Instruction
+  tuning alone does not produce that flatness, then; between the 8B and 4B models, size,
+  quantisation and precision all differ. All of this is at 4B, so it narrows the question
+  rather than closing it.
 
 ## What changed
 
@@ -139,8 +146,8 @@ The experiment did not run.
 - Not every decision collapsed. The blank vote tracks its rule, candidacy and nomination
   decisions show no collapse, and a flat reading of an economic-shock reaction was not
   classified as one.
-- "Flat" here means the two ends of the axis agree. Granite's coalition curve dips in the
-  middle, and the probe's extreme points include situations production never creates.
+- "Flat" here means the two ends of the axis agree. Granite's coalition curve dips at one
+  point, and the probe's extreme points include situations production never creates.
 - The citizen's action works only one citizen per call. Batched, the calibrated prompts
   fall to about a constant's score, and even alone the shipped one agrees on 15 of 24
   bank cases.
@@ -166,5 +173,5 @@ The experiment did not run.
 `fast_api_voter/api/domain/polity/llm_logprob_instrumentation.py`. The aggregate counts
 are in [`observations.md`](../plan/polity/observations.md) (OBS-007), the table of fit decision types is
 [`fit-for-inference.md`](../plan/polity/fit-for-inference.md), and the threshold probe is
-OBS-045. The French synthesis of the whole programme is
+[OBS-045](../plan/polity/observations.md#obs-045). The French synthesis of the whole programme is
 [`synthese-programme-llm-2026-09-10.md`](../plan/polity/synthese-programme-llm-2026-09-10.md).*
