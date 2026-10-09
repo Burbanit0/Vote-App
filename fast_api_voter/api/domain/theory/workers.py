@@ -212,7 +212,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 
 
-# ── Plott Chaos Theorem ───────────────────────────────────────────────────────
+# ── McKelvey Chaos Theorem ────────────────────────────────────────────────────
 
 import numpy as _np_t
 
@@ -674,22 +674,22 @@ def _apportionment_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         }
 
     note = (
-        f"Balinski-Young (1982) : sur {num_seats} sièges entre {len(votes)} partis, "
-        f"AUCUNE méthode ne peut satisfaire simultanément le quotient strict, "
-        f"la monotonie de la chambre et la monotonie de la population. "
-        f"Hamilton respecte le quotient mais produit le paradoxe d'Alabama. "
-        f"Les méthodes diviseur sont monotones mais peuvent violer le quotient."
+        "Balinski-Young (1982) : dès 4 partis (et 3 sièges de plus que de partis), "
+        "aucune méthode ne peut respecter à la fois le quotient strict et la "
+        "monotonie de la population. Hamilton respecte le quotient mais produit le "
+        "paradoxe d'Alabama. Les méthodes diviseur sont monotones mais peuvent "
+        "violer le quotient."
     )
 
     return {
         "results":                  results,
         "balinski_young_summary":   (
-            "Il est mathématiquement impossible de satisfaire simultanément "
-            "(1) le quotient strict, (2) la monotonie de la chambre, "
-            "(3) la monotonie de la population. "
-            "Chaque méthode sacrifie l'une de ces propriétés."
+            "Dès 4 partis, il est mathématiquement impossible de respecter à la "
+            "fois (1) le quotient strict et (2) la monotonie de la population. "
+            "Chaque méthode sacrifie l'une des deux ; la monotonie de la chambre, "
+            "elle, reste compatible avec le quotient (méthode du quota)."
         ),
-        "impossible_to_avoid":      ["Quotient strict", "Monotonie chambre", "Monotonie population"],
+        "impossible_to_avoid":      ["Quotient strict", "Monotonie population"],
         "pedagogical_note":         note,
     }, 200
 
