@@ -111,7 +111,7 @@ const pgEn: PlaygroundKeys = {
       tagline:
         'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
       steps: {
-        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 56% of the electorate and wins comfortably.',
         clone:
           'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
         condorcet:
@@ -182,7 +182,7 @@ const pgEn: PlaygroundKeys = {
       tagline: 'Same ballots, same parties: proportional, first-past-the-post, or mixed?',
       steps: {
         pr: 'National proportional representation: every party gets roughly its vote share. The Gallagher index (votes-to-seats distortion) is very low.',
-        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 41 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
+        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 44 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
         mmp: 'Under mixed-member proportional, local winners are kept but compensatory seats restore the proportions: the fidelity of PR without giving up territorial representation.',
       },
     },
@@ -641,6 +641,8 @@ const pgEn: PlaygroundKeys = {
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
+    dialTitle:
+      'One dial that sets correlated weights (a stated convention) — fine-tuning stays available.',
     simpleDial: '← Simple dial',
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',
@@ -985,7 +987,7 @@ const pgEn: PlaygroundKeys = {
       'Number of voters who share your conviction and would vote like you — your collective leverage.',
     blocLabel: 'Voters like you: {{n}}',
     headlinePre: 'In your shoes,',
-    headlineMid: '/15 methods reward conviction;',
+    headlineMid: '/{{total}} methods reward conviction;',
     headlineEnd: 'push you toward a tactical vote.',
     temptingHead: '⚠ You would be tempted to betray your favourite',
     temptSincere: 'sincere → {{winner}} ; but vote',
@@ -1384,6 +1386,10 @@ const pgEn: PlaygroundKeys = {
     elecCurrent: 'Current electorate',
     matrix: {
       title: 'Method comparison',
+      colMethod: 'Method',
+      yes: 'Yes',
+      no: 'No',
+      conditional: 'Conditional',
       liveRow: 'Winner with your current electorate',
       familyMajoritarian: 'Majoritarian',
       familyOrdinal: 'Ordinal',

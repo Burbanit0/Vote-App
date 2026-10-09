@@ -375,7 +375,7 @@ If the W2.1 gate probe stops the experiment, Polity's Phase 2–3 slots go to W2
 - a branch from `polity`;
 - `/code-review` before opening;
 - `/verify "<request verbatim>"`;
-- the PR template's sections, including **Non vérifié**.
+- the PR template's sections, including **Not verified**.
 
 High-risk paths wait for the owner's `/reviewed <sha>`.
 

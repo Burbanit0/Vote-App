@@ -25,13 +25,13 @@ test.describe('Navigation — the five real surfaces', () => {
 
       await page.goto(path);
       await expect(page.locator(ANCHORS[path])).toBeVisible();
-      await expect(page.locator('[data-tour="navbar"]')).toBeVisible();
+      await expect(page.locator('[data-testid="navbar"]')).toBeVisible();
       expect(crashes).toEqual([]);
     });
   }
 
   test('navbar links reach the four destinations', async ({ page }) => {
-    const nav = () => page.locator('[data-tour="navbar"]');
+    const nav = () => page.locator('[data-testid="navbar"]');
 
     await page.goto('/');
     await nav()
@@ -49,14 +49,16 @@ test.describe('Navigation — the five real surfaces', () => {
       .click();
     await expect(page).toHaveURL(/\/a-vous-de-jouer$/);
 
-    await page.getByTestId('nav-polity').click();
+    // Polity left the main nav (PLAN_BEYOND_CI W3.1): it is reached from the home footer.
+    await page.goto('/');
+    await page.getByTestId('home-foot-polity').click();
     await expect(page).toHaveURL(/\/polity$/);
   });
 
   test('brand link goes back home', async ({ page }) => {
     await page.goto('/playground');
     await page
-      .locator('[data-tour="navbar"]')
+      .locator('[data-testid="navbar"]')
       .getByRole('link', { name: /vote lab/i })
       .click();
     await expect(page).toHaveURL(/\/$/);

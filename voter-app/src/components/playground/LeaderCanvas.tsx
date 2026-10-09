@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
-import { CANDIDATE_PALETTE, ENTRY_COLOR } from '../../lib/palette';
+import { CANDIDATE_PALETTE, ENTRY_COLOR, textTone } from '../../lib/palette';
 import {
   fieldWinnerName,
   winRegionGrid,
@@ -772,7 +772,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <div key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {c.name}
               </span>
@@ -807,7 +807,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <label key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {cand.name}
               </span>
