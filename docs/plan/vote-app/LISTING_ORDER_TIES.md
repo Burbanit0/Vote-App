@@ -1,5 +1,7 @@
 # Listing-order ties
 
+> **status:** live — issues #662–#667 are open (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
 by the endpoint's seeded lot (`break_tie` / `top_k` in

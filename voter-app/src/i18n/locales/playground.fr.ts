@@ -114,7 +114,7 @@ const pgFr = {
       tagline:
         'Un candidat peut se faire élire en alignant un allié presque identique à lui — mais pas avec n’importe quelle méthode.',
       steps: {
-        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 54 % de l’électorat et l’emporte largement.',
+        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 56 % de l’électorat et l’emporte largement.',
         clone:
           'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
         condorcet:
@@ -186,7 +186,7 @@ const pgFr = {
       tagline: 'Mêmes bulletins, mêmes partis : proportionnelle, uninominal ou mixte ?',
       steps: {
         pr: 'Proportionnelle nationale : chaque parti reçoit à peu près sa part de voix. L’indice de Gallagher (la distorsion voix→sièges) est très bas.',
-        fptp: 'Passez au scrutin uninominal par circonscription : le Centre, 35 % des voix, rafle 41 % des sièges, tandis que les Verts — pourtant à 19 % — tombent à 9 %, faute d’être majoritaires quelque part. Près d’un tiers des voix ne pèse plus rien.',
+        fptp: 'Passez au scrutin uninominal par circonscription : le Centre, 35 % des voix, rafle 44 % des sièges, tandis que les Verts — pourtant à 19 % — tombent à 9 %, faute d’être majoritaires quelque part. Près d’un tiers des voix ne pèse plus rien.',
         mmp: 'En scrutin mixte compensatoire, les élus locaux sont conservés mais des sièges de compensation rétablissent les proportions : on retrouve la fidélité de la proportionnelle sans perdre l’ancrage territorial.',
       },
     },

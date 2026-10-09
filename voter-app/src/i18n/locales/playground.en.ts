@@ -111,7 +111,7 @@ const pgEn: PlaygroundKeys = {
       tagline:
         'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
       steps: {
-        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 56% of the electorate and wins comfortably.',
         clone:
           'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
         condorcet:
@@ -182,7 +182,7 @@ const pgEn: PlaygroundKeys = {
       tagline: 'Same ballots, same parties: proportional, first-past-the-post, or mixed?',
       steps: {
         pr: 'National proportional representation: every party gets roughly its vote share. The Gallagher index (votes-to-seats distortion) is very low.',
-        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 41 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
+        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 44 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
         mmp: 'Under mixed-member proportional, local winners are kept but compensatory seats restore the proportions: the fidelity of PR without giving up territorial representation.',
       },
     },

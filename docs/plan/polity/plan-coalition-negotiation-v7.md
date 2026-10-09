@@ -1,5 +1,7 @@
 # v7 — négociation multi-tours pour la coalition (§3.4 Cas 2) : document de scoping
 
+> **status:** done — its three lots are delivered. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 **Statut** : ~~scoping écrit, Lot 1 (config + codebook) pas encore autorisé~~ → **TERMINÉ. Les
 trois lots sont livrés** (constaté le 2026-09-11 ; cet en-tête est resté périmé ~2 semaines).
 Lot 1 : `polity_config.yaml` `coalition_max_negotiation_rounds: 3` (commit `dcd7700`). Lot 2 :

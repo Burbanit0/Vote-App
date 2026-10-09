@@ -1,6 +1,6 @@
 # Fit for inference: which LLM decisions a claim may rest on
 
-> **status:** living table. Update a row when its evidence changes, and cite the source.
+> **status:** reference — a living table: update a row when its evidence changes, and cite the source.
 > Started 2026-10-08 for `docs/plan/PLAN_BEYOND_CI.md` W2.3.
 
 **The rule.** A result may rest only on decision types marked **validated** here, or on a

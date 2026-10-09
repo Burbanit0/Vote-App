@@ -1,5 +1,7 @@
 # Point ouvert #1 — seuil de la candidature de rupture : quelle fonction de l'écart idéologique ?
 
+> **status:** done — fixed by implementing it (2026-08-29). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Document de cadrage, même discipline que `plan-coalition-negotiation-v7.md` :
 document avant implémentation, un seul lot (pas de LLM ici, donc pas de
 palier de fiabilité live à part).
