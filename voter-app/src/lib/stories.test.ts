@@ -7,6 +7,7 @@ import {
   computeRanks,
   computeScores,
   ruleWinnerFromRanks,
+  condorcetWinnerIdx,
   type NamedPt,
   type Dims,
 } from './playgroundVoting';
@@ -89,6 +90,15 @@ const winnerAt = (storyId: string, stepId: string): string | null => {
   return fieldWinnerName(voters, cands, rule as never);
 };
 
+// The strict Condorcet winner at a step (beats every rival head-to-head), or null on a
+// cycle. The `condorcet` rule is Copeland, which always names someone, so a beat that
+// says "the Condorcet winner" (or "there is none") is checked against this, not the rule.
+const strictCondorcetAt = (storyId: string, stepId: string): string | null => {
+  const { voters, cands } = stateAt(storyId, stepId);
+  const i = condorcetWinnerIdx(computeRanks(voters, cands), cands.length);
+  return i < 0 ? null : cands[i].name;
+};
+
 // Winner under an arbitrary rule at a step (candidates fixed at that step).
 const winnerWithRule = (storyId: string, stepId: string, rule: string): string | null => {
   const { voters, cands } = stateAt(storyId, stepId);
@@ -159,10 +169,12 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winnerAt('spoiler', 'enter')).toBe('Bush'); // Nader spoils
     expect(winnerAt('spoiler', 'irv')).toBe('Gore'); // spoiler neutralised
     expect(winnerAt('spoiler', 'condorcet')).toBe('Gore');
+    expect(strictCondorcetAt('spoiler', 'condorcet')).toBe('Gore'); // "the majority prefers head-to-head"
   });
 
   it('squeeze: the centrist is the Condorcet winner but IRV eliminates them first', () => {
     expect(winnerAt('squeeze', 'condorcet')).toBe('Centre');
+    expect(strictCondorcetAt('squeeze', 'condorcet')).toBe('Centre');
     expect(winnerAt('squeeze', 'irv')).not.toBe('Centre');
   });
 
@@ -177,6 +189,11 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
       winnerAt('paradox', 'approval'),
     ]);
     expect(winners.size).toBe(3);
+  });
+
+  it('paradox: the blocs form a cycle, so there is no Condorcet winner (Copeland names Alice by tie-break)', () => {
+    expect(strictCondorcetAt('paradox', 'condorcet')).toBeNull();
+    expect(winnerAt('paradox', 'condorcet')).toBe('Alice');
   });
 
   it('utile: plurality is spoiler-prone here (differs from a Condorcet-consistent rule)', () => {
@@ -200,6 +217,7 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winnerAt('clones', 'duel')).toBe('B');
     expect(winnerAt('clones', 'clone')).toBe('A');
     expect(winnerAt('clones', 'condorcet')).toBe('B');
+    expect(strictCondorcetAt('clones', 'condorcet')).toBe('B'); // "B still beats both A AND A2"
     expect(winnerAt('clones', 'irv')).toBe('B');
   });
 

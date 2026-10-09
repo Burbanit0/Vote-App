@@ -1,7 +1,7 @@
 /**
  * ApportionmentPanel — demonstrates Balinski-Young impossibility theorem (1982):
- * no apportionment method can simultaneously satisfy quota rule, house monotonicity
- * (no Alabama paradox) and population monotonicity.
+ * with 4+ parties, no apportionment method satisfies both the quota rule and
+ * population monotonicity (house monotonicity alone is compatible with quota).
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';

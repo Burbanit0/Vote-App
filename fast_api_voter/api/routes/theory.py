@@ -140,8 +140,9 @@ async def agenda_manipulation_endpoint(
     request: AgendaManipulationRequest,
 ) -> AgendaManipulationResponse:
     """Enumerates all `n!` agendas for `n` alternatives and reports which
-    outcomes the agenda-setter can engineer. A consequence of Plott's
-    Chaos Theorem when no Condorcet winner exists."""
+    outcomes the agenda-setter can engineer. When no Condorcet winner exists,
+    majority cycles let the agenda decide: the finite counterpart of
+    McKelvey's chaos theorem."""
     return await run_typed(
         agenda_manipulation_domain, request, AgendaManipulationResponse,
     )
