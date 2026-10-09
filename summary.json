@@ -414,36 +414,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-348e55abb4",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-709d3b11bf",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
-    "polity"
-   ],
-   "category": "advisory",
-   "count": 13,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "fix available via `npm audit fix`",
-     "node_modules/ip-address",
-     "3 vulnerabilities (2 moderate, 1 high)",
-     "To address all issues, run:",
-     "  npm audit fix",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
-    "step": "Security \u2014 npm audit (high CVEs block)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
-   },
-   "last_seen": "2026-10-02T15:07:10Z",
-   "signature": "advisory: To address all issues, run:",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -504,6 +474,35 @@
    "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-709d3b11bf",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
+    "polity"
+   ],
+   "category": "advisory",
+   "count": 12,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "fix available via `npm audit fix`",
+     "node_modules/ip-address",
+     "3 vulnerabilities (2 moderate, 1 high)",
+     "To address all issues, run:",
+     "  npm audit fix",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
+    "step": "Security \u2014 npm audit (high CVEs block)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
+   },
+   "last_seen": "2026-10-02T15:07:10Z",
+   "signature": "advisory: To address all issues, run:",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -1799,13 +1798,13 @@
   }
  ],
  "failures_by_category": {
-  "advisory": 18,
+  "advisory": 17,
   "code": 429,
   "infra": 24,
   "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-08T23:52:46Z",
+ "generated_at": "2026-10-08T23:59:10Z",
  "grid": {
   "Backend CI": {
    "2026-09-09": {
@@ -2007,7 +2006,7 @@
    },
    "2026-10-08": {
     "failure": 1,
-    "success": 26
+    "success": 27
    }
   },
   "CI Health Watchdog": {
@@ -2948,9 +2947,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-08T23:46:58Z",
+   "created_at": "2026-10-08T23:50:07Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37861323098"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37861598689"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3058,11 +3057,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376312"
   }
  },
- "runs": 13362,
+ "runs": 13358,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-08": 9.0,
     "2026-09-09": 13,
     "2026-09-10": 170,
     "2026-09-11": 12,
@@ -3091,10 +3089,10 @@
     "2026-10-07": 325.0,
     "2026-10-08": 429.0
    },
-   "p50_s": 158,
+   "p50_s": 159,
    "p95_s": 451,
    "queue_p50_s": 0,
-   "runs": 1298
+   "runs": 1296
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3134,7 +3132,6 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-08": 7.5,
     "2026-09-09": 7.5,
     "2026-09-10": 7,
     "2026-09-11": 7.0,
@@ -3161,24 +3158,24 @@
     "2026-10-05": 11,
     "2026-10-06": 12.0,
     "2026-10-07": 12,
-    "2026-10-08": 13
+    "2026-10-08": 13.0
    },
    "p50_s": 8,
    "p95_s": 35,
    "queue_p50_s": 0,
-   "runs": 942
+   "runs": 941
   },
   "CI Dashboard": {
    "daily_p50_s": {
     "2026-10-05": 374,
     "2026-10-06": 387.5,
     "2026-10-07": 395,
-    "2026-10-08": 395.0
+    "2026-10-08": 396
    },
    "p50_s": 394,
    "p95_s": 581,
    "queue_p50_s": 0,
-   "runs": 192
+   "runs": 193
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3203,12 +3200,12 @@
     "2026-10-05": 11.0,
     "2026-10-06": 13,
     "2026-10-07": 12.0,
-    "2026-10-08": 17.0
+    "2026-10-08": 14
    },
    "p50_s": 11,
    "p95_s": 45,
    "queue_p50_s": 0,
-   "runs": 667
+   "runs": 668
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3271,7 +3268,6 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-08": 11.5,
     "2026-09-09": 12.0,
     "2026-09-10": 11,
     "2026-09-11": 11,
@@ -3298,24 +3294,24 @@
     "2026-10-05": 12,
     "2026-10-06": 12,
     "2026-10-07": 13,
-    "2026-10-08": 12
+    "2026-10-08": 11.5
    },
    "p50_s": 11,
    "p95_s": 40,
    "queue_p50_s": 0,
-   "runs": 867
+   "runs": 866
   },
   "Diff Mutation": {
    "daily_p50_s": {
     "2026-10-05": 11,
     "2026-10-06": 11,
     "2026-10-07": 11,
-    "2026-10-08": 12
+    "2026-10-08": 13.0
    },
    "p50_s": 11,
-   "p95_s": 46,
+   "p95_s": 49,
    "queue_p50_s": 0,
-   "runs": 94
+   "runs": 95
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3329,7 +3325,6 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-08": 368.0,
     "2026-09-09": 342.5,
     "2026-09-10": 322.0,
     "2026-09-11": 353,
@@ -3361,11 +3356,10 @@
    "p50_s": 584,
    "p95_s": 845,
    "queue_p50_s": 0,
-   "runs": 1149
+   "runs": 1147
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-08": 201,
     "2026-09-09": 12,
     "2026-09-10": 143,
     "2026-09-11": 11.0,
@@ -3397,11 +3391,10 @@
    "p50_s": 17,
    "p95_s": 271,
    "queue_p50_s": 0,
-   "runs": 1250
+   "runs": 1249
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-08": 91.5,
     "2026-09-09": 15,
     "2026-09-10": 75,
     "2026-09-11": 74,
@@ -3428,12 +3421,12 @@
     "2026-10-05": 12.0,
     "2026-10-06": 97.0,
     "2026-10-07": 81.0,
-    "2026-10-08": 100.0
+    "2026-10-08": 99
    },
    "p50_s": 72,
    "p95_s": 121,
    "queue_p50_s": 0,
-   "runs": 1359
+   "runs": 1358
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3443,12 +3436,12 @@
     "2026-10-05": 14,
     "2026-10-06": 16,
     "2026-10-07": 16,
-    "2026-10-08": 16
+    "2026-10-08": 16.5
    },
    "p50_s": 15,
    "p95_s": 48,
    "queue_p50_s": 0,
-   "runs": 282
+   "runs": 283
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3509,12 +3502,12 @@
     "2026-10-05": 22,
     "2026-10-06": 32,
     "2026-10-07": 29,
-    "2026-10-08": 31
+    "2026-10-08": 31.0
    },
    "p50_s": 30,
    "p95_s": 238,
    "queue_p50_s": 0,
-   "runs": 104
+   "runs": 105
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3547,7 +3540,6 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-08": 92.0,
     "2026-09-09": 102,
     "2026-09-10": 91.5,
     "2026-09-11": 103.5,
@@ -3574,23 +3566,23 @@
     "2026-10-05": 142.5,
     "2026-10-06": 169.0,
     "2026-10-07": 171,
-    "2026-10-08": 157.0
+    "2026-10-08": 155
    },
    "p50_s": 123,
    "p95_s": 224,
    "queue_p50_s": 0,
-   "runs": 1300
+   "runs": 1299
   },
   "Workflow Lint": {
    "daily_p50_s": {
     "2026-10-06": 29.5,
     "2026-10-07": 35,
-    "2026-10-08": 12.0
+    "2026-10-08": 12
    },
-   "p50_s": 32,
+   "p50_s": 31,
    "p95_s": 81,
    "queue_p50_s": 0,
-   "runs": 141
+   "runs": 142
   },
   "polity red alert": {
    "daily_p50_s": {
