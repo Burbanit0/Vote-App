@@ -719,16 +719,18 @@ def ballot_words(ballot: AmendmentBallot | None) -> dict[str, str]:
 def _party_move_rules(config: PolityConfig) -> str:
     """What each membership move does, one consequence each and no advice (C4). The wording it
     replaced ("founding your own is a legitimate way to be heard") advocated one of the three,
-    and the neutrality harness measured the phrasing outweighing the citizen's own situation."""
+    and the neutrality harness measured the phrasing outweighing the citizen's own situation.
+    The seat threshold is stated too (PLAN_BEYOND_CI D2), and dropped when it is 0: no bar."""
+    threshold = round(config.institutions.electoral_threshold * 100, 1)
     return (
         " You may also change party, through \"party_move\" and \"party_id\". \"join\" (with the party's number): you "
         "are counted among its members. \"leave\" (with -1): you are counted among no party's members. \"found\" (with "
         "-1): a new party whose platform is your own positions, which comes into being only if at least "
         f"{config.parties.founding_ratio:.0%} of the citizens stand nearer to your positions than to their own party's "
         "platform -- your briefing says how many do -- and which holds no seats until the next legislative election. "
-        f"At a legislative election, a party with less than {config.institutions.electoral_threshold * 100:g}% of "
-        "the votes cast for parties wins no seat. "
-        "\"none\" with -1 changes nothing. "
+        + (f"At a legislative election, a party with less than {threshold:g}% of the votes cast for parties wins no "
+           "seat. " if threshold > 0 else "")
+        + "\"none\" with -1 changes nothing. "
         + ("At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only "
            "its own members." if config.vote.partisanship > 0 else "At an election, a party nominates only its own members.")
     )
@@ -750,7 +752,7 @@ def stand_line(citizen: Citizen, citizens: Sequence[Citizen], parties: Sequence[
 
 
 def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
-    """A forum participant's rules and who they are -- stable for the run, so a prefix."""
+    """A forum participant's rules and who they are -- stable between amendments, so a prefix."""
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(citizen)}\n\n"

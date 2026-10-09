@@ -53,9 +53,13 @@ a party with less than X% of the votes cast for parties wins no seat."
   that predates this change). One cell moved: citizens who could not found answered `join`
   12% of the time after, 0% before. That is just above the probe's ±7% noise band at n=30, and
   the paraphrase stayed at 6%.
-- **The gate.** The harness gains a `threshold` probe: the same able founders, told 3% or 7%.
-  Its SENSITIVITY line is W2.1's gate. If founding does not move with the stated threshold,
-  the experiment stops there.
+- **The gate.** `check_agent_prompt_neutrality.py --probe threshold` asks the same able
+  founders (the citizens who could found) once told 3% and once told 7%. It counts `found`
+  only, and tests the paired answers with an exact McNemar test. If founding does not move
+  (p >= 0.05), the experiment stops there (W2.1). A move in the wrong direction is reported as
+  such.
+- **A 0% threshold** (legal, and amendable to) drops the sentence rather than saying "less
+  than 0%".
 - **Not changed.** The kernel: seats, founding and dissolution rules are as before.
 
 ## What this ADR does not settle

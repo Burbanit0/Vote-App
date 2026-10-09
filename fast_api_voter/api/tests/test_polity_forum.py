@@ -269,6 +269,8 @@ def test_each_party_move_is_given_its_consequence_and_none_of_them_advice() -> N
     assert "less than 5% of the votes cast for parties wins no seat" in rules
     lower = dataclasses.replace(moving, institutions=dataclasses.replace(moving.institutions, electoral_threshold=0.03))
     assert "less than 3% of the votes" in forum_system_prompt(_president(), lower)
+    none = dataclasses.replace(moving, institutions=dataclasses.replace(moving.institutions, electoral_threshold=0.0))
+    assert "wins no seat" not in forum_system_prompt(_president(), none)  # no bar, no sentence
     # OBS-031: the wording this replaced advocated founding ("a legitimate way to be heard") and the
     # neutrality harness measured the phrasing outweighing the citizen's own situation.
     assert "legitimate" not in rules and "should" not in rules
