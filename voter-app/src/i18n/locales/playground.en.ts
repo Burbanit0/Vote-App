@@ -25,6 +25,11 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  report: {
+    contentError: 'Report a content error',
+    contentErrorTitle:
+      'Something wrong about voting? Opens a GitHub form, with this place already filled in.',
+  },
   stories: {
     launch: 'Stories',
     launchHint:
