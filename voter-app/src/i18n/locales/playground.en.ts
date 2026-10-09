@@ -66,7 +66,7 @@ const pgEn: PlaygroundKeys = {
         irv: 'Switch to instant-runoff: Carol wins, with exactly the same ballots.',
         approval: 'Switch to approval voting: this time it is Bob. Three methods, three winners.',
         condorcet:
-          'Head-to-head, Alice beats both others — the Condorcet winner. And yet neither IRV nor approval picked her: the method alone changes the president.',
+          'Head-to-head, no one beats both others: Alice beats Bob, Bob beats Carol, but Carol beats Alice. There is no Condorcet winner — this is Condorcet’s paradox. The “Condorcet (Copeland)” rule must still pick someone: each candidate wins one duel, so a tie-break (here, list order) names Alice. When the majority goes in circles, the method does the choosing.',
       },
     },
     utile: {
@@ -380,7 +380,7 @@ const pgEn: PlaygroundKeys = {
     manipMid:
       ': {{pct}}% of voters tempted to vote tactically ({{compromise}} compromise · {{burying}} burying). Random ballot:',
     manipEnd:
-      ' — the only strategyproof rule (Gibbard 1977). Every deterministic ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
+      ' — strategyproof; among lotteries, the only rule that is also Pareto-efficient and treats voters alike (Gibbard 1977). As soon as three or more candidates can win, every deterministic, non-dictatorial ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
     methodHeader: 'Method',
     criteriaLegend:
       '✓ satisfied · ✗ violated · – not triggered on this electorate. Measured live — drag a candidate to provoke a violation. The Condorcet winner is ringed on the map.',
@@ -1272,10 +1272,13 @@ const pgEn: PlaygroundKeys = {
       label: 'NP-hard, even for a single manipulator',
       ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
     },
-    ranked_pairs: { label: 'P (ranked pairs)', ref: 'Tideman 1987 — polynomial' },
+    ranked_pairs: {
+      label: 'NP-hard, even for a single manipulator',
+      ref: 'Xia et al. 2009',
+    },
     random_ballot: {
       label: 'Strategyproof — strategy gains nothing',
-      ref: 'Gibbard 1977 (only strategyproof rule, at the cost of chance)',
+      ref: 'Gibbard 1977 (the only strategyproof, Pareto-efficient, anonymous lottery)',
     },
     anti_plurality: { label: 'P (veto)', ref: 'positional rule' },
     dowdall: { label: 'P (positional)', ref: 'positional rule' },
