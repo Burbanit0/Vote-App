@@ -9,7 +9,7 @@ import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import type { Rule } from '../../../lib/playgroundVoting';
 import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
-import { NoFixedWinner } from '../WinnerStrip';
+import NoFixedWinner from '../NoFixedWinner';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
 import { candidateColor as candColor, textTone } from '../../../lib/palette';
 
@@ -129,18 +129,20 @@ const BilanMoment: React.FC = () => {
             <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-primary">
               {t('bilan.verdictTitle')}
             </p>
-            {winnerGroups.length === 0 ? (
+            {winnerGroups.length === 0 && (
               <p className="mt-1 font-display text-2xl font-bold tracking-tight">
                 {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
               </p>
-            ) : winnerGroups.length > 1 ? (
+            )}
+            {winnerGroups.length > 1 && (
               <>
                 <p className="mt-1 font-display text-2xl font-bold tracking-tight">
                   {t('bilan.verdictSplit', { count: winnerGroups.length })}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">{t('bilan.verdictSplitSub')}</p>
               </>
-            ) : (
+            )}
+            {winnerGroups.length === 1 && (
               <>
                 <p
                   className="mt-1 font-display text-2xl font-bold tracking-tight"

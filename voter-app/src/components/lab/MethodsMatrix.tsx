@@ -4,7 +4,7 @@ import { useInstrumentCtx } from '../playground/PlaygroundController';
 import type { Rule } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES, hasFixedWinner, winnersByRule } from '../../lib/scorecard';
-import { NoFixedWinner } from '../playground/WinnerStrip';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import {
   METHOD_CRITERIA,
   METHOD_FAMILY,

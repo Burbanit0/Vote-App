@@ -5,7 +5,7 @@ import { useInstrumentCtx } from '../playground/PlaygroundController';
 import MethodReplayModal from '../playground/MethodReplayModal';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
-import { NoFixedWinner } from '../playground/WinnerStrip';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
 import { getMethodInfo, methodAnalogy, type Lang } from '../../lib/methodInfo';
 import { candidateColor as candColor, textTone } from '../../lib/palette';

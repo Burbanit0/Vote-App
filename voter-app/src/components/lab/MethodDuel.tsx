@@ -6,7 +6,7 @@ import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { useVoteReplay, SPEEDS } from '../../hooks/useVoteReplay';
 import ReplayStage from '../playground/ReplayStage';
 import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
-import { NoFixedWinner } from '../playground/WinnerStrip';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import { sampleVoters } from '../../lib/voteTrace';
 import { ruleWinner, type Rule, type Pt, type NamedPt } from '../../lib/playgroundVoting';
 import { candidateColor as candColor, textTone } from '../../lib/palette';
@@ -94,10 +94,10 @@ const DuelSide: React.FC<{
           >
             {winner.name}
           </span>
-        ) : !hasFixedWinner(rule) ? (
-          <NoFixedWinner className="text-xs font-normal italic text-muted-foreground" />
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">
+            {hasFixedWinner(rule) ? '—' : <NoFixedWinner className="font-normal italic" />}
+          </span>
         )}
       </div>
 

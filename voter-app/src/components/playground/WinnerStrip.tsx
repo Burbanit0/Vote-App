@@ -11,20 +11,7 @@ import {
   useScorecardCtx,
   useMethodSelection,
 } from './PlaygroundController';
-
-/** "No fixed winner", for the random ballot wherever a winner would be shown. */
-export const NoFixedWinner: React.FC<{ className?: string }> = ({ className }) => {
-  const { t } = useTranslation('playground');
-  return (
-    <strong
-      data-testid="no-fixed-winner"
-      title={t('strip.noFixedWinnerTitle')}
-      className={className}
-    >
-      {t('strip.noFixedWinner')}
-    </strong>
-  );
-};
+import NoFixedWinner from './NoFixedWinner';
 
 /** Winner strip, above every moment: the map's rule and the winner the map shows
  * (strategic, when voters are), then what the other ticked methods elect on the same
