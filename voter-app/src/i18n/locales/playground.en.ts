@@ -1381,6 +1381,7 @@ const pgEn: PlaygroundKeys = {
     elecCurrent: 'Current electorate',
     matrix: {
       title: 'Method comparison',
+      colMethod: 'Method',
       yes: 'Yes',
       no: 'No',
       conditional: 'Conditional',

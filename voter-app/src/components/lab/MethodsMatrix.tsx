@@ -125,7 +125,7 @@ const MethodsMatrix: React.FC = () => {
           <thead>
             <tr className="border-b border-border">
               <th className="w-36 py-2 pl-4 pr-2 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-                {t('bilan.colMethod')}
+                {t('lab.matrix.colMethod')}
               </th>
               {CRITERION_KEYS.map((crit) => (
                 <th

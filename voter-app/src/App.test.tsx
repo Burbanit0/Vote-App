@@ -76,10 +76,17 @@ describe('App routing (anonymous, two destinations)', () => {
 describe('ScrollToTop', () => {
   const Back: React.FC = () => {
     const navigate = useNavigate();
-    return <button onClick={() => navigate(-1)}>back</button>;
+    return (
+      <>
+        <button onClick={() => navigate(-1)}>back</button>
+        <button onClick={() => navigate('/playground?story=spoiler', { replace: true })}>
+          query
+        </button>
+      </>
+    );
   };
 
-  it('scrolls to the top on a link to another page, not on back', () => {
+  it('scrolls to the top on a link to another page, not on a same-path replace or back', () => {
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     render(
       <MemoryRouter initialEntries={['/decouvrir']}>
@@ -92,6 +99,8 @@ describe('ScrollToTop', () => {
     fireEvent.click(screen.getByText('go'));
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
     scrollTo.mockClear();
+    fireEvent.click(screen.getByText('query')); // same path, query replaced
+    expect(scrollTo).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('back'));
     expect(scrollTo).not.toHaveBeenCalled();
     scrollTo.mockRestore();

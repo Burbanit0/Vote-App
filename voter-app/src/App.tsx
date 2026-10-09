@@ -47,7 +47,10 @@ export const ScrollToTop: React.FC = () => {
   const navType = useNavigationType();
   React.useEffect(() => {
     if (navType !== 'POP') window.scrollTo(0, 0);
-  }, [pathname, navType]);
+    // Keyed on the path alone: a replace that keeps the path (a Lab fiche chip, the
+    // Polity tick slider writing the query) changes navType and must not jump.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
   return null;
 };
 

@@ -1402,6 +1402,7 @@ const pgFr = {
     elecCurrent: 'Électorat actuel',
     matrix: {
       title: 'Comparaison des méthodes',
+      colMethod: 'Méthode',
       yes: 'Oui',
       no: 'Non',
       conditional: 'Conditionnel',

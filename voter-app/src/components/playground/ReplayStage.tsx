@@ -9,8 +9,6 @@ import { candidateColor, textTone } from '../../lib/palette';
 // Purely presentational (state lives in useVoteReplay), so the replay modal and
 // the side-by-side face-à-face render an identical count.
 
-const defaultColor = candidateColor;
-
 const ReplayStage: React.FC<{
   trace: VoteTrace;
   frame: number;
@@ -21,7 +19,7 @@ const ReplayStage: React.FC<{
   colorOf?: (i: number) => string;
 }> = ({ trace, frame, candidates, compact = false, colorOf }) => {
   const { t } = useTranslation('playground');
-  const color = colorOf ?? defaultColor;
+  const color = colorOf ?? candidateColor;
   const cur = trace.frames[Math.min(frame, trace.frames.length - 1)];
   const scale = Math.max(1, ...trace.frames.flatMap((f) => f.bars));
 

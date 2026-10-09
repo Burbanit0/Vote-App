@@ -1560,6 +1560,7 @@ const pgPseudo: PlaygroundKeys = {
     elecCurrent: '⟦Éléçtórát~~~~ áçtúél~~~⟧',
     matrix: {
       title: '⟦Cómpáráísóñ~~~~ dés~~ méthódés~~~⟧',
+      colMethod: '⟦Méthódé~~~⟧',
       yes: '⟦Óúí~~⟧',
       no: '⟦Nóñ~~⟧',
       conditional: '⟦Cóñdítíóññél~~~~~⟧',

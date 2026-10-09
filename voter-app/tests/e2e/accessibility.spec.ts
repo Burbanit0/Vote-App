@@ -6,7 +6,8 @@ import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 
 // Axe rules disabled globally:
 //   color-contrast — the maps and charts are SVG with theme-aware colours axe
-//     scores against the wrong background; validated by hand in chartColors.ts.
+//     scores against the wrong background; candidate text contrast is computed
+//     by hand for both themes in src/lib/palette.ts (textTone).
 const DISABLED_RULES = ['color-contrast'];
 
 async function audit(page: import('@playwright/test').Page, name: string) {

@@ -54,9 +54,14 @@ export async function loadLanguage(lng: string): Promise<void> {
 export async function switchLanguage(lng: string): Promise<void> {
   await loadLanguage(lng);
   await i18n.changeLanguage(lng);
-  // index.html ships lang="fr"; without this a screen reader reads English with a French voice.
-  document.documentElement.lang = lng;
 }
+
+// index.html ships lang="fr"; without this a screen reader reads English with a French
+// voice. Registered before init, so the first switch is covered too. The pseudo-locale
+// is English underneath, and "pseudo" is not a valid language tag.
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng === 'pseudo' ? 'en' : lng;
+});
 
 const LANG_KEY = 'votelab_lang';
 
