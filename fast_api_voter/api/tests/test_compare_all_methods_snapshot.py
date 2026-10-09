@@ -15,8 +15,11 @@ construction -- the same seed always produces the same electorate, and
 therefore the same report, which is the whole precondition for a snapshot
 being meaningful rather than flaky.
 """
+from functools import cache
 from math import factorial
 import random
+
+import pytest
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.demographic_data import _seeded_rng_pair
@@ -44,6 +47,52 @@ def test_compare_all_methods_snapshot(snapshot):
     report = compare_all_methods(voters, candidates, issues, compute_strategic=True)
 
     assert report == snapshot
+
+
+# ── A tied electorate (issue #666, docs/plan/vote-app/LISTING_ORDER_TIES.md) ──
+#
+# The snapshot above is unanimous (every method elects Carol), so no tie-break
+# can show in it. Here every voter has a mirror twin with Ann's and Ben's
+# utilities swapped: the two tie exactly under every rule, and Cy trails.
+
+_TIE_NAMES = ("Ann", "Ben", "Cy")
+_TIE_BASE = ((0.9, 0.6, 0.1), (0.8, 0.5, 0.3), (0.7, 0.2, 0.4), (1.0, 0.7, 0.0), (0.6, 0.4, 0.5))
+
+# Score-family rules whose exact ties still follow listing order (#667 names maximin
+# and median voting; the others share the mechanism). Remove a name when it is fixed:
+# the test below is strict, so a fixed rule fails until its mark goes.
+_TIES_FOLLOW_LISTING_ORDER = {
+    "cumulative", "majority_judgment", "maximin", "mean_median_hybrid", "median_voting",
+    "nash", "simple_score", "star_voting", "variance_based",
+}
+
+
+@cache
+def _tied_report(order: tuple[str, ...]) -> dict:
+    """The tied electorate with candidates, and every voter's utilities, listed in `order`."""
+    util = {}
+    for i, (a, b, c) in enumerate(_TIE_BASE):
+        for k, (ann, ben) in enumerate(((a, b), (b, a))):
+            values = {"Ann": ann, "Ben": ben, "Cy": c}
+            util[2 * i + k] = {n: values[n] for n in order}
+    return compare_all_methods(
+        [{"id": v} for v in util], [{"name": n} for n in order], [], override_utilities=util,
+    )
+
+
+def test_compare_all_methods_snapshot_on_a_tied_electorate(snapshot):
+    assert _tied_report(_TIE_NAMES) == snapshot
+
+
+@pytest.mark.parametrize("method", sorted(_tied_report(_TIE_NAMES)["methods"]))
+def test_a_tie_does_not_follow_listing_order(method, request):
+    """Reversing the candidates (and the order of every voter's utilities) must not
+    change the winner: a tie is broken by the seeded lot, never by position."""
+    if method in _TIES_FOLLOW_LISTING_ORDER:
+        request.applymarker(pytest.mark.xfail(strict=True, reason="#667: tie follows listing order"))
+    forward = _tied_report(_TIE_NAMES)["methods"][method]["winner"]
+    reversed_ = _tied_report(_TIE_NAMES[::-1])["methods"][method]["winner"]
+    assert forward == reversed_
 
 
 def test_the_default_report_omits_strategic_vulnerability():
