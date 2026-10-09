@@ -2,13 +2,13 @@
 
 > Where each part of the project stands and what comes next. One page, updated at
 > the end of each phase of [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md) and whenever
-> the next steps change. Last update: **2026-10-08**; Phase 1 is nearly done (W1.2, W1.3 and W3.1 are in PRs).
+> the next steps change. Last update: **2026-10-08**; Phase 1 is nearly done (W1.2 and W1.3 are in PRs).
 
 ## The three parts
 
 | Part | State | Plan workstream |
 |---|---|---|
-| **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches, with 28 methods parity-locked across the two engines. Fixed and merged: the paradox story's Condorcet claim, nine criteria cells, and several THEORY.md statements (#859). Queued to merge: two more story figures caught by the new claims checks (#868) and the playground's quick fixes (#860). Held for review: one registry for the criteria matrix, checked by both engines (#869). Still to do: the playground does not yet say *why* methods disagree (W3.2–W3.3). | W1, W3 |
+| **Vote Lab** (the teaching app) | 29 methods, 14 stories, 63 Lab fiches, with 28 methods parity-locked across the two engines. Merged: the paradox story's Condorcet claim, nine criteria cells and several THEORY.md statements (#859); the playground's quick fixes (#860). Queued to merge: two more story figures caught by the new claims checks (#868). Held for review: one registry for the criteria matrix, checked by both engines (#869). Still to do: the playground does not yet say *why* methods disagree (W3.2–W3.3). | W1, W3 |
 | **Polity** (LLM-society research) | The threshold experiment is instrumented. Merged: founders told the threshold (#861), paired statistics (#862), ENP in the digest (#863), the re-seating script (#864), the arms' run knobs (#865), the fit-for-inference table (#866). **Blocked:** the W2.1 gate probe needs the GPU, and an unattended NVIDIA library upgrade means it needs a reboot first. The phase11 ensemble (10 seeds, finished 2026-10-07) is still not analysed. | W2 |
 | **Process** (CI, agents, docs) | **Frozen to maintenance.** Every plan now states its status ([index](README.md#plans)); the journal is retired; the PR template and `/verify` move to English in #867, queued to merge. | W4, W5 |
 

@@ -317,8 +317,9 @@ with the CPU throttled 4×).
   - `traceability.md`'s claim that polity has "no code link".
   - The status of `PLAN_SURFACE_EXTERIEURE` §2.B.
   - Two plans that say "gitignored" but are committed.
-- **Archive the finished plans** under `docs/plan/archive/`. Live plans carry a
-  `status:` line, and `docs/README.md` gets a plan index.
+- **Mark the finished plans.** Every plan carries a `status:` line, and `docs/README.md`
+  gets a plan index. They stay where they are: moving them to `docs/plan/archive/` would
+  break about 300 references across the repo.
 - **Journal (D7).**
   - Add a closing note.
   - Remove the journal surface from `docs/README.md`.
