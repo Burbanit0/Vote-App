@@ -50,7 +50,7 @@ from typing import Any, Mapping
 from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.indexer import segment_terms
-from api.domain.polity.metrics import office_occupancy
+from api.domain.polity.metrics import effective_number_of_parties, office_occupancy
 from api.domain.polity.events import ALL_EVENT_TYPES as REGISTERED_EVENT_TYPES
 from api.domain.polity.viz_export import _INSTITUTIONAL_EVENT_TYPES, export_metadata
 
@@ -314,6 +314,26 @@ def legitimacy_trajectory(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def effective_parties(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per legislative election: the effective number of parties on seats and on votes (blank
+    ballots excluded, as the seat threshold excludes them), and how many parties stood. The
+    outcomes of PLAN_BEYOND_CI W2.1; until now only metrics.json had the seat figure, and only
+    for a clean completion."""
+    rows = []
+    for event in events:
+        if event["event_type"] != "legislative_result":
+            continue
+        payload = event["payload"]
+        votes = {int(party): float(count) for party, count in payload["votes"].items()}
+        rows.append({
+            "tick": event["tick"],
+            "by_seats": round(effective_number_of_parties({int(p): int(n) for p, n in payload["seats"].items()}), 4),
+            "by_votes": round(effective_number_of_parties(votes), 4),
+            "parties_standing": len(votes),
+        })
+    return rows
+
+
 def institutional_timeline(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """viz_export's own curated projection, reused rather than re-listed --
     one definition of "what institutionally happened", not two that can drift.
@@ -414,6 +434,7 @@ def build_digest(
             last_tick or 0,
         ),
         "institutional_timeline": institutional_timeline(events),
+        "effective_parties": effective_parties(events),
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
         "population_impact_by_year": population_impact_by_year(events, config),
         "legitimacy_trajectory": legitimacy_trajectory(events),

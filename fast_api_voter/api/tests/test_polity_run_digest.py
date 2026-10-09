@@ -16,6 +16,7 @@ from api.domain.polity.config import load_config
 from api.domain.polity.run_digest import (
     ALL_EVENT_TYPES,
     build_digest,
+    effective_parties,
     event_counts_by_year,
     institutional_timeline,
     legitimacy_trajectory,
@@ -437,3 +438,19 @@ def test_build_digest_end_to_end_on_a_real_journal(tmp_path):
     assert digest["shape"]["population_size"] == 40
     assert len(digest["event_counts_by_year"]) == config.run.duration_years + 1  # tick 0 opens year 0
     assert digest["population_impact_by_year"][0]["year"] == 0
+
+
+def test_effective_parties_per_legislative_election_on_seats_and_on_votes():
+    events = [
+        _e(4, "legislative_result", {"seats": {"0": 50, "1": 50, "2": 0}, "votes": {"0": 40.0, "1": 40.0, "2": 20.0}, "blank_count": 7}),
+        _e(5, "elected", {}),
+        _e(20, "legislative_result", {"seats": {"0": 100}, "votes": {"0": 90.0, "1": 10.0}, "blank_count": 0}),
+    ]
+    rows = effective_parties(events)
+    assert rows == [
+        # Two equal seat-holders -> 2.0; votes 40/40/20 -> 1/(0.16+0.16+0.04) = 2.7778; blanks play no part.
+        {"tick": 4, "by_seats": 2.0, "by_votes": 2.7778, "parties_standing": 3},
+        {"tick": 20, "by_seats": 1.0, "by_votes": 1.2195, "parties_standing": 2},
+    ]
+    assert effective_parties([_e(1, "elected", {})]) == []
+

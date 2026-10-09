@@ -161,9 +161,11 @@ def _load_run(output_dir: Path, years: int, population: int, seed: int, repeat: 
     progress = json.loads(progress_path.read_text(encoding="utf-8")) if progress_path.exists() else {}
     metadata_path = digest_path.with_name("run_metadata.json")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
+    last_election = (digest.get("effective_parties") or [None])[-1]
     return SweepRun(
         seed=seed, repeat=repeat, run_id=run_id, outcome=str(digest.get("outcome")),
         office_occupancy=digest.get("office_occupancy"),
+        effective_parties=None if last_election is None else (last_election["by_seats"], last_election["by_votes"]),
         decisions_by_type=dict(progress.get("decisions_by_type") or {}),
         fallback_by_type=dict(progress.get("fallback_by_type") or {}),
         run_metadata=metadata,
@@ -177,13 +179,14 @@ def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
 def _per_run_section(runs: list[SweepRun]) -> list[str]:
     lines = [
         "## Per-run results\n",
-        "| seed | repeat | run_id | outcome | office_occupancy | types above 10% fallback |",
-        "|---|---|---|---|---|---|",
+        "| seed | repeat | run_id | outcome | office_occupancy | last ENP (seats / votes) | types above 10% fallback |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in runs:
         over = {t: f"{rate:.1%}" for t, rate in r.fallback_rates().items() if rate > 0.10}
         occupancy = "-" if r.office_occupancy is None else f"{r.office_occupancy:.4f}"
-        lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {over or '-'} |")
+        enp = "-" if r.effective_parties is None else f"{r.effective_parties[0]:.2f} / {r.effective_parties[1]:.2f}"
+        lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {enp} | {over or '-'} |")
     return [*lines, ""]
 
 
