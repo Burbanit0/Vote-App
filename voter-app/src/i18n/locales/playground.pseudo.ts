@@ -1037,9 +1037,9 @@ const pgPseudo: PlaygroundKeys = {
       '⟦{{winner}} fíñít~~ déváñt~~~ {{runnerUp}} áú~ dérñíér~~~ déçómpté,~~~~ {{winnerVal}} à~ {{runnerUpVal}} :~ úñé~~ májóríté~~~ áú~ prémíér~~~ tóúr~~ l’émpórté~~~~ d’émbléé,~~~~ síñóñ~~ lés~~ déúx~~ prémíérs~~~ vóñt~~ áú~ séçóñd.~~~⟧',
     rule: {
       majority_judgment:
-        '⟦{{winner}} á~ lá~ méílléúré~~~~ méñtíóñ~~~ médíáñé~~~ :~ áú~ móíñs~~ lá~ móítíé~~~ dés~~ éléçtéúrs~~~~ lúí~~ dóññéñt~~~ çétté~~ méñtíóñ~~~ óú~ míéúx.~~~⟧',
+        '⟦{{winner}} á~ lá~ méílléúré~~~~ méñtíóñ~~~ médíáñé~~~ (lés~~ médíáñés~~~ égálés~~~ sóñt~~ dépártágéés~~~~ pár~~ lá~ règlé~~ dú~ júgéméñt~~~ májórítáíré)~~~~~ :~ áú~ móíñs~~ lá~ móítíé~~~ dés~~ éléçtéúrs~~~~ lúí~~ dóññéñt~~~ çétté~~ méñtíóñ~~~ óú~ míéúx.~~~⟧',
       bucklin:
-        '⟦{{winner}} ést~~ lé~ prémíér~~~ çíté~~ pár~~ úñé~~ májóríté~~~ :~ óñ~ çómpté~~~ lés~~ prémíérs~~~ çhóíx,~~~ púís~~ óñ~ ájóúté~~~ lés~~ déúxíèmés,~~~~ ét~ áíñsí~~ dé~ súíté.~~~⟧',
+        '⟦{{winner}} l’émpórté~~~~ qúáñd~~ óñ~ ájóúté~~~ lés~~ préféréñçés~~~~ súíváñtés~~~~ tóúr~~ pár~~ tóúr~~ :~ áú~ prémíér~~~ tóúr~~ óù~ qúélqú’úñ~~~~ áttéíñt~~~ lá~ májóríté~~~ dés~~ méñtíóñs,~~~~ {{winner}} éñ~ á~ lé~ plús.~~⟧',
       coombs:
         '⟦{{winner}} súrvít~~~ áúx~~ élímíñátíóñs~~~~~ :~ à~ çháqúé~~~ tóúr,~~ lé~ çáñdídát~~~ çlássé~~~ dérñíér~~~ pár~~ lé~ plús~~ d’éléçtéúrs~~~~ sórt,~~ júsqú’à~~~ çé~ qúé~~ qúélqú’úñ~~~~ áít~~ lá~ májóríté.~~~~⟧',
       nanson:

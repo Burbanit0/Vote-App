@@ -946,9 +946,9 @@ const pgEn: PlaygroundKeys = {
       '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: a first-round majority wins outright, otherwise the top two go on to a second round.',
     rule: {
       majority_judgment:
-        '{{winner}} has the best median grade: at least half the voters grade them that high or higher.',
+        '{{winner}} has the best median grade (equal medians are settled by majority judgment’s tie-break): at least half the voters grade them that high or higher.',
       bucklin:
-        '{{winner}} is the first to be named by a majority: first choices are counted, then second choices are added, and so on.',
+        '{{winner}} wins once lower preferences are added round by round: in the first round where anyone reaches a majority of mentions, {{winner}} has the most.',
       coombs:
         '{{winner}} survives the eliminations: round by round, the candidate ranked last by the most voters goes out, until someone has a majority.',
       nanson:

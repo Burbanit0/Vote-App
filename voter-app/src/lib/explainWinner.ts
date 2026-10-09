@@ -30,12 +30,21 @@ function runnerUpIn(bars: number[], except: number): number {
   return best;
 }
 
+/** STAR's runner-up is the other finalist of its runoff (the frame before the last
+ * names both), not whoever scores highest among the rest: a finalist with no runoff
+ * votes ties every non-finalist at 0. */
+function runnerUpOf(trace: VoteTrace, bars: number[], w: number): number {
+  if (trace.rule !== 'star') return runnerUpIn(bars, w);
+  const [a, b] = trace.frames[trace.frames.length - 2].highlight!;
+  return a === w ? b : a;
+}
+
 export function explainWinner(trace: VoteTrace, cands: NamedPt[]): WinnerExplanation {
   const w = trace.winner;
   const winner = cands[w]?.name ?? '';
   const final = trace.frames[trace.frames.length - 1];
   const bars = final?.bars ?? [];
-  const ru = runnerUpIn(bars, w);
+  const ru = runnerUpOf(trace, bars, w);
   const runnerUp = ru >= 0 ? (cands[ru]?.name ?? '') : '';
   const winnerVal = r(bars[w] ?? 0);
   const runnerUpVal = ru >= 0 ? r(bars[ru]) : 0;

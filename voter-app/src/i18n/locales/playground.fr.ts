@@ -968,9 +968,9 @@ const pgFr = {
       '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : une majorité au premier tour l’emporte d’emblée, sinon les deux premiers vont au second.',
     rule: {
       majority_judgment:
-        '{{winner}} a la meilleure mention médiane : au moins la moitié des électeurs lui donnent cette mention ou mieux.',
+        '{{winner}} a la meilleure mention médiane (les médianes égales sont départagées par la règle du jugement majoritaire) : au moins la moitié des électeurs lui donnent cette mention ou mieux.',
       bucklin:
-        '{{winner}} est le premier cité par une majorité : on compte les premiers choix, puis on ajoute les deuxièmes, et ainsi de suite.',
+        '{{winner}} l’emporte quand on ajoute les préférences suivantes tour par tour : au premier tour où quelqu’un atteint la majorité des mentions, {{winner}} en a le plus.',
       coombs:
         '{{winner}} survit aux éliminations : à chaque tour, le candidat classé dernier par le plus d’électeurs sort, jusqu’à ce que quelqu’un ait la majorité.',
       nanson:

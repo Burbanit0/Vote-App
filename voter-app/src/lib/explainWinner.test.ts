@@ -185,6 +185,31 @@ describe('explainWinner on real traces: every method gets a complete sentence', 
     expect(e.params).toMatchObject({ wins: 1, duels: 2 });
   });
 
+  it('STAR names the other finalist, even one with no runoff votes', () => {
+    // Everyone scores Carla 1, Bruno 0.6, Alice 0: Carla and Bruno go to the runoff,
+    // and Carla takes all of it. Alice (0 too) was never a finalist.
+    const sweep = Array.from({ length: 10 }, () => [2, 1, 0]);
+    const tr = buildTraceFromBallots(
+      CANDS,
+      sweep,
+      sweep.map(() => [0, 0.6, 1]),
+      'star'
+    );
+    expect(explainWinner(tr, CANDS).params).toMatchObject({ winner: 'Carla', runnerUp: 'Bruno' });
+    // The runoff can also go to the lower scorer: Bruno outscores Alice (94 to 60) but
+    // 60 of the 100 prefer Alice.
+    const upset = [
+      ...Array.from({ length: 60 }, () => [0, 1, 2]),
+      ...Array.from({ length: 40 }, () => [1, 0, 2]),
+    ];
+    const upsetScores = [
+      ...Array.from({ length: 60 }, () => [1, 0.9, 0]),
+      ...Array.from({ length: 40 }, () => [0, 1, 0]),
+    ];
+    const tr2 = buildTraceFromBallots(CANDS, upset, upsetScores, 'star');
+    expect(explainWinner(tr2, CANDS).params).toMatchObject({ winner: 'Alice', runnerUp: 'Bruno' });
+  });
+
   it('in the cycle, no pairwise method claims its winner won every duel', () => {
     for (const rule of LEADER_RULES.filter((r) => FAMILY_OF[r] === 'pairwise')) {
       const tr = buildTraceFromBallots(DEFAULT_CONFIG.candidates, cycle, cycleScores, rule);
