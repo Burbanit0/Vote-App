@@ -59,44 +59,50 @@ These are not weak preferences that a different sampling seed would flip. Sampli
 citizen at their own probability instead of taking the top answer would be expected to
 change 0.03 of the 17 decisions: not even one. The model was confidently constant.
 
-## Why the aggregates did not say so
+## Why the aggregates could not say so
 
-The runs had been checked, but with aggregate metrics, and aggregates measure something
-else. For the citizen's action, the shipped menu offered only two codes: do nothing, or
-wait for the election. Neither counts as mobilising, so a mobilisation rate of zero is
-exactly what that menu predicts whether the decision works or not. A flat answer and a
-working one produce the same aggregate. Only a per-citizen reading can tell them apart.
+For the citizen's action, the shipped menu offered only two codes: do nothing, or wait
+for the election. Neither counts as mobilising, so a mobilisation rate of zero is exactly
+what that menu predicts whether the decision works or not. A flat answer and a working
+one produce the same aggregate. Only a per-citizen reading can tell them apart.
 
-The other two did show up in the totals: across ten 100-citizen runs, coalition offers
-were accepted 152 times in 160, and presidents conceded in 299 of the 304 answers that
-did not fall back to a default. But a
-total cannot tell you what the inputs called for. Without that, 152 in 160 could be a
-cooperative society. The probe varied the inputs and showed the decision ignoring them.
+The other two do show in the totals, but a total cannot say whether the decision followed
+its inputs. Full runs a few days later, after a partial fix of the president's prompt,
+still had coalition offers accepted 152 times in 160 and presidents conceding in 299 of
+the 304 answers that did not fall back to a default. That could describe a cooperative
+society. Only varying the inputs shows whether the decision is listening to them.
 
 ## The constant that was the prompt's
 
 The citizen's action had a simpler explanation than the model. The rule the simulation
 uses to score it compares the citizen's gap with their personal threshold. The prompt
-sent the gap and **never sent the threshold**, and stated no rule. The model was asked
-whether a citizen was discontented enough to act, with a number and no scale.
+sent the gap and **never sent the threshold**. The model was asked whether a citizen was
+discontented enough to act, given a number with no scale.
 
-Given the rule and the threshold, one citizen per call, the model got it right: P(act)
-was **0.007** for the satisfied citizen and **1.000** for the angry one, a separation of
-+0.993. The same prompt with 17 citizens in one call stayed flat (+0.0001). In a
-calibration grid it failed at batch sizes 5 and 25, where most trials scored near the
-50% a constant answer gets. The calibrated prompt has shipped since 2026-09-10, one
-citizen per call. A live end-to-end check agreed with the rule on 12 of 12 citizens, on
-both sides of the threshold. On a frozen bank of 24 cases it agreed on 15, so the
-decision is no longer constant, but it is not validated either.
+A control prompt that stated the threshold and the rule outright, one citizen per call,
+got it right: P(act) was **0.007** for the satisfied citizen and **1.000** for the angry
+one, a separation of +0.993. In batches the same prompt became unstable: 17 citizens in
+one call read flat (+0.0001), and with the batch order randomized, accuracy swung between
+0 and 100% from one trial to the next at the same size.
+
+Stating the rule was never going to be the fix. A model that executes a rule written into
+its prompt is a slow copy of the rule, and the project forbids it. The shipped fix
+(2026-09-10) sends the threshold as data, with no rule, one citizen per call. In a
+calibration grid, prompts of that kind agreed with the rule at batch size 1 (on one side
+of the threshold only, a later correction found) and failed at batches of 5 and 25,
+mostly near the 50% a constant answer gets. Live, end to end, the shipped version agreed
+with the rule on 12 of 12 citizens, on both sides of the threshold. On a frozen bank of 24
+cases it agreed on 15. The decision is no longer constant, and it is not validated either.
 
 So one of the three flat lines was a question nobody could have answered, asked of many
 citizens at once. That is worth checking first, every time a decision looks dead.
 
 ## The constants that were the model's
 
-The other two did not go away so easily. A one-sentence calibration of the president's
-prompt moved the calm pole (P(concede) fell to 0.12 at legitimacy 0.95) but left every
-other point at about 1.0. Coalitions did not respond to calibration at all.
+The other two did not go away so easily. Calibrating the president's prompt, by stating
+two facts that were always true (the bounds of two of its inputs), moved the calm pole:
+P(concede) fell to 0.12 at legitimacy 0.95. Every other point stayed at about 1.0. A
+one-sentence calibration of the coalition prompt restored nothing.
 
 Two questions then mattered: is this one model, and is it instruction tuning?
 
@@ -109,35 +115,35 @@ Two questions then mattered: is this one model, and is it instruction tuning?
   instruction tuning. The coalition decision was flat in both. For the citizen's action
   (with the old prompt), the base model's probabilities moved a little more with the gap
   than the instruct model's, but neither cleared the pre-registered bar, and the emitted
-  decision was flat in all four cells. One run per arm, at 4B, so this narrows the
-  question rather than closing it.
+  decision was flat in all four cells (two models, two probe geometries). All of it is at
+  4B, so this narrows the question rather than closing it.
 
 ## What changed
 
-The project now keeps a table of which decision types a scientific claim may rest on.
-Casting a ballot is validated, at the bar; the coalition and the president's response are marked
-collapsed; most others are unverified. In the simulation's exploration setup, coalitions
-are negotiated by party-leader agents instead of a batched yes/no. A finding that rests on a decision type
-nobody has checked is stated as a finding about the whole simulated society, not about
-the agents' reasoning.
+The project now keeps a table of which decision types a scientific claim may rest on:
+only those marked validated, or one whose role in that claim has been checked directly.
+Casting a ballot is validated, at the bar; the coalition and the president's response are
+marked collapsed; most others are unverified. In the simulation's exploration setup,
+coalitions are negotiated by party-leader agents instead of a batched yes/no.
 
 The same habit stopped an experiment this month. Before spending GPU days on the effect
 of a seat threshold on party founding, a probe told 60 would-be founders the threshold
-was 3%, then 7%. 59 of the 60 founded either way, including at least 13 of the 14 whose
-backing was below 7%. The experiment did not run.
+was 3%, then 7% (sampled at temperature 0.6 this time, not read from logprobs). 59 of the
+60 founded at each threshold, including at least 13 of the 14 whose backing was below 7%.
+The experiment did not run.
 
 ## What this does not show
 
-- Every probe here is small: at most 17 points, at temperature 0, mostly on one model.
-  The point is not the precise numbers. It is that the numbers do not move.
+- The logprob probes are small: at most 17 points each, at temperature 0, mostly on one
+  model. The point is not the precise numbers. It is that the numbers do not move.
 - Not every decision collapsed. The blank vote tracks its rule, candidacy and nomination
   decisions show no collapse, and a flat reading of an economic-shock reaction was not
   classified as one.
 - "Flat" here means the two ends of the axis agree. Granite's coalition curve dips in the
   middle, and the probe's extreme points include situations production never creates.
-- The citizen's action works only one citizen per call. Batched, the calibrated prompt
-  still falls to about the constant's score, and even alone it agrees on 15 of 24 bank
-  cases.
+- The citizen's action works only one citizen per call. Batched, the calibrated prompts
+  fall to about a constant's score, and even alone the shipped one agrees on 15 of 24
+  bank cases.
 
 ---
 
@@ -151,14 +157,14 @@ backing was below 7%. The experiment did not run.
 `check_pressure_calibration_matrix_results.md`,
 `check_pressure_shipped_wiring_results.md`,
 `check_response_calibration_results.md`,
+`check_coalition_calibration_results.md`,
 `check_base_vs_instruct_results.md`,
 `check_vllm_collapse_signatures_results.md`,
 `check_base_vs_instruct_gate_results.md`,
 `check_pressure_gap_tracking_geometry_b_results.md` and
 `bakeoff_s24_first_wave_results.md`. The instrument is
 `fast_api_voter/api/domain/polity/llm_logprob_instrumentation.py`. The aggregate counts
-are in [`observations.md`](../plan/polity/observations.md) (OBS-007 and the coalition
-entry), the table of fit decision types is
+are in [`observations.md`](../plan/polity/observations.md) (OBS-007), the table of fit decision types is
 [`fit-for-inference.md`](../plan/polity/fit-for-inference.md), and the threshold probe is
 OBS-045. The French synthesis of the whole programme is
 [`synthese-programme-llm-2026-09-10.md`](../plan/polity/synthese-programme-llm-2026-09-10.md).*

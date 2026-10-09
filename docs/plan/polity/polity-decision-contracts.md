@@ -55,7 +55,7 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 | `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
 | `chamber_deliberation` | ✅ | ✅ | ❌ | ✅ | n/a | Non tranché |
 | `reaction_to_event` | ✅ | ✅ | ❌ | ✅ | n/a | Pas de collapse détecté sur l'axe testé |
-| `pressure_action` | ✅ | ✅ | ❌ | ✅ | ❌ | **Collapse confirmé** |
+| `pressure_action` | ✅ | ✅ | ❌ | ✅ | ❌ | **Collapse confirmé** jusqu'au 2026-09-10 ; corrigé depuis (« Livré, 2026-09-10 », §`pressure_action` ci-dessous) |
 
 ### La régularité que l'audit fait apparaître
 
