@@ -81,9 +81,31 @@ def _digest_path(output_dir: Path, run_id: str) -> Path:
     return output_dir / run_id / "run" / run_id / "digest.json"
 
 
+def _run_flags(args: argparse.Namespace) -> list[str]:
+    """The flags that make this sweep one arm (PLAN_BEYOND_CI W2.1), passed to every run."""
+    return [
+        "--engine", args.engine, "--profile", args.profile,
+        *(["--threshold", repr(args.threshold)] if args.threshold is not None else []),
+        *(["--freeze-amendments"] if args.freeze_amendments else []),
+    ]
+
+
+def _claim_output_dir(output_dir: Path, run_flags: Sequence[str]) -> None:
+    """One output directory is one arm: record its flags, and refuse a sweep with other flags,
+    so a --resume-sweep into the wrong directory cannot count one arm's runs as the other's."""
+    record = output_dir / "sweep_flags.json"
+    if record.exists():
+        recorded = json.loads(record.read_text(encoding="utf-8"))
+        if recorded != list(run_flags):
+            raise SystemExit(f"{output_dir} holds a sweep run with {recorded}, not {list(run_flags)}: use another --output-dir")
+    else:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps(list(run_flags)), encoding="utf-8")
+
+
 def _run_one_seed(
     *, years: int, population: int, seed: int, repeat: int, seats: int, output_dir: Path, max_batch_replays: int,
-    resume_sweep: bool, model: str | None = None, run_flags: Sequence[str] = ("--engine", "llm"),
+    resume_sweep: bool, run_flags: Sequence[str], model: str | None = None,
 ) -> trial.TrialResult:
     run_id = _run_id_for(years, population, seed, repeat)
     run_dir = output_dir / run_id
@@ -245,7 +267,9 @@ def _provenance_section(runs: list[SweepRun]) -> list[str]:
     return [*lines, ""]
 
 
-def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: list[int]) -> Path:
+def _write_sweep_summary(
+    output_dir: Path, years: int, population: int, seeds: list[int], run_flags: Sequence[str] = (),
+) -> Path:
     """Generated from each run's own digest.json and progress.json -- never
     hand-typed. Across-seed statistics use each seed's first completed run;
     repeats of a seed are reported against them, and S0.7's pre-registered red
@@ -255,6 +279,7 @@ def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: l
     firsts = first_completed_runs(runs)
     lines = [
         f"# Seed sweep — {years}y, population {population} ({len(runs)} runs)\n",
+        f"- run flags (this sweep's arm): `{' '.join(run_flags) or 'none recorded'}`",
         f"- seeds requested, in order: {seeds}",
         f"- completed: {sum(r.completed for r in runs)}/{len(runs)} runs; {len(firsts)} distinct seeds completed\n",
         *_provenance_section(runs),
@@ -305,11 +330,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--planned-n", type=int, default=None, help="defaults to len(seeds)")
     args = parser.parse_args(argv)
 
-    run_flags = [
-        "--engine", args.engine, "--profile", args.profile,
-        *(["--threshold", str(args.threshold)] if args.threshold is not None else []),
-        *(["--freeze-amendments"] if args.freeze_amendments else []),
-    ]
+    if args.threshold is not None and not 0 <= args.threshold <= 0.15:
+        parser.error(f"--threshold is a share between 0 and 0.15 (the article's range): 0.03 for 3%, not {args.threshold}")
+    run_flags = _run_flags(args)
+    _claim_output_dir(args.output_dir, run_flags)
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
     if not seeds:
         parser.error("--seeds must name at least one seed")
@@ -339,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
         result = trial.record_trial(
             experiment.experiment_id, i,
             container_name="vllm-polity",
-            inference_backend="vllm",
+            inference_backend="vllm" if args.engine == "llm" else "none (deterministic engine)",
             run_call=lambda seed=seed, repeat=repeat: _run_one_seed(
                 years=args.years, population=args.population, seed=seed, repeat=repeat, seats=args.seats or 75,
                 output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
@@ -350,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
 
     report_path = args.output_dir / f"harness-report-{experiment.experiment_id}.md"
     report_path.write_text(report.generate_report(experiment.experiment_id), encoding="utf-8")
-    summary_path = _write_sweep_summary(args.output_dir, args.years, args.population, seeds)
+    summary_path = _write_sweep_summary(args.output_dir, args.years, args.population, seeds, run_flags)
 
     print(f"\nharness report: {report_path}")
     print(f"sweep summary: {summary_path}")

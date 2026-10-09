@@ -96,7 +96,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.checkpoint import config_hash  # noqa: E402
-from api.domain.polity.config import PolityConfig, load_config, validate_config  # noqa: E402
+from api.domain.polity.config import ARTICLES, PolityConfig, load_config, validate_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME  # noqa: E402
 from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
@@ -257,8 +257,13 @@ def _experiment_overrides(config: PolityConfig, *, threshold: float | None, free
     under test. `freeze_amendments` keeps it there: the chamber can no longer amend the
     constitution (OBS-040's seed 1 lowered its own bar mid-run), so regime acts go too
     (config.py: they are a field of the president's amendment turn), and so do
-    referendums on the voting method."""
+    referendums on the voting method, and so do scripted amendments."""
     if threshold is not None:
+        article = ARTICLES["institutions.electoral_threshold"]
+        if not article.allows(threshold):
+            raise ValueError(
+                f"--threshold {threshold}: the article allows {article.low} to {article.high} (a share: 0.03 for 3%)"
+            )
         config = dataclasses.replace(
             config, institutions=dataclasses.replace(config.institutions, electoral_threshold=threshold),
         )
@@ -267,7 +272,7 @@ def _experiment_overrides(config: PolityConfig, *, threshold: float | None, free
             config,
             agents=dataclasses.replace(config.agents, amendments=False),
             regime=dataclasses.replace(config.regime, enabled=False),
-            constitution=dataclasses.replace(config.constitution, referendum="never"),
+            constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
         )
     return config
 

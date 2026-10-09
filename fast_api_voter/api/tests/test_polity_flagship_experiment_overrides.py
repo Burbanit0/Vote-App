@@ -1,27 +1,12 @@
 """run_polity_flagship.py's --threshold and --freeze-amendments (PLAN_BEYOND_CI W2.1/W2.2 item 3)."""
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from api.domain.polity.config import validate_config
-
-_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_flagship.py"
-
-
-@pytest.fixture(scope="module")
-def flagship() -> Any:
-    spec = importlib.util.spec_from_file_location("run_polity_flagship", _SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["run_polity_flagship"] = module
-    spec.loader.exec_module(module)
-    return module
-
 
 def _config(flagship: Any, tmp_path: Path, **overrides: Any) -> Any:
     return flagship._flagship_config(
@@ -46,3 +31,36 @@ def test_the_knobs_survive_the_exploration_profile_and_validate(flagship: Any, t
 
 def test_without_the_knobs_nothing_changes(flagship: Any, tmp_path: Path) -> None:
     assert _config(flagship, tmp_path, threshold=None, freeze_amendments=False) == _config(flagship, tmp_path)
+
+
+def test_a_threshold_outside_the_articles_range_is_refused(flagship: Any, tmp_path: Path) -> None:
+    for bad in (3.0, -0.01, 0.2, float("nan")):
+        with pytest.raises(ValueError, match="the article allows"):
+            _config(flagship, tmp_path, threshold=bad)
+
+
+def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) -> None:
+    assert _config(flagship, tmp_path, freeze_amendments=True).constitution.scripted == ()
+
+
+def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(tmp_path: Path) -> None:
+    import argparse
+    import importlib.util
+    import sys
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_seed_sweep.py"
+    spec = importlib.util.spec_from_file_location("run_polity_seed_sweep", script)
+    assert spec is not None and spec.loader is not None
+    sweep = importlib.util.module_from_spec(spec)
+    sys.modules["run_polity_seed_sweep"] = sweep
+    spec.loader.exec_module(sweep)
+
+    args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True)
+    flags = sweep._run_flags(args)
+    assert flags == ["--engine", "llm", "--profile", "exploration", "--threshold", "0.03", "--freeze-amendments"]
+    sweep._claim_output_dir(tmp_path, flags)
+    sweep._claim_output_dir(tmp_path, flags)  # the same arm resumes
+    with pytest.raises(SystemExit, match="use another --output-dir"):
+        sweep._claim_output_dir(tmp_path, sweep._run_flags(argparse.Namespace(
+            engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True)))
+
