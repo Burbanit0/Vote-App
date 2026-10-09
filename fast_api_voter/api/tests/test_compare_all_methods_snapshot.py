@@ -105,6 +105,10 @@ def test_the_tie_tests_cover_every_method():
     assert _NO_WINNER_ON_A_FULL_TIE <= set(_METHODS)
 
 
+# On this electorate no voter has a tie of their own, so the ranked rules receive the same
+# rankings in both orders: their cases here only guard the report around them. Listing
+# order reaches a ranked rule through the ties inside a voter's ranking, which is what the
+# indifferent-voter test below exercises.
 @pytest.mark.parametrize("method", [
     pytest.param(m, marks=pytest.mark.xfail(
         strict=True, raises=AssertionError, reason="#667: the tie follows listing order"))
@@ -120,11 +124,17 @@ def test_a_tie_does_not_follow_listing_order(method):
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="#662: an indifferent voter's ranking follows listing order; #667")
+                   reason="#662: an indifferent voter's ranking follows listing order")
 def test_an_indifferent_voter_does_not_make_the_result_follow_listing_order():
-    """One voter with Ann == Ben. Today 30 of the 34 winners change when the order is
-    reversed, because that voter's ranking does."""
-    assert _tied_methods(_TIE_NAMES, True) == _tied_methods(_TIE_NAMES[::-1], True)
+    """One voter with Ann == Ben. Today that voter's ranking follows the listing order,
+    and with it 21 ranked winners and the Condorcet winner (so every method's
+    `condorcet_consistent`). The score rules are left out: they read utilities, and
+    their ties are #667's, tested above."""
+    def ranked_side(order):
+        methods = _tied_methods(order, True)
+        return {m: e for m, e in methods.items() if m not in SCORE_RULES}
+
+    assert ranked_side(_TIE_NAMES) == ranked_side(_TIE_NAMES[::-1])
 
 
 def test_the_default_report_omits_strategic_vulnerability():
