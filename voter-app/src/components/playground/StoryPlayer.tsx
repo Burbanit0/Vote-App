@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import ReportContentError from '../shared/ui/ReportContentError';
 import {
   Ghost,
   Minimize2,
@@ -174,6 +175,9 @@ const StoryPlayer: React.FC = () => {
 
         <p data-testid="story-beat" className="mt-2 text-sm leading-relaxed text-foreground">
           {t(step.beatKey)}
+        </p>
+        <p className="mt-1">
+          <ReportContentError where={`story:${active.id}/${step.id}`} />
         </p>
 
         <div className="mt-3 flex items-center justify-between gap-3">
