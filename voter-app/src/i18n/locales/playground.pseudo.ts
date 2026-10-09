@@ -1196,6 +1196,17 @@ const pgPseudo: PlaygroundKeys = {
     caption:
       '⟦Pósítíóñs~~~~ dédúítés~~~ dés~~ búllétíñs~~~~ (prójéçtíóñ~~~~ PCÁ),~~ ñóñ~~ çhóísíés~~~ :~ lés~~ çáñdídáts~~~~ ñé~ sóñt~~ pás~~ dépláçáblés.~~~~~ Cháqúé~~~ çáñdídát~~~ ést~~ pláçé~~ áú~ báryçéñtré~~~~ dés~~ éléçtéúrs~~~~ qúí~~ lé~ sóútíéññéñt.~~~~~⟧',
   },
+  strip: {
+    under: '⟦Ávéç~~ {{rule}} :~⟧',
+    noFixedWinner: '⟦pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
+    noFixedWinnerTitle:
+      '⟦Úñ~ vóté~~ áú~ sórt~~ tíré~~ úñ~ búllétíñ~~~ áú~ hásárd~~~ :~ çháqúé~~~ çáñdídát~~~ gágñé~~ ávéç~~ lá~ párt~~ dés~~ éléçtéúrs~~~~ qúí~~ lé~ pláçéñt~~~ éñ~ têté.~~⟧',
+    othersElect: '⟦Lés~~ áútrés~~~ méthódés~~~ çóçhéés~~~ élíséñt~~~ :~⟧',
+    othersAgree_one: '⟦L’áútré~~~ méthódé~~~ çóçhéé~~~ élít~~ lé~ mêmé~~ váíñqúéúr.~~~~⟧',
+    othersAgree_other:
+      '⟦Lés~~ {{count}} áútrés~~~ méthódés~~~ çóçhéés~~~ élíséñt~~~ lé~ mêmé~~ váíñqúéúr.~~~~⟧',
+    sincere: '⟦(vótés~~~ síñçèrés)~~~~⟧',
+  },
   instrument: {
     labelLeader: '⟦Cárté~~ ídéólógíqúé~~~~ —~ dírígéáñt~~~~⟧',
     labelAssembly: '⟦Cómpósítíóñ~~~~ dé~ l’ássémbléé~~~~⟧',
@@ -1204,7 +1215,6 @@ const pgPseudo: PlaygroundKeys = {
     paradoxLoading: '⟦·~ ·~ ·~⟧',
     paradoxTitle:
       '⟦Párt~~ dés~~ éléçtóráts~~~~ ré-éçháñtíllóññés~~~~~~ sáñs~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ úñ~ táúx~~ élévé~~ sígñálé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dés~~ hypóthèsés.~~~~⟧',
-    condorcet: '⟦Cóñdórçét~~~~ :~ {{name}}⟧',
     shake: '⟦🎲~ Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
     shakeTitle:
       "⟦Ré-éçháñtíllóññé~~~~~~ l'éléçtórát~~~~ 60~ fóís~~ (mêmés~~~ hypóthèsés,~~~~ ñóúvéáúx~~~ tírágés)~~~ —~ sépáré~~~ úñé~~ própríété~~~~ strúçtúréllé~~~~~ d'úñ~~ réglágé~~~ çhóísí.~~~⟧",
