@@ -27,17 +27,14 @@ def test_a_real_run_is_reproduced_at_its_own_threshold_and_moves_at_another(tmp_
     assert all(row["reseated_enp"] is None and row["reseated_parties_seated"] == 0 for row in unreachable)
 
 
-def test_an_amended_threshold_applies_from_the_next_election():
-    founding = {"run": {"seed": 1}, "institutions": {"electoral_threshold": 0.05, "seat_allocation": "dhondt", "assembly_seats": 10}}
-    votes = {"0": 60.0, "1": 36.0, "2": 4.0}  # party 2 has 4%
-    events = [
-        _legislative(4, votes, {"0": 6, "1": 4, "2": 0}),
-        {"tick": 6, "event_type": "constitution_amended",
-         "payload": {"article": "institutions.electoral_threshold", "old": 0.05, "new": 0.03, "version": 1, "source": "vote"}},
-        _legislative(12, votes, {"0": 6, "1": 4, "2": 0}),
-    ]
+def test_an_amended_threshold_governs_every_election_journaled_after_it_its_own_tick_included():
+    founding = {"run": {"seed": 1}, "institutions": {"electoral_threshold": 0.05, "seat_allocation": "dhondt", "assembly_seats": 100}}
+    votes = {"0": 60.0, "1": 36.0, "2": 4.0}  # party 2 has 4%: out at 5%, in at 3%
+    amend = {"tick": 12, "event_type": "constitution_amended",
+             "payload": {"article": "institutions.electoral_threshold", "old": 0.05, "new": 0.03, "version": 1, "source": "vote"}}
+    events = [_legislative(4, votes, {}), amend, _legislative(12, votes, {})]  # same tick: amendment first
     first, second = reseat(events, founding)
-    assert first["threshold_in_force"] == 0.05 and second["threshold_in_force"] == 0.03
-    assert first["reseated_seats"]["2"] == 0  # below 5%
-    assert second["reseated_parties_seated"] == first["reseated_parties_seated"]  # 4% of 10 seats rounds to 0 under D'Hondt
-    assert reseat(events, founding, threshold=0.0)[0]["threshold_applied"] == 0.0
+    assert (first["threshold_in_force"], second["threshold_in_force"]) == (0.05, 0.03)
+    assert first["reseated_seats"]["2"] == 0 and second["reseated_seats"]["2"] > 0  # the amendment moves the seats
+    fixed = reseat(events, founding, threshold=0.05)  # a fixed bar overrides the amendment
+    assert fixed[1]["threshold_applied"] == 0.05 and fixed[1]["reseated_seats"]["2"] == 0

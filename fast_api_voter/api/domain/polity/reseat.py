@@ -6,8 +6,9 @@ between a re-seated run and a run actually played at that threshold is what the
 agents did about it (the behavioural effect). OBS-040 did this by hand once.
 
 The rules in force at each election are followed through the journal's own
-`constitution_amended` events, so an amended threshold, seat method or assembly size
-is applied from the election after it passed. Seat ties draw from the same seeded lot
+`constitution_amended` events, replayed in journal order: an amended threshold, seat
+method or assembly size governs every election journaled after it, its own tick's
+included (the constitution phase runs before that tick's election). Seat ties draw from the same seeded lot
 as the simulation (`legislative-seats:{seed}:{tick}`), so with the threshold left as
 recorded the seats come back identical -- the check that this reads the run right.
 """
@@ -35,8 +36,7 @@ def reseat(
     same votes, at `threshold` (None: the threshold in force, which must reproduce the record).
     `founding` is the run's config.json; `events` its journal, in order."""
     institutions = founding["institutions"]
-    rules: dict[str, Any] = {f"institutions.{key}": institutions[key] for key in
-                             ("electoral_threshold", "seat_allocation", "assembly_seats")}
+    rules: dict[str, Any] = {path: institutions[path.removeprefix("institutions.")] for path in _RULES}
     seed = founding["run"]["seed"]
     rows = []
     for event in events:
