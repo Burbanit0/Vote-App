@@ -23,6 +23,6 @@ describe('ReportContentError', () => {
       resolve(__dirname, '../../../../../../.github/ISSUE_TEMPLATE/content-error.yml'),
       'utf8'
     );
-    expect(form).toMatch(/^\s+id: where$/m);
+    expect(form).toContain('    id: where\n');
   });
 });
