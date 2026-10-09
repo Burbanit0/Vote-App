@@ -72,6 +72,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
+| [OBS-044](#obs-044) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 
 ---
 
@@ -2096,3 +2097,39 @@ reaches for the undecided more than ahead, ahead mostly does not campaign) holds
 `vote.partisanship` is above 0; the forum rules keep "a party nominates only its own members", which is true.
 
 *Status: fixed.*
+
+### OBS-044
+
+**Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way.**
+
+*Seen.* The W2.1 gate of `docs/plan/PLAN_BEYOND_CI.md`, on 2026-10-09: `python
+scripts/check_agent_prompt_neutrality.py --probe threshold --n 60` (from `fast_api_voter/`, backend at `polity`
+9201bc58), vLLM 0.31.0 serving `qwen3:8b` at temperature 0.6, the citizens of `eng-8y-p100-seed2` (phase 4).
+Each of 60 citizens who could found a party (enough others would co-found) answers the same forum turn twice.
+The only change is the threshold in the sentence the founders have been told since PR #861: "a party with less
+than X% of the votes cast for parties wins no seat".
+
+| told | found |
+|---|---:|
+| 3% | 59 / 60 |
+| 7% | 59 / 60 |
+
+One citizen founded only at 3% and one only at 7%: exact McNemar p = 1. The output is in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
+
+*Reading.* With enough co-founders, founding sits at its ceiling: 97% in the D2 probe (n=30) and 98-99% in
+OBS-043's runs (n=80). Stating a higher bar to a seat does not pull it down. The same turn does respond to its
+state: `found` moves 97 points with the co-founder count (PR #861).
+
+*Suspected cause.* The forum turn weighs the co-founder count, which its prompt states as a fact about this
+citizen, and treats the threshold as a general rule it does not apply to its own party. Not tested.
+
+*What would settle it.* A probe that also states the consequence (that this party would win no seat) would
+separate "does not apply the rule" from "ignores it". But such a sentence leads the answer (contract C3), so
+it is not planned.
+
+*Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
+pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold
+(`fit-for-inference.md`).
+
+*Status: open.*

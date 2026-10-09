@@ -203,6 +203,8 @@ the expert review in W1.4.
    - Give the same founder briefing with only the stated threshold changed (3, 5 or
      7%) and measure P(`found`).
    - If founding does not respond, **stop**. That is the finding, and it is cheap.
+   - **Result (2026-10-09): STOP.** Told 3% or 7%, able founders found 59/60 both
+     times (exact McNemar p = 1; OBS-044). Steps 2-5 and W2.4 do not run.
 2. **Pilot.** One run on the current tip with D2 applied, timed. The GPU cap is set
    from it.
 3. **Main run.** The LLM arm only: threshold 3% vs 5%, at least 10 paired seeds,
@@ -238,7 +240,7 @@ the expert review in W1.4.
 The experiment's claim rests only on its own channel, forum founding and leaving, and
 the gate probe is that channel's check.
 
-**W2.4 Pre-registration, outside review, run.**
+**W2.4 Pre-registration, outside review, run.** Dropped: the W2.1 gate said STOP (OBS-044).
 - Use the D9/Stage 4 template (`plan-polity-build-order.md:828-905`).
 - Proof of order is the merge time, not a commit date.
 - Send the pre-registration for one outside read before spending GPU time.

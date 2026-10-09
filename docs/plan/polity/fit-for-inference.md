@@ -5,7 +5,7 @@
 
 **The rule.** A result may rest only on decision types marked **validated** here, or on a
 type whose role in that claim has been checked directly. For the threshold experiment,
-that check is W2.1's gate probe on forum `found`.
+that check was W2.1's gate probe on forum `found`, and it said STOP (2026-10-09, OBS-044).
 
 Every row comes from an existing measurement; this table adds no new evidence. The terms
 follow `plan-decision-quality-validation.md`:
@@ -20,7 +20,7 @@ follow `plan-decision-quality-validation.md`:
 before these sources were reread.
 - `candidacy_considered` keeps "unverified", but with its measured agreement shown.
 - `vote_cast` is validated **at the bar**, not above it.
-- Forum `party_move` is unverified for accuracy, but its sensitivity has been checked.
+- Forum `party_move` is unverified for accuracy. It is sensitive to the co-founder count, but not to the stated threshold (the W2.1 gate, OBS-044).
 
 ## Crowd decisions (batched, closed codes)
 
@@ -44,11 +44,14 @@ which is weaker.
 
 | Turn | Verdict | Evidence | Open |
 |---|---|---|---|
-| Forum `party_move` | **Unverified; sensitive to its state; one dead option** | Neutrality probe, n=30: `found` moves 97% with the co-founder count, the paraphrase moves 6%, and `leave` is never chosen (PR #861, `fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`). Wording alone once kept `found` at 0 (OBS-029, fixed by rewording). | **The W2.1 gate:** does `found` move with the stated seat threshold? It needs a GPU run after the D2 change. |
+| Forum `party_move` | **Unverified; sensitive to its state; one dead option** | Neutrality probe, n=30: `found` moves 97% with the co-founder count, the paraphrase moves 6%, and `leave` is never chosen (PR #861, `fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`). Wording alone once kept `found` at 0 (OBS-029, fixed by rewording). | **The W2.1 gate said no** (2026-10-09, OBS-044): told 3% or 7%, able founders found 59/60 both times, exact McNemar p = 1. |
 | Amendment ballot (chamber) | **Unverified; sensitivity checked** | OBS-030 and OBS-038; the neutrality harness `ballot` probe. | Ballot reasons echo the proposer's (OBS-038). |
 | President, nominee, coalition leader, extra-legal act | **Unverified; sanity checks only** | OBS-028, OBS-035, OBS-041, OBS-043; the neutrality harness `president` and `campaign` probes. | No accuracy measure. |
 
 ## What this means for W2.1
+
+**The gate said STOP (2026-10-09, OBS-044), so the experiment does not run.** The notes below
+are kept as the reasoning it was designed with.
 
 - **The primary outcome is the forum's `found` rate.** It is an agent turn, not a crowd
   decision. It becomes fit only once the gate shows `found` responding to the stated
