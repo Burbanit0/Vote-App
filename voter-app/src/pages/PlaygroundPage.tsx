@@ -11,6 +11,7 @@ import {
 import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
 import GuidedFooter from '../components/playground/GuidedFooter';
+import WinnerStrip from '../components/playground/WinnerStrip';
 import StoryPlayer from '../components/playground/StoryPlayer';
 import { track } from '../lib/analytics';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
@@ -105,6 +106,7 @@ const PlaygroundShell: React.FC = () => {
 
       {/* ── Moment console ── */}
       <MomentRail active={activeMoment} onSelect={setActiveMoment} />
+      <WinnerStrip />
 
       <div className="mt-4">
         {activeMoment === 'campaign' ? (

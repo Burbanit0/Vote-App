@@ -549,3 +549,59 @@ describe('PlaygroundPage (P0 shell)', () => {
     ]);
   });
 });
+
+describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
+  const checked = () =>
+    screen
+      .getAllByTestId(/^rule-check-/)
+      .filter((el) => (el.querySelector('input') as HTMLInputElement).checked)
+      .map((el) => el.getAttribute('data-testid')!.replace('rule-check-', ''));
+
+  it('names a winner from the first moment, the same one the map shows', () => {
+    renderPage();
+    const current = () => screen.getByTestId('winner-strip-current').querySelector('strong');
+    expect(current()?.textContent).toMatch(/\S/);
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(current()?.textContent).toBe(
+      screen.getByTestId('field-winner').querySelector('strong')?.textContent
+    );
+  });
+
+  it('ticks the five intro methods by default, and the strip covers the other four', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(checked().sort()).toEqual(['approval', 'condorcet', 'irv', 'plurality', 'two_round']);
+    const groups = screen.queryAllByTestId(/^winner-strip-group-/);
+    const listed = groups.flatMap((g) => g.getAttribute('data-rules')!.split(','));
+    if (groups.length === 0) {
+      expect(screen.getByTestId('winner-strip-others')).toHaveTextContent('other 4 ticked');
+    } else {
+      expect(listed.sort()).toEqual(['approval', 'condorcet', 'irv', 'two_round']);
+    }
+  });
+
+  it('shows the lottery as having no fixed winner, on the map, in the strip and in the Bilan', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.click(screen.getByTestId('rule-check-random_ballot'));
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'random_ballot' } });
+    expect(screen.getByTestId('winner-strip-current')).toContainElement(
+      screen.getAllByTestId('no-fixed-winner')[0]
+    );
+    expect(
+      screen.getByTestId('field-winner').querySelector('[data-testid="no-fixed-winner"]')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    expect(screen.getByTestId('winner-group-lottery')).toBeInTheDocument();
+    for (const g of screen.getAllByTestId(/^winner-group-\d+$/)) {
+      expect(g).not.toHaveTextContent(/lottery/i);
+    }
+  });
+
+  it('is absent in assembly mode', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    expect(screen.queryByTestId('winner-strip')).not.toBeInTheDocument();
+  });
+});

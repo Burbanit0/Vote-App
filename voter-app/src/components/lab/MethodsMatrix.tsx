@@ -98,17 +98,27 @@ const MethodsMatrix: React.FC = () => {
                       <span className="w-36 shrink-0 text-[0.72rem] text-muted-foreground">
                         {ruleLabels[rule]}
                       </span>
-                      {winner && (
+                      {rule === 'random_ballot' ? (
                         <span
-                          className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
-                          style={{
-                            color: textTone(candidateColor(winIdx)),
-                            borderColor: candidateColor(winIdx) + '55',
-                            background: candidateColor(winIdx) + '12',
-                          }}
+                          data-testid="no-fixed-winner"
+                          title={t('strip.noFixedWinnerTitle')}
+                          className="text-[0.7rem] italic text-muted-foreground"
                         >
-                          {winner.name}
+                          {t('strip.noFixedWinner')}
                         </span>
+                      ) : (
+                        winner && (
+                          <span
+                            className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
+                            style={{
+                              color: textTone(candidateColor(winIdx)),
+                              borderColor: candidateColor(winIdx) + '55',
+                              background: candidateColor(winIdx) + '12',
+                            }}
+                          >
+                            {winner.name}
+                          </span>
+                        )
                       )}
                     </div>
                   );

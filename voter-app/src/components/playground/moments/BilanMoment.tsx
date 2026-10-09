@@ -67,8 +67,16 @@ function AxisCell({ axis }: { axis?: { mean: number; lo: number; hi: number } })
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
-  const { mode, assembly, parlSc, currentAxes, leaderSc, result, votingVoters, leaderCandidates } =
-    usePlaygroundCtx();
+  const {
+    mode,
+    assembly,
+    parlSc,
+    currentAxes,
+    leaderSc,
+    result,
+    expressedVoters,
+    leaderCandidates,
+  } = usePlaygroundCtx();
   const { enabledRules } = useMethodSelection();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
 
@@ -80,22 +88,25 @@ const BilanMoment: React.FC = () => {
   );
   const familyRules = useMemo(() => rulesByFamily(activeRules), [activeRules]);
 
+  // Expressed ballots, as on the map and in the winner strip (blank votes excluded).
   const liveWinners = useMemo(() => {
-    if (!votingVoters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
+    if (!expressedVoters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
     return activeRules.reduce(
       (acc, rule) => {
-        acc[rule] = ruleWinner(votingVoters, leaderCandidates, rule);
+        acc[rule] = ruleWinner(expressedVoters, leaderCandidates, rule);
         return acc;
       },
       {} as Record<Rule, number>
     );
-  }, [votingVoters, leaderCandidates, activeRules]);
+  }, [expressedVoters, leaderCandidates, activeRules]);
 
   // Group methods by the candidate they elect (most-backed first) — the synthesis
-  // that makes the thesis literal: does the winner depend on the rule?
+  // that makes the thesis literal: does the winner depend on the rule? The lottery
+  // has no fixed winner, so it is listed apart rather than counted with anyone.
   const winnerGroups = useMemo(() => {
     const m = new Map<number, Rule[]>();
     for (const rule of activeRules) {
+      if (rule === 'random_ballot') continue;
       const idx = liveWinners[rule];
       if (idx == null || idx < 0) continue;
       const arr = m.get(idx) ?? [];
@@ -116,7 +127,7 @@ const BilanMoment: React.FC = () => {
         <MethodReplayModal
           show
           onHide={() => setReplayRule(null)}
-          voters={votingVoters}
+          voters={expressedVoters}
           candidates={leaderCandidates}
           initialRule={replayRule}
         />
@@ -200,6 +211,12 @@ const BilanMoment: React.FC = () => {
                 </div>
               </div>
             ))}
+            {enabledRules.has('random_ballot') && (
+              <p data-testid="winner-group-lottery" className="text-xs text-muted-foreground">
+                {t('strip.under', { rule: ruleLabels.random_ballot })}{' '}
+                <strong title={t('strip.noFixedWinnerTitle')}>{t('strip.noFixedWinner')}</strong>
+              </p>
+            )}
           </div>
 
           {/* ── 3. Robustness detail (per-method resistance + replay) ── */}

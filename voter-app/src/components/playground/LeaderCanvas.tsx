@@ -282,7 +282,14 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </select>
             </label>
             <div className="flex items-center gap-2">
-              {strat ? (
+              {rule === 'random_ballot' ? (
+                <span data-testid="field-winner" className="text-sm">
+                  {t('canvas.winnerLabel')}{' '}
+                  <strong data-testid="no-fixed-winner" title={t('strip.noFixedWinnerTitle')}>
+                    {t('strip.noFixedWinner')}
+                  </strong>
+                </span>
+              ) : strat ? (
                 <span data-testid="field-winner" className="flex items-center gap-1 text-sm">
                   {t('canvas.winnerLabel')}
                   {strat.flipped ? (

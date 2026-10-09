@@ -116,6 +116,10 @@ export const LEADER_RULES: Rule[] = [
   'random_ballot',
 ];
 
+/** The playground's default compared set: five methods a newcomer can follow, close to
+ * /decouvrir's DEMO_RULES. "Tout cocher" still turns on all of LEADER_RULES. */
+export const INTRO_RULES: Rule[] = ['plurality', 'two_round', 'irv', 'approval', 'condorcet'];
+
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
 export const EXTRA_RULES: Rule[] = [];
