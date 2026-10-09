@@ -69,8 +69,15 @@ class _RefuserClient(_AgentFakeClient):
         return json.dumps(_turn(extra_legal="refuse_to_leave"))
 
 
-def _run(tmp_path: Path, regime: RegimeConfig) -> list[dict[str, Any]]:
-    journal = run_simulation(_regime_config(tmp_path, regime), run_id="regime", llm_client=_RefuserClient())
+class _DeclinerClient(_AgentFakeClient):
+    def complete_json(self, **kwargs: Any) -> str:
+        if kwargs["json_schema"].get("title") != "ActingLeaderTurn":
+            return str(super().complete_json(**kwargs))
+        return json.dumps(_turn(extra_legal="none"))
+
+
+def _run(tmp_path: Path, regime: RegimeConfig, client: _AgentFakeClient | None = None) -> list[dict[str, Any]]:
+    journal = run_simulation(_regime_config(tmp_path, regime), run_id="regime", llm_client=client or _RefuserClient())
     return [json.loads(line) for line in journal.read_text().splitlines()]
 
 
@@ -94,6 +101,13 @@ def test_a_president_s_answer_to_the_act_is_journaled_and_no_one_else_s(tmp_path
     presidents = [t for t in turns if t["payload"]["role"] == "president"]
     assert presidents and all(t["payload"]["extra_legal"] == "refuse_to_leave" for t in presidents)
     assert all("extra_legal" not in t["payload"] for t in turns if t["payload"]["role"] != "president")
+
+
+def test_an_act_not_taken_is_journaled_too(tmp_path: Path) -> None:
+    events = _run(tmp_path, SURE, _DeclinerClient())
+    presidents = [t for t in _of(events, "agent_turn") if t["payload"]["role"] == "president"]
+    assert presidents and {t["payload"]["extra_legal"] for t in presidents} == {"none"}
+    assert not _of(events, "extra_legal_act")
 
 
 def test_a_president_who_refuses_and_loses_the_roll_is_replaced_at_that_election(tmp_path: Path) -> None:
