@@ -32,6 +32,16 @@ const SOURCE_PARAM: Partial<
   stratification: { key: 'weight', min: 0.1, max: 0.9, step: 0.1, def: 0.5 },
 };
 
+// The composer's labels for the simple-mode ideologies; a preset's own value shows as is.
+const IDEOLOGY_KEY: Record<
+  string,
+  'composer.ideoRandom' | 'composer.ideoCentrist' | 'composer.ideoPolarized'
+> = {
+  random: 'composer.ideoRandom',
+  centrist: 'composer.ideoCentrist',
+  polarized: 'composer.ideoPolarized',
+};
+
 const ElectorateMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const {
@@ -97,7 +107,9 @@ const ElectorateMoment: React.FC = () => {
           points: config.candidates.length,
           pointWord,
           voters: config.num_voters,
-          ideology: config.ideology,
+          ideology: IDEOLOGY_KEY[config.ideology]
+            ? t(IDEOLOGY_KEY[config.ideology])
+            : config.ideology,
         })}
       </div>
 

@@ -2,14 +2,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NamedPt } from '../../lib/playgroundVoting';
 import type { VoteTrace } from '../../lib/voteTrace';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor, textTone } from '../../lib/palette';
 
 // ReplayStage — the "what is being counted right now" visual: one bar per
 // candidate for the current frame, the unit label, and the beat's caption.
 // Purely presentational (state lives in useVoteReplay), so the replay modal and
 // the side-by-side face-à-face render an identical count.
 
-const defaultColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
+const defaultColor = candidateColor;
 
 const ReplayStage: React.FC<{
   trace: VoteTrace;
@@ -43,7 +43,7 @@ const ReplayStage: React.FC<{
                 className={`${compact ? 'w-16' : 'w-24'} shrink-0 truncate ${
                   compact ? 'text-[0.7rem]' : 'text-xs'
                 } ${lit ? 'font-semibold' : ''} ${dead ? 'line-through' : ''}`}
-                style={{ color: color(i) }}
+                style={{ color: textTone(color(i)) }}
               >
                 {c.name}
               </span>

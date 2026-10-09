@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Link, useNavigate } from 'react-router';
+import App, { ScrollToTop } from './App';
 
 vi.mock('./components/Navbar', () => ({ default: () => <div data-testid="navbar">Navbar</div> }));
 vi.mock('./components/Route/ErrorBoundary', () => ({
@@ -69,5 +70,30 @@ describe('App routing (anonymous, two destinations)', () => {
     window.history.pushState({}, '', '/this-route-does-not-exist');
     render(<App />);
     expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
+  });
+});
+
+describe('ScrollToTop', () => {
+  const Back: React.FC = () => {
+    const navigate = useNavigate();
+    return <button onClick={() => navigate(-1)}>back</button>;
+  };
+
+  it('scrolls to the top on a link to another page, not on back', () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    render(
+      <MemoryRouter initialEntries={['/decouvrir']}>
+        <ScrollToTop />
+        <Link to="/playground">go</Link>
+        <Back />
+      </MemoryRouter>
+    );
+    expect(scrollTo).not.toHaveBeenCalled(); // first load is a POP: the browser's position stands
+    fireEvent.click(screen.getByText('go'));
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    scrollTo.mockClear();
+    fireEvent.click(screen.getByText('back'));
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
   });
 });

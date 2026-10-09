@@ -74,7 +74,7 @@ const Navbar: React.FC = () => {
 
   return (
     <BootstrapNavbar
-      data-tour="navbar"
+      data-testid="navbar"
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
@@ -96,7 +96,7 @@ const Navbar: React.FC = () => {
             variant="info"
             style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
           >
-            Bêta
+            {t('nav.beta')}
           </Badge>
         </BootstrapNavbar.Brand>
 
@@ -176,26 +176,6 @@ const Navbar: React.FC = () => {
 
           {/* ── Right side ── */}
           <Nav className="lg:items-center gap-2">
-            {/* Tour ? */}
-            <Nav.Link
-              href="/?tour=1"
-              className="flex items-center justify-center"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                border: '1.5px solid var(--bs-secondary-color, #6c757d)',
-                color: 'var(--bs-secondary-color, #6c757d)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                padding: 0,
-                flexShrink: 0,
-              }}
-              aria-label={t('nav.tourLabel')}
-            >
-              ?
-            </Nav.Link>
-
             {/* ── User / Settings dropdown ── */}
             <Dropdown>
               <Dropdown.Toggle

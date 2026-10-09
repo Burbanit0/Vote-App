@@ -25,13 +25,13 @@ test.describe('Navigation — the five real surfaces', () => {
 
       await page.goto(path);
       await expect(page.locator(ANCHORS[path])).toBeVisible();
-      await expect(page.locator('[data-tour="navbar"]')).toBeVisible();
+      await expect(page.locator('[data-testid="navbar"]')).toBeVisible();
       expect(crashes).toEqual([]);
     });
   }
 
   test('navbar links reach the four destinations', async ({ page }) => {
-    const nav = () => page.locator('[data-tour="navbar"]');
+    const nav = () => page.locator('[data-testid="navbar"]');
 
     await page.goto('/');
     await nav()
@@ -56,7 +56,7 @@ test.describe('Navigation — the five real surfaces', () => {
   test('brand link goes back home', async ({ page }) => {
     await page.goto('/playground');
     await page
-      .locator('[data-tour="navbar"]')
+      .locator('[data-testid="navbar"]')
       .getByRole('link', { name: /vote lab/i })
       .click();
     await expect(page).toHaveURL(/\/$/);

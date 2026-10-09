@@ -8,7 +8,7 @@ import ReplayStage from './ReplayStage';
 import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
 import { type Rule, type Pt, type NamedPt } from '../../lib/playgroundVoting';
 import { getMethodInfo, type Lang } from '@/lib/methodInfo';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor, textTone } from '../../lib/palette';
 
 interface Props {
   show: boolean;
@@ -40,7 +40,6 @@ const MethodReplayModal: React.FC<Props> = ({ show, onHide, voters, candidates, 
 
   if (!trace) return null;
 
-  const color = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
   const winnerName = trace.winner >= 0 ? candidates[trace.winner].name : '—';
   const summary = getMethodInfo(rule)?.[lang].summary;
 
@@ -126,7 +125,9 @@ const MethodReplayModal: React.FC<Props> = ({ show, onHide, voters, candidates, 
       <Modal.Footer className="justify-between">
         <span className="text-sm">
           {t('replay.winner')}{' '}
-          <strong style={{ color: color(Math.max(0, trace.winner)) }}>{winnerName}</strong>
+          <strong style={{ color: textTone(candidateColor(Math.max(0, trace.winner))) }}>
+            {winnerName}
+          </strong>
         </span>
         <div className="flex items-center gap-1.5">
           <button

@@ -8,15 +8,13 @@ import ReplayStage from '../playground/ReplayStage';
 import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
 import { sampleVoters } from '../../lib/voteTrace';
 import { ruleWinner, type Rule, type Pt, type NamedPt } from '../../lib/playgroundVoting';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../lib/palette';
 
 // MethodDuel — the face-à-face. Two voting methods, each on its OWN rule but the
 // SAME sampled ballots, counted side by side so the app's thesis is literal: does
 // the winner depend on the method? The winner shown is the engine's verdict on the
 // shared sample (so it agrees with the dépouillement animating below it), and the
 // verdict line names whether the two methods agree.
-
-const candColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
 
 const RuleSelect: React.FC<{
   value: Rule;
@@ -88,7 +86,7 @@ const DuelSide: React.FC<{
             data-testid={`duel-winner-${side}`}
             className="rounded border px-1.5 py-0.5 font-mono text-xs font-bold"
             style={{
-              color: candColor(winnerIdx),
+              color: textTone(candColor(winnerIdx)),
               borderColor: `${candColor(winnerIdx)}55`,
               background: `${candColor(winnerIdx)}12`,
             }}

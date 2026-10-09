@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInstrumentCtx } from '../playground/PlaygroundController';
-import { ruleWinner, RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
+import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import {
   METHOD_CRITERIA,
@@ -12,7 +13,7 @@ import {
   type Satisfaction,
   type MethodFamily,
 } from '../../data/methodCriteria';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor, textTone } from '../../lib/palette';
 
 // Only the compared methods (Tier A) — Tier B extras live in the method gallery.
 const RULES_BY_FAMILY: Record<MethodFamily, Rule[]> = FAMILY_ORDER.reduce(
@@ -48,6 +49,7 @@ const FAMILY_HEADER_CLS: Record<MethodFamily, string> = {
 
 const MethodsMatrix: React.FC = () => {
   const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
   const { voters, leaderCandidates } = useInstrumentCtx();
 
   // Live winners — one ruleWinner() call per rule on the current electorate
@@ -61,9 +63,6 @@ const MethodsMatrix: React.FC = () => {
       {} as Record<Rule, number>
     );
   }, [voters, leaderCandidates]);
-
-  const candidateColor = (idx: number) =>
-    CANDIDATE_COLORS_LIGHT[idx % CANDIDATE_COLORS_LIGHT.length];
 
   return (
     <div className="rounded-xl border border-border bg-card">
@@ -97,13 +96,13 @@ const MethodsMatrix: React.FC = () => {
                   return (
                     <div key={rule} className="flex items-center gap-1.5">
                       <span className="w-36 shrink-0 text-[0.72rem] text-muted-foreground">
-                        {RULE_LABELS[rule]}
+                        {ruleLabels[rule]}
                       </span>
                       {winner && (
                         <span
                           className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
                           style={{
-                            color: candidateColor(winIdx),
+                            color: textTone(candidateColor(winIdx)),
                             borderColor: candidateColor(winIdx) + '55',
                             background: candidateColor(winIdx) + '12',
                           }}
@@ -126,7 +125,7 @@ const MethodsMatrix: React.FC = () => {
           <thead>
             <tr className="border-b border-border">
               <th className="w-36 py-2 pl-4 pr-2 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-                Méthode
+                {t('bilan.colMethod')}
               </th>
               {CRITERION_KEYS.map((crit) => (
                 <th
@@ -160,7 +159,7 @@ const MethodsMatrix: React.FC = () => {
                     key={rule}
                     className={`border-b border-border/50 ${rowIdx % 2 === 0 ? '' : 'bg-muted/20'}`}
                   >
-                    <td className="py-1.5 pl-4 pr-2 text-muted-foreground">{RULE_LABELS[rule]}</td>
+                    <td className="py-1.5 pl-4 pr-2 text-muted-foreground">{ruleLabels[rule]}</td>
                     {CRITERION_KEYS.map((crit) => {
                       const sat = METHOD_CRITERIA[rule][crit];
                       const { symbol, cls } = CELL[sat];
@@ -168,7 +167,7 @@ const MethodsMatrix: React.FC = () => {
                         <td
                           key={crit}
                           className="px-1 py-1.5 text-center"
-                          title={`${RULE_LABELS[rule]} — ${t(`lab.matrix.criteria.${crit as CriterionKey}`)}: ${sat}`}
+                          title={`${ruleLabels[rule]} — ${t(`lab.matrix.criteria.${crit as CriterionKey}`)}: ${t(`lab.matrix.${sat}`)}`}
                         >
                           <span className={`inline-block rounded px-1 font-mono font-bold ${cls}`}>
                             {symbol}
@@ -185,14 +184,16 @@ const MethodsMatrix: React.FC = () => {
         {/* Legend */}
         <div className="flex gap-4 px-4 py-2 text-[0.68rem] text-muted-foreground">
           <span>
-            <span className={`font-mono font-bold ${CELL.yes.cls} rounded px-1`}>✓</span> Oui
+            <span className={`font-mono font-bold ${CELL.yes.cls} rounded px-1`}>✓</span>{' '}
+            {t('lab.matrix.yes')}
           </span>
           <span>
-            <span className={`font-mono font-bold ${CELL.no.cls} rounded px-1`}>✗</span> Non
+            <span className={`font-mono font-bold ${CELL.no.cls} rounded px-1`}>✗</span>{' '}
+            {t('lab.matrix.no')}
           </span>
           <span>
             <span className={`font-mono font-bold ${CELL.conditional.cls} rounded px-1`}>◐</span>{' '}
-            Conditionnel
+            {t('lab.matrix.conditional')}
           </span>
         </div>
       </div>
