@@ -31,5 +31,9 @@ describe('MethodDuel', () => {
     expect(screen.getByTestId('duel-side-b')).toContainElement(
       screen.getByTestId('no-fixed-winner')
     );
+
+    fireEvent.change(screen.getByTestId('duel-rule-a'), { target: { value: 'random_ballot' } });
+    expect(screen.queryByTestId('duel-winner-a')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('no-fixed-winner')).toHaveLength(2);
   });
 });
