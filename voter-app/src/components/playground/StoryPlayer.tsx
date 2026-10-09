@@ -151,7 +151,13 @@ const StoryPlayer: React.FC = () => {
     return (
       <div
         data-testid="story-bar"
-        className="mb-3 rounded-xl border border-primary/40 bg-primary/5 p-3 shadow-sm"
+        // Below lg the map sits far under the narration, so the bar sticks under the navbar
+        // (48 px) and the reader scrolls to the map with the beat still in view (W3.4).
+        // Opaque so the map does not show through; at most 40% of the screen, scrolling
+        // inside, so a long beat on a short or landscape screen leaves room for the map.
+        // tailwind.css pads page scrolling by the same amount (`[data-story-bar]`).
+        data-story-bar
+        className="mb-3 rounded-xl border border-primary/40 bg-primary/5 p-3 shadow-sm max-lg:sticky max-lg:top-12 max-lg:z-20 max-lg:max-h-[40svh] max-lg:overflow-y-auto max-lg:bg-card"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
