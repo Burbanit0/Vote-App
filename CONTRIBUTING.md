@@ -70,10 +70,10 @@ Claude Code) lance `scripts/fast-gate.sh` puis l'agent `spec-checker`, qui ne
 voit que la demande et le diff. Un `FAIL` (quelque chose de demandé manque) =
 pas de PR. Une section `SKIPPED` de fast-gate (par exemple un `python3` plus
 ancien que le `python_version` de `mypy.ini`, ou des dépendances absentes)
-n'est pas un succès. Le modèle de PR demande `## Demande` (mot pour mot),
-`## Critères d'acceptation`, `## Preuves` (commandes réellement lancées et leur
-sortie) et une ligne **Non vérifié** obligatoire (« rien » seulement si c'est
-vrai).
+n'est pas un succès. Le modèle de PR demande `## Request` (mot pour mot),
+`## Acceptance criteria`, `## Evidence` (commandes réellement lancées et leur
+sortie) et une ligne **Not verified** obligatoire (« nothing » seulement si
+c'est vrai).
 
 ```bash
 git push origin feat/ma-feature

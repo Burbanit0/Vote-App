@@ -54,7 +54,7 @@ mypy api/                                    # strict, must stay clean
 `scripts/fast-gate.sh <base>` runs the relevant subset of all of the above on a branch's
 changed files (the push guard runs it before every `git push`). A `SKIPPED` section is not a
 pass: it means the tool could not run here (missing deps, or a `python3`/`python` older than
-`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Non vérifié**.
+`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Not verified**.
 A PR touching `.github/workflows/` or `.claude/hooks/` must also pass the required
 `Workflow lint` (actionlint + `zizmor --offline` + `python3 -m unittest discover -s
 .claude/hooks/tests`).
@@ -143,9 +143,9 @@ Before opening a PR:
 - Run `/verify "<the original request, verbatim>"`. It runs `scripts/fast-gate.sh`, then
   the `spec-checker` agent, which sees only the request and the diff, never your summary.
   A `FAIL` (something asked is missing) means no PR yet.
-- Fill the PR template's `## Demande` (verbatim), `## Critères d'acceptation` and
-  `## Preuves` (commands actually run and their output) sections.
-- The **Non vérifié** line is mandatory: say what you did not check and why. "rien" only
+- Fill the PR template's `## Request` (verbatim), `## Acceptance criteria` and
+  `## Evidence` (commands actually run and their output) sections.
+- The **Not verified** line is mandatory: say what you did not check and why. "nothing" only
   when true. An unverified claim stated as done is worse than a gap stated plainly.
 
 ## Workflow (mandated)
