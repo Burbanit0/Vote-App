@@ -694,6 +694,8 @@ const pgPseudo: PlaygroundKeys = {
       '⟦ —~ ávéç~~ tóús~~ lés~~ vótáñts,~~~ ç’ést~~ lé~ 3ᵉ~ çhóíx~~ dés~~ pártísáñs~~~~ dé~ C~ qúí~~ l’émpórté.~~~~⟧',
   },
   bilan: {
+    whyTitle: '⟦Póúrqúóí~~~ éllés~~ dívérgéñt~~~~⟧',
+    whyLine: '⟦{{rule}} :~ {{reason}}⟧',
     evaluatedFor: '⟦Éválúé~~~ póúr~~ :~⟧',
     sensibility: '⟦Vótré~~ séñsíbílíté~~~~⟧',
     fineTune: '⟦Réglágé~~~ fíñ…~~⟧',
@@ -1016,6 +1018,9 @@ const pgPseudo: PlaygroundKeys = {
     elim: '⟦{{winner}} gágñé~~ áúx~~ répórts~~~ :~ à~ mésúré~~~ qúé~~ lés~~ móíñs~~ bíéñ~~ pláçés~~~ sóñt~~ élímíñés,~~~~ léúrs~~ vóíx~~ sé~ répórtéñt,~~~~ ét~ {{winner}} fíñít~~ déváñt~~~ {{runnerUp}} (~{{winnerVal}} à~ {{runnerUpVal}}).~⟧',
     pairwise:
       '⟦{{winner}} gágñé~~ tóús~~ sés~~ dúéls~~ :~ ç’ést~~ lé~ çáñdídát~~~ qúé~~ lá~ májóríté~~~ préfèré~~~ fáçé~~ à~ çháqúé~~~ rívál,~~~ úñ~ çóñtré~~~ úñ.~~⟧',
+    pairwiseCycle:
+      '⟦{{winner}} gágñé~~ {{wins}} dé~ sés~~ {{duels}} dúéls~~ :~ íçí,~~ pérsóññé~~~ ñé~ lés~~ gágñé~~ tóús,~~ ét~ çétté~~ méthódé~~~ tráñçhé~~~ lé~ çyçlé~~ éñ~ fávéúr~~~ dé~ {{winner}}.~⟧',
+    kickerRule: '⟦Póúrqúóí,~~~~ ávéç~~ {{rule}} ?~⟧',
     twophase:
       '⟦{{winner}} l’émpórté~~~~ áú~ séçóñd~~~ tóúr~~ :~ dés~~ déúx~~ fíñálístés,~~~~ íl~ déváñçé~~~ {{runnerUp}} (~{{winnerVal}} à~ {{runnerUpVal}}).~⟧',
     lottery:

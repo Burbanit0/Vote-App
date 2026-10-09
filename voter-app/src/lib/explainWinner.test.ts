@@ -45,6 +45,13 @@ describe('explainWinner — names the mechanism, never re-derives the winner', (
     expect(e.params).toEqual({ winner: 'Carla' });
   });
 
+  it('pairwise in a cycle: nobody wins every duel, so the sentence does not say so', () => {
+    // A three-way cycle: each candidate wins one of their two duels.
+    const e = explainWinner(trace('pairwise', 0, [1, 1, 1]), CANDS);
+    expect(e.key).toBe('explain.pairwiseCycle');
+    expect(e.params).toEqual({ winner: 'Alice', wins: 1, duels: 2 });
+  });
+
   it('twophase: the runoff winner over the other finalist', () => {
     const e = explainWinner(trace('twophase', 0, [55, 45, 0]), CANDS);
     expect(e.key).toBe('explain.twophase');

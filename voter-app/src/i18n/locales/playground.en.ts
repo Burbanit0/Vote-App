@@ -643,6 +643,8 @@ const pgEn: PlaygroundKeys = {
     noFlip: ' — with all voters, it is C-supporters’ 3rd choice that wins.',
   },
   bilan: {
+    whyTitle: 'Why they disagree',
+    whyLine: '{{rule}}: {{reason}}',
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
@@ -926,6 +928,9 @@ const pgEn: PlaygroundKeys = {
     elim: '{{winner}} wins on transfers: as the lowest-placed are eliminated their votes flow on, and {{winner}} ends ahead of {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     pairwise:
       '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
+    pairwiseCycle:
+      '{{winner}} wins {{wins}} of their {{duels}} duels: here nobody wins them all, and this method settles the cycle in {{winner}}’s favour.',
+    kickerRule: 'Why, under {{rule}}?',
     twophase:
       '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     lottery:

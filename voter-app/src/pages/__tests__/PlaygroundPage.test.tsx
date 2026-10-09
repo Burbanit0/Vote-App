@@ -657,3 +657,30 @@ describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
     expect(screen.queryByTestId('winner-strip')).not.toBeInTheDocument();
   });
 });
+
+describe('PlaygroundPage — the Bilan says why (W3.3)', () => {
+  it('gives each winner group the reason its first method elects that winner', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    const groups = screen.getAllByTestId(/^winner-group-\d+$/);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      expect(g.querySelectorAll('[data-testid="winner-explanation"]')).toHaveLength(1);
+    }
+  });
+
+  it('when methods disagree, sets the two largest groups side by side, on the full electorate', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    // The default electorate splits the five intro methods: plurality elects Alice alone.
+    expect(screen.getAllByTestId(/^winner-group-\d+$/).length).toBeGreaterThan(1);
+    const why = screen.getByTestId('bilan-why');
+    const lines = [...why.querySelectorAll('p')].slice(1).map((p) => p.textContent ?? '');
+    expect(lines).toHaveLength(2);
+    const plurality = lines.find((l) => l.startsWith('Plurality'));
+    expect(plurality).toMatch(/wins on the highest total: (\d+) to/);
+    // 300 voters, 3 candidates: the plurality winner has at least 100 first choices. The
+    // replay's animated sample is at most 60 ballots, so this is the full electorate.
+    expect(Number(plurality!.match(/highest total: (\d+)/)![1])).toBeGreaterThanOrEqual(100);
+  });
+});

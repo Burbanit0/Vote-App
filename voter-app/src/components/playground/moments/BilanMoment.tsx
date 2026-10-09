@@ -7,7 +7,10 @@ import MethodInfo from '../MethodInfo';
 import MethodReplayModal from '../MethodReplayModal';
 import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
-import type { Rule } from '../../../lib/playgroundVoting';
+import { computeRanks, computeScores, type Rule } from '../../../lib/playgroundVoting';
+import { buildTraceFromBallots } from '../../../lib/voteTrace';
+import { explainWinner } from '../../../lib/explainWinner';
+import WinnerExplanation from '../WinnerExplanation';
 import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
 import NoFixedWinner from '../NoFixedWinner';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
@@ -103,6 +106,18 @@ const BilanMoment: React.FC = () => {
     [liveWinners, activeRules]
   );
 
+  // Why each group's winner wins, in the words of the group's first method: a trace
+  // over the full expressed electorate (not the replay's animated sample), so its
+  // figures are the real ones.
+  const groupTraces = useMemo(() => {
+    if (!winnerGroups.length) return [];
+    const ranks = computeRanks(expressedVoters, leaderCandidates);
+    const scores = computeScores(expressedVoters, leaderCandidates);
+    return winnerGroups.map(([, rules]) =>
+      buildTraceFromBallots(leaderCandidates, ranks, scores, rules[0])
+    );
+  }, [winnerGroups, expressedVoters, leaderCandidates]);
+
   const condorcetName = result?.condorcet_winner ?? null;
   const condorcetIdx = condorcetName
     ? leaderCandidates.findIndex((c) => c.name === condorcetName)
@@ -140,6 +155,23 @@ const BilanMoment: React.FC = () => {
                   {t('bilan.verdictSplit', { count: winnerGroups.length })}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">{t('bilan.verdictSplitSub')}</p>
+                {/* The two largest groups, side by side: the same ballots, read two ways. */}
+                <div data-testid="bilan-why" className="mt-3 flex flex-col gap-1 text-sm">
+                  <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
+                    {t('bilan.whyTitle')}
+                  </p>
+                  {groupTraces.slice(0, 2).map((trace, k) => {
+                    const { key, params } = explainWinner(trace, leaderCandidates);
+                    return (
+                      <p key={k} className="leading-relaxed">
+                        {t('bilan.whyLine', {
+                          rule: ruleLabels[winnerGroups[k][1][0]],
+                          reason: t(key, params),
+                        })}
+                      </p>
+                    );
+                  })}
+                </div>
               </>
             )}
             {winnerGroups.length === 1 && (
@@ -167,7 +199,7 @@ const BilanMoment: React.FC = () => {
           {/* ── 2. Who wins, and with which methods (grouped by laureate) ── */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-semibold">{t('bilan.winnersTitle')}</p>
-            {winnerGroups.map(([idx, rules]) => (
+            {winnerGroups.map(([idx, rules], k) => (
               <div
                 key={idx}
                 data-testid={`winner-group-${idx}`}
@@ -201,6 +233,14 @@ const BilanMoment: React.FC = () => {
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {rules.map((r) => ruleLabels[r]).join(' · ')}
                   </p>
+                  {groupTraces[k] && (
+                    <WinnerExplanation
+                      trace={groupTraces[k]}
+                      candidates={leaderCandidates}
+                      ruleLabel={ruleLabels[rules[0]]}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
               </div>
             ))}

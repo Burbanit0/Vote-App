@@ -1,7 +1,7 @@
 // explainWinner — turns a finished VoteTrace into ONE plain sentence: not "who
 // won" (the bars already show that) but WHY, in the language of the method that
 // produced it. A count winner has the highest total; an elim winner survived the
-// transfers; a Condorcet winner beats everyone in a duel; a runoff winner took
+// transfers; a Condorcet winner beats everyone in a duel (in a cycle, nobody does); a runoff winner took
 // the second round; a lottery winner was drawn.
 //
 // Pure: it returns an i18n key + params (never a rendered string), so it stays
@@ -47,8 +47,14 @@ export function explainWinner(trace: VoteTrace, cands: NamedPt[]): WinnerExplana
       return { key: 'explain.count', params: base };
     case 'elim':
       return { key: 'explain.elim', params: base };
-    case 'pairwise':
-      return { key: 'explain.pairwise', params: { winner } };
+    case 'pairwise': {
+      // The final bars count duels won. "Wins every duel" is true only of a winner with
+      // all of them; in a cycle (no Condorcet winner) the method settles it otherwise.
+      const duels = cands.length - 1;
+      return winnerVal >= duels
+        ? { key: 'explain.pairwise', params: { winner } }
+        : { key: 'explain.pairwiseCycle', params: { winner, wins: winnerVal, duels } };
+    }
     case 'twophase':
       return { key: 'explain.twophase', params: base };
     case 'lottery':

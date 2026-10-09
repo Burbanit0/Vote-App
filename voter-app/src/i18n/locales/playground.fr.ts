@@ -655,6 +655,8 @@ const pgFr = {
     noFlip: ' — avec tous les votants, c’est le 3ᵉ choix des partisans de C qui l’emporte.',
   },
   bilan: {
+    whyTitle: 'Pourquoi elles divergent',
+    whyLine: '{{rule}} : {{reason}}',
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
     fineTune: 'Réglage fin…',
@@ -948,6 +950,9 @@ const pgFr = {
     elim: '{{winner}} gagne aux reports : à mesure que les moins bien placés sont éliminés, leurs voix se reportent, et {{winner}} finit devant {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     pairwise:
       '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
+    pairwiseCycle:
+      '{{winner}} gagne {{wins}} de ses {{duels}} duels : ici, personne ne les gagne tous, et cette méthode tranche le cycle en faveur de {{winner}}.',
+    kickerRule: 'Pourquoi, avec {{rule}} ?',
     twophase:
       '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     lottery:
