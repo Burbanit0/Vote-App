@@ -40,7 +40,18 @@ def test_a_threshold_outside_the_articles_range_is_refused(flagship: Any, tmp_pa
 
 
 def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) -> None:
-    assert _config(flagship, tmp_path, freeze_amendments=True).constitution.scripted == ()
+    import dataclasses
+
+    from api.domain.polity.config import ScriptedAmendment
+
+    base = _config(flagship, tmp_path)
+    scripted = dataclasses.replace(base, constitution=dataclasses.replace(
+        base.constitution, scripted=(ScriptedAmendment(tick=40, article="institutions.electoral_threshold", value=0.07),),
+    ))
+    frozen = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=True)
+    assert frozen.constitution.scripted == () and frozen.institutions.electoral_threshold == 0.03
+    kept = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=False)
+    assert len(kept.constitution.scripted) == 1  # without the freeze, a scripted amendment is the run's own
 
 
 def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(tmp_path: Path) -> None:

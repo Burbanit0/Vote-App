@@ -55,6 +55,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from api.domain.polity.config import ARTICLES  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
     SweepRun,
     clopper_pearson,
@@ -330,13 +331,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--planned-n", type=int, default=None, help="defaults to len(seeds)")
     args = parser.parse_args(argv)
 
-    if args.threshold is not None and not 0 <= args.threshold <= 0.15:
-        parser.error(f"--threshold is a share between 0 and 0.15 (the article's range): 0.03 for 3%, not {args.threshold}")
+    article = ARTICLES["institutions.electoral_threshold"]
+    if args.threshold is not None and not article.allows(args.threshold):
+        parser.error(f"--threshold is a share from {article.low} to {article.high} (the article's range): 0.03 for 3%, "
+                     f"not {args.threshold}")
     run_flags = _run_flags(args)
-    _claim_output_dir(args.output_dir, run_flags)
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
     if not seeds:
         parser.error("--seeds must name at least one seed")
+    _claim_output_dir(args.output_dir, run_flags)
 
     hypothesis = args.hypothesis or (
         f"office_occupancy and the per-type LLM fallback rate at population={args.population}, "
