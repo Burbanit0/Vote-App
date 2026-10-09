@@ -2,7 +2,7 @@
 """Per-commit capture for the Vote-App-polity worktree — Lot 0.5, tier 1.
 
 Appends one JSON line per commit to docs/journal/commits.jsonl: an
-LLM-free, exhaustive, append-only trace. It exists so /log-session and a
+LLM-free, exhaustive, append-only trace. It exists so /log-session (retired 2026-10-08) and a
 future automatic-gotcha-memory pass (tiers 2 and 3 of Lot 0.5 — see
 PLAN_SOLIDITE_TECHNIQUE.md) have real per-commit signal to work from,
 instead of reconstructing what happened from memory at the end of a
