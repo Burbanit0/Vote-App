@@ -28,7 +28,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the navbar collapses behind a toggle below the lg breakpoint', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    const nav = page.locator('[data-testid="navbar"]');
     await expect(page.getByTestId('navbar-toggle')).toBeVisible();
     // The links are still in the DOM (collapsed via CSS, not unmounted) —
     // what proves the collapse is that they aren't reachable until expanded.
@@ -39,7 +39,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the collapsed navbar opens on tap and can navigate', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    const nav = page.locator('[data-testid="navbar"]');
     await page.getByTestId('navbar-toggle').click();
     await expect(nav.getByRole('link', { name: /playground/i })).toBeVisible();
 

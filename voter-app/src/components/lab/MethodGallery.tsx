@@ -7,7 +7,7 @@ import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
 import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
 import { getMethodInfo, methodAnalogy, type Lang } from '../../lib/methodInfo';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../lib/palette';
 
 // MethodGallery — one browsable card per voting method. Common methods first
 // (the ones a newcomer recognises), then the Tier B "explained, not compared"
@@ -21,8 +21,6 @@ const MethodGallery: React.FC = () => {
   const { ruleLabels } = useVotingLabels();
   const { votingVoters, leaderCandidates } = useInstrumentCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
-
-  const candColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
 
   return (
     <section className="flex flex-col gap-3">
@@ -55,7 +53,7 @@ const MethodGallery: React.FC = () => {
                   <span
                     className="shrink-0 rounded border px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold"
                     style={{
-                      color: candColor(winIdx),
+                      color: textTone(candColor(winIdx)),
                       borderColor: `${candColor(winIdx)}55`,
                       background: `${candColor(winIdx)}12`,
                     }}
