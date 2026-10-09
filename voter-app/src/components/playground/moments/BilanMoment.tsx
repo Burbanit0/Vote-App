@@ -7,8 +7,9 @@ import MethodInfo from '../MethodInfo';
 import MethodReplayModal from '../MethodReplayModal';
 import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
-import { ruleWinner, type Rule } from '../../../lib/playgroundVoting';
-import { LEADER_RULES } from '../../../lib/scorecard';
+import type { Rule } from '../../../lib/playgroundVoting';
+import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
+import NoFixedWinner from '../NoFixedWinner';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
 import { candidateColor as candColor, textTone } from '../../../lib/palette';
 
@@ -67,8 +68,16 @@ function AxisCell({ axis }: { axis?: { mean: number; lo: number; hi: number } })
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
-  const { mode, assembly, parlSc, currentAxes, leaderSc, result, votingVoters, leaderCandidates } =
-    usePlaygroundCtx();
+  const {
+    mode,
+    assembly,
+    parlSc,
+    currentAxes,
+    leaderSc,
+    result,
+    expressedVoters,
+    leaderCandidates,
+  } = usePlaygroundCtx();
   const { enabledRules } = useMethodSelection();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
 
@@ -80,30 +89,19 @@ const BilanMoment: React.FC = () => {
   );
   const familyRules = useMemo(() => rulesByFamily(activeRules), [activeRules]);
 
-  const liveWinners = useMemo(() => {
-    if (!votingVoters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return activeRules.reduce(
-      (acc, rule) => {
-        acc[rule] = ruleWinner(votingVoters, leaderCandidates, rule);
-        return acc;
-      },
-      {} as Record<Rule, number>
-    );
-  }, [votingVoters, leaderCandidates, activeRules]);
+  // Expressed ballots, as on the map and in the winner strip (blank votes excluded).
+  const liveWinners = useMemo(
+    () => winnersByRule(expressedVoters, leaderCandidates, activeRules),
+    [expressedVoters, leaderCandidates, activeRules]
+  );
 
   // Group methods by the candidate they elect (most-backed first) — the synthesis
-  // that makes the thesis literal: does the winner depend on the rule?
-  const winnerGroups = useMemo(() => {
-    const m = new Map<number, Rule[]>();
-    for (const rule of activeRules) {
-      const idx = liveWinners[rule];
-      if (idx == null || idx < 0) continue;
-      const arr = m.get(idx) ?? [];
-      arr.push(rule);
-      m.set(idx, arr);
-    }
-    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
-  }, [liveWinners, activeRules]);
+  // that makes the thesis literal: does the winner depend on the rule? The lottery
+  // has no fixed winner, so it is listed apart rather than counted with anyone.
+  const winnerGroups = useMemo(
+    () => groupByWinner(liveWinners, activeRules),
+    [liveWinners, activeRules]
+  );
 
   const condorcetName = result?.condorcet_winner ?? null;
   const condorcetIdx = condorcetName
@@ -116,7 +114,7 @@ const BilanMoment: React.FC = () => {
         <MethodReplayModal
           show
           onHide={() => setReplayRule(null)}
-          voters={votingVoters}
+          voters={expressedVoters}
           candidates={leaderCandidates}
           initialRule={replayRule}
         />
@@ -131,14 +129,20 @@ const BilanMoment: React.FC = () => {
             <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-primary">
               {t('bilan.verdictTitle')}
             </p>
-            {winnerGroups.length > 1 ? (
+            {winnerGroups.length === 0 && (
+              <p className="mt-1 font-display text-2xl font-bold tracking-tight">
+                {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
+              </p>
+            )}
+            {winnerGroups.length > 1 && (
               <>
                 <p className="mt-1 font-display text-2xl font-bold tracking-tight">
                   {t('bilan.verdictSplit', { count: winnerGroups.length })}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">{t('bilan.verdictSplitSub')}</p>
               </>
-            ) : (
+            )}
+            {winnerGroups.length === 1 && (
               <>
                 <p
                   className="mt-1 font-display text-2xl font-bold tracking-tight"
@@ -200,6 +204,11 @@ const BilanMoment: React.FC = () => {
                 </div>
               </div>
             ))}
+            {winnerGroups.length > 0 && activeRules.some((r) => !hasFixedWinner(r)) && (
+              <p data-testid="winner-group-lottery" className="text-xs text-muted-foreground">
+                {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
+              </p>
+            )}
           </div>
 
           {/* ── 3. Robustness detail (per-method resistance + replay) ── */}
@@ -254,8 +263,8 @@ const BilanMoment: React.FC = () => {
                           </td>
                         </tr>
                         {familyRules[fam].map((rule, i) => {
-                          const winIdx = liveWinners[rule] ?? 0;
-                          const winner = leaderCandidates[winIdx];
+                          const winIdx = liveWinners[rule] ?? -1;
+                          const winner = winIdx >= 0 ? leaderCandidates[winIdx] : undefined;
                           const axes = leaderSc?.[rule];
                           return (
                             <tr
@@ -274,6 +283,9 @@ const BilanMoment: React.FC = () => {
                                 </button>
                               </td>
                               <td className="px-2 py-1.5">
+                                {!hasFixedWinner(rule) && (
+                                  <NoFixedWinner className="text-[0.68rem] font-normal italic text-muted-foreground" />
+                                )}
                                 {winner && (
                                   <span
                                     className="rounded border px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold"
