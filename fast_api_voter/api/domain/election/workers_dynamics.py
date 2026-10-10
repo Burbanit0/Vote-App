@@ -17,6 +17,7 @@ import numpy as _np
 from api.engine.utils.simulation_metrics import compare_all_methods
 from ._electorate import _build_base_electorate, _build_electorate_from_seed
 from ._helpers import modal_keys, reject_unknown_methods, tied_extremes
+from api.engine.utils import tie_lot
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
@@ -39,6 +40,8 @@ def _hotelling_score(
     utilities: _np.ndarray,   # (N, C) — utility matrix
     method:    str,
     cand_idx:  int,
+    names:     List[str],     # the C candidates' names, for the plurality tie lot
+    seed:      object = 0,
 ) -> float:
     """
     Score for candidate cand_idx under the given method.
@@ -63,7 +66,9 @@ def _hotelling_score(
         score = int(approved[:, cand_idx].sum()) / N
 
     else:   # plurality -- the worker has already rejected any other name
-        winners = utilities.argmax(axis=1)
+        # Converged candidates tie for every voter: each one's vote is drawn by lot
+        # (#665), not handed to the first-listed.
+        winners = tie_lot.nearest(-utilities, names, seed)
         score = int((winners == cand_idx).sum()) / N
 
     return score
@@ -126,7 +131,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         utilities = _hotelling_utility(voters_xy, cand_xy)
 
         scores: Dict[str, float] = {
-            cand_names[j]: round(_hotelling_score(utilities, method, j), 4)
+            cand_names[j]: round(_hotelling_score(utilities, method, j, cand_names, seed), 4)
             for j in range(C)
         }
 
@@ -146,7 +151,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             if cand_names[j] in converged_set:
                 continue
 
-            current_score = _hotelling_score(utilities, method, j)
+            current_score = _hotelling_score(utilities, method, j, cand_names, seed)
             best_score    = current_score
             best_delta    = _np.zeros(2)
 
@@ -155,7 +160,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 trial   = cand_xy.copy()
                 trial[j] = new_pos
                 trial_u  = _hotelling_utility(voters_xy, trial)
-                s        = _hotelling_score(trial_u, method, j)
+                s        = _hotelling_score(trial_u, method, j, cand_names, seed)
                 if s > best_score + 1e-6:
                     best_score = s
                     best_delta = delta
@@ -171,7 +176,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Final snapshot
     utilities = _hotelling_utility(voters_xy, cand_xy)
     final_scores = {
-        cand_names[j]: round(_hotelling_score(utilities, method, j), 4)
+        cand_names[j]: round(_hotelling_score(utilities, method, j, cand_names, seed), 4)
         for j in range(C)
     }
     iterations_out.append({
@@ -495,7 +500,7 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     voter_camps: Dict[Any, str] = {}
     for v in voters:
         uid      = v["id"]
-        best     = max(sincere_utilities[uid], key=lambda k: sincere_utilities[uid][k])
+        best     = tie_lot.favourite(sincere_utilities[uid], sincere_utilities[uid].__getitem__, uid)
         voter_camps[uid] = candidate_camps.get(best, "centre")
 
     # ── Affective utilities ────────────────────────────────────────────────
@@ -527,7 +532,7 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
         vcamps = {}
         for v in sv:
             uid  = v["id"]
-            best = max(su[uid], key=lambda k: su[uid][k])
+            best = tie_lot.favourite(su[uid], su[uid].__getitem__, uid)
             vcamps[uid] = candidate_camps.get(best, "centre")
         au = _apply_affective(su, vcamps, candidate_camps, affect_hostility)
         sm = _run_all_on_utilities(sv, candidates, issues, su)
@@ -568,8 +573,8 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
             "x":         round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3),
             "y":         round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
             "camp":      voter_camps.get(v["id"], "centre"),
-            "sincere_pref":   max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k]),
-            "affective_pref": max(affective_utilities[v["id"]], key=lambda k: affective_utilities[v["id"]][k]),
+            "sincere_pref":   tie_lot.favourite(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"]),
+            "affective_pref": tie_lot.favourite(affective_utilities[v["id"]], affective_utilities[v["id"]].__getitem__, v["id"]),
         }
         for v in voters[:300]
     ]

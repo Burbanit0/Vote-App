@@ -18,7 +18,6 @@ import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
-from api.engine.utils.tie_lot import ranking
 from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
@@ -49,6 +48,7 @@ from ._electorate import (
     _snapshot_election_winners,
     _apply_blank_contagion,
 )
+from api.engine.utils import tie_lot
 
 
 # ── Divergence endpoint ───────────────────────────────────────────────────────
@@ -194,9 +194,9 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
-    camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
-    daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
+    daily_scores = camp.get("daily_scores", {})  # {candidate: [pct_day0, …]}
 
     # Resolve snapshot days (convert "final" → num_days). Clamped on BOTH
     # ends: min() alone only caps the upper bound, so an out-of-range
@@ -215,13 +215,9 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     snapshots: list[Dict[str, Any]] = []
     for day in snapshot_days:
         # Get polling shares for this specific day
-        day_shares: Dict[str, float] = {}
-        for camp_idx, camp_name in enumerate(camp_cands):
-            if camp_idx < len(cand_names):
-                our_name    = cand_names[camp_idx]
-                shares_list = daily_scores.get(camp_name, [50.0])
-                pct         = shares_list[min(day, len(shares_list) - 1)]
-                day_shares[our_name] = pct / 100.0
+        day_shares: Dict[str, float] = {
+            name: s[min(day, len(s) - 1)] / 100.0 for name, s in daily_scores.items()
+        }
 
         # Blend true utilities with day-specific polling shares
         day_utilities: Dict[Any, Dict[str, float]] = {}
@@ -324,14 +320,11 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
-    camp_cands   = camp.get("candidates", [])
-    daily_scores = camp.get("daily_scores", {})
-    final_shares: Dict[str, float] = {}
-    for camp_idx, camp_name in enumerate(camp_cands):
-        if camp_idx < len(cand_names):
-            shares_list = daily_scores.get(camp_name, [50.0])
-            final_shares[cand_names[camp_idx]] = shares_list[-1] / 100.0
+    final_shares: Dict[str, float] = {
+        name: s[-1] / 100.0 for name, s in camp.get("daily_scores", {}).items()
+    }
 
     campaign_utilities: Dict[Any, Dict[str, float]] = {}
     for v in voters:
@@ -359,7 +352,8 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         base: Dict[Any, Dict[str, float]]
     ) -> Dict[Any, Dict[str, float]]:
         mat  = [[base[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perc = apply_information_asymmetry(mat, media_bias, voter_segments, seed=seed)
+        perc = apply_information_asymmetry(
+            mat, media_bias, voter_segments, seed=seed, names=cand_names)
         return {
             v["id"]: {c["name"]: perc[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)
@@ -402,7 +396,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 
                 # Condorcet winner from adjusted rankings
                 rankings_c: list[list[str]] = [
-                    ranking(cand_names, cur_utils[v["id"]].__getitem__, v["id"])
+                    tie_lot.ranking(cand_names, cur_utils[v["id"]].__getitem__, v["id"])
                     for v in cur_voters
                 ]
                 condorcet_w = get_condorcet_winner(rankings_c)
@@ -710,7 +704,7 @@ def _voter_snap(
     snaps: list[Dict[str, Any]] = []
     for v in voters:
         u = utilities.get(v["id"], {})
-        pref: Optional[str] = max(u, key=lambda k: u[k]) if u else None
+        pref: Optional[str] = tie_lot.favourite(u, u.__getitem__, v["id"]) if u else None
         is_blank = blank_enabled and (max(u.values(), default=0.0) < v.get("blank_threshold", 0.375))
         snaps.append({
             "id":         v["id"],
@@ -786,15 +780,11 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if campaign_on:
         camp         = simulate_campaign(
             num_candidates=len(candidates),
-            num_days=num_days, events=[], seed=seed,
+            num_days=num_days, events=[], seed=seed, names=cand_names,
         )
-        camp_cands   = camp.get("candidates", [])
-        daily_scores = camp.get("daily_scores", {})
-        final_shares: Dict[str, float] = {}
-        for ci, camp_name in enumerate(camp_cands):
-            if ci < len(cand_names):
-                shares = daily_scores.get(camp_name, [50.0])
-                final_shares[cand_names[ci]] = shares[-1] / 100.0
+        final_shares: Dict[str, float] = {
+            name: s[-1] / 100.0 for name, s in camp.get("daily_scores", {}).items()
+        }
 
         for v in voters:
             for c_name in cand_names:
@@ -859,7 +849,8 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             "high_info":   float(vseg.get("high_info",   0.2)),
         }
         true_list = [[current_utilities[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perceived  = apply_information_asymmetry(true_list, media_bias, voter_segments, seed=seed)
+        perceived  = apply_information_asymmetry(
+            true_list, media_bias, voter_segments, seed=seed, names=cand_names)
         effective_utilities = {
             v["id"]: {c["name"]: perceived[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)
@@ -1130,7 +1121,7 @@ def _run_district_fptp(
     rankings: list[list[str]] = []
     for v in voters:
         uid = v["id"]
-        rankings.append(ranking(utilities[uid], utilities[uid].__getitem__, uid))
+        rankings.append(tie_lot.ranking(utilities[uid], utilities[uid].__getitem__, uid))
 
     # First-choice counts → vote shares
     first_choice: Counter[str] = Counter()
@@ -1304,7 +1295,7 @@ def _run_primary(
     for v in party_voters:
         uid = v["id"]
         u = {n: utilities.get(uid, {}).get(n, 0.0) for n in cand_names}
-        rankings.append(ranking(u, u.__getitem__, uid))
+        rankings.append(tie_lot.ranking(u, u.__getitem__, uid))
 
     # First-choice counts
     first: Counter[str] = Counter(r[0] for r in rankings if r)
@@ -1455,7 +1446,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in general_voters:
         uid = v["id"]
         gen_rankings.append(
-            ranking(gen_utils[uid], gen_utils[uid].__getitem__, uid)
+            tie_lot.ranking(gen_utils[uid], gen_utils[uid].__getitem__, uid)
         )
 
     first_gen: Counter[str] = Counter(r[0] for r in gen_rankings if r)
@@ -1497,7 +1488,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in general_voters:
         uid = v["id"]
         center_rankings.append(
-            ranking(center_utils[uid], center_utils[uid].__getitem__, uid)
+            tie_lot.ranking(center_utils[uid], center_utils[uid].__getitem__, uid)
         )
 
     no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters)
