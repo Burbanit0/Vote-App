@@ -1618,6 +1618,16 @@ const pgPseudo: PlaygroundKeys = {
       familyOrdinal: '⟦Órdíñál~~~⟧',
       familyCondorcet: '⟦Cóñdórçét~~~~⟧',
       familyCardinal: '⟦Cárdíñál~~~⟧',
+      cellHint: '⟦Clíqúéz~~~ úñé~~ çásé~~ póúr~~ vóír~~ súr~~ qúóí~~ répósé~~~ sóñ~~ vérdíçt.~~~⟧',
+      basis: {
+        engineTested: '⟦Vérífíé~~~ pár~~ lés~~ déúx~~ mótéúrs~~~ (tésts~~~ d’áxíómés)~~~~⟧',
+        literature: '⟦D’áprès~~~ lá~ líttérátúré~~~~⟧',
+        variant: '⟦Váríáñté~~~ dé~ çé~ mótéúr~~~ :~ íl~ s’éçárté~~~ dú~ vérdíçt~~~ çlássíqúé~~~~⟧',
+      },
+      source: '⟦Sóúrçé~~~ :~⟧',
+      unsourced:
+        '⟦sóúrçé~~~ à~ çóñfírmér~~~~ (réléçtúré~~~~ pár~~ úñ~ spéçíálísté~~~~ éñ~ çóúrs)~~~⟧',
+      note: '⟦Nóté~~ (éñ~~ áñgláís)~~~ :~⟧',
       criteria: {
         condorcet_winner: '⟦Élít~~ lé~ gágñáñt~~~ Cóñdórçét~~~~⟧',
         condorcet_loser: '⟦Élímíñé~~~ lé~ pérdáñt~~~ Cóñdórçét~~~~⟧',

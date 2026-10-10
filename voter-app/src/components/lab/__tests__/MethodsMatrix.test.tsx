@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 let ctx: any;
@@ -56,5 +56,56 @@ describe('MethodsMatrix', () => {
     expect(screen.getAllByText('✓').length).toBeGreaterThan(0);
     expect(screen.getAllByText('✗').length).toBeGreaterThan(0);
     expect(screen.getAllByText('◐').length).toBeGreaterThan(0);
+  });
+
+  // W1.4: every cell says what its verdict rests on (method_criteria.json's basis and
+  // source), with a report link that names the cell.
+  describe('what a cell rests on', () => {
+    const pick = (cell: string) => {
+      fireEvent.click(screen.getByTestId(`matrix-cell-${cell}`));
+      return screen.getByTestId('matrix-cell-source');
+    };
+
+    it('a literature cell names its source and its note, and reports itself', () => {
+      ctx = { expressedVoters: voters, leaderCandidates: candidates };
+      render(<MethodsMatrix />);
+      const panel = pick('plurality-strategy_proof');
+      expect(panel).toHaveTextContent('From the literature');
+      expect(panel).toHaveTextContent('Gibbard (1973)');
+      expect(panel).toHaveTextContent('Gibbard-Satterthwaite');
+      expect(within(panel).getByTestId('report-content-error')).toHaveAttribute(
+        'href',
+        expect.stringContaining(`where=${encodeURIComponent('matrix:plurality/strategy_proof')}`)
+      );
+      expect(screen.getByTestId('matrix-cell-plurality-strategy_proof')).toHaveAttribute(
+        'title',
+        expect.stringContaining('Gibbard (1973)')
+      );
+    });
+
+    it('an unsourced literature cell says its source is still to be confirmed', () => {
+      ctx = { expressedVoters: voters, leaderCandidates: candidates };
+      render(<MethodsMatrix />);
+      expect(pick('plurality-iia')).toHaveTextContent('to be confirmed');
+    });
+
+    it('an engine-tested cell and a variant say so', () => {
+      ctx = { expressedVoters: voters, leaderCandidates: candidates };
+      render(<MethodsMatrix />);
+      const tested = pick('plurality-condorcet_winner');
+      expect(tested).toHaveTextContent('Tested on both engines');
+      expect(tested).not.toHaveTextContent('Source');
+      const variant = pick('irv-condorcet_loser');
+      expect(variant).toHaveTextContent('departs from the textbook verdict');
+      expect(variant).toHaveTextContent('eliminates tied last places together');
+    });
+
+    it('a second click on the picked cell closes it', () => {
+      ctx = { expressedVoters: voters, leaderCandidates: candidates };
+      render(<MethodsMatrix />);
+      pick('plurality-iia');
+      fireEvent.click(screen.getByTestId('matrix-cell-plurality-iia'));
+      expect(screen.queryByTestId('matrix-cell-source')).not.toBeInTheDocument();
+    });
   });
 });

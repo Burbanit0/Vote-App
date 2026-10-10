@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   METHOD_CRITERIA,
   METHOD_CRITERIA_ENTRIES,
   CRITERION_KEYS,
+  cite,
   loadVerdicts,
 } from './methodCriteria';
 import registry from './method_criteria.json';
@@ -104,5 +107,34 @@ describe('the registry loader refuses what the matrix could not show', () => {
       /verdict maybe/
     );
     expect(broken((reg) => delete plurality(reg)[CRITERION_KEYS[0]])).toThrow(/verdict undefined/);
+  });
+});
+
+describe('cite: a registry source as the matrix shows it', () => {
+  it('reads a bibliography key as its authors and year', () => {
+    expect(cite('gibbard1973')).toBe('Gibbard (1973)');
+    expect(cite('balinski_young1982')).toBe('Balinski & Young (1982)');
+    expect(cite('not a key')).toBe('not a key');
+  });
+
+  it('names the authors and year bibliography.bib gives every source the registry uses', () => {
+    const bib = readFileSync(resolve(__dirname, '../../../docs/research/bibliography.bib'), 'utf8');
+    const sources = new Set(
+      Object.values(METHOD_CRITERIA_ENTRIES).flatMap((cells) =>
+        Object.values(cells).flatMap((e) => (e.source ? [e.source] : []))
+      )
+    );
+    expect(sources.size).toBeGreaterThan(0);
+    for (const key of sources) {
+      const entry = new RegExp(`@\\w+\\{${key},([\\s\\S]*?)\\n\\}`).exec(bib)?.[1] ?? '';
+      // One field per line in bibliography.bib: `author = {Gibbard, Allan},`.
+      const field = (name: string) =>
+        new RegExp(`^\\s*${name}\\s*=\\s*\\{(.*)\\},?$`, 'm').exec(entry)?.[1] ?? '';
+      const year = field('year');
+      const surnames = field('author')
+        .split(' and ')
+        .map((a) => a.split(',')[0].trim());
+      expect(cite(key), key).toBe(`${surnames.join(' & ')} (${year})`);
+    }
   });
 });
