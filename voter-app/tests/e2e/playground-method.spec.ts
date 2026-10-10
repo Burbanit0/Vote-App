@@ -29,7 +29,7 @@ const EXPECTED_WINNER: Record<string, string | null> = {
   star: 'Carol',
   majority_judgment: 'Carol',
   cumulative: 'Carol',
-  maximin: 'Alice',
+  maximin: 'Carol', // a tie on this electorate, drawn by lot since #667 (was the first-listed)
   nash: 'Carol',
   bucklin: 'Carol',
   coombs: 'Carol',
