@@ -13,7 +13,9 @@ from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import ACTIVE, DISENGAGED, EXITED, Citizen
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.emotions import engagement_after, update_engagement
-from api.domain.polity.run_polity_simulation import run_simulation
+from api.domain.polity.journal import Journal
+from api.domain.polity.parties import Party
+from api.domain.polity.run_polity_simulation import _hold_legislative_election, run_simulation
 from api.domain.polity.simple_rules import utility_ballot
 from api.tests.polity_golden import golden_config
 from api.tests.test_polity_dynamic_citizens import FELT, MOVING
@@ -41,6 +43,19 @@ def test_a_disengaged_citizen_stays_home_and_the_update_counts_the_states() -> N
     candidate = _citizen(9, 0.0)
     vote = load_config().vote
     assert [utility_ballot(c, [candidate], vote) is None for c in citizens] == [False, True, True]
+
+
+def test_a_disengaged_or_exited_citizen_casts_no_legislative_vote_either(tmp_path: Path) -> None:
+    citizens = [_citizen(0, 0.0), _citizen(1, 0.0, ACTIVE), _citizen(2, 0.3, DISENGAGED), _citizen(3, 0.9, EXITED)]
+    path = tmp_path / "events.jsonl"
+    with Journal(path, "run") as journal:
+        _, votes = _hold_legislative_election(citizens, [Party(0, (0.5,))], load_config(), journal, 8)
+    assert votes == {0: 2.0}
+    assert _events(path)[0]["payload"] == {"seats": {"0": 100}, "votes": {"0": 2.0}, "blank_count": 0, "abstained": 2}
+
+    with Journal(tmp_path / "all.jsonl", "run") as journal:
+        _hold_legislative_election(citizens[:2], [Party(0, (0.5,))], load_config(), journal, 8)
+    assert "abstained" not in _events(tmp_path / "all.jsonl")[0]["payload"]  # no one stayed home: the key is absent
 
 
 def test_the_rules_want_ordered_anger_thresholds_and_emotions_on() -> None:

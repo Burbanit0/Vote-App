@@ -75,6 +75,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
+| [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections: 17 of 100 on average in phase11 | 2026-10-10 | fixed |
 
 ---
 
@@ -2245,3 +2246,26 @@ pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim a
 (`fit-for-inference.md`).
 
 *Status: open.*
+
+### OBS-046
+
+**Disengaged and exited citizens still voted at legislative elections: 17 of 100 on average in phase11.**
+
+*Seen.* Every `legislative_result` of the phase11 ensemble (`~/Documents/Dev/polity-runs/phase11/`) counts 100
+ballots, party votes plus blanks, while the `engagement_updated` event before it reports 8 to 28 citizens disengaged
+or exited (mean 17.2 over the 20 legislative elections; seed 8 had 28 at both).
+
+*Cause.* ADR-021 says a disengaged or exited citizen abstains. The presidential vote applies it (`utility_ballot`
+returns None, and `_llm_ballots` skips them), but `_hold_legislative_election` called `choose_party` for every
+citizen. Found while reading that loop for strategic voting.
+
+*What it touched.* Only runs with engagement on, that is the exploration profile since Phase 4.4 (#708): there,
+legislative turnout was overstated and the vote shares behind the seat counts included citizens who had given up.
+The effective numbers of parties in OBS-040 and OBS-044 were computed on those results. They are not recomputed:
+the citizens' positions at each election are not on disk, and the direction of the change is unknown.
+
+*Fix (2026-10-10).* The legislative election skips citizens who are not engaged, and `legislative_result` journals
+`abstained` once any stayed home, as `elected` does. With engagement off nothing changes.
+
+*Status: fixed.*
+

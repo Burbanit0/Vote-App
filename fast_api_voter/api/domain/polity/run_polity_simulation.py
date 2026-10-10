@@ -2401,7 +2401,8 @@ def _hold_legislative_election(
 ) -> tuple[dict[int, int], dict[int, float]]:
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
-    for voter in citizens:
+    voters = [voter for voter in citizens if voter.engaged]  # ADR-021: the rest stay home
+    for voter in voters:
         choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
         if choice is None:
             blank_count += 1
@@ -2426,6 +2427,7 @@ def _hold_legislative_election(
             seats=seats,
             votes=votes,
             blank_count=blank_count,
+            abstained=len(citizens) - len(voters) or OMIT,
         ),
     )
     return seats, votes
