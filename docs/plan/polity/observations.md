@@ -461,6 +461,10 @@ recorded run changes, for the reason above.
 its run has recalls, and their snap winners now serve only until the calendar's next election, so the
 elections fall on different ticks. The LLM engine still shows 11.
 
+*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with less than half of it left no longer counts
+against the limit, so a snap winner keeps their one term. With the limit at 1 the deterministic engine shows 7
+distinct presidents and the LLM engine 9.
+
 ### OBS-013
 
 **Party nominations often don't match the reason the model gives, and lean to the last listed
@@ -2015,6 +2019,18 @@ the run's last. The answer to the act is not journaled -- `agent_turn` carries n
 refusal not taken is visible only in `llm_calls.jsonl`.
 *Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
 `extra_legal` whenever the act is on the menu, legal that tick or not.
+
+*Decided 2026-10-10 (owner): a term counts against the limit only if won with at least half of it left* --
+close to the US 22nd Amendment's rule for a successor, which draws the line just past half (more than two years
+of four). Built on `feat/polity-half-term-counts`: `mandates_served` still counts every presidency won (it is what
+makes "a former officeholder" for `declare_candidacy`'s record), and a new `short_terms` counts those won with
+less than half a term to the calendar's next election; the limit counts the difference
+(`accountability.counted_terms`), a recalled president keeps the term they were elected to, and the president's
+system prompt states the rule. A president term-limited by a win holds office for at least half a term less a
+tick before the act can be offered -- never on the tick they took office, for any term longer than two ticks
+(every profile: 16). No separate minimum tenure was needed. A run resumed from a checkpoint written before this
+change keeps the old count for its sitting presidents (the field defaults to 0). The golden references and the
+explorer fixture's events do not move; its checkpoint gains the field, 1 for the snap winner at tick 10.
 
 ### OBS-042
 
