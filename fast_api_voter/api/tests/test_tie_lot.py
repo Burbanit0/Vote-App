@@ -10,7 +10,10 @@ from api.engine.utils.simulation_score_utils import (
     get_star_voting_winner,
     get_variance_based_winner,
 )
-from api.engine.utils.tie_lot import _fnv1a, best, draw, tied
+from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.demographic_data import _seeded_rng_pair
+from api.engine.utils.simulation_voting_utils import create_candidate, create_voter, vote_ranked
+from api.engine.utils.tie_lot import _fnv1a, best, draw, ranking, tied
 
 
 def test_the_hash_is_fnv1a_32():
@@ -96,3 +99,85 @@ def test_star_lists_its_first_finalist_first():
     ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
     result = get_star_voting_winner(ballots)
     assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ben"
+
+
+def test_ranking_orders_a_tie_by_the_seeded_lot_not_the_listing_order():
+    u = {"Ann": 1.0, "Ben": 1.0, "Cy": 2.0}
+    for seed in range(8):
+        r = ranking(["Ann", "Ben", "Cy"], u.__getitem__, seed)
+        assert r[0] == "Cy"
+        assert r == ranking(["Ben", "Cy", "Ann"], u.__getitem__, seed)
+    # Seeded per voter, a tie falls both ways across voters.
+    assert len({tuple(ranking(u, u.__getitem__, s)) for s in range(8)}) == 2
+
+
+def test_vote_ranked_orders_twin_candidates_by_the_lot_not_the_listing_order():
+    # Two candidates identical but for their name tie exactly for every voter (#662).
+    rng, np_rng = _seeded_rng_pair(662)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    carol = create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, carol]
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = [c["name"] for c in vote_ranked(voter, cands, DEFAULT_ISSUES)]
+        backward = [c["name"] for c in vote_ranked(voter, cands[::-1], DEFAULT_ISSUES)]
+        assert forward == backward
+
+
+def test_nearest_draws_an_equidistant_row_by_lot_per_voter():
+    import numpy as np
+
+    from api.engine.utils.tie_lot import nearest
+
+    dist = np.array([[1.0, 1.0, 3.0]] * 200 + [[2.0, 0.5, 0.5 + 1e-13]])
+    picks = nearest(dist, ["A", "B", "C"], seed=7)
+    rev = nearest(dist[:, ::-1], ["C", "B", "A"], seed=7)
+    assert [["A", "B", "C"][i] for i in picks] == [["C", "B", "A"][i] for i in rev]
+    assert 80 < int((picks[:200] == 0).sum()) < 120  # a fair split, not all to A
+    assert picks[200] in (1, 2)  # float noise is a tie too, as tied() reads one
+    assert list(nearest(np.array([[3.0, 1.0, 2.0]]), ["A", "B", "C"])) == [1]
+    # `rows` names the voters: the same voter draws the same way wherever it sits.
+    one = nearest(np.array([[1.0, 1.0]]), ["A", "B"], seed=7, rows=[42])
+    assert one[0] == nearest(np.array([[0.0, 0.0]] * 43 + [[1.0, 1.0]]), ["A", "B"], 7)[42]
+
+
+@pytest.mark.parametrize("vote", [
+    "compute_strategic_plurality_vote", "compute_strategic_borda_vote",
+    "compute_strategic_irv_vote", "compute_strategic_score_vote",
+])
+def test_a_strategic_vote_between_twins_does_not_follow_listing_order(vote):
+    from api.engine.utils import simulation_voting_utils as svu
+
+    rng, np_rng = _seeded_rng_pair(665)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    carol = create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, carol]
+    polls = {"Alice": 0.4, "Bob": 0.35, "Carol": 0.25}
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = getattr(svu, vote)(voter, cands, DEFAULT_ISSUES, polls)
+        assert forward == getattr(svu, vote)(voter, cands[::-1], DEFAULT_ISSUES, polls)
+
+
+def test_favourite_is_a_fair_per_voter_lot_and_heads_the_voters_ranking():
+    from api.engine.utils.tie_lot import favourite
+
+    u = {"A": 1.0, "B": 1.0, "C": 0.0}
+    picks = [favourite(u, u.__getitem__, vid) for vid in range(400)]
+    assert 160 < picks.count("A") < 240
+    # Not the parity of the voter's id, as plain FNV-1a modulo 2 was.
+    assert picks[0::2].count("A") != 200 or picks[1::2].count("A") != 0
+    assert all(p == ranking(u, u.__getitem__, vid)[0] for vid, p in enumerate(picks))
+
+
+def test_strategic_approval_between_twins_does_not_follow_listing_order():
+    from api.engine.utils.simulation_voting_utils import compute_strategic_approval_vote
+
+    rng, np_rng = _seeded_rng_pair(666)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)]
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = compute_strategic_approval_vote(voter, cands, DEFAULT_ISSUES)
+        assert forward == compute_strategic_approval_vote(voter, cands[::-1], DEFAULT_ISSUES)
+
