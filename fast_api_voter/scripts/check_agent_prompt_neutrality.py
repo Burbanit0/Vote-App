@@ -57,7 +57,6 @@ import dataclasses
 import json
 import math
 import os
-import re
 import sys
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -399,8 +398,6 @@ def _threshold_gate(
     print(f"  only at {GATE_LOW:.0%}: {test.first_only}   only at {GATE_HIGH:.0%}: {test.second_only}   "
           f"exact McNemar p = {test.p_value:.3g}")
     print(*_by_backing(backing, found_low, found_high), sep="\n")
-    named = sum(_names_seat_bar(t, GATE_HIGH) for t in turns[1::2] if t is not None)
-    print(f"  answers at {GATE_HIGH:.0%} that name the seat bar ({GATE_HIGH:.0%}, a seat, votes): {named}/{len(able)}")
     if log is not None:
         backing_of = {citizen.citizen_id: count for citizen, count in zip(able, backing)}
         log.write_text("".join(
@@ -409,19 +406,13 @@ def _threshold_gate(
                         "party_move": turn.party_move if turn is not None else "fail", **forum_words(turn)}) + "\n"
             for (citizen, cfg), turn in zip(jobs, turns)
         ), encoding="utf-8")
-        print(f"  every answer, with its backing: {log}")
+        print(f"  every answer, with its backing: {log} (what they cite: check_observations.py founders)")
     print(f"  GATE  {'PASS' if moved else 'STOP'}  " + (
         f"founding moves with the threshold ({direction})" if moved
         else "founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)"
     ))
     return moved
 
-
-def _names_seat_bar(turn: ForumTurn, bar: float) -> bool:
-    """Whether the answer refers to the seat rule at all (OBS-045). A founder's own share at the same figure
-    counts too, so this can only over-count."""
-    text = " ".join((turn.rationale, turn.note_to_self, turn.post))
-    return bool(re.search(rf"\b{round(bar * 100)}\s?%|\bseats?\b|\bvotes?\b", text, re.IGNORECASE))
 
 
 def _by_backing(backing: Sequence[int], found_low: Sequence[bool], found_high: Sequence[bool]) -> list[str]:

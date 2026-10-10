@@ -86,10 +86,10 @@ The gate compares 3% with 7%, the ends of the plan's (3, 5, 7%) range; 5% was no
 ## The answers logged (2026-10-10, OBS-045)
 
 From the `fast_api_voter/` of `feat/polity-threshold-gate-log` (base `polity` 772736d6), vLLM 0.31.0 serving `qwen3:8b`,
-the same phase-4 seed-2 checkpoint, at 79890945. The gate printed founding by backing and how many rationales at 7%
-mention a threshold or a percentage, and wrote every answer as JSON lines. That last count also caught founders' own
-shares ("8% support"), so the next commit replaced it with "answers at 7% that name the seat bar (7%, a seat,
-votes)", which is 0/60 for both runs below, recomputed from their logs.
+the same phase-4 seed-2 checkpoint. The gate prints founding by backing and writes every answer, with the founder's
+backing, as JSON lines: `check_agent_prompt_neutrality_d2_answers/shipped.jsonl` and `count.jsonl` beside this file.
+The runs below also printed a count of rationales at 7% mentioning "a threshold or a percentage"; it caught founders'
+own shares too ("8% support"), and `check_observations.py founders` replaces it.
 
 **Shipped wording** (`--probe threshold --n 60 --gate-log gate-answers.jsonl`, 3 min 14 s):
 
@@ -110,6 +110,7 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
        14   2            2            2
        16   1            1            1
   rationales at 7% that mention the threshold or a percentage: 22/60
+  every answer, with its backing: /home/burbanit0/Documents/Dev/polity-runs/obs045/gate-answers.jsonl
   GATE  STOP  founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)
 ```
 
@@ -134,19 +135,23 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
        14   2            2            2
        16   1            1            0
   rationales at 7% that mention the threshold or a percentage: 14/60
+  every answer, with its backing: /home/burbanit0/Documents/Dev/polity-runs/obs045/gate-answers-count.jsonl
   GATE  STOP  founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)
 ```
 
-**What the answers cite** (rationale, note to self and post together; read by hand where a count needed it):
+**What the answers cite**, recounted from the two logs (`python scripts/check_observations.py founders
+scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl`):
 
-| wording | told | n | name the seat bar | name the founding rule | call their own share a threshold | say "threshold" unqualified |
-|---|---|---:|---:|---:|---:|---:|
-| shipped | 3% | 60 | 0 | 29 | 1 | 1 |
-| shipped | 7% | 60 | 0 | 26 | 1 | 1 |
-| count | 3% | 60 | 0 | 6 | 0 | 9 |
-| count | 7% | 60 | 0 | 9 | 0 | 7 |
+```
+log        told   n  found  backing<7 found  seat bar  founding rule  own share  'threshold' alone  none
+count        3%  60     60         14 of 14         0              8          0                  9    43
+count        7%  60     58         14 of 14         0              8          0                  7    45
+shipped      3%  60     56         12 of 14         0             29          1                  1    29
+shipped      7%  60     59         14 of 14         0             25          1                  1    33
+```
 
-"Name the seat bar" is the bar the founder was told, a seat, or votes. "Name the founding rule" is "5%" ("meets the 5%
-threshold with 6 citizens closer to my positions"), "the 5-citizen threshold" or "the founding threshold". Own shares
-read "8% support meets the threshold". Unqualified answers read "6 citizens closer to my positions meets the
-threshold", which could be either rule. Reading: OBS-045's follow-up.
+Each answer is its rationale, note to self and post. "Seat bar": the bar the founder was told, a seat, or votes.
+The other columns are tried in order: the founding rule named ("5%" next to threshold, requirement or founding, "the
+5-citizen threshold", "the founding threshold"); a founder's own share called a threshold ("8% support meets the
+threshold"); "threshold" alone ("6 citizens closer to my positions meets the threshold", which could be either rule);
+none of these. Reading: OBS-045's follow-up.

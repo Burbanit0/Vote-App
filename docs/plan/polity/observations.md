@@ -2242,8 +2242,10 @@ lead the answer (contract C3), so that probe is not planned.
 
 *Follow-up, 2026-10-10: the exact figure, and what the founders cite.* The gate now logs every answer next to the
 founder's backing (`--gate-log`), and can state the founding rule as a count (`--gate-wording count`). Two runs,
-same checkpoint, vLLM 0.31.0, `qwen3:8b` at temperature 0.6; the tables are in
-`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
+same checkpoint, vLLM 0.31.0, `qwen3:8b` at temperature 0.6. The tables are in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`, the 240 answers in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_answers/`, and `python scripts/check_observations.py founders
+scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl` recounts every figure below from them.
 
 | founding rule worded | found at 3% / 7% | McNemar p | backing 5-6: found at 3% / 7% | answers naming the seat bar |
 |---|---:|---:|---:|---:|
@@ -2253,10 +2255,10 @@ same checkpoint, vLLM 0.31.0, `qwen3:8b` at temperature 0.6; the tables are in
 - **The exact figure.** Every one of the 14 founders a 7% bar should stop founded at 7%, in both runs.
 - **No answer names the seat bar.** None of the 240 rationales, notes and posts mentions the bar it was told (3% or
   7%), a seat, or votes.
-- **The threshold they do cite is the founding rule.** With the shipped wording, 55 of 120 name it ("meets the 5%
+- **The threshold they do cite is the founding rule.** With the shipped wording, 54 of 120 name it ("meets the 5%
   threshold with 6 citizens closer to my positions"), 2 call their own share a threshold and 2 say "the threshold"
-  unqualified. With the count wording, 15 name it ("the 5-citizen threshold", "the founding threshold") and 16 say
-  "meets the threshold" unqualified, which could be either rule.
+  alone. With the count wording, 16 name it ("the 5-citizen threshold", "the founding threshold") and 16 say "meets
+  the threshold" alone, which could be either rule.
 - **Stating the founding rule without its percentage changes nothing.** That weakens, but does not exclude, a
   confusion of the two bars: the party roll still gives each party's share of citizens as a percentage.
 
