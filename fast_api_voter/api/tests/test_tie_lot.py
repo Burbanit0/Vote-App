@@ -181,3 +181,16 @@ def test_strategic_approval_between_twins_does_not_follow_listing_order():
         forward = compute_strategic_approval_vote(voter, cands, DEFAULT_ISSUES)
         assert forward == compute_strategic_approval_vote(voter, cands[::-1], DEFAULT_ISSUES)
 
+
+
+def test_noise_streams_follow_the_name_and_keep_two_models_apart():
+    from api.engine.utils.information_model import apply_information_asymmetry
+    from api.engine.utils.tie_lot import streams
+
+    ab = [s.random() for s in streams(3, ["Ann", "Ben"], "campaign")]
+    ba = [s.random() for s in streams(3, ["Ben", "Ann"], "campaign")]
+    assert ab == ba[::-1]
+    assert ab[0] != streams(3, ["Ann"], "information")[0].random()
+    with pytest.raises(ValueError, match="2 names for 3 candidate columns"):
+        apply_information_asymmetry([[0.1, 0.2, 0.3]], {}, {"low_info": 1.0}, seed=1,
+                                    names=["Ann", "Ben"])

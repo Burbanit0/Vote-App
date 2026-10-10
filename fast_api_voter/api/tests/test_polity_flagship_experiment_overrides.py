@@ -54,18 +54,10 @@ def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) 
     assert len(kept.constitution.scripted) == 1  # without the freeze, a scripted amendment is the run's own
 
 
-def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(tmp_path: Path) -> None:
+def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sweep: Any, tmp_path: Path) -> None:
     import argparse
-    import importlib.util
-    import sys
 
-    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_seed_sweep.py"
-    spec = importlib.util.spec_from_file_location("run_polity_seed_sweep", script)
-    assert spec is not None and spec.loader is not None
-    sweep = importlib.util.module_from_spec(spec)
-    sys.modules["run_polity_seed_sweep"] = sweep
-    spec.loader.exec_module(sweep)
-
+    sweep = seed_sweep
     args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True)
     flags = sweep._run_flags(args)
     assert flags == ["--engine", "llm", "--profile", "exploration", "--threshold", "0.03", "--freeze-amendments"]
