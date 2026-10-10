@@ -194,9 +194,9 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
-    camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
-    daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
+    daily_scores = camp.get("daily_scores", {})  # {candidate: [pct_day0, …]}
 
     # Resolve snapshot days (convert "final" → num_days). Clamped on BOTH
     # ends: min() alone only caps the upper bound, so an out-of-range
@@ -215,13 +215,9 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     snapshots: list[Dict[str, Any]] = []
     for day in snapshot_days:
         # Get polling shares for this specific day
-        day_shares: Dict[str, float] = {}
-        for camp_idx, camp_name in enumerate(camp_cands):
-            if camp_idx < len(cand_names):
-                our_name    = cand_names[camp_idx]
-                shares_list = daily_scores.get(camp_name, [50.0])
-                pct         = shares_list[min(day, len(shares_list) - 1)]
-                day_shares[our_name] = pct / 100.0
+        day_shares: Dict[str, float] = {
+            name: s[min(day, len(s) - 1)] / 100.0 for name, s in daily_scores.items()
+        }
 
         # Blend true utilities with day-specific polling shares
         day_utilities: Dict[Any, Dict[str, float]] = {}
@@ -324,14 +320,11 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
-    camp_cands   = camp.get("candidates", [])
-    daily_scores = camp.get("daily_scores", {})
-    final_shares: Dict[str, float] = {}
-    for camp_idx, camp_name in enumerate(camp_cands):
-        if camp_idx < len(cand_names):
-            shares_list = daily_scores.get(camp_name, [50.0])
-            final_shares[cand_names[camp_idx]] = shares_list[-1] / 100.0
+    final_shares: Dict[str, float] = {
+        name: s[-1] / 100.0 for name, s in camp.get("daily_scores", {}).items()
+    }
 
     campaign_utilities: Dict[Any, Dict[str, float]] = {}
     for v in voters:
@@ -359,7 +352,8 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         base: Dict[Any, Dict[str, float]]
     ) -> Dict[Any, Dict[str, float]]:
         mat  = [[base[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perc = apply_information_asymmetry(mat, media_bias, voter_segments, seed=seed)
+        perc = apply_information_asymmetry(
+            mat, media_bias, voter_segments, seed=seed, names=cand_names)
         return {
             v["id"]: {c["name"]: perc[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)
@@ -786,15 +780,11 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if campaign_on:
         camp         = simulate_campaign(
             num_candidates=len(candidates),
-            num_days=num_days, events=[], seed=seed,
+            num_days=num_days, events=[], seed=seed, names=cand_names,
         )
-        camp_cands   = camp.get("candidates", [])
-        daily_scores = camp.get("daily_scores", {})
-        final_shares: Dict[str, float] = {}
-        for ci, camp_name in enumerate(camp_cands):
-            if ci < len(cand_names):
-                shares = daily_scores.get(camp_name, [50.0])
-                final_shares[cand_names[ci]] = shares[-1] / 100.0
+        final_shares: Dict[str, float] = {
+            name: s[-1] / 100.0 for name, s in camp.get("daily_scores", {}).items()
+        }
 
         for v in voters:
             for c_name in cand_names:
@@ -859,7 +849,8 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             "high_info":   float(vseg.get("high_info",   0.2)),
         }
         true_list = [[current_utilities[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perceived  = apply_information_asymmetry(true_list, media_bias, voter_segments, seed=seed)
+        perceived  = apply_information_asymmetry(
+            true_list, media_bias, voter_segments, seed=seed, names=cand_names)
         effective_utilities = {
             v["id"]: {c["name"]: perceived[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)

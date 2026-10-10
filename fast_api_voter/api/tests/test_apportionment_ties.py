@@ -835,3 +835,34 @@ def test_hotelling_plurality_splits_converged_candidates_by_lot():
     rev = [_hotelling_score(utilities[:, ::-1], "plurality", j, ["C", "B", "A"], 5) for j in range(3)]
     assert shares == rev[::-1]
     assert 0.35 < shares[0] < 0.65 and shares[2] == 0.0
+
+
+@pytest.mark.parametrize("worker", [
+    "workers._campaign_sensitivity_worker", "workers._combined_effects_worker",
+    "workers._simulate_pipeline_worker", "election_service.simulate",
+])
+def test_campaign_and_information_noise_follow_the_candidate_not_its_slot(worker):
+    """The campaign and information models drew noise per candidate slot, so a reorder
+    handed a candidate someone else's trajectory and perceived utilities (#664). Each
+    candidate has its own stream now, seeded with its name."""
+    import json
+
+    import api.domain.election.election_service as election_service
+    import api.domain.election.workers as workers
+
+    module, name = worker.split(".")
+    fn = getattr({"workers": workers, "election_service": election_service}[module], name)
+    cands = [{"name": "Ann", "party": "Green"}, {"name": "Ben", "party": "Liberal"},
+             {"name": "Cy", "party": "Conservative"}]
+    req = {"seed": 3, "num_voters": 120, "campaign": {"enabled": True},
+           "information_model": {"enabled": True, "media_bias": {"Ann": 0.5, "Cy": -0.3}}}
+
+    def result(order):
+        body = fn({**req, "candidates": order})[0]
+        body = {k: v for k, v in body.items() if k not in ("candidates", "config")}
+        if body.get("campaign_trajectory"):
+            body["campaign_trajectory"] = {
+                k: v for k, v in body["campaign_trajectory"].items() if k != "candidates"}
+        return json.dumps(body, sort_keys=True, default=str)
+
+    assert result(cands) == result(cands[::-1])
