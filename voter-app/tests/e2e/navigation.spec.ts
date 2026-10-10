@@ -5,6 +5,8 @@ import {
   ANCHORS,
   concreteUrl,
   assertEverySurfaceAnchored,
+  settled,
+  type Surface,
 } from './routes';
 
 // The route lists come from src/routes.ts — the same table App.tsx renders. A
@@ -30,38 +32,41 @@ test.describe('Navigation — the five real surfaces', () => {
     });
   }
 
-  test('navbar links reach the four destinations', async ({ page }) => {
-    const nav = () => page.locator('[data-testid="navbar"]');
-
+  // Each navbar link is a full page load: every step settles (routes.ts' `settled`) before
+  // the next navigation, and the last one before the test ends.
+  test('navbar links reach the three destinations', async ({ page }) => {
+    const links: [RegExp, Surface][] = [
+      [/playground/i, '/playground'],
+      [/laboratoire/i, '/laboratoire'],
+      [/à vous de jouer|your turn/i, '/a-vous-de-jouer'],
+    ];
     await page.goto('/');
-    await nav()
-      .getByRole('link', { name: /playground/i })
-      .click();
-    await expect(page).toHaveURL(/\/playground$/);
+    await settled(page, '/');
+    for (const [name, path] of links) {
+      await page.locator('[data-testid="navbar"]').getByRole('link', { name }).click();
+      await expect(page).toHaveURL((url) => url.pathname === path);
+      await settled(page, path);
+    }
+  });
 
-    await nav()
-      .getByRole('link', { name: /laboratoire/i })
-      .click();
-    await expect(page).toHaveURL(/\/laboratoire$/);
-
-    await nav()
-      .getByRole('link', { name: /à vous de jouer|your turn/i })
-      .click();
-    await expect(page).toHaveURL(/\/a-vous-de-jouer$/);
-
-    // Polity left the main nav (PLAN_BEYOND_CI W3.1): it is reached from the home footer.
+  test('the home footer reaches Polity', async ({ page }) => {
+    // Polity left the main nav (PLAN_BEYOND_CI W3.1).
     await page.goto('/');
+    await settled(page, '/');
     await page.getByTestId('home-foot-polity').click();
     await expect(page).toHaveURL(/\/polity$/);
+    await settled(page, '/polity');
   });
 
   test('brand link goes back home', async ({ page }) => {
     await page.goto('/playground');
+    await settled(page, '/playground');
     await page
       .locator('[data-testid="navbar"]')
       .getByRole('link', { name: /vote lab/i })
       .click();
     await expect(page).toHaveURL(/\/$/);
+    await settled(page, '/');
   });
 
   for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
@@ -86,6 +91,7 @@ test.describe('Navigation — the five real surfaces', () => {
 
   test('dark mode is set from the settings menu and survives a reload', async ({ page }) => {
     await page.goto('/');
+    await settled(page, '/');
     await expect(page.locator('html')).toHaveAttribute('data-bs-theme', 'light');
 
     // The theme switch lives inside the ⚙ Préférences dropdown, not the navbar.

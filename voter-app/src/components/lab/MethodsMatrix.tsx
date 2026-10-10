@@ -7,13 +7,11 @@ import { LEADER_RULES, hasFixedWinner, winnersByRule } from '../../lib/scorecard
 import NoFixedWinner from '../playground/NoFixedWinner';
 import {
   METHOD_CRITERIA,
-  METHOD_FAMILY,
-  FAMILY_ORDER,
   CRITERION_KEYS,
   type CriterionKey,
   type Satisfaction,
-  type MethodFamily,
 } from '../../data/methodCriteria';
+import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../data/methodFamily';
 import { candidateColor, textTone } from '../../lib/palette';
 
 // Only the compared methods (Tier A) — Tier B extras live in the method gallery.
