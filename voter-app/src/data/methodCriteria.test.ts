@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { METHOD_CRITERIA, METHOD_CRITERIA_ENTRIES, CRITERION_KEYS } from './methodCriteria';
+import {
+  METHOD_CRITERIA,
+  METHOD_CRITERIA_ENTRIES,
+  CRITERION_KEYS,
+  loadVerdicts,
+} from './methodCriteria';
+import registry from './method_criteria.json';
 import { LEADER_RULES } from '../lib/scorecard';
 import { RULE_LABELS } from '../lib/playgroundVoting';
 import { RANDOM_BALLOT_PROPS } from '../lib/playgroundCriteria';
@@ -66,5 +72,37 @@ describe('the criteria registry (method_criteria.json, PLAN_BEYOND_CI W1.2)', ()
       if (stated === null) continue; // the lens calls it not meaningful for a lottery
       expect(METHOD_CRITERIA.random_ballot[key], key).toBe(stated ? 'yes' : 'no');
     }
+  });
+});
+
+describe('the registry loader refuses what the matrix could not show', () => {
+  // A copy of the real registry with one thing broken.
+  const broken = (edit: (reg: Record<string, unknown>) => void) => {
+    const reg = structuredClone(registry) as unknown as Record<string, unknown>;
+    edit(reg);
+    return () => loadVerdicts(reg as unknown as typeof registry);
+  };
+  const plurality = (reg: Record<string, unknown>) =>
+    (reg.rules as Record<string, Record<string, Record<string, unknown>>>).plurality;
+
+  it('accepts the real registry', () => {
+    expect(loadVerdicts()).toEqual(METHOD_CRITERIA);
+  });
+
+  it('refuses criteria in another order or set', () => {
+    expect(broken((reg) => (reg.criteria as string[]).reverse())).toThrow(/criteria .* are not/);
+  });
+
+  it('refuses an unknown criterion', () => {
+    expect(broken((reg) => (plurality(reg).fairness = { verdict: 'yes' }))).toThrow(
+      /plurality has unknown criteria fairness/
+    );
+  });
+
+  it('refuses a missing or unknown verdict', () => {
+    expect(broken((reg) => (plurality(reg)[CRITERION_KEYS[0]].verdict = 'maybe'))).toThrow(
+      /verdict maybe/
+    );
+    expect(broken((reg) => delete plurality(reg)[CRITERION_KEYS[0]])).toThrow(/verdict undefined/);
   });
 });

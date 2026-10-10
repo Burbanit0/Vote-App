@@ -40,14 +40,15 @@ export interface CriterionEntry {
   note?: string;
 }
 
-function loadVerdicts(): Record<Rule, MethodCriteriaRow> {
-  if (registry.criteria.join() !== CRITERION_KEYS.join()) {
+/** The registry's verdicts, checked. Takes the registry so its refusals can be tested. */
+export function loadVerdicts(reg: typeof registry = registry): Record<Rule, MethodCriteriaRow> {
+  if (reg.criteria.join() !== CRITERION_KEYS.join()) {
     throw new Error(
-      `method_criteria.json: criteria ${registry.criteria.join()} are not ${CRITERION_KEYS.join()}`
+      `method_criteria.json: criteria ${reg.criteria.join()} are not ${CRITERION_KEYS.join()}`
     );
   }
   const out = {} as Record<Rule, MethodCriteriaRow>;
-  for (const [rule, cells] of Object.entries(registry.rules)) {
+  for (const [rule, cells] of Object.entries(reg.rules)) {
     const unknown = Object.keys(cells).filter(
       (key) => !CRITERION_KEYS.includes(key as CriterionKey)
     );
