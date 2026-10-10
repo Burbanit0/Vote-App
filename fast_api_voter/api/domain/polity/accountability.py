@@ -202,7 +202,7 @@ def self_gap(citizen: Citizen, officeholder: Citizen) -> float:
 
 
 def counted_terms(citizen: Citizen) -> int:
-    """The terms the limit counts: every one won, less those won with half a term or less left (OBS-041)."""
+    """The terms the limit counts: every one won, less those won with less than half a term left (OBS-041)."""
     return citizen.mandates_served - citizen.short_terms
 
 

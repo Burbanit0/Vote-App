@@ -2277,8 +2277,8 @@ def _hold_presidential_election(
                 clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
                 winner.term_end_tick = clock.next_presidential_election(tick)
                 winner.mandates_served += 1
-                # Won with half a term or less left: a short term, which the limit does not count (OBS-041).
-                winner.short_terms += int(2 * (winner.term_end_tick - tick) <= clock.president_term_ticks)
+                # Won with less than half a term left: a short term, which the limit does not count (OBS-041).
+                winner.short_terms += int(2 * (winner.term_end_tick - tick) < clock.president_term_ticks)
                 if config.legitimacy.enabled:
                     # Independent of config.mandate.enabled: m only needs
                     # ballots/winner_label, not pledge/deviation tracking. No

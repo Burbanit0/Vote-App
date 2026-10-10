@@ -64,10 +64,10 @@ class Citizen:
     # (§7bis.5) activate in v4. In v0, revealed_position is always pinned
     # equal to pledged_platform the moment a candidacy is declared.
     mandates_served: int = 0
-    # Of mandates_served, the terms won with half a term or less left (a snap win near the calendar's next
-    # election): they do not count against the term limit (OBS-041, the US 22nd Amendment's rule for a
-    # successor). mandates_served itself stays every presidency won, which is what "a former officeholder"
-    # reads (declare_candidacy's keep_record).
+    # Of mandates_served, the terms won with less than half a term left (a snap win near the calendar's
+    # next election): they do not count against the term limit (OBS-041, close to the US 22nd Amendment's
+    # rule for a successor). mandates_served itself stays every presidency won, which is what "a former
+    # officeholder" reads (declare_candidacy's keep_record).
     short_terms: int = 0
     pledged_platform: tuple[float, ...] | None = None
     revealed_position: tuple[float, ...] | None = None
