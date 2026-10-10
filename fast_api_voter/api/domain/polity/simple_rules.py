@@ -444,14 +444,24 @@ def strategic_party(
     sincere vote votes instead for the best party above it, when that costs at most `margin` in utility (the
     utility choose_party maximises) and the party is still within their tolerance. A blank ballot, a party
     above the threshold or a margin of 0 leaves the sincere choice."""
-    if margin <= 0 or sincere is None or sincere in viable:
+    if margin <= 0 or sincere is None or sincere in viable or not viable:
         return sincere
-    considered = [party for party in parties if party.party_id in viable or party.party_id == sincere]
-    utility = _party_utilities(voter, considered, governing, retrospection)
-    best = min((p for p in considered if p.party_id in viable), key=lambda p: (-utility[p.party_id], p.party_id), default=None)
-    if best is None or utility[sincere] - utility[best.party_id] > margin or utility[best.party_id] < -voter.blank_threshold:
-        return sincere
-    return best.party_id
+    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection)
+    best = max(viable & utility.keys(), key=lambda party_id: (utility[party_id], -party_id))
+    worth_it = utility[sincere] - utility[best] <= margin and utility[best] >= -voter.blank_threshold
+    return best if worth_it else sincere
+
+
+def strategic_choices(
+    voters: Sequence[Citizen], parties: list[Party], sincere: Sequence[int | None], margin: float, threshold: float,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+) -> list[int | None]:
+    """ADR-024 over an electorate: the sincere vote is the poll, and each voter it strands may desert.
+    At margin 0, the sincere vote."""
+    if margin <= 0:
+        return list(sincere)
+    viable = viable_parties(sincere, threshold)
+    return [strategic_party(v, parties, s, viable, margin, governing, retrospection) for v, s in zip(voters, sincere)]
 
 
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────

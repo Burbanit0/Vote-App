@@ -274,10 +274,9 @@ from api.domain.polity.simple_rules import (
     PolicyRecord,
     select_party_nominee,
     select_party_nominee_from_declared,
-    strategic_party,
+    strategic_choices,
     utility_ballot,
     vacate_office,
-    viable_parties,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
 from api.domain.polity.tick_state import PendingRerun, TickState
@@ -2412,13 +2411,9 @@ def _hold_legislative_election(
     voters = _voters(citizens)
     retrospection, margin = config.vote.policy_retrospection, config.vote.strategic_margin
     sincere = [choose_party(voter, parties, governing, retrospection) for voter in voters]
-    choices = sincere
-    if margin > 0:  # ADR-024: the sincere vote is the poll; a voter it strands below the threshold may desert
-        viable = viable_parties(sincere, config.institutions.electoral_threshold)
-        choices = [
-            strategic_party(voter, parties, choice, viable, margin, governing, retrospection)
-            for voter, choice in zip(voters, sincere)
-        ]
+    choices = strategic_choices(
+        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection,
+    )
     for choice in choices:
         if choice is None:
             blank_count += 1
@@ -2444,11 +2439,18 @@ def _hold_legislative_election(
             votes=votes,
             blank_count=blank_count,
             abstained=abstained if (abstained := len(citizens) - len(voters)) else OMIT,  # present once anyone stays home
-            deserted=sum(c != s for c, s in zip(choices, sincere)) if margin > 0 else OMIT,
-            sincere_votes={party.party_id: float(sincere.count(party.party_id)) for party in parties} if margin > 0 else OMIT,
+            **(_desertions(parties, sincere, choices) if margin > 0 else {}),
         ),
     )
     return seats, votes
+
+
+def _desertions(parties: list[Party], sincere: list[int | None], choices: list[int | None]) -> dict[str, Any]:
+    """ADR-024's journal fields: how many voters changed party, and the vote before they did."""
+    return {
+        "deserted": sum(choice != vote for choice, vote in zip(choices, sincere)),
+        "sincere_votes": {party.party_id: float(sincere.count(party.party_id)) for party in parties},
+    }
 
 
 def _form_and_journal_coalition(
