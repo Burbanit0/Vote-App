@@ -39,6 +39,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the collapsed navbar opens on tap and can navigate', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator(ANCHORS['/'])).toBeVisible(); // settled before navigating again
     const nav = page.locator('[data-testid="navbar"]');
     await page.getByTestId('navbar-toggle').click();
     await expect(nav.getByRole('link', { name: /playground/i })).toBeVisible();

@@ -30,33 +30,38 @@ test.describe('Navigation — the five real surfaces', () => {
     });
   }
 
-  test('navbar links reach the four destinations', async ({ page }) => {
-    const nav = () => page.locator('[data-testid="navbar"]');
+  // Each navbar link is a full page load. Every step waits for the page's own anchor (its
+  // lazy chunk has rendered) before navigating again: a navigation that cancels the last
+  // page's in-flight requests can crash WebKit's network process ("WebKit encountered an
+  // internal error", microsoft/playwright#42803; f7c5f6f8 removed the same shape once).
+  test('navbar links reach the three destinations', async ({ page }) => {
+    const reach = async (
+      name: RegExp,
+      path: '/playground' | '/laboratoire' | '/a-vous-de-jouer'
+    ) => {
+      await page.locator('[data-testid="navbar"]').getByRole('link', { name }).click();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.locator(ANCHORS[path])).toBeVisible();
+    };
 
     await page.goto('/');
-    await nav()
-      .getByRole('link', { name: /playground/i })
-      .click();
-    await expect(page).toHaveURL(/\/playground$/);
+    await expect(page.locator(ANCHORS['/'])).toBeVisible();
+    await reach(/playground/i, '/playground');
+    await reach(/laboratoire/i, '/laboratoire');
+    await reach(/à vous de jouer|your turn/i, '/a-vous-de-jouer');
+  });
 
-    await nav()
-      .getByRole('link', { name: /laboratoire/i })
-      .click();
-    await expect(page).toHaveURL(/\/laboratoire$/);
-
-    await nav()
-      .getByRole('link', { name: /à vous de jouer|your turn/i })
-      .click();
-    await expect(page).toHaveURL(/\/a-vous-de-jouer$/);
-
-    // Polity left the main nav (PLAN_BEYOND_CI W3.1): it is reached from the home footer.
+  test('the home footer reaches Polity', async ({ page }) => {
+    // Polity left the main nav (PLAN_BEYOND_CI W3.1).
     await page.goto('/');
+    await expect(page.locator(ANCHORS['/'])).toBeVisible();
     await page.getByTestId('home-foot-polity').click();
     await expect(page).toHaveURL(/\/polity$/);
   });
 
   test('brand link goes back home', async ({ page }) => {
     await page.goto('/playground');
+    await expect(page.locator(ANCHORS['/playground'])).toBeVisible();
     await page
       .locator('[data-testid="navbar"]')
       .getByRole('link', { name: /vote lab/i })
@@ -86,6 +91,7 @@ test.describe('Navigation — the five real surfaces', () => {
 
   test('dark mode is set from the settings menu and survives a reload', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator(ANCHORS['/'])).toBeVisible(); // settled before navigating again
     await expect(page.locator('html')).toHaveAttribute('data-bs-theme', 'light');
 
     // The theme switch lives inside the ⚙ Préférences dropdown, not the navbar.
