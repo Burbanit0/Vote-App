@@ -181,6 +181,11 @@ merge_protections:
           - files = fast_api_voter/api/tests/test_polity_golden.py
           - files ~= ^fast_api_voter/api/tests/test_hypothesis_
           - files = fast_api_voter/api/tests/test_voting_criteria_matrix.py
+          # The criteria registry both engines' axiom tests are checked against.
+          - files = voter-app/src/data/method_criteria.json
+          - files = voter-app/src/data/methodCriteria.ts
+          - files = voter-app/src/data/methodCriteria.test.ts
+          - files = fast_api_voter/api/tests/test_method_criteria_registry.py
           # The behaviour catalogue and its check: removing an invariant (row and
           # marker together) passes every test, so a person reads it.
           - files ~= ^docs/spec/

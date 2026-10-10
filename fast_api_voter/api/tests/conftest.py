@@ -57,3 +57,18 @@ def flagship() -> Any:
     spec.loader.exec_module(module)
     return module
 
+
+@pytest.fixture(scope="session")
+def seed_sweep() -> Any:
+    """scripts/run_polity_seed_sweep.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_seed_sweep.py"
+    spec = importlib.util.spec_from_file_location("run_polity_seed_sweep", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["run_polity_seed_sweep"] = module
+    spec.loader.exec_module(module)
+    return module

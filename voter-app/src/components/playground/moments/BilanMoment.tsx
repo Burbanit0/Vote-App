@@ -13,7 +13,7 @@ import { explainWinner, condorcetOf, headToHead } from '../../../lib/explainWinn
 import WinnerExplanation from '../WinnerExplanation';
 import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
 import NoFixedWinner from '../NoFixedWinner';
-import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
+import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodFamily';
 import { candidateColor as candColor, textTone } from '../../../lib/palette';
 
 const rulesByFamily = (rules: Rule[]): Record<MethodFamily, Rule[]> =>

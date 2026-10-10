@@ -135,6 +135,11 @@ class SweepRun:
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)
     run_metadata: dict[str, Any] = field(default_factory=dict)
+    constitution: tuple[tuple[int, str, Any], ...] | None = ()
+    """The run's constitutional history: the amendments it ratified, in order, as (tick, article, new
+    value) -- ADR-015's versions with when each took effect. () is the unamended constitution and None
+    an unknown one (no readable journal). Runs whose histories differ were not under one set of rules
+    for the whole run, which is what a whole-run metric averages over."""
 
     @property
     def completed(self) -> bool:
@@ -142,6 +147,19 @@ class SweepRun:
 
     def fallback_rates(self) -> dict[str, float]:
         return {t: self.fallback_by_type.get(t, 0) / n for t, n in sorted(self.decisions_by_type.items()) if n}
+
+
+def constitution_groups(
+    runs: Sequence[SweepRun],
+) -> dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]]:
+    """Completed runs grouped by constitutional history: a metric is pooled within a group, never across
+    two, since runs in different groups were not under the same rules all along (ADR-015). The None group
+    (history unknown) is never pooled."""
+    groups: dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]] = {}
+    for run in runs:
+        if run.completed:
+            groups.setdefault(run.constitution, []).append(run)
+    return groups
 
 
 def first_completed_runs(runs: Sequence[SweepRun]) -> list[SweepRun]:

@@ -2,11 +2,17 @@
 See api/domain/polity/sweep_statistics.py."""
 from __future__ import annotations
 
+import dataclasses
+import json
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 from api.domain.polity.sweep_statistics import (
     SweepRun,
     clopper_pearson,
+    constitution_groups,
     first_completed_runs,
     mean_bca_interval,
     paired_contrast,
@@ -166,3 +172,64 @@ def test_two_arms_on_the_same_seed_stay_apart() -> None:
             SweepRun(seed=1, repeat=1, run_id="b", outcome="completed", arm="5pct")]
     assert {run.run_id for run in first_completed_runs(runs)} == {"a", "b"}
 
+
+# ── constitution versions (ADR-015): never pooled across ──────────────────
+
+THRESHOLD = ((2, "institutions.electoral_threshold", 0.08),)
+
+
+def test_completed_runs_are_grouped_by_their_constitutional_history() -> None:
+    later = (*THRESHOLD, (6, "institutions.electoral_threshold", 0.05))
+    same_rule_later = ((6, "institutions.electoral_threshold", 0.08),)
+    runs = [_run(1), _run(2), dataclasses.replace(_run(3), constitution=THRESHOLD),
+            dataclasses.replace(_run(4), constitution=later), dataclasses.replace(_run(5), constitution=same_rule_later),
+            dataclasses.replace(_run(6), constitution=None), dataclasses.replace(_run(7, outcome="crashed"), constitution=THRESHOLD)]
+    groups = constitution_groups(runs)
+    assert {k: [r.seed for r in v] for k, v in groups.items()} == {
+        (): [1, 2], THRESHOLD: [3], later: [4], same_rule_later: [5], None: [6]}
+
+
+def test_the_summary_pools_occupancy_within_a_constitutional_history_never_across(seed_sweep: Any) -> None:
+    one_rule = [_run(1, occupancy=0.9), _run(2, occupancy=0.8)]
+    assert any("95% BCa" in line for line in seed_sweep._occupancy_section(one_rule))
+    mixed = [*one_rule, dataclasses.replace(_run(3, occupancy=0.5), constitution=THRESHOLD),
+             dataclasses.replace(_run(4, occupancy=0.4), constitution=None)]
+    lines = seed_sweep._occupancy_section(mixed)
+    assert any("not pooled across seeds" in line and "3 constitutional histories" in line for line in lines)
+    assert any(line.startswith("- unamended (seed 1, seed 2)") for line in lines)
+    assert "- not summarised (alone in their history, or history unknown): seed 3, seed 4" in lines
+    assert not any("0.5000" in line or "0.4000" in line for line in lines)
+
+    unknown = [dataclasses.replace(r, constitution=None) for r in one_rule]
+    assert not any("95% BCa" in line for line in seed_sweep._occupancy_section(unknown))
+
+    repeats = [*mixed, dataclasses.replace(_run(3, 2), constitution=())]
+    section = seed_sweep._constitution_section(repeats)
+    assert "- unamended: seed 1, seed 2, seed 3 rep 2" in section
+    assert "- electoral_threshold 0.08 at t2: seed 3" in section
+    assert "- unknown (journal missing or damaged): seed 4" in section
+
+
+def test_the_history_is_read_from_the_journal_and_unknown_when_it_cannot_be(seed_sweep: Any, tmp_path: Path) -> None:
+    journal = tmp_path / "events.jsonl"
+    amended = {"event_type": "constitution_amended", "tick": 2,
+               "payload": {"article": "institutions.electoral_threshold", "new": 0.08}}
+    body = json.dumps({"event_type": "elected", "tick": 1, "payload": {}}) + "\n" + json.dumps(amended) + "\n"
+    journal.write_text(body + '{"event_type": "constitution_amended", "payl', encoding="utf-8")  # torn last line
+    assert seed_sweep._amendments(journal) == THRESHOLD
+    journal.write_text("{oops\n" + body + '{"event_type": "constitution_amended", "payl', encoding="utf-8")
+    assert seed_sweep._amendments(journal) is None
+    assert seed_sweep._amendments(tmp_path / "missing.jsonl") is None
+
+
+def test_the_written_summary_reads_each_runs_history_and_flags_the_pooled_red_flags(seed_sweep: Any, tmp_path: Path) -> None:
+    amended = {"event_type": "constitution_amended", "tick": 2,
+               "payload": {"article": "institutions.electoral_threshold", "new": 0.08}}
+    for seed, journal in ((1, []), (2, []), (3, [amended])):
+        run_dir = tmp_path / f"sweep-1y-p10-seed{seed}" / "run" / f"sweep-1y-p10-seed{seed}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "digest.json").write_text(json.dumps({"outcome": "completed", "office_occupancy": 0.9}), encoding="utf-8")
+        (run_dir / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in journal), encoding="utf-8")
+    text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3]).read_text(encoding="utf-8")
+    assert "- electoral_threshold 0.08 at t2: seed 3" in text
+    assert "- note: these pre-registered flags pool across 2 constitutional histories (see Constitutions)" in text
