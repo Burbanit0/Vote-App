@@ -6,6 +6,8 @@
 // Voter utility for a candidate is -distance (closer = better). Everything derives
 // from that: rankings for ordinal rules, per-voter min-max scores for cardinal ones.
 
+import { bestIndex, drawIndex } from './tieLot';
+
 // Points carry an optional 3rd axis. 1-D uses x (y=z=0); 2-D uses x,y (z=0);
 // 3-D uses all three. z is optional so every existing 2-D caller is unchanged.
 export interface NamedPt {
@@ -479,22 +481,29 @@ function winRankedPairs(ranks: number[][], m: number): number {
 }
 
 /** STAR: score, then an automatic runoff between the two highest totals. */
-function winStar(scores: number[][], m: number): number {
+function winStar(scores: number[][], m: number, names: readonly string[]): number {
   const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
-  const order = total.map((_, i) => i).sort((a, b) => total[b] - total[a]);
-  const [a, b] = [order[0], order[1]];
+  // The two finalists by total score; a tie for a place is drawn by lot.
+  const a = bestIndex(total, names);
+  if (m < 2) return a;
+  const b = bestIndex(
+    total.map((v, i) => (i === a ? -Infinity : v)),
+    names
+  );
   let av = 0;
   let bv = 0;
   for (const s of scores) {
     if (s[a] > s[b]) av += 1;
     else if (s[b] > s[a]) bv += 1;
   }
-  return av >= bv ? a : b;
+  if (av !== bv) return av > bv ? a : b;
+  // A tied runoff goes to the higher-scored finalist; tied on score too, to the lot.
+  return [a, b][bestIndex([total[a], total[b]], [names[a], names[b]])];
 }
 
 /** Majority judgment: highest median grade, tie-broken by removing medians. */
-function winMajorityJudgment(scores: number[][], m: number): number {
+function winMajorityJudgment(scores: number[][], m: number, names: readonly string[]): number {
   const L = 6;
   const work: number[][] = Array.from({ length: m }, () => []);
   for (const s of scores) for (let i = 0; i < m; i++) work[i].push(Math.round(s[i] * (L - 1)));
@@ -509,14 +518,15 @@ function winMajorityJudgment(scores: number[][], m: number): number {
     for (const c of top) work[c].splice(Math.floor((work[c].length - 1) / 2), 1);
     pool = top;
   }
-  return pool[0];
+  // Every grade compared and still tied: drawn by lot, not by listing order.
+  return drawIndex(pool, names);
 }
 
 /** Score / evaluative: highest summed cardinal score. */
-function winScore(scores: number[][], m: number): number {
+function winScore(scores: number[][], m: number, names: readonly string[]): number {
   const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
-  return argmax(total);
+  return bestIndex(total, names);
 }
 
 /** Anti-plurality (veto): elect whoever is ranked LAST the fewest times. */
@@ -757,21 +767,21 @@ function winKemeny(ranks: number[][], m: number): number {
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion
  *  to their scores (favourites get more, but the budget is shared). Most points wins. */
-function winCumulative(scores: number[][], m: number): number {
+function winCumulative(scores: number[][], m: number, names: readonly string[]): number {
   const tally = new Array(m).fill(0);
   for (const s of scores) {
     const sum = s.reduce((a, x) => a + x, 0);
     if (sum > 0) for (let i = 0; i < m; i++) tally[i] += s[i] / sum;
   }
-  return argmax(tally);
+  return bestIndex(tally, names);
 }
 
 /** Maximin (Rawlsian): elect the candidate whose WORST rating across voters is
  *  highest — the least-bad option for the most disadvantaged voter. */
-function winMaximin(scores: number[][], m: number): number {
+function winMaximin(scores: number[][], m: number, names: readonly string[]): number {
   const worst = new Array(m).fill(Infinity);
   for (const s of scores) for (let i = 0; i < m; i++) worst[i] = Math.min(worst[i], s[i]);
-  return argmax(worst);
+  return bestIndex(worst, names);
 }
 
 /**
@@ -847,11 +857,11 @@ function winRiver(ranks: number[][], m: number): number {
 /** Nash (proportional welfare): maximise the PRODUCT of voter utilities — summed
  *  in log-space to stay numerically stable. Rating a candidate 0 crushes it, so
  *  Nash sits between the utilitarian sum (score) and the Rawlsian min (maximin). */
-function winNash(scores: number[][], m: number): number {
+function winNash(scores: number[][], m: number, names: readonly string[]): number {
   const EPS = 1e-6;
   const acc = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) acc[i] += Math.log(Math.max(s[i], EPS));
-  return argmax(acc);
+  return bestIndex(acc, names);
 }
 
 /**
@@ -930,7 +940,11 @@ export function ruleWinnerFromRanks(
   ranks: number[][],
   m: number,
   rule: Rule,
-  scores?: number[][]
+  scores?: number[][],
+  // The candidates' names: an exact tie in a score rule is drawn by lot over them
+  // (tieLot.ts), the same draw as the backend's. Without them the lot runs over the
+  // indices, which still decides but follows listing order.
+  names: readonly string[] = Array.from({ length: m }, (_, i) => String(i))
 ): number {
   if (m === 0 || ranks.length === 0) return -1;
   switch (rule) {
@@ -938,11 +952,11 @@ export function ruleWinnerFromRanks(
     case 'approval':
       return scores ? winApproval(scores, m) : winPlurality(ranks, m);
     case 'star':
-      return scores ? winStar(scores, m) : winPlurality(ranks, m);
+      return scores ? winStar(scores, m, names) : winPlurality(ranks, m);
     case 'majority_judgment':
-      return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
+      return scores ? winMajorityJudgment(scores, m, names) : winPlurality(ranks, m);
     case 'score':
-      return scores ? winScore(scores, m) : winPlurality(ranks, m);
+      return scores ? winScore(scores, m, names) : winPlurality(ranks, m);
     case 'plurality':
       return winPlurality(ranks, m);
     case 'two_round':
@@ -989,11 +1003,11 @@ export function ruleWinnerFromRanks(
     case 'smith_irv':
       return winSmithIRV(ranks, m);
     case 'cumulative':
-      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
+      return scores ? winCumulative(scores, m, names) : winPlurality(ranks, m);
     case 'maximin':
-      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
+      return scores ? winMaximin(scores, m, names) : winPlurality(ranks, m);
     case 'nash':
-      return scores ? winNash(scores, m) : winPlurality(ranks, m);
+      return scores ? winNash(scores, m, names) : winPlurality(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
     default:
@@ -1009,7 +1023,8 @@ export function ruleWinner(voters: Pt[], cands: NamedPt[], rule: Rule): number {
     rankings(voters, cands),
     m,
     rule,
-    CARDINAL_RULES.has(rule) ? computeScores(voters, cands) : undefined
+    CARDINAL_RULES.has(rule) ? computeScores(voters, cands) : undefined,
+    cands.map((c) => c.name)
   );
 }
 

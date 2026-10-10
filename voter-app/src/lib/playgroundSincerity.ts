@@ -66,6 +66,7 @@ export function sincerityProbe(
   cands: NamedPt[]
 ): SincerityReport {
   const m = cands.length;
+  const names = cands.map((c) => c.name);
   const util = cands.map((c) => -dist(youPos, c)); // higher = closer = better for you
   const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
   const rankingNames = ranking.map((i) => cands[i].name);
@@ -81,7 +82,7 @@ export function sincerityProbe(
     for (const rule of LEADER_RULES) {
       const ranks = computeRanks(electorate, cands);
       const scores = computeScores(electorate, cands);
-      const w = ruleWinnerFromRanks(ranks, m, rule, scores);
+      const w = ruleWinnerFromRanks(ranks, m, rule, scores, names);
       verdicts.push({
         rule,
         sincereWinner: w >= 0 ? cands[w].name : '—',
@@ -103,11 +104,11 @@ export function sincerityProbe(
     const scores = CARDINAL_RULES.has(rule)
       ? baseScores.map((s, v) => (v >= blocStart && stratScore ? stratScore : s))
       : baseScores;
-    return ruleWinnerFromRanks(ranks, m, rule, scores);
+    return ruleWinnerFromRanks(ranks, m, rule, scores, names);
   };
 
   for (const rule of LEADER_RULES) {
-    const w0 = ruleWinnerFromRanks(baseRanks, m, rule, baseScores);
+    const w0 = ruleWinnerFromRanks(baseRanks, m, rule, baseScores, names);
     if (w0 < 0) {
       verdicts.push({ rule, sincereWinner: '—', sincereIsBest: true, gain: 0, temptation: null });
       continue;
@@ -238,6 +239,7 @@ function probeVoter(
   blocSize: number,
   tactic: 'auto' | 'compromise' | 'burying' = 'auto'
 ): VoterProbe {
+  const names = cands.map((c) => c.name);
   const cardinal = baseScores !== undefined;
   const util = cands.map((c) => -dist(you, c));
   const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
@@ -249,7 +251,7 @@ function probeVoter(
       ? baseScores.concat(Array.from({ length: blocSize }, () => youScore))
       : undefined;
   const blocStart = baseRanks.length;
-  const w0 = ruleWinnerFromRanks(sincereRanks, m, rule, sincereScores);
+  const w0 = ruleWinnerFromRanks(sincereRanks, m, rule, sincereScores, names);
   if (w0 < 0) return { kind: null, rank: ranking, score: null };
 
   const winnerWith = (stratRank: number[], stratScore: number[] | null): number => {
@@ -258,7 +260,7 @@ function probeVoter(
       cardinal && sincereScores
         ? sincereScores.map((s, v) => (v >= blocStart && stratScore ? stratScore : s))
         : sincereScores;
-    return ruleWinnerFromRanks(ranks, m, rule, scores);
+    return ruleWinnerFromRanks(ranks, m, rule, scores, names);
   };
 
   // Compromise ("vote utile"): a preferred candidate first, w0 buried last.
@@ -354,6 +356,7 @@ export function strategicVote(
 ): StrategicOutcome | null {
   const { tactic = 'auto', blocShare = STRAT_BLOC_SHARE } = opts;
   const m = cands.length;
+  const names = cands.map((c) => c.name);
   if (m < 2 || voters.length === 0) return null;
   const step = Math.max(1, Math.ceil(voters.length / STRAT_CAP));
   const sample = voters.filter((_, i) => i % step === 0);
@@ -361,7 +364,7 @@ export function strategicVote(
   const cardinal = CARDINAL_RULES.has(rule);
   const baseRanks = computeRanks(sample, cands);
   const baseScores = cardinal ? computeScores(sample, cands) : undefined;
-  const sincereWinner = ruleWinnerFromRanks(baseRanks, m, rule, baseScores);
+  const sincereWinner = ruleWinnerFromRanks(baseRanks, m, rule, baseScores, names);
 
   const defectors = new Array<boolean>(n).fill(false);
   // No dilemma when sincere, strategyproof, decisive winner missing, or < 3 cands.
@@ -382,7 +385,7 @@ export function strategicVote(
     stratRanks[v] = probe.rank;
     if (stratScores && probe.score) stratScores[v] = probe.score;
   }
-  const strategicWinner = ruleWinnerFromRanks(stratRanks, m, rule, stratScores);
+  const strategicWinner = ruleWinnerFromRanks(stratRanks, m, rule, stratScores, names);
   const acted = defectors.reduce((s, d) => s + (d ? 1 : 0), 0);
   return { sincereWinner, strategicWinner, defectors, defectRate: acted / n, sampled: n };
 }
