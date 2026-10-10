@@ -63,11 +63,15 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     democracyEntries,
   } = usePlaygroundCtx();
 
+  // While the rate loads, the same words with dots for the number. The readout is monospace, so
+  // it keeps its width and wraps the same before and after: the shorter `· · ·` it replaced fitted
+  // on one line on a phone, and the rate arriving wrapped it onto a second one, pushing the map a
+  // line down (mobile.spec.ts's W3.4 story test, on loaded runners).
   const paradox = (
     <span data-testid="cycle-rate" title={t('instrument.paradoxTitle')}>
-      {loading || !result
-        ? t('instrument.paradoxLoading')
-        : t('instrument.paradox', { pct: Math.round(result.cycle_rate * 100) })}
+      {t('instrument.paradox', {
+        pct: loading || !result ? '··' : Math.round(result.cycle_rate * 100),
+      })}
     </span>
   );
 

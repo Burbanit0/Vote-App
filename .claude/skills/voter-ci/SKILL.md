@@ -86,9 +86,11 @@ The required "Playwright E2E" is the job after them: it checks both shards left 
 blob report, merges them (`playwright merge-reports --config playwright.config.ts`),
 runs `check-flaky.mjs` on the merged `results.json`, uploads `playwright-report`,
 and fails unless both shards succeeded. A red shard's own log names the failing
-tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. A
-separate `visual-regression` job runs pixel-diff screenshots inside an
-**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble@sha256:<digest>` image
+tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. The
+shards (since 2026-10-07, after a stalled apt mirror timed them out) and a separate
+`visual-regression` job, which runs pixel-diff screenshots, both run inside one
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble@sha256:<digest>` image, written once as the
+`&playwright-image` anchor in the e2e job and reused by `visual-regression`
 (`e2e.yml` has the current pin; Docker pulls by the digest, so when bumping,
 change the tag **and** the digest: the sync job checks the digest against what
 the registry serves for the tag whenever `e2e.yml` or `package.json` changes,

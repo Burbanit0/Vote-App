@@ -160,6 +160,7 @@ export interface CriteriaRow {
  */
 export function criteriaMatrix(voters: Pt[], cands: NamedPt[]): CriteriaRow[] {
   const m = cands.length;
+  const names = cands.map((c) => c.name);
   const n = voters.length;
   if (m === 0 || n === 0) {
     return LEADER_RULES.map((rule) => ({
@@ -205,15 +206,15 @@ export function criteriaMatrix(voters: Pt[], cands: NamedPt[]): CriteriaRow[] {
     }
     const cardinal = CARDINAL_RULES.has(rule);
     const scores = cardinal ? baseScores : undefined;
-    const w = ruleWinnerFromRanks(baseRanks, m, rule, scores);
+    const w = ruleWinnerFromRanks(baseRanks, m, rule, scores, names);
     const results = emptyResults();
     if (w >= 0) {
       results.condorcet = cw >= 0 ? w === cw : null;
       results.majority = majFav >= 0 ? w === majFav : null;
       results.majority_loser = majLoser >= 0 ? w !== majLoser : null;
       results.condorcet_loser = cl >= 0 ? w !== cl : null;
-      results.monotonic = checkMonotonic(baseRanks, baseScores, m, rule, w, cardinal);
-      results.reversal = checkReversal(baseRanks, baseScores, m, rule, w, cardinal);
+      results.monotonic = checkMonotonic(baseRanks, baseScores, m, rule, w, cardinal, names);
+      results.reversal = checkReversal(baseRanks, baseScores, m, rule, w, cardinal, names);
       results.pareto = checkPareto(baseRanks, m, w);
       results.iia = checkIIA(voters, cands, rule, w);
     }
@@ -241,7 +242,8 @@ function checkMonotonic(
   m: number,
   rule: Rule,
   w: number,
-  cardinal: boolean
+  cardinal: boolean,
+  names: readonly string[]
 ): CritResult {
   let promoted = false;
   const ranks = baseRanks.map((r) => {
@@ -260,7 +262,7 @@ function checkMonotonic(
         return ns;
       })
     : undefined;
-  return ruleWinnerFromRanks(ranks, m, rule, scores) === w;
+  return ruleWinnerFromRanks(ranks, m, rule, scores, names) === w;
 }
 
 /** Reverse every ballot; the same winner should not be re-elected. */
@@ -270,11 +272,12 @@ function checkReversal(
   m: number,
   rule: Rule,
   w: number,
-  cardinal: boolean
+  cardinal: boolean,
+  names: readonly string[]
 ): CritResult {
   const ranks = baseRanks.map((r) => r.slice().reverse());
   const scores = cardinal ? baseScores.map((s) => s.map((x) => 1 - x)) : undefined;
-  return ruleWinnerFromRanks(ranks, m, rule, scores) !== w;
+  return ruleWinnerFromRanks(ranks, m, rule, scores, names) !== w;
 }
 
 /** The winner must not be unanimously beaten by another candidate. */

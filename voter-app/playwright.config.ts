@@ -11,8 +11,9 @@ export default defineConfig({
   // Visual regression has its own config (playwright.visual.config.ts) and its
   // own CI job, pinned to a specific Docker image for stable pixel comparisons
   // — see that file's header. Running it here too would compare Docker-
-  // generated baselines against this native project's rendering, which is
-  // exactly the cross-environment mismatch that setup avoids.
+  // generated baselines against whatever renders this config: a native host
+  // locally (CI's shards use the same image, but only for its browsers), which
+  // is exactly the cross-environment mismatch that setup avoids.
   //
   // NOT set here as a top-level `testIgnore`: each project below already
   // defines its own `testIgnore` (for mobile.spec.ts), and Playwright's

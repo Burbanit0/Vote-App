@@ -14,8 +14,9 @@ import e2e from './playwright.config';
  * `@playwright/test` version (`mcr.microsoft.com/playwright:v<version>-noble` —
  * see `.github/workflows/e2e.yml`'s `visual-regression` job and
  * `npm run test:visual:docker`). Running this config on a bare host (a
- * contributor's laptop, or `npm run test:e2e`'s native CI job) is fine for a
- * quick local look but its diffs are not authoritative — only the Docker run is.
+ * contributor's laptop) is fine for a quick local look but its diffs are not
+ * authoritative — only the Docker run is. (CI's e2e shards run in the same image
+ * since 2026-10-07, for their browsers, not for pixels.)
  *
  * The backend must also be running (:4434, per CLAUDE.md) — checked by hand,
  * not assumed: ParliamentCanvas genuinely needs it (a fallback banner instead

@@ -3,6 +3,8 @@ when every new term at zero reproduces build_ranking exactly -- the property bel
 from __future__ import annotations
 
 import dataclasses
+from types import SimpleNamespace
+from typing import Any
 import random
 from pathlib import Path
 
@@ -11,10 +13,12 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 import api.domain.polity.run_polity_simulation as engine
+from api.domain.polity.accountability import is_term_limited
 from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Citizen, generate_population
 from api.domain.polity.config import PolityConfig, VoteConfig, load_config
 from api.domain.polity.journal import Journal
+from api.domain.polity.llm_schemas import ActingLeaderTurn
 from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import audit_sample, run_simulation
 from api.domain.polity.simple_rules import (
@@ -23,12 +27,15 @@ from api.domain.polity.simple_rules import (
     abstains,
     build_ranking,
     candidate_label,
+    declare_candidacy,
+    vacate_office,
     candidate_utility,
     incumbent_record,
     utility_ballot,
 )
 from api.domain.polity.tick_state import PendingRerun
 from api.tests.polity_golden import golden_config
+from api.tests.test_polity_agents import _turn
 from api.tests.test_polity_run_simulation import (
     _config_with_legitimacy_enabled_and_guaranteed_winners,
     _ElectingFakeLlmClient,
@@ -244,6 +251,44 @@ def test_a_rerun_winner_serves_until_the_calendar_s_next_election(tmp_path: Path
             pending_rerun=PendingRerun(attempt=1, next_tick=rerun_tick, barred_candidate_ids=frozenset(), incumbent_id=None),
         )
     assert candidate.term_end_tick == 2 * term
+
+
+def test_a_term_counts_against_the_limit_only_if_won_with_at_least_half_of_it_left(tmp_path: Path) -> None:
+    # OBS-041: a snap win a tick before the calendar election made its winner term-limited after two ticks.
+    config = load_config()
+    term = config.institutions.president_term_years * config.run.ticks_per_year
+
+    def win_at(tick: int, served_before: int = 0) -> Citizen:
+        candidate = _citizen(1, (0.5,), (1.0,), party=0)
+        candidate.ambition_score, candidate.mandates_served = 1.0, served_before
+        electors = [_citizen(cid, (0.5,), (1.0,), threshold=0.9) for cid in range(2, 8)]
+        rerun = None if tick % term == 0 else PendingRerun(attempt=1, next_tick=tick, barred_candidate_ids=frozenset(), incumbent_id=None)
+        with Journal(tmp_path / f"run-{tick}-{served_before}.jsonl", run_id="r") as journal:
+            engine._hold_presidential_election(
+                [candidate, *electors], [Party(party_id=0, platform=(0.5,))], config, journal, tick=tick, llm_client=None,
+                pending_rerun=rerun,
+            )
+        assert candidate.office == engine.Office.PRESIDENT and candidate.mandates_served == served_before + 1
+        return candidate
+
+    assert is_term_limited(win_at(term), 1)  # on the calendar: a full term
+    assert is_term_limited(win_at(term + term // 2), 1)  # exactly half of it left: counted
+    short = win_at(2 * term - 1)  # one tick left
+    assert not is_term_limited(short, 1) and short.short_terms == 1
+    recalled = win_at(term)
+    vacate_office(recalled)
+    assert is_term_limited(recalled, 1)  # a recalled president was elected to a full term
+    # Still a former officeholder: with keep_record, they run again on what they did in office.
+    short.revealed_position = (0.9,)
+    declare_candidacy(short, keep_record=True)
+    assert short.pledged_platform == (0.9,)
+    # The case that went with it: one term in, re-elected with a tick left, offered the act on taking office.
+    veteran = win_at(2 * term - 1, served_before=1)
+    limit_two: Any = SimpleNamespace(
+        config=dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, president_term_limit=2)),
+        tick=2 * term - 1,
+    )
+    assert not engine._declares_refusal(limit_two, veteran, ActingLeaderTurn(**_turn(extra_legal="refuse_to_leave")))
 
 
 def test_an_invalidated_election_carries_the_outgoing_president_into_its_rerun(tmp_path: Path) -> None:
