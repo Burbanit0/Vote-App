@@ -51,14 +51,17 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.config import ARTICLES  # noqa: E402
+from api.domain.polity.run_digest import read_journal_tolerant  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
     SweepRun,
     clopper_pearson,
+    constitution_groups,
     first_completed_runs,
     mean_bca_interval,
     prediction_interval,
@@ -192,7 +195,33 @@ def _load_run(output_dir: Path, years: int, population: int, seed: int, repeat: 
         decisions_by_type=dict(progress.get("decisions_by_type") or {}),
         fallback_by_type=dict(progress.get("fallback_by_type") or {}),
         run_metadata=metadata,
+        constitution=_amendments(digest_path.with_name("events.jsonl")),
     )
+
+
+def _amendments(events_path: Path) -> tuple[tuple[int, str, Any], ...] | None:
+    """The run's constitutional history, from its journal (the digest counts amendments but does not
+    name them): None when the journal is missing or damaged beyond a torn last line, so an unknown
+    history is never taken for an unamended one."""
+    if not events_path.is_file():
+        return None
+    events, skipped = read_journal_tolerant(events_path)
+    if skipped > 1:
+        return None
+    return tuple(
+        (e["tick"], e["payload"].get("article", "?"), e["payload"].get("new"))
+        for e in events if e.get("event_type") == "constitution_amended"
+    )
+
+
+def _rules(constitution: tuple[tuple[int, str, Any], ...] | None) -> str:
+    if constitution is None:
+        return "unknown (journal missing or damaged)"
+    return "; ".join(f"{article.split('.')[-1]} {value} at t{tick}" for tick, article, value in constitution) or "unamended"
+
+
+def _label(run: SweepRun) -> str:
+    return f"seed {run.seed}" if run.repeat == 1 else f"seed {run.seed} rep {run.repeat}"
 
 
 def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
@@ -215,20 +244,43 @@ def _per_run_section(runs: list[SweepRun]) -> list[str]:
     return [*lines, ""]
 
 
-def _occupancy_section(firsts: list[SweepRun]) -> list[str]:
-    values = [r.office_occupancy for r in firsts if r.office_occupancy is not None]
-    lines = ["## office_occupancy across seeds (first completed run per seed)\n"]
+def _occupancy_summary(values: list[float]) -> list[str]:
     if len(values) >= 2:
-        lines += [
+        return [
             f"- n={len(values)}, mean={statistics.fmean(values):.4f}, stdev={statistics.stdev(values):.4f}, "
             f"min={min(values):.4f}, max={max(values):.4f}",
             f"- 95% BCa bootstrap interval for the mean: {_interval(mean_bca_interval(values))}",
             f"- 95% prediction interval for one new seed: {_interval(prediction_interval(values))}",
         ]
-    elif values:
-        lines.append(f"- only one completed seed with office_occupancy: {values[0]:.4f} (no variance to report)")
-    else:
-        lines.append("- no completed seed produced an office_occupancy value yet")
+    if values:
+        return [f"- only one completed seed with office_occupancy: {values[0]:.4f} (no variance to report)"]
+    return ["- no completed seed produced an office_occupancy value yet"]
+
+
+def _occupancy_section(firsts: list[SweepRun]) -> list[str]:
+    lines = ["## office_occupancy across seeds (first completed run per seed)\n"]
+    groups = constitution_groups(firsts)
+    if len(groups) <= 1 and None not in groups:
+        values = [r.office_occupancy for r in firsts if r.office_occupancy is not None]
+        return [*lines, *_occupancy_summary(values), ""]
+    # ADR-015: the seeds did not run under one set of rules, so occupancy is pooled within a shared
+    # constitutional history only.
+    lines.append(f"- **not pooled across seeds:** they ran under {len(groups)} constitutional histories (see Constitutions)")
+    alone = []
+    for constitution, members in groups.items():
+        values = [r.office_occupancy for r in members if r.office_occupancy is not None]
+        if constitution is not None and len(values) >= 2:
+            lines += [f"- {_rules(constitution)} ({', '.join(map(_label, members))}):", *("  " + line for line in _occupancy_summary(values))]
+        else:
+            alone += [_label(r) for r in members]
+    if alone:
+        lines.append(f"- not summarised (alone in their history, or history unknown): {', '.join(alone)}")
+    return [*lines, ""]
+
+
+def _constitution_section(runs: list[SweepRun]) -> list[str]:
+    lines = ["## Constitutions (ADR-015; every completed run)\n"]
+    lines += [f"- {_rules(constitution)}: {', '.join(map(_label, members))}" for constitution, members in constitution_groups(runs).items()]
     return [*lines, ""]
 
 
@@ -289,10 +341,13 @@ def _write_sweep_summary(
         f"- completed: {sum(r.completed for r in runs)}/{len(runs)} runs; {len(firsts)} distinct seeds completed\n",
         *_provenance_section(runs),
         *_per_run_section(runs),
+        *_constitution_section(runs),
         *_occupancy_section(firsts),
         *_fallback_section(firsts),
         "## Pre-registered red flags (S0.7)\n",
         *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in red_flags(runs)],
+        *([f"- note: these pre-registered flags pool across {len(groups)} constitutional histories (see Constitutions)"]
+          if len(groups := constitution_groups(runs)) > 1 or None in groups else []),
         "",
     ]
     summary_path = output_dir / f"sweep-{years}y-p{population}-summary.md"
