@@ -232,7 +232,7 @@ There is no separate phase: each phase ships its own explorer view. Ensembles re
 | A term-length article and clock anchors | Agents try to amend the term length |
 | Chamber members proposing amendments | The president-only proposals show that the chamber never initiates |
 | Cardinal ballots (score and approval methods as articles) | Agents propose approval or score voting |
-| Refuse-to-average across constitution versions | **Built 2026-10-10**, once the ensembles spanned amendments (phase11's 10 seeds end under 8 constitutions): the seed sweep's summary lists each run's constitution and pools a metric within one, never across (`sweep_statistics.constitution_groups`) |
+| Refuse-to-average across constitution versions | **Built 2026-10-10**, once the ensembles spanned amendments (phase11's 10 seeds ran under 8 constitutional histories): the seed sweep's summary groups every completed run by its history (the amendments ratified, with when), pools office_occupancy within a history, never across, and notes when the S0.7 red flags span several; a run whose journal is missing or damaged has an unknown history, never pooled (`sweep_statistics.constitution_groups`) |
 | DMs, party caucus, evolving graph, party merge, primaries, online referee, novelty metric | The logs show demand |
 | Fixed factor loadings for named issues | Templated personas read as incoherent |
 | Separate ADRs for the exploration gate and rented inference | Never: they are D4, D5 and D9 above |
