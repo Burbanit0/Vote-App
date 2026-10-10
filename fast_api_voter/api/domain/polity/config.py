@@ -228,6 +228,9 @@ class VoteConfig:
     policy_retrospection: float
     """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
     term, on the judged incumbent and, in legislative elections, the governing parties."""
+    strategic_margin: float
+    """ADR-024: at a legislative election, how much utility a voter gives up to leave a party the sincere
+    vote leaves below the electoral threshold for the best party above it. 0 is the sincere vote."""
 
 
 @dataclass(frozen=True)
@@ -915,6 +918,7 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
         policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+        strategic_margin=_get_nonneg_float(s, "vote", "strategic_margin"),
     )
 
 

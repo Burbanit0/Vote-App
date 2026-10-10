@@ -274,8 +274,10 @@ from api.domain.polity.simple_rules import (
     PolicyRecord,
     select_party_nominee,
     select_party_nominee_from_declared,
+    strategic_party,
     utility_ballot,
     vacate_office,
+    viable_parties,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
 from api.domain.polity.tick_state import PendingRerun, TickState
@@ -2408,8 +2410,16 @@ def _hold_legislative_election(
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
     voters = _voters(citizens)
-    for voter in voters:
-        choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
+    retrospection, margin = config.vote.policy_retrospection, config.vote.strategic_margin
+    sincere = [choose_party(voter, parties, governing, retrospection) for voter in voters]
+    choices = sincere
+    if margin > 0:  # ADR-024: the sincere vote is the poll; a voter it strands below the threshold may desert
+        viable = viable_parties(sincere, config.institutions.electoral_threshold)
+        choices = [
+            strategic_party(voter, parties, choice, viable, margin, governing, retrospection)
+            for voter, choice in zip(voters, sincere)
+        ]
+    for choice in choices:
         if choice is None:
             blank_count += 1
         else:
@@ -2434,6 +2444,7 @@ def _hold_legislative_election(
             votes=votes,
             blank_count=blank_count,
             abstained=abstained if (abstained := len(citizens) - len(voters)) else OMIT,  # present once anyone stays home
+            deserted=sum(c != s for c, s in zip(choices, sincere)) if margin > 0 else OMIT,
         ),
     )
     return seats, votes

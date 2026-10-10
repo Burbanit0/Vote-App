@@ -426,6 +426,33 @@ def _party_utility(voter: Citizen, party: Party, governing: frozenset[int], gain
     return -weighted_distance(voter, party.platform) + (gain if party.party_id in governing else 0.0)
 
 
+def viable_parties(choices: Sequence[int | None], threshold: float) -> frozenset[int]:
+    """ADR-024's poll: the parties a vote clears the electoral threshold with, measured as allocate_seats
+    measures it -- a share of the votes cast for parties, blanks left out, and at least one vote."""
+    counts = Counter(choice for choice in choices if choice is not None)
+    total = sum(counts.values())
+    return frozenset(party for party, n in counts.items() if n / total >= threshold)
+
+
+def strategic_party(
+    voter: Citizen, parties: list[Party], sincere: int | None, viable: frozenset[int], margin: float,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+) -> int | None:
+    """ADR-024, the wasted vote (Cox 1997): a voter whose sincere party falls below the threshold in the
+    sincere vote votes instead for the best party above it, when that costs at most `margin` in utility (the
+    utility choose_party maximises) and the party is still within their tolerance. A blank ballot, a party
+    above the threshold or a margin of 0 leaves the sincere choice."""
+    if margin <= 0 or sincere is None or sincere in viable:
+        return sincere
+    gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
+    in_power = governing.parties if governing is not None else frozenset()
+    utility = {party.party_id: _party_utility(voter, party, in_power, gain) for party in parties}
+    best = min((p for p in parties if p.party_id in viable), key=lambda p: (-utility[p.party_id], p.party_id), default=None)
+    if best is None or utility[sincere] - utility[best.party_id] > margin or utility[best.party_id] < -voter.blank_threshold:
+        return sincere
+    return best.party_id
+
+
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────
 
 def decide_candidacy(citizen: Citizen, config: CandidacyConfig) -> bool:
