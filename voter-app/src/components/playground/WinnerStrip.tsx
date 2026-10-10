@@ -12,6 +12,7 @@ import {
   useMethodSelection,
 } from './PlaygroundController';
 import NoFixedWinner from './NoFixedWinner';
+import LiveAnnouncement from '../shared/ui/LiveAnnouncement';
 
 /** Winner strip, above every moment: the map's rule and the winner the map shows
  * (strategic, when voters are), then what the other ticked methods elect on the same
@@ -44,6 +45,16 @@ const WinnerStrip: React.FC = () => {
   const current =
     behavior !== 'sincere' && strategicOutcome ? strategicOutcome.strategicWinner : sincere;
   const groups = groupByWinner(winners, otherRules);
+  // Names are text, not HTML: React escapes them, so i18next must not (PLAN_BEYOND_CI W3.3).
+  const raw = { interpolation: { escapeValue: false } };
+  const announced =
+    hasFixedWinner(leaderRule) && current != null
+      ? t('strip.announce', {
+          rule: ruleLabels[leaderRule],
+          name: leaderCandidates[current]?.name,
+          ...raw,
+        })
+      : t('strip.announceNone', { rule: ruleLabels[leaderRule], ...raw });
   const name = (i: number) => (
     <strong style={{ color: textTone(candidateColor(i)) }}>{leaderCandidates[i]?.name}</strong>
   );
@@ -53,6 +64,7 @@ const WinnerStrip: React.FC = () => {
       data-testid="winner-strip"
       className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm"
     >
+      <LiveAnnouncement testId="winner-announce" text={announced} />
       <span data-testid="winner-strip-current" className="font-display text-base">
         {t('strip.under', { rule: ruleLabels[leaderRule] })}{' '}
         {hasFixedWinner(leaderRule) && current != null ? name(current) : <NoFixedWinner />}

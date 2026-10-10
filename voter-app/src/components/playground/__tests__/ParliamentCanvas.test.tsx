@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import ParliamentCanvas, { hemicycleSeats } from '../ParliamentCanvas';
@@ -123,6 +123,36 @@ describe('hemicycleSeats', () => {
 });
 
 describe('ParliamentCanvas', () => {
+  it('the hemicycle label carries the seats, and the leader is announced once it settles (W3.6)', async () => {
+    setup();
+    expect(screen.getByTestId('hemicycle-svg')).toHaveAttribute(
+      'aria-label',
+      'Hemicycle: 100 seats, majority at 51. Centre 41, Gauche 35, Droite 24.'
+    );
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('assembly-announce')).toHaveTextContent(
+          'Centre leads with 41 of 100 seats'
+        ),
+      { timeout: 2000 }
+    );
+  });
+
+  it('a tie for the lead is announced as a tie', async () => {
+    const tied = {
+      ...RESULT,
+      parties: RESULT.parties.map((p) => (p.name === 'Gauche' ? { ...p, seats: 41 } : p)),
+    };
+    setup(tied);
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('assembly-announce')).toHaveTextContent(
+          'Centre, Gauche tie for the lead, 41 of 100 seats each'
+        ),
+      { timeout: 2000 }
+    );
+  });
+
   it('renders territories, voters, hemicycle and metrics', () => {
     setup();
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();

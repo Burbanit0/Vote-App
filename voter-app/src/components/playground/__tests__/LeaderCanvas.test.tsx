@@ -30,6 +30,16 @@ function setup(overrides: Partial<React.ComponentProps<typeof LeaderCanvas>> = {
 }
 
 describe('LeaderCanvas', () => {
+  it('describes the map in words for a screen reader (W3.6)', () => {
+    setup();
+    const summary = screen.getByTestId('leader-map-summary');
+    expect(screen.getByTestId('leader-map')).toHaveAttribute('aria-describedby', summary.id);
+    expect(summary).toHaveTextContent('120 voters.');
+    expect(summary).toHaveTextContent(/A at \(-0\.5, 0\.0\): first choice of \d+%\./);
+    const winner = screen.getByTestId('field-winner').querySelector('strong')?.textContent;
+    expect(summary).toHaveTextContent(`Plurality (1 round), ${winner} wins.`);
+  });
+
   it('renders the plane, candidates, and the field winner', () => {
     setup();
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();

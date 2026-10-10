@@ -409,6 +409,10 @@ const pgPseudo: PlaygroundKeys = {
     view3d: '⟦🧊~ Vúé~~ 3D~⟧',
     viewPlane: '⟦▦~ Pláñ~~ x–y~~ (édítíóñ)~~~~⟧',
     svgAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ élíré~~ úñ~ dírígéáñt~~~~⟧',
+    summaryVoters: '⟦{{count}} éléçtéúrs.~~~~⟧',
+    summaryCandidate: '⟦{{name}} éñ~ {{position}} :~ prémíér~~~ çhóíx~~ dé~ {{pct}} %.~⟧',
+    summaryWinner: '⟦Ávéç~~ {{rule}},~ víçtóíré~~~ dé~ {{name}}.~⟧',
+    summaryNoWinner: '⟦Ávéç~~ {{rule}},~ pás~~ dé~ váíñqúéúr~~~~ fíxé.~~⟧',
     candidateAria:
       '⟦{{name}} —~ glíssér-dépósér,~~~~~~ óú~ flèçhés~~~ póúr~~ dépláçér~~~ (Máj~~ póúr~~ úñ~ pás~~ plús~~ lárgé)~~~⟧',
     manipCompromise: '⟦Téñté~~ pár~~ lé~ vóté~~ útílé~~ (ábáñdóññé~~~~ sóñ~~ fávórí)~~~⟧',
@@ -653,6 +657,12 @@ const pgPseudo: PlaygroundKeys = {
     partyAria:
       '⟦{{name}} —~ glíssér-dépósér,~~~~~~ óú~ flèçhés~~~ póúr~~ dépláçér~~~ (Máj~~ póúr~~ úñ~ pás~~ plús~~ lárgé)~~~⟧',
     hemicycleAria: '⟦Hémíçyçlé~~~~ —~ síègés~~~ pár~~ pártí~~⟧',
+    hemicycleData:
+      '⟦Hémíçyçlé~~~~ :~ {{seats}} síègés,~~~ májóríté~~~ à~ {{majority}}.~ {{parties}}.~⟧',
+    partySeats: '⟦{{name}} {{count}}⟧',
+    announce: '⟦{{party}} éñ~ têté~~ ávéç~~ {{seats}} síègés~~~ súr~~ {{total}}⟧',
+    announceTie:
+      '⟦{{parties}} à~ égálíté~~~ éñ~ têté,~~ {{seats}} síègés~~~ çháçúñ~~~ súr~~ {{total}}⟧',
     seatsLine: '⟦{{seats}} síègés~~~ ·~ májóríté~~~ {{majority}}⟧',
     computing: '⟦Cálçúl~~~ dé~ l’ássémbléé…~~~~~⟧',
     awaiting: '⟦{{seats}} síègés~~~ —~ éñ~ áttéñté~~~ dé~ lá~ répártítíóñ~~~~⟧',
@@ -1244,6 +1254,8 @@ const pgPseudo: PlaygroundKeys = {
     othersAgree_other:
       '⟦Lés~~ {{count}} áútrés~~~ méthódés~~~ çóçhéés~~~ élíséñt~~~ lé~ mêmé~~ váíñqúéúr.~~~~⟧',
     sincere: '⟦(vótés~~~ síñçèrés)~~~~⟧',
+    announce: '⟦{{rule}} :~ víçtóíré~~~ dé~ {{name}}⟧',
+    announceNone: '⟦{{rule}} :~ pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
   },
   instrument: {
     labelLeader: '⟦Cárté~~ ídéólógíqúé~~~~ —~ dírígéáñt~~~~⟧',

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import LiveAnnouncement from '../shared/ui/LiveAnnouncement';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
@@ -109,6 +110,35 @@ export interface ParliamentCanvasProps {
   onMoveParty: (index: number, x: number, y: number) => void;
 }
 
+/** The result in words (PLAN_BEYOND_CI W3.6): the hemicycle's label lists every party's
+ * seats, largest first, and the announcement says who leads (or who ties for the lead).
+ * Names are text, not HTML: React escapes them, so i18next must not. */
+function describeAssembly(
+  result: AssemblyResult | null,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): { hemicycleLabel: string; leadAnnouncement: string } {
+  if (!result) return { hemicycleLabel: t('parliament.hemicycleAria'), leadAnnouncement: '' };
+  const raw = { interpolation: { escapeValue: false } };
+  const ranked = [...result.parties].sort(
+    (a, b) => b.seats - a.seats || a.name.localeCompare(b.name)
+  );
+  const hemicycleLabel = t('parliament.hemicycleData', {
+    seats: result.assembly_size,
+    majority: result.majority,
+    parties: ranked
+      .map((p) => t('parliament.partySeats', { name: p.name, count: p.seats, ...raw }))
+      .join(', '),
+    ...raw,
+  });
+  const leaders = ranked.filter((p) => p.seats === ranked[0]?.seats);
+  const shared = { seats: leaders[0]?.seats, total: result.assembly_size, ...raw };
+  const leadAnnouncement =
+    leaders.length > 1
+      ? t('parliament.announceTie', { parties: leaders.map((p) => p.name).join(', '), ...shared })
+      : t('parliament.announce', { party: leaders[0]?.name, ...shared });
+  return { hemicycleLabel, leadAnnouncement };
+}
+
 const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   parties,
   voters,
@@ -184,6 +214,8 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     }));
     return hemicycleSeats(result.assembly_size, partySeats, SVG, 250);
   }, [result, parties, nominalSeats]);
+
+  const { hemicycleLabel, leadAnnouncement } = describeAssembly(result, t);
 
   const colorOf = (idx: number): string =>
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
@@ -340,11 +372,13 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
         {/* ── Hemicycle + metrics ── */}
         <div className="flex flex-col gap-2">
+          <LiveAnnouncement testId="assembly-announce" text={leadAnnouncement} />
           <svg
             viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
-            aria-label={t('parliament.hemicycleAria')}
+            aria-label={hemicycleLabel}
+            data-testid="hemicycle-svg"
             className="rounded-lg bg-card"
           >
             <g data-testid="hemicycle">

@@ -580,6 +580,18 @@ describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
     expect(fieldWinner()).toBe(atElectorate);
   });
 
+  it('announces the winner to a screen reader once it settles (W3.6)', async () => {
+    renderPage();
+    const name = stripWinner();
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('winner-announce')).toHaveTextContent(
+          `Plurality (1 round): ${name} wins`
+        ),
+      { timeout: 2000 }
+    );
+  });
+
   it('ticks the five intro methods by default, and the strip accounts for the other four', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-method'));
