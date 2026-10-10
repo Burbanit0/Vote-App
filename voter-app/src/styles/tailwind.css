@@ -123,6 +123,13 @@
 
 /* ── Base type: Inter everywhere, Space Grotesk for headings/display ───────── */
 @layer base {
+  /* A playing story's narration sticks under the navbar below lg (StoryPlayer, at most
+     40svh): keep focused and scrolled-to content below it, not hidden under it. */
+  @media (width < 64rem) {
+    html:has([data-story-bar]) {
+      scroll-padding-top: calc(3rem + 40svh);
+    }
+  }
   body {
     font-family: var(--font-sans);
     /* Paint the page canvas from the active theme. Without this the body stays
