@@ -317,6 +317,9 @@ together.
 
 **Measure only:** phone drag jank (about 800 ms of blocking work per second of drag,
 with the CPU throttled 4×).
+Measured 2026-10-10 (`npm run measure:jank` in `voter-app/`, six one-second touch drags
+on the e2e phone profile): no long task during a drag, so no blocking work. One task of
+61–79 ms follows each lift, about 240 ms later (two runs). Nothing to fix.
 
 ## W4 — Memory and docs (S, Phases 0–1)
 
@@ -352,10 +355,15 @@ with the CPU throttled 4×).
 
 - **Spike, at most 2 days:** the non-Polity engine in Pyodide inside a Web Worker, for
   2–3 Lab fiches.
-  - **[verified]** Those modules import only numpy, scipy, pydantic and the stdlib.
+  - Those modules import numpy, structlog and the stdlib, and pydantic for the request
+    and response models. scipy is Polity's only. (The earlier "[verified]" list named
+    scipy and missed structlog: corrected by the spike, 2026-10-10.)
 - **Compare with:** the existing container on Fly, after `PLAN_SURFACE_EXTERIEURE`
   §2.A and §2.D.
 - **Output:** a one-page memo, and the owner decides.
+  - Done 2026-10-10:
+    [EXP-023](../exploration/EXP-023-pyodide-web-worker-vs-fly-container.md), with the
+    spike on the branch `spike/pyodide-hosting`. Waiting on the owner's decision.
 
 ---
 

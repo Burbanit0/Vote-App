@@ -194,7 +194,7 @@ const CriteriaGrid: React.FC = React.memo(function CriteriaGrid() {
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" data-touch>
         <table className="w-full border-collapse text-[0.72rem]">
           <thead>
             <tr className="border-b border-border">

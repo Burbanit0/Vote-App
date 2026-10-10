@@ -76,10 +76,13 @@ const Navbar: React.FC = () => {
   return (
     <BootstrapNavbar
       data-testid="navbar"
+      data-touch
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
-      className="border-b border-border shadow-sm"
+      // On a phone its items are 44 px (W3.6); a 1-px padding keeps the bar at 47 px, as
+      // before, under the stories' sticky bar at 48 (top-12).
+      className="border-b border-border shadow-sm max-sm:py-px"
       sticky="top"
       style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
     >
