@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import STVPanel from '../STVPanel';
-import { ElectionProvider } from '../../../../stores/useElectionStore';
+import { DEFAULT_CONFIG, ElectionProvider } from '../../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../../test/queryWrapper';
 
 vi.mock('../../../../api/client', () => ({
@@ -177,6 +177,30 @@ describe('STVPanel', () => {
     fireEvent.change(screen.getByTestId('step-slider'), { target: { value: '1' } });
     await waitFor(() => expect(screen.getByTestId('stv-round-1')).toBeInTheDocument());
     vi.runAllTimers();
+  });
+
+  // The default electorate has three candidates, and the backend refuses as many seats
+  // as candidates: the panel's default 3 seats used to fail every run.
+  it('sends 2 seats on three candidates, not the default 3', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /STV|simuler/i }));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST.mock.calls[0][1].body.num_seats).toBe(2);
+    vi.runAllTimers();
+  });
+
+  it('on two candidates, says STV needs three and does not run', () => {
+    localStorage.setItem(
+      'votelab_election_config',
+      JSON.stringify({
+        ...DEFAULT_CONFIG,
+        candidates: DEFAULT_CONFIG.candidates.slice(0, 2),
+      })
+    );
+    renderPanel();
+    expect(screen.getByText(/needs at least 3/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /STV|simuler/i })).toBeDisabled();
   });
 
   it('shows error on API failure', async () => {

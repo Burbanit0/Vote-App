@@ -957,6 +957,8 @@ const pseudo: TranslationKeys = {
     prompt:
       "⟦Cóñfígúréz~~~~ lés~~ síègés~~~ ét~ lé~ qúótá~~ póúr~~ símúlér~~~ lé~ STV~~ írláñdáís/áústrálíéñ~~~~~~~ ét~ lé~ çómpárér~~~ à~ D'Hóñdt~~~ ét~ FPTP.~~⟧",
     run: '⟦Símúlér~~~ lé~ STV~~⟧',
+    needsThree:
+      '⟦Lé~ STV~~ élít~~ áú~ móíñs~~ 2~ síègés~~~ pármí~~ plús~~ dé~ çáñdídáts~~~~ :~ íl~ éñ~ fáút~~ áú~ móíñs~~ 3.~⟧',
     error: '⟦Érréúr~~~ lórs~~ dé~ lá~ símúlátíóñ.~~~~⟧',
     numSeats: '⟦Nómbré~~~ dé~ síègés~~~⟧',
     quotaType: '⟦Typé~~ dé~ qúótá~~⟧',

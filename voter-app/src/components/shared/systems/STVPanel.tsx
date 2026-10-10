@@ -195,7 +195,11 @@ const STVPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [numSeats, setNumSeats] = useState(3);
+  const [seatsWanted, setNumSeats] = useState(3);
+  // The backend needs fewer seats than candidates: three candidates allow 2, so the
+  // default 3 is clamped here rather than refused on every run.
+  const maxSeats = config.candidates.length - 1;
+  const numSeats = Math.min(seatsWanted, maxSeats);
   const [quotaType, setQuotaType] = useState<'droop' | 'hare'>('droop');
   const sim = $api.useMutation('post', '/api/v2/election/stv');
   const data: STVData | null = (sim.data as STVData | undefined) ?? null;
@@ -251,7 +255,7 @@ const STVPanel: React.FC = () => {
           </label>
           <Range
             min={2}
-            max={Math.max(2, config.candidates.length - 1)}
+            max={Math.max(2, maxSeats)}
             step={1}
             value={numSeats}
             onChange={(e) => setNumSeats(Number(e.target.value))}
@@ -269,12 +273,18 @@ const STVPanel: React.FC = () => {
           </Select>
         </Col>
         <Col xs={12} sm={3} className="flex items-end">
-          <Button variant="primary" className="w-full" onClick={run} disabled={loading}>
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={run}
+            disabled={loading || maxSeats < 2}
+          >
             {loading ? <Spinner size="sm" /> : `🔄 ${t('stv.run')}`}
           </Button>
         </Col>
       </Row>
 
+      {maxSeats < 2 && <Alert variant="warning">{t('stv.needsThree')}</Alert>}
       {error && <Alert variant="danger">{error}</Alert>}
       {!data && !loading && <Alert variant="info">{t('stv.prompt')}</Alert>}
 
