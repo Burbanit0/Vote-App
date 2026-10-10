@@ -643,34 +643,6 @@
   },
   {
    "branches": [
-    "docs/polity-llm-protocol-and-theory-program",
-    "polity"
-   ],
-   "category": "code",
-   "count": 9,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          140    144      +4 \ud83d\udd34",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)            104    104      +0",
-     "jscpd (duplicate clones)                      36     38      +2 \ud83d\udd34",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "1edd5c659dfd2223a93e3afc0e371bbe25a2aa3b",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34694591907"
-   },
-   "last_seen": "2026-09-12T12:46:26Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "ci/python-lockfile-freshness-check",
     "develop",
     "fix/playground-lens-click-layout-shift"
@@ -760,6 +732,33 @@
   },
   {
    "branches": [
+    "polity"
+   ],
+   "category": "code",
+   "count": 7,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          140    144      +4 \ud83d\udd34",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)            104    104      +0",
+     "jscpd (duplicate clones)                      36     38      +2 \ud83d\udd34",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "1edd5c659dfd2223a93e3afc0e371bbe25a2aa3b",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34694591907"
+   },
+   "last_seen": "2026-09-12T12:46:26Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-emotions-prerequisite-verdict",
     "feat/runtime-coverage-e2e",
     "polity"
@@ -789,34 +788,6 @@
   },
   {
    "branches": [
-    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
-    "develop",
-    "mergify/merge-queue/7980717d8d",
-    "polity",
-    "polity-ui"
-   ],
-   "category": "code",
-   "count": 6,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toHaveAttribute(expected) failed",
-     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "84e50b03ad11d55d9a0828fde6f1aef6f8abcf49",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34972011887"
-   },
-   "last_seen": "2026-09-15T12:57:53Z",
-   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "develop"
    ],
    "category": "code",
@@ -840,6 +811,34 @@
    "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
    "workflows": [
     "Schemathesis Contract Fuzzing"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/types-requests-2.33.0.20260906",
+    "develop",
+    "mergify/merge-queue/7980717d8d",
+    "polity",
+    "polity-ui"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toHaveAttribute(expected) failed",
+     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "84e50b03ad11d55d9a0828fde6f1aef6f8abcf49",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34972011887"
+   },
+   "last_seen": "2026-09-15T12:57:53Z",
+   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -1370,34 +1369,6 @@
   },
   {
    "branches": [
-    "feat/socket-disconnect-orphaned-run",
-    "feat/worker-timeouts-backpressure"
-   ],
-   "category": "infra",
-   "count": 2,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "E       assert 503 == 200",
-     "E        +  where 503 = <Response [503 Service Unavailable]>.status_code",
-     "api/tests/test_simulations_whatif_campaign.py:47: AssertionError",
-     "ERROR    api.core.worker_dispatch:worker_dispatch.py:110 2026-09-10T14:40:52.880530Z [error    ] worker_dispatch.timeout        [api.core.worker_dispatch] timeout_s=180.0 worker=_what_if_worker",
-     "FAILED api/tests/test_simulations_whatif_campaign.py::TestWhatIf::test_caps_at_10_values - AssertionError: {\"detail\":\"Request took too long to process\"}",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "47c7763aa074dc63cf59627cf8c9dc88a8585369",
-    "step": "Tests with coverage (85% minimum)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34489988713"
-   },
-   "last_seen": "2026-09-10T14:34:51Z",
-   "signature": "infra: E        +  where # = <Response [# Service Unavailable]>.status_code",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
     "ci/e2e-shards-in-playwright-image",
     "feat/polity-journal-extra-legal"
    ],
@@ -1811,20 +1782,43 @@
    "workflows": [
     "E2E Tests"
    ]
+  },
+  {
+   "branches": [
+    "chore/bump-size-limit-14"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: fiches that never rendered in \"theory\"",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "584cbf66a9d47216037a0211c0556f1aef7d17fb",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36279747572"
+   },
+   "last_seen": "2026-09-26T23:32:07Z",
+   "signature": "code: Error: fiches that never rendered in \"theory\"",
+   "workflows": [
+    "E2E Tests"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 404,
-  "infra": 24,
+  "code": 401,
+  "infra": 23,
   "test-flaky": 41,
   "unknown": 2
  },
- "generated_at": "2026-10-10T12:36:25Z",
+ "generated_at": "2026-10-10T13:39:36Z",
  "grid": {
   "Backend CI": {
    "2026-09-10": {
-    "success": 7
+    "success": 5
    },
    "2026-09-11": {
     "success": 34
@@ -2039,7 +2033,7 @@
     "success": 53
    },
    "2026-10-10": {
-    "success": 21
+    "success": 22
    }
   },
   "CI Health Watchdog": {
@@ -2294,7 +2288,6 @@
   },
   "E2E Tests": {
    "2026-09-10": {
-    "failure": 1,
     "success": 4
    },
    "2026-09-11": {
@@ -2409,7 +2402,7 @@
   },
   "Frontend CI": {
    "2026-09-10": {
-    "success": 5
+    "success": 4
    },
    "2026-09-11": {
     "success": 34
@@ -2507,7 +2500,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-10": {
-    "success": 7
+    "success": 5
    },
    "2026-09-11": {
     "success": 34
@@ -2692,7 +2685,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-10": {
-    "success": 5
+    "success": 4
    },
    "2026-09-11": {
     "success": 34
@@ -2774,7 +2767,7 @@
   "Schemathesis Contract Fuzzing": {
    "2026-09-10": {
     "failure": 1,
-    "success": 4
+    "success": 3
    },
    "2026-09-11": {
     "cancelled": 7,
@@ -2856,8 +2849,7 @@
   },
   "Security Audit": {
    "2026-09-10": {
-    "failure": 1,
-    "success": 6
+    "success": 5
    },
    "2026-09-11": {
     "success": 34
@@ -3043,9 +3035,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-10T12:19:24Z",
+   "created_at": "2026-10-10T12:36:18Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38051530983"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38052568679"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3153,11 +3145,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 14930,
+ "runs": 14902,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-10": 167.5,
+    "2026-09-10": 164.0,
     "2026-09-11": 12,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
@@ -3186,10 +3178,10 @@
     "2026-10-09": 368.0,
     "2026-10-10": 429.0
    },
-   "p50_s": 167,
+   "p50_s": 166,
    "p95_s": 464,
    "queue_p50_s": 0,
-   "runs": 1329
+   "runs": 1325
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3231,7 +3223,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-10": 6.5,
+    "2026-09-10": 6,
     "2026-09-11": 7.0,
     "2026-09-12": 7.0,
     "2026-09-13": 7,
@@ -3263,7 +3255,7 @@
    "p50_s": 8,
    "p95_s": 35,
    "queue_p50_s": 0,
-   "runs": 977
+   "runs": 974
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3272,12 +3264,12 @@
     "2026-10-07": 395,
     "2026-10-08": 399.5,
     "2026-10-09": 402,
-    "2026-10-10": 394
+    "2026-10-10": 390.5
    },
    "p50_s": 395,
    "p95_s": 620,
    "queue_p50_s": 0,
-   "runs": 268
+   "runs": 269
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3375,7 +3367,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-10": 11.0,
+    "2026-09-10": 11,
     "2026-09-11": 11,
     "2026-09-12": 10.0,
     "2026-09-13": 10,
@@ -3407,7 +3399,7 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 897
+   "runs": 894
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3437,7 +3429,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-10": 351.0,
+    "2026-09-10": 328.0,
     "2026-09-11": 353,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
@@ -3466,14 +3458,14 @@
     "2026-10-09": 478.0,
     "2026-10-10": 554
    },
-   "p50_s": 585,
+   "p50_s": 587,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1174
+   "runs": 1172
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-10": 197,
+    "2026-09-10": 104.0,
     "2026-09-11": 11.0,
     "2026-09-12": 10.0,
     "2026-09-13": 9.0,
@@ -3502,14 +3494,14 @@
     "2026-10-09": 114.5,
     "2026-10-10": 193
    },
-   "p50_s": 21,
+   "p50_s": 20,
    "p95_s": 273,
    "queue_p50_s": 0,
-   "runs": 1288
+   "runs": 1285
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-10": 75,
+    "2026-09-10": 76.5,
     "2026-09-11": 74,
     "2026-09-12": 11.5,
     "2026-09-13": 63.0,
@@ -3541,7 +3533,7 @@
    "p50_s": 73,
    "p95_s": 127,
    "queue_p50_s": 0,
-   "runs": 1403
+   "runs": 1398
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3584,7 +3576,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-10": 47,
+    "2026-09-10": 47.0,
     "2026-09-11": 43.0,
     "2026-09-12": 40,
     "2026-09-13": 39,
@@ -3612,7 +3604,7 @@
    "p50_s": 43,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 268
+   "runs": 267
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3630,7 +3622,7 @@
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-09-10": 1938.5,
+    "2026-09-10": 1932,
     "2026-09-11": 1860.5,
     "2026-09-12": 1402.5,
     "2026-09-13": 1797.0,
@@ -3655,13 +3647,13 @@
     "2026-10-10": 77.5
    },
    "p50_s": 80,
-   "p95_s": 1925,
+   "p95_s": 1920,
    "queue_p50_s": 0,
-   "runs": 128
+   "runs": 127
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-10": 93,
+    "2026-09-10": 96.0,
     "2026-09-11": 103.5,
     "2026-09-12": 95.0,
     "2026-09-13": 101.0,
@@ -3693,7 +3685,7 @@
    "p50_s": 126,
    "p95_s": 228,
    "queue_p50_s": 0,
-   "runs": 1335
+   "runs": 1332
   },
   "Workflow Lint": {
    "daily_p50_s": {
