@@ -135,6 +135,9 @@ class SweepRun:
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)
     run_metadata: dict[str, Any] = field(default_factory=dict)
+    constitution: tuple[tuple[str, Any], ...] = ()
+    """The amendments the run ratified, in order, as (article, new value) -- ADR-015's constitution
+    versions; () is the unamended constitution. Runs that differ here were not under one set of rules."""
 
     @property
     def completed(self) -> bool:
@@ -142,6 +145,16 @@ class SweepRun:
 
     def fallback_rates(self) -> dict[str, float]:
         return {t: self.fallback_by_type.get(t, 0) / n for t, n in sorted(self.decisions_by_type.items()) if n}
+
+
+def constitution_groups(runs: Sequence[SweepRun]) -> dict[tuple[tuple[str, Any], ...], list[SweepRun]]:
+    """Completed runs grouped by the amendments they ratified, in order: a metric is pooled within a
+    group, never across two, since the runs in different groups were not under the same rules (ADR-015)."""
+    groups: dict[tuple[tuple[str, Any], ...], list[SweepRun]] = {}
+    for run in runs:
+        if run.completed:
+            groups.setdefault(run.constitution, []).append(run)
+    return groups
 
 
 def first_completed_runs(runs: Sequence[SweepRun]) -> list[SweepRun]:

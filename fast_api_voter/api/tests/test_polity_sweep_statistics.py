@@ -2,11 +2,18 @@
 See api/domain/polity/sweep_statistics.py."""
 from __future__ import annotations
 
+import dataclasses
+import importlib.util
+import json
+from pathlib import Path
+from types import ModuleType
+
 import pytest
 
 from api.domain.polity.sweep_statistics import (
     SweepRun,
     clopper_pearson,
+    constitution_groups,
     first_completed_runs,
     mean_bca_interval,
     paired_contrast,
@@ -165,4 +172,45 @@ def test_two_arms_on_the_same_seed_stay_apart() -> None:
     runs = [SweepRun(seed=1, repeat=1, run_id="a", outcome="completed", arm="3pct"),
             SweepRun(seed=1, repeat=1, run_id="b", outcome="completed", arm="5pct")]
     assert {run.run_id for run in first_completed_runs(runs)} == {"a", "b"}
+
+
+# ── constitution versions (ADR-015): never pooled across ──────────────────
+
+THRESHOLD = (("institutions.electoral_threshold", 0.08),)
+
+
+def _sweep_script() -> ModuleType:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_seed_sweep.py"
+    spec = importlib.util.spec_from_file_location("run_polity_seed_sweep", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_completed_runs_are_grouped_by_the_amendments_they_ratified_in_order() -> None:
+    later = (("institutions.electoral_threshold", 0.05), *THRESHOLD)
+    runs = [_run(1), _run(2), dataclasses.replace(_run(3), constitution=THRESHOLD),
+            dataclasses.replace(_run(4), constitution=later), dataclasses.replace(_run(5, outcome="crashed"), constitution=THRESHOLD)]
+    groups = constitution_groups(runs)
+    assert {k: [r.seed for r in v] for k, v in groups.items()} == {(): [1, 2], THRESHOLD: [3], later: [4]}
+
+
+def test_the_summary_pools_occupancy_within_a_constitution_never_across(tmp_path: Path) -> None:
+    sweep = _sweep_script()
+    one_rule = [_run(1, occupancy=0.9), _run(2, occupancy=0.8)]
+    assert any("95% BCa" in line for line in sweep._occupancy_section(one_rule))
+    mixed = [*one_rule, dataclasses.replace(_run(3, occupancy=0.5), constitution=THRESHOLD)]
+    lines = sweep._occupancy_section(mixed)
+    assert any("not pooled across seeds" in line and "2 constitutions" in line for line in lines)
+    assert any(line.startswith("- unamended (seeds [1, 2])") for line in lines)
+    assert not any("0.5000" in line for line in lines)  # the lone amended seed is listed per run, not pooled
+    assert "- electoral_threshold 0.08: seeds [3]" in sweep._constitution_section(mixed)
+
+    journal = tmp_path / "events.jsonl"
+    amended = {"event_type": "constitution_amended", "payload": {"article": "institutions.electoral_threshold", "new": 0.08}}
+    journal.write_text(json.dumps({"event_type": "elected", "payload": {}}) + "\n" + json.dumps(amended) + "\n"
+                       + '{"event_type": "constitution_amended", "payl', encoding="utf-8")  # torn last line
+    assert sweep._amendments(journal) == THRESHOLD
+    assert sweep._amendments(tmp_path / "missing.jsonl") == ()
 
