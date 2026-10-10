@@ -14,8 +14,9 @@ is not a bug report and not a conclusion: most entries are open questions.
   with the evidence that shows it.
 - *What would settle it* names the check, the run, or the plan step that answers the question.
 - Status is one of **open**, **cause found** (the mechanism is shown; whether to change it is not
-  decided), **explained** (cause understood, behaviour stays), **fixed** (with the commit), or **by
-  design** (the model intends it; say where that is written).
+  decided), **explained** (cause understood, behaviour stays), **decided** (the owner chose what to do about
+  it; say where that is recorded), **fixed** (with the commit), or **by design** (the model intends it; say
+  where that is written).
 - New entries go at the end with the next number; an entry is never deleted, only re-statused.
 
 Runs cited below live in `fast_api_voter/scripts/*_runs/` (gitignored); `python
@@ -68,7 +69,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
-| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
+| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | decided |
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
@@ -460,6 +461,10 @@ recorded run changes, for the reason above.
 *Since [OBS-041](#obs-041) (2026-10-05),* the deterministic engine shows 10 distinct presidents, not 11:
 its run has recalls, and their snap winners now serve only until the calendar's next election, so the
 elections fall on different ticks. The LLM engine still shows 11.
+
+*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with less than half of it left no longer counts
+against the limit, so a snap winner keeps their one term. With the limit at 1 the deterministic engine shows 7
+distinct presidents and the LLM engine 9.
 
 ### OBS-013
 
@@ -1950,7 +1955,21 @@ at 2.67 and 1.89 effective parties: the cliff the re-seating above predicted, re
 `PLAN_BEYOND_CI.md`'s W2.1 was to be the controlled follow-up (3% against 5%, amendments frozen); it stopped at
 its gate ([OBS-045](#obs-045)).
 
-*Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
+*Decided 2026-10-10 (owner, roadmap D11): the band is reported, not gated.* What the entries since showed: the
+fragmentation does not move with turnout (OBS-044), with what founders are told about the threshold (OBS-045:
+59 of 60 found either way) or with the false own-party claim (OBS-043); it follows from founding and seating both
+taking 5 citizens of 100, with sincere ballots and no merge. The political-science account of why real systems
+stay inside 1.5-8 is largely strategic voting (Duverger's psychological effect), which this model does not have;
+that explanation comes from the literature and is not tested here. Phase 4's exit now asks that the polity respond
+to its fragmentation -- ratify an amendment to an article governing party entry or seats in at least 30% of seeds
+-- which phase11 meets (4 of 10; phase10: 2 of 10). The proposers' own reasons show the response runs both ways:
+in seeds 1, 2 and 8 a ratified amendment says it is meant to "reduce fragmentation and strengthen major parties",
+"strengthen party stability by raising entry barriers" or "reduce party fragmentation", while others lower the
+bar so the proposer can found their own party (seeds 1, 5, 6) or for "diverse representation" (seed 8).
+Strategic voting (a `vote` weight discounting candidates the poll gives no chance) is the mechanism to add if the
+band itself is ever wanted; it is not built.
+
+*Status: decided* -- see above; the roadmap's Phase 4 exit line reads met under D11.
 
 ### OBS-041
 
@@ -2015,6 +2034,18 @@ the run's last. The answer to the act is not journaled -- `agent_turn` carries n
 refusal not taken is visible only in `llm_calls.jsonl`.
 *Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
 `extra_legal` whenever the act is on the menu, legal that tick or not.
+
+*Decided 2026-10-10 (owner): a term counts against the limit only if won with at least half of it left* --
+close to the US 22nd Amendment's rule for a successor, which draws the line just past half (more than two years
+of four). Built on `feat/polity-half-term-counts`: `mandates_served` still counts every presidency won (it is what
+makes "a former officeholder" for `declare_candidacy`'s record), and a new `short_terms` counts those won with
+less than half a term to the calendar's next election; the limit counts the difference
+(`accountability.counted_terms`), a recalled president keeps the term they were elected to, and the president's
+system prompt states the rule. A president term-limited by a win holds office for at least half a term less a
+tick before the act can be offered -- never on the tick they took office, for any term longer than two ticks
+(every profile: 16). No separate minimum tenure was needed. A run resumed from a checkpoint written before this
+change keeps the old count for its sitting presidents (the field defaults to 0). The golden references and the
+explorer fixture's events do not move; its checkpoint gains the field, 1 for the snap winner at tick 10.
 
 ### OBS-042
 
