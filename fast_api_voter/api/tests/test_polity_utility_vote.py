@@ -11,6 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 import api.domain.polity.run_polity_simulation as engine
+from api.domain.polity.accountability import is_term_limited
 from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Citizen, generate_population
 from api.domain.polity.config import PolityConfig, VoteConfig, load_config
@@ -23,6 +24,7 @@ from api.domain.polity.simple_rules import (
     abstains,
     build_ranking,
     candidate_label,
+    declare_candidacy,
     candidate_utility,
     incumbent_record,
     utility_ballot,
@@ -246,12 +248,12 @@ def test_a_rerun_winner_serves_until_the_calendar_s_next_election(tmp_path: Path
     assert candidate.term_end_tick == 2 * term
 
 
-def test_a_term_counts_against_the_limit_only_if_won_with_half_of_it_left(tmp_path: Path) -> None:
+def test_a_term_counts_against_the_limit_only_if_won_with_more_than_half_of_it_left(tmp_path: Path) -> None:
     # OBS-041: a snap win a tick before the calendar election made its winner term-limited after two ticks.
     config = load_config()
     term = config.institutions.president_term_years * config.run.ticks_per_year
 
-    def served_after_winning_at(tick: int) -> int:
+    def win_at(tick: int) -> Citizen:
         candidate = _citizen(1, (0.5,), (1.0,), party=0)
         candidate.ambition_score = 1.0
         electors = [_citizen(cid, (0.5,), (1.0,), threshold=0.9) for cid in range(2, 8)]
@@ -261,12 +263,18 @@ def test_a_term_counts_against_the_limit_only_if_won_with_half_of_it_left(tmp_pa
                 [candidate, *electors], [Party(party_id=0, platform=(0.5,))], config, journal, tick=tick, llm_client=None,
                 pending_rerun=rerun,
             )
-        assert candidate.office == engine.Office.PRESIDENT
-        return candidate.mandates_served
+        assert candidate.office == engine.Office.PRESIDENT and candidate.mandates_served == 1
+        return candidate
 
-    assert served_after_winning_at(term) == 1  # on the calendar: a full term
-    assert served_after_winning_at(term + term // 2) == 1  # exactly half of it left
-    assert served_after_winning_at(2 * term - 1) == 0  # one tick left
+    assert is_term_limited(win_at(term), 1)  # on the calendar: a full term
+    assert is_term_limited(win_at(term + term // 2 - 1), 1)  # more than half of it left
+    assert not is_term_limited(win_at(term + term // 2), 1)  # exactly half: not counted, as for a US successor
+    short = win_at(2 * term - 1)  # one tick left
+    assert not is_term_limited(short, 1) and short.short_terms == 1
+    # Still a former officeholder: with keep_record, they run again on what they did in office.
+    short.revealed_position = (0.9,)
+    declare_candidacy(short, keep_record=True)
+    assert short.pledged_platform == (0.9,)
 
 
 def test_an_invalidated_election_carries_the_outgoing_president_into_its_rerun(tmp_path: Path) -> None:

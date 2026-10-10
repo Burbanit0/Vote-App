@@ -201,16 +201,21 @@ def self_gap(citizen: Citizen, officeholder: Citizen) -> float:
     return weighted_euclidean(citizen.issue_positions, officeholder.revealed_position, citizen.issue_priorities)
 
 
+def counted_terms(citizen: Citizen) -> int:
+    """The terms the limit counts: every one won, less those won with half a term or less left (OBS-041)."""
+    return citizen.mandates_served - citizen.short_terms
+
+
 def is_term_limited(citizen: Citizen, term_limit: int | None) -> bool:
     """§6bis.1: a hard, always-on candidacy block, independent of the LLM --
     `term_limit=None` (shipped default) means illimité, always False. Doubles
     as the `lame_duck` predicate for a sitting officeholder (Lot 6 ctx)."""
-    return term_limit is not None and citizen.mandates_served >= term_limit
+    return term_limit is not None and counted_terms(citizen) >= term_limit
 
 
 def is_irregular(citizen: Citizen, term_limit: int | None) -> bool:
     """ADR-022: holding office past the last term the rules allow -- recalls are suspended."""
-    return term_limit is not None and citizen.mandates_served > term_limit
+    return term_limit is not None and counted_terms(citizen) > term_limit
 
 
 def ticks_to_election(tick: int, term_end_tick: int | None) -> int | None:

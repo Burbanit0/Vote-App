@@ -461,7 +461,7 @@ recorded run changes, for the reason above.
 its run has recalls, and their snap winners now serve only until the calendar's next election, so the
 elections fall on different ticks. The LLM engine still shows 11.
 
-*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with less than half of it left no longer counts
+*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with half of it or less left no longer counts
 against the limit, so a snap winner keeps their one term. With the limit at 1 the deterministic engine shows 7
 distinct presidents and the LLM engine 9.
 
@@ -2020,13 +2020,17 @@ refusal not taken is visible only in `llm_calls.jsonl`.
 *Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
 `extra_legal` whenever the act is on the menu, legal that tick or not.
 
-*Decided 2026-10-10 (owner): a term counts only if won with at least half of it left* -- the US 22nd Amendment's
-rule for a successor. Built on `feat/polity-half-term-counts`: `mandates_served` rises at a win only when the
-time to the calendar's next election is at least half a term, and the president's system prompt says so. The
-two odd cases above go with it: no president is term-limited after two ticks in office, and none is offered the
-act on the tick they take office, since a win with a few ticks left no longer makes them term-limited. No
-separate minimum tenure was needed. The explorer fixture's snap winner at tick 10 now has 0 terms served, not 1;
-the golden references do not move.
+*Decided 2026-10-10 (owner): a term counts against the limit only if won with more than half of it left* --
+the US 22nd Amendment's rule for a successor, who may still be elected twice after serving two years or less of
+someone else's term. Built on `feat/polity-half-term-counts`: `mandates_served` still counts every presidency
+won (it is what makes "a former officeholder" for `declare_candidacy`'s record), and a new `short_terms` counts
+those won with half a term or less to the calendar's next election; the limit counts the difference
+(`accountability.counted_terms`), and the president's system prompt states the rule. A counted term now lasts more
+than half a term, so a term-limited president is offered the act no sooner than half a term after taking office,
+never on the tick they took office -- for any term longer than one tick (every profile: 16). No separate minimum
+tenure was needed. A run resumed from a checkpoint written before this change keeps
+the old count for its sitting presidents (the field defaults to 0). The golden references and the explorer
+fixture's events do not move; its checkpoint gains the field.
 
 ### OBS-042
 
