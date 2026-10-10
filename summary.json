@@ -1239,32 +1239,6 @@
   },
   {
    "branches": [
-    "feat/claims-registry",
-    "feat/polity-journal-extra-legal"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(received).toBeGreaterThan(expected)",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     869
-    ],
-    "sha": "218f59705d8bf28fd0db160a1f4727c96e6e26be",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38015272513"
-   },
-   "last_seen": "2026-10-10T01:59:21Z",
-   "signature": "code: Error: expect(received).toBeGreaterThan(expected)",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -1789,6 +1763,31 @@
   },
   {
    "branches": [
+    "feat/claims-registry"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(received).toBeGreaterThan(expected)",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     869
+    ],
+    "sha": "218f59705d8bf28fd0db160a1f4727c96e6e26be",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38015272513"
+   },
+   "last_seen": "2026-10-10T01:59:21Z",
+   "signature": "code: Error: expect(received).toBeGreaterThan(expected)",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "chore/bump-size-limit-14"
    ],
    "category": "code",
@@ -1813,12 +1812,12 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 404,
+  "code": 403,
   "infra": 24,
-  "test-flaky": 39,
+  "test-flaky": 40,
   "unknown": 2
  },
- "generated_at": "2026-10-10T02:09:02Z",
+ "generated_at": "2026-10-10T02:14:32Z",
  "grid": {
   "Backend CI": {
    "2026-09-10": {
@@ -2034,7 +2033,7 @@
     "success": 53
    },
    "2026-10-10": {
-    "success": 2
+    "success": 3
    }
   },
   "CI Health Watchdog": {
@@ -2617,7 +2616,7 @@
     "success": 11
    },
    "2026-10-10": {
-    "skipped": 2,
+    "skipped": 3,
     "success": 1
    }
   },
@@ -2995,7 +2994,7 @@
     "success": 146
    },
    "2026-10-10": {
-    "skipped": 6,
+    "skipped": 7,
     "success": 7
    }
   },
@@ -3029,9 +3028,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-10T02:02:46Z",
+   "created_at": "2026-10-10T02:06:26Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38015496497"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38015731722"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3085,9 +3084,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-10T02:01:56Z",
+   "created_at": "2026-10-10T02:18:36Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38015443927"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38016488799"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -3126,10 +3125,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-10T02:11:50Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-10T02:18:00Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38016067995"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38016451565"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3139,7 +3138,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37922919068"
   }
  },
- "runs": 14652,
+ "runs": 14656,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3257,12 +3256,12 @@
     "2026-10-07": 395,
     "2026-10-08": 399.5,
     "2026-10-09": 402,
-    "2026-10-10": 362.0
+    "2026-10-10": 367
    },
    "p50_s": 395,
    "p95_s": 620,
    "queue_p50_s": 0,
-   "runs": 249
+   "runs": 250
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3447,13 +3446,13 @@
     "2026-10-06": 596,
     "2026-10-07": 410,
     "2026-10-08": 476,
-    "2026-10-09": 474,
+    "2026-10-09": 478.0,
     "2026-10-10": 578
    },
    "p50_s": 585,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1169
+   "runs": 1170
   },
   "Frontend CI": {
    "daily_p50_s": {
