@@ -95,7 +95,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     await page.evaluate(() => document.fonts.ready);
     const before = (await rate.boundingBox())!.height;
     release();
-    await expect(rate).toHaveText(/\d+\s?%/);
+    await expect(rate).toHaveText(/\d %$/);
     expect((await rate.boundingBox())!.height).toBe(before);
   });
 
