@@ -317,6 +317,9 @@ together.
 
 **Measure only:** phone drag jank (about 800 ms of blocking work per second of drag,
 with the CPU throttled 4×).
+Measured 2026-10-10 (`npm run measure:jank` in `voter-app/`, six one-second touch drags
+on the e2e phone profile): no long task during a drag, so no blocking work. One task of
+61–79 ms follows each lift, about 240 ms later (two runs). Nothing to fix.
 
 ## W4 — Memory and docs (S, Phases 0–1)
 

@@ -572,6 +572,39 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           )}
         </g>
 
+        {/* Finger-sized hit areas on a phone (W3.6): 40 of 480 units, 44 px or more down to a
+            290-px-wide map. One layer under every dot, so a dot drawn later never covers
+            another's hit area: touching a dot grabs that dot. */}
+        <g>
+          {candidates.map((cand, i) => (
+            <circle
+              key={`${cand.name}-${i}`}
+              data-testid={`candidate-${i}-hit`}
+              className="touch-hit"
+              cx={toSvg(cand.x, 'x')}
+              cy={cyOf(cand)}
+              r={40}
+              fill="transparent"
+              onTouchStart={() => {
+                draggingIdx.current = i;
+              }}
+            />
+          ))}
+          {youMarker && (
+            <circle
+              data-testid="you-marker-hit"
+              className="touch-hit"
+              cx={toSvg(youMarker.x, 'x')}
+              cy={cyOf(youMarker)}
+              r={40}
+              fill="transparent"
+              onTouchStart={() => {
+                draggingYou.current = true;
+              }}
+            />
+          )}
+        </g>
+
         {/* Draggable candidates (z shown as an outer ring in 3-D) */}
         <g>
           {candidates.map((cand, i) => {

@@ -165,6 +165,20 @@ describe('LeaderCanvas', () => {
     expect(onMoveCandidate.mock.calls[0][0]).toBe(0);
   });
 
+  it('a touch on a hit circle grabs its candidate, or the "you" marker (W3.6)', () => {
+    const onMoveYou = vi.fn();
+    const { onMoveCandidate } = setup({ youMarker: { x: 0, y: -0.5 }, onMoveYou });
+    const map = screen.getByTestId('leader-map');
+    fireEvent.touchStart(screen.getByTestId('candidate-1-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveCandidate.mock.calls[0][0]).toBe(1);
+    fireEvent.touchEnd(map);
+    fireEvent.touchStart(screen.getByTestId('you-marker-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveYou).toHaveBeenCalledTimes(1);
+    expect(onMoveCandidate).toHaveBeenCalledTimes(1);
+  });
+
   it('1-D collapses to a line: dragging forces y=0 and no z controls', () => {
     const { onMoveCandidate } = setup({ dims: 1, voters: sampleVoters(80, 1, 'random', 1) });
     expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '1');
