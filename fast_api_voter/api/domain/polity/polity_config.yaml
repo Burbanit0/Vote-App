@@ -279,6 +279,10 @@ vote:
                                 # Poids à 0 = le bulletin sincère de build_ranking
                                 #   (bras témoin), jusqu'à calibration contre les
                                 #   faits pré-enregistrés de l'ADR-011.
+  strategic_margin: 0.0         # ADR-024 : aux législatives, utilité qu'un électeur
+                                #   cède pour quitter un parti que le vote sincère
+                                #   laisse sous le seuil, pour le meilleur au-dessus
+                                #   (vote utile) ; 0 = vote sincère
 
 # =============================================================================
 # LÉGISLATION ORDINAIRE (S4.2, D3/D7 — docs/adr/ADR-009-ordinary-legislation.md)

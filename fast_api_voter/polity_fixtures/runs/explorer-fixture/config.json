@@ -257,6 +257,7 @@
     "mode": "llm",
     "partisanship": 0.0,
     "policy_retrospection": 0.0,
+    "strategic_margin": 0.0,
     "turnout_cost": 0.0,
     "valence": 0.0
   }
