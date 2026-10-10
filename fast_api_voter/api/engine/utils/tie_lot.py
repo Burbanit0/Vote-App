@@ -13,6 +13,7 @@ so a tie falls like a fair coin from one voter to the next.
 """
 
 import math
+import random
 import re
 from typing import Any, Callable, Iterable, List, Sequence, TypeVar
 
@@ -120,4 +121,11 @@ def nearest(
         key = f"{seed}:{r if rows is None else rows[r]}"
         out[r] = min(cols, key=lambda c: (_voter_lot(key, names[c]), str(names[c])))
     return out
+
+
+def streams(seed: object, names: Iterable[object]) -> List[random.Random]:
+    """One random stream per candidate, seeded with the seed and its name, so a candidate
+    keeps its draws however the candidates are listed (#664). A `None` seed stays
+    unseeded, as `random.Random(None)` is."""
+    return [random.Random(None if seed is None else f"{seed}:{n}") for n in names]
 

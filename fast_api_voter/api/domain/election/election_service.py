@@ -134,6 +134,7 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             num_days=num_days,
             events=[],
             seed=seed,
+            names=cand_names,
         )
         campaign_trajectory = camp
         camp_cands = camp.get("candidates", [])
@@ -174,7 +175,8 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for v in voters
         ]
         perceived_list = apply_information_asymmetry(
-            true_list, media_bias, voter_segments, seed=seed
+            true_list, media_bias, voter_segments, seed=seed,
+            names=[c["name"] for c in candidates],
         )
         effective_utilities = {
             v["id"]: {c["name"]: perceived_list[idx][j] for j, c in enumerate(candidates)}

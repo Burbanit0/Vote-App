@@ -194,6 +194,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
     camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
     daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
@@ -324,6 +325,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         num_days=num_days,
         events=[],
         seed=seed,
+        names=cand_names,
     )
     camp_cands   = camp.get("candidates", [])
     daily_scores = camp.get("daily_scores", {})
@@ -359,7 +361,8 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         base: Dict[Any, Dict[str, float]]
     ) -> Dict[Any, Dict[str, float]]:
         mat  = [[base[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perc = apply_information_asymmetry(mat, media_bias, voter_segments, seed=seed)
+        perc = apply_information_asymmetry(
+            mat, media_bias, voter_segments, seed=seed, names=[c["name"] for c in candidates])
         return {
             v["id"]: {c["name"]: perc[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)
@@ -786,7 +789,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if campaign_on:
         camp         = simulate_campaign(
             num_candidates=len(candidates),
-            num_days=num_days, events=[], seed=seed,
+            num_days=num_days, events=[], seed=seed, names=cand_names,
         )
         camp_cands   = camp.get("candidates", [])
         daily_scores = camp.get("daily_scores", {})
@@ -859,7 +862,9 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             "high_info":   float(vseg.get("high_info",   0.2)),
         }
         true_list = [[current_utilities[v["id"]][c["name"]] for c in candidates] for v in voters]
-        perceived  = apply_information_asymmetry(true_list, media_bias, voter_segments, seed=seed)
+        perceived  = apply_information_asymmetry(
+            true_list, media_bias, voter_segments, seed=seed,
+            names=[c["name"] for c in candidates])
         effective_utilities = {
             v["id"]: {c["name"]: perceived[idx][j] for j, c in enumerate(candidates)}
             for idx, v in enumerate(voters)
