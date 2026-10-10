@@ -196,14 +196,18 @@ const STVPanel: React.FC = () => {
   const { config } = useElection();
 
   const [seatsWanted, setNumSeats] = useState(3);
-  // The backend needs fewer seats than candidates: three candidates allow 2, so the
-  // default 3 is clamped here rather than refused on every run.
-  const maxSeats = config.candidates.length - 1;
+  // The backend needs at least 2 seats and fewer seats than candidates, as in
+  // MultiwinnerCompare: three candidates allow 2, so the default 3 is clamped here
+  // rather than refused on every run, and two candidates allow none.
+  const maxSeats = Math.max(2, config.candidates.length - 1);
   const numSeats = Math.min(seatsWanted, maxSeats);
+  const enoughCandidates = config.candidates.length >= 3;
   const [quotaType, setQuotaType] = useState<'droop' | 'hare'>('droop');
   const sim = $api.useMutation('post', '/api/v2/election/stv');
   const data: STVData | null = (sim.data as STVData | undefined) ?? null;
   const loading = sim.isPending;
+  // The result describes its own run: the voters it was asked for, not today's controls.
+  const ranVoters = sim.variables?.body.num_voters ?? config.num_voters;
   const error = sim.isError ? t('stv.error') : null;
   const [stepIdx, setStepIdx] = useState(0);
 
@@ -255,10 +259,11 @@ const STVPanel: React.FC = () => {
           </label>
           <Range
             min={2}
-            max={Math.max(2, maxSeats)}
+            max={maxSeats}
             step={1}
             value={numSeats}
             onChange={(e) => setNumSeats(Number(e.target.value))}
+            disabled={!enoughCandidates}
           />
         </Col>
         <Col xs={12} sm={3}>
@@ -277,14 +282,18 @@ const STVPanel: React.FC = () => {
             variant="primary"
             className="w-full"
             onClick={run}
-            disabled={loading || maxSeats < 2}
+            disabled={loading || !enoughCandidates}
           >
             {loading ? <Spinner size="sm" /> : `🔄 ${t('stv.run')}`}
           </Button>
         </Col>
       </Row>
 
-      {maxSeats < 2 && <Alert variant="warning">{t('stv.needsThree')}</Alert>}
+      {!enoughCandidates && (
+        <Alert variant="warning">
+          {t('multiwinner.needCandidates', { n: config.candidates.length })}
+        </Alert>
+      )}
       {error && <Alert variant="danger">{error}</Alert>}
       {!data && !loading && <Alert variant="info">{t('stv.prompt')}</Alert>}
 
@@ -292,9 +301,12 @@ const STVPanel: React.FC = () => {
         <>
           {/* Quota display */}
           <Alert variant="secondary" className="py-2 mb-3" style={{ fontSize: '0.82rem' }}>
-            <strong>{t('stv.quotaLabel')}</strong>: Q = ⌊{config.num_voters} / ({numSeats}+1)⌋ + 1 ={' '}
-            <strong>{data.quota}</strong> {t('stv.votes')} &nbsp;·&nbsp;
-            {data.quota_type === 'droop' ? 'Quota de Droop' : 'Quota de Hare'}
+            <strong>{t('stv.quotaLabel')}</strong>:{' '}
+            {data.quota_type === 'hare'
+              ? `Q = ⌊${ranVoters} / ${data.num_seats}⌋`
+              : `Q = ⌊${ranVoters} / (${data.num_seats}+1)⌋ + 1`}{' '}
+            = <strong>{data.quota}</strong> {t('stv.votes')} &nbsp;·&nbsp;
+            {t('stv.quotaName', { name: data.quota_type === 'hare' ? 'Hare' : 'Droop' })}
           </Alert>
 
           <Row className="g-3">
@@ -405,13 +417,18 @@ const STVPanel: React.FC = () => {
 
               <Row className="g-2 mb-3">
                 <Col xs={4}>
-                  <Hémicycle seats={data.stv.seats} names={names} total={numSeats} label={`STV`} />
+                  <Hémicycle
+                    seats={data.stv.seats}
+                    names={names}
+                    total={data.num_seats}
+                    label={`STV`}
+                  />
                 </Col>
                 <Col xs={4}>
                   <Hémicycle
                     seats={data.dhondt.seats}
                     names={names}
-                    total={numSeats}
+                    total={data.num_seats}
                     label={`D'Hondt`}
                   />
                 </Col>
@@ -419,7 +436,7 @@ const STVPanel: React.FC = () => {
                   <Hémicycle
                     seats={data.fptp.seats}
                     names={names}
-                    total={numSeats}
+                    total={data.num_seats}
                     label={`FPTP`}
                   />
                 </Col>
@@ -448,7 +465,7 @@ const STVPanel: React.FC = () => {
                 <div className="font-semibold mb-1">{t('stv.voteShareVsSeats')}</div>
                 {names.map((n) => {
                   const votePct = Math.round((data.vote_shares[n] ?? 0) * 100);
-                  const seatsPct = Math.round(((data.stv.seats[n] ?? 0) / numSeats) * 100);
+                  const seatsPct = Math.round(((data.stv.seats[n] ?? 0) / data.num_seats) * 100);
                   const diff = seatsPct - votePct;
                   return (
                     <div key={n} className="flex gap-2 items-center mb-1">

@@ -190,7 +190,7 @@ describe('STVPanel', () => {
     vi.runAllTimers();
   });
 
-  it('on two candidates, says STV needs three and does not run', () => {
+  it('on two candidates, says STV needs three and does not run', async () => {
     localStorage.setItem(
       'votelab_election_config',
       JSON.stringify({
@@ -199,8 +199,33 @@ describe('STVPanel', () => {
       })
     );
     renderPanel();
-    expect(screen.getByText(/needs at least 3/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /STV|simuler/i })).toBeDisabled();
+    expect(screen.getByText(/needs at least 3 candidates \(you have 2\)/i)).toBeInTheDocument();
+    const runButton = screen.getByRole('button', { name: /STV|simuler/i });
+    expect(runButton).toBeDisabled();
+    fireEvent.click(runButton);
+    expect(apiClient.POST).not.toHaveBeenCalled();
+  });
+
+  // The result is drawn from its own run: here 3 seats and a Hare quota, while the
+  // controls on three candidates read 2 seats and Droop.
+  it("shows the quota of the run's own seats and quota type", async () => {
+    const base = makeData();
+    apiClient.POST.mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        num_seats: 3,
+        quota_type: 'hare',
+        quota: 100,
+        // Seats name only the elected: Carol and Dave have none.
+        stv: { ...base.data.stv, seats: { Alice: 2, Bob: 1 } },
+      },
+    });
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /STV|simuler/i }));
+    await waitFor(() => expect(screen.getByText(/Q = ⌊300 \/ 3⌋/)).toBeInTheDocument());
+    expect(screen.getByText(/Hare quota/)).toBeInTheDocument();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
