@@ -410,20 +410,22 @@ def choose_party(
     parties' utility (minus the distance) gains retrospection x policy_gain, and the voter
     picks the highest utility -- blank when even that falls below minus their tolerance.
     At zero it is the nearest-platform rule above, exactly."""
-    if governing is not None and retrospection:
-        gain = retrospection * policy_gain(voter, governing.policy)
-        best = min(parties, key=lambda p: (-_party_utility(voter, p, governing.parties, gain), p.party_id))
-        return None if _party_utility(voter, best, governing.parties, gain) < -voter.blank_threshold else best.party_id
-    nearest = min(
-        parties, key=lambda p: (weighted_distance(voter, p.platform), p.party_id)
-    )
-    if weighted_distance(voter, nearest.platform) > voter.blank_threshold:
-        return None
-    return nearest.party_id
+    utility = _party_utilities(voter, parties, governing, retrospection)
+    best = min(parties, key=lambda p: (-utility[p.party_id], p.party_id))
+    return None if utility[best.party_id] < -voter.blank_threshold else best.party_id
 
 
-def _party_utility(voter: Citizen, party: Party, governing: frozenset[int], gain: float) -> float:
-    return -weighted_distance(voter, party.platform) + (gain if party.party_id in governing else 0.0)
+def _party_utilities(
+    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float,
+) -> dict[int, float]:
+    """Minus the weighted distance, plus retrospection x policy_gain for a governing party: the one
+    utility choose_party and strategic_party both rank by (at zero weight, minus the distance exactly)."""
+    gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
+    in_power = governing.parties if governing is not None else frozenset()
+    return {
+        party.party_id: -weighted_distance(voter, party.platform) + (gain if party.party_id in in_power else 0.0)
+        for party in parties
+    }
 
 
 def viable_parties(choices: Sequence[int | None], threshold: float) -> frozenset[int]:
@@ -444,10 +446,9 @@ def strategic_party(
     above the threshold or a margin of 0 leaves the sincere choice."""
     if margin <= 0 or sincere is None or sincere in viable:
         return sincere
-    gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
-    in_power = governing.parties if governing is not None else frozenset()
-    utility = {party.party_id: _party_utility(voter, party, in_power, gain) for party in parties}
-    best = min((p for p in parties if p.party_id in viable), key=lambda p: (-utility[p.party_id], p.party_id), default=None)
+    considered = [party for party in parties if party.party_id in viable or party.party_id == sincere]
+    utility = _party_utilities(voter, considered, governing, retrospection)
+    best = min((p for p in considered if p.party_id in viable), key=lambda p: (-utility[p.party_id], p.party_id), default=None)
     if best is None or utility[sincere] - utility[best.party_id] > margin or utility[best.party_id] < -voter.blank_threshold:
         return sincere
     return best.party_id

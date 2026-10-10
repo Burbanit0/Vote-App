@@ -2445,6 +2445,7 @@ def _hold_legislative_election(
             blank_count=blank_count,
             abstained=abstained if (abstained := len(citizens) - len(voters)) else OMIT,  # present once anyone stays home
             deserted=sum(c != s for c, s in zip(choices, sincere)) if margin > 0 else OMIT,
+            sincere_votes={party.party_id: float(sincere.count(party.party_id)) for party in parties} if margin > 0 else OMIT,
         ),
     )
     return seats, votes

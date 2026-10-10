@@ -24,14 +24,21 @@ went to parties below the threshold.
   It is one round, with no iteration toward an equilibrium: voters react to the sincere vote, not to
   each other's desertions.
 - **Utility is `choose_party`'s own.** That is the distance, plus the governing parties' policy gain
-  when `policy_retrospection` is on, so the strategic vote never disagrees with the sincere one about
-  which party a voter prefers. Only the threshold enters.
+  when `policy_retrospection` is on. Both functions read it from one helper (`_party_utilities`), so
+  the strategic vote never disagrees with the sincere one about which party a voter prefers. Only the
+  threshold enters.
 - **`vote.strategic_margin`** is the one knob (0 = the sincere vote, every run before this). The
   exploration profile sets **0.07**, the median cost of deserting to the 377 voters stranded with a
   viable party within reach in phase11's final populations (deciles 10/50/90: 0.01, 0.072, 0.21,
   against a median tolerance of 0.36 in seed 1's population). About half of them desert.
-- `legislative_result` journals `deserted`, the number of voters who changed party, while the margin
-  is above 0.
+- **What is journaled.** While the margin is above 0, `legislative_result` journals `deserted`, the
+  number of voters who changed party, and `sincere_votes`, the vote before desertion. The digest's
+  per-election rows carry `deserted`.
+- **The threshold counterfactual keeps its meaning.** `reseat` re-allocates a run's recorded votes
+  under another bar, to measure the threshold's mechanical effect with voters and founders blind to
+  it. Recorded votes now carry desertions decided against the bar in force, so a re-seat at another
+  bar starts from `sincere_votes`. At the bar in force it keeps the recorded vote, which reproduces the
+  record.
 
 ## Measured
 

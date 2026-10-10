@@ -15,7 +15,16 @@ from api.domain.polity.config import load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import _hold_legislative_election
-from api.domain.polity.simple_rules import choose_party, strategic_party, viable_parties, weighted_distance
+from api.domain.polity.reseat import reseat
+from api.domain.polity.run_digest import effective_parties
+from api.domain.polity.simple_rules import (
+    GoverningRecord,
+    PolicyRecord,
+    choose_party,
+    strategic_party,
+    viable_parties,
+    weighted_distance,
+)
 
 A, B = Party(0, (0.5,)), Party(1, (0.2,))
 
@@ -58,10 +67,31 @@ def _legislative(tmp_path: Path, citizens: list[Citizen], margin: float) -> dict
 def test_the_legislative_election_counts_the_deserters_and_journals_them(tmp_path: Path) -> None:
     # Sincerely A 8, B 2: B's 20% is under the 25% bar. The voter at 0.3 gives up 0.1 to vote A; the one at 0.1, 0.3.
     citizens = [*(_voter(i, 0.5) for i in range(8)), _voter(8, 0.3), _voter(9, 0.1)]
-    assert _legislative(tmp_path, citizens, 0.15)["votes"] == {"0": 9.0, "1": 1.0}
-    assert _legislative(tmp_path, citizens, 0.15)["deserted"] == 1
+    strategic = _legislative(tmp_path, citizens, 0.15)
+    assert (strategic["votes"], strategic["deserted"]) == ({"0": 9.0, "1": 1.0}, 1)
+    assert strategic["sincere_votes"] == {"0": 8.0, "1": 2.0}  # the poll, kept for reseat
     sincere = _legislative(tmp_path, citizens, 0.0)
-    assert sincere["votes"] == {"0": 8.0, "1": 2.0} and "deserted" not in sincere
+    assert sincere["votes"] == {"0": 8.0, "1": 2.0}
+    assert "deserted" not in sincere and "sincere_votes" not in sincere
+
+
+def test_the_governing_partys_policy_gain_counts_in_the_cost_of_deserting() -> None:
+    # A governs and moved policy 0.15 toward the voter at 0.3: A is then worth -0.2 + 0.15 = -0.05 to them,
+    # B -0.1. Sincerely they vote A; deserting to B costs 0.05 -- not the -0.1 the distance alone would say.
+    voter = _voter(1, 0.3)
+    governing = GoverningRecord(frozenset({0}), PolicyRecord(then=(0.6,), now=(0.45,)))
+    assert choose_party(voter, [A, B], governing, 1.0) == 0
+    assert strategic_party(voter, [A, B], 0, frozenset({1}), 0.1, governing, 1.0) == 1
+    assert strategic_party(voter, [A, B], 0, frozenset({1}), 0.03, governing, 1.0) == 0
+
+
+def test_reseat_starts_another_bar_from_the_vote_before_desertion() -> None:
+    founding = {"institutions": {"electoral_threshold": 0.25, "seat_allocation": "dhondt", "assembly_seats": 10},
+                "run": {"seed": 0}}
+    result = {"event_type": "legislative_result", "tick": 8, "payload": {
+        "seats": {"0": 10, "1": 0}, "votes": {"0": 9.0, "1": 1.0}, "sincere_votes": {"0": 8.0, "1": 2.0}}}
+    assert reseat([result], founding)[0]["reseated_seats"] == {"0": 10, "1": 0}  # the record, from the recorded vote
+    assert reseat([result], founding, threshold=0.15)[0]["reseated_seats"] == {"0": 8, "1": 2}  # B's sincere 20%
 
 
 @pytest.mark.behavior("ELE-11")
@@ -90,3 +120,13 @@ def test_a_deserter_lands_within_the_margin_on_a_party_above_the_threshold(voter
         cost = weighted_distance(citizen, by_id[moved].platform) - weighted_distance(citizen, by_id[choice].platform)
         assert cost <= margin + 1e-12
         assert weighted_distance(citizen, by_id[moved].platform) <= citizen.blank_threshold + 1e-12
+
+
+def test_the_digest_reports_the_deserters_per_legislative_election() -> None:
+    config = load_config()
+    payload = {"seats": {"0": 10}, "votes": {"0": 9.0, "1": 1.0}, "blank_count": 0}
+    events = [{"event_type": "legislative_result", "tick": 8, "payload": {**payload, "deserted": 3}},
+              {"event_type": "legislative_result", "tick": 24, "payload": payload}]
+    rows = effective_parties(events, config)
+    assert rows is not None and rows[0]["deserted"] == 3 and "deserted" not in rows[1]
+

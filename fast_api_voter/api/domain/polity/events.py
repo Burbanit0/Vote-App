@@ -213,6 +213,7 @@ class LegislativeResult(Event):
     blank_count: int
     abstained: int = OMIT  # ADR-021: disengaged and exited citizens, present once any stayed home
     deserted: int = OMIT  # ADR-024: voters who left a party below the threshold, present while strategic voting is on
+    sincere_votes: dict[int, float] = OMIT  # ADR-024: the vote before desertion (the poll), present with `deserted`
 
 
 @dataclass(frozen=True, kw_only=True)
