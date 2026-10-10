@@ -60,6 +60,8 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
   over the listing order (#662).
 - On an exact two-way tie, IRV and Coombs return no winner at all, where the invariant wants
   the lot. No issue tracks this yet.
+- Approval is left as it was by #667 (the score rules): a tie in the client's tally goes to
+  the first-listed candidate (`argmax`), the backend's to the name. No issue tracks this yet.
 
 Out of scope: polity's own seat allocation (tracked as E1, fixed on the polity
 branch) and `/choice-overload`, whose candidates are generated from the seed,

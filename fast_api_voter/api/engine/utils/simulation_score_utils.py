@@ -1,5 +1,4 @@
 from collections import defaultdict
-from operator import itemgetter
 from typing import Any, Dict, List, Optional
 import math
 import statistics
@@ -23,13 +22,15 @@ def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
         avg = data["sum"] / data["count"] if data["count"] > 0 else 0
         averages.append((candidate, avg))
 
-    # Sort by average score (descending); an exact tie for first is drawn by lot.
-    averages.sort(key=itemgetter(1), reverse=True)
+    # An exact tie for first is drawn by lot; by average score (descending), the
+    # winner first among any tied with it.
     mean = dict(averages)
+    winner = best(mean, mean.__getitem__) if averages else None
+    averages.sort(key=lambda a: (-a[1], a[0] != winner))
 
     return {
         "method": "Simple Score",
-        "winner": best(mean, mean.__getitem__) if averages else None,
+        "winner": winner,
         "details": {candidate: avg for candidate, avg in averages},
     }
 
@@ -53,9 +54,6 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         avg = data["sum"] / data["count"] if data["count"] > 0 else 0
         averages.append((candidate, avg))
 
-    # Sort by average score (descending)
-    averages.sort(key=itemgetter(1), reverse=True)
-
     # Take top two candidates for runoff
     if len(averages) < 2:
         return {
@@ -71,6 +69,8 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
     mean = dict(averages)
     candidate1 = best(mean, mean.__getitem__)
     candidate2 = best([c for c in mean if c != candidate1], mean.__getitem__)
+    # By average score (descending), the first finalist first among any tied with it.
+    averages.sort(key=lambda a: (-a[1], a[0] != candidate1))
 
     # Runoff: compare head-to-head
     votes1 = 0
@@ -187,13 +187,15 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
         median = statistics.median(scores) if scores else 0
         medians.append((candidate, median))
 
-    # Sort by median score (descending); an exact tie for first is drawn by lot.
-    medians.sort(key=itemgetter(1), reverse=True)
+    # An exact tie for first is drawn by lot; by median score (descending), the
+    # winner first among any tied with it.
     median_of = dict(medians)
+    winner = best(median_of, median_of.__getitem__) if medians else None
+    medians.sort(key=lambda m: (-m[1], m[0] != winner))
 
     return {
         "method": "Median Voting",
-        "winner": best(median_of, median_of.__getitem__) if medians else None,
+        "winner": winner,
         "details": {candidate: median for candidate, median in medians},
     }
 
@@ -226,12 +228,13 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=itemgetter("combined"), reverse=True)
     combined_of = {r["candidate"]: r["combined"] for r in results}
+    winner = best(combined_of, combined_of.__getitem__) if results else None
+    results.sort(key=lambda r: (-r["combined"], r["candidate"] != winner))
 
     return {
         "method": "Mean-Median Hybrid",
-        "winner": best(combined_of, combined_of.__getitem__) if results else None,
+        "winner": winner,
         "details": results,
     }
 
@@ -271,12 +274,13 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=itemgetter("weighted_score"), reverse=True)
     weighted = {r["candidate"]: r["weighted_score"] for r in results}
+    winner = best(weighted, weighted.__getitem__) if results else None
+    results.sort(key=lambda r: (-r["weighted_score"], r["candidate"] != winner))
 
     return {
         "method": "Variance-Based",
-        "winner": best(weighted, weighted.__getitem__) if results else None,
+        "winner": winner,
         "details": results,
     }
 

@@ -35,6 +35,18 @@ describe('the tie lot', () => {
     );
   });
 
+  it.each([
+    [['\ud800', 'A'], 0, '\ud800'],
+    [['\ud800', 'A'], 7, 'A'],
+    [['\ud800', '\ufffd', 'B'], 0, 'B'],
+    [['\ud800', '\ufffd', 'B'], 7, '\ufffd'],
+  ] as const)(
+    'a lone surrogate hashes as U+FFFD, as tie_lot.py (%j, seed %i)',
+    (names, seed, drawn) => {
+      expect(drawName(names, seed)).toBe(drawn);
+    }
+  );
+
   it('bestIndex falls back to the first index when no value ranks (NaN)', () => {
     expect(bestIndex([NaN, NaN], ['A', 'B'])).toBe(0);
   });

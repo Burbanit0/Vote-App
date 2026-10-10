@@ -57,7 +57,8 @@ export function isTied(a: number, b: number): boolean {
 export function bestIndex(values: readonly number[], names: readonly string[], seed = 0): number {
   let top = -Infinity;
   for (const v of values) if (v > top) top = v;
-  const tied = values.flatMap((v, i) => (isTied(v, top) ? [i] : []));
+  const tied: number[] = [];
+  for (let i = 0; i < values.length; i++) if (isTied(values[i], top)) tied.push(i);
   // Every value NaN: none ranks, so the first index, as argmax always answered.
   if (tied.length === 0) return 0;
   return tied.length === 1 ? tied[0] : drawIndex(tied, names, seed);

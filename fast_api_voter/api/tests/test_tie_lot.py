@@ -3,6 +3,13 @@ same values: the two engines must draw the same candidate from the same tie."""
 
 import pytest
 
+from api.engine.utils.simulation_score_utils import (
+    get_mean_median_hybrid_winner,
+    get_median_voting_winner,
+    get_simple_score_winner,
+    get_star_voting_winner,
+    get_variance_based_winner,
+)
 from api.engine.utils.tie_lot import _fnv1a, best, draw, tied
 
 
@@ -46,3 +53,46 @@ def test_float_noise_is_a_tie_and_a_real_gap_is_not():
     values = {"Bob": 3.1780538303479458, "Zed": 3.178053830347945, "Mo": 1.0}
     assert best(values, values.__getitem__) == draw(["Bob", "Zed"])
 
+
+@pytest.mark.parametrize(
+    "names, seed, drawn",
+    [
+        (["\ud800", "A"], 0, "\ud800"),
+        (["\ud800", "A"], 7, "A"),
+        (["\ud800", "\ufffd", "B"], 0, "B"),
+        (["\ud800", "\ufffd", "B"], 7, "\ufffd"),
+    ],
+)
+def test_a_lone_surrogate_hashes_as_the_replacement_character(names, seed, drawn):
+    # JSON allows one; the client's TextEncoder writes it as U+FFFD, and so does the lot.
+    assert draw(names, seed) == drawn
+
+
+def test_best_ignores_nan_and_falls_back_to_the_first_when_none_ranks():
+    nan = float("nan")
+    assert best(["A", "B"], {"A": nan, "B": 1.0}.__getitem__) == "B"
+    assert best(["A", "B"], {"A": nan, "B": nan}.__getitem__) == "A"
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        get_simple_score_winner,
+        get_median_voting_winner,
+        get_mean_median_hybrid_winner,
+        get_variance_based_winner,
+    ],
+)
+def test_the_details_list_the_drawn_winner_first_among_those_tied(rule):
+    # Ann and Ben mirror each other exactly; Ann is listed first, the lot draws Ben.
+    ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
+    result = rule(ballots)
+    first = next(iter(result["details"]))
+    assert result["winner"] == "Ben"
+    assert (first if isinstance(first, str) else first["candidate"]) == "Ben"
+
+
+def test_star_lists_its_first_finalist_first():
+    ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
+    result = get_star_voting_winner(ballots)
+    assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ben"

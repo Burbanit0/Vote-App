@@ -9,6 +9,7 @@ modulo the number of tied names. test_tie_lot.py pins values the client test pin
 """
 
 import math
+import re
 from typing import Callable, Iterable, TypeVar
 
 T = TypeVar("T")
@@ -16,6 +17,8 @@ T = TypeVar("T")
 _FNV_OFFSET = 0x811C9DC5
 _FNV_PRIME = 0x01000193
 _SEP = "\x1f"
+# A lone surrogate (JSON allows one) hashes as U+FFFD, as the client's TextEncoder does.
+_LONE_SURROGATE = re.compile("[\ud800-\udfff]")
 
 
 def _fnv1a(data: bytes) -> int:
@@ -28,8 +31,8 @@ def _fnv1a(data: bytes) -> int:
 def draw(tied: Iterable[T], seed: int = 0) -> T:
     """One of `tied`, drawn by the seeded lot over their names in code-point order."""
     names = sorted(tied, key=str)
-    key = _SEP.join([str(seed), *map(str, names)]).encode("utf-8")
-    return names[_fnv1a(key) % len(names)]
+    key = _LONE_SURROGATE.sub("\ufffd", _SEP.join([str(seed), *map(str, names)]))
+    return names[_fnv1a(key.encode("utf-8")) % len(names)]
 
 
 def tied(a: float, b: float) -> bool:
@@ -42,5 +45,10 @@ def tied(a: float, b: float) -> bool:
 def best(candidates: Iterable[T], value: Callable[[T], float], seed: int = 0) -> T:
     """The candidate with the highest value; a tie for it (see `tied`) is drawn by lot."""
     pool = list(candidates)
-    top = max(value(c) for c in pool)
-    return draw([c for c in pool if tied(value(c), top)], seed)
+    values = [value(c) for c in pool]
+    ranked = [v for v in values if not math.isnan(v)]
+    # Every value NaN: none ranks, so the first, as the client's bestIndex answers.
+    if not ranked:
+        return pool[0]
+    top = max(ranked)
+    return draw([c for c, v in zip(pool, values) if tied(v, top)], seed)
