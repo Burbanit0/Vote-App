@@ -414,7 +414,6 @@ def _threshold_gate(
     return moved
 
 
-
 def _by_backing(backing: Sequence[int], found_low: Sequence[bool], found_high: Sequence[bool]) -> list[str]:
     """Founding at each bar against how many would co-found (OBS-045): a founder whose backing is below
     the higher bar's seat share should found less there, if the threshold is applied to their own party."""
