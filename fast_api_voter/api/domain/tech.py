@@ -228,7 +228,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         score = sum(1.0 - abs(cand_x[ci] - stmts[j]["position"]) for j in target_indices)
         cand_scores[cname] = round(score / len(target_indices), 4)
 
-    polis_winner    = max(cand_scores, key=cand_scores.__getitem__)
+    polis_winner    = tie_lot.best(cand_scores, cand_scores.__getitem__, seed)  # a tie by lot
 
     # ── Classical election (plurality by ideology proximity) ──────────────
     vote_tally: Counter[str] = Counter()

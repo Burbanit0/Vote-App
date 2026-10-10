@@ -772,3 +772,66 @@ def test_issue_voting_names_the_winning_platform_even_with_duplicate_names():
     })[0]
     assert [i["winner_plank"] for i in body["issues"]] == [-1, -1]
 
+
+
+_TWINS = [{"name": "A", "x": 0.3, "y": 0.1}, {"name": "B", "x": 0.3, "y": 0.1},
+          {"name": "C", "x": -0.5, "y": -0.2}]
+
+
+def _same_both_ways(worker, request, echo=("candidates", "proposals")):
+    """The worker's result with the candidates listed forward and reversed, minus the
+    fields that only echo the request's order."""
+    key = "proposals" if "proposals" in request else "candidates"
+    a = worker(request)[0]
+    b = worker({**request, key: request[key][::-1]})[0]
+    return ({k: v for k, v in a.items() if k not in echo},
+            {k: v for k, v in b.items() if k not in echo})
+
+
+def test_polis_twins_do_not_follow_listing_order():
+    """tech.py: each participant's nearest candidate, and the Polis winner, draw a tie
+    by lot (#665)."""
+    from api.domain import tech
+
+    forward, backward = _same_both_ways(tech._polis_with_candidates_worker,
+                                        {"candidates": _TWINS, "seed": 4})
+    assert forward == backward
+
+
+def test_conviction_voting_twins_do_not_follow_listing_order():
+    from api.domain.election import workers_behavioral as beh
+
+    props = [{"name": "P", "x": 0.2}, {"name": "Q", "x": 0.2}, {"name": "R", "x": -0.6}]
+    forward, backward = _same_both_ways(beh._conviction_voting_worker,
+                                        {"proposals": props, "seed": 4})
+    assert forward == backward
+
+
+def test_backsliding_and_identity_voters_do_not_follow_listing_order():
+    """The theory workers' nearest candidate (#665): base vote shares, and each identity
+    voter's ideological vote."""
+    from api.domain.theory import workers as th
+
+    assert th._backsliding_base_vote_shares(_TWINS, "random", 300, 5) == \
+        th._backsliding_base_vote_shares(_TWINS[::-1], "random", 300, 5)
+    groups = [{"name": "G", "ideology_center": 0.3, "pct": 1.0, "loyalty": 0.5,
+               "candidate_affiliation": "C"}]
+
+    def ideo(cands):
+        voters = th._identity_generate_voters(groups, cands, 200, random.Random(9), False, 0.5)
+        return [v["ideo_vote"] for v in voters]
+
+    assert ideo(_TWINS) == ideo(_TWINS[::-1])
+
+
+def test_hotelling_plurality_splits_converged_candidates_by_lot():
+    """Converged candidates tie for every voter: the first-listed took them all (#665)."""
+    import numpy as np
+
+    from api.domain.election.workers_dynamics import _hotelling_score
+
+    utilities = np.tile([[1.0, 1.0, 0.2]], (300, 1))
+    shares = [_hotelling_score(utilities, "plurality", j, ["A", "B", "C"], 5) for j in range(3)]
+    rev = [_hotelling_score(utilities[:, ::-1], "plurality", j, ["C", "B", "A"], 5) for j in range(3)]
+    assert shares == rev[::-1]
+    assert 0.35 < shares[0] < 0.65 and shares[2] == 0.0
