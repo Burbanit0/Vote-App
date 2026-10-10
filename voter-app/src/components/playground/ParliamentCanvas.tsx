@@ -4,6 +4,7 @@ import LiveAnnouncement from '../shared/ui/LiveAnnouncement';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
+import { position } from '../../lib/mapSummary';
 import type { AssemblyResult } from '../../services/assemblyApi';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 
@@ -202,6 +203,27 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     [voters, parties]
   );
 
+  // The territory map in words (W3.6): each party's place and the share of voters whose
+  // nearest party it is, from the same assignment that colours the voters.
+  const mapSummaryId = React.useId();
+  const mapSummary = useMemo(() => {
+    const raw = { interpolation: { escapeValue: false } };
+    const counts = parties.map(() => 0);
+    for (const i of nearestParty) counts[i] += 1;
+    const pct = (i: number) => Math.round((100 * counts[i]) / Math.max(1, voters.length));
+    return [
+      t('canvas.summaryVoters', { count: voters.length }),
+      ...parties.map((p, i) =>
+        t('canvas.summaryCandidate', {
+          name: p.name,
+          position: position(p, 2),
+          pct: pct(i),
+          ...raw,
+        })
+      ),
+    ].join(' ');
+  }, [nearestParty, parties, voters.length, t]);
+
   // Hemicycle from the backend result (party colours follow the parties prop
   // order). Before a result lands, a GREY default arc shows the structure with
   // no party influence (empty partySeats → every seat unassigned → grey).
@@ -263,11 +285,16 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
       )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {/* ── Ideology map: party territories ── */}
+        <p id={mapSummaryId} data-testid="parliament-map-summary" hidden>
+          {mapSummary}
+        </p>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG} ${SVG}`}
           role="group"
           aria-label={t('parliament.mapAria')}
+          aria-describedby={mapSummaryId}
+          data-testid="parliament-map"
           className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
           style={{ maxWidth: 460, maxHeight: '52vh' }}
         >

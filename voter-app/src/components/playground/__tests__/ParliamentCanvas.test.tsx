@@ -161,6 +161,14 @@ describe('ParliamentCanvas', () => {
       expect(screen.getByTestId('assembly-announce')).toHaveTextContent('');
     });
 
+    it('the territory map is described: each party and its share of nearest voters', () => {
+      setup();
+      const summary = screen.getByTestId('parliament-map-summary');
+      expect(screen.getByTestId('parliament-map')).toHaveAttribute('aria-describedby', summary.id);
+      expect(summary).toHaveTextContent('150 voters.');
+      expect(summary).toHaveTextContent(/Gauche at \(-0\.6, -0\.2\): first choice of \d+%\./);
+    });
+
     it('while the backend recomputes, the label says so after the last numbers', () => {
       setup(RESULT, true);
       expect(screen.getByTestId('hemicycle-svg').getAttribute('aria-label')).toMatch(
