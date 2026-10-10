@@ -12,10 +12,14 @@ import { explainWinner } from '../../lib/explainWinner';
 const WinnerExplanation: React.FC<{
   trace: VoteTrace;
   candidates: NamedPt[];
+  /** Names the method in the kicker, where several methods' winners sit side by side. */
+  ruleLabel?: string;
   className?: string;
-}> = ({ trace, candidates, className }) => {
+}> = ({ trace, candidates, ruleLabel, className }) => {
   const { t } = useTranslation('playground');
   const { key, params } = explainWinner(trace, candidates);
+  // Names are plain text: React escapes them, so i18next must not as well.
+  const raw = { interpolation: { escapeValue: false } };
 
   return (
     <div
@@ -26,9 +30,11 @@ const WinnerExplanation: React.FC<{
       )}
     >
       <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
-        {t('explain.kicker')}
+        {ruleLabel ? t('explain.kickerRule', { rule: ruleLabel, ...raw }) : t('explain.kicker')}
       </p>
-      <p className="mt-0.5 text-sm leading-relaxed text-foreground">{t(key, params)}</p>
+      <p className="mt-0.5 text-sm leading-relaxed text-foreground">
+        {t(key, { ...params, ...raw })}
+      </p>
     </div>
   );
 };

@@ -7,7 +7,10 @@ import MethodInfo from '../MethodInfo';
 import MethodReplayModal from '../MethodReplayModal';
 import Collapsible from '../Collapsible';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
-import type { Rule } from '../../../lib/playgroundVoting';
+import { computeRanks, computeScores, type Rule } from '../../../lib/playgroundVoting';
+import { buildTraceFromBallots } from '../../../lib/voteTrace';
+import { explainWinner, condorcetOf, headToHead } from '../../../lib/explainWinner';
+import WinnerExplanation from '../WinnerExplanation';
 import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../../lib/scorecard';
 import NoFixedWinner from '../NoFixedWinner';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
@@ -68,16 +71,8 @@ function AxisCell({ axis }: { axis?: { mean: number; lo: number; hi: number } })
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
-  const {
-    mode,
-    assembly,
-    parlSc,
-    currentAxes,
-    leaderSc,
-    result,
-    expressedVoters,
-    leaderCandidates,
-  } = usePlaygroundCtx();
+  const { mode, assembly, parlSc, currentAxes, leaderSc, expressedVoters, leaderCandidates } =
+    usePlaygroundCtx();
   const { enabledRules } = useMethodSelection();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
 
@@ -89,10 +84,18 @@ const BilanMoment: React.FC = () => {
   );
   const familyRules = useMemo(() => rulesByFamily(activeRules), [activeRules]);
 
-  // Expressed ballots, as on the map and in the winner strip (blank votes excluded).
+  // Expressed ballots, as on the map and in the winner strip (blank votes excluded),
+  // ranked and scored once for the winners, their reasons and the duel below.
+  const ballots = useMemo(
+    () => ({
+      ranks: computeRanks(expressedVoters, leaderCandidates),
+      scores: computeScores(expressedVoters, leaderCandidates),
+    }),
+    [expressedVoters, leaderCandidates]
+  );
   const liveWinners = useMemo(
-    () => winnersByRule(expressedVoters, leaderCandidates, activeRules),
-    [expressedVoters, leaderCandidates, activeRules]
+    () => winnersByRule(expressedVoters, leaderCandidates, activeRules, ballots),
+    [expressedVoters, leaderCandidates, activeRules, ballots]
   );
 
   // Group methods by the candidate they elect (most-backed first) — the synthesis
@@ -103,10 +106,63 @@ const BilanMoment: React.FC = () => {
     [liveWinners, activeRules]
   );
 
-  const condorcetName = result?.condorcet_winner ?? null;
-  const condorcetIdx = condorcetName
-    ? leaderCandidates.findIndex((c) => c.name === condorcetName)
-    : -1;
+  // Why each group's winner wins, in the words of the group's first method: a trace
+  // over the full expressed electorate (not the replay's animated sample), so its
+  // figures are the real ones.
+  const groupTraces = useMemo(
+    () =>
+      winnerGroups.map(([, rules]) =>
+        buildTraceFromBallots(leaderCandidates, ballots.ranks, ballots.scores, rules[0])
+      ),
+    [winnerGroups, leaderCandidates, ballots]
+  );
+
+  // The Condorcet winner of the same ballots, so the badge and the reasons agree.
+  const condorcet = useMemo(
+    () => condorcetOf(ballots.ranks, leaderCandidates),
+    [ballots, leaderCandidates]
+  );
+  const condorcetIdx = condorcet.idx;
+  const condorcetName = condorcet.name;
+
+  // Why the two largest groups disagree: their winners head to head on the same ballots,
+  // then why the method that elects the duel's loser elects it all the same. A tied
+  // duel says nothing either way, so then the cards' reasons stand alone.
+  const duel = useMemo(
+    () =>
+      winnerGroups.length < 2
+        ? null
+        : headToHead(
+            ballots.ranks,
+            leaderCandidates.length,
+            winnerGroups[0][0],
+            winnerGroups[1][0]
+          ),
+    [winnerGroups, ballots, leaderCandidates]
+  );
+  // Interpolated names are plain text: React escapes them, i18next must not as well.
+  const raw = { interpolation: { escapeValue: false } };
+  const duelLines = duel && [
+    t('bilan.whyDuel', {
+      x: leaderCandidates[duel.x].name,
+      y: leaderCandidates[duel.y].name,
+      xv: duel.xv,
+      yv: duel.yv,
+      ...raw,
+    }),
+    t('bilan.whyAnyway', {
+      rule: ruleLabels[winnerGroups[Number(!duel.loserIsA)][1][0]],
+      y: leaderCandidates[duel.y].name,
+      reason: (() => {
+        const { key, params } = explainWinner(
+          groupTraces[Number(!duel.loserIsA)],
+          leaderCandidates
+        );
+        return t(key, { ...params, ...raw });
+      })(),
+      ...raw,
+    }),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -140,6 +196,18 @@ const BilanMoment: React.FC = () => {
                   {t('bilan.verdictSplit', { count: winnerGroups.length })}
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">{t('bilan.verdictSplitSub')}</p>
+                {duelLines && (
+                  <div data-testid="bilan-why" className="mt-3 flex flex-col gap-1 text-sm">
+                    <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
+                      {t('bilan.whyTitle')}
+                    </p>
+                    {duelLines.map((line, k) => (
+                      <p key={k} className="leading-relaxed">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </>
             )}
             {winnerGroups.length === 1 && (
@@ -167,7 +235,7 @@ const BilanMoment: React.FC = () => {
           {/* ── 2. Who wins, and with which methods (grouped by laureate) ── */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-semibold">{t('bilan.winnersTitle')}</p>
-            {winnerGroups.map(([idx, rules]) => (
+            {winnerGroups.map(([idx, rules], k) => (
               <div
                 key={idx}
                 data-testid={`winner-group-${idx}`}
@@ -201,6 +269,14 @@ const BilanMoment: React.FC = () => {
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {rules.map((r) => ruleLabels[r]).join(' · ')}
                   </p>
+                  {groupTraces[k] && (
+                    <WinnerExplanation
+                      trace={groupTraces[k]}
+                      candidates={leaderCandidates}
+                      ruleLabel={ruleLabels[rules[0]]}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
               </div>
             ))}
