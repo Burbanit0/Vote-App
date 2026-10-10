@@ -157,3 +157,27 @@ def test_a_strategic_vote_between_twins_does_not_follow_listing_order(vote):
         voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
         forward = getattr(svu, vote)(voter, cands, DEFAULT_ISSUES, polls)
         assert forward == getattr(svu, vote)(voter, cands[::-1], DEFAULT_ISSUES, polls)
+
+
+def test_favourite_is_a_fair_per_voter_lot_and_heads_the_voters_ranking():
+    from api.engine.utils.tie_lot import favourite
+
+    u = {"A": 1.0, "B": 1.0, "C": 0.0}
+    picks = [favourite(u, u.__getitem__, vid) for vid in range(400)]
+    assert 160 < picks.count("A") < 240
+    # Not the parity of the voter's id, as plain FNV-1a modulo 2 was.
+    assert picks[0::2].count("A") != 200 or picks[1::2].count("A") != 0
+    assert all(p == ranking(u, u.__getitem__, vid)[0] for vid, p in enumerate(picks))
+
+
+def test_strategic_approval_between_twins_does_not_follow_listing_order():
+    from api.engine.utils.simulation_voting_utils import compute_strategic_approval_vote
+
+    rng, np_rng = _seeded_rng_pair(666)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)]
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = compute_strategic_approval_vote(voter, cands, DEFAULT_ISSUES)
+        assert forward == compute_strategic_approval_vote(voter, cands[::-1], DEFAULT_ISSUES)
+

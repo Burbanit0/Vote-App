@@ -21,7 +21,7 @@ from api.engine.utils.profile_engine import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
     turnout_mask, community_voters, spatial_cycle_rate,
 )
-from api.engine.utils.tie_lot import best, nearest
+from api.engine.utils.tie_lot import nearest
 from api.engine.utils.simulation_multiwinner_utils import (
     compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners, top_k,
 )
@@ -911,7 +911,7 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     agreement = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2)
     choice = nearest(-agreement, names, lot)
     votes = _np.bincount(choice, minlength=len(names))
-    winner_idx = names.index(best(names, dict(zip(names, votes.tolist())).__getitem__, lot))
+    winner_idx = int(nearest(-votes[None, :], names, lot)[0])
 
     issues = []
     divergent_count = 0

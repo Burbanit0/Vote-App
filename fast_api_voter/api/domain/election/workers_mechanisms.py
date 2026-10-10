@@ -19,7 +19,6 @@ import numpy as _np
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.method_registry import rule_winner
-from api.engine.utils.tie_lot import ranking
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
@@ -357,7 +356,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         fc: Counter[str] = Counter()
         for v in voters:
             uid  = v["id"]
-            best = tie_lot.best(current_u[uid], current_u[uid].__getitem__, uid)
+            best = tie_lot.favourite(current_u[uid], current_u[uid].__getitem__, uid)
             fc[best] += 1
         total      = len(voters) or 1
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
@@ -367,7 +366,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for v in voters:
             uid = v["id"]
             rankings.append(
-                ranking(current_u[uid], current_u[uid].__getitem__, uid)
+                tie_lot.ranking(current_u[uid], current_u[uid].__getitem__, uid)
             )
 
         condorcet_w  = get_condorcet_winner(rankings)
@@ -686,7 +685,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: tie_lot.best(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
+        v["id"]: tie_lot.favourite(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -701,7 +700,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
-            ranking(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
+            tie_lot.ranking(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
             for v in active_voters
         ]
         return get_condorcet_winner(rankings)
@@ -873,7 +872,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in voters:
         uid = v["id"]
         rankings.append(
-            ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
+            tie_lot.ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # ── STV ────────────────────────────────────────────────────────────────
@@ -975,7 +974,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: tie_lot.best(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
+        v["id"]: tie_lot.favourite(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -1125,7 +1124,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     for v in voters:
         uid = v["id"]
         rankings.append(
-            ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
+            tie_lot.ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # Approval ballots: approve candidates above own mean utility
@@ -1136,7 +1135,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         threshold  = sum(u.values()) / max(len(u), 1)
         approved   = [c for c in cand_names if u.get(c, 0) > threshold]
         if not approved:                          # always approve at least 1st choice
-            approved = [tie_lot.best(u, u.__getitem__, uid)]
+            approved = [tie_lot.favourite(u, u.__getitem__, uid)]
         approval_ballots.append(approved)
 
     # First-choice vote shares for D'Hondt / FPTP

@@ -739,13 +739,16 @@ def test_party_dynamics_twins_do_not_follow_listing_order():
 
     parties = [{"name": "L", "x": -0.4}, {"name": "M", "x": 0.3}, {"name": "N", "x": 0.3}]
 
-    def first_election(order):
-        body = adv._party_dynamics_worker({"initial_parties": order, "num_elections": 1, "seed": 3})[0]
-        return {p["name"]: p["vote_pct"] for p in body["elections"][0]["parties"]}
+    def first_election(order, seed=3):
+        body = adv._party_dynamics_worker({"initial_parties": order, "num_elections": 1, "seed": seed})[0]
+        first = body["elections"][0]
+        return {p["name"]: p["vote_pct"] for p in first["parties"]}, first["winner"]
 
     forward = first_election(parties)
     assert forward == first_election(parties[::-1])
-    assert forward["M"] > 0 and forward["N"] > 0
+    assert forward[0]["M"] > 0 and forward[0]["N"] > 0
+    # The request's seed reaches the lot: some seed splits the twins differently.
+    assert any(first_election(parties, s)[0]["M"] != forward[0]["M"] for s in range(4, 12))
 
 
 def test_identical_candidates_approval_fallback_does_not_follow_listing_order():
@@ -758,3 +761,14 @@ def test_identical_candidates_approval_fallback_does_not_follow_listing_order():
     b = _multiwinner_compare_worker({**req, "candidates": cands[::-1]})[0]
     assert {k: v for k, v in a.items() if k != "candidates"} == {
         k: v for k, v in b.items() if k != "candidates"}
+
+
+def test_issue_voting_names_the_winning_platform_even_with_duplicate_names():
+    """The winner is the platform with the most votes, found by position: two parties
+    may share a name."""
+    body = play_mod._issue_voting_worker({
+        "mode": "handcrafted", "voter_stances": [[1, 1]] * 2 + [[-1, -1]] * 7,
+        "party_platforms": [[1, 1], [-1, -1]], "party_names": ["X", "X"],
+    })[0]
+    assert [i["winner_plank"] for i in body["issues"]] == [-1, -1]
+

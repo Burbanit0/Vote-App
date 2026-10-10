@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional
 from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
 from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
 from api.engine.utils.simulation_multiwinner_utils import break_tie
-from api.engine.utils.tie_lot import best, ranking
+from api.engine.utils import tie_lot
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -951,7 +951,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     # ── Sincere rankings ──────────────────────────────────────────────────
     sincere_rankings: List[List[str]] = [
-        ranking(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
+        tie_lot.ranking(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     ]
 
@@ -1311,7 +1311,7 @@ def _backsliding_base_vote_shares(
             c["name"]: float((vp - c.get("x", 0.0)) ** 2)
             for c in candidates_raw
         }
-        winner_name = best(distances, lambda c: -distances[c], vp)  # a tie by lot (#665)
+        winner_name = tie_lot.favourite(distances, lambda c: -distances[c], vp)  # a tie by lot (#665)
         shares[winner_name] += 1
     return {k: v / nv for k, v in shares.items()}
 
@@ -2071,7 +2071,7 @@ def _identity_generate_voters(
             # Ideological vote: nearest candidate by distance
             distances = {c["name"]: abs(ideology_pos - c.get("x", 0.0))
                          for c in candidates_raw}
-            ideo_vote = best(distances, lambda c: -distances[c], ideology_pos)  # a tie by lot
+            ideo_vote = tie_lot.favourite(distances, lambda c: -distances[c], ideology_pos)  # a tie by lot
 
             # Identity vote: candidate affiliated with group
             identity_vote = group["candidate_affiliation"]
@@ -2312,7 +2312,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
     def _nearest(pos: float, bump: Dict[str, float]) -> str:
         dists = {c["name"]: abs(pos - c.get("x", 0.0) + bump.get(c["name"], 0.0))
                  for c in candidates_raw}
-        return str(best(dists, lambda d: -dists[d], pos))  # a tie by lot (#665)
+        return str(tie_lot.favourite(dists, lambda d: -dists[d], pos))  # a tie by lot (#665)
 
     # ── Baseline: standard spatial model ─────────────────────────────────────
     base_positions = _voter_positions(seed, num_voters, ideology)
@@ -2507,7 +2507,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Sincere rankings per voter (descending utility)
     sincere_rankings: List[List[str]] = [
-        ranking(cand_names, dict(zip(cand_names, utilities[i])).__getitem__, i)
+        tie_lot.ranking(cand_names, dict(zip(cand_names, utilities[i])).__getitem__, i)
         for i in range(num_voters)
     ]
 

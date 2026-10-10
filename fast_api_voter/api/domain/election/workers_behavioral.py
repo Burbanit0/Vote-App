@@ -18,7 +18,6 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
-from api.engine.utils.tie_lot import best, ranking
 from api.engine.utils.method_registry import (
     SCORE_RULES, UTILITY_METHODS, rankings_from_utilities, rule_winner,
     winner_from_utilities,
@@ -60,7 +59,7 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     )
 
     def _sincere_choice(voter_id: Any) -> str:
-        return tie_lot.best(sincere_utilities[voter_id], sincere_utilities[voter_id].__getitem__, voter_id)
+        return tie_lot.favourite(sincere_utilities[voter_id], sincere_utilities[voter_id].__getitem__, voter_id)
 
     def _run_cascade(
         strength: float, rng: _random.Random
@@ -223,7 +222,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         u   = biased_utilities[vid]
         # Expressive: emotional attachment inflates ideal candidate utility ×10
         if vid in expressive_ids:
-            ideal = tie_lot.best(u, u.__getitem__, vid)
+            ideal = tie_lot.favourite(u, u.__getitem__, vid)
             u[ideal] = u[ideal] * 10.0
         # Primacy: position bias nudges voter toward first-listed candidate
         if vid in primacy_ids:
@@ -252,7 +251,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             if not u:
                 continue
             if vid in bids:
-                tally[tie_lot.best(u, u.__getitem__, vid)] += 1
+                tally[tie_lot.favourite(u, u.__getitem__, vid)] += 1
             else:
                 threshold = sum(u.values()) / len(u)
                 for cname, val in u.items():
@@ -434,7 +433,7 @@ def _ld_gini(vals: List[Any]) -> float:
 
 def _ld_top_choice(sincere_utilities: Dict[int, Dict[str, float]], vid: int) -> str:
     """The candidate this voter most prefers."""
-    return tie_lot.best(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
+    return tie_lot.favourite(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
 
 
 def _ld_tally(
@@ -653,7 +652,7 @@ def _cv_voter_choice(
     }
     return {
         # An equidistant voter is drawn by lot, seeded with their id (#665).
-        vid: best(prop_names, lambda pn: -abs(voter_ide[vid] - prop_x[pn]), vid)
+        vid: tie_lot.favourite(prop_names, lambda pn: -abs(voter_ide[vid] - prop_x[pn]), vid)
         for vid in all_ids
     }
 
@@ -901,7 +900,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             if max_util < threshold:
                 tally["NOTA"] += 1
             else:
-                choice = tie_lot.best(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
+                choice = tie_lot.favourite(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
                 tally[choice] += 1
         # NOTA must beat every candidate outright: a tie goes to the candidate
         # (then by name), so whether it voids the election can't hang on how
@@ -1165,7 +1164,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Sincere votes ─────────────────────────────────────────────────────
     sincere_votes: Dict[int, str] = {
-        v["id"]: tie_lot.best(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
+        v["id"]: tie_lot.favourite(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
     real_counts = Counter(sincere_votes.values())
@@ -1585,7 +1584,7 @@ def _co_rankings(
     s_rnk: List[List[str]] = []
     for v in voters:
         vid = v["id"]
-        sorder = ranking(utils_n[vid], utils_n[vid].__getitem__, vid)
+        sorder = tie_lot.ranking(utils_n[vid], utils_n[vid].__getitem__, vid)
         s_rnk.append(sorder)
         choice = voted[vid]
         if choice != sorder[0]:
@@ -1649,7 +1648,7 @@ def _co_round(
         for v in voters
     }
     sinc_vote: Dict[int, str] = {
-        v["id"]: tie_lot.best(utils_n[v["id"]], utils_n[v["id"]].__getitem__, v["id"])
+        v["id"]: tie_lot.favourite(utils_n[v["id"]], utils_n[v["id"]].__getitem__, v["id"])
         for v in voters
     }
     voted, is_h = _co_heuristic_votes(

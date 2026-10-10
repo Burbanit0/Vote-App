@@ -71,6 +71,13 @@ def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -
     return out + _lot_order(run, seed)
 
 
+def favourite(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> T:
+    """A voter's favourite: the top of their `ranking`, so a tie for it is drawn by the
+    same per-voter lot and the favourite always heads the voter's own ballot. Seed it
+    per voter. (`best` is for a rule's aggregate tie, and mirrors the client's draw.)"""
+    return ranking(names, value, seed)[0]
+
+
 def _lot_order(run: List[T], seed: object) -> List[T]:
     return run if len(run) < 2 else sorted(run, key=lambda n: (_voter_lot(seed, n), str(n)))
 

@@ -21,7 +21,6 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils import tie_lot
-from api.engine.utils.tie_lot import ranking
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_methods
@@ -147,7 +146,7 @@ def _dt_winner(
     exact tie, or when nobody voted."""
     if not vlist:
         return None, {c: 0.0 for c in cand_names}
-    rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in vlist]
+    rnk = [tie_lot.ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in vlist]
     fc = Counter(r[0] for r in rnk)
     shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
     return rule_winner(method, rnk), shares
@@ -409,7 +408,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # ── Sincere votes ─────────────────────────────────────────────────────
     sincere_vote: Dict[int, str] = {
-        v["id"]: tie_lot.best(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
+        v["id"]: tie_lot.favourite(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -716,7 +715,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _asm_winner(asm: set[Any]) -> Optional[str]:
         rnk = [
-            ranking(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
+            tie_lot.ranking(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
             for vid in asm
         ]
         return get_plurality_winner(rnk) if rnk else cand_names[0]
@@ -834,6 +833,7 @@ def _pd_vote_shares(
     method: str,
     tactical_on: bool,
     surv_thr: float,
+    lot_seed: object = 0,
 ) -> Dict[str, float]:
     """Each voter picks their nearest party on the ideology axis — except, under
     a method where tactical voting applies, a voter whose nearest party looks
@@ -844,7 +844,7 @@ def _pd_vote_shares(
     dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
     # Positions are rounded every round, so equidistant voters are common: each
     # one's vote is drawn by lot (#663), not handed to the first-listed party.
-    nearest = tie_lot.nearest(dists, names)
+    nearest = tie_lot.nearest(dists, names, lot_seed)
 
     if tactical_on and method == "plurality":
         viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
@@ -852,7 +852,7 @@ def _pd_vote_shares(
         if viable.any() and not viable.all():
             masked = dists.copy()
             masked[:, ~viable] = 1e9
-            tac_nearest = tie_lot.nearest(masked, names)
+            tac_nearest = tie_lot.nearest(masked, names, lot_seed)
             mask = ~viable[nearest]
             nearest[mask] = tac_nearest[mask]
 
@@ -893,6 +893,7 @@ def _pd_run_round(
     party_counter: int,
     initial_positions: Dict[str, float],
     num_elections: int,
+    lot_seed: object = 0,
 ) -> tuple[Dict[str, Any], List[Dict[str, Any]], int, float]:
     """One election: tally shares, snapshot the field, eliminate whoever fell
     under the survival threshold, let survivors drift toward the median
@@ -900,10 +901,10 @@ def _pd_run_round(
     round's record and the state that carries into the next round."""
     polls_dict = {p["name"]: p["poll"] for p in active}
     shares = _pd_vote_shares(
-        active, polls_dict, voter_x, num_voters, method, tactical_on, surv_thr,
+        active, polls_dict, voter_x, num_voters, method, tactical_on, surv_thr, lot_seed,
     )
     n_eff = _pd_n_eff(shares)
-    winner = max(shares, key=shares.__getitem__) if shares else ""
+    winner = tie_lot.best(shares, shares.__getitem__, lot_seed) if shares else ""
 
     record: Dict[str, Any] = {
         "election_n":        k + 1,
@@ -1039,7 +1040,7 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         record, active, party_counter, n_eff = _pd_run_round(
             k, active, voter_x, num_voters, method, tactical_on, surv_thr,
             hotelling_a, voter_median, emerge_prob, rng, party_counter,
-            initial_positions, num_elections,
+            initial_positions, num_elections, seed,
         )
         all_elections.append(record)
         n_eff_curve.append(n_eff)
@@ -1091,11 +1092,11 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Helper functions ─────────────────────────────────────────────────
     def _win(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
-        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
+        rnk = [tie_lot.ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         return get_plurality_winner(rnk) if rnk else cand_names[0]
 
     def _shares(utils: Dict[Any, Dict[str, float]]) -> Dict[str, float]:
-        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
+        rnk = [tie_lot.ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         tally: Counter[Any] = Counter(r[0] for r in rnk if r)
         total = len(voters)
         return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
@@ -1106,7 +1107,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return bayesian_regret(utils, voters, winner, ndigits=4) or 0.0
 
     def _cw(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
-        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
+        rnk = [tie_lot.ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         return get_condorcet_winner(rnk)
 
     def _recalc_utils(ideo: _np.ndarray) -> Dict[Any, Dict[str, float]]:

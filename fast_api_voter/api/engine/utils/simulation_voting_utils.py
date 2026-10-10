@@ -3,7 +3,6 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from api.engine.constants import DEFAULT_ISSUES
-from api.engine.utils.tie_lot import ranking
 
 from .demographic_data import (
     sample_age,
@@ -511,7 +510,7 @@ def compute_strategic_plurality_vote(
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
     top2 = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)[:2]
-    preferred: str = tie_lot.best(utilities, utilities.__getitem__, voter.get("id"))
+    preferred: str = tie_lot.favourite(utilities, utilities.__getitem__, voter.get("id"))
 
     if preferred in top2:
         return preferred
@@ -536,7 +535,7 @@ def compute_strategic_borda_vote(
     utilities_b: Dict[str, float] = {
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    preferred_b: str = tie_lot.best(utilities_b, utilities_b.__getitem__, voter.get("id"))
+    preferred_b: str = tie_lot.favourite(utilities_b, utilities_b.__getitem__, voter.get("id"))
     top_by_polls = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)
 
     if top_by_polls and top_by_polls[0] == preferred_b:
@@ -567,7 +566,7 @@ def compute_strategic_irv_vote(
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
     top2 = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)[:2]
-    preferred_i: str = tie_lot.best(utilities_i, utilities_i.__getitem__, voter.get("id"))
+    preferred_i: str = tie_lot.favourite(utilities_i, utilities_i.__getitem__, voter.get("id"))
 
     sincere = [str(c["name"]) for c in compute_sincere_ranking(voter, candidates, issues)]
     if preferred_i in top2:
@@ -598,7 +597,7 @@ def compute_strategic_approval_vote(
     utilities_a: Dict[str, float] = {
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    ranked: List[str] = sorted(utilities_a, key=lambda k: utilities_a[k], reverse=True)
+    ranked: List[str] = tie_lot.ranking(utilities_a, utilities_a.__getitem__, voter.get("id"))
     if len(ranked) < 2:
         return ranked
 
@@ -623,7 +622,7 @@ def compute_strategic_score_vote(
     utilities_s: Dict[str, float] = {
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    preferred_s: str = tie_lot.best(utilities_s, utilities_s.__getitem__, voter.get("id"))
+    preferred_s: str = tie_lot.favourite(utilities_s, utilities_s.__getitem__, voter.get("id"))
     top_by_polls = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)
     threat = next((c for c in top_by_polls if c != preferred_s), None)
 
@@ -676,7 +675,7 @@ def vote_plurality(
         str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
     max_utility = max(utilities_p.values())
-    return tie_lot.best(utilities_p, utilities_p.__getitem__, voter.get("id")) if max_utility > 0.3 else None
+    return tie_lot.favourite(utilities_p, utilities_p.__getitem__, voter.get("id")) if max_utility > 0.3 else None
 
 
 def vote_ranked(
@@ -684,7 +683,7 @@ def vote_ranked(
 ) -> List[Candidate]:
     by_name = {c["name"]: c for c in candidates}
     u = {n: calculate_utility(voter, c, issues)["utility"] for n, c in by_name.items()}
-    return [by_name[n] for n in ranking(u, u.__getitem__, voter.get("id"))]
+    return [by_name[n] for n in tie_lot.ranking(u, u.__getitem__, voter.get("id"))]
 
 
 def vote_score(

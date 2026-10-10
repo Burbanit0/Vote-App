@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 import numpy as _np
 
 from api.engine.utils.demographic_data import _seeded_rng_pair
-from api.engine.utils.tie_lot import best
+from api.engine.utils import tie_lot
 
 
 
@@ -235,7 +235,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     for px in pax:
         # An equidistant voter is drawn by lot, seeded with their position (#665).
         gap = dict(zip(cand_names, (abs(px - cx) for cx in cand_x)))
-        vote_tally[best(cand_names, lambda c: -gap[c], px)] += 1
+        vote_tally[tie_lot.favourite(cand_names, lambda c: -gap[c], px)] += 1
     election_winner = min(vote_tally, key=lambda c: (-vote_tally[c], c)) if vote_tally else cand_names[0]
     winners_agree   = polis_winner == election_winner
 
