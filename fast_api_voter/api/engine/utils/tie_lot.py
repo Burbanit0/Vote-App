@@ -123,9 +123,10 @@ def nearest(
     return out
 
 
-def streams(seed: object, names: Iterable[object]) -> List[random.Random]:
-    """One random stream per candidate, seeded with the seed and its name, so a candidate
-    keeps its draws however the candidates are listed (#664). A `None` seed stays
-    unseeded, as `random.Random(None)` is."""
-    return [random.Random(None if seed is None else f"{seed}:{n}") for n in names]
+def streams(seed: object, names: Iterable[object], model: str) -> List[random.Random]:
+    """One random stream per candidate, seeded with the model, the seed and its name, so a
+    candidate keeps its draws however the candidates are listed (#664), and two models'
+    noise for one candidate stays independent. A `None` seed stays unseeded, as
+    `random.Random(None)` is. Backend only, like `ranking` and `nearest`: no client twin."""
+    return [random.Random(None if seed is None else f"{model}:{seed}:{n}") for n in names]
 

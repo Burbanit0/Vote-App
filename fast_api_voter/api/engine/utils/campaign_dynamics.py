@@ -77,8 +77,9 @@ def simulate_campaign(
                         candidate (int index, 0-based)
                         magnitude (float 0–1)
     seed           : int | None  for reproducibility in tests
-    names          : list | None the real candidates (2–8), in place of the internal
-                     ones; each keeps its own trajectory however they are listed
+    names          : list | None the real candidates (up to 8), in place of the internal
+                     ones and of num_candidates; each keeps its own trajectory
+                     however they are listed
 
     Returns
     -------
@@ -92,12 +93,12 @@ def simulate_campaign(
         "candidates":   list[str]
     }
     """
-    num_candidates = max(2, min(8, len(names) if names else num_candidates))
+    names          = list(names)[:8] if names else _NAMES[:max(2, min(8, num_candidates))]
+    num_candidates = len(names)
     num_days       = max(1, min(90, num_days))
-    names          = list(names)[:num_candidates] if names else _NAMES[:num_candidates]
     # One stream per candidate, seeded with the seed and its name: a candidate keeps
     # its trajectory however the candidates are listed (#664).
-    streams = dict(zip(names, tie_lot.streams(seed, names)))
+    streams = dict(zip(names, tie_lot.streams(seed, names, "campaign")))
 
     # Initial utilities: random in [0.3, 0.7]
     utilities: dict[str, float] = {name: streams[name].uniform(0.3, 0.7) for name in names}

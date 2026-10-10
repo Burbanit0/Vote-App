@@ -137,13 +137,9 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             names=cand_names,
         )
         campaign_trajectory = camp
-        camp_cands = camp.get("candidates", [])
-        final_shares: Dict[str, float] = {}
-        for camp_idx, camp_name in enumerate(camp_cands):
-            if camp_idx < len(cand_names):
-                our_name = cand_names[camp_idx]
-                shares_list = camp.get("daily_scores", {}).get(camp_name, [50.0])
-                final_shares[our_name] = shares_list[-1] / 100.0
+        final_shares: Dict[str, float] = {
+            name: s[-1] / 100.0 for name, s in camp.get("daily_scores", {}).items()
+        }
 
         for v in voters:
             for c_name in cand_names:
@@ -175,8 +171,7 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for v in voters
         ]
         perceived_list = apply_information_asymmetry(
-            true_list, media_bias, voter_segments, seed=seed,
-            names=[c["name"] for c in candidates],
+            true_list, media_bias, voter_segments, seed=seed, names=cand_names,
         )
         effective_utilities = {
             v["id"]: {c["name"]: perceived_list[idx][j] for j, c in enumerate(candidates)}
