@@ -227,21 +227,46 @@
 }
 
 /* Touch targets of at least 44 px on a phone (PLAN_BEYOND_CI W3.6; WCAG 2.5.5), inside a
-   [data-touch] scope (the playground, the navbar, the criteria matrix), below Tailwind's sm.
-   A text link inside a sentence keeps its size (WCAG's inline exception). The maps' handles
-   are SVG, which min-height does not reach: they carry an invisible .touch-hit circle. */
+   [data-touch] scope (the playground, the navbar, the criteria matrix), below Tailwind's sm
+   (width < 40rem, the cut-off its max-sm: variants use). A link inside a sentence keeps its
+   size: min-height does not apply to an inline box (WCAG's inline exception). A small
+   control set in a line of text (.touch-expand, the ⓘ) keeps its place too, with an
+   invisible 44-px box around it. The maps' handles are SVG, which min-height does not
+   reach: an invisible .touch-hit circle under the dots takes the touch. */
 .touch-hit {
   display: none;
 }
-@media (max-width: 639px) {
-  [data-touch] :is(button, select, summary, label:has(input), input[type='range']) {
+@media (width < 40rem) {
+  [data-touch]
+    :is(
+      button,
+      select,
+      summary,
+      textarea,
+      a[href],
+      [role='button'],
+      label:has(input),
+      input:not([type='checkbox'], [type='radio'], [type='hidden'])
+    ):not(.touch-expand) {
     min-height: 44px;
   }
-  [data-touch] :is(button, select, summary, label:has(input)) {
+  [data-touch]
+    :is(button, select, summary, a[href], [role='button'], label:has(input)):not(.touch-expand) {
     min-width: 44px;
+  }
+  .touch-expand {
+    position: relative;
+  }
+  .touch-expand::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
   .touch-hit {
     display: inline;
   }
 }
-

@@ -292,6 +292,26 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
             </g>
           )}
 
+          {/* Finger-sized hit areas on a phone (W3.6): 40 of 480 units, 44 px or more down to
+              a 290-px-wide map. One layer under every party, so a party drawn later never
+              covers another's hit area. */}
+          <g>
+            {parties.map((p, i) => (
+              <circle
+                key={`${p.name}-${i}`}
+                data-testid={`party-${i}-hit`}
+                className="touch-hit"
+                cx={toSvg(p.x, 'x')}
+                cy={toSvg(p.y, 'y')}
+                r={40}
+                fill="transparent"
+                onTouchStart={() => {
+                  draggingIdx.current = i;
+                }}
+              />
+            ))}
+          </g>
+
           {/* Draggable parties */}
           <g>
             {parties.map((p, i) => (
@@ -313,14 +333,6 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                   arrowKeyNudge(e, p, (nx, ny) => onMoveParty(i, nx, ny));
                 }}
               >
-                {/* A finger-sized hit area on a phone (W3.6): 40 of 480 units, 44 px or more down to a 290-px-wide map. */}
-                <circle
-                  className="touch-hit"
-                  cx={toSvg(p.x, 'x')}
-                  cy={toSvg(p.y, 'y')}
-                  r={40}
-                  fill="transparent"
-                />
                 <rect
                   x={toSvg(p.x, 'x') - 8}
                   y={toSvg(p.y, 'y') - 8}

@@ -80,7 +80,9 @@ const Navbar: React.FC = () => {
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
-      className="border-b border-border shadow-sm"
+      // On a phone its items are 44 px (W3.6); a 1-px padding keeps the bar at 47 px, as
+      // before, under the stories' sticky bar at 48 (top-12).
+      className="border-b border-border shadow-sm max-sm:py-px"
       sticky="top"
       style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
     >
@@ -102,14 +104,11 @@ const Navbar: React.FC = () => {
           </Badge>
         </BootstrapNavbar.Brand>
 
-        {/* 44 px to a finger on a phone (W3.6), with the navbar kept at its 48 px: the
-            stories' sticky bar sits right under it (top-12). */}
         <BootstrapNavbar.Toggle
           aria-controls="votelab-nav"
           aria-expanded={navExpanded}
           aria-label={t('nav.toggleLabel')}
           data-testid="navbar-toggle"
-          className="max-sm:-my-[7px]"
         />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
