@@ -47,6 +47,7 @@ Usage:
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --n 60
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe forum
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60   # PLAN_BEYOND_CI W2.1's gate
+    python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60 --gate-log answers.jsonl --gate-wording count   # OBS-045
 """
 from __future__ import annotations
 
@@ -56,6 +57,7 @@ import dataclasses
 import json
 import math
 import os
+import re
 import sys
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -75,6 +77,7 @@ from api.domain.polity.agents import (  # noqa: E402
     decide_forum,
     decide_turn,
     forum_system_prompt,
+    forum_words,
     forum_user_prompt,
     nominee_system_prompt,
     nominee_user_prompt,
@@ -90,6 +93,7 @@ from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402
 from api.domain.polity.constitution import Proposal, article_value  # noqa: E402
 from api.domain.polity.llm_behavior_engine import ResponseContext  # noqa: E402
 from api.domain.polity.llm_client import LlmClientProtocol, build_json_client  # noqa: E402
+from api.domain.polity.llm_schemas import ForumTurn  # noqa: E402
 from api.domain.polity.parties import Party  # noqa: E402
 from api.domain.polity.simple_rules import cofounders  # noqa: E402
 
@@ -170,22 +174,28 @@ _FORUM_PAIRS = (
 )
 
 
-def _forum_ask(
-    citizen: Citizen, cell: str, paraphrased: bool, config: PolityConfig, client: LlmClientProtocol,
+def _forum_turn(
+    citizen: Citizen, pairs: Sequence[tuple[str, str]], config: PolityConfig, client: LlmClientProtocol,
     *, population: list[Citizen], parties: list[Party], roll: str,
-) -> str:
-    del cell  # the forum's cell is which citizens these are; the threshold gate's is the config passed in
-    system = forum_system_prompt(citizen, config)
-    if paraphrased:
-        system = _paraphrase(system, _FORUM_PAIRS)
-    outcome = decide_forum(
-        citizen, system_prompt=system, config=config, client=client,
+) -> ForumTurn | None:
+    return decide_forum(
+        citizen, system_prompt=_paraphrase(forum_system_prompt(citizen, config), pairs), config=config, client=client,
         user_prompt=forum_user_prompt(
             tick=5, member=False, feed="", memory="", roll=roll,
             stand=stand_line(citizen, population, parties, config),
         ),
+    ).turn
+
+
+def _forum_ask(
+    citizen: Citizen, cell: str, paraphrased: bool, config: PolityConfig, client: LlmClientProtocol,
+    *, population: list[Citizen], parties: list[Party], roll: str,
+) -> str:
+    del cell  # the forum's cell is which citizens these are
+    turn = _forum_turn(
+        citizen, _FORUM_PAIRS if paraphrased else (), config, client, population=population, parties=parties, roll=roll,
     )
-    return outcome.turn.party_move if outcome.turn is not None else "fail"
+    return turn.party_move if turn is not None else "fail"
 
 
 # ── probe 2: the chamber's ballot (OBS-030) ───────────────────────────────
@@ -352,6 +362,7 @@ GATE_LOW, GATE_HIGH, GATE_ALPHA = 0.03, 0.07, 0.05
 
 def _threshold_gate(
     citizens: list[Citizen], parties: list[Party], n: int, config: PolityConfig, client: LlmClientProtocol,
+    log: Path | None = None, wording: str = "shipped",
 ) -> bool:
     """PLAN_BEYOND_CI W2.1's gate: does founding follow the seat threshold a founder is told (D2)?
     The same citizens -- only those who could found; for the others `found` is refused anyway --
@@ -363,27 +374,63 @@ def _threshold_gate(
         raise SystemExit("threshold gate: no citizen in this checkpoint could found a party; use another --checkpoint")
     low, high = _with_threshold(config, GATE_LOW), _with_threshold(config, GATE_HIGH)
     roll = party_roll(parties, citizens)
+    # OBS-045: founders cite "the 5% threshold" -- the founding rule -- and never the seat bar. "count" states the
+    # founding rule as the same fact without a percentage, so the seat threshold is the prompt's only one.
+    needed = math.ceil(config.parties.founding_ratio * len(citizens))
+    pairs = () if wording == "shipped" else (
+        (f"at least {config.parties.founding_ratio:.0%} of the citizens", f"at least {needed} of the {len(citizens)} citizens"),
+    )
     jobs = [(citizen, cfg) for citizen in able for cfg in (low, high)]
     with ThreadPoolExecutor(WORKERS) as pool:
-        answers = list(pool.map(
-            lambda job: _forum_ask(job[0], "", False, job[1], client, population=citizens, parties=parties, roll=roll),
+        turns = list(pool.map(
+            lambda job: _forum_turn(job[0], pairs, job[1], client, population=citizens, parties=parties, roll=roll),
             jobs,
         ))
-    found_low = [a == "found" for a in answers[0::2]]
-    found_high = [a == "found" for a in answers[1::2]]
+    found_low = [t is not None and t.party_move == "found" for t in turns[0::2]]
+    found_high = [t is not None and t.party_move == "found" for t in turns[1::2]]
+    backing = [len(cofounders(citizen, citizens, parties)) for citizen in able]
     test = mcnemar_exact(found_low, found_high)
     moved = test.p_value < GATE_ALPHA
     direction = "fewer at the higher bar" if sum(found_high) < sum(found_low) else "more at the higher bar"
     print(f"\nW2.1 gate: does founding follow the stated seat threshold? ({len(able)} able founders, each told "
-          f"{GATE_LOW:.0%} then {GATE_HIGH:.0%})")
+          f"{GATE_LOW:.0%} then {GATE_HIGH:.0%}; founding rule worded: {wording})")
     print(f"  found at {GATE_LOW:.0%}: {sum(found_low)}/{len(able)}    found at {GATE_HIGH:.0%}: {sum(found_high)}/{len(able)}")
     print(f"  only at {GATE_LOW:.0%}: {test.first_only}   only at {GATE_HIGH:.0%}: {test.second_only}   "
           f"exact McNemar p = {test.p_value:.3g}")
+    print(*_by_backing(backing, found_low, found_high), sep="\n")
+    mentions = sum(bool(_THRESHOLD_WORDS.search(t.rationale)) for t in turns[1::2] if t is not None)
+    print(f"  rationales at {GATE_HIGH:.0%} that mention the threshold or a percentage: {mentions}/{len(able)}")
+    if log is not None:
+        backing_of = {citizen.citizen_id: count for citizen, count in zip(able, backing)}
+        log.write_text("".join(
+            json.dumps({"citizen": citizen.citizen_id, "backing": backing_of[citizen.citizen_id],
+                        "told": cfg.institutions.electoral_threshold,
+                        "party_move": turn.party_move if turn is not None else "fail", **forum_words(turn)}) + "\n"
+            for (citizen, cfg), turn in zip(jobs, turns)
+        ), encoding="utf-8")
+        print(f"  every answer, with its backing: {log}")
     print(f"  GATE  {'PASS' if moved else 'STOP'}  " + (
         f"founding moves with the threshold ({direction})" if moved
         else "founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)"
     ))
     return moved
+
+
+_THRESHOLD_WORDS = re.compile(r"threshold|\d\s?%", re.IGNORECASE)
+
+
+def _by_backing(backing: Sequence[int], found_low: Sequence[bool], found_high: Sequence[bool]) -> list[str]:
+    """Founding at each bar against how many would co-found (OBS-045): a founder whose backing is below
+    the higher bar's seat share should found less there, if the threshold is applied to their own party."""
+    rows: dict[int, list[int]] = collections.defaultdict(lambda: [0, 0, 0])
+    for count, low, high in zip(backing, found_low, found_high):
+        rows[count][0] += 1
+        rows[count][1] += low
+        rows[count][2] += high
+    return [
+        f"  {'backing':>7}  {'n':>2}  {f'found at {GATE_LOW:.0%}':>11}  {f'found at {GATE_HIGH:.0%}':>11}",
+        *(f"  {count:>7}  {n:>2}  {low:>11}  {high:>11}" for count, (n, low, high) in sorted(rows.items())),
+    ]
 
 
 # ── running one probe ─────────────────────────────────────────────────────
@@ -484,6 +531,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--n", type=int, default=30, help="citizens per cell per wording (default 30)")
     parser.add_argument("--probe", action="append", help="only this probe (forum, threshold, ballot, campaign, president)")
+    parser.add_argument("--gate-log", type=Path, default=None,
+                        help="threshold gate: write every answer, with the founder's backing, as JSON lines (OBS-045)")
+    parser.add_argument("--gate-wording", choices=("shipped", "count"), default="shipped",
+                        help="threshold gate: 'count' states the founding rule as a number of citizens, not a percentage (OBS-045)")
     parser.add_argument("--checkpoint", type=Path, default=Path(os.environ.get("POLITY_CHECKPOINT", _DEFAULT_CHECKPOINT)))
     args = parser.parse_args(argv)
 
@@ -511,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
         verdicts = _verdicts(probe, shares, args.n)
         _print_probe(probe, shares, verdicts)
         failures += sum("FAIL" in line for line in verdicts)
-    if gate and not _threshold_gate(citizens, parties, args.n, config, client):
+    if gate and not _threshold_gate(citizens, parties, args.n, config, client, args.gate_log, args.gate_wording):
         failures += 1
     print(f"\n{failures} check(s) failed across {len(chosen) + gate} probe(s)")
     return 1 if failures else 0
