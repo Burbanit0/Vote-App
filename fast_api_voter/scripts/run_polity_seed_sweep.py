@@ -59,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from api.domain.polity.config import ARTICLES  # noqa: E402
 from api.domain.polity.run_digest import read_journal_tolerant  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
+    RedFlag,
     SweepRun,
     clopper_pearson,
     constitution_groups,
@@ -224,6 +225,32 @@ def _label(run: SweepRun) -> str:
     return f"seed {run.seed}" if run.repeat == 1 else f"seed {run.seed} rep {run.repeat}"
 
 
+def _divergence_note(runs: list[SweepRun], divergence: RedFlag) -> list[str]:
+    """S0.7's flags stay as pre-registered. The first two judge each run on its own; the third pools: its
+    spread takes every seed's first run, and each repeat is set against its seed's first run, whatever
+    constitution each ran under (ADR-015). Say so when that flag was evaluated across histories."""
+    if divergence.status == "not evaluable":
+        return []
+    # The runs the flag compared: those with an office_occupancy.
+    firsts = [r for r in first_completed_runs(runs) if r.office_occupancy is not None]
+    histories = constitution_groups(firsts)
+    first_history = {r.seed: r.constitution for r in firsts}
+    parts = []
+    if len(histories) > 1 or None in histories:
+        known = len(histories) - (None in histories)
+        mixed = [f"{known} known constitutional histor{'y' if known == 1 else 'ies'}"] if known else []
+        mixed += ["runs whose history is unknown"] if None in histories else []
+        parts.append(f"its across-seed spread mixes {' and '.join(mixed)}")
+    crossed = [
+        _label(r) for r in runs
+        if r.completed and r.repeat > 1 and r.office_occupancy is not None and r.seed in first_history
+        and (None in (r.constitution, first_history[r.seed]) or r.constitution != first_history[r.seed])
+    ]
+    if crossed:
+        parts.append(f"set against a first run of another or unknown history: {', '.join(crossed)}")
+    return [f"- note on the third flag: {'; '.join(parts)} (see Constitutions)"] if parts else []
+
+
 def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
     return "not computable" if bounds is None else f"{bounds[0]:{fmt}} to {bounds[1]:{fmt}}"
 
@@ -334,6 +361,7 @@ def _write_sweep_summary(
     results doc S0.8 needs is this file, read against the pre-registration."""
     runs = [_load_run(output_dir, years, population, seed, repeat) for seed, repeat in sweep_run_plan(seeds)]
     firsts = first_completed_runs(runs)
+    flags = red_flags(runs)
     lines = [
         f"# Seed sweep — {years}y, population {population} ({len(runs)} runs)\n",
         f"- run flags (this sweep's arm): `{' '.join(run_flags) or 'none recorded'}`",
@@ -345,9 +373,8 @@ def _write_sweep_summary(
         *_occupancy_section(firsts),
         *_fallback_section(firsts),
         "## Pre-registered red flags (S0.7)\n",
-        *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in red_flags(runs)],
-        *([f"- note: these pre-registered flags pool across {len(groups)} constitutional histories (see Constitutions)"]
-          if len(groups := constitution_groups(runs)) > 1 or None in groups else []),
+        *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in flags],
+        *_divergence_note(runs, flags[-1]),
         "",
     ]
     summary_path = output_dir / f"sweep-{years}y-p{population}-summary.md"
