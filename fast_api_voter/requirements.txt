@@ -31,7 +31,7 @@ prometheus_client==0.26.0      # api/routes/metrics.py imports CONTENT_TYPE_LATE
                                 # via prometheus-fastapi-instrumentator's own pin).
 
 # ── Utilities ────────────────────────────────────────────────────────────────
-python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
+python-dotenv==1.2.4          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==26.1.0              # JSON structured logging (api/engine/utils/logger.py)
 PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml loader
 sentry-sdk==2.71.0             # Lot 10.1 — error tracking client, points at a
