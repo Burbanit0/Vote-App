@@ -73,7 +73,7 @@ _NO_WINNER_ON_A_FULL_TIE = {"coombs", "irv"}
 
 
 @cache
-def _tied_methods(order: tuple[str, ...], indifferent: bool = False) -> dict:
+def _tied_methods(order: tuple[str, ...], indifferent: bool = False, blank: bool = False) -> dict:
     """compare_all_methods on the tied electorate, the candidates and every voter's
     utilities listed in `order`. Cached: the tests below only read it."""
     rows = [(ann, ben, cy) for a, b, cy in _MIRRORED for ann, ben in ((a, b), (b, a))]
@@ -84,6 +84,7 @@ def _tied_methods(order: tuple[str, ...], indifferent: bool = False) -> dict:
     }
     report = compare_all_methods(
         [{"id": v} for v in util], [{"name": n} for n in order], [], override_utilities=util,
+        blank_vote=blank,
     )
     return report["methods"]
 
@@ -118,6 +119,15 @@ def test_an_indifferent_voter_does_not_make_the_result_follow_listing_order():
     #667's, tested above."""
     def ranked_side(order):
         methods = _tied_methods(order, True)
+        return {m: e for m, e in methods.items() if m not in SCORE_RULES}
+
+    assert ranked_side(_TIE_NAMES) == ranked_side(_TIE_NAMES[::-1])
+
+
+def test_with_blank_votes_an_indifferent_voter_does_not_follow_listing_order_either():
+    """The blank-vote path splices the blank candidate into the same per-voter rankings."""
+    def ranked_side(order):
+        methods = _tied_methods(order, True, True)
         return {m: e for m, e in methods.items() if m not in SCORE_RULES}
 
     assert ranked_side(_TIE_NAMES) == ranked_side(_TIE_NAMES[::-1])

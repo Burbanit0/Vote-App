@@ -14,7 +14,6 @@ from .simulation_score_utils import (
 )
 from .method_registry import RANKED_RULES, SCORE_RULES, rankings_from_utilities
 from .quadratic_voting import apply_quadratic_voting
-from .tie_lot import ranking
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
 # Kept low because each call reruns the full election for every permutation.
@@ -125,24 +124,19 @@ def compare_all_methods(
     #    When blank_vote=True, the blank candidate is spliced in at the
     #    position corresponding to each voter's blank_threshold.
     # ------------------------------------------------------------------
-    candidate_names = [c["name"] for c in candidates]
-
+    rankings = rankings_from_utilities(utilities, voters)
     if blank_vote:
-        rankings: List[List[str]] = [
+        rankings = [
             _insert_blank(
-                ranking(candidate_names, utilities[v["id"]].__getitem__, v["id"]),
-                utilities[v["id"]],
-                v.get("blank_threshold", 0.375),
-                blank_candidate_name,
+                r, utilities[v["id"]], v.get("blank_threshold", 0.375), blank_candidate_name
             )
-            for v in voters
+            for r, v in zip(rankings, voters)
         ]
         blank_pct = round(
             sum(1 for r in rankings if r and r[0] == blank_candidate_name) / len(voters),
             4,
         )
     else:
-        rankings = rankings_from_utilities(utilities, voters)
         blank_pct = None
 
     # ------------------------------------------------------------------
@@ -457,9 +451,7 @@ def compare_all_methods_mc(
         for voter in voters
     }
 
-    rankings: List[List[str]] = [
-        ranking(candidate_names, utilities[v["id"]].__getitem__, v["id"]) for v in voters
-    ]
+    rankings = rankings_from_utilities(utilities, voters)
     score_votes: List[Dict[str, int]] = [
         {
             name: max(0, min(5, round(5 * utilities[v["id"]][name])))

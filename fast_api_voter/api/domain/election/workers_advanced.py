@@ -20,6 +20,7 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.tie_lot import ranking
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_methods
@@ -145,7 +146,7 @@ def _dt_winner(
     exact tie, or when nobody voted."""
     if not vlist:
         return None, {c: 0.0 for c in cand_names}
-    rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
+    rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in vlist]
     fc = Counter(r[0] for r in rnk)
     shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
     return rule_winner(method, rnk), shares
@@ -714,7 +715,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _asm_winner(asm: set[Any]) -> Optional[str]:
         rnk = [
-            sorted(sincere_utilities[vid].keys(), key=lambda k: -sincere_utilities[vid][k])
+            ranking(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
             for vid in asm
         ]
         return get_plurality_winner(rnk) if rnk else cand_names[0]
@@ -1086,11 +1087,11 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Helper functions ─────────────────────────────────────────────────
     def _win(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
-        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         return get_plurality_winner(rnk) if rnk else cand_names[0]
 
     def _shares(utils: Dict[Any, Dict[str, float]]) -> Dict[str, float]:
-        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         tally: Counter[Any] = Counter(r[0] for r in rnk if r)
         total = len(voters)
         return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
@@ -1101,7 +1102,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return bayesian_regret(utils, voters, winner, ndigits=4) or 0.0
 
     def _cw(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
-        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        rnk = [ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in voters]
         return get_condorcet_winner(rnk)
 
     def _recalc_utils(ideo: _np.ndarray) -> Dict[Any, Dict[str, float]]:

@@ -46,7 +46,7 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
 | #660 | (related) Redis cache no longer serves a previous build's results |
 | #666 | `compare_all_methods` gets tied electorates: a snapshot, and a listing-order test per method in `test_compare_all_methods_snapshot.py`. Strict xfails mark what #662 and #667 still owe, so each fix has a test that flips |
 | #667 | The score rules draw an exact tie by the seeded lot, on both engines: score, STAR (a tie for a finalist place; a tied runoff goes to the higher score, then the lot), majority judgment (once every grade is compared), cumulative, maximin, Nash, median voting, mean-median hybrid, variance-based |
-| #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities` and `compare_all_methods` (and its Monte-Carlo twin) |
+| #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
 
@@ -62,11 +62,8 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
   parked above, on one side of the dual engine only.
 - With one voter indifferent between the two tied candidates, 30 of the 34 methods changed
   winner when the order was reversed: `compare_all_methods` ranked that voter by a stable sort
-  over the listing order. Fixed by #662.
-- The same stable sort builds voter rankings at about twenty other sites
-  (`domain/election/workers*.py`, `domain/simulations/compare.py`, `domain/theory/workers.py`,
-  `simulation_voting_utils.py`).
-  They can switch to `tie_lot.ranking` one at a time. No issue tracks this yet.
+  over the listing order. Fixed by #662, with every other site that built a voter's ranking
+  the same way.
 - On an exact two-way tie, IRV and Coombs return no winner at all, where the invariant wants
   the lot. No issue tracks this yet.
 - Approval is left as it was by #667 (the score rules): a tie in the client's tally goes to

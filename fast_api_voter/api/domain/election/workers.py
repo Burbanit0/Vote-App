@@ -18,6 +18,7 @@ import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
+from api.engine.utils.tie_lot import ranking
 from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
@@ -401,7 +402,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 
                 # Condorcet winner from adjusted rankings
                 rankings_c: list[list[str]] = [
-                    sorted(cand_names, key=lambda n: -cur_utils[v["id"]][n])
+                    ranking(cand_names, cur_utils[v["id"]].__getitem__, v["id"])
                     for v in cur_voters
                 ]
                 condorcet_w = get_condorcet_winner(rankings_c)
@@ -1129,7 +1130,7 @@ def _run_district_fptp(
     rankings: list[list[str]] = []
     for v in voters:
         uid = v["id"]
-        rankings.append(sorted(utilities[uid].keys(), key=lambda n: -utilities[uid][n]))
+        rankings.append(ranking(utilities[uid], utilities[uid].__getitem__, uid))
 
     # First-choice counts → vote shares
     first_choice: Counter[str] = Counter()
@@ -1303,7 +1304,7 @@ def _run_primary(
     for v in party_voters:
         uid = v["id"]
         u = {n: utilities.get(uid, {}).get(n, 0.0) for n in cand_names}
-        rankings.append(sorted(u.keys(), key=lambda n: -u[n]))
+        rankings.append(ranking(u, u.__getitem__, uid))
 
     # First-choice counts
     first: Counter[str] = Counter(r[0] for r in rankings if r)
@@ -1454,7 +1455,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in general_voters:
         uid = v["id"]
         gen_rankings.append(
-            sorted(gen_utils[uid].keys(), key=lambda n: -gen_utils[uid][n])
+            ranking(gen_utils[uid], gen_utils[uid].__getitem__, uid)
         )
 
     first_gen: Counter[str] = Counter(r[0] for r in gen_rankings if r)
@@ -1496,7 +1497,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in general_voters:
         uid = v["id"]
         center_rankings.append(
-            sorted(center_utils[uid].keys(), key=lambda n: -center_utils[uid][n])
+            ranking(center_utils[uid], center_utils[uid].__getitem__, uid)
         )
 
     no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters)

@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from api.engine.utils.demographic_data import _seeded_rng_pair, unseeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
+from api.engine.utils.tie_lot import ranking
 from api.domain.simulations.helpers import (
     _build_population,
 )
@@ -125,7 +126,7 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
         for v in voters
     }
     rankings: list[list[str]] = [
-        sorted(candidate_names, key=lambda n: -utilities[v["id"]][n])
+        ranking(candidate_names, utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     ]
 
@@ -414,7 +415,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     rankings: list[list[str]] = []
     for v in voters:
         vid = v["id"]
-        rankings.append(sorted(cand_names, key=lambda n: -utilities[vid][n]))
+        rankings.append(ranking(cand_names, utilities[vid].__getitem__, vid))
 
     if method == "irv":
         return {"method": "irv", "rounds": _irv_steps(rankings, num_voters)}, 200

@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional
 from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
 from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
 from api.engine.utils.simulation_multiwinner_utils import break_tie
+from api.engine.utils.tie_lot import ranking
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -950,7 +951,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     # ── Sincere rankings ──────────────────────────────────────────────────
     sincere_rankings: List[List[str]] = [
-        sorted(sincere_utilities[v["id"]], key=lambda k: -sincere_utilities[v["id"]][k])
+        ranking(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     ]
 
@@ -2506,7 +2507,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Sincere rankings per voter (descending utility)
     sincere_rankings: List[List[str]] = [
-        [cand_names[j] for j in sorted(range(n_cands), key=lambda k: -utilities[i][k])]
+        ranking(cand_names, dict(zip(cand_names, utilities[i])).__getitem__, i)
         for i in range(num_voters)
     ]
 
