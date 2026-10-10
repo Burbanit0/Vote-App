@@ -313,7 +313,10 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     """The rules the president acts under and who they are; nothing tick-dependent, so the
     whole prompt is a stable prefix. It states the rules and never says what to do (C4)."""
     inst, mandate, legislation = config.institutions, config.mandate, config.legislation
-    limit = "with no limit on terms" if inst.president_term_limit is None else f"for at most {inst.president_term_limit} terms"
+    limit = (
+        "with no limit on terms" if inst.president_term_limit is None
+        else f"for at most {inst.president_term_limit} terms (a term won with less than half of it left does not count)"
+    )
     rules = [
         # Until the calendar's next election, not for a full term: a snap winner serves only the rest (OBS-041).
         f"Each tick is a quarter of a year. A president is elected until the next scheduled election, held every "

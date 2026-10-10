@@ -2274,10 +2274,12 @@ def _hold_presidential_election(
                 winner.office = Office.PRESIDENT
                 # Not tick + term: the calendar resumes after a rerun, so a winner off it serves only
                 # until the calendar's next election (OBS-041).
-                winner.term_end_tick = InstitutionalClock.from_config(
-                    config.institutions, config.run, config.sortition_chamber,
-                ).next_presidential_election(tick)
-                winner.mandates_served += 1
+                clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
+                winner.term_end_tick = clock.next_presidential_election(tick)
+                # A term counts against the limit only if it was won with at least half of it left, as
+                # the US 22nd Amendment counts a successor's: a snap win a few ticks before the calendar
+                # election used to make its winner term-limited after two ticks in office (OBS-041).
+                winner.mandates_served += int(2 * (winner.term_end_tick - tick) >= clock.president_term_ticks)
                 if config.legitimacy.enabled:
                     # Independent of config.mandate.enabled: m only needs
                     # ballots/winner_label, not pledge/deviation tracking. No

@@ -11,6 +11,9 @@ is presidents proposing to lift the term limit (seeds 1 and 3), so the first act
 - **The act**: `extra_legal: "refuse_to_leave"` on the president's turn (`ActingLeaderTurn`, only when
   `regime.enabled`). It counts only from a term-limited president, on the tick before their election; at any
   other time it is ignored. The system prompt states the act and its stakes, never what to do (C4).
+  **Amended 2026-10-10 (OBS-041):** a term counts against the limit only if it was won with at least half of it
+  left, so a snap winner a few ticks before the calendar election is not term-limited by that win, and cannot be
+  offered the act on the tick they take office.
 - **The kernel rolls, once, at the election tick** with `regime_rng` (seeded from `run.seed`, checkpointed):
   `P = logistic(support_weight * (approval - 0.5) + loyalty_weight * (1 - 2 * loyalty) - severity_weight * severity)`.
   Approval is the president's own poll. `loyalty` is one scalar, the share of the state's servants who obey the

@@ -461,6 +461,10 @@ recorded run changes, for the reason above.
 its run has recalls, and their snap winners now serve only until the calendar's next election, so the
 elections fall on different ticks. The LLM engine still shows 11.
 
+*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with less than half of it left no longer counts
+against the limit, so a snap winner keeps their one term. With the limit at 1 the deterministic engine shows 7
+distinct presidents and the LLM engine 9.
+
 ### OBS-013
 
 **Party nominations often don't match the reason the model gives, and lean to the last listed
@@ -2015,6 +2019,14 @@ the run's last. The answer to the act is not journaled -- `agent_turn` carries n
 refusal not taken is visible only in `llm_calls.jsonl`.
 *Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
 `extra_legal` whenever the act is on the menu, legal that tick or not.
+
+*Decided 2026-10-10 (owner): a term counts only if won with at least half of it left* -- the US 22nd Amendment's
+rule for a successor. Built on `feat/polity-half-term-counts`: `mandates_served` rises at a win only when the
+time to the calendar's next election is at least half a term, and the president's system prompt says so. The
+two odd cases above go with it: no president is term-limited after two ticks in office, and none is offered the
+act on the tick they take office, since a win with a few ticks left no longer makes them term-limited. No
+separate minimum tenure was needed. The explorer fixture's snap winner at tick 10 now has 0 terms served, not 1;
+the golden references do not move.
 
 ### OBS-042
 
