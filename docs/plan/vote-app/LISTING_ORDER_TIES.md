@@ -1,11 +1,12 @@
 # Listing-order ties
 
-> **status:** live — issues #662–#665 and #667 are open; #666 is the test they now have (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — issues #662–#665 are open; #666 is their test and #667 is fixed (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
-by the endpoint's seeded lot (`break_tie` / `top_k` in
-`api/engine/utils/simulation_multiwinner_utils.py`), never by position in the list.
+by a seeded lot, never by position in the list: the endpoint's (`break_tie` / `top_k` in
+`api/engine/utils/simulation_multiwinner_utils.py`), or for the single-winner rules
+shared by both engines, the portable lot below.
 
 **Decided 2026-10-09 (owner): the seeded lot, on both engines.** A name tie-break was
 rejected: it swaps order-dependence for name-dependence (a candidate named Aaron wins
@@ -16,6 +17,16 @@ every tie). So:
   fixture is regenerated;
 - #667 and #662 implement it, and the strict xfails in `test_compare_all_methods_snapshot.py`
   flip as they do.
+
+**The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
+FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
+tied names in code-point order; the index is the hash modulo the number of tied names.
+Both test files pin the same draws. A tie is equal up to float noise (1e-9 relative,
+as `break_tie` reads one): the engines' logs and sums can differ in the last bits. The client draws over names when its caller passes
+them (`ruleWinnerFromRanks`' `names`), and over indices otherwise. No caller passes a seed yet,
+so it is 0 everywhere: the draw is reproducible and free of listing order, but a given
+set of tied names always draws the same one. Threading the request's or trial's seed
+through is still to do; it needs a parameter on `compare_all_methods` and the client.
 
 ## Fixed
 
@@ -29,12 +40,12 @@ every tie). So:
 | #661 | Profile engine's strategic transform no longer invents a first-place tie |
 | #660 | (related) Redis cache no longer serves a previous build's results |
 | #666 | `compare_all_methods` gets tied electorates: a snapshot, and a listing-order test per method in `test_compare_all_methods_snapshot.py`. Strict xfails mark what #662 and #667 still owe, so each fix has a test that flips |
+| #667 | The score rules draw an exact tie by the seeded lot, on both engines: score, STAR (a tie for a finalist place; a tied runoff goes to the higher score, then the lot), majority judgment (once every grade is compared), cumulative, maximin, Nash, median voting, mean-median hybrid, variance-based |
 
 ## Open
 
 | Issue | Where | Mechanism |
 |---|---|---|
-| #667 | `simulation_score_utils.py` maximin / median voting, and (found by #666's test) cumulative, majority judgment, mean-median hybrid, Nash, simple score, STAR, variance-based | 0–5 score ballots tie often; `max()` and a stable sort keep listing order. Parity-locked: fix both engines. |
 | #662 | `profile_engine.py` `project_ballot`, `compare_all_methods` rankings | Stable sort over request order resolves truncation ties. |
 | #663 | Issue voting, party dynamics | Sign-collapsed platforms / 4-dp positions, then `argmax`/`argmin`. |
 | #664 | `information_model.py`, `campaign_dynamics.py` | Noise drawn per candidate slot, not per candidate. |
@@ -49,6 +60,8 @@ every tie). So:
   over the listing order (#662).
 - On an exact two-way tie, IRV and Coombs return no winner at all, where the invariant wants
   the lot. No issue tracks this yet.
+- Approval is left as it was by #667 (the score rules): a tie in the client's tally goes to
+  the first-listed candidate (`argmax`), the backend's to the name. No issue tracks this yet.
 
 Out of scope: polity's own seat allocation (tracked as E1, fixed on the polity
 branch) and `/choice-overload`, whose candidates are generated from the seed,

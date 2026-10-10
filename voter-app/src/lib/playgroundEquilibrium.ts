@@ -90,7 +90,8 @@ function winnerOf(
   ballots: Ballot[],
   m: number,
   rule: Rule,
-  cardinal: boolean
+  cardinal: boolean,
+  names: readonly string[]
 ): number {
   const ranks: number[][] = [];
   const scores: number[][] = [];
@@ -100,7 +101,7 @@ function winnerOf(
       if (cardinal) scores.push(ballots[i].score);
     }
   });
-  return ruleWinnerFromRanks(ranks, m, rule, cardinal ? scores : undefined);
+  return ruleWinnerFromRanks(ranks, m, rule, cardinal ? scores : undefined, names);
 }
 
 // Winner when group i casts `move` and everyone else holds their current ballot.
@@ -111,11 +112,12 @@ function winnerWith(
   move: Ballot,
   m: number,
   rule: Rule,
-  cardinal: boolean
+  cardinal: boolean,
+  names: readonly string[]
 ): number {
   const swapped = ballots.slice();
   swapped[i] = move;
-  return winnerOf(groups, swapped, m, rule, cardinal);
+  return winnerOf(groups, swapped, m, rule, cardinal, names);
 }
 
 // The candidate moves a group will consider: stay sincere, compromise onto any
@@ -151,7 +153,7 @@ function candidateMoves(g: Group, m: number, curWinner: number): Ballot[] {
 function settle(groups: Group[], names: string[], m: number, rule: Rule): EquilibriumVerdict {
   const cardinal = CARDINAL_RULES.has(rule);
   const ballots: Ballot[] = groups.map((g) => ({ rank: g.rank, score: g.score }));
-  const w0 = winnerOf(groups, ballots, m, rule, cardinal);
+  const w0 = winnerOf(groups, ballots, m, rule, cardinal, names);
 
   const name = (i: number) => names[i] ?? '—';
   // Strategyproof (random ballot) or degenerate (<3 candidates, no winner): the
@@ -170,11 +172,11 @@ function settle(groups: Group[], names: string[], m: number, rule: Rule): Equili
     let changed = false;
     for (let i = 0; i < groups.length; i++) {
       const g = groups[i];
-      const curWinner = winnerWith(groups, ballots, i, ballots[i], m, rule, cardinal);
+      const curWinner = winnerWith(groups, ballots, i, ballots[i], m, rule, cardinal, names);
       let best = ballots[i];
       let bestPref = g.pref[curWinner];
       for (const move of candidateMoves(g, m, curWinner)) {
-        const w = winnerWith(groups, ballots, i, move, m, rule, cardinal);
+        const w = winnerWith(groups, ballots, i, move, m, rule, cardinal, names);
         if (g.pref[w] < bestPref) {
           bestPref = g.pref[w];
           best = move;
@@ -186,7 +188,7 @@ function settle(groups: Group[], names: string[], m: number, rule: Rule): Equili
       }
     }
     if (!changed) {
-      const wStar = winnerOf(groups, ballots, m, rule, cardinal);
+      const wStar = winnerOf(groups, ballots, m, rule, cardinal, names);
       return {
         rule,
         sincereWinner: name(w0),
