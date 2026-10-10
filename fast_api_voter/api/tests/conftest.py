@@ -72,3 +72,19 @@ def seed_sweep() -> Any:
     sys.modules["run_polity_seed_sweep"] = module
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture(scope="session")
+def neutrality() -> Any:
+    """scripts/check_agent_prompt_neutrality.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "check_agent_prompt_neutrality.py"
+    spec = importlib.util.spec_from_file_location("check_agent_prompt_neutrality", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["check_agent_prompt_neutrality"] = module
+    spec.loader.exec_module(module)
+    return module

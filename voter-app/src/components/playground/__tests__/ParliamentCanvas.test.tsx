@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import ParliamentCanvas, { hemicycleSeats } from '../ParliamentCanvas';
@@ -73,14 +73,14 @@ const RESULT: AssemblyResult = {
   ],
 };
 
-function setup(result: AssemblyResult | null = RESULT) {
+function setup(result: AssemblyResult | null = RESULT, loading = false) {
   const onMoveParty = vi.fn();
   render(
     <ParliamentCanvas
       parties={PARTIES}
       voters={sampleVoters(150, 42, 'random')}
       result={result}
-      loading={false}
+      loading={loading}
       onMoveParty={onMoveParty}
     />
   );
@@ -123,6 +123,60 @@ describe('hemicycleSeats', () => {
 });
 
 describe('ParliamentCanvas', () => {
+  describe('the result in words (W3.6)', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+    const settle = () => act(() => vi.advanceTimersByTime(800));
+
+    it('the hemicycle label carries the seats, and the leader is announced once it settles', () => {
+      setup();
+      expect(screen.getByTestId('hemicycle-svg')).toHaveAttribute(
+        'aria-label',
+        'Hemicycle: 100 seats, majority at 51. Centre 41, Gauche 35, Droite 24.'
+      );
+      settle();
+      expect(screen.getByTestId('assembly-announce')).toHaveTextContent(
+        'Centre leads with 41 of 100 seats'
+      );
+    });
+
+    it('a tie for the lead is announced as a tie', () => {
+      setup({
+        ...RESULT,
+        parties: RESULT.parties.map((p) => (p.name === 'Gauche' ? { ...p, seats: 41 } : p)),
+      });
+      settle();
+      expect(screen.getByTestId('assembly-announce')).toHaveTextContent(
+        'Centre, Gauche tie for the lead, 41 of 100 seats each'
+      );
+    });
+
+    it('a result with no party, or one being recomputed, says no more than it knows', () => {
+      setup({ ...RESULT, parties: [] });
+      expect(screen.getByTestId('hemicycle-svg')).toHaveAttribute(
+        'aria-label',
+        'Hemicycle — seats per party'
+      );
+      settle();
+      expect(screen.getByTestId('assembly-announce')).toHaveTextContent('');
+    });
+
+    it('the territory map is described: each party and its share of nearest voters', () => {
+      setup();
+      const summary = screen.getByTestId('parliament-map-summary');
+      expect(screen.getByTestId('parliament-map')).toHaveAttribute('aria-describedby', summary.id);
+      expect(summary).toHaveTextContent('150 voters.');
+      expect(summary).toHaveTextContent(/Gauche at \(-0\.6, -0\.2\): first choice of \d+%\./);
+    });
+
+    it('while the backend recomputes, the label says so after the last numbers', () => {
+      setup(RESULT, true);
+      expect(screen.getByTestId('hemicycle-svg').getAttribute('aria-label')).toMatch(
+        /Centre 41, Gauche 35, Droite 24\. Computing the assembly…$/
+      );
+    });
+  });
+
   it('renders territories, voters, hemicycle and metrics', () => {
     setup();
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
@@ -143,6 +197,15 @@ describe('ParliamentCanvas', () => {
     // Toggle off again.
     fireEvent.click(screen.getByTestId('coalition-toggle-Centre'));
     expect(screen.getByTestId('coalition-status')).toHaveTextContent('no majority');
+  });
+
+  it('a touch on a hit circle grabs its party (W3.6)', () => {
+    const { onMoveParty } = setup();
+    fireEvent.touchStart(screen.getByTestId('party-1-hit'));
+    fireEvent.touchMove(screen.getByTestId('parliament-map'), {
+      touches: [{ clientX: 120, clientY: 120 }],
+    });
+    expect(onMoveParty.mock.calls[0][0]).toBe(1);
   });
 
   it('dragging a party reports its new position', () => {

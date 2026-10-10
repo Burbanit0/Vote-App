@@ -580,6 +580,18 @@ describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
     expect(fieldWinner()).toBe(atElectorate);
   });
 
+  it('announces the winner to a screen reader once it settles (W3.6)', async () => {
+    renderPage();
+    const name = stripWinner();
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('winner-announce')).toHaveTextContent(
+          `Plurality (1 round): ${name} wins`
+        ),
+      { timeout: 2000 }
+    );
+  });
+
   it('ticks the five intro methods by default, and the strip accounts for the other four', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-method'));
@@ -620,6 +632,14 @@ describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
       screen.getByTestId('field-winner').querySelector('s')?.textContent
     );
     expect(screen.getByTestId('winner-strip-others')).toHaveTextContent('(sincere votes)');
+    // A screen reader hears that this winner is the strategic one.
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('winner-announce')).toHaveTextContent(
+          `strategic votes: ${stripWinner()} wins`
+        ),
+      { timeout: 2000 }
+    );
   });
 
   it('shows the lottery as having no fixed winner, on the map, in the strip and in the Bilan', () => {

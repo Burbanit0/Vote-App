@@ -86,7 +86,7 @@ const PlaygroundShell: React.FC = () => {
   const Panel = activeMoment !== 'campaign' ? MOMENT_PANELS[activeMoment] : null;
 
   return (
-    <div data-testid="playground-page" className="w-full px-4 py-4">
+    <div data-testid="playground-page" data-touch className="w-full px-4 py-4">
       {/* ── Masthead ── */}
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
         <div>

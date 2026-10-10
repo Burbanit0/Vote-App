@@ -12,6 +12,7 @@ Usage (from fast_api_voter/):
     python scripts/check_observations.py kernels                                   # OBS-009 (~25 min, CPU)
     python scripts/check_observations.py term-limit                                # OBS-012
     python scripts/check_observations.py indifference                              # OBS-042
+    python scripts/check_observations.py founders scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl  # OBS-045
 
 <run_dir> is the directory holding events.jsonl (and llm_calls.jsonl, for calls logged
 since S0.5). A run still in progress can be read; a torn final line is skipped.
@@ -316,6 +317,39 @@ def indifference() -> None:
         print(f"{k:>10}  " + "  ".join(f"{statistics.mean(s):>{w}.0%}" for s, w in zip(shares, (17, 13, 18, 14))))
 
 
+# OBS-045: what a founder calls "the threshold". Tried in this order; the seat bar is counted apart.
+_FOUNDING_RULE = re.compile(
+    r"\b5\s?%\s*(threshold|requirement|founding)|\b5[- ]citizens?\s+(threshold|requirement)"
+    r"|founding (threshold|requirement)|(threshold|requirement) (for|to) found",
+    re.IGNORECASE,
+)
+_OWN_SHARE = re.compile(r"\d+\s?%[^.]{0,30}threshold|threshold[^.]{0,20}\d+\s?%", re.IGNORECASE)
+
+
+def founders(logs: list[Path]) -> None:
+    """What the W2.1 threshold gate's founders did and cite, from its --gate-log files: founding at each
+    bar, overall and for the founders a 7% bar should stop (backing below 7 of 100), then which rule their
+    rationale, note and post name. The seat bar is the bar they were told, a seat, or votes."""
+    print("log        told   n  found  backing<7 found  seat bar  founding rule  own share  'threshold' alone  none")
+    for log in logs:
+        rows = list(_jsonl(log))
+        for told in sorted({row["told"] for row in rows}):
+            at = [row for row in rows if row["told"] == told]
+            texts = [" ".join((row["rationale"], row["note_to_self"], row["post"])) for row in at]
+            seat = sum(bool(re.search(rf"\b{round(told * 100)}\s?%|\bseats?\b|\bvotes?\b", text, re.IGNORECASE))
+                       for text in texts)
+            kinds = collections.Counter(
+                "rule" if _FOUNDING_RULE.search(text) else "own" if _OWN_SHARE.search(text)
+                else "alone" if "threshold" in text.lower() else "none"
+                for text in texts
+            )
+            below = [row for row in at if row["backing"] < 7]
+            found_below = sum(row["party_move"] == "found" for row in below)
+            print(f"{log.stem:<9} {told:>5.0%}  {len(at):>2}  {sum(row['party_move'] == 'found' for row in at):>5}  "
+                  f"{f'{found_below} of {len(below)}':>15}  {seat:>8}  {kinds['rule']:>13}  {kinds['own']:>9}  "
+                  f"{kinds['alone']:>17}  {kinds['none']:>4}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -328,6 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("kernels")
     sub.add_parser("term-limit")
     sub.add_parser("indifference")
+    sub.add_parser("founders").add_argument("logs", nargs="+", type=Path)
     kernel_run = sub.add_parser("_kernel-run")
     kernel_run.add_argument("seed", type=int)
     kernel_run.add_argument("population", type=int)
@@ -348,6 +383,8 @@ def main(argv: list[str] | None = None) -> int:
         term_limit()
     elif args.command == "indifference":
         indifference()
+    elif args.command == "founders":
+        founders(args.logs)
     else:
         print(json.dumps(_kernel_run(args.seed, args.population, args.engine)))
     return 0

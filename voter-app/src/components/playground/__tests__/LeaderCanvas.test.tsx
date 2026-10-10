@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import LeaderCanvas from '../LeaderCanvas';
@@ -30,6 +30,38 @@ function setup(overrides: Partial<React.ComponentProps<typeof LeaderCanvas>> = {
 }
 
 describe('LeaderCanvas', () => {
+  it('describes the map in words for a screen reader (W3.6)', () => {
+    setup();
+    const summary = screen.getByTestId('leader-map-summary');
+    expect(screen.getByTestId('leader-map')).toHaveAttribute('aria-describedby', summary.id);
+    expect(summary).toHaveTextContent('120 voters.');
+    expect(summary).toHaveTextContent(/A at \(-0\.5, 0\.0\): first choice of \d+%\./);
+    const winner = screen.getByTestId('field-winner').querySelector('strong')?.textContent;
+    expect(summary).toHaveTextContent(`Plurality (1 round), ${winner} wins.`);
+  });
+
+  it('the description follows a moved candidate once it holds still', () => {
+    vi.useFakeTimers();
+    try {
+      const props = {
+        voters: sampleVoters(120, 42, 'random'),
+        rule: 'plurality' as const,
+        dims: 2 as const,
+        onRuleChange: vi.fn(),
+        onMoveCandidate: vi.fn(),
+      };
+      const { rerender } = render(<LeaderCanvas candidates={CANDS} {...props} />);
+      const moved = CANDS.map((c) => (c.name === 'A' ? { ...c, x: 0.2 } : c));
+      rerender(<LeaderCanvas candidates={moved} {...props} />);
+      const summary = screen.getByTestId('leader-map-summary');
+      expect(summary).toHaveTextContent('A at (-0.5, 0.0)');
+      act(() => vi.advanceTimersByTime(300));
+      expect(summary).toHaveTextContent('A at (0.2, 0.0)');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders the plane, candidates, and the field winner', () => {
     setup();
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
@@ -131,6 +163,20 @@ describe('LeaderCanvas', () => {
     fireEvent.mouseMove(window, { clientX: 100, clientY: 100 });
     expect(onMoveCandidate).toHaveBeenCalled();
     expect(onMoveCandidate.mock.calls[0][0]).toBe(0);
+  });
+
+  it('a touch on a hit circle grabs its candidate, or the "you" marker (W3.6)', () => {
+    const onMoveYou = vi.fn();
+    const { onMoveCandidate } = setup({ youMarker: { x: 0, y: -0.5 }, onMoveYou });
+    const map = screen.getByTestId('leader-map');
+    fireEvent.touchStart(screen.getByTestId('candidate-1-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveCandidate.mock.calls[0][0]).toBe(1);
+    fireEvent.touchEnd(map);
+    fireEvent.touchStart(screen.getByTestId('you-marker-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveYou).toHaveBeenCalledTimes(1);
+    expect(onMoveCandidate).toHaveBeenCalledTimes(1);
   });
 
   it('1-D collapses to a line: dragging forces y=0 and no z controls', () => {
