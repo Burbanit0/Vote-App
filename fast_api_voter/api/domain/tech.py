@@ -26,7 +26,14 @@ def _pca_2d(matrix: _np.ndarray) -> _np.ndarray:
         return _np.zeros((matrix.shape[0], 2))
     _, _, vt = _np.linalg.svd(centered, full_matrices=False)
     n_comp = min(2, vt.shape[0])
-    coords = centered @ vt[:n_comp].T
+    axes = vt[:n_comp].copy()
+    # The SVD leaves each axis's sign to the LAPACK build, so the same votes drew a
+    # mirrored map on another machine (EXP-023). Sign each axis so its largest weight is
+    # positive, as polity's run_projection does.
+    for row in axes:
+        if row[_np.argmax(_np.abs(row))] < 0:
+            row *= -1.0
+    coords = centered @ axes.T
     if n_comp < 2:
         coords = _np.column_stack([coords, _np.zeros(len(coords))])
     return _np.asarray(coords)

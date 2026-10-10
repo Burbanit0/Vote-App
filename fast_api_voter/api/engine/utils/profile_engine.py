@@ -645,7 +645,13 @@ def pca_embed_2d(matrix: UtilityMatrix, num_points: int) -> np.ndarray:
         return np.zeros((num_points, 2), dtype=float)
     centered = rows - rows.mean(axis=0)
     _, _, vt = np.linalg.svd(centered, full_matrices=False)
-    coords = centered @ vt[:2].T
+    axes = vt[:2].copy()
+    # The SVD leaves each axis's sign to the LAPACK build: sign each axis so its largest
+    # weight is positive, so the map is the same on every machine (EXP-023).
+    for row in axes:
+        if row[np.argmax(np.abs(row))] < 0:
+            row *= -1.0
+    coords = centered @ axes.T
     # Normalise into roughly [-1, 1] for display.
     span = np.abs(coords).max() or 1.0
     return np.asarray(coords / span)
