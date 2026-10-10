@@ -1,5 +1,5 @@
 # The "report a content error" form (PLAN_BEYOND_CI W1.4). The app links here from the
-# stories and the Lab fiches (the criteria matrix is one), with the "where" field filled in
+# stories, the Lab fiches and each criteria-matrix cell, with the "where" field filled in
 # (voter-app/src/components/shared/ui/ReportContentError.tsx).
 name: Content error
 description: Something Vote Lab states about voting is wrong (a story, a Lab fiche, the criteria matrix, THEORY.md).
@@ -14,7 +14,7 @@ body:
     id: where
     attributes:
       label: Where
-      description: "Filled in when you came from the app's link: story:<story>/<step>, or lab:<fiche> @ <electorate>. Otherwise, say where you read it."
+      description: "Filled in when you came from the app's link: story:<story>/<step>, lab:<fiche> @ <electorate>, or matrix:<rule>/<criterion> for a criteria-matrix cell. Otherwise, say where you read it."
     validations:
       required: true
   - type: textarea

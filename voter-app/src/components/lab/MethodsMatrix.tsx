@@ -61,8 +61,6 @@ const MethodsMatrix: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
   const { expressedVoters, leaderCandidates } = useInstrumentCtx();
-  // The cell whose basis and source are shown under the grid (W1.4).
-  const [picked, setPicked] = useState<{ rule: Rule; crit: CriterionKey } | null>(null);
 
   // Live winners on the expressed ballots, as in the playground.
   const liveWinners = useMemo(
@@ -129,7 +127,73 @@ const MethodsMatrix: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Static criteria grid ── */}
+      <CriteriaGrid />
+    </div>
+  );
+};
+
+/** One cell's text, for its tooltip and accessible name and for its open row alike: the
+ * heading (method, criterion, verdict) and what the verdict rests on (basis · source, or
+ * "to be confirmed" for a literature cell the expert review has yet to source). */
+function describeCell(
+  rule: Rule,
+  crit: CriterionKey,
+  label: string,
+  t: (key: string) => string
+): { heading: string; basis: string } {
+  const { verdict, basis, source } = METHOD_CRITERIA_ENTRIES[rule][crit];
+  const criterion = t(`lab.matrix.criteria.${crit}`);
+  const verdictText = t(`lab.matrix.${verdict}`);
+  const heading = `${label} — ${criterion}: ${verdictText}`;
+  const parts = [t(BASIS_KEY[basis])];
+  if (source) parts.push(`${t('lab.matrix.source')} ${cite(source)}`);
+  else if (basis === 'literature') parts.push(t('lab.matrix.unsourced'));
+  return { heading, basis: parts.join(' · ') };
+}
+
+/** The picked cell's row: what its verdict rests on, the registry's note, and a report link
+ * that names the cell. Sticky on the left, so a phone that scrolled the table right still
+ * shows it. */
+const CellSource: React.FC<{ rule: Rule; crit: CriterionKey; label: string }> = ({
+  rule,
+  crit,
+  label,
+}) => {
+  const { t } = useTranslation('playground');
+  const { heading, basis } = describeCell(rule, crit, label, t);
+  const { note } = METHOD_CRITERIA_ENTRIES[rule][crit];
+  return (
+    <div
+      id="matrix-cell-source"
+      data-testid="matrix-cell-source"
+      role="region"
+      aria-label={heading}
+      className="sticky left-0 mx-4 my-2 max-w-[calc(100vw-3rem)] rounded-md border border-border bg-muted/30 px-3 py-2 text-[0.72rem]"
+    >
+      <p className="font-semibold">{heading}</p>
+      <p className="mt-1">{basis}</p>
+      {note && (
+        <p className="mt-1 text-muted-foreground">
+          {t('lab.matrix.note')} <span lang="en">{note}</span>
+        </p>
+      )}
+      <div className="mt-1">
+        <ReportContentError where={`matrix:${rule}/${crit}`} />
+      </div>
+    </div>
+  );
+};
+
+/** The static criteria grid: it reads no live data, so a candidate drag (which re-renders
+ * MethodsMatrix through useInstrumentCtx) leaves it alone. */
+const CriteriaGrid: React.FC = React.memo(function CriteriaGrid() {
+  const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
+  // The cell whose basis and source open under its row (W1.4).
+  const [picked, setPicked] = useState<{ rule: Rule; crit: CriterionKey } | null>(null);
+
+  return (
+    <>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[0.72rem]">
           <thead>
@@ -173,18 +237,16 @@ const MethodsMatrix: React.FC = () => {
                       {CRITERION_KEYS.map((crit) => {
                         const sat = METHOD_CRITERIA[rule][crit];
                         const { symbol, cls } = CELL[sat];
-                        const { basis, source } = METHOD_CRITERIA_ENTRIES[rule][crit];
-                        const criterion = t(`lab.matrix.criteria.${crit as CriterionKey}`);
-                        const verdict = t(`lab.matrix.${sat}`);
                         const isPicked = picked?.rule === rule && picked.crit === crit;
-                        const cited = source ? ` · ${cite(source)}` : '';
-                        const label = `${ruleLabels[rule]} — ${criterion}: ${verdict} · ${t(BASIS_KEY[basis])}${cited}`;
+                        const { heading, basis } = describeCell(rule, crit, ruleLabels[rule], t);
+                        const label = `${heading} · ${basis}`;
                         return (
                           <td key={crit} className="px-1 py-1.5 text-center">
                             <button
                               type="button"
                               data-testid={`matrix-cell-${rule}-${crit}`}
-                              aria-pressed={isPicked}
+                              aria-expanded={isPicked}
+                              aria-controls={isPicked ? 'matrix-cell-source' : undefined}
                               onClick={() => setPicked(isPicked ? null : { rule, crit })}
                               title={label}
                               aria-label={label}
@@ -226,49 +288,8 @@ const MethodsMatrix: React.FC = () => {
           <span className="italic">{t('lab.matrix.cellHint')}</span>
         </div>
       </div>
-    </div>
+    </>
   );
-};
-
-/** What the picked cell's verdict rests on: its basis, its source (a bibliography.bib key)
- * and the registry's note, with a report link that names the cell. */
-const CellSource: React.FC<{ rule: Rule; crit: CriterionKey; label: string }> = ({
-  rule,
-  crit,
-  label,
-}) => {
-  const { t } = useTranslation('playground');
-  const { verdict, basis, source, note } = METHOD_CRITERIA_ENTRIES[rule][crit];
-  return (
-    <div
-      data-testid="matrix-cell-source"
-      className="mx-4 my-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[0.72rem]"
-    >
-      <p className="font-semibold">
-        {label} — {t(`lab.matrix.criteria.${crit}`)}: {t(`lab.matrix.${verdict}`)}
-      </p>
-      <p className="mt-1">
-        {t(BASIS_KEY[basis])}
-        {basis === 'literature' &&
-          (source ? (
-            <>
-              {' · '}
-              {t('lab.matrix.source')} {cite(source)}
-            </>
-          ) : (
-            <> · {t('lab.matrix.unsourced')}</>
-          ))}
-      </p>
-      {note && (
-        <p className="mt-1 text-muted-foreground">
-          {t('lab.matrix.note')} <span lang="en">{note}</span>
-        </p>
-      )}
-      <div className="mt-1">
-        <ReportContentError where={`matrix:${rule}/${crit}`} />
-      </div>
-    </div>
-  );
-};
+});
 
 export default MethodsMatrix;

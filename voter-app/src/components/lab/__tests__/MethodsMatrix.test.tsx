@@ -87,6 +87,14 @@ describe('MethodsMatrix', () => {
       ctx = { expressedVoters: voters, leaderCandidates: candidates };
       render(<MethodsMatrix />);
       expect(pick('plurality-iia')).toHaveTextContent('to be confirmed');
+      // Hover and assistive tech get the same text as the open row.
+      expect(screen.getByTestId('matrix-cell-plurality-iia')).toHaveAccessibleName(
+        expect.stringContaining('to be confirmed')
+      );
+      expect(screen.getByTestId('matrix-cell-plurality-iia')).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
     });
 
     it('an engine-tested cell and a variant say so', () => {
