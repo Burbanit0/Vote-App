@@ -1440,6 +1440,15 @@ const pgEn: PlaygroundKeys = {
       familyOrdinal: 'Ordinal',
       familyCondorcet: 'Condorcet',
       familyCardinal: 'Cardinal',
+      cellHint: 'Click a cell to see what its verdict rests on.',
+      basis: {
+        engineTested: 'Tested on both engines (axiom tests)',
+        literature: 'From the literature',
+        variant: 'This engine’s variant: it departs from the textbook verdict',
+      },
+      source: 'Source:',
+      unsourced: 'source to be confirmed (expert review pending)',
+      note: 'Note:',
       criteria: {
         condorcet_winner: 'Elects Condorcet winner',
         condorcet_loser: 'Eliminates Condorcet loser',
