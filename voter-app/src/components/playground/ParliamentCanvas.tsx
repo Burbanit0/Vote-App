@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import LiveAnnouncement from '../shared/ui/LiveAnnouncement';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
+import { position } from '../../lib/mapSummary';
 import type { AssemblyResult } from '../../services/assemblyApi';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 
@@ -109,6 +111,37 @@ export interface ParliamentCanvasProps {
   onMoveParty: (index: number, x: number, y: number) => void;
 }
 
+/** The result in words (PLAN_BEYOND_CI W3.6): the hemicycle's label lists every party's
+ * seats, largest first, and the announcement says who leads (or who ties for the lead).
+ * Names are text, not HTML: React escapes them, so i18next must not. */
+function describeAssembly(
+  result: AssemblyResult | null,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): { hemicycleLabel: string; leadAnnouncement: string } {
+  if (!result?.parties.length) {
+    return { hemicycleLabel: t('parliament.hemicycleAria'), leadAnnouncement: '' };
+  }
+  const raw = { interpolation: { escapeValue: false } };
+  const ranked = [...result.parties].sort(
+    (a, b) => b.seats - a.seats || a.name.localeCompare(b.name)
+  );
+  const hemicycleLabel = t('parliament.hemicycleData', {
+    seats: result.assembly_size,
+    majority: result.majority,
+    parties: ranked
+      .map((p) => t('parliament.partySeats', { name: p.name, count: p.seats, ...raw }))
+      .join(', '),
+    ...raw,
+  });
+  const leaders = ranked.filter((p) => p.seats === ranked[0].seats);
+  const shared = { seats: leaders[0].seats, total: result.assembly_size, ...raw };
+  const leadAnnouncement =
+    leaders.length > 1
+      ? t('parliament.announceTie', { parties: leaders.map((p) => p.name).join(', '), ...shared })
+      : t('parliament.announce', { party: leaders[0].name, ...shared });
+  return { hemicycleLabel, leadAnnouncement };
+}
+
 const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   parties,
   voters,
@@ -170,6 +203,27 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     [voters, parties]
   );
 
+  // The territory map in words (W3.6): each party's place and the share of voters whose
+  // nearest party it is, from the same assignment that colours the voters.
+  const mapSummaryId = React.useId();
+  const mapSummary = useMemo(() => {
+    const raw = { interpolation: { escapeValue: false } };
+    const counts = parties.map(() => 0);
+    for (const i of nearestParty) counts[i] += 1;
+    const pct = (i: number) => Math.round((100 * counts[i]) / Math.max(1, voters.length));
+    return [
+      t('canvas.summaryVoters', { count: voters.length }),
+      ...parties.map((p, i) =>
+        t('canvas.summaryCandidate', {
+          name: p.name,
+          position: position(p, 2),
+          pct: pct(i),
+          ...raw,
+        })
+      ),
+    ].join(' ');
+  }, [nearestParty, parties, voters.length, t]);
+
   // Hemicycle from the backend result (party colours follow the parties prop
   // order). Before a result lands, a GREY default arc shows the structure with
   // no party influence (empty partySeats → every seat unassigned → grey).
@@ -184,6 +238,12 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     }));
     return hemicycleSeats(result.assembly_size, partySeats, SVG, 250);
   }, [result, parties, nominalSeats]);
+
+  // Rebuilt when the result changes, not on every party-drag frame.
+  const { hemicycleLabel, leadAnnouncement } = useMemo(
+    () => describeAssembly(result, t),
+    [result, t]
+  );
 
   const colorOf = (idx: number): string =>
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
@@ -225,11 +285,16 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
       )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {/* ── Ideology map: party territories ── */}
+        <p id={mapSummaryId} data-testid="parliament-map-summary" hidden>
+          {mapSummary}
+        </p>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG} ${SVG}`}
           role="group"
           aria-label={t('parliament.mapAria')}
+          aria-describedby={mapSummaryId}
+          data-testid="parliament-map"
           className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
           style={{ maxWidth: 460, maxHeight: '52vh' }}
         >
@@ -360,11 +425,13 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
         {/* ── Hemicycle + metrics ── */}
         <div className="flex flex-col gap-2">
+          <LiveAnnouncement testId="assembly-announce" text={leadAnnouncement} />
           <svg
             viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
-            aria-label={t('parliament.hemicycleAria')}
+            aria-label={loading ? `${hemicycleLabel} ${t('parliament.computing')}` : hemicycleLabel}
+            data-testid="hemicycle-svg"
             className="rounded-lg bg-card"
           >
             <g data-testid="hemicycle">
