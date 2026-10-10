@@ -225,3 +225,23 @@
     font-size: 0.8rem;
   }
 }
+
+/* Touch targets of at least 44 px on a phone (PLAN_BEYOND_CI W3.6; WCAG 2.5.5), inside a
+   [data-touch] scope (the playground, the navbar, the criteria matrix), below Tailwind's sm.
+   A text link inside a sentence keeps its size (WCAG's inline exception). The maps' handles
+   are SVG, which min-height does not reach: they carry an invisible .touch-hit circle. */
+.touch-hit {
+  display: none;
+}
+@media (max-width: 639px) {
+  [data-touch] :is(button, select, summary, label:has(input), input[type='range']) {
+    min-height: 44px;
+  }
+  [data-touch] :is(button, select, summary, label:has(input)) {
+    min-width: 44px;
+  }
+  .touch-hit {
+    display: inline;
+  }
+}
+

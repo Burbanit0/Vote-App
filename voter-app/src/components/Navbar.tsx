@@ -76,6 +76,7 @@ const Navbar: React.FC = () => {
   return (
     <BootstrapNavbar
       data-testid="navbar"
+      data-touch
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
@@ -101,11 +102,14 @@ const Navbar: React.FC = () => {
           </Badge>
         </BootstrapNavbar.Brand>
 
+        {/* 44 px to a finger on a phone (W3.6), with the navbar kept at its 48 px: the
+            stories' sticky bar sits right under it (top-12). */}
         <BootstrapNavbar.Toggle
           aria-controls="votelab-nav"
           aria-expanded={navExpanded}
           aria-label={t('nav.toggleLabel')}
           data-testid="navbar-toggle"
+          className="max-sm:-my-[7px]"
         />
 
         <BootstrapNavbar.Collapse id="votelab-nav">

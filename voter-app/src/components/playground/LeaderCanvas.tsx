@@ -583,6 +583,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                     opacity={0.7}
                   />
                 )}
+                {/* A finger-sized hit area on a phone (W3.6): 40 of 480 units, 44 px or more down to a 290-px-wide map. */}
+                <circle className="touch-hit" cx={cx} cy={cy} r={40} fill="transparent" />
                 <circle
                   cx={cx}
                   cy={cy}

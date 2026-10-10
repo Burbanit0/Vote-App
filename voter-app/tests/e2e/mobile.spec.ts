@@ -52,6 +52,47 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     await settled(page, '/playground');
   });
 
+  // W3.6: every control on the playground and in the navbar is at least
+  // 44 × 44 px on a phone, through every moment and in Assemblée mode; the maps' handles
+  // count by their hit circle.
+  test('the playground touch targets are at least 44 px, moment by moment', async ({ page }) => {
+    const small = async (where: string) => {
+      // Measure once the moment's transitions have finished: mid-flip, the panel is scaled.
+      await page.waitForFunction(() =>
+        document.getAnimations().every((a) => a.playState !== 'running')
+      );
+      return page.evaluate((where) => {
+        // By the page's own testids, not by [data-touch]: the test must also see the
+        // controls a missing scope leaves small.
+        const controls = ':is(button, select, summary, label:has(input), [role="button"])';
+        const sel = ['playground-page', 'navbar']
+          .map((id) => `[data-testid="${id}"] ${controls}`)
+          .join(', ');
+        return Array.from(document.querySelectorAll<HTMLElement>(sel)).flatMap((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) return [];
+          if (r.width >= 44 && r.height >= 44) return [];
+          const id = el.dataset.testid ?? el.getAttribute('aria-label') ?? el.tagName;
+          return [`${where} ${id}: ${Math.round(r.width)}×${Math.round(r.height)}`];
+        });
+      }, where);
+    };
+    const failures: string[] = [];
+    await page.goto('/playground');
+    await expect(page.getByTestId('guided-next')).toBeVisible();
+    failures.push(...(await small('electorate')));
+    for (const moment of ['method', 'strategy', 'campaign', 'bilan']) {
+      // A plain click: tap() on the sticky footer scrolls the page first (see the W3.4 tests).
+      await page.getByTestId('guided-next').dispatchEvent('click');
+      await expect(page.getByTestId('guided-next')).toBeVisible();
+      failures.push(...(await small(moment)));
+    }
+    await page.getByTestId('mode-toggle-parliament').dispatchEvent('click');
+    await expect(page.getByTestId('party-0')).toBeVisible();
+    failures.push(...(await small('assembly')));
+    expect(failures).toEqual([]);
+  });
+
   test('the playground instrument is usable at mobile width', async ({ page }) => {
     await page.goto('/playground');
     await expect(page.locator('[data-testid="playground-page"]')).toBeVisible();
