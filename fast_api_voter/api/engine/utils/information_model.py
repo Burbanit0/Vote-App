@@ -34,6 +34,8 @@ from __future__ import annotations
 import random
 from contextlib import suppress
 
+from api.engine.utils import tie_lot
+
 # ── Segment configuration ────────────────────────────────────────────────────
 
 _SEGMENT_PARAMS: dict[str, dict[str, float]] = {
@@ -53,6 +55,8 @@ def apply_information_asymmetry(
     media_bias: dict[str, float],
     voter_segments: dict[str, float],
     seed: int | None = None,
+    *,
+    names: list[str],
 ) -> list[list[float]]:
     """
     Apply media bias and epistemic noise to true utilities.
@@ -69,6 +73,10 @@ def apply_information_asymmetry(
         Keys: ``"low_info"``, ``"medium_info"``, ``"high_info"``.
     seed : int | None
         Optional RNG seed for reproducible tests.
+    names : list[str]
+        The candidates' names, column by column. Each candidate's noise comes from
+        its own stream, seeded with the seed and its name, so it keeps its draws
+        however the candidates are listed (#664).
 
     Returns
     -------
@@ -82,6 +90,9 @@ def apply_information_asymmetry(
 
     n_candidates = len(true_utilities[0]) if true_utilities else 0
     rng = random.Random(seed)
+    if len(names) != n_candidates:
+        raise ValueError(f"{len(names)} names for {n_candidates} candidate columns")
+    noise = tie_lot.streams(seed, names, "information")
 
     # ── Normalise segment fractions ───────────────────────────────────────
     raw = {k: max(0.0, float(voter_segments.get(k, 0.0))) for k in _ALL_SEGMENTS}
@@ -116,10 +127,10 @@ def apply_information_asymmetry(
 
         for cand_idx in range(n_candidates):
             true_u       = true_utilities[voter_idx][cand_idx]
-            noise        = rng.gauss(0.0, sigma)
+            draw         = noise[cand_idx].gauss(0.0, sigma)
             b            = bias.get(cand_idx, 0.0)
             media_effect = b * media_w * _MEDIA_SCALE
-            perc_u       = max(0.0, min(1.0, true_u + noise + media_effect))
+            perc_u       = max(0.0, min(1.0, true_u + draw + media_effect))
             voter_row.append(perc_u)
 
         perceived.append(voter_row)
