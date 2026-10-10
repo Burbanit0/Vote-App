@@ -10,7 +10,7 @@ modulo the number of tied names. test_tie_lot.py pins values the client test pin
 
 import math
 import re
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Iterable, List, TypeVar
 
 T = TypeVar("T")
 
@@ -28,11 +28,22 @@ def _fnv1a(data: bytes) -> int:
     return h
 
 
-def draw(tied: Iterable[T], seed: int = 0) -> T:
+def _hash(*parts: object) -> int:
+    key = _LONE_SURROGATE.sub("\ufffd", _SEP.join(map(str, parts)))
+    return _fnv1a(key.encode("utf-8"))
+
+
+def draw(tied: Iterable[T], seed: object = 0) -> T:
     """One of `tied`, drawn by the seeded lot over their names in code-point order."""
     names = sorted(tied, key=str)
-    key = _LONE_SURROGATE.sub("\ufffd", _SEP.join([str(seed), *map(str, names)]))
-    return names[_fnv1a(key.encode("utf-8")) % len(names)]
+    return names[_hash(seed, *names) % len(names)]
+
+
+def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> List[T]:
+    """`names` by value, highest first. An exact tie is ordered by a hash of the seed and
+    each name, never by the listing order; seed it per voter (their id), so a tie falls
+    differently from one voter to the next. Backend only: no twin in tieLot.ts."""
+    return sorted(names, key=lambda n: (-value(n), _hash(seed, n), str(n)))
 
 
 def tied(a: float, b: float) -> bool:

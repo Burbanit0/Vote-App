@@ -10,7 +10,7 @@ from api.engine.utils.simulation_score_utils import (
     get_star_voting_winner,
     get_variance_based_winner,
 )
-from api.engine.utils.tie_lot import _fnv1a, best, draw, tied
+from api.engine.utils.tie_lot import _fnv1a, best, draw, ranking, tied
 
 
 def test_the_hash_is_fnv1a_32():
@@ -96,3 +96,13 @@ def test_star_lists_its_first_finalist_first():
     ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
     result = get_star_voting_winner(ballots)
     assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ben"
+
+
+def test_ranking_orders_a_tie_by_the_seeded_lot_not_the_listing_order():
+    u = {"Ann": 1.0, "Ben": 1.0, "Cy": 2.0}
+    for seed in range(8):
+        r = ranking(["Ann", "Ben", "Cy"], u.__getitem__, seed)
+        assert r[0] == "Cy"
+        assert r == ranking(["Ben", "Cy", "Ann"], u.__getitem__, seed)
+    # Seeded per voter, a tie falls both ways across voters.
+    assert len({tuple(ranking(u, u.__getitem__, s)) for s in range(8)}) == 2

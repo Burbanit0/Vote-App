@@ -1,6 +1,6 @@
 # Listing-order ties
 
-> **status:** live — issues #662–#665 are open; #666 is their test and #667 is fixed (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — issues #663–#665 are open; #666 is their test, and #667 and #662 are fixed (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
@@ -17,6 +17,11 @@ every tie). So:
   fixture is regenerated;
 - #667 and #662 implement it, and the strict xfails in `test_compare_all_methods_snapshot.py`
   flip as they do.
+
+#667 did the score rules and #662 a voter's own ties. **Still to do from this decision:**
+the ranked rules' aggregate tie-break (first bullet), IRV and Coombs on a full tie (second),
+and the client's ordinal rules with them (third): 21 parity-locked rules, so one PR with the
+fixture regenerated. No issue tracks it yet.
 
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
 FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
@@ -41,12 +46,12 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
 | #660 | (related) Redis cache no longer serves a previous build's results |
 | #666 | `compare_all_methods` gets tied electorates: a snapshot, and a listing-order test per method in `test_compare_all_methods_snapshot.py`. Strict xfails mark what #662 and #667 still owe, so each fix has a test that flips |
 | #667 | The score rules draw an exact tie by the seeded lot, on both engines: score, STAR (a tie for a finalist place; a tied runoff goes to the higher score, then the lot), majority judgment (once every grade is compared), cumulative, maximin, Nash, median voting, mean-median hybrid, variance-based |
+| #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities` and `compare_all_methods` (and its Monte-Carlo twin) |
 
 ## Open
 
 | Issue | Where | Mechanism |
 |---|---|---|
-| #662 | `profile_engine.py` `project_ballot`, `compare_all_methods` rankings | Stable sort over request order resolves truncation ties. |
 | #663 | Issue voting, party dynamics | Sign-collapsed platforms / 4-dp positions, then `argmax`/`argmin`. |
 | #664 | `information_model.py`, `campaign_dynamics.py` | Noise drawn per candidate slot, not per candidate. |
 | #665 | Playground, Hotelling, `tech.py`, theory workers, conviction voting | Raw `argmin`/`argmax`/`min()` for the nearest candidate. |
@@ -55,9 +60,13 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
 - The backend's ranked rules already break an aggregate tie by name
   (`min(scores, key=lambda c: (-scores[c], c))` in `simulation_ranked_utils.py`): the option
   parked above, on one side of the dual engine only.
-- With one voter indifferent between the two tied candidates, 30 of the 34 methods change
-  winner when the order is reversed: `compare_all_methods` ranks that voter by a stable sort
-  over the listing order (#662).
+- With one voter indifferent between the two tied candidates, 30 of the 34 methods changed
+  winner when the order was reversed: `compare_all_methods` ranked that voter by a stable sort
+  over the listing order. Fixed by #662.
+- The same stable sort builds voter rankings at about twenty other sites
+  (`domain/election/workers*.py`, `domain/simulations/compare.py`, `domain/theory/workers.py`,
+  `simulation_voting_utils.py`).
+  They can switch to `tie_lot.ranking` one at a time. No issue tracks this yet.
 - On an exact two-way tie, IRV and Coombs return no winner at all, where the invariant wants
   the lot. No issue tracks this yet.
 - Approval is left as it was by #667 (the score rules): a tie in the client's tally goes to

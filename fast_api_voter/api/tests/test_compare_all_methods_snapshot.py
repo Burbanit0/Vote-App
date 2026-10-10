@@ -62,7 +62,7 @@ def test_compare_all_methods_snapshot(snapshot):
 _TIE_NAMES = ("Ann", "Ben", "Cy")
 _MIRRORED = ((0.9, 0.6, 0.1), (0.8, 0.5, 0.3), (0.7, 0.2, 0.4), (1.0, 0.7, 0.0), (0.6, 0.4, 0.5))
 # A voter with Ann == Ben: their own ranking of the two is a tie, which
-# compare_all_methods resolves by a stable sort over the listing order (#662).
+# compare_all_methods orders by a lot seeded with the voter's id (#662).
 _INDIFFERENT = (0.5, 0.5, 0.9)
 
 _METHODS = sorted([*RANKED_RULES, *SCORE_RULES, "evaluative", "quadratic", "random_ballot"])
@@ -110,13 +110,12 @@ def test_a_tie_does_not_follow_listing_order(method):
     assert forward == _tied_methods(_TIE_NAMES[::-1])[method]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="#662: an indifferent voter's ranking follows listing order")
 def test_an_indifferent_voter_does_not_make_the_result_follow_listing_order():
-    """One voter with Ann == Ben. Today that voter's ranking follows the listing order,
-    and with it 21 ranked winners and the Condorcet winner (so every method's
-    `condorcet_consistent`). The score rules are left out: they read utilities, and
-    their ties are #667's, tested above."""
+    """One voter with Ann == Ben. That voter's ranking of the two used to follow the
+    listing order, and with it 21 ranked winners and the Condorcet winner (so every
+    method's `condorcet_consistent`); a lot seeded with the voter's id orders it now
+    (#662). The score rules are left out: they read utilities, and their ties are
+    #667's, tested above."""
     def ranked_side(order):
         methods = _tied_methods(order, True)
         return {m: e for m, e in methods.items() if m not in SCORE_RULES}
