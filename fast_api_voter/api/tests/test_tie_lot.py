@@ -122,3 +122,38 @@ def test_vote_ranked_orders_twin_candidates_by_the_lot_not_the_listing_order():
         forward = [c["name"] for c in vote_ranked(voter, cands, DEFAULT_ISSUES)]
         backward = [c["name"] for c in vote_ranked(voter, cands[::-1], DEFAULT_ISSUES)]
         assert forward == backward
+
+
+def test_nearest_draws_an_equidistant_row_by_lot_per_voter():
+    import numpy as np
+
+    from api.engine.utils.tie_lot import nearest
+
+    dist = np.array([[1.0, 1.0, 3.0]] * 200 + [[2.0, 0.5, 0.5 + 1e-13]])
+    picks = nearest(dist, ["A", "B", "C"], seed=7)
+    rev = nearest(dist[:, ::-1], ["C", "B", "A"], seed=7)
+    assert [["A", "B", "C"][i] for i in picks] == [["C", "B", "A"][i] for i in rev]
+    assert 80 < int((picks[:200] == 0).sum()) < 120  # a fair split, not all to A
+    assert picks[200] in (1, 2)  # float noise is a tie too, as tied() reads one
+    assert list(nearest(np.array([[3.0, 1.0, 2.0]]), ["A", "B", "C"])) == [1]
+    # `rows` names the voters: the same voter draws the same way wherever it sits.
+    one = nearest(np.array([[1.0, 1.0]]), ["A", "B"], seed=7, rows=[42])
+    assert one[0] == nearest(np.array([[0.0, 0.0]] * 43 + [[1.0, 1.0]]), ["A", "B"], 7)[42]
+
+
+@pytest.mark.parametrize("vote", [
+    "compute_strategic_plurality_vote", "compute_strategic_borda_vote",
+    "compute_strategic_irv_vote", "compute_strategic_score_vote",
+])
+def test_a_strategic_vote_between_twins_does_not_follow_listing_order(vote):
+    from api.engine.utils import simulation_voting_utils as svu
+
+    rng, np_rng = _seeded_rng_pair(665)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    carol = create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, carol]
+    polls = {"Alice": 0.4, "Bob": 0.35, "Carol": 0.25}
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = getattr(svu, vote)(voter, cands, DEFAULT_ISSUES, polls)
+        assert forward == getattr(svu, vote)(voter, cands[::-1], DEFAULT_ISSUES, polls)

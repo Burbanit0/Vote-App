@@ -21,6 +21,7 @@ from api.engine.utils.profile_engine import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
     turnout_mask, community_voters, spatial_cycle_rate,
 )
+from api.engine.utils.tie_lot import best, nearest
 from api.engine.utils.simulation_multiwinner_utils import (
     compute_proportionality_metrics, get_dhondt_winners, get_sainte_lague_winners, top_k,
 )
@@ -348,15 +349,16 @@ def _allocate_assembly(
                         continue
                     counts = _np.bincount(choice[band], minlength=len(names))
                     # The district's top two; a tie for second is drawn, not
-                    # left to argsort's listing order. Weaker first, as argsort
-                    # had it: an equidistant deserter's argmin below picks it.
+                    # left to argsort's listing order. An equidistant deserter
+                    # is drawn between them too (tie_lot.nearest).
                     viable = [names.index(n) for n in reversed(top_k(
                         {n: int(counts[i]) for i, n in enumerate(names) if counts[i] > 0},
                         2, desertion_lots))]
                     if len(viable) < 2:
                         continue
                     sub = d2[_np.ix_(band, viable)]
-                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    nearest_viable = _np.array(viable)[
+                        nearest(sub, [names[i] for i in viable], lot_seed, band)]
                     movers = ~_np.isin(choice[band], viable)
                     new_choice[band[movers]] = nearest_viable[movers]
             else:
@@ -365,7 +367,8 @@ def _allocate_assembly(
                           if counts[i] > 0 and counts[i] / num_voters >= threshold]
                 if viable and len(viable) < len(names):
                     sub = d2[:, viable]
-                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    nearest_viable = _np.array(viable)[
+                        nearest(sub, [names[i] for i in viable], lot_seed)]
                     movers = ~_np.isin(choice, viable)
                     new_choice[movers] = nearest_viable[movers]
             if (new_choice == choice).all():
@@ -472,9 +475,9 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters = voters[turnout_mask(voters, pts, str(_tcfg.get("model", "full")),
                                  float(_tcfg.get("intensity", 0.0)))]
     num_voters = voters.shape[0]
-    # Sincere party vote: nearest party in the plane.
+    # Sincere party vote: nearest party in the plane (an equidistant voter by lot).
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-    sincere = d2.argmin(axis=1)
+    sincere = nearest(d2, names, seed)
 
     alloc = _allocate_assembly(
         d2, voters[:, 0], names, sincere, structure, seats_total,
@@ -623,7 +626,7 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         voters = voters[turnout_mask(voters, pts, _tmodel, _tint)]
         nv = max(1, voters.shape[0])  # effective electorate after abstention
         d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-        sincere = d2.argmin(axis=1)
+        sincere = nearest(d2, names, seed + 101 * k)
 
         for structure in _SCORECARD_STRUCTURES:
             a = _allocate_assembly(d2, voters[:, 0], names, sincere, structure,
@@ -718,7 +721,7 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # can be below the request — use the actual count for the district splits and
     # the vote shares (otherwise over-scaled cuts leave empty trailing districts).
     num_voters = int(voters.shape[0])
-    choice = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
+    choice = nearest(((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2), names, seed)
     order = _np.argsort(voters[:, 0], kind="stable")
 
     # ── District splits: equal vs skewed populations (bands along x) ───────
@@ -902,10 +905,13 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         issue_labels = [f"Enjeu {j + 1}" for j in range(k)]
 
     n_voters = stances.shape[0]
-    # Bundled vote: closest platform by issue agreement (ties → first party).
-    choice = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2).argmax(axis=1)
+    # Bundled vote: closest platform by issue agreement. Sign-collapsed platforms
+    # tie often: a tie, for a voter or for the winner, is drawn by lot (#663).
+    lot = data.get("seed", 42)
+    agreement = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2)
+    choice = nearest(-agreement, names, lot)
     votes = _np.bincount(choice, minlength=len(names))
-    winner_idx = int(votes.argmax())
+    winner_idx = names.index(best(names, dict(zip(names, votes.tolist())).__getitem__, lot))
 
     issues = []
     divergent_count = 0

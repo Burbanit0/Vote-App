@@ -20,6 +20,7 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils import tie_lot
 from api.engine.utils.tie_lot import ranking
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
@@ -408,7 +409,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # ── Sincere votes ─────────────────────────────────────────────────────
     sincere_vote: Dict[int, str] = {
-        v["id"]: max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
+        v["id"]: tie_lot.best(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -839,8 +840,11 @@ def _pd_vote_shares(
     non-viable (polling under twice the survival threshold) instead picks their
     nearest VIABLE party."""
     pxs = _np.array([p["x"] for p in parties])
+    names = [p["name"] for p in parties]
     dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
-    nearest = _np.argmin(dists, axis=1)
+    # Positions are rounded every round, so equidistant voters are common: each
+    # one's vote is drawn by lot (#663), not handed to the first-listed party.
+    nearest = tie_lot.nearest(dists, names)
 
     if tactical_on and method == "plurality":
         viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
@@ -848,7 +852,7 @@ def _pd_vote_shares(
         if viable.any() and not viable.all():
             masked = dists.copy()
             masked[:, ~viable] = 1e9
-            tac_nearest = _np.argmin(masked, axis=1)
+            tac_nearest = tie_lot.nearest(masked, names)
             mask = ~viable[nearest]
             nearest[mask] = tac_nearest[mask]
 

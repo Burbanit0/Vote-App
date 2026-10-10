@@ -613,21 +613,25 @@ class TestPlaygroundListingOrder:
         assert a["cumulative"] == b["cumulative"]
 
 
-def test_desertion_without_a_count_tie_is_unchanged():
-    """No district ties on votes here, but voters sit exactly on y = x, so some
-    deserters are equidistant from both viable parties and argmin takes the
-    first of `viable`. It must stay weaker-first, as argsort had it: best-first
-    moved seats (P 6 / Q 4) with no tie in any count."""
-    body = play_mod._assembly_worker({
-        "parties": [{"name": "P", "x": 0.2, "y": 0.6}, {"name": "Q", "x": 0.6, "y": 0.2},
-                    {"name": "R", "x": 0.7, "y": 0.7}],
-        "electorate": {"mode": "composed", "correlation": 1.0, "communities": [
-            {"id": "a", "x": 0.3, "y": 0.3, "spread": 0.3, "weight": 2},
-            {"id": "b", "x": 0.48, "y": -0.3, "spread": 0.3, "weight": 1}]},
-        "structure": "fptp", "seats": 10, "threshold": 0.0, "strategic_desertion": True,
-        "num_voters": 400, "seed": 0,
-    })[0]
-    assert {p["name"]: p["seats"] for p in body["parties"]} == {"P": 7, "Q": 3, "R": 0}
+def test_voters_equidistant_from_two_parties_do_not_follow_listing_order():
+    """Community a sits exactly on y = x, so its voters are equidistant from P and Q,
+    for their sincere vote and as deserters. Their choice used to be argmin's, the
+    first-listed P: that alone gave P 7 seats. Each is drawn by lot now (#665), so
+    community b, nearer Q, carries the districts, whichever way the parties are listed."""
+    def seats(parties):
+        body = play_mod._assembly_worker({
+            "parties": parties,
+            "electorate": {"mode": "composed", "correlation": 1.0, "communities": [
+                {"id": "a", "x": 0.3, "y": 0.3, "spread": 0.3, "weight": 2},
+                {"id": "b", "x": 0.48, "y": -0.3, "spread": 0.3, "weight": 1}]},
+            "structure": "fptp", "seats": 10, "threshold": 0.0, "strategic_desertion": True,
+            "num_voters": 400, "seed": 0,
+        })[0]
+        return {p["name"]: p["seats"] for p in body["parties"]}
+
+    parties = [{"name": "P", "x": 0.2, "y": 0.6}, {"name": "Q", "x": 0.6, "y": 0.2},
+               {"name": "R", "x": 0.7, "y": 0.7}]
+    assert seats(parties) == seats(parties[::-1]) == {"P": 0, "Q": 10, "R": 0}
 
 
 def test_a_tied_district_is_nobodys_win_in_the_efficiency_gap(monkeypatch):
@@ -709,3 +713,48 @@ def test_no_show_groups_a_tied_favourite_by_name_not_listing():
         return play_mod._no_show_report(cands, matrix, winners)
 
     assert report(names) == report(names[::-1])
+
+
+def test_issue_voting_ties_do_not_follow_listing_order():
+    """Sign-collapsed platforms tie often: five voters agree with A and B on one issue
+    each. Their vote, and a tie for the winner, are drawn by lot (#663)."""
+    stances = [[1, -1]] * 5 + [[1, 1]] * 2 + [[-1, -1]] * 2
+
+    def result(names, platforms):
+        body = play_mod._issue_voting_worker({
+            "mode": "handcrafted", "voter_stances": stances,
+            "party_platforms": platforms, "party_names": names,
+        })[0]
+        return {p["name"]: p["votes"] for p in body["parties"]}, body["bundled_winner"]
+
+    forward = result(["A", "B"], [[1, 1], [-1, -1]])
+    assert forward == result(["B", "A"], [[-1, -1], [1, 1]])
+    assert forward[0] != {"A": 7, "B": 2}  # argmax gave all five to the first-listed A
+
+
+def test_party_dynamics_twins_do_not_follow_listing_order():
+    """Two parties at the same position: every voter nearest to them is a tie, which
+    went to the first-listed (#663)."""
+    import api.domain.election.workers_advanced as adv
+
+    parties = [{"name": "L", "x": -0.4}, {"name": "M", "x": 0.3}, {"name": "N", "x": 0.3}]
+
+    def first_election(order):
+        body = adv._party_dynamics_worker({"initial_parties": order, "num_elections": 1, "seed": 3})[0]
+        return {p["name"]: p["vote_pct"] for p in body["elections"][0]["parties"]}
+
+    forward = first_election(parties)
+    assert forward == first_election(parties[::-1])
+    assert forward["M"] > 0 and forward["N"] > 0
+
+
+def test_identical_candidates_approval_fallback_does_not_follow_listing_order():
+    """Identical candidates leave no one above a voter's mean utility, so each voter
+    approves their favourite alone: a tie of all four, drawn by lot (#665)."""
+    spec = {"x": -0.5, "y": -0.2}
+    cands = [{**spec, "name": n} for n in ("Ann", "Ben", "Cy", "Dee")]
+    req = {"num_seats": 2, "num_voters": 60, "seed": 7}
+    a = _multiwinner_compare_worker({**req, "candidates": cands})[0]
+    b = _multiwinner_compare_worker({**req, "candidates": cands[::-1]})[0]
+    assert {k: v for k, v in a.items() if k != "candidates"} == {
+        k: v for k, v in b.items() if k != "candidates"}

@@ -49,6 +49,7 @@ from ._electorate import (
     _snapshot_election_winners,
     _apply_blank_contagion,
 )
+from api.engine.utils import tie_lot
 
 
 # ── Divergence endpoint ───────────────────────────────────────────────────────
@@ -710,7 +711,7 @@ def _voter_snap(
     snaps: list[Dict[str, Any]] = []
     for v in voters:
         u = utilities.get(v["id"], {})
-        pref: Optional[str] = max(u, key=lambda k: u[k]) if u else None
+        pref: Optional[str] = tie_lot.best(u, u.__getitem__, v["id"]) if u else None
         is_blank = blank_enabled and (max(u.values(), default=0.0) < v.get("blank_threshold", 0.375))
         snaps.append({
             "id":         v["id"],

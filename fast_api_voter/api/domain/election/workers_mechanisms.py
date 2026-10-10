@@ -31,6 +31,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
 )
 from ._electorate import _build_electorate_from_seed
 from ._helpers import dhondt as _dhondt, modal_keys, prose_list, tied_extremes
+from api.engine.utils import tie_lot
 
 log = get_logger(__name__)
 
@@ -356,7 +357,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         fc: Counter[str] = Counter()
         for v in voters:
             uid  = v["id"]
-            best = max(current_u[uid], key=lambda k: current_u[uid][k])
+            best = tie_lot.best(current_u[uid], current_u[uid].__getitem__, uid)
             fc[best] += 1
         total      = len(voters) or 1
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
@@ -685,7 +686,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        v["id"]: tie_lot.best(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -974,7 +975,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        v["id"]: tie_lot.best(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -1135,7 +1136,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         threshold  = sum(u.values()) / max(len(u), 1)
         approved   = [c for c in cand_names if u.get(c, 0) > threshold]
         if not approved:                          # always approve at least 1st choice
-            approved = [max(u, key=lambda k: u[k])]
+            approved = [tie_lot.best(u, u.__getitem__, uid)]
         approval_ballots.append(approved)
 
     # First-choice vote shares for D'Hondt / FPTP
