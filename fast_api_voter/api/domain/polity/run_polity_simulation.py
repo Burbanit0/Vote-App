@@ -2274,10 +2274,11 @@ def _hold_presidential_election(
                 winner.office = Office.PRESIDENT
                 # Not tick + term: the calendar resumes after a rerun, so a winner off it serves only
                 # until the calendar's next election (OBS-041).
-                winner.term_end_tick = InstitutionalClock.from_config(
-                    config.institutions, config.run, config.sortition_chamber,
-                ).next_presidential_election(tick)
+                clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
+                winner.term_end_tick = clock.next_presidential_election(tick)
                 winner.mandates_served += 1
+                # Won with less than half a term left: a short term, which the limit does not count (OBS-041).
+                winner.short_terms += int(2 * (winner.term_end_tick - tick) < clock.president_term_ticks)
                 if config.legitimacy.enabled:
                     # Independent of config.mandate.enabled: m only needs
                     # ballots/winner_label, not pledge/deviation tracking. No

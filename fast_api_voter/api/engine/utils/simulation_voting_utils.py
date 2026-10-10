@@ -3,6 +3,7 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.tie_lot import ranking
 
 from .demographic_data import (
     sample_age,
@@ -683,7 +684,9 @@ def vote_plurality(
 def vote_ranked(
     voter: Voter, candidates: List[Candidate], issues: List[str]
 ) -> List[Candidate]:
-    return sorted(candidates, key=lambda c: -calculate_utility(voter, c, issues)["utility"])
+    by_name = {c["name"]: c for c in candidates}
+    u = {n: calculate_utility(voter, c, issues)["utility"] for n, c in by_name.items()}
+    return [by_name[n] for n in ranking(u, u.__getitem__, voter.get("id"))]
 
 
 def vote_score(

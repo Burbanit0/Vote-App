@@ -18,6 +18,7 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.tie_lot import ranking
 from api.engine.utils.method_registry import (
     SCORE_RULES, UTILITY_METHODS, rankings_from_utilities, rule_winner,
     winner_from_utilities,
@@ -1582,7 +1583,7 @@ def _co_rankings(
     s_rnk: List[List[str]] = []
     for v in voters:
         vid = v["id"]
-        sorder = sorted(utils_n[vid].keys(), key=lambda k: -utils_n[vid][k])
+        sorder = ranking(utils_n[vid], utils_n[vid].__getitem__, vid)
         s_rnk.append(sorder)
         choice = voted[vid]
         if choice != sorder[0]:

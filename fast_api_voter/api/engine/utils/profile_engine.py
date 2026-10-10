@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import tie_lot
+
 UtilityMatrix = Dict[int, Dict[str, float]]
 
 # Axis order for spatial coordinates (x, y, z) sliced to `dims`.
@@ -309,8 +311,8 @@ def handcrafted_profile(matrix_in: List[List[float]], names: List[str]) -> Utili
 #  · per-voter utilities are min-max normalised to [0,1] before projection;
 #  · approve marks candidates at ≥ 0.5;
 #  · rank_truncated keeps the top-k (top = 1.0 … k-th = 1/k), the rest at 0 —
-#    methods needing a total order break those ties in stable name order
-#    (an artifact of truncation itself, stated, not hidden);
+#    methods needing a total order see those ties in an order drawn per voter
+#    (tie_lot.ranking: never the listing order, #662);
 #  · score/grade quantise to L levels; cumulative spreads a 10-point budget
 #    proportionally to positive utilities.
 
@@ -375,7 +377,7 @@ def project_ballot(
     out: UtilityMatrix = {}
     for vid, utils in matrix.items():
         norm = _normalise_row(utils)
-        ranked = sorted(names, key=lambda n: -norm[n])
+        ranked = tie_lot.ranking(names, norm.__getitem__, vid)
         if ballot_type == "choose_one":
             out[vid] = {n: (1.0 if n == ranked[0] else 0.0) for n in names}
         elif ballot_type == "approve":

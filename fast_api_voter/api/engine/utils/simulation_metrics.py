@@ -12,7 +12,7 @@ from .simulation_ranked_utils import (
 from .simulation_score_utils import (
     get_evaluative_winner,
 )
-from .method_registry import RANKED_RULES, SCORE_RULES
+from .method_registry import RANKED_RULES, SCORE_RULES, rankings_from_utilities
 from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
@@ -124,27 +124,19 @@ def compare_all_methods(
     #    When blank_vote=True, the blank candidate is spliced in at the
     #    position corresponding to each voter's blank_threshold.
     # ------------------------------------------------------------------
-    candidate_names = [c["name"] for c in candidates]
-
+    rankings = rankings_from_utilities(utilities, voters)
     if blank_vote:
-        rankings: List[List[str]] = [
+        rankings = [
             _insert_blank(
-                sorted(candidate_names, key=lambda n: -utilities[v["id"]][n]),
-                utilities[v["id"]],
-                v.get("blank_threshold", 0.375),
-                blank_candidate_name,
+                r, utilities[v["id"]], v.get("blank_threshold", 0.375), blank_candidate_name
             )
-            for v in voters
+            for r, v in zip(rankings, voters)
         ]
         blank_pct = round(
             sum(1 for r in rankings if r and r[0] == blank_candidate_name) / len(voters),
             4,
         )
     else:
-        rankings = [
-            sorted(utilities[v["id"]].keys(), key=lambda name: -utilities[v["id"]][name])
-            for v in voters
-        ]
         blank_pct = None
 
     # ------------------------------------------------------------------
@@ -459,10 +451,7 @@ def compare_all_methods_mc(
         for voter in voters
     }
 
-    rankings: List[List[str]] = [
-        sorted(candidate_names, key=lambda name: -utilities[v["id"]][name])
-        for v in voters
-    ]
+    rankings = rankings_from_utilities(utilities, voters)
     score_votes: List[Dict[str, int]] = [
         {
             name: max(0, min(5, round(5 * utilities[v["id"]][name])))
