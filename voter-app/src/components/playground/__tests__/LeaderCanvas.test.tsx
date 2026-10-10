@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import LeaderCanvas from '../LeaderCanvas';
@@ -38,6 +38,28 @@ describe('LeaderCanvas', () => {
     expect(summary).toHaveTextContent(/A at \(-0\.5, 0\.0\): first choice of \d+%\./);
     const winner = screen.getByTestId('field-winner').querySelector('strong')?.textContent;
     expect(summary).toHaveTextContent(`Plurality (1 round), ${winner} wins.`);
+  });
+
+  it('the description follows a moved candidate once it holds still', () => {
+    vi.useFakeTimers();
+    try {
+      const props = {
+        voters: sampleVoters(120, 42, 'random'),
+        rule: 'plurality' as const,
+        dims: 2 as const,
+        onRuleChange: vi.fn(),
+        onMoveCandidate: vi.fn(),
+      };
+      const { rerender } = render(<LeaderCanvas candidates={CANDS} {...props} />);
+      const moved = CANDS.map((c) => (c.name === 'A' ? { ...c, x: 0.2 } : c));
+      rerender(<LeaderCanvas candidates={moved} {...props} />);
+      const summary = screen.getByTestId('leader-map-summary');
+      expect(summary).toHaveTextContent('A at (-0.5, 0.0)');
+      act(() => vi.advanceTimersByTime(300));
+      expect(summary).toHaveTextContent('A at (0.2, 0.0)');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders the plane, candidates, and the field winner', () => {

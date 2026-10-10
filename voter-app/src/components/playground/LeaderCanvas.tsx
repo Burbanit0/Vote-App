@@ -252,19 +252,25 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
   // first-choice share, then the winner the readout shows.
   const summaryId = React.useId();
+  // Ranked once the candidates hold still (300 ms), not on every drag frame.
+  const [settled, setSettled] = useState(candidates);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(candidates), 300);
+    return () => clearTimeout(id);
+  }, [candidates]);
   const summary = useMemo(() => {
     const raw = { interpolation: { escapeValue: false } };
     const shown = strat?.stratName ?? winner;
     return [
       t('canvas.summaryVoters', { count: voters.length }),
-      ...summarizeMap(voters, candidates, dims).map((c) =>
+      ...summarizeMap(voters, settled, dims).map((c) =>
         t('canvas.summaryCandidate', { ...c, pct: c.firstChoicePct, ...raw })
       ),
       hasFixedWinner(rule)
         ? t('canvas.summaryWinner', { rule: ruleLabels[rule], name: shown ?? '—', ...raw })
         : t('canvas.summaryNoWinner', { rule: ruleLabels[rule], ...raw }),
     ].join(' ');
-  }, [voters, candidates, dims, rule, ruleLabels, winner, strat?.stratName, t]);
+  }, [voters, settled, dims, rule, ruleLabels, winner, strat?.stratName, t]);
   const mx = median(voters.map((v) => v.x));
   const my = median(voters.map((v) => v.y));
   const cellW = PLOT / GRID_N;
@@ -402,7 +408,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
       )}
 
-      <p id={summaryId} data-testid="leader-map-summary" className="sr-only">
+      {/* hidden: read once, as the map's description, not again in reading order. */}
+      <p id={summaryId} data-testid="leader-map-summary" hidden>
         {summary}
       </p>
       <svg

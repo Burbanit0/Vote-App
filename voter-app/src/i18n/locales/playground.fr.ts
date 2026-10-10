@@ -382,7 +382,8 @@ const pgFr = {
     view3d: '🧊 Vue 3D',
     viewPlane: '▦ Plan x–y (édition)',
     svgAria: 'Carte idéologique — élire un dirigeant',
-    summaryVoters: '{{count}} électeurs.',
+    summaryVoters_one: '{{count}} électeur.',
+    summaryVoters_other: '{{count}} électeurs.',
     summaryCandidate: '{{name}} en {{position}} : premier choix de {{pct}} %.',
     summaryWinner: 'Avec {{rule}}, victoire de {{name}}.',
     summaryNoWinner: 'Avec {{rule}}, pas de vainqueur fixe.',
@@ -1178,6 +1179,7 @@ const pgFr = {
     othersAgree_other: 'Les {{count}} autres méthodes cochées élisent le même vainqueur.',
     sincere: '(votes sincères)',
     announce: '{{rule}} : victoire de {{name}}',
+    announceStrategic: '{{rule}}, votes stratégiques : victoire de {{name}}',
     announceNone: '{{rule}} : pas de vainqueur fixe',
   },
   instrument: {

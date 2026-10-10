@@ -377,7 +377,8 @@ const pgEn: PlaygroundKeys = {
     view3d: '🧊 3D view',
     viewPlane: '▦ x–y plane (edit)',
     svgAria: 'Ideology map — electing a leader',
-    summaryVoters: '{{count}} voters.',
+    summaryVoters_one: '{{count}} voter.',
+    summaryVoters_other: '{{count}} voters.',
     summaryCandidate: '{{name}} at {{position}}: first choice of {{pct}}%.',
     summaryWinner: 'Under {{rule}}, {{name}} wins.',
     summaryNoWinner: 'Under {{rule}}, no fixed winner.',
@@ -1154,6 +1155,7 @@ const pgEn: PlaygroundKeys = {
     othersAgree_other: 'The other {{count}} ticked methods elect the same winner.',
     sincere: '(sincere votes)',
     announce: '{{rule}}: {{name}} wins',
+    announceStrategic: '{{rule}}, strategic votes: {{name}} wins',
     announceNone: '{{rule}}: no fixed winner',
   },
   instrument: {

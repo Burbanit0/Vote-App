@@ -409,7 +409,8 @@ const pgPseudo: PlaygroundKeys = {
     view3d: '⟦🧊~ Vúé~~ 3D~⟧',
     viewPlane: '⟦▦~ Pláñ~~ x–y~~ (édítíóñ)~~~~⟧',
     svgAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ élíré~~ úñ~ dírígéáñt~~~~⟧',
-    summaryVoters: '⟦{{count}} éléçtéúrs.~~~~⟧',
+    summaryVoters_one: '⟦{{count}} éléçtéúr.~~~~⟧',
+    summaryVoters_other: '⟦{{count}} éléçtéúrs.~~~~⟧',
     summaryCandidate: '⟦{{name}} éñ~ {{position}} :~ prémíér~~~ çhóíx~~ dé~ {{pct}} %.~⟧',
     summaryWinner: '⟦Ávéç~~ {{rule}},~ víçtóíré~~~ dé~ {{name}}.~⟧',
     summaryNoWinner: '⟦Ávéç~~ {{rule}},~ pás~~ dé~ váíñqúéúr~~~~ fíxé.~~⟧',
@@ -1255,6 +1256,7 @@ const pgPseudo: PlaygroundKeys = {
       '⟦Lés~~ {{count}} áútrés~~~ méthódés~~~ çóçhéés~~~ élíséñt~~~ lé~ mêmé~~ váíñqúéúr.~~~~⟧',
     sincere: '⟦(vótés~~~ síñçèrés)~~~~⟧',
     announce: '⟦{{rule}} :~ víçtóíré~~~ dé~ {{name}}⟧',
+    announceStrategic: '⟦{{rule}},~ vótés~~ strátégíqúés~~~~~ :~ víçtóíré~~~ dé~ {{name}}⟧',
     announceNone: '⟦{{rule}} :~ pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
   },
   instrument: {

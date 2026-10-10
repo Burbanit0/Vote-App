@@ -632,6 +632,14 @@ describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
       screen.getByTestId('field-winner').querySelector('s')?.textContent
     );
     expect(screen.getByTestId('winner-strip-others')).toHaveTextContent('(sincere votes)');
+    // A screen reader hears that this winner is the strategic one.
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('winner-announce')).toHaveTextContent(
+          `strategic votes: ${stripWinner()} wins`
+        ),
+      { timeout: 2000 }
+    );
   });
 
   it('shows the lottery as having no fixed winner, on the map, in the strip and in the Bilan', () => {

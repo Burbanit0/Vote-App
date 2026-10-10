@@ -47,11 +47,14 @@ const WinnerStrip: React.FC = () => {
   const groups = groupByWinner(winners, otherRules);
   // Names are text, not HTML: React escapes them, so i18next must not (PLAN_BEYOND_CI W3.3).
   const raw = { interpolation: { escapeValue: false } };
+  const strategic = behavior !== 'sincere' && strategicOutcome != null;
+  const announceKey = strategic ? 'strip.announceStrategic' : 'strip.announce';
   const announced =
     hasFixedWinner(leaderRule) && current != null
-      ? t('strip.announce', {
+      ? t(announceKey, {
           rule: ruleLabels[leaderRule],
-          name: leaderCandidates[current]?.name,
+          // The strategic outcome is async and can trail a removed candidate by a frame.
+          name: leaderCandidates[current]?.name ?? '—',
           ...raw,
         })
       : t('strip.announceNone', { rule: ruleLabels[leaderRule], ...raw });

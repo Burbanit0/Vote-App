@@ -117,7 +117,9 @@ function describeAssembly(
   result: AssemblyResult | null,
   t: (key: string, opts?: Record<string, unknown>) => string
 ): { hemicycleLabel: string; leadAnnouncement: string } {
-  if (!result) return { hemicycleLabel: t('parliament.hemicycleAria'), leadAnnouncement: '' };
+  if (!result?.parties.length) {
+    return { hemicycleLabel: t('parliament.hemicycleAria'), leadAnnouncement: '' };
+  }
   const raw = { interpolation: { escapeValue: false } };
   const ranked = [...result.parties].sort(
     (a, b) => b.seats - a.seats || a.name.localeCompare(b.name)
@@ -130,12 +132,12 @@ function describeAssembly(
       .join(', '),
     ...raw,
   });
-  const leaders = ranked.filter((p) => p.seats === ranked[0]?.seats);
-  const shared = { seats: leaders[0]?.seats, total: result.assembly_size, ...raw };
+  const leaders = ranked.filter((p) => p.seats === ranked[0].seats);
+  const shared = { seats: leaders[0].seats, total: result.assembly_size, ...raw };
   const leadAnnouncement =
     leaders.length > 1
       ? t('parliament.announceTie', { parties: leaders.map((p) => p.name).join(', '), ...shared })
-      : t('parliament.announce', { party: leaders[0]?.name, ...shared });
+      : t('parliament.announce', { party: leaders[0].name, ...shared });
   return { hemicycleLabel, leadAnnouncement };
 }
 
@@ -215,7 +217,11 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     return hemicycleSeats(result.assembly_size, partySeats, SVG, 250);
   }, [result, parties, nominalSeats]);
 
-  const { hemicycleLabel, leadAnnouncement } = describeAssembly(result, t);
+  // Rebuilt when the result changes, not on every party-drag frame.
+  const { hemicycleLabel, leadAnnouncement } = useMemo(
+    () => describeAssembly(result, t),
+    [result, t]
+  );
 
   const colorOf = (idx: number): string =>
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
@@ -377,7 +383,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
             viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
-            aria-label={hemicycleLabel}
+            aria-label={loading ? `${hemicycleLabel} ${t('parliament.computing')}` : hemicycleLabel}
             data-testid="hemicycle-svg"
             className="rounded-lg bg-card"
           >
