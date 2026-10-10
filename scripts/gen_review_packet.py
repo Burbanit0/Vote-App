@@ -7,7 +7,7 @@ regenerated, never edited:
     python3 scripts/gen_review_packet.py
 
 The registry (voter-app/src/data/method_criteria.json) stays the source of truth; the packet
-is a dated snapshot of it to send.
+is a snapshot of it to send, named by the registry's content hash.
 """
 
 import functools
@@ -31,8 +31,8 @@ SYMBOL = {"yes": "✓", "no": "✗", "conditional": "◐"}
 ASKED: dict[tuple[str, str], str] = {
     ("split_cycle", "participation"): "",
     ("random_ballot", "reversal"): "",
-    ("majority_judgment", "majority"): "Set by an earlier fix: it fails when the majority gives its "
-    "favourite and another candidate the same top grade, as approval does.",
+    ("majority_judgment", "majority"): "The reasoning given when it was set, untested: it fails when the "
+    "majority gives its favourite and another candidate the same top grade, as approval does.",
 }
 BASIS = {"engine-tested": "E", "literature": "L", "variant": "V"}
 
@@ -152,8 +152,8 @@ def render() -> str:
         f"   [THEORY.md on the `polity` branch]({REPO}/blob/polity/THEORY.md#2-les-méthodes-de-vote).",
         "",
         "Any form of answer helps: a reply, comments in this file, or the app's \"report a content",
-        f"error\" form ({REPO}/issues/new?template=content-error.yml), which every matrix cell",
-        "links to with the cell already named.",
+        f"error\" form ({REPO}/issues/new?template=content-error.yml), which the app's Laboratoire",
+        "links to.",
         "",
         "## 1. How each verdict is checked",
         "",

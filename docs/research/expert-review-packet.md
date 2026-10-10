@@ -15,14 +15,14 @@ review of three things:
 2. **The cells we would most like a second opinion on**, set by earlier content fixes:
    - Split Cycle × Participation: no, after Moulin (1988). No Condorcet-consistent rule satisfies participation. Split Cycle keeps positive involvement, a weaker property (Holliday & Pacuit).
    - Random ballot (lottery) × Reversal symmetry: conditional. Not meaningful for a lottery: reversing every ballot turns first-choice shares into last-choice shares (the map lens says so too).
-   - Majority judgment × Majority criterion: conditional. Set by an earlier fix: it fails when the majority gives its favourite and another candidate the same top grade, as approval does.
+   - Majority judgment × Majority criterion: conditional. The reasoning given when it was set, untested: it fails when the majority gives its favourite and another candidate the same top grade, as approval does.
    - The 4 variants (`V`, section 5): the textbook verdict, which this engine's own variant does not keep.
 3. **THEORY.md, sections 2 to 4** (methods, impossibility theorems, paradoxes; in French):
    [THEORY.md on the `polity` branch](https://github.com/Burbanit0/Vote-App/blob/polity/THEORY.md#2-les-méthodes-de-vote).
 
 Any form of answer helps: a reply, comments in this file, or the app's "report a content
-error" form (https://github.com/Burbanit0/Vote-App/issues/new?template=content-error.yml), which every matrix cell
-links to with the cell already named.
+error" form (https://github.com/Burbanit0/Vote-App/issues/new?template=content-error.yml), which the app's Laboratoire
+links to.
 
 ## 1. How each verdict is checked
 
