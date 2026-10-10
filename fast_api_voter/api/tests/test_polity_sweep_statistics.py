@@ -222,7 +222,7 @@ def test_the_history_is_read_from_the_journal_and_unknown_when_it_cannot_be(seed
     assert seed_sweep._amendments(tmp_path / "missing.jsonl") is None
 
 
-def test_the_written_summary_reads_each_runs_history_and_flags_the_pooled_red_flags(seed_sweep: Any, tmp_path: Path) -> None:
+def test_the_written_summary_reads_each_runs_history_and_notes_it_under_the_red_flags(seed_sweep: Any, tmp_path: Path) -> None:
     amended = {"event_type": "constitution_amended", "tick": 2,
                "payload": {"article": "institutions.electoral_threshold", "new": 0.08}}
     for seed, journal in ((1, []), (2, []), (3, [amended])):
@@ -232,4 +232,4 @@ def test_the_written_summary_reads_each_runs_history_and_flags_the_pooled_red_fl
         (run_dir / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in journal), encoding="utf-8")
     text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3]).read_text(encoding="utf-8")
     assert "- electoral_threshold 0.08 at t2: seed 3" in text
-    assert "- note: these pre-registered flags pool across 2 constitutional histories (see Constitutions)" in text
+    assert "- note: the runs behind these flags span 2 constitutional histories (see Constitutions)" in text

@@ -346,7 +346,7 @@ def _write_sweep_summary(
         *_fallback_section(firsts),
         "## Pre-registered red flags (S0.7)\n",
         *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in red_flags(runs)],
-        *([f"- note: these pre-registered flags pool across {len(groups)} constitutional histories (see Constitutions)"]
+        *([f"- note: the runs behind these flags span {len(groups)} constitutional histories (see Constitutions)"]
           if len(groups := constitution_groups(runs)) > 1 or None in groups else []),
         "",
     ]
