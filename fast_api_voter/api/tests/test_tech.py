@@ -83,3 +83,15 @@ def test_polis_map_does_not_take_its_axes_signs_from_lapack(monkeypatch, flip):
 
     monkeypatch.setattr(np.linalg, "svd", mirrored)
     np.testing.assert_allclose(tech._pca_2d(votes), reference)
+
+
+# A cluster's label is drawn at its center, on the same map as the participants' dots:
+# both must be in the map's PCA frame (center.x used to be the members' mean ideology).
+def test_polis_cluster_centers_sit_on_their_members(client):
+    body = client.post("/api/v2/tech/polis", json=TestPolisWithCandidates.payload).json()
+    for cluster in body["clusters"]:
+        members = [p for p in body["participant_positions"] if p["cluster_id"] == cluster["id"]]
+        mean_x = sum(p["x_pca"] for p in members) / len(members)
+        mean_y = sum(p["y_pca"] for p in members) / len(members)
+        assert abs(cluster["center"]["x"] - mean_x) < 2e-3
+        assert abs(cluster["center"]["y"] - mean_y) < 2e-3
