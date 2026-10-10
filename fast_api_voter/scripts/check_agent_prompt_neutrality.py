@@ -366,7 +366,8 @@ def _threshold_gate(
 ) -> bool:
     """PLAN_BEYOND_CI W2.1's gate: does founding follow the seat threshold a founder is told (D2)?
     The same citizens -- only those who could found; for the others `found` is refused anyway --
-    answer once told 3% and once told 7%, shipped wording only. Paired, so the test is an exact
+    answer once told 3% and once told 7%, in the shipped wording or, for OBS-045, with the founding
+    rule stated as a count. Paired, so the test is an exact
     McNemar on who founds at one bar and not the other; the gate passes when founding moves at
     p < 0.05 (in either direction: the wrong sign is a finding too, and is printed as such)."""
     able = _split_by_backing(citizens, parties, n, config)["enough would co-found"]
@@ -375,7 +376,7 @@ def _threshold_gate(
     low, high = _with_threshold(config, GATE_LOW), _with_threshold(config, GATE_HIGH)
     roll = party_roll(parties, citizens)
     # OBS-045: founders cite "the 5% threshold" -- the founding rule -- and never the seat bar. "count" states the
-    # founding rule as the same fact without a percentage, so the seat threshold is the prompt's only one.
+    # founding rule as the same fact without its percentage (the party roll still gives each party's share as one).
     needed = math.ceil(config.parties.founding_ratio * len(citizens))
     pairs = () if wording == "shipped" else (
         (f"at least {config.parties.founding_ratio:.0%} of the citizens", f"at least {needed} of the {len(citizens)} citizens"),
@@ -398,8 +399,8 @@ def _threshold_gate(
     print(f"  only at {GATE_LOW:.0%}: {test.first_only}   only at {GATE_HIGH:.0%}: {test.second_only}   "
           f"exact McNemar p = {test.p_value:.3g}")
     print(*_by_backing(backing, found_low, found_high), sep="\n")
-    mentions = sum(bool(_THRESHOLD_WORDS.search(t.rationale)) for t in turns[1::2] if t is not None)
-    print(f"  rationales at {GATE_HIGH:.0%} that mention the threshold or a percentage: {mentions}/{len(able)}")
+    named = sum(_names_seat_bar(t, GATE_HIGH) for t in turns[1::2] if t is not None)
+    print(f"  answers at {GATE_HIGH:.0%} that name the seat bar ({GATE_HIGH:.0%}, a seat, votes): {named}/{len(able)}")
     if log is not None:
         backing_of = {citizen.citizen_id: count for citizen, count in zip(able, backing)}
         log.write_text("".join(
@@ -416,7 +417,11 @@ def _threshold_gate(
     return moved
 
 
-_THRESHOLD_WORDS = re.compile(r"threshold|\d\s?%", re.IGNORECASE)
+def _names_seat_bar(turn: ForumTurn, bar: float) -> bool:
+    """Whether the answer refers to the seat rule at all (OBS-045). A founder's own share at the same figure
+    counts too, so this can only over-count."""
+    text = " ".join((turn.rationale, turn.note_to_self, turn.post))
+    return bool(re.search(rf"\b{round(bar * 100)}\s?%|\bseats?\b|\bvotes?\b", text, re.IGNORECASE))
 
 
 def _by_backing(backing: Sequence[int], found_low: Sequence[bool], found_high: Sequence[bool]) -> list[str]:
@@ -537,6 +542,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="threshold gate: 'count' states the founding rule as a number of citizens, not a percentage (OBS-045)")
     parser.add_argument("--checkpoint", type=Path, default=Path(os.environ.get("POLITY_CHECKPOINT", _DEFAULT_CHECKPOINT)))
     args = parser.parse_args(argv)
+    if args.probe is not None and "threshold" not in args.probe and (args.gate_log or args.gate_wording != "shipped"):
+        parser.error("--gate-log and --gate-wording apply to the threshold probe only")
+    if args.gate_log is not None and not args.gate_log.parent.is_dir():
+        parser.error(f"--gate-log: no directory {args.gate_log.parent}")
 
     if not args.checkpoint.exists():
         raise SystemExit(f"no checkpoint at {args.checkpoint} -- pass --checkpoint or set POLITY_CHECKPOINT")

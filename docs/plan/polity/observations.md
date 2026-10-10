@@ -2245,23 +2245,27 @@ founder's backing (`--gate-log`), and can state the founding rule as a count (`-
 same checkpoint, vLLM 0.31.0, `qwen3:8b` at temperature 0.6; the tables are in
 `fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
 
-| founding rule worded | found at 3% / 7% | McNemar p | backing 5-6: found at 3% / 7% | answers citing the founding rule / the seat bar |
+| founding rule worded | found at 3% / 7% | McNemar p | backing 5-6: found at 3% / 7% | answers naming the seat bar |
 |---|---:|---:|---:|---:|
-| shipped: "at least 5% of the citizens" | 56 / 59 of 60 | 0.375 | 12 / **14 of 14** | 58 / **0** of 120 |
-| count: "at least 5 of the 100 citizens" | 60 / 58 of 60 | 0.5 | 14 / **14 of 14** | 29 / **0** of 120 |
+| shipped: "at least 5% of the citizens" | 56 / 59 of 60 | 0.375 | 12 / **14 of 14** | **0** of 120 |
+| count: "at least 5 of the 100 citizens" | 60 / 58 of 60 | 0.5 | 14 / **14 of 14** | **0** of 120 |
 
 - **The exact figure.** Every one of the 14 founders a 7% bar should stop founded at 7%, in both runs.
-- **What the answers cite** (rationale, note to self and post). With the shipped wording, 58 of the 120 cite the
-  founding rule, as "5%" or "the threshold": the founding share. With the count wording, 29 cite it, as "the
-  5-citizen threshold" or "the founding threshold". None of the 240 answers mentions the seat bar it was told (3% or 7%), a seat, or votes.
-- **Not two percentages confused.** Stating the founding rule without a percentage leaves the seat threshold the
-  prompt's only one, and founding still does not move.
+- **No answer names the seat bar.** None of the 240 rationales, notes and posts mentions the bar it was told (3% or
+  7%), a seat, or votes.
+- **The threshold they do cite is the founding rule.** With the shipped wording, 55 of 120 name it ("meets the 5%
+  threshold with 6 citizens closer to my positions"), 2 call their own share a threshold and 2 say "the threshold"
+  unqualified. With the count wording, 15 name it ("the 5-citizen threshold", "the founding threshold") and 16 say
+  "meets the threshold" unqualified, which could be either rule.
+- **Stating the founding rule without its percentage changes nothing.** That weakens, but does not exclude, a
+  confusion of the two bars: the party roll still gives each party's share of citizens as a percentage.
 
-*Reading.* The founding turn reasons from one question, whether founding is allowed, and founds when it is; the
-seat rule does not enter the answer under either wording. That replaces the suspected cause above ("a general rule
-it does not apply to its own party"): the answers do not refer to the rule at all. A rationale shows what the
-answer cites, not what drives it, and each wording is one sample at temperature 0.6 (the shipped wording founded
-59 and 59 of 60 times on 2026-10-09, 56 and 59 here). Why the seat sentence is passed over is not known.
+*Reading.* Where an answer says what it weighed, it is whether founding is allowed, and founding follows that
+(`found` moves 97 points with the co-founder count, PR #861); no answer weighs the seat rule, under either wording. That
+narrows the suspected cause above: whatever the model does with the seat sentence, it never refers to it. A
+rationale shows what the answer cites, not what drives it, and each wording is one sample at temperature 0.6 (the
+shipped wording founded 59 and 59 of 60 times on 2026-10-09, 56 and 59 here). Why the seat sentence is passed over
+is not known.
 
 *Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
 pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold

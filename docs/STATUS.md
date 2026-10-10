@@ -44,9 +44,9 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 ## Open questions
 
 - Why does founding not follow the stated threshold (OBS-045)? Rerun with every answer logged:
-  all 14 founders it should have stopped founded, and no answer mentions the seat bar; they cite only
-  the founding rule, also when it is worded without a percentage. Why the seat rule never enters the
-  answer is still open.
+  all 14 founders it should have stopped founded, and none of 240 answers names the seat bar; those
+  that say which threshold they mean cite the founding rule, also when it is worded without its
+  percentage. Why the seat rule never enters the answer is still open.
 - Expert review: are the 110 unsourced criteria cells right, and are W1.1's MJ
   "majority: conditional" and W1.2's two cell changes right?
 - The tie lot's seed: #667's draws for a rule's tie use seed 0, so a given set of tied names

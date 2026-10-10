@@ -86,8 +86,10 @@ The gate compares 3% with 7%, the ends of the plan's (3, 5, 7%) range; 5% was no
 ## The answers logged (2026-10-10, OBS-045)
 
 From the `fast_api_voter/` of `feat/polity-threshold-gate-log` (base `polity` 772736d6), vLLM 0.31.0 serving `qwen3:8b`,
-the same phase-4 seed-2 checkpoint. The gate now prints founding by backing and how many rationales at 7% mention a
-threshold or a percentage, and writes every answer as JSON lines.
+the same phase-4 seed-2 checkpoint, at 79890945. The gate printed founding by backing and how many rationales at 7%
+mention a threshold or a percentage, and wrote every answer as JSON lines. That last count also caught founders' own
+shares ("8% support"), so the next commit replaced it with "answers at 7% that name the seat bar (7%, a seat,
+votes)", which is 0/60 for both runs below, recomputed from their logs.
 
 **Shipped wording** (`--probe threshold --n 60 --gate-log gate-answers.jsonl`, 3 min 14 s):
 
@@ -112,7 +114,8 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
 ```
 
 **The founding rule as a count** (`--gate-wording count`): "at least 5% of the citizens" becomes "at least 5 of the
-100 citizens", the same fact, so the seat threshold is the prompt's only percentage.
+100 citizens", the same fact without its percentage. The party roll still gives each party's share of the citizens
+as a percentage.
 
 ```
 W2.1 gate: does founding follow the stated seat threshold? (60 able founders, each told 3% then 7%; founding rule worded: count)
@@ -134,16 +137,16 @@ W2.1 gate: does founding follow the stated seat threshold? (60 able founders, ea
   GATE  STOP  founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)
 ```
 
-**What the answers cite** (rationale, note to self and post, counted over the logged answers):
+**What the answers cite** (rationale, note to self and post together; read by hand where a count needed it):
 
-| wording | told | "5%" | "3%" | "7%" | "seat" | "vote(s)" | "threshold" |
-|---|---|---:|---:|---:|---:|---:|---:|
-| shipped | 3% | 29 | 0 | 1 | 0 | 0 | 30 |
-| shipped | 7% | 23 | 0 | 0 | 0 | 0 | 27 |
-| count | 3% | 0 | 0 | 0 | 0 | 0 | 15 |
-| count | 7% | 0 | 0 | 0 | 0 | 0 | 14 |
+| wording | told | n | name the seat bar | name the founding rule | call their own share a threshold | say "threshold" unqualified |
+|---|---|---:|---:|---:|---:|---:|
+| shipped | 3% | 60 | 0 | 29 | 1 | 1 |
+| shipped | 7% | 60 | 0 | 26 | 1 | 1 |
+| count | 3% | 60 | 0 | 6 | 0 | 9 |
+| count | 7% | 60 | 0 | 9 | 0 | 7 |
 
-"Threshold" means the founding rule every time it is qualified: "meets the 5% threshold with 6 citizens closer to my
-positions", "meets the 5-citizen threshold", "meeting the founding threshold". The one "7%" (shipped, told 3%) is not the
-seat bar. Reading: OBS-045's follow-up.
-
+"Name the seat bar" is the bar the founder was told, a seat, or votes. "Name the founding rule" is "5%" ("meets the 5%
+threshold with 6 citizens closer to my positions"), "the 5-citizen threshold" or "the founding threshold". Own shares
+read "8% support meets the threshold". Unqualified answers read "6 citizens closer to my positions meets the
+threshold", which could be either rule. Reading: OBS-045's follow-up.
