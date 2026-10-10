@@ -1,6 +1,6 @@
 # Listing-order ties
 
-> **status:** live — issues #663–#665 are open; #666 is their test, and #667 and #662 are fixed (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — issue #664 is open; #666 is the test, and #667, #662, #663 and #665 are fixed (PLAN_BEYOND_CI W5). (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
@@ -46,15 +46,14 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
 | #660 | (related) Redis cache no longer serves a previous build's results |
 | #666 | `compare_all_methods` gets tied electorates: a snapshot, and a listing-order test per method in `test_compare_all_methods_snapshot.py`. Strict xfails mark what #662 and #667 still owe, so each fix has a test that flips |
 | #667 | The score rules draw an exact tie by the seeded lot, on both engines: score, STAR (a tie for a finalist place; a tied runoff goes to the higher score, then the lot), majority judgment (once every grade is compared), cumulative, maximin, Nash, median voting, mean-median hybrid, variance-based |
+| #663, #665 | A voter's nearest option, or favourite, when two tie: `tie_lot.nearest` (vectorised, for `argmin`/`argmax` rows) and `tie_lot.favourite` (the top of the voter's `ranking`), a lot seeded with the endpoint's seed and the voter. Issue voting (and its winner), party dynamics, the playground's sincere vote and desertion, Hotelling, `tech.py`, the theory workers, conviction voting, and the 22 sites that took a voter's favourite with `max(utilities, key=…)`. A voter's lot is finalised with fmix32 (`_voter_lot`): FNV-1a's low bit is only the parity of its input, which made a two-way tie alternate with the voter's index |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
 
 | Issue | Where | Mechanism |
 |---|---|---|
-| #663 | Issue voting, party dynamics | Sign-collapsed platforms / 4-dp positions, then `argmax`/`argmin`. |
 | #664 | `information_model.py`, `campaign_dynamics.py` | Noise drawn per candidate slot, not per candidate. |
-| #665 | Playground, Hotelling, `tech.py`, theory workers, conviction voting | Raw `argmin`/`argmax`/`min()` for the nearest candidate. |
 
 **Found while writing #666's test (2026-10-09).**
 - The backend's ranked rules already break an aggregate tie by name
