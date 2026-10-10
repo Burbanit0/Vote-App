@@ -211,6 +211,7 @@ class LegislativeResult(Event):
     seats: dict[int, int]
     votes: dict[int, float]
     blank_count: int
+    abstained: int = OMIT  # ADR-021: disengaged and exited citizens, present once any stayed home
 
 
 @dataclass(frozen=True, kw_only=True)
