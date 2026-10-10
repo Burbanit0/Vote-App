@@ -19,6 +19,7 @@ import numpy as _np
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.method_registry import rule_winner
+from api.engine.utils.tie_lot import ranking
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
@@ -365,7 +366,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for v in voters:
             uid = v["id"]
             rankings.append(
-                sorted(current_u[uid].keys(), key=lambda k: -current_u[uid][k])
+                ranking(current_u[uid], current_u[uid].__getitem__, uid)
             )
 
         condorcet_w  = get_condorcet_winner(rankings)
@@ -699,7 +700,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
-            sorted(true_utilities[v["id"]].keys(), key=lambda k: -true_utilities[v["id"]][k])
+            ranking(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
             for v in active_voters
         ]
         return get_condorcet_winner(rankings)
@@ -871,7 +872,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in voters:
         uid = v["id"]
         rankings.append(
-            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+            ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # ── STV ────────────────────────────────────────────────────────────────
@@ -1123,7 +1124,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     for v in voters:
         uid = v["id"]
         rankings.append(
-            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+            ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # Approval ballots: approve candidates above own mean utility

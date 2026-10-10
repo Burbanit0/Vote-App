@@ -6,11 +6,14 @@ the listing order, and computed the same way by the client engine
 (voter-app/src/lib/tieLot.ts). Keep the two in step: FNV-1a (32-bit) over the UTF-8
 bytes of the seed and the sorted names, joined by U+001F; the index is that hash
 modulo the number of tied names. test_tie_lot.py pins values the client test pins too.
+
+`ranking` (a voter's own ranking, backend only) orders a tie differently: by one hash
+per name, of the seed and that name, so it is a whole order rather than one pick.
 """
 
 import math
 import re
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Iterable, List, TypeVar
 
 T = TypeVar("T")
 
@@ -28,11 +31,34 @@ def _fnv1a(data: bytes) -> int:
     return h
 
 
-def draw(tied: Iterable[T], seed: int = 0) -> T:
+def _hash(*parts: object) -> int:
+    key = _LONE_SURROGATE.sub("\ufffd", _SEP.join(map(str, parts)))
+    return _fnv1a(key.encode("utf-8"))
+
+
+def draw(tied: Iterable[T], seed: object = 0) -> T:
     """One of `tied`, drawn by the seeded lot over their names in code-point order."""
     names = sorted(tied, key=str)
-    key = _LONE_SURROGATE.sub("\ufffd", _SEP.join([str(seed), *map(str, names)]))
-    return names[_fnv1a(key.encode("utf-8")) % len(names)]
+    return names[_hash(seed, *names) % len(names)]
+
+
+def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> List[T]:
+    """`names` by value, highest first. A tie (see `tied`) is ordered by a hash of the
+    seed and each name, never by the listing order; seed it per voter (their id), so a
+    tie falls differently from one voter to the next. Only a tie is hashed: a ranking
+    without one costs a plain sort. Backend only: no twin in tieLot.ts."""
+    out: List[T] = []
+    run: List[T] = []
+    for n in sorted(names, key=lambda n: -value(n)):
+        if run and not tied(value(n), value(run[0])):
+            out += _lot_order(run, seed)
+            run = []
+        run.append(n)
+    return out + _lot_order(run, seed)
+
+
+def _lot_order(run: List[T], seed: object) -> List[T]:
+    return run if len(run) < 2 else sorted(run, key=lambda n: (_hash(seed, n), str(n)))
 
 
 def tied(a: float, b: float) -> bool:

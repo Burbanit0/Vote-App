@@ -284,6 +284,20 @@ def test_project_truncation_zeroes_below_k():
     assert out[0]["C"] == 0.0 and out[0]["D"] == 0.0
 
 
+@pytest.mark.parametrize("ballot_type", ["choose_one", "rank_full", "rank_truncated"])
+def test_a_voter_tie_is_projected_the_same_whatever_the_listing_order(ballot_type):
+    # #662: A and B tie at the top of every ballot. Which one a voter puts first is a lot
+    # seeded with their id: never the listing order, and not the same for every voter.
+    names, rows = ["A", "B", "C"], [[0.9, 0.9, 0.1]] * 8
+    rev = names[::-1]
+    forward = project_ballot(handcrafted_profile(rows, names), names, ballot_type, truncate_at=1)
+    backward = project_ballot(
+        handcrafted_profile([r[::-1] for r in rows], rev), rev, ballot_type, truncate_at=1
+    )
+    assert forward == backward
+    assert {max(b, key=b.get) for b in forward.values()} == {"A", "B"}
+
+
 def test_project_score_quantises_to_levels():
     names = ["A", "B"]
     matrix = handcrafted_profile([[0.63, 0.0]], names)

@@ -10,7 +10,10 @@ from api.engine.utils.simulation_score_utils import (
     get_star_voting_winner,
     get_variance_based_winner,
 )
-from api.engine.utils.tie_lot import _fnv1a, best, draw, tied
+from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.demographic_data import _seeded_rng_pair
+from api.engine.utils.simulation_voting_utils import create_candidate, create_voter, vote_ranked
+from api.engine.utils.tie_lot import _fnv1a, best, draw, ranking, tied
 
 
 def test_the_hash_is_fnv1a_32():
@@ -96,3 +99,26 @@ def test_star_lists_its_first_finalist_first():
     ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
     result = get_star_voting_winner(ballots)
     assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ben"
+
+
+def test_ranking_orders_a_tie_by_the_seeded_lot_not_the_listing_order():
+    u = {"Ann": 1.0, "Ben": 1.0, "Cy": 2.0}
+    for seed in range(8):
+        r = ranking(["Ann", "Ben", "Cy"], u.__getitem__, seed)
+        assert r[0] == "Cy"
+        assert r == ranking(["Ben", "Cy", "Ann"], u.__getitem__, seed)
+    # Seeded per voter, a tie falls both ways across voters.
+    assert len({tuple(ranking(u, u.__getitem__, s)) for s in range(8)}) == 2
+
+
+def test_vote_ranked_orders_twin_candidates_by_the_lot_not_the_listing_order():
+    # Two candidates identical but for their name tie exactly for every voter (#662).
+    rng, np_rng = _seeded_rng_pair(662)
+    alice = create_candidate(DEFAULT_ISSUES, 0, "Alice", "Green", rng=rng)
+    carol = create_candidate(DEFAULT_ISSUES, 2, "Carol", "Liberal", rng=rng)
+    cands = [alice, {**alice, "name": "Bob"}, carol]
+    for i in range(6):
+        voter = create_voter(DEFAULT_ISSUES, i, rng=rng, np_rng=np_rng)
+        forward = [c["name"] for c in vote_ranked(voter, cands, DEFAULT_ISSUES)]
+        backward = [c["name"] for c in vote_ranked(voter, cands[::-1], DEFAULT_ISSUES)]
+        assert forward == backward
