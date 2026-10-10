@@ -72,3 +72,12 @@ export const METHOD_CRITERIA_ENTRIES = registry.rules as unknown as Record<
   Rule,
   Record<CriterionKey, CriterionEntry>
 >;
+
+/** A registry source as a short citation: its docs/research/bibliography.bib key, `name1973`
+ * or `name_name1973`, read as "Name (1973)" or "Name & Name (1973)". */
+export function cite(key: string): string {
+  const m = /^([a-z_]+)(\d{4})$/.exec(key);
+  if (!m) return key;
+  const names = m[1].split('_').map((n) => n.charAt(0).toUpperCase() + n.slice(1));
+  return `${names.join(' & ')} (${m[2]})`;
+}

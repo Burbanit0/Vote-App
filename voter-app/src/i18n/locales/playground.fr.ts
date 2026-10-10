@@ -1464,6 +1464,15 @@ const pgFr = {
       familyOrdinal: 'Ordinal',
       familyCondorcet: 'Condorcet',
       familyCardinal: 'Cardinal',
+      cellHint: 'Cliquez une case pour voir sur quoi repose son verdict.',
+      basis: {
+        engineTested: 'Vérifié par les deux moteurs (tests d’axiomes)',
+        literature: 'D’après la littérature',
+        variant: 'Variante de ce moteur : il s’écarte du verdict classique',
+      },
+      source: 'Source :',
+      unsourced: 'source à confirmer (relecture par un spécialiste en cours)',
+      note: 'Note (en anglais) :',
       criteria: {
         condorcet_winner: 'Élit le gagnant Condorcet',
         condorcet_loser: 'Élimine le perdant Condorcet',
