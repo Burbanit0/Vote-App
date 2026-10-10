@@ -2013,6 +2013,8 @@ president term-limited by a snap win at tick 31 could take the act on the tick t
 ten term-limited presidencies, five were recalled before the eve of their election and five began at tick 32,
 the run's last. The answer to the act is not journaled -- `agent_turn` carries no `extra_legal` -- so a
 refusal not taken is visible only in `llm_calls.jsonl`.
+*Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
+`extra_legal` whenever the act is on the menu, legal that tick or not.
 
 ### OBS-042
 

@@ -103,7 +103,7 @@ jobs:
       # checked against what the registry serves for the tag. A run that does
       # not move the pin (any other PR, a dispatch, the release) never asks the
       # registry, so a tag Microsoft re-pushes cannot turn it red.
-      - name: Assert @playwright/test matches the visual-regression image pin
+      - name: Assert @playwright/test matches the Playwright image pin
         env:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -111,13 +111,21 @@ jobs:
           # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
           # so a non-matching grep (exit 1) would otherwise abort the script
           # right here -- before the explicit diagnostics below.
-          pin_of() { # $1: e2e.yml content, $2: package.json content
+          # The pin is written once, anchored `&playwright-image` in the e2e job and reused by
+          # visual-regression. The version it must match is the one the lockfile installs, not
+          # package.json's range: the shards run whatever `npm ci` puts in node_modules.
+          pin_of() { # $1: e2e.yml content, $2: package-lock.json content
             local image pkg
-            image=$(grep -m1 -oP '^\s+image:\s*\Kmcr\.microsoft\.com/playwright:\S+' <<< "$1" || true)
-            pkg=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' <<< "$2" || true)
+            image=$(grep -m1 -oP '^\s+image:\s*(?:&\S+\s+)?\Kmcr\.microsoft\.com/playwright:\S+' <<< "$1" || true)
+            pkg=$(jq -r '.packages["node_modules/@playwright/test"].version // empty' <<< "$2" 2>/dev/null || true)
             echo "$image $pkg"
           }
-          read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package.json)")"
+          pins=$(grep -cP '^\s+image:\s*(?:&\S+\s+)?mcr\.microsoft\.com/playwright:' .github/workflows/e2e.yml || true)
+          if [ "$pins" != 1 ]; then
+            echo "::error::The Playwright image must be written once, as the \`&playwright-image\` anchor, and reused with \`image: *playwright-image\`; found $pins literal pin(s)."
+            exit 1
+          fi
+          read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package-lock.json)")"
           image_version=$(grep -oP 'playwright:v\K[0-9.]+(?=-noble)' <<< "$image" || true)
           digest=$(grep -oP '@\Ksha256:[0-9a-f]{64}$' <<< "$image" || true)
           if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
@@ -125,14 +133,14 @@ jobs:
             exit 1
           fi
           if [ "$pkg_version" != "$image_version" ]; then
-            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble with that tag's digest."
+            echo "::error::Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@$pkg_version, but this workflow pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the \`&playwright-image\` line in the e2e job to v$pkg_version-noble with that tag's digest."
             exit 1
           fi
           if [ -z "$digest" ]; then
-            echo "::error::The visual-regression image must be pinned by digest too: image: mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
+            echo "::error::The Playwright image must be pinned by digest too: image: &playwright-image mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
             exit 1
           fi
-          echo "OK: @playwright/test and the visual-regression image both pinned to $pkg_version ($digest)"
+          echo "OK: @playwright/test and the Playwright image both pinned to $pkg_version ($digest)"
 
           moved=true
           if [ "$EVENT" != pull_request ] && [ "$EVENT" != push ]; then
@@ -140,7 +148,7 @@ jobs:
           elif [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != 0000000000* ]] \
               && git fetch --quiet --depth 1 origin "$BASE_SHA" 2>/dev/null; then
             base_pin=$(pin_of "$(git show "$BASE_SHA:.github/workflows/e2e.yml" 2>/dev/null)" \
-                              "$(git show "$BASE_SHA:voter-app/package.json" 2>/dev/null)")
+                              "$(git show "$BASE_SHA:voter-app/package-lock.json" 2>/dev/null)")
             [ "$base_pin" != "$image $pkg_version" ] || moved=false
           fi
           if [ "$moved" = false ]; then
@@ -167,18 +175,32 @@ jobs:
   # runs in parallel. The required check is the aggregator below, which keeps
   # the exact name branch protection, Mergify and ci-local know.
   e2e:
-    needs: changes
+    needs: [changes, playwright-image-sync]
     # Always run for a manual dispatch or the release-gate call (no paths to
     # filter on); otherwise only when the changes job found something relevant.
     if: |
-      !cancelled() &&
+      !cancelled() && needs.playwright-image-sync.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
        needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Playwright E2E (shard ${{ matrix.shard }}/${{ matrix.total }})
-    runs-on: ubuntu-latest
+    # ubuntu-24.04, not -latest: setup-python takes its CPython from the host's tool cache, and a
+    # build for a newer host needs a newer OpenSSL than the noble image ships.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # The same pinned image as visual-regression: browsers and their system libraries come
+    # with it, so a shard runs no apt and downloads no browser. On 2026-10-07 the runner's
+    # Ubuntu mirror stalled `playwright install --with-deps` until this job's limit in 4 of 8
+    # runs (polity's included); apt was out of reach of any timeout set here, because
+    # Playwright runs it as root. --user 1001 is the runner's uid: Firefox will not start as
+    # root under a $HOME owned by another user, and the workspace stays the runner's.
+    container:
+      image: &playwright-image mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host --user 1001
+    defaults:
+      run:
+        shell: bash # a container job's default is sh (dash), which actionlint does not check for
     strategy:
       # Both shards always finish: a failure in one says nothing about the other.
       fail-fast: false
@@ -227,7 +249,8 @@ jobs:
             exit 1
           fi
 
-      # ── Node / Frontend ───────────────────────────────────────────────────────
+      # Node from setup-node, like every other Node job (and its npm cache); the browsers
+      # from the image, so no browser cache and no `playwright install`.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -236,22 +259,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
-        working-directory: ./voter-app
-
-      # ── Playwright ────────────────────────────────────────────────────────────
-      # Browser binaries keyed on package-lock.json, where the Playwright
-      # version is pinned — a version bump naturally invalidates the cache.
-      # `playwright install` still runs unconditionally below: it already
-      # skips re-downloading browsers present in this cache dir, but still
-      # needs to run apt for --with-deps' system libraries either way.
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./voter-app
 
       # blob replaces the config's html/json (the aggregator merges both shards'
@@ -355,12 +362,11 @@ jobs:
           fi
 
   visual-regression:
-    # Waits on playwright-image-sync (not just changes): this job is the one
-    # actually at risk from a desynced image tag, and a fast, explicit
-    # version-mismatch failure here is the whole point of that job -- running
-    # them in parallel would still spend the full ~15 minutes on this job's
-    # real container pull + Playwright run before its own cryptic
-    # missing-browser error, right alongside the fast one.
+    # Waits on playwright-image-sync (not just changes), as the e2e shards do: both
+    # run on the image's browsers, so a desynced tag fails both, and a fast,
+    # explicit version-mismatch failure is the whole point of that job --
+    # running them in parallel would still spend the container pull + Playwright
+    # run before a cryptic missing-browser error, right alongside the fast one.
     needs: [changes, playwright-image-sync]
     if: |
       !cancelled() && needs.playwright-image-sync.result != 'failure' &&
@@ -369,7 +375,7 @@ jobs:
        needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Visual regression (screenshots)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # see the e2e job: the host's CPython must suit the noble image
     timeout-minutes: 15
     # Pixel comparisons are only meaningful when the baseline PNGs (committed to
     # the repo) and this run render with byte-identical fonts/AA/rasterization —
@@ -383,10 +389,13 @@ jobs:
     # find the pre-installed browsers or silently compares against a different
     # renderer than the one that generated the committed baselines.
     container:
-      # Tag for readers, digest for Docker; the playwright-image-sync job
-      # checks both against @playwright/test and the registry.
-      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      # The e2e job's pin (tag for readers, digest for Docker); the
+      # playwright-image-sync job checks both against the lockfile and the registry.
+      image: *playwright-image
       options: --ipc=host
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4

@@ -1175,7 +1175,6 @@ const pgFr = {
     labelAssembly: 'Composition de l’assemblée',
     flipCaption: 'Mêmes électeurs, caractère opposé.',
     paradox: 'paradoxe {{pct}} %',
-    paradoxLoading: '· · ·',
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
     shake: '🎲 Secouer les hypothèses',
