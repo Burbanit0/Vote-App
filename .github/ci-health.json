@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-10-09T15:14:03Z",
+  "generated_at": "2026-10-10T14:25:44Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-08T18:11:37Z",
+      "last_run_at": "2026-10-10T12:05:40Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -19,7 +19,7 @@
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-09T02:26:53Z",
+      "last_run_at": "2026-10-10T12:05:40Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -34,7 +34,7 @@
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-08T20:37:01Z",
+      "last_run_at": "2026-10-10T12:05:40Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,8 +49,9 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-09T10:26:07Z",
+      "last_run_at": "2026-10-10T12:05:40Z",
       "recent_conclusions": [
+        "success",
         "success",
         "success",
         "success",
@@ -63,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-09T13:18:51Z",
+      "last_run_at": "2026-10-10T12:05:40Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -78,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-08T18:11:37Z",
+      "last_run_at": "2026-10-09T15:42:48Z",
       "recent_conclusions": [
         "success",
         "success",
