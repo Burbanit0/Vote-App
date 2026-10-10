@@ -11,13 +11,14 @@
  */
 import createClient from 'openapi-fetch';
 import type { paths } from './types.gen';
+import { pyFetch } from './pyEngine';
 
 // Same origin in production ('' → relative /api). The prod build bakes '' via
 // vite define; `??` preserves that empty string (unlike `||`, which would fall
 // back to localhost), while an unset var (test env) falls back to localhost.
 const API_BASE = process.env.VITE_API_URL ?? 'http://localhost:4434';
 
-export const apiClient = createClient<paths>({ baseUrl: API_BASE });
+export const apiClient = createClient<paths>({ baseUrl: API_BASE, fetch: pyFetch });
 
 // An error with no body (a proxy's bare 502 when the backend is down) reaches
 // openapi-fetch as `error: ''`, which openapi-react-query's `if (error) throw`

@@ -1,0 +1,90 @@
+{
+ "/api/v2/tech/polis": {
+  "candidates": [
+   {
+    "name": "Alice",
+    "x": -0.5,
+    "y": -0.2
+   },
+   {
+    "name": "Bob",
+    "x": 0.5,
+    "y": 0.2
+   },
+   {
+    "name": "Carol",
+    "x": 0.0,
+    "y": 0.3
+   }
+  ],
+  "num_participants": 300,
+  "ideology": "random",
+  "seed": 42,
+  "num_clusters": 3,
+  "min_consensus_threshold": 0.8,
+  "method_to_compare": "plurality"
+ },
+ "/api/v2/election/stv": {
+  "candidates": [
+   {
+    "name": "Alice",
+    "x": -0.5,
+    "y": -0.2
+   },
+   {
+    "name": "Bob",
+    "x": 0.5,
+    "y": 0.2
+   },
+   {
+    "name": "Carol",
+    "x": 0.0,
+    "y": 0.3
+   },
+   {
+    "name": "Dave",
+    "x": -0.8,
+    "y": 0.6
+   },
+   {
+    "name": "Eve",
+    "x": 0.3,
+    "y": -0.7
+   }
+  ],
+  "num_voters": 300,
+  "ideology": "random",
+  "seed": 42,
+  "num_seats": 3,
+  "quota_type": "droop"
+ },
+ "/api/v2/election/polarization": {
+  "candidates": [
+   {
+    "name": "Alice",
+    "x": -0.5,
+    "y": -0.2
+   },
+   {
+    "name": "Bob",
+    "x": 0.5,
+    "y": 0.2
+   },
+   {
+    "name": "Carol",
+    "x": 0.0,
+    "y": 0.3
+   }
+  ],
+  "num_voters": 150,
+  "ideology_range": [
+   "random",
+   "centered",
+   "polarized",
+   "left",
+   "right"
+  ],
+  "seed": 42,
+  "num_simulations": 15
+ }
+}

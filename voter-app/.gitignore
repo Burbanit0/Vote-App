@@ -37,3 +37,4 @@ yarn-error.log*
 /.stryker-tmp
 /.stryker-diff-tmp
 /reports
+public/pyengine.zip
