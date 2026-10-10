@@ -82,3 +82,76 @@ Before the run, the gate's logic was checked with stand-in answers in place of t
 - an agent that ignores the threshold: 30/30 vs 30/30, p = 1, **STOP**.
 
 The gate compares 3% with 7%, the ends of the plan's (3, 5, 7%) range; 5% was not asked. A PASS would not have promised a response at D1's 3 vs 5, and the pilot would have been sized on that difference. With no response even between the ends, there is no pilot.
+
+## The answers logged (2026-10-10, OBS-045)
+
+From the `fast_api_voter/` of `feat/polity-threshold-gate-log` (base `polity` 772736d6), vLLM 0.31.0 serving `qwen3:8b`,
+the same phase-4 seed-2 checkpoint. The gate prints founding by backing and writes every answer, with the founder's
+backing, as JSON lines: `check_agent_prompt_neutrality_d2_answers/shipped.jsonl` and `count.jsonl` beside this file.
+The runs below also printed a count of rationales at 7% mentioning "a threshold or a percentage"; it caught founders'
+own shares too ("8% support"), and `check_observations.py founders` replaces it.
+
+**Shipped wording** (`--probe threshold --n 60 --gate-log gate-answers.jsonl`, 3 min 14 s):
+
+```
+W2.1 gate: does founding follow the stated seat threshold? (60 able founders, each told 3% then 7%; founding rule worded: shipped)
+  found at 3%: 56/60    found at 7%: 59/60
+  only at 3%: 1   only at 7%: 4   exact McNemar p = 0.375
+  backing   n  found at 3%  found at 7%
+        5   4            4            4
+        6  10            8           10
+        7   5            5            5
+        8   9            8            9
+        9   4            4            4
+       10   7            6            7
+       11   3            3            3
+       12   9            9            8
+       13   6            6            6
+       14   2            2            2
+       16   1            1            1
+  rationales at 7% that mention the threshold or a percentage: 22/60
+  every answer, with its backing: /home/burbanit0/Documents/Dev/polity-runs/obs045/gate-answers.jsonl
+  GATE  STOP  founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)
+```
+
+**The founding rule as a count** (`--gate-wording count`): "at least 5% of the citizens" becomes "at least 5 of the
+100 citizens", the same fact without its percentage. The party roll still gives each party's share of the citizens
+as a percentage.
+
+```
+W2.1 gate: does founding follow the stated seat threshold? (60 able founders, each told 3% then 7%; founding rule worded: count)
+  found at 3%: 60/60    found at 7%: 58/60
+  only at 3%: 2   only at 7%: 0   exact McNemar p = 0.5
+  backing   n  found at 3%  found at 7%
+        5   4            4            4
+        6  10           10           10
+        7   5            5            5
+        8   9            9            9
+        9   4            4            4
+       10   7            7            7
+       11   3            3            3
+       12   9            9            8
+       13   6            6            6
+       14   2            2            2
+       16   1            1            0
+  rationales at 7% that mention the threshold or a percentage: 14/60
+  every answer, with its backing: /home/burbanit0/Documents/Dev/polity-runs/obs045/gate-answers-count.jsonl
+  GATE  STOP  founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)
+```
+
+**What the answers cite**, recounted from the two logs (`python scripts/check_observations.py founders
+scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl`):
+
+```
+log        told   n  found  backing<7 found  seat bar  founding rule  own share  'threshold' alone  none
+count        3%  60     60         14 of 14         0              8          0                  9    43
+count        7%  60     58         14 of 14         0              8          0                  7    45
+shipped      3%  60     56         12 of 14         0             29          1                  1    29
+shipped      7%  60     59         14 of 14         0             25          1                  1    33
+```
+
+Each answer is its rationale, note to self and post. "Seat bar": the bar the founder was told, a seat, or votes.
+The other columns are tried in order: the founding rule named ("5%" next to threshold, requirement or founding, "the
+5-citizen threshold", "the founding threshold"); a founder's own share called a threshold ("8% support meets the
+threshold"); "threshold" alone ("6 citizens closer to my positions meets the threshold", which could be either rule);
+none of these. Reading: OBS-045's follow-up.
