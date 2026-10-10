@@ -684,7 +684,13 @@ function traceMJ(cands: NamedPt[], ranks: number[][], scores: number[][], m: num
   const frames: TraceFrame[] = [
     { caption: { key: 'replay.phase.mjMedian' }, bars: grades.slice() },
   ];
-  const winner = ruleWinnerFromRanks(ranks, m, 'majority_judgment', scores);
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    'majority_judgment',
+    scores,
+    cands.map((c) => c.name)
+  );
   frames.push({
     caption: { key: 'replay.phase.done', params: { cand: winner >= 0 ? cands[winner].name : '—' } },
     bars: grades.slice(),
@@ -730,7 +736,13 @@ export function buildTraceFromBallots(
 ): VoteTrace {
   const m = cands.length;
   const family = FAMILY_OF[rule];
-  const winner = ruleWinnerFromRanks(ranks, m, rule, CARDINAL_RULES.has(rule) ? scores : undefined);
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    rule,
+    CARDINAL_RULES.has(rule) ? scores : undefined,
+    cands.map((c) => c.name)
+  );
 
   let frames: TraceFrame[];
   if (family === 'count') frames = traceCount(cands, ranks, scores, rule, m);

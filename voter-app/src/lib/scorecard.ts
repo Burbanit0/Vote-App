@@ -138,7 +138,9 @@ export function winnersByRule(
   if (m === 0 || voters.length === 0) return out;
   const ranks = ballots?.ranks ?? computeRanks(voters, cands);
   const scores = ballots?.scores ?? computeScores(voters, cands);
-  for (const r of rules) if (hasFixedWinner(r)) out[r] = ruleWinnerFromRanks(ranks, m, r, scores);
+  const names = cands.map((c) => c.name);
+  for (const r of rules)
+    if (hasFixedWinner(r)) out[r] = ruleWinnerFromRanks(ranks, m, r, scores, names);
   return out;
 }
 
@@ -274,6 +276,7 @@ export function leaderScorecard(
   electorate: ElectorateSampler | null = null
 ): LeaderScorecard {
   const m = candidates.length;
+  const names = candidates.map((c) => c.name);
   const perRule: Record<
     string,
     { ce: number[]; sr: number[]; wf: number[]; ms: number[]; winners: number[] }
@@ -300,11 +303,11 @@ export function leaderScorecard(
     const worstU = Math.min(...meanU);
 
     for (const rule of LEADER_RULES) {
-      const w = ruleWinnerFromRanks(ranks, m, rule, scores);
+      const w = ruleWinnerFromRanks(ranks, m, rule, scores, names);
       perRule[rule].winners.push(w);
       if (cw >= 0) perRule[rule].ce.push(w === cw ? 1 : 0);
       // Random ballot is strategyproof (Gibbard, 1977): maximal resistance by design.
-      const wProbe = ruleWinnerFromRanks(probe.ranks, m, rule, probe.scores);
+      const wProbe = ruleWinnerFromRanks(probe.ranks, m, rule, probe.scores, names);
       perRule[rule].sr.push(rule === 'random_ballot' ? 1 : wProbe === w ? 1 : 0);
       perRule[rule].wf.push(bestU - worstU > 1e-9 ? 1 - (bestU - meanU[w]) / (bestU - worstU) : 1);
       // Majority satisfaction: winner at least as good as the voter's median candidate.
@@ -410,7 +413,8 @@ export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): M
   if (rule === 'random_ballot') return { minCoalitionShare: null, backfired: false };
   const ranks = computeRanks(voters, cands);
   const scores = computeScores(voters, cands);
-  const w = ruleWinnerFromRanks(ranks, m, rule, scores);
+  const names = cands.map((c) => c.name);
+  const w = ruleWinnerFromRanks(ranks, m, rule, scores, names);
   if (w < 0) return { minCoalitionShare: null, backfired: false };
 
   // Two strongest challengers by first preferences (excluding the winner).
@@ -449,7 +453,7 @@ export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): M
         s2[c] = 1;
         return s2;
       });
-      const w2 = ruleWinnerFromRanks(ranks2, m, rule, scores2);
+      const w2 = ruleWinnerFromRanks(ranks2, m, rule, scores2, names);
       if (w2 === c) {
         best = share;
         break;

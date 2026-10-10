@@ -123,15 +123,37 @@ describe('Tier B extras (client-only)', () => {
       expect(ruleWinnerFromRanks(cw, 3, rule)).toBe(1);
   });
 
+  it('a score rule given no scores falls back to plurality', () => {
+    const ranks = [
+      [1, 0, 2],
+      [1, 2, 0],
+      [0, 1, 2],
+    ];
+    for (const rule of [
+      'star',
+      'majority_judgment',
+      'score',
+      'cumulative',
+      'maximin',
+      'nash',
+    ] as const)
+      expect(ruleWinnerFromRanks(ranks, 3, rule), rule).toBe(1);
+  });
+
+  it('STAR with a single candidate elects them', () => {
+    expect(ruleWinnerFromRanks([[0], [0]], 1, 'star', [[0.4], [0.9]])).toBe(0);
+  });
+
   it('maximin elects the least-bad option for the unhappiest voter (Rawlsian)', () => {
     // A and B are each loved by a bloc but rated 0 by the other; C is everyone's
-    // decent second choice. C has the highest minimum rating → maximin winner.
+    // decent second choice. C has the highest minimum rating → maximin winner. (C at
+    // 0.55, not 0.6: at 0.6 C's sum ties A's 3, and a tie is drawn by lot.)
     const scores = [
-      [1, 0, 0.6],
-      [1, 0, 0.6],
-      [1, 0, 0.6],
-      [0, 1, 0.6],
-      [0, 1, 0.6],
+      [1, 0, 0.55],
+      [1, 0, 0.55],
+      [1, 0, 0.55],
+      [0, 1, 0.55],
+      [0, 1, 0.55],
     ];
     const ranks = scores.map((s) => [0, 1, 2].sort((a, b) => s[b] - s[a]));
     expect(ruleWinnerFromRanks(ranks, 3, 'maximin', scores)).toBe(2);

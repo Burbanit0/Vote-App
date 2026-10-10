@@ -413,7 +413,7 @@
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'dowdall': dict({
       'bayesian_regret': 0.16,
@@ -533,28 +533,28 @@
         'Cy': 1.2,
       }),
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'maximin': dict({
       'bayesian_regret': 0.16,
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'mean_median_hybrid': dict({
       'bayesian_regret': 0.16,
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'median_voting': dict({
       'bayesian_regret': 0.16,
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'minimax': dict({
       'bayesian_regret': 0.16,
@@ -575,7 +575,7 @@
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'plurality': dict({
       'bayesian_regret': 0.16,
@@ -646,7 +646,7 @@
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'smith_irv': dict({
       'bayesian_regret': 0.16,
@@ -667,7 +667,7 @@
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
     'two_round': dict({
       'bayesian_regret': 0.16,
@@ -681,7 +681,7 @@
       'condorcet_consistent': None,
       'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': 'Ann',
+      'winner': 'Ben',
     }),
   })
 # ---

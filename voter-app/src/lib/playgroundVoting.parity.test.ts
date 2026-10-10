@@ -110,7 +110,7 @@ function exhaustiveMismatchesFor<
   const out: string[] = [];
   scenarios.forEach((s, i) => {
     const expected = s.winners[rule];
-    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores);
+    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores, s.candidates);
     const got = idx >= 0 ? s.candidates[idx] : null;
     if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
   });
@@ -203,7 +203,7 @@ describe.each([
         const expected = s.winners[rule];
         if (expected == null) return;
         compared += 1;
-        const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
+        const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores, s.candidates)];
         if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
       });
       const minStrict = rule === 'maximin' ? MIN_STRICT_WINNERS_MAXIMIN : MIN_STRICT_WINNERS;
@@ -319,7 +319,7 @@ describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
   it('client always returns a genuine maximin winner (member of the analytically-true tied set)', () => {
     const violations: string[] = [];
     prepared.forEach((s, i) => {
-      const idx = ruleWinnerFromRanks(s.ranks, s.m, 'maximin', s.scores);
+      const idx = ruleWinnerFromRanks(s.ranks, s.m, 'maximin', s.scores, s.candidates);
       const got = s.candidates[idx];
       if (!s.maximinTiedWinners.includes(got)) {
         violations.push(
