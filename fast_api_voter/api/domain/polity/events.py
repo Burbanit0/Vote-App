@@ -548,6 +548,9 @@ class AgentTurn(Event):
     note_to_self: str
     other_initiative: str  # something the rules do not offer: recorded, never applied
     provenance: LlmProvenance
+    # ADR-022: a president's answer to the extra-legal act ("none" or "refuse_to_leave"), present when the act
+    # is on the menu -- recorded whether or not it is legal that tick, so an act not taken is in the journal too.
+    extra_legal: str = OMIT
 
 
 @dataclass(frozen=True, kw_only=True)
