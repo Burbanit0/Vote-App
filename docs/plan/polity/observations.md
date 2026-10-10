@@ -68,7 +68,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
-| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
+| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | decided |
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
@@ -1950,7 +1950,17 @@ at 2.67 and 1.89 effective parties: the cliff the re-seating above predicted, re
 `PLAN_BEYOND_CI.md`'s W2.1 was to be the controlled follow-up (3% against 5%, amendments frozen); it stopped at
 its gate ([OBS-045](#obs-045)).
 
-*Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
+*Decided 2026-10-10 (owner, roadmap D11): the band is reported, not gated.* What the entries since showed: the
+fragmentation does not move with turnout (OBS-044), with what founders are told about the threshold (OBS-045:
+59 of 60 found either way) or with the false own-party claim (OBS-043); it follows from founding and seating both
+taking 5 citizens of 100, with sincere ballots and no merge. Real systems are held inside 1.5-8 largely by
+strategic voting, which this model does not have, so the band measured the missing mechanism rather than the
+polity. Phase 4's exit now asks that the polity respond to its fragmentation -- ratify an amendment to an
+article governing party entry or seats in at least 30% of seeds -- which phase11 meets (4 of 10; phase10: 2 of 10).
+Strategic voting (a `vote` weight discounting candidates the poll gives no chance) is the mechanism to add if the
+band itself is ever wanted; it is not built.
+
+*Status: decided* -- see above; the roadmap's Phase 4 exit line reads met under D11.
 
 ### OBS-041
 

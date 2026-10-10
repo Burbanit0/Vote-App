@@ -41,8 +41,6 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 
 ## Open questions
 
-- Phase 4 exit for Polity: still not met at ten seeds (OBS-044). Move the band, a rule, or nothing?
-  The roadmap leaves that to the owner.
 - Why does founding not follow the stated threshold (OBS-045)? At least 13 of the 14 founders
   it should have stopped founded anyway; a rerun logging each answer next to its backing would
   give the exact figure.
