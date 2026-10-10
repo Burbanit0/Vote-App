@@ -20,7 +20,7 @@ it.
 
 **There is no law concept in the domain today, and this is new construction, not
 a wiring job.** `legislative_result` (the assembly election's own outcome) carries
-only `{seats, votes, blank_count}` — it is an election result, not legislation.
+only `{seats, votes, blank_count}` (and `abstained` since OBS-046) — it is an election result, not legislation.
 No decision type proposes a rule change, no schema represents one, and nothing
 anywhere reads a config value conditionally on "which version of the rules is in
 force right now." Every existing mechanism that varies over time (recalls,

@@ -2146,11 +2146,17 @@ def _journal_vote_decisions(
         )
 
 
+def _voters(citizens: list[Citizen]) -> list[Citizen]:
+    """ADR-021: who casts a ballot -- a disengaged or exited citizen stays home, at every vote.
+    utility_ballot applies the same rule voter by voter (it returns None)."""
+    return [citizen for citizen in citizens if citizen.engaged]
+
+
 def _llm_ballots(
     citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
     llm_client: LlmClientProtocol,
 ) -> tuple[list[list[str]], int]:
-    voters = [voter for voter in citizens if voter.engaged]  # ADR-021: the rest stay home
+    voters = _voters(citizens)
     outcome = cast_votes(voters, nominees, config, llm_client)
     _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
     return outcome.ballots, len(citizens) - len(voters)
@@ -2401,7 +2407,7 @@ def _hold_legislative_election(
 ) -> tuple[dict[int, int], dict[int, float]]:
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
-    voters = [voter for voter in citizens if voter.engaged]  # ADR-021: the rest stay home
+    voters = _voters(citizens)
     for voter in voters:
         choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
         if choice is None:
@@ -2427,7 +2433,7 @@ def _hold_legislative_election(
             seats=seats,
             votes=votes,
             blank_count=blank_count,
-            abstained=len(citizens) - len(voters) or OMIT,
+            abstained=abstained if (abstained := len(citizens) - len(voters)) else OMIT,  # present once anyone stays home
         ),
     )
     return seats, votes
@@ -3250,7 +3256,10 @@ def _run_accountability_phase(
         lost_confidence = False
         if holder.petition_open_since_tick is not None:  # step 5
             ratio = petition_pressure(holder, config.run.population_size)
-            if ratio >= config.petition.signature_threshold:
+            voters = _voters(citizens)
+            # With no one left to vote (every citizen has given up) the vote is not held, and the
+            # petition runs on until it expires: confidence_keep_ratio has no meaning over no ballots.
+            if ratio >= config.petition.signature_threshold and voters:
                 journal.write_event(
                     tick=tick,
                     event=ConfidenceVoteTriggered(
@@ -3261,7 +3270,7 @@ def _run_accountability_phase(
                     ),
                     citizen_id=holder.citizen_id,
                 )
-                ballots = [build_confidence_ballot(c, holder) for c in citizens]
+                ballots = [build_confidence_ballot(c, holder) for c in voters]
                 retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
                 keep_ratio = confidence_keep_ratio(ballots)
                 # A won vote vetoes a same-tick floor trip. §7bis.7 step 6's
