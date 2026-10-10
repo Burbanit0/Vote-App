@@ -1151,7 +1151,6 @@ const pgEn: PlaygroundKeys = {
     labelAssembly: 'Composition of the assembly',
     flipCaption: 'Same voters, opposite character.',
     paradox: 'paradox {{pct}} %',
-    paradoxLoading: '· · ·',
     paradoxTitle:
       'Share of resampled electorates with no Condorcet winner — a high rate signals the result depends heavily on the assumptions.',
     shake: '🎲 Shake the assumptions',
