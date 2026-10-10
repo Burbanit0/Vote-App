@@ -78,6 +78,27 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     await expect.poll(() => new URL(page.url()).searchParams.get('lens')).toBe('party');
   });
 
+  // The story test below was flaky on loaded runners: the paradox readout's placeholder fitted
+  // on one line and the rate, arriving after the test's scroll, wrapped it onto a second, pushing
+  // the map down. Held until measured, the reply must leave the readout's height as it was.
+  test("the paradox rate arriving does not change its readout's height", async ({ page }) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/v2/election/profile-simulate', async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.goto('/playground');
+    const rate = page.getByTestId('cycle-rate');
+    await expect(rate).toBeVisible();
+    // The monospace font decides the wrap: measure once it has loaded, not in the fallback.
+    await page.evaluate(() => document.fonts.ready);
+    const before = (await rate.boundingBox())!.height;
+    release();
+    await expect(rate).toHaveText(/\d+\s?%/);
+    expect((await rate.boundingBox())!.height).toBe(before);
+  });
+
   // spoiler's first beat is short; paradox's 4th (393 characters in French) is the longest.
   for (const [story, beats] of [
     ['spoiler', 0],
