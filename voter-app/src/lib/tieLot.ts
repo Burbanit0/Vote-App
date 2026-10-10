@@ -23,32 +23,42 @@ function byCodePoint(a: string, b: string): number {
   return x.length - y.length;
 }
 
+const ENCODER = new TextEncoder();
+
 /** One of `tied`, drawn by the seeded lot over their names. */
 export function drawName(tied: readonly string[], seed = 0): string {
   const names = [...tied].sort(byCodePoint);
-  const key = new TextEncoder().encode([String(seed), ...names].join(SEP));
-  return names[fnv1a(key) % names.length];
+  return names[fnv1a(ENCODER.encode([String(seed), ...names].join(SEP))) % names.length];
 }
 
-/** The index with the highest value; an exact tie for it is drawn by lot over `names`. */
-export function bestIndex(values: readonly number[], names: readonly string[], seed = 0): number {
-  const top = Math.max(...values);
-  const tied = values.flatMap((v, i) => (v === top ? [i] : []));
-  if (tied.length === 1) return tied[0];
-  return names.indexOf(
-    drawName(
-      tied.map((i) => names[i]),
-      seed
-    )
-  );
-}
-
-/** The index among `pool` drawn by lot over their names. */
+/** The index among `pool` drawn by lot over their names, mapped back within `pool` (so
+ * a name two candidates share cannot pick one outside it). */
 export function drawIndex(pool: readonly number[], names: readonly string[], seed = 0): number {
-  return names.indexOf(
-    drawName(
-      pool.map((i) => names[i]),
-      seed
-    )
+  const drawn = drawName(
+    pool.map((i) => names[i]),
+    seed
   );
+  return pool.find((i) => names[i] === drawn)!;
+}
+
+/** Equal up to float noise, as tie_lot.py's `tied` (Python's math.isclose with 1e-9
+ * relative, 1e-12 absolute): the engines' logs and sums can differ in the last bits. */
+export function isTied(a: number, b: number): boolean {
+  // An infinity is close only to itself, as in Python (Infinity - x is not finite).
+  const gap = a - b;
+  return (
+    a === b ||
+    (Number.isFinite(gap) &&
+      Math.abs(gap) <= Math.max(1e-9 * Math.max(Math.abs(a), Math.abs(b)), 1e-12))
+  );
+}
+
+/** The index with the highest value; a tie for it (see `isTied`) is drawn by lot over `names`. */
+export function bestIndex(values: readonly number[], names: readonly string[], seed = 0): number {
+  let top = -Infinity;
+  for (const v of values) if (v > top) top = v;
+  const tied = values.flatMap((v, i) => (isTied(v, top) ? [i] : []));
+  // Every value NaN: none ranks, so the first index, as argmax always answered.
+  if (tied.length === 0) return 0;
+  return tied.length === 1 ? tied[0] : drawIndex(tied, names, seed);
 }

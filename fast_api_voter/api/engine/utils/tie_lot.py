@@ -8,6 +8,7 @@ bytes of the seed and the sorted names, joined by U+001F; the index is that hash
 modulo the number of tied names. test_tie_lot.py pins values the client test pins too.
 """
 
+import math
 from typing import Callable, Iterable, TypeVar
 
 T = TypeVar("T")
@@ -31,8 +32,15 @@ def draw(tied: Iterable[T], seed: int = 0) -> T:
     return names[_fnv1a(key) % len(names)]
 
 
+def tied(a: float, b: float) -> bool:
+    """Equal up to float noise: 1e-9 relative (1e-12 absolute), as `break_tie` reads a
+    tie. Sums and logarithms computed in another order, or by the client's Math.log, can
+    differ in the last bits; exact equality would make the two engines disagree."""
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
+
+
 def best(candidates: Iterable[T], value: Callable[[T], float], seed: int = 0) -> T:
-    """The candidate with the highest value; an exact tie for it is drawn by lot."""
+    """The candidate with the highest value; a tie for it (see `tied`) is drawn by lot."""
     pool = list(candidates)
     top = max(value(c) for c in pool)
-    return draw([c for c in pool if value(c) == top], seed)
+    return draw([c for c in pool if tied(value(c), top)], seed)

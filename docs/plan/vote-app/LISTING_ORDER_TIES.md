@@ -20,7 +20,8 @@ every tie). So:
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
 FNV-1a (32-bit) over the UTF-8 bytes of the seed (0 unless a caller passes one) and the
 tied names in code-point order; the index is the hash modulo the number of tied names.
-Both test files pin the same draws. The client draws over names when its caller passes
+Both test files pin the same draws. A tie is equal up to float noise (1e-9 relative,
+as `break_tie` reads one): the engines' logs and sums can differ in the last bits. The client draws over names when its caller passes
 them (`ruleWinnerFromRanks`' `names`), and over indices otherwise.
 
 ## Fixed

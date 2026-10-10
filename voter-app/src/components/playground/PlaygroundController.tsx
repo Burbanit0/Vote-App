@@ -212,7 +212,13 @@ function useController() {
     const m = leaderCandidates.length;
     const ranks = computeRanks(expressedVoters, leaderCandidates);
     const scores = computeScores(expressedVoters, leaderCandidates);
-    const winnerIdx = ruleWinnerFromRanks(ranks, m, leaderRule, scores);
+    const winnerIdx = ruleWinnerFromRanks(
+      ranks,
+      m,
+      leaderRule,
+      scores,
+      leaderCandidates.map((c) => c.name)
+    );
     const firstPrefCounts: number[] = new Array(m).fill(0);
     for (const r of ranks) firstPrefCounts[r[0]] += 1;
     const total = expressedVoters.length + blankSplit.blankCount;
