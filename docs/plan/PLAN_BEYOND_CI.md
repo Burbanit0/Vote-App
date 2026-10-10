@@ -355,10 +355,15 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
 
 - **Spike, at most 2 days:** the non-Polity engine in Pyodide inside a Web Worker, for
   2–3 Lab fiches.
-  - **[verified]** Those modules import only numpy, scipy, pydantic and the stdlib.
+  - Those modules import numpy, structlog and the stdlib, and pydantic for the request
+    and response models. scipy is Polity's only. (The earlier "[verified]" list named
+    scipy and missed structlog: corrected by the spike, 2026-10-10.)
 - **Compare with:** the existing container on Fly, after `PLAN_SURFACE_EXTERIEURE`
   §2.A and §2.D.
 - **Output:** a one-page memo, and the owner decides.
+  - Done 2026-10-10:
+    [EXP-023](../exploration/EXP-023-pyodide-web-worker-vs-fly-container.md), with the
+    spike on the branch `spike/pyodide-hosting`. Waiting on the owner's decision.
 
 ---
 
