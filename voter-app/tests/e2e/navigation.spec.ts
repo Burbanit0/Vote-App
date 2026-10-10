@@ -35,17 +35,18 @@ test.describe('Navigation — the five real surfaces', () => {
   // Each navbar link is a full page load: every step settles (routes.ts' `settled`) before
   // the next navigation, and the last one before the test ends.
   test('navbar links reach the three destinations', async ({ page }) => {
-    const reach = async (name: RegExp, path: Surface) => {
-      await page.locator('[data-testid="navbar"]').getByRole('link', { name }).click();
-      await expect.poll(() => new URL(page.url()).pathname).toBe(path);
-      await settled(page, path);
-    };
-
+    const links: [RegExp, Surface][] = [
+      [/playground/i, '/playground'],
+      [/laboratoire/i, '/laboratoire'],
+      [/à vous de jouer|your turn/i, '/a-vous-de-jouer'],
+    ];
     await page.goto('/');
     await settled(page, '/');
-    await reach(/playground/i, '/playground');
-    await reach(/laboratoire/i, '/laboratoire');
-    await reach(/à vous de jouer|your turn/i, '/a-vous-de-jouer');
+    for (const [name, path] of links) {
+      await page.locator('[data-testid="navbar"]').getByRole('link', { name }).click();
+      await expect(page).toHaveURL((url) => url.pathname === path);
+      await settled(page, path);
+    }
   });
 
   test('the home footer reaches Polity', async ({ page }) => {
