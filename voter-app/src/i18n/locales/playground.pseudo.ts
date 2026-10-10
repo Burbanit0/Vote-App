@@ -1250,7 +1250,6 @@ const pgPseudo: PlaygroundKeys = {
     labelAssembly: '⟦Cómpósítíóñ~~~~ dé~ l’ássémbléé~~~~⟧',
     flipCaption: '⟦Mêmés~~ éléçtéúrs,~~~~ çáráçtèré~~~~ óppósé.~~~⟧',
     paradox: '⟦párádóxé~~~ {{pct}} %~⟧',
-    paradoxLoading: '⟦·~ ·~ ·~⟧',
     paradoxTitle:
       '⟦Párt~~ dés~~ éléçtóráts~~~~ ré-éçháñtíllóññés~~~~~~ sáñs~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ úñ~ táúx~~ élévé~~ sígñálé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dés~~ hypóthèsés.~~~~⟧',
     shake: '⟦🎲~ Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
