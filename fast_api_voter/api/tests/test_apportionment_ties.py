@@ -855,7 +855,7 @@ def test_campaign_and_information_noise_follow_the_candidate_not_its_slot(worker
     cands = [{"name": "Ann", "party": "Green"}, {"name": "Ben", "party": "Liberal"},
              {"name": "Cy", "party": "Conservative"}]
     req = {"seed": 3, "num_voters": 120, "campaign": {"enabled": True},
-           "information_model": {"enabled": True}}
+           "information_model": {"enabled": True, "media_bias": {"Ann": 0.5, "Cy": -0.3}}}
 
     def result(order):
         body = fn({**req, "candidates": order})[0]
