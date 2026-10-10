@@ -1,5 +1,5 @@
 import { test, expect } from './coverageFixtures';
-import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
+import { SURFACES, ANCHORS, assertEverySurfaceAnchored, settled } from './routes';
 
 // Runs only on the `mobile` project (see playwright.config.ts — an Android
 // device profile, chromium-based: WebKit's iOS emulation needs system deps
@@ -39,7 +39,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the collapsed navbar opens on tap and can navigate', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator(ANCHORS['/'])).toBeVisible(); // settled before navigating again
+    await settled(page, '/');
     const nav = page.locator('[data-testid="navbar"]');
     await page.getByTestId('navbar-toggle').click();
     await expect(nav.getByRole('link', { name: /playground/i })).toBeVisible();
@@ -49,6 +49,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     // Clicking a link inside the collapsed menu closes it again (Navbar.tsx's
     // onClick={() => setNavExpanded(false)}) — the next surface starts collapsed.
     await expect(nav.getByRole('link', { name: /laboratoire/i })).not.toBeVisible();
+    await settled(page, '/playground');
   });
 
   test('the playground instrument is usable at mobile width', async ({ page }) => {

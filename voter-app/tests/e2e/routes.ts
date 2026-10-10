@@ -1,4 +1,5 @@
 import { SURFACES, LEGACY_REDIRECTS, type Surface } from '../../src/routes';
+import { expect, type Page } from './coverageFixtures';
 
 export { SURFACES, LEGACY_REDIRECTS, type Surface };
 
@@ -20,6 +21,15 @@ export const ANCHORS: Record<Surface, string> = {
 };
 
 /** Route patterns carry params ("/users/:id"); browsers need a concrete URL. */
+/**
+ * Wait until `path` has rendered its anchor (its lazy chunk loaded) before navigating
+ * again, or before the test ends. A navigation that cancels a page's in-flight requests
+ * can crash WebKit's network process ("WebKit encountered an internal error",
+ * microsoft/playwright#42803). f7c5f6f8 removed that shape once, spec by spec, and it came back.
+ */
+export const settled = (page: Page, path: Surface): Promise<void> =>
+  expect(page.locator(ANCHORS[path])).toBeVisible();
+
 export const concreteUrl = (pattern: string): string => pattern.replace(/:\w+/g, '1');
 
 /** The guard against silent under-coverage: a new surface with no anchor fails. */
