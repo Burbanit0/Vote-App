@@ -27,6 +27,7 @@ import {
   type StrategicOutcome,
 } from '../../lib/playgroundSincerity';
 import { condorcetFromRanks, hasFixedWinner, LEADER_RULES } from '../../lib/scorecard';
+import { summarizeMap } from '../../lib/mapSummary';
 import NoFixedWinner from './NoFixedWinner';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 import NoShowParadox from './NoShowParadox';
@@ -248,6 +249,28 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
         }
       : null;
+  // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
+  // first-choice share, then the winner the readout shows.
+  const summaryId = React.useId();
+  // Ranked once the candidates hold still (300 ms), not on every drag frame.
+  const [settled, setSettled] = useState(candidates);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(candidates), 300);
+    return () => clearTimeout(id);
+  }, [candidates]);
+  const summary = useMemo(() => {
+    const raw = { interpolation: { escapeValue: false } };
+    const shown = strat?.stratName ?? winner;
+    return [
+      t('canvas.summaryVoters', { count: voters.length }),
+      ...summarizeMap(voters, settled, dims).map((c) =>
+        t('canvas.summaryCandidate', { ...c, pct: c.firstChoicePct, ...raw })
+      ),
+      hasFixedWinner(rule)
+        ? t('canvas.summaryWinner', { rule: ruleLabels[rule], name: shown ?? '—', ...raw })
+        : t('canvas.summaryNoWinner', { rule: ruleLabels[rule], ...raw }),
+    ].join(' ');
+  }, [voters, settled, dims, rule, ruleLabels, winner, strat?.stratName, t]);
   const mx = median(voters.map((v) => v.x));
   const my = median(voters.map((v) => v.y));
   const cellW = PLOT / GRID_N;
@@ -385,12 +408,17 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
       )}
 
+      {/* hidden: read once, as the map's description, not again in reading order. */}
+      <p id={summaryId} data-testid="leader-map-summary" hidden>
+        {summary}
+      </p>
       <svg
         ref={svgRef}
         data-testid="leader-map"
         viewBox={`0 0 ${SVG} ${SVG}`}
         role="group"
         aria-label={t('canvas.svgAria')}
+        aria-describedby={summaryId}
         className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
