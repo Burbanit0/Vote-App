@@ -199,6 +199,15 @@ describe('ParliamentCanvas', () => {
     expect(screen.getByTestId('coalition-status')).toHaveTextContent('no majority');
   });
 
+  it('a touch on a hit circle grabs its party (W3.6)', () => {
+    const { onMoveParty } = setup();
+    fireEvent.touchStart(screen.getByTestId('party-1-hit'));
+    fireEvent.touchMove(screen.getByTestId('parliament-map'), {
+      touches: [{ clientX: 120, clientY: 120 }],
+    });
+    expect(onMoveParty.mock.calls[0][0]).toBe(1);
+  });
+
   it('dragging a party reports its new position', () => {
     const { onMoveParty } = setup();
     fireEvent.mouseDown(screen.getByTestId('party-0'));
