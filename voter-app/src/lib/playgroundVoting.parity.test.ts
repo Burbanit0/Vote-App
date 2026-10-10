@@ -243,6 +243,11 @@ describe.each([
 //   against each other, so no rescale is needed here — contrast with the
 //   `/ 5` map below for majority_judgment.
 //
+//   Since #667 both engines draw a maximin tie by the same seeded lot over the tied
+//   names (tie_lot.py / tieLot.ts), so the raw winner IS now a shared rule and is
+//   asserted on every profile too; the history below is why the two checks after it
+//   were written first, and they still hold.
+//
 //   Maximin gets a DIFFERENT check shape than approval/majority_judgment,
 //   below — it is the one rule here whose own tie-break has no principled,
 //   shared convention to lock. get_maximin_score_winner (backend) and
@@ -344,6 +349,10 @@ describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
     // vacuous (a real regression).
     expect(unambiguous.length).toBeGreaterThanOrEqual(2000);
     expect(exhaustiveMismatchesFor(unambiguous, 'maximin')).toEqual([]);
+  });
+
+  it('maximin matches the backend on EVERY profile, ties and all (the shared lot, #667)', () => {
+    expect(exhaustiveMismatchesFor(prepared, 'maximin')).toEqual([]);
   });
 });
 

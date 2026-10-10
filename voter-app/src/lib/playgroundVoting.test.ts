@@ -926,6 +926,45 @@ describe('anonymity — ballot order must not decide', () => {
   });
 });
 
+describe('listing order — a score-rule tie is drawn over names, not positions (#667)', () => {
+  const NAMES = ['Ann', 'Ben', 'Cy'];
+  const SCORE_RULES: Rule[] = [
+    'score',
+    'star',
+    'majority_judgment',
+    'cumulative',
+    'maximin',
+    'nash',
+  ];
+
+  it.each(SCORE_RULES)(
+    '%s elects the same candidate with the candidates listed in reverse',
+    (rule) => {
+      let s = 20261009;
+      const rnd = () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+      };
+      // Small electorates on a 5-step grade scale, where exact ties are common.
+      for (let trial = 0; trial < 1000; trial++) {
+        const scores = Array.from({ length: 2 + Math.floor(rnd() * 4) }, () =>
+          NAMES.map(() => Math.floor(rnd() * 5) / 4)
+        );
+        const ranks = scores.map((u) => [0, 1, 2].sort((a, b) => u[b] - u[a]));
+        const w = ruleWinnerFromRanks(ranks, 3, rule, scores, NAMES);
+        const r = ruleWinnerFromRanks(
+          ranks.map((o) => o.map((i) => 2 - i)),
+          3,
+          rule,
+          scores.map((u) => u.slice().reverse()),
+          NAMES.slice().reverse()
+        );
+        expect(NAMES[2 - r]).toBe(NAMES[w]);
+      }
+    }
+  );
+});
+
 /**
  * Kemeny-Young's exact path is a DP over candidate subsets, replacing a brute
  * force over the m! orderings. The parity fixture checks it against the backend,

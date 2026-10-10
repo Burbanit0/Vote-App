@@ -4,8 +4,9 @@
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
-by the endpoint's seeded lot (`break_tie` / `top_k` in
-`api/engine/utils/simulation_multiwinner_utils.py`), never by position in the list.
+by a seeded lot, never by position in the list: the endpoint's (`break_tie` / `top_k` in
+`api/engine/utils/simulation_multiwinner_utils.py`), or for the single-winner rules
+shared by both engines, the portable lot below.
 
 **Decided 2026-10-09 (owner): the seeded lot, on both engines.** A name tie-break was
 rejected: it swaps order-dependence for name-dependence (a candidate named Aaron wins
@@ -18,11 +19,14 @@ every tie). So:
   flip as they do.
 
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
-FNV-1a (32-bit) over the UTF-8 bytes of the seed (0 unless a caller passes one) and the
+FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
 tied names in code-point order; the index is the hash modulo the number of tied names.
 Both test files pin the same draws. A tie is equal up to float noise (1e-9 relative,
 as `break_tie` reads one): the engines' logs and sums can differ in the last bits. The client draws over names when its caller passes
-them (`ruleWinnerFromRanks`' `names`), and over indices otherwise.
+them (`ruleWinnerFromRanks`' `names`), and over indices otherwise. No caller passes a seed yet,
+so it is 0 everywhere: the draw is reproducible and free of listing order, but a given
+set of tied names always draws the same one. Threading the request's or trial's seed
+through is still to do; it needs a parameter on `compare_all_methods` and the client.
 
 ## Fixed
 
