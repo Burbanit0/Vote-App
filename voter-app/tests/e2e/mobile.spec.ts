@@ -28,7 +28,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the navbar collapses behind a toggle below the lg breakpoint', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    const nav = page.locator('[data-testid="navbar"]');
     await expect(page.getByTestId('navbar-toggle')).toBeVisible();
     // The links are still in the DOM (collapsed via CSS, not unmounted) —
     // what proves the collapse is that they aren't reachable until expanded.
@@ -39,7 +39,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
 
   test('the collapsed navbar opens on tap and can navigate', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    const nav = page.locator('[data-testid="navbar"]');
     await page.getByTestId('navbar-toggle').click();
     await expect(nav.getByRole('link', { name: /playground/i })).toBeVisible();
 
@@ -77,4 +77,55 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     await page.getByTestId('polity-lens-party').tap();
     await expect.poll(() => new URL(page.url()).searchParams.get('lens')).toBe('party');
   });
+
+  // spoiler's first beat is short; paradox's 4th (393 characters in French) is the longest.
+  for (const [story, beats] of [
+    ['spoiler', 0],
+    ['paradox', 3],
+  ] as const) {
+    test(`a story keeps its narration and the map on screen together: ${story} (W3.4)`, async ({
+      page,
+    }) => {
+      await page.goto('/playground');
+      await page.getByTestId('story-launch').tap();
+      await page.getByTestId(`story-pick-${story}`).tap();
+      for (let i = 0; i < beats; i++) await page.getByTestId('story-next').tap();
+      const nav = page.getByTestId('navbar');
+      const bar = page.getByTestId('story-bar');
+      const beat = page.getByTestId('story-beat');
+      const map = page.getByTestId('leader-map');
+      await expect(beat).toBeVisible();
+
+      // Scroll the page until the map's bottom is just above the screen's, as a reader
+      // would. (scrollIntoView can move the visual viewport instead of the page on a phone.)
+      await map.evaluate((el) =>
+        window.scrollBy(0, el.getBoundingClientRect().bottom - innerHeight + 8)
+      );
+      // innerHeight, not viewportSize(): the page measures in its own CSS pixels, which
+      // differ from the device's when the browser zooms out to fit a wider layout.
+      const height = await page.evaluate(() => innerHeight);
+      const box = async (l: typeof map) => (await l.boundingBox())!;
+      // Share of a box inside the screen.
+      const shown = async (l: typeof map) => {
+        const b = await box(l);
+        return (Math.min(b.y + b.height, height) - Math.max(b.y, 0)) / b.height;
+      };
+      await expect.poll(() => shown(beat)).toBeGreaterThan(0.99);
+      await expect.poll(() => shown(map)).toBeGreaterThan(0.99);
+      // Nothing covers anything: the bar sits under the navbar, the map under the bar.
+      const [n, b, m] = [await box(nav), await box(bar), await box(map)];
+      expect(b.y).toBeGreaterThanOrEqual(n.y + n.height - 1);
+      expect(m.y).toBeGreaterThanOrEqual(b.y + b.height - 1);
+
+      if (story === 'spoiler') {
+        // On the next beat, without scrolling again. The press is a plain click: tap() would
+        // first scroll the page back to the sticky button's place in the flow, which a
+        // finger does not. The browser's scroll anchoring then holds the map in place
+        // while the beat and the winner strip above it grow.
+        await page.getByTestId('story-next').dispatchEvent('click');
+        await expect.poll(() => shown(beat)).toBeGreaterThan(0.99);
+        await expect.poll(() => shown(map)).toBeGreaterThan(0.99);
+      }
+    });
+  }
 });

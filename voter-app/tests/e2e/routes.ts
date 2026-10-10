@@ -11,7 +11,7 @@ export { SURFACES, LEGACY_REDIRECTS, type Surface };
  * every navigation/a11y/i18n run calls.
  */
 export const ANCHORS: Record<Surface, string> = {
-  '/': '[data-tour="hero"]',
+  '/': '[data-testid="home-hero"]',
   '/decouvrir': '[data-testid="discover-winner"]',
   '/a-vous-de-jouer': '[data-testid="play-vote-open"]',
   '/playground': '[data-testid="playground-page"]',

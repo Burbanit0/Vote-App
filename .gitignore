@@ -263,9 +263,8 @@ Thumbs.db
 # repo file; settings.local.json, worktrees/ and scheduled_tasks.lock are
 # per-machine/per-session state (local permission grants tied to one temp
 # session dir, the local worktree registry, a lock file) and stay untracked.
-# The journal-writer agent and /log-session command feed docs/journal/
-# (tracked below) — keeping the tool out of the repo while its output is in
-# it made no sense ──────────────────────────────────────────────────────────
+# Agents, commands, hooks and skills are tracked so they reach every worktree
+# and branch like any other repo file ──────────────────────────────────────
 .claude/*
 !.claude/settings.json
 !.claude/skills/
@@ -317,6 +316,8 @@ graphify-out/
 # (test_behavior_catalogue.py): ignored, it would exist only on one disk and the
 # test would fail everywhere else.
 !/docs/spec/
+# The project's one-page status: read first, so versioned.
+!/docs/STATUS.md
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/

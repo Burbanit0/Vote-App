@@ -49,3 +49,6 @@ if (typeof window !== 'undefined' && !window.ResizeObserver) {
 import { i18nReady, loadLanguage } from './i18n';
 await i18nReady;
 await loadLanguage('en');
+
+// jsdom does not implement scrolling; App's ScrollToTop calls it on navigation.
+window.scrollTo = () => {};

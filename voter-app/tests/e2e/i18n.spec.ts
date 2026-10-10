@@ -54,14 +54,14 @@ async function switchToEnglish(page: Page) {
   await page.locator('#user-settings-dropdown').click();
   await page.getByRole('button', { name: /switch to english/i }).click();
   await expect(
-    page.locator('[data-tour="navbar"]').getByRole('link', { name: /your turn/i })
+    page.locator('[data-testid="navbar"]').getByRole('link', { name: /your turn/i })
   ).toBeVisible();
 }
 
 test.describe('i18n', () => {
   test('the language switch changes the UI and survives a reload', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    const nav = page.locator('[data-testid="navbar"]');
     await expect(nav).toContainText('Laboratoire');
 
     await switchToEnglish(page);

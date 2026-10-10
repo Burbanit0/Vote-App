@@ -1,5 +1,7 @@
 # Plan de développement v0 — Worktree `polity`
 
+> **status:** done — v0 shipped (plan-polity-agency-roadmap.md §1.1). Its exit checklist was never ticked: read it as the target, not as a record. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Cible : le palier **v0** du §13 — squelette mécanique pur, 100 citoyens,
 > décisions déterministes simplifiées, aucun LLM. Objectif unique : valider
 > la mécanique institutionnelle en vase clos.

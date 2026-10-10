@@ -5,7 +5,7 @@ import { useStoreCtx } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import Collapsible from '../Collapsible';
 import ScenarioInfo from '../ScenarioInfo';
-import ElectorateComposer from '../ElectorateComposer';
+import ElectorateComposer, { IDEOLOGY_LABEL_KEY } from '../ElectorateComposer';
 import { isSpatialSource, type PrefSource } from '../../../stores/useElectionStore';
 
 // Preference sources, grouped: spatial (candidates placed in the space, draggable
@@ -97,7 +97,9 @@ const ElectorateMoment: React.FC = () => {
           points: config.candidates.length,
           pointWord,
           voters: config.num_voters,
-          ideology: config.ideology,
+          ideology: IDEOLOGY_LABEL_KEY[config.ideology]
+            ? t(IDEOLOGY_LABEL_KEY[config.ideology])
+            : config.ideology,
         })}
       </div>
 

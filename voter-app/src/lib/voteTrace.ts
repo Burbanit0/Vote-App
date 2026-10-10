@@ -214,8 +214,9 @@ function traceCount(
       key = 'replay.count.nash';
       params.cand = cands[r[0]].name;
     } else {
-      // score
-      for (let i = 0; i < m; i++) bars[i] += Math.round(scores[vi][i] * 5);
+      // score: the engine sums unrounded scores, so the bars do too (rounding each
+      // ballot could put the winner behind on the bars).
+      for (let i = 0; i < m; i++) bars[i] += scores[vi][i] * 5;
       key = 'replay.count.score';
       params.cand = cands[r[0]].name;
     }
@@ -597,12 +598,16 @@ function tracePairwise(cands: NamedPt[], ranks: number[][], m: number, rule: Rul
         if (r.indexOf(i) < r.indexOf(j)) av++;
         else bv++;
       }
-      const w = av >= bv ? i : j;
-      wins[w] += 1;
+      // A tied duel is a win for neither: the bars count duels won outright, which is
+      // what explainWinner reads to say whether the winner beat everyone.
+      let w = -1;
+      if (av > bv) w = i;
+      else if (bv > av) w = j;
+      if (w >= 0) wins[w] += 1;
       frames.push({
         caption: {
-          key: 'replay.pairwise.duel',
-          params: { a: cands[i].name, b: cands[j].name, av, bv, cand: cands[w].name },
+          key: w >= 0 ? 'replay.pairwise.duel' : 'replay.pairwise.duelTie',
+          params: { a: cands[i].name, b: cands[j].name, av, bv, cand: w >= 0 ? cands[w].name : '' },
         },
         bars: wins.slice(),
         highlight: [i, j],

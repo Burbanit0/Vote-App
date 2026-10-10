@@ -96,7 +96,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.checkpoint import config_hash  # noqa: E402
-from api.domain.polity.config import PolityConfig, load_config, validate_config  # noqa: E402
+from api.domain.polity.config import ARTICLES, PolityConfig, load_config, validate_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME  # noqa: E402
 from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
@@ -135,6 +135,8 @@ def _flagship_config(
     vote_mode: str | None = None,
     profile: str = "flagship",
     base_url: str | None = None,
+    threshold: float | None = None,
+    freeze_amendments: bool = False,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -245,7 +247,34 @@ def _flagship_config(
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    return _exploration_config(config) if profile == "exploration" else config
+    config = _exploration_config(config) if profile == "exploration" else config
+    return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments)
+
+
+def _experiment_overrides(config: PolityConfig, *, threshold: float | None, freeze_amendments: bool) -> PolityConfig:
+    """PLAN_BEYOND_CI W2.1's two knobs, applied after the profile, which sets amendments and
+    regime from llm.enabled and would otherwise overwrite them. `threshold` is the seat bar
+    under test. `freeze_amendments` keeps it there: the chamber can no longer amend the
+    constitution (OBS-040's seed 1 lowered its own bar mid-run), so regime acts go too
+    (config.py: they are a field of the president's amendment turn), and so do
+    referendums on the voting method, and so do scripted amendments."""
+    if threshold is not None:
+        article = ARTICLES["institutions.electoral_threshold"]
+        if not article.allows(threshold):
+            raise ValueError(
+                f"--threshold {threshold}: the article allows {article.low} to {article.high} (a share: 0.03 for 3%)"
+            )
+        config = dataclasses.replace(
+            config, institutions=dataclasses.replace(config.institutions, electoral_threshold=threshold),
+        )
+    if freeze_amendments:
+        config = dataclasses.replace(
+            config,
+            agents=dataclasses.replace(config.agents, amendments=False),
+            regime=dataclasses.replace(config.regime, enabled=False),
+            constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
+        )
+    return config
 
 
 def _exploration_config(config: PolityConfig) -> PolityConfig:
@@ -492,6 +521,8 @@ def run_flagship(
     vote_mode: str | None = None,
     profile: str = "flagship",
     base_url: str | None = None,
+    threshold: float | None = None,
+    freeze_amendments: bool = False,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -509,6 +540,8 @@ def run_flagship(
         vote_mode=vote_mode,
         profile=profile,
         base_url=base_url,
+        threshold=threshold,
+        freeze_amendments=freeze_amendments,
     )
     validate_config(config)
 
@@ -721,6 +754,14 @@ def main(argv: list[str] | None = None) -> int:
         help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
              "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
     )
+    parser.add_argument(
+        "--threshold", type=float, default=None,
+        help="institutions.electoral_threshold for this run, as a share (0.03 for 3%%) -- PLAN_BEYOND_CI W2.1",
+    )
+    parser.add_argument(
+        "--freeze-amendments", action="store_true",
+        help="no amendment, regime act or method referendum, so the run keeps the rules it starts with (W2.1)",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
     parser.add_argument(
@@ -770,6 +811,8 @@ def main(argv: list[str] | None = None) -> int:
         vote_mode=args.vote_mode,
         profile=args.profile,
         base_url=args.base_url,
+        threshold=args.threshold,
+        freeze_amendments=args.freeze_amendments,
     )
     return 0
 

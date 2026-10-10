@@ -548,4 +548,153 @@ describe('PlaygroundPage (P0 shell)', () => {
       'Carol',
     ]);
   });
+
+  it('on a phone, the narration of a playing story sticks under the navbar (W3.4)', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    const bar = screen.getByTestId('story-bar');
+    expect(bar).toHaveClass('max-lg:sticky', 'max-lg:max-h-[40svh]', 'max-lg:overflow-y-auto');
+    // The page's scroll padding (tailwind.css) keys on this attribute.
+    expect(bar).toHaveAttribute('data-story-bar');
+  });
+});
+
+describe('PlaygroundPage — winner strip and default methods (W3.2)', () => {
+  const INTRO = ['approval', 'condorcet', 'irv', 'plurality', 'two_round'];
+  const checked = () =>
+    screen
+      .getAllByTestId(/^rule-check-/)
+      .filter((el) => (el.querySelector('input') as HTMLInputElement).checked)
+      .map((el) => el.getAttribute('data-testid')!.replace('rule-check-', ''));
+  const stripWinner = () =>
+    screen.getByTestId('winner-strip-current').querySelector('strong')?.textContent;
+  const fieldWinner = () =>
+    [...screen.getByTestId('field-winner').querySelectorAll('strong')].pop()?.textContent;
+
+  it('names on the first moment the winner the map shows from the second', () => {
+    renderPage();
+    const atElectorate = stripWinner();
+    expect(atElectorate).toMatch(/\S/);
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(fieldWinner()).toBe(atElectorate);
+  });
+
+  it('ticks the five intro methods by default, and the strip accounts for the other four', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(checked().sort()).toEqual(INTRO);
+    const others = screen.getByTestId('winner-strip-others');
+    expect(others.getAttribute('data-rules')!.split(',').sort()).toEqual(
+      INTRO.filter((r) => r !== 'plurality')
+    );
+    const groups = screen.queryAllByTestId(/^winner-strip-group-/);
+    if (groups.length > 0) {
+      const listed = groups.flatMap((g) => g.getAttribute('data-rules')!.split(','));
+      expect(listed.sort()).toEqual(INTRO.filter((r) => r !== 'plurality'));
+    }
+  });
+
+  it('mirrors the map when voters are strategic', async () => {
+    // A spoiler line-up: sincere plurality elects Carol; Alice's voters compromise on Bob.
+    useElectionStore.setState({
+      playground: { ...DEFAULT_PLAYGROUND, behavior: 'strategic' },
+      config: {
+        ...DEFAULT_CONFIG,
+        candidates: [
+          { name: 'Alice', x: -0.7, y: 0 },
+          { name: 'Bob', x: -0.1, y: 0 },
+          { name: 'Carol', x: 0.3, y: 0 },
+        ],
+      },
+    });
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    // The strategic outcome settles ~200 ms after render (debounced off the drag frame).
+    // Then the map strikes the sincere winner.
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')).toBeInTheDocument()
+    );
+    expect(stripWinner()).toBe(fieldWinner());
+    expect(stripWinner()).not.toBe(
+      screen.getByTestId('field-winner').querySelector('s')?.textContent
+    );
+    expect(screen.getByTestId('winner-strip-others')).toHaveTextContent('(sincere votes)');
+  });
+
+  it('shows the lottery as having no fixed winner, on the map, in the strip and in the Bilan', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.click(screen.getByTestId('rule-check-random_ballot'));
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'random_ballot' } });
+    expect(
+      screen.getByTestId('winner-strip-current').querySelector('[data-testid="no-fixed-winner"]')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('field-winner').querySelector('[data-testid="no-fixed-winner"]')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    expect(screen.getByTestId('winner-group-lottery')).toBeInTheDocument();
+    for (const g of screen.getAllByTestId(/^winner-group-\d+$/)) {
+      expect(g).not.toHaveTextContent(/lottery/i);
+    }
+  });
+
+  it('with only the lottery ticked, the Bilan names no winner', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.click(screen.getByTestId('rule-check-random_ballot'));
+    for (const r of INTRO) fireEvent.click(screen.getByTestId(`rule-check-${r}`));
+    expect(checked()).toEqual(['random_ballot']);
+
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    const verdict = screen.getByTestId('bilan-verdict');
+    expect(verdict.querySelector('[data-testid="no-fixed-winner"]')).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/^winner-group-\d+$/)).toHaveLength(0);
+  });
+
+  it('is absent in assembly mode', () => {
+    renderPage();
+    expect(screen.getByTestId('winner-strip')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    expect(screen.queryByTestId('winner-strip')).not.toBeInTheDocument();
+  });
+
+  it('is absent on a non-spatial electorate', () => {
+    useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, prefSource: 'impartial' } });
+    renderPage();
+    expect(screen.queryByTestId('winner-strip')).not.toBeInTheDocument();
+  });
+});
+
+describe('PlaygroundPage — the Bilan says why (W3.3)', () => {
+  it('gives each winner group the reason its first method elects that winner', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    const groups = screen.getAllByTestId(/^winner-group-\d+$/);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      expect(g.querySelectorAll('[data-testid="winner-explanation"]')).toHaveLength(1);
+    }
+  });
+
+  it('when methods disagree, puts their winners head to head, on the full electorate', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    // The default electorate splits the five intro methods: plurality elects Alice alone.
+    expect(screen.getAllByTestId(/^winner-group-\d+$/).length).toBeGreaterThan(1);
+    const why = screen.getByTestId('bilan-why');
+    const [duel, anyway] = [...why.querySelectorAll('p')].slice(1).map((p) => p.textContent ?? '');
+    const m = duel.match(/^Head to head, (\w+) beats (\w+): (\d+) voters to (\d+)\.$/);
+    expect(m, duel).not.toBeNull();
+    // Every one of the 300 voters ranks the two, so the duel is on the full electorate
+    // (the replay's animated sample is at most 60 ballots).
+    expect(Number(m![3]) + Number(m![4])).toBe(300);
+    expect(Number(m![3])).toBeGreaterThan(Number(m![4]));
+    // The method that elects the duel's loser says why it does all the same.
+    expect(anyway).toMatch(
+      new RegExp(`^Plurality \\(1 round\\) elects ${m![2]} all the same\\. ${m![2]} wins`)
+    );
+  });
 });

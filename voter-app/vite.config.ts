@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Vote Lab — Théorie du vote',
           short_name: 'Vote Lab',
-          description: 'Explorez et comparez 15 méthodes de vote',
+          description: 'Explorez et comparez 29 méthodes de vote',
           theme_color: '#0e7068',
           background_color: '#f6f7f4',
           display: 'standalone',
@@ -96,16 +96,16 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'build',
-      // Manual vendor splits so heavy libs (recharts, d3) land in separate
-      // chunks that the browser can cache long-term and that pages not
-      // needing them never have to download.
+      // d3's heavy modules get their own long-cacheable chunk. recharts does not:
+      // under Rolldown a `recharts` manual chunk also swallowed React and its
+      // shared deps, so every page — the static home included — preloaded all of
+      // recharts (591 KB). Left to the default split, it loads with the lazy
+      // pages that chart something.
       rollupOptions: {
         output: {
           manualChunks(id: string): string | undefined {
-            if (id.includes('node_modules')) {
-              if (id.includes('recharts')) return 'recharts';
-              if (/[\\/]d3-(delaunay|force)[\\/]/.test(id)) return 'd3';
-            }
+            if (id.includes('node_modules') && /[\\/]d3-(delaunay|force)[\\/]/.test(id))
+              return 'd3';
             return undefined;
           },
         },

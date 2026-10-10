@@ -4,6 +4,7 @@ import type { TranslationKeys } from './fr';
 
 const pseudo: TranslationKeys = {
   nav: {
+    beta: '⟦Bêtá~~⟧',
     play: '⟦À~ vóús~~ dé~ jóúér~~⟧',
     polity: '⟦Pólíty~~~⟧',
     playground: '⟦Pláygróúñd~~~~⟧',
@@ -16,7 +17,6 @@ const pseudo: TranslationKeys = {
     plain: '⟦Sáñs~~ járgóñ~~~⟧',
     lightModeTip: '⟦Módé~~ çláír~~⟧',
     darkModeTip: '⟦Módé~~ sómbré~~~⟧',
-    tourLabel: '⟦Tóúr~~ gúídé~~⟧',
     toggleLabel: '⟦Méñú~~ dé~ ñávígátíóñ~~~~⟧',
     reportBug: '⟦Sígñálér~~~ úñ~ búg~~⟧',
   },
@@ -289,7 +289,7 @@ const pseudo: TranslationKeys = {
     discoverTag: '⟦3~ míñ~~⟧',
     discoverBannerLead: '⟦Nóúvéáú~~~ íçí~~ ?~⟧',
     discoverBannerText: '⟦Cómpréñéz~~~~ lé~ vóté~~ éñ~ 3~ míñútés.~~~⟧',
-    reassure: '⟦Grátúít~~~ ·~ sáñs~~ çómpté~~~ ·~ 15~ méthódés~~~ ·~ FR~ /~ ÉN~⟧',
+    reassure: '⟦Grátúít~~~ ·~ sáñs~~ çómpté~~~ ·~ 29~ méthódés~~~ ·~ FR~ /~ ÉN~⟧',
     heroInstrLabel: '⟦Cárté~~ ídéólógíqúé~~~~ —~ démó~~⟧',
     rulePick: '⟦Chóísísséz~~~~ lá~ règlé~~⟧',
     heroWinner: '⟦Váíñqúéúr~~~~⟧',
@@ -303,8 +303,7 @@ const pseudo: TranslationKeys = {
       '⟦Dú~ plús~~ símplé~~~ áú~ plús~~ çómpléxé~~~ —~ çháqúé~~~ témps~~ állúmé~~~ úñ~ réglágé~~~ dé~ plús~~ súr~~ lé~ mêmé~~ áppáréíl.~~~~⟧',
     footMore: '⟦Állér~~ plús~~ lóíñ~~⟧',
     ctaLab: '⟦Déçóúvrír~~~~ lé~ Láb~~ →~⟧',
-    labLede:
-      '⟦17~ méthódés,~~~~ 47~ phéñómèñés~~~~ —~ éxplóréz~~~ çé~ qúé~~ lé~ Pláygróúñd~~~~ éffléúré.~~~~⟧',
+    labLede: '⟦63~ fíçhés~~~ —~ éxplóréz~~~ çé~ qúé~~ lé~ Pláygróúñd~~~~ éffléúré.~~~~⟧',
   },
   simulation: {
     recalculating: '⟦Réçálçúl…~~~~⟧',
@@ -607,29 +606,6 @@ const pseudo: TranslationKeys = {
     leftDesc: '⟦Májóríté~~~ dé~ gáúçhé~~~⟧',
     rightDesc: '⟦Májóríté~~~ dé~ dróíté~~~⟧',
     randomDesc: '⟦Dístríbútíóñ~~~~~ úñífórmé~~~⟧',
-  },
-  onboarding: {
-    step1Title: '⟦🗳️~~ Bíéñvéñúé~~~~ súr~~ Vóté~~ Láb~~⟧',
-    step1Content:
-      '⟦3~ óútíls~~~ sóñt~~ díspóñíblés~~~~ dáñs~~ çé~ méñú~~ :~ lé~ Símúlátéúr~~~~ dé~ sçéñáríó,~~~~ lá~ Cómpáráísóñ~~~~ dés~~ méthódés,~~~~ ét~ lé~ Símúlátéúr~~~~ dé~ çrísé~~ çóñstítútíóññéllé.~~~~~~~⟧',
-    step2Title: '⟦▶~ Símúlér~~~ úñé~~ éléçtíóñ~~~⟧',
-    step2Content:
-      "⟦Cómméñçéz~~~~ pár~~ çóñstrúíré~~~~ vótré~~ própré~~~ éléçtíóñ~~~ :~ défíñísséz~~~~ lés~~ çáñdídáts,~~~~ l'éléçtórát~~~~ ét~ lá~ règlé~~ dú~ vóté~~ bláñç,~~~ púís~~ çómpáréz~~~ lés~~ résúltáts~~~~ sóús~~ 5~ méthódés~~~ dé~ vóté~~ dífféréñtés.~~~~~⟧",
-    step3Title: '⟦⬜~ Vóté~~ Bláñç~~⟧',
-    step3Content:
-      "⟦Lé~ vóté~~ bláñç~~ ést~~ módélísé~~~ çómmé~~ úñ~ çáñdídát~~~ à~ párt~~ éñtíèré.~~~ Cháqúé~~~ éléçtéúr~~~ póssèdé~~~ úñ~ séúíl~~ d'íñsátísfáçtíóñ~~~~~~ qúí~~ détérmíñé~~~~ s'íl~~ lé~ çlássé~~~ éñ~ têté.~~ 4~ règlés~~~ çóñstítútíóññéllés~~~~~~~ défíñísséñt~~~~ lés~~ çóñséqúéñçés~~~~~ sí~ lé~ bláñç~~ gágñé.~~~⟧",
-    step4Title: '⟦⚖️~ Régrét~~~ báyésíéñ~~~⟧',
-    step4Content:
-      "⟦Lé~ régrét~~~ báyésíéñ~~~ mésúré~~~ l'íñsátísfáçtíóñ~~~~~~ çólléçtívé~~~~ géñéréé~~~ pár~~ çháqúé~~~ méthódé.~~~ Plús~~ íl~ ést~~ bás,~~ plús~~ lá~ méthódé~~~ élít~~ úñ~ çáñdídát~~~ próçhé~~~ dés~~ préféréñçés~~~~ rééllés~~~ dé~ lá~ pópúlátíóñ.~~~~⟧",
-    step5Title: '⟦🗺️~~ Éléçtíóñs~~~~ hístóríqúés~~~~⟧',
-    step5Content:
-      '⟦Téstéz~~~ súr~~ dés~~ éléçtíóñs~~~~ rééllés~~~ :~ Fráñçé~~~ 2002~~ (élímíñátíóñ~~~~~ dé~ Jóspíñ),~~~ Fráñçé~~~ 2022~~ (frágméñtátíóñ~~~~~ éxtrêmé),~~~~ ÚSÁ~~ 1992~~ (éffét~~~ Pérót),~~~ ét~ úñé~~ «~ Éléçtíóñ~~~ dé~ çrísé~~ »~ pédágógíqúé~~~~ óù~ lé~ vóté~~ bláñç~~ gágñé.~~~⟧',
-    back: '⟦Préçédéñt~~~~⟧',
-    close: '⟦Férmér~~~⟧',
-    last: '⟦Térmíñér~~~⟧',
-    next: '⟦Súíváñt~~~⟧',
-    open: '⟦Óúvrír~~~ lé~ tóúr~~⟧',
-    skip: '⟦Pássér~~~⟧',
   },
   combined: {
     compute: '⟦Áñálysér~~~ lés~~ éfféts~~~ çómbíñés~~~⟧',
