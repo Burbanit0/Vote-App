@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 import numpy as _np
 
 from api.engine.utils.demographic_data import _seeded_rng_pair
+from api.engine.utils import tie_lot
 
 
 
@@ -227,12 +228,14 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         score = sum(1.0 - abs(cand_x[ci] - stmts[j]["position"]) for j in target_indices)
         cand_scores[cname] = round(score / len(target_indices), 4)
 
-    polis_winner    = max(cand_scores, key=cand_scores.__getitem__)
+    polis_winner    = tie_lot.best(cand_scores, cand_scores.__getitem__, seed)  # a tie by lot
 
     # ── Classical election (plurality by ideology proximity) ──────────────
     vote_tally: Counter[str] = Counter()
     for px in pax:
-        vote_tally[cand_names[int(_np.argmin([abs(px - cx) for cx in cand_x]))]] += 1
+        # An equidistant voter is drawn by lot, seeded with their position (#665).
+        gap = dict(zip(cand_names, (abs(px - cx) for cx in cand_x)))
+        vote_tally[tie_lot.favourite(cand_names, lambda c: -gap[c], px)] += 1
     election_winner = min(vote_tally, key=lambda c: (-vote_tally[c], c)) if vote_tally else cand_names[0]
     winners_agree   = polis_winner == election_winner
 

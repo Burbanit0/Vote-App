@@ -613,21 +613,25 @@ class TestPlaygroundListingOrder:
         assert a["cumulative"] == b["cumulative"]
 
 
-def test_desertion_without_a_count_tie_is_unchanged():
-    """No district ties on votes here, but voters sit exactly on y = x, so some
-    deserters are equidistant from both viable parties and argmin takes the
-    first of `viable`. It must stay weaker-first, as argsort had it: best-first
-    moved seats (P 6 / Q 4) with no tie in any count."""
-    body = play_mod._assembly_worker({
-        "parties": [{"name": "P", "x": 0.2, "y": 0.6}, {"name": "Q", "x": 0.6, "y": 0.2},
-                    {"name": "R", "x": 0.7, "y": 0.7}],
-        "electorate": {"mode": "composed", "correlation": 1.0, "communities": [
-            {"id": "a", "x": 0.3, "y": 0.3, "spread": 0.3, "weight": 2},
-            {"id": "b", "x": 0.48, "y": -0.3, "spread": 0.3, "weight": 1}]},
-        "structure": "fptp", "seats": 10, "threshold": 0.0, "strategic_desertion": True,
-        "num_voters": 400, "seed": 0,
-    })[0]
-    assert {p["name"]: p["seats"] for p in body["parties"]} == {"P": 7, "Q": 3, "R": 0}
+def test_voters_equidistant_from_two_parties_do_not_follow_listing_order():
+    """Community a sits exactly on y = x, so its voters are equidistant from P and Q,
+    for their sincere vote and as deserters. Their choice used to be argmin's, the
+    first-listed P: that alone gave P 7 seats. Each is drawn by lot now (#665), so
+    community b, nearer Q, carries the districts, whichever way the parties are listed."""
+    def seats(parties):
+        body = play_mod._assembly_worker({
+            "parties": parties,
+            "electorate": {"mode": "composed", "correlation": 1.0, "communities": [
+                {"id": "a", "x": 0.3, "y": 0.3, "spread": 0.3, "weight": 2},
+                {"id": "b", "x": 0.48, "y": -0.3, "spread": 0.3, "weight": 1}]},
+            "structure": "fptp", "seats": 10, "threshold": 0.0, "strategic_desertion": True,
+            "num_voters": 400, "seed": 0,
+        })[0]
+        return {p["name"]: p["seats"] for p in body["parties"]}
+
+    parties = [{"name": "P", "x": 0.2, "y": 0.6}, {"name": "Q", "x": 0.6, "y": 0.2},
+               {"name": "R", "x": 0.7, "y": 0.7}]
+    assert seats(parties) == seats(parties[::-1]) == {"P": 0, "Q": 10, "R": 0}
 
 
 def test_a_tied_district_is_nobodys_win_in_the_efficiency_gap(monkeypatch):
@@ -709,3 +713,125 @@ def test_no_show_groups_a_tied_favourite_by_name_not_listing():
         return play_mod._no_show_report(cands, matrix, winners)
 
     assert report(names) == report(names[::-1])
+
+
+def test_issue_voting_ties_do_not_follow_listing_order():
+    """Sign-collapsed platforms tie often: five voters agree with A and B on one issue
+    each. Their vote, and a tie for the winner, are drawn by lot (#663)."""
+    stances = [[1, -1]] * 5 + [[1, 1]] * 2 + [[-1, -1]] * 2
+
+    def result(names, platforms):
+        body = play_mod._issue_voting_worker({
+            "mode": "handcrafted", "voter_stances": stances,
+            "party_platforms": platforms, "party_names": names,
+        })[0]
+        return {p["name"]: p["votes"] for p in body["parties"]}, body["bundled_winner"]
+
+    forward = result(["A", "B"], [[1, 1], [-1, -1]])
+    assert forward == result(["B", "A"], [[-1, -1], [1, 1]])
+    assert forward[0] != {"A": 7, "B": 2}  # argmax gave all five to the first-listed A
+
+
+def test_party_dynamics_twins_do_not_follow_listing_order():
+    """Two parties at the same position: every voter nearest to them is a tie, which
+    went to the first-listed (#663)."""
+    import api.domain.election.workers_advanced as adv
+
+    parties = [{"name": "L", "x": -0.4}, {"name": "M", "x": 0.3}, {"name": "N", "x": 0.3}]
+
+    def first_election(order, seed=3):
+        body = adv._party_dynamics_worker({"initial_parties": order, "num_elections": 1, "seed": seed})[0]
+        first = body["elections"][0]
+        return {p["name"]: p["vote_pct"] for p in first["parties"]}, first["winner"]
+
+    forward = first_election(parties)
+    assert forward == first_election(parties[::-1])
+    assert forward[0]["M"] > 0 and forward[0]["N"] > 0
+    # The request's seed reaches the lot: some seed splits the twins differently.
+    assert any(first_election(parties, s)[0]["M"] != forward[0]["M"] for s in range(4, 12))
+
+
+def test_identical_candidates_approval_fallback_does_not_follow_listing_order():
+    """Identical candidates leave no one above a voter's mean utility, so each voter
+    approves their favourite alone: a tie of all four, drawn by lot (#665)."""
+    spec = {"x": -0.5, "y": -0.2}
+    cands = [{**spec, "name": n} for n in ("Ann", "Ben", "Cy", "Dee")]
+    req = {"num_seats": 2, "num_voters": 60, "seed": 7}
+    a = _multiwinner_compare_worker({**req, "candidates": cands})[0]
+    b = _multiwinner_compare_worker({**req, "candidates": cands[::-1]})[0]
+    assert {k: v for k, v in a.items() if k != "candidates"} == {
+        k: v for k, v in b.items() if k != "candidates"}
+
+
+def test_issue_voting_names_the_winning_platform_even_with_duplicate_names():
+    """The winner is the platform with the most votes, found by position: two parties
+    may share a name."""
+    body = play_mod._issue_voting_worker({
+        "mode": "handcrafted", "voter_stances": [[1, 1]] * 2 + [[-1, -1]] * 7,
+        "party_platforms": [[1, 1], [-1, -1]], "party_names": ["X", "X"],
+    })[0]
+    assert [i["winner_plank"] for i in body["issues"]] == [-1, -1]
+
+
+
+_TWINS = [{"name": "A", "x": 0.3, "y": 0.1}, {"name": "B", "x": 0.3, "y": 0.1},
+          {"name": "C", "x": -0.5, "y": -0.2}]
+
+
+def _same_both_ways(worker, request, echo=("candidates", "proposals")):
+    """The worker's result with the candidates listed forward and reversed, minus the
+    fields that only echo the request's order."""
+    key = "proposals" if "proposals" in request else "candidates"
+    a = worker(request)[0]
+    b = worker({**request, key: request[key][::-1]})[0]
+    return ({k: v for k, v in a.items() if k not in echo},
+            {k: v for k, v in b.items() if k not in echo})
+
+
+def test_polis_twins_do_not_follow_listing_order():
+    """tech.py: each participant's nearest candidate, and the Polis winner, draw a tie
+    by lot (#665)."""
+    from api.domain import tech
+
+    forward, backward = _same_both_ways(tech._polis_with_candidates_worker,
+                                        {"candidates": _TWINS, "seed": 4})
+    assert forward == backward
+
+
+def test_conviction_voting_twins_do_not_follow_listing_order():
+    from api.domain.election import workers_behavioral as beh
+
+    props = [{"name": "P", "x": 0.2}, {"name": "Q", "x": 0.2}, {"name": "R", "x": -0.6}]
+    forward, backward = _same_both_ways(beh._conviction_voting_worker,
+                                        {"proposals": props, "seed": 4})
+    assert forward == backward
+
+
+def test_backsliding_and_identity_voters_do_not_follow_listing_order():
+    """The theory workers' nearest candidate (#665): base vote shares, and each identity
+    voter's ideological vote."""
+    from api.domain.theory import workers as th
+
+    assert th._backsliding_base_vote_shares(_TWINS, "random", 300, 5) == \
+        th._backsliding_base_vote_shares(_TWINS[::-1], "random", 300, 5)
+    groups = [{"name": "G", "ideology_center": 0.3, "pct": 1.0, "loyalty": 0.5,
+               "candidate_affiliation": "C"}]
+
+    def ideo(cands):
+        voters = th._identity_generate_voters(groups, cands, 200, random.Random(9), False, 0.5)
+        return [v["ideo_vote"] for v in voters]
+
+    assert ideo(_TWINS) == ideo(_TWINS[::-1])
+
+
+def test_hotelling_plurality_splits_converged_candidates_by_lot():
+    """Converged candidates tie for every voter: the first-listed took them all (#665)."""
+    import numpy as np
+
+    from api.domain.election.workers_dynamics import _hotelling_score
+
+    utilities = np.tile([[1.0, 1.0, 0.2]], (300, 1))
+    shares = [_hotelling_score(utilities, "plurality", j, ["A", "B", "C"], 5) for j in range(3)]
+    rev = [_hotelling_score(utilities[:, ::-1], "plurality", j, ["C", "B", "A"], 5) for j in range(3)]
+    assert shares == rev[::-1]
+    assert 0.35 < shares[0] < 0.65 and shares[2] == 0.0

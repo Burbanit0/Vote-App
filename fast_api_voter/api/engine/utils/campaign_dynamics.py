@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 import random
 from typing import Any, Optional
+from api.engine.utils import tie_lot
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ def _softmax(values: list[float]) -> list[float]:
 
 def _plurality_winner(utilities: dict[str, float]) -> str:
     """Deterministic: candidate with highest utility wins."""
-    return max(utilities, key=lambda n: utilities[n])
+    return tie_lot.best(utilities, utilities.__getitem__)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
