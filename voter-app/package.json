@@ -37,6 +37,7 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "audit:gate": "node scripts/check-npm-audit.mjs",
     "test:scripts": "node --test scripts/*.test.mjs",
+    "measure:jank": "node scripts/measure-drag-jank.mjs",
     "lint:sonarjs": "eslint -c eslint.sonarjs.config.js . --ext .js,.jsx,.ts,.tsx",
     "knip": "knip",
     "depcruise": "depcruise --config .dependency-cruiser.json src",

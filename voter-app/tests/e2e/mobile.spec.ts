@@ -62,7 +62,7 @@ test.describe('Mobile viewport — the six real surfaces', () => {
     // By the page's own testids, not by [data-touch]: the test must also see the controls a
     // missing scope leaves small.
     const CONTROLS =
-      ':is(button, select, summary, textarea, a[href], [role="button"], label:has(input), input:not([type="checkbox"], [type="radio"], [type="hidden"]), [data-testid="you-marker"])';
+      ':is(button, select, summary, textarea, a[href], [role="button"], input:not([type="hidden"]), [data-testid="you-marker"])';
     const within = (...testids: string[]) =>
       testids.map((id) => `[data-testid="${id}"] ${CONTROLS}`).join(', ');
     const small = async (where: string, sel: string) => {
@@ -79,9 +79,12 @@ test.describe('Mobile viewport — the six real surfaces', () => {
             if (el.tagName === 'A' && getComputedStyle(el).display === 'inline') return [];
             const id = el.dataset.testid ?? el.getAttribute('aria-label') ?? el.tagName;
             if (el.getBoundingClientRect().width === 0) return [];
-            // A map's handle is grabbed through its hit circle, which must be there.
+            // A map's handle is grabbed through its hit circle, which must be there; an
+            // input through its label, when it has one.
             const target =
-              el instanceof SVGGElement ? document.querySelector(`[data-testid="${id}-hit"]`) : el;
+              el instanceof SVGGElement
+                ? document.querySelector(`[data-testid="${id}-hit"]`)
+                : (el.closest('label') ?? el);
             const r = target?.getBoundingClientRect();
             if (!r?.width) return [`${where} ${id}: no hit area`];
             const box = el.classList.contains('touch-expand')
