@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hypothesis import given, settings
@@ -120,6 +121,12 @@ def test_a_deserter_lands_within_the_margin_on_a_party_above_the_threshold(voter
         cost = weighted_distance(citizen, by_id[moved].platform) - weighted_distance(citizen, by_id[choice].platform)
         assert cost <= margin + 1e-12
         assert weighted_distance(citizen, by_id[moved].platform) <= citizen.blank_threshold + 1e-12
+
+
+def test_the_exploration_profile_votes_strategically_and_the_flagship_sincerely(flagship: Any) -> None:
+    config = load_config()
+    assert config.vote.strategic_margin == 0.0
+    assert flagship._exploration_config(config).vote.strategic_margin == 0.07
 
 
 def test_the_digest_reports_the_deserters_per_legislative_election() -> None:

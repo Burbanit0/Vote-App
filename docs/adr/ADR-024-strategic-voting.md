@@ -28,9 +28,10 @@ went to parties below the threshold.
   the strategic vote never disagrees with the sincere one about which party a voter prefers. Only the
   threshold enters.
 - **`vote.strategic_margin`** is the one knob (0 = the sincere vote, every run before this). The
-  exploration profile sets **0.07**, the median cost of deserting to the 377 voters stranded with a
-  viable party within reach in phase11's final populations (deciles 10/50/90: 0.01, 0.072, 0.21,
-  against a median tolerance of 0.36 in seed 1's population). About half of them desert.
+  exploration profile sets **0.07**, the median cost of deserting to the 377 engaged voters stranded
+  in phase11's final populations with a party above the threshold to go to (deciles 10/50/90: 0.01,
+  0.072, 0.21, against a median tolerance of 0.36 in seed 1's population). 374 of them have one
+  within their tolerance, and 179 of those (48%) desert.
 - **What is journaled.** While the margin is above 0, `legislative_result` journals `deserted`, the
   number of voters who changed party, and `sincere_votes`, the vote before desertion. The digest's
   per-election rows carry `deserted`.
@@ -43,7 +44,8 @@ went to parties below the threshold.
 ## Measured
 
 Applied once to phase11's final populations, with each seed's threshold and seat method in force at
-the end and its engaged voters only (OBS-046):
+the end, its engaged voters only (OBS-046), no governing record (so distance alone), and seat ties
+drawn with seed 0. The strategic seat median moves between 7.30 and 7.36 with that draw.
 
 | | sincere | strategic (0.07) |
 |---|---:|---:|
