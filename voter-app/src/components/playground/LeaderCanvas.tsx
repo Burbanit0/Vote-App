@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
-import { CANDIDATE_PALETTE, ENTRY_COLOR } from '../../lib/palette';
+import { CANDIDATE_PALETTE, ENTRY_COLOR, textTone } from '../../lib/palette';
 import {
   fieldWinnerName,
   winRegionGrid,
@@ -26,7 +26,8 @@ import {
   type Behavior,
   type StrategicOutcome,
 } from '../../lib/playgroundSincerity';
-import { condorcetFromRanks, LEADER_RULES } from '../../lib/scorecard';
+import { condorcetFromRanks, hasFixedWinner, LEADER_RULES } from '../../lib/scorecard';
+import NoFixedWinner from './NoFixedWinner';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 import NoShowParadox from './NoShowParadox';
 
@@ -282,7 +283,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </select>
             </label>
             <div className="flex items-center gap-2">
-              {strat ? (
+              {!hasFixedWinner(rule) && (
+                <span data-testid="field-winner" className="text-sm">
+                  {t('canvas.winnerLabel')} <NoFixedWinner />
+                </span>
+              )}
+              {hasFixedWinner(rule) && strat && (
                 <span data-testid="field-winner" className="flex items-center gap-1 text-sm">
                   {t('canvas.winnerLabel')}
                   {strat.flipped ? (
@@ -297,7 +303,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                     <strong>{strat.stratName ?? winner ?? '—'}</strong>
                   )}
                 </span>
-              ) : (
+              )}
+              {hasFixedWinner(rule) && !strat && (
                 <span data-testid="field-winner" className="text-sm">
                   {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
                 </span>
@@ -312,7 +319,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </button>
             </div>
           </div>
-          {sampleAtSeed && baseSeed != null && (
+          {sampleAtSeed && baseSeed != null && hasFixedWinner(rule) && (
             <WinnerRobustness
               sampleAtSeed={sampleAtSeed}
               candidates={candidates}
@@ -380,6 +387,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
       <svg
         ref={svgRef}
+        data-testid="leader-map"
         viewBox={`0 0 ${SVG} ${SVG}`}
         role="group"
         aria-label={t('canvas.svgAria')}
@@ -772,7 +780,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <div key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {c.name}
               </span>
@@ -807,7 +815,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <label key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {cand.name}
               </span>

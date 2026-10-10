@@ -59,6 +59,7 @@ from .simulation_score_utils import (
     get_star_voting_winner,
     get_variance_based_winner,
 )
+from .tie_lot import ranking
 
 
 class UnknownMethod(ValueError):
@@ -166,11 +167,9 @@ UTILITY_METHODS: tuple[str, ...] = (
 def rankings_from_utilities(
     utilities: Mapping[Any, Mapping[str, float]], voters: Sequence[Mapping[str, Any]]
 ) -> List[List[str]]:
-    """Each voter's candidates, their favourite first."""
-    return [
-        sorted(utilities[v["id"]].keys(), key=lambda n: -utilities[v["id"]][n])
-        for v in voters
-    ]
+    """Each voter's candidates, their favourite first; a tie of their own is ordered by
+    a lot seeded with their id, not by the listing order (#662)."""
+    return [ranking(utilities[v["id"]], utilities[v["id"]].__getitem__, v["id"]) for v in voters]
 
 
 def winner_from_utilities(

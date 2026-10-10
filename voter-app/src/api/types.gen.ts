@@ -1173,8 +1173,9 @@ export interface paths {
         /**
          * McKelvey-style agenda manipulation under binary elimination
          * @description Enumerates all `n!` agendas for `n` alternatives and reports which
-         *     outcomes the agenda-setter can engineer. A consequence of Plott's
-         *     Chaos Theorem when no Condorcet winner exists.
+         *     outcomes the agenda-setter can engineer. When no Condorcet winner exists,
+         *     majority cycles let the agenda decide: the finite counterpart of
+         *     McKelvey's chaos theorem.
          */
         post: operations["agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post"];
         delete?: never;

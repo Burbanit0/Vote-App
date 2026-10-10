@@ -25,12 +25,13 @@ zero is also None".
 """
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
-def effective_number_of_parties(seats: dict[int, int]) -> float:
-    """Laakso & Taagepera (1979): N = 1 / sum(share_i^2) over seat shares.
-    2 parties at 50/50 seats -> N = 2.0 (the dev-plan's own worked example)."""
+def effective_number_of_parties(seats: Mapping[int, float]) -> float:
+    """Laakso & Taagepera (1979): N = 1 / sum(share_i^2) over seat shares (or vote shares:
+    the formula takes any non-negative counts). 2 parties at 50/50 -> N = 2.0 (the dev-plan's
+    own worked example)."""
     total = sum(seats.values())
     if total == 0:
         return 0.0

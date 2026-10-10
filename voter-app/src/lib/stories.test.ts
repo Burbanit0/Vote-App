@@ -7,6 +7,8 @@ import {
   computeRanks,
   computeScores,
   ruleWinnerFromRanks,
+  condorcetWinnerIdx,
+  pluralityCounts,
   type NamedPt,
   type Dims,
 } from './playgroundVoting';
@@ -15,6 +17,7 @@ import { blankVerdict, type BlankVerdict } from './blankVote';
 import type { PlaygroundState } from '../stores/useElectionStore';
 import pgEn from '../i18n/locales/playground.en';
 import pgFr from '../i18n/locales/playground.fr';
+import { STORY_CLAIMS, type StoryClaim } from './storyClaims';
 
 // Resolve the electorate + candidates as they stand *at* a given step, by folding
 // the story's step patches up to and including it (steps patch only what changes).
@@ -89,6 +92,15 @@ const winnerAt = (storyId: string, stepId: string): string | null => {
   return fieldWinnerName(voters, cands, rule as never);
 };
 
+// The strict Condorcet winner at a step (beats every rival head-to-head), or null on a
+// cycle. The `condorcet` rule is Copeland, which always names someone, so a beat that
+// says "the Condorcet winner" (or "there is none") is checked against this, not the rule.
+const strictCondorcetAt = (storyId: string, stepId: string): string | null => {
+  const { voters, cands } = stateAt(storyId, stepId);
+  const i = condorcetWinnerIdx(computeRanks(voters, cands), cands.length);
+  return i < 0 ? null : cands[i].name;
+};
+
 // Winner under an arbitrary rule at a step (candidates fixed at that step).
 const winnerWithRule = (storyId: string, stepId: string, rule: string): string | null => {
   const { voters, cands } = stateAt(storyId, stepId);
@@ -159,10 +171,12 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winnerAt('spoiler', 'enter')).toBe('Bush'); // Nader spoils
     expect(winnerAt('spoiler', 'irv')).toBe('Gore'); // spoiler neutralised
     expect(winnerAt('spoiler', 'condorcet')).toBe('Gore');
+    expect(strictCondorcetAt('spoiler', 'condorcet')).toBe('Gore'); // "the majority prefers head-to-head"
   });
 
   it('squeeze: the centrist is the Condorcet winner but IRV eliminates them first', () => {
     expect(winnerAt('squeeze', 'condorcet')).toBe('Centre');
+    expect(strictCondorcetAt('squeeze', 'condorcet')).toBe('Centre');
     expect(winnerAt('squeeze', 'irv')).not.toBe('Centre');
   });
 
@@ -177,6 +191,11 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
       winnerAt('paradox', 'approval'),
     ]);
     expect(winners.size).toBe(3);
+  });
+
+  it('paradox: the blocs form a cycle, so there is no Condorcet winner (Copeland names Alice by tie-break)', () => {
+    expect(strictCondorcetAt('paradox', 'condorcet')).toBeNull();
+    expect(winnerAt('paradox', 'condorcet')).toBe('Alice');
   });
 
   it('utile: plurality is spoiler-prone here (differs from a Condorcet-consistent rule)', () => {
@@ -200,6 +219,7 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winnerAt('clones', 'duel')).toBe('B');
     expect(winnerAt('clones', 'clone')).toBe('A');
     expect(winnerAt('clones', 'condorcet')).toBe('B');
+    expect(strictCondorcetAt('clones', 'condorcet')).toBe('B'); // "B still beats both A AND A2"
     expect(winnerAt('clones', 'irv')).toBe('B');
   });
 
@@ -262,5 +282,85 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
       return ranks.filter((r) => r[0] === idx).length / ranks.length;
     };
     expect(firstPrefShare('apres', 'Léa')).toBeCloseTo(firstPrefShare('avant', 'Léa'), 1);
+  });
+});
+
+// ── STORY_CLAIMS: every name and number the copy states (PLAN_BEYOND_CI W1.3) ───────
+
+// What the claim measures at its step, in percent (or the winner's name).
+function measured(claim: StoryClaim): string | number | null {
+  switch (claim.kind) {
+    case 'winner':
+      return winnerAt(claim.story, claim.step);
+    case 'winnerShareOfExprimes':
+      return 100 * (blankVerdictAt(claim.story, claim.step)?.winnerShareOfExprimes ?? Number.NaN);
+    case 'blankShare': {
+      const { voters, cands, blank } = stateAt(claim.story, claim.step);
+      const { blankCount } = applyBlankVote(voters, cands, true, blank?.intensity ?? 0);
+      return (100 * blankCount) / voters.length;
+    }
+    case 'firstPref':
+    case 'approval': {
+      const { voters, cands } = stateAt(claim.story, claim.step);
+      const idx = cands.findIndex((c) => c.name === claim.candidate);
+      expect(
+        idx,
+        `no candidate ${claim.candidate} at ${claim.story}/${claim.step}`
+      ).toBeGreaterThanOrEqual(0);
+      if (claim.kind === 'approval') {
+        // The client engine's approval rule (winApproval): a score of at least 0.5.
+        return (
+          (100 * computeScores(voters, cands).filter((s) => s[idx] >= 0.5).length) / voters.length
+        );
+      }
+      const counts = pluralityCounts(
+        computeRanks(voters, cands),
+        cands.map(() => true),
+        cands.length
+      );
+      return (100 * counts[idx]) / voters.length;
+    }
+    default: {
+      const unhandled: never = claim;
+      throw new Error(`unhandled claim ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+const beatText = (bundle: Record<string, unknown>, claim: StoryClaim): string => {
+  const step = storyById(claim.story)?.steps.find((st) => st.id === claim.step);
+  const text = step?.beatKey
+    .split('.')
+    .reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], bundle);
+  return typeof text === 'string' ? text : '';
+};
+
+describe('stories — every name and number the copy states holds on the engine (STORY_CLAIMS)', () => {
+  it.each(
+    STORY_CLAIMS.map(
+      (claim) => [`${claim.story}/${claim.step}: ${JSON.stringify(claim)}`, claim] as const
+    )
+  )('%s', (_, claim) => {
+    const value = measured(claim);
+    if (claim.kind === 'winner') {
+      expect(value).toBe(claim.expected);
+      for (const bundle of [pgEn, pgFr]) expect(beatText(bundle, claim)).toContain(claim.expected);
+    } else {
+      // The copy rounds (38.5% is printed 38%): half a point either way.
+      expect(Math.abs((value as number) - claim.pct)).toBeLessThanOrEqual(0.5);
+      // ...and the beat prints that number ("56%" in EN, "56 %" in FR).
+      for (const bundle of [pgEn, pgFr]) {
+        expect(beatText(bundle, claim)).toMatch(new RegExp(`\\b${claim.pct}\\s?%`));
+      }
+    }
+  });
+
+  it('every claim names a real story step', () => {
+    for (const claim of STORY_CLAIMS) {
+      expect(
+        storyById(claim.story)?.steps.some((st) => st.id === claim.step),
+        `${claim.story}/${claim.step}`
+      ).toBe(true);
+    }
   });
 });

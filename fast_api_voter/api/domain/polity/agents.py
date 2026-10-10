@@ -313,7 +313,10 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     """The rules the president acts under and who they are; nothing tick-dependent, so the
     whole prompt is a stable prefix. It states the rules and never says what to do (C4)."""
     inst, mandate, legislation = config.institutions, config.mandate, config.legislation
-    limit = "with no limit on terms" if inst.president_term_limit is None else f"for at most {inst.president_term_limit} terms"
+    limit = (
+        "with no limit on terms" if inst.president_term_limit is None
+        else f"for at most {inst.president_term_limit} terms (a term won with less than half of it left does not count)"
+    )
     rules = [
         # Until the calendar's next election, not for a full term: a snap winner serves only the rest (OBS-041).
         f"Each tick is a quarter of a year. A president is elected until the next scheduled election, held every "
@@ -424,8 +427,10 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
         f"The president is elected by {inst.presidential_method.replace('_', ' ')} until the next scheduled election, held "
         f"every {inst.president_term_years} years.",
         "Each citizen ranks the candidates by how close their platforms are to the citizen's own views, weighted "
-        "by what the citizen cares about; a candidate of the citizen's own party counts for more; a citizen who "
-        "finds no candidate close enough votes blank"
+        "by what the citizen cares about"
+        # Only where it is true: `vote.partisanship` is 0 in every profile agents have run (OBS-043).
+        + ("; a candidate of the citizen's own party counts for more" if config.vote.partisanship > 0 else "")
+        + "; a citizen who finds no candidate close enough votes blank"
         + (", and one whose favourite is worth about as much as a blank ballot may stay home."
            if config.vote.mode == "utility" and config.vote.turnout_cost > 0 else "."),
         f"You may campaign on a platform: name the position you take on up to {campaign.max_positioning_shifts} issues, "
@@ -717,15 +722,20 @@ def ballot_words(ballot: AmendmentBallot | None) -> dict[str, str]:
 def _party_move_rules(config: PolityConfig) -> str:
     """What each membership move does, one consequence each and no advice (C4). The wording it
     replaced ("founding your own is a legitimate way to be heard") advocated one of the three,
-    and the neutrality harness measured the phrasing outweighing the citizen's own situation."""
+    and the neutrality harness measured the phrasing outweighing the citizen's own situation.
+    The seat threshold is stated too (PLAN_BEYOND_CI D2), and dropped when it is 0: no bar."""
+    threshold = round(config.institutions.electoral_threshold * 100, 1)
     return (
         " You may also change party, through \"party_move\" and \"party_id\". \"join\" (with the party's number): you "
         "are counted among its members. \"leave\" (with -1): you are counted among no party's members. \"found\" (with "
         "-1): a new party whose platform is your own positions, which comes into being only if at least "
         f"{config.parties.founding_ratio:.0%} of the citizens stand nearer to your positions than to their own party's "
         "platform -- your briefing says how many do -- and which holds no seats until the next legislative election. "
-        "\"none\" with -1 changes nothing. At an election, citizens weigh a candidate of their own party more "
-        "favourably, and a party nominates only its own members."
+        + (f"At a legislative election, a party with less than {threshold:g}% of the votes cast for parties wins no "
+           "seat. " if threshold > 0 else "")
+        + "\"none\" with -1 changes nothing. "
+        + ("At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only "
+           "its own members." if config.vote.partisanship > 0 else "At an election, a party nominates only its own members.")
     )
 
 
@@ -745,7 +755,7 @@ def stand_line(citizen: Citizen, citizens: Sequence[Citizen], parties: Sequence[
 
 
 def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
-    """A forum participant's rules and who they are -- stable for the run, so a prefix."""
+    """A forum participant's rules and who they are -- stable between amendments, so a prefix."""
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(citizen)}\n\n"

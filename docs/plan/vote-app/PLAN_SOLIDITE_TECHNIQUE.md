@@ -1,5 +1,7 @@
 # PLAN — Solidité technique & exploration outillée
 
+> **status:** live — two rows (Lot 14's sonarjs debt, the scheduled agents) are still open. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Plan d'exécution auto-suffisant, écrit pour être repris étape par étape (par
 > moi ou par un agent) sans contexte préalable. **Une branche `feat/*` + une PR
 > par item**, contre `develop`, merge `--no-ff` — comme le mandate `CLAUDE.md`.
@@ -225,7 +227,7 @@ Effort minime, bénéfice immédiat, débloque le confort de tous les lots suiva
 | **Ruff** (remplace flake8) | ~100× plus rapide, couvre flake8 + isort + pyupgrade + bugbear + une partie de bandit. Le meilleur ratio du plan. | S | ⭐⭐⭐ | 📝📝 | ✅ swap fidèle fait ; isort/pyupgrade/bugbear pas activés (scope creep — voir note du `[tool.ruff]`) |
 | **`uv`** (remplace pip en CI) | Installation Python drastiquement plus rapide + lockfile reproductible (aujourd'hui `requirements.txt` épinglé à la main). | M | ⭐⭐ | 📝📝 | ✅ swap fidèle fait (5 workflows + 4 Dockerfiles, vérifié par build Docker réel de chacun) ; `requirements.txt` reste la source de vérité, pas de migration `uv.lock`/`pyproject` — la reproductibilité de lockfile reste à faire, scope creep écarté comme pour Ruff |
 | **Cache CI** (npm / pip / couches Docker) | Boucle de feedback plus courte sur tous les lots suivants. | S | ⭐⭐ | 📝 | ✅ npm/pip déjà en place partout (vérifié) ; couches Docker ajoutées pour `image-scan` |
-| **`diff-cover`** | Exiger 100 % de couverture *sur les lignes modifiées d'une PR* — bien plus mordant qu'un seuil global à 90 % qu'on atteint en diluant. | S | ⭐⭐⭐ | 📝📝 | ✅ Backend CI + Frontend CI, gate PR uniquement ; lcov (frontend) demande un préfixe de chemin (`voter-app/`) que Cobertura (backend) n'a pas besoin — testé en local dans les deux sens (ligne couverte/non couverte) avant push ; pas de mirroir `ci-local/` (pas de branche de base dans une image Docker) |
+| **`diff-cover`** | Exiger 100 % de couverture *sur les lignes modifiées d'une PR* — bien plus mordant qu'un seuil global à 90 % qu'on atteint en diluant. | S | ⭐⭐⭐ | 📝📝 | ✅ Backend CI + Frontend CI, gate PR uniquement ; depuis 2026-10-07 aussi sur les branches (`--branch-coverage`, Cobertura des deux côtés : `branch = true` côté backend, reporter `cobertura` de vitest côté frontend) — testé en local dans les deux sens (ligne couverte/non couverte) avant push ; pas de mirroir `ci-local/` (pas de branche de base dans une image Docker) |
 | **Codecov** | Commentaire de couverture par PR (pas sur les PR de forks : pas de token OIDC) + tendance visible dans le temps. | S | ⭐ | 📝 | ✅ compte créé par l'utilisateur ; upload backend+frontend câblé par OIDC (`use_oidc`, aucun token stocké, #827), `codecov.yml` (informational: true des deux côtés — diff-cover reste le seul gate réel), validé via `codecov.io/validate` |
 | **`act`** | Lancer les workflows GitHub en local, complète `ci-local/`. | S | ⭐ | 📝📝 | ✅ installé sans sudo, `.actrc` + `ci-local/act-pr-event.json` ajoutés, testé en vrai contre `openapi-contract.yml` (job non couvert par `ci-local/`) ; limites documentées (paths-filter interroge l'API GitHub, secrets absents, CodeQL/Scorecard non exécutables) |
 

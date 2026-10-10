@@ -29,6 +29,12 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  // "Signaler une erreur de contenu": the issue form, from stories and Lab fiches.
+  report: {
+    contentError: 'Signaler une erreur de contenu',
+    contentErrorTitle:
+      'Une affirmation fausse sur le vote ? Ouvre un formulaire GitHub, avec cet endroit déjà rempli.',
+  },
   stories: {
     launch: 'Histoires',
     launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',
@@ -70,7 +76,7 @@ const pgFr = {
         approval:
           'Passez au vote par approbation : cette fois, c’est Bob. Trois méthodes, trois vainqueurs.',
         condorcet:
-          'En duel un-contre-un, Alice bat les deux autres — la vainqueure de Condorcet. Et pourtant ni l’IRV ni l’approbation ne l’ont désignée : la méthode, à elle seule, change le président.',
+          'En duel un-contre-un, personne ne bat les deux autres : Alice bat Bob, Bob bat Carol, mais Carol bat Alice. Il n’y a pas de vainqueur de Condorcet — c’est le paradoxe de Condorcet. La règle « Condorcet (Copeland) » doit pourtant trancher : chacun gagne un duel, et c’est le départage (ici, l’ordre de la liste) qui désigne Alice. Quand la majorité tourne en rond, c’est la méthode qui choisit.',
       },
     },
     utile: {
@@ -114,7 +120,7 @@ const pgFr = {
       tagline:
         'Un candidat peut se faire élire en alignant un allié presque identique à lui — mais pas avec n’importe quelle méthode.',
       steps: {
-        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 54 % de l’électorat et l’emporte largement.',
+        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 56 % de l’électorat et l’emporte largement.',
         clone:
           'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
         condorcet:
@@ -186,7 +192,7 @@ const pgFr = {
       tagline: 'Mêmes bulletins, mêmes partis : proportionnelle, uninominal ou mixte ?',
       steps: {
         pr: 'Proportionnelle nationale : chaque parti reçoit à peu près sa part de voix. L’indice de Gallagher (la distorsion voix→sièges) est très bas.',
-        fptp: 'Passez au scrutin uninominal par circonscription : le Centre, 35 % des voix, rafle 41 % des sièges, tandis que les Verts — pourtant à 19 % — tombent à 9 %, faute d’être majoritaires quelque part. Près d’un tiers des voix ne pèse plus rien.',
+        fptp: 'Passez au scrutin uninominal par circonscription : le Centre, 35 % des voix, rafle 44 % des sièges, tandis que les Verts — pourtant à 19 % — tombent à 9 %, faute d’être majoritaires quelque part. Près d’un tiers des voix ne pèse plus rien.',
         mmp: 'En scrutin mixte compensatoire, les élus locaux sont conservés mais des sièges de compensation rétablissent les proportions : on retrouve la fidélité de la proportionnelle sans perdre l’ancrage territorial.',
       },
     },
@@ -385,7 +391,7 @@ const pgFr = {
     manipMid:
       ' : {{pct}}% des électeurs tentés de voter stratégiquement ({{compromise}} compromis · {{burying}} enterrement). Vote au sort :',
     manipEnd:
-      ' — la seule règle inmanipulable (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
+      ' — inmanipulable ; parmi les loteries, la seule règle à la fois Pareto-efficace et égale entre électeurs (Gibbard 1977). Dès que trois candidats au moins peuvent gagner, toute règle ordinale déterministe non dictatoriale est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
     methodHeader: 'Méthode',
     criteriaLegend:
       '✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la carte.',
@@ -649,9 +655,14 @@ const pgFr = {
     noFlip: ' — avec tous les votants, c’est le 3ᵉ choix des partisans de C qui l’emporte.',
   },
   bilan: {
+    whyTitle: 'Pourquoi elles divergent',
+    whyDuel: 'En duel, {{x}} bat {{y}} : {{xv}} électeurs contre {{yv}}.',
+    whyAnyway: '{{rule}} élit pourtant {{y}}. {{reason}}',
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
     fineTune: 'Réglage fin…',
+    dialTitle:
+      'Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible.',
     simpleDial: '← Cadran simple',
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',
@@ -745,7 +756,9 @@ const pgFr = {
     pairwise: {
       start: 'On fait s’affronter chaque paire de candidats en duel direct.',
       duel: '{{a}} vs {{b}} : {{av}}–{{bv}} → {{cand}} gagne le duel.',
-      doneCopeland: '{{cand}} gagne le plus de duels (Copeland) : élu.',
+      duelTie: '{{a}} vs {{b}} : {{av}}–{{bv}} → égalité, le duel ne compte pour personne.',
+      doneCopeland:
+        'Copeland : {{cand}} a le meilleur bilan de duels gagnés moins duels perdus — élu.',
       doneMinimax: 'Minimax : {{cand}} a la plus petite pire défaite — élu.',
       doneSchulze: 'Schulze : {{cand}} l’emporte par les plus forts chemins de battage — élu.',
       doneRankedPairs:
@@ -937,13 +950,40 @@ const pgFr = {
     kicker: 'Pourquoi ce gagnant ?',
     count:
       '{{winner}} l’emporte sur le plus haut total : {{winnerVal}} contre {{runnerUpVal}} pour {{runnerUp}}.',
-    elim: '{{winner}} gagne aux reports : à mesure que les moins bien placés sont éliminés, leurs voix se reportent, et {{winner}} finit devant {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     pairwise:
       '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
+    pairwiseCycle:
+      '{{winner}} ne bat pas tous ses rivaux en duel ({{wins}} duels gagnés sur {{duels}}) : cette méthode l’élit selon sa façon de peser les duels.',
+    kickerRule: 'Pourquoi, avec {{rule}} ?',
     twophase:
       '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
     lottery:
       '{{winner}} est tiré au sort : la probabilité de chacun était proportionnelle à ses soutiens.',
+    byRule: '{{winner}} est élu par la règle de cette méthode.',
+    maximin:
+      '{{winner}} laisse son électeur le moins satisfait le mieux loti : {{winnerPct}} % de satisfaction au pire, contre {{runnerUpPct}} % pour {{runnerUp}}.',
+    nash: '{{winner}} a la plus forte moyenne géométrique de satisfaction : {{winnerPct}} %, contre {{runnerUpPct}} % pour {{runnerUp}}.',
+    irv: '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : le candidat qui a le moins de premiers choix est éliminé et ses bulletins sont reportés, jusqu’à ce que quelqu’un ait la majorité.',
+    twoRound:
+      '{{winner}} finit devant {{runnerUp}} au dernier décompte, {{winnerVal}} à {{runnerUpVal}} : une majorité au premier tour l’emporte d’emblée, sinon les deux premiers vont au second.',
+    rule: {
+      majority_judgment:
+        '{{winner}} a la meilleure mention médiane (les médianes égales sont départagées par la règle du jugement majoritaire) : au moins la moitié des électeurs lui donnent cette mention ou mieux.',
+      bucklin:
+        '{{winner}} l’emporte quand on ajoute les préférences suivantes tour par tour : au premier tour où quelqu’un atteint la majorité des mentions, {{winner}} en a le plus.',
+      coombs:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat classé dernier par le plus d’électeurs sort, jusqu’à ce que quelqu’un ait la majorité.',
+      nanson:
+        '{{winner}} survit aux éliminations : à chaque tour, tous les candidats sous la moyenne des points Borda sortent.',
+      baldwin:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat qui a le moins de points Borda sort.',
+      raynaud:
+        '{{winner}} survit aux éliminations : à chaque tour, le candidat qui subit la plus lourde défaite en duel sort.',
+      benham:
+        '{{winner}} est élu par la règle de Benham : des éliminations comme au vote alternatif, mais dès qu’un candidat restant bat tous les autres en duel, il l’emporte.',
+      smith_irv:
+        '{{winner}} gagne le vote alternatif mené dans l’ensemble de Smith : le plus petit groupe de candidats qui battent chacun en duel tous ceux qui n’en font pas partie.',
+    },
   },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
@@ -1006,7 +1046,7 @@ const pgFr = {
       'Nombre d’électeurs qui partagent votre conviction et voteraient comme vous — votre levier collectif.',
     blocLabel: 'Électeurs comme vous : {{n}}',
     headlinePre: 'À votre place,',
-    headlineMid: '/15 méthodes récompensent la conviction ;',
+    headlineMid: '/{{total}} méthodes récompensent la conviction ;',
     headlineEnd: 'vous poussent au vote stratégique.',
     temptingHead: '⚠ Vous seriez tenté de trahir votre favori',
     temptSincere: 'sincère → {{winner}} ; mais votez',
@@ -1118,15 +1158,25 @@ const pgFr = {
     caption:
       'Positions déduites des bulletins (projection PCA), non choisies : les candidats ne sont pas déplaçables. Chaque candidat est placé au barycentre des électeurs qui le soutiennent.',
   },
+  // Winner strip, above every moment: the current rule's winner, and what the other
+  // ticked methods elect.
+  strip: {
+    under: 'Avec {{rule}} :',
+    noFixedWinner: 'pas de vainqueur fixe',
+    noFixedWinnerTitle:
+      'Un vote au sort tire un bulletin au hasard : chaque candidat gagne avec la part des électeurs qui le placent en tête.',
+    othersElect: 'Les autres méthodes cochées élisent :',
+    othersAgree_one: 'L’autre méthode cochée élit le même vainqueur.',
+    othersAgree_other: 'Les {{count}} autres méthodes cochées élisent le même vainqueur.',
+    sincere: '(votes sincères)',
+  },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',
     labelAssembly: 'Composition de l’assemblée',
     flipCaption: 'Mêmes électeurs, caractère opposé.',
     paradox: 'paradoxe {{pct}} %',
-    paradoxLoading: '· · ·',
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
-    condorcet: 'Condorcet : {{name}}',
     shake: '🎲 Secouer les hypothèses',
     shakeTitle:
       "Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi.",
@@ -1293,10 +1343,13 @@ const pgFr = {
       label: 'NP-difficile, même pour un seul manipulateur',
       ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
     },
-    ranked_pairs: { label: 'P (paires ordonnées)', ref: 'Tideman 1987 — calcul polynomial' },
+    ranked_pairs: {
+      label: 'NP-difficile, même pour un seul manipulateur',
+      ref: 'Xia et al. 2009',
+    },
     random_ballot: {
       label: 'Inmanipulable — la stratégie n’apporte rien',
-      ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+      ref: 'Gibbard 1977 (seule loterie inmanipulable, Pareto-efficace et anonyme)',
     },
     anti_plurality: { label: 'P (véto)', ref: 'règle positionnelle' },
     dowdall: { label: 'P (positionnel)', ref: 'règle positionnelle' },
@@ -1402,6 +1455,10 @@ const pgFr = {
     elecCurrent: 'Électorat actuel',
     matrix: {
       title: 'Comparaison des méthodes',
+      colMethod: 'Méthode',
+      yes: 'Oui',
+      no: 'Non',
+      conditional: 'Conditionnel',
       liveRow: 'Vainqueur avec votre électorat actuel',
       familyMajoritarian: 'Majorité',
       familyOrdinal: 'Ordinal',

@@ -1,5 +1,7 @@
 # Polity — observation log
 
+> **status:** reference — the observation log: entries are re-statused, never deleted. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Strange behaviour seen in simulation runs, kept so it can be studied instead of forgotten in a
 commit message or a `TIMELINE.md`. An entry records **what was seen and how to see it again**. It
 is not a bug report and not a conclusion: most entries are open questions.
@@ -12,8 +14,9 @@ is not a bug report and not a conclusion: most entries are open questions.
   with the evidence that shows it.
 - *What would settle it* names the check, the run, or the plan step that answers the question.
 - Status is one of **open**, **cause found** (the mechanism is shown; whether to change it is not
-  decided), **explained** (cause understood, behaviour stays), **fixed** (with the commit), or **by
-  design** (the model intends it; say where that is written).
+  decided), **explained** (cause understood, behaviour stays), **decided** (the owner chose what to do about
+  it; say where that is recorded), **fixed** (with the commit), or **by design** (the model intends it; say
+  where that is written).
 - New entries go at the end with the next number; an entry is never deleted, only re-statused.
 
 Runs cited below live in `fast_api_voter/scripts/*_runs/` (gitignored); `python
@@ -66,9 +69,12 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-037](#obs-037) | Capped, campaigning still doubles attention concentration: nominees converge on one issue | 2026-10-03 | accepted |
 | [OBS-038](#obs-038) | The chamber ratified a third presidential term 14 to 15, its ballots echoing the proposer's reason | 2026-10-03 | fixed |
 | [OBS-039](#obs-039) | Party foundings never reached the explorer or any agent's memory: the two events were never registered | 2026-10-05 | fixed |
-| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | open |
+| [OBS-040](#obs-040) | At ten seeds the effective number of parties is inside the 1.5-8 band at both elections in none | 2026-10-05 | decided |
 | [OBS-041](#obs-041) | A president elected off the calendar is told the next election up to 15 ticks late, which hid `refuse_to_leave` | 2026-10-05 | fixed |
 | [OBS-042](#obs-042) | Two citizens in three stay home at a presidential election, most by indifference rather than disengagement | 2026-10-05 | fixed |
+| [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
+| [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
+| [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 
 ---
 
@@ -455,6 +461,10 @@ recorded run changes, for the reason above.
 *Since [OBS-041](#obs-041) (2026-10-05),* the deterministic engine shows 10 distinct presidents, not 11:
 its run has recalls, and their snap winners now serve only until the calendar's next election, so the
 elections fall on different ticks. The LLM engine still shows 11.
+
+*Since 2026-10-10* (`feat/polity-half-term-counts`): a term won with less than half of it left no longer counts
+against the limit, so a snap winner keeps their one term. With the limit at 1 the deterministic engine shows 7
+distinct presidents and the LLM engine 9.
 
 ### OBS-013
 
@@ -1937,7 +1947,29 @@ party clears it in 9 of 10 seeds. Static -- voters and founders did not see the 
 fragmentation in the vote, not in the seat rule. The article allows up to 0.15, so a polity can amend itself
 into an empty assembly; the kernel then forms no coalition (`form_coalition` returns None), it does not fail.
 
-*Status: open* -- the owner's decision. The roadmap's Phase 4 exit line now reads not met.
+*Re-measured 2026-10-09 ([OBS-044](#obs-044)), with OBS-041-043 fixed:* inside the band at the last election in
+4 of 10 seeds and at both in 2, median 8.47 -- unchanged despite turnout recovering, so abstention does not look
+like the driver. The two seeds inside at both elections are the two whose polities set their threshold above
+the 5% default, to 0.08 and 0.07, and landed
+at 2.67 and 1.89 effective parties: the cliff the re-seating above predicted, reached by amendment.
+`PLAN_BEYOND_CI.md`'s W2.1 was to be the controlled follow-up (3% against 5%, amendments frozen); it stopped at
+its gate ([OBS-045](#obs-045)).
+
+*Decided 2026-10-10 (owner, roadmap D11): the band is reported, not gated.* What the entries since showed: the
+fragmentation does not move with turnout (OBS-044), with what founders are told about the threshold (OBS-045:
+59 of 60 found either way) or with the false own-party claim (OBS-043); it follows from founding and seating both
+taking 5 citizens of 100, with sincere ballots and no merge. The political-science account of why real systems
+stay inside 1.5-8 is largely strategic voting (Duverger's psychological effect), which this model does not have;
+that explanation comes from the literature and is not tested here. Phase 4's exit now asks that the polity respond
+to its fragmentation -- ratify an amendment to an article governing party entry or seats in at least 30% of seeds
+-- which phase11 meets (4 of 10; phase10: 2 of 10). The proposers' own reasons show the response runs both ways:
+in seeds 1, 2 and 8 a ratified amendment says it is meant to "reduce fragmentation and strengthen major parties",
+"strengthen party stability by raising entry barriers" or "reduce party fragmentation", while others lower the
+bar so the proposer can found their own party (seeds 1, 5, 6) or for "diverse representation" (seed 8).
+Strategic voting (a `vote` weight discounting candidates the poll gives no chance) is the mechanism to add if the
+band itself is ever wanted; it is not built.
+
+*Status: decided* -- see above; the roadmap's Phase 4 exit line reads met under D11.
 
 ### OBS-041
 
@@ -1992,6 +2024,28 @@ now offered `refuse_to_leave` on the tick they take office, as ADR-022 words it 
 final term"); the seed-9 president at tick 15 above is that case. Whether a minimum tenure should come first is the
 owner's call, with whether a snap term counts against the limit. A run resumed from a checkpoint written
 before the fix keeps its holder's old `term_end_tick` until the next calendar election.
+
+*Seen live, 2026-10-09 ([OBS-044](#obs-044)):* with the fix, the act became legal twice in ten seeds, both in
+seed 8, and was not taken either time (`"extra_legal": "none"` in the call log, and the act unmentioned in
+either turn's reasoning -- the field is answered, not deliberated). One of the two is the case above: a
+president term-limited by a snap win at tick 31 could take the act on the tick they took office. Of the other
+ten term-limited presidencies, five were recalled before the eve of their election and five began at tick 32,
+the run's last. The answer to the act is not journaled -- `agent_turn` carries no `extra_legal` -- so a
+refusal not taken is visible only in `llm_calls.jsonl`.
+*Journaled since 2026-10-09* (`feat/polity-journal-extra-legal`): a president's `agent_turn` carries
+`extra_legal` whenever the act is on the menu, legal that tick or not.
+
+*Decided 2026-10-10 (owner): a term counts against the limit only if won with at least half of it left* --
+close to the US 22nd Amendment's rule for a successor, which draws the line just past half (more than two years
+of four). Built on `feat/polity-half-term-counts`: `mandates_served` still counts every presidency won (it is what
+makes "a former officeholder" for `declare_candidacy`'s record), and a new `short_terms` counts those won with
+less than half a term to the calendar's next election; the limit counts the difference
+(`accountability.counted_terms`), a recalled president keeps the term they were elected to, and the president's
+system prompt states the rule. A president term-limited by a win holds office for at least half a term less a
+tick before the act can be offered -- never on the tick they took office, for any term longer than two ticks
+(every profile: 16). No separate minimum tenure was needed. A run resumed from a checkpoint written before this
+change keeps the old count for its sitting presidents (the field defaults to 0). The golden references and the
+explorer fixture's events do not move; its checkpoint gains the field, 1 for the snap winner at tick 10.
 
 ### OBS-042
 
@@ -2050,8 +2104,144 @@ turnout at 0.04 should sit near 70% rather than 90%. That is an estimate: LLM-pa
 has not been measured, and the next ensemble is its first. Profiles without disengagement (the flagship's) will
 turn out about 90%.
 
+*Measured 2026-10-09 ([OBS-044](#obs-044)): the estimate was low.* In the exploration profile's ten seeds a
+median of 15 of 100 citizens abstained at the regular presidential elections (6-32), against 66 before the fix --
+about 85% turnout, at ADR-011's 85% ceiling rather than near 70%. The estimate applied the end-of-run
+disengagement to every election; nobody is disengaged at tick 0, and at tick 32 abstention is 8-32.
+
 Every LLM run before this fix carries the old rule, so turnout and vote shares are not comparable across it,
 and a run resumed across the change switches rule mid-run (the config hash does not see it). The golden
 references and the explorer fixture run at cost 0 and do not move.
 
 *Status: fixed.*
+
+### OBS-043
+
+**Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing.**
+
+*Seen.* Rewriting the nominee prompt's vote sentence for OBS-042. The nominee rules said "a candidate of the
+citizen's own party counts for more" (`nominee_system_prompt`, since 2026-09-28), and the forum's party-move
+rules said "At an election, citizens weigh a candidate of their own party more favourably" (`_party_move_rules`,
+since 2026-09-30, OBS-031..033). The term behind both is `vote.partisanship`: `polity_config.yaml` ships 0,
+neither the flagship nor the exploration profile overrides it, and ADR-011's calibration adopted no other value.
+So every nominee and every forum citizen in every run so far was told of an advantage that did not exist --
+what contract C3 rules out.
+
+*Measured: no behavioural effect shown.* `check_agent_prompt_neutrality.py`, forum and campaign probes, on the
+same citizens with the sentence (`polity` at be73caed) and without it, vLLM 0.31.0:
+
+| probe, cell | with the sentence | without |
+|---|---|---|
+| forum, too few would co-found: none / join | 94% / 6% | 100% / 0% |
+| forum, enough would co-found: found | 99% | 98% |
+| campaign, behind in the poll: none / base / undecided | 51% / 14% / 35% | 59% / 5% / 36% |
+| campaign, ahead in the poll: none / base / undecided | 74% / 14% / 12% | 75% / 15% / 10% |
+
+(n=80 per cell per wording, the two runs side by side.) The forum's 6% of joins is what the paraphrase of the
+new wording also gives; the campaign's shifts sit inside the harness's 13-15% noise band.
+
+*A caveat on the harness, from the same session.* At n=40 the campaign probe first showed a 30-point shift
+between the same two prompts (behind in the poll: 32% / 5% / 62% with the sentence, 60% / 8% / 32% without),
+which n=80 does not reproduce. The harness takes the first n citizens, so the n=80 runs include those 40:
+holding 62% undecided on the first 40 would need about 8% on the next 40. More likely one citizen's answer
+varies from run to run at temperature 0.6 more than the binomial noise band assumes. ADR-023's table (behind:
+32% / 8% / 60%) is one n=40 run of that first 40, and its shares should be read as such; its ordering (behind
+reaches for the undecided more than ahead, ahead mostly does not campaign) holds at n=80.
+
+*Fixed 2026-10-07* on `fix/polity-nominee-partisanship-claim`: both sentences appear only when
+`vote.partisanship` is above 0; the forum rules keep "a party nominates only its own members", which is true.
+
+*Status: fixed.*
+
+### OBS-044
+
+**Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is
+reachable but not taken.**
+
+*Seen.* The ten-seed ensemble re-run on the fixed kernel (`~/Documents/Dev/polity-runs/phase11/`, code
+c063c8d5: the snap-term fix #801, the abstention rule #819, the partisanship prompts #849; before founders were
+told the threshold, #861), 8 years, p100, 15 seats, exploration profile, vLLM 0.31.0. All ten completed on their
+first attempt with no fallback alert.
+
+| | phase10 (before) | phase11 |
+|---|---:|---:|
+| abstained at regular presidential elections, median of 100 | 66 | **15** |
+| effective parties by seats, last election: median (range) | 8.42 (5.81-16.95) | 8.47 (1.89-22.62) |
+| inside 1.5-8 at the last election / at both | 5 / 0 of 10 | 4 / 2 of 10 |
+| parties founded / dissolved | 457 / 264 | 439 / 255 |
+| presidential wins / of them snap elections | 84 / 57 | 70 / 41 |
+| `refuse_to_leave` legal / taken | 0 / 0 | 2 / 0 |
+| amendments ratified / to the electoral threshold | 6 / 1 | 11 / 6 |
+
+| seed | parties t8 / t16 / t24 / t32 | founded / dissolved | effective parties t8 -> t24 | threshold amended | abstained t0 / t16 / t32 |
+|---|---|---|---|---|---|
+| 1 | 15 / 20 / 18 / 20 | 39 / 24 | 3.71 -> 2.67 | 0.08 at t2, 0.05 at t28 | 8 / 13 / 18 |
+| 2 | 20 / 22 / 21 / 24 | 40 / 21 | 3.94 -> 1.89 | 0.07 at t8 | 8 / 22 / 30 |
+| 3 | 21 / 25 / 24 / 24 | 43 / 24 | 9.69 -> 11.85 | | 11 / 18 / 20 |
+| 4 | 21 / 22 / 20 / 22 | 48 / 31 | 11.49 -> 8.77 | | 8 / 14 / 18 |
+| 5 | 19 / 25 / 26 / 30 | 47 / 22 | 8.87 -> 22.62 | 0.02 at t17 | 6 / 18 / 20 |
+| 6 | 19 / 22 / 21 / 25 | 43 / 23 | 10.06 -> 7.85 | | 7 / 16 / 15 |
+| 7 | 20 / 20 / 17 / 18 | 38 / 25 | 5.90 -> 8.50 | | 11 / 19 / 23 |
+| 8 | 20 / 29 / 22 / 25 | 42 / 22 | 15.72 -> 5.52 | 0.03 at t2, 0.05 at t14 | 9 / - (snap) / 32 |
+| 9 | 18 / 24 / 22 / 25 | 49 / 29 | 9.06 -> 8.45 | | 12 / 18 / 24 |
+| 10 | 19 / 26 / 21 / 21 | 50 / 34 | 8.87 -> 8.82 | | 8 / 8 / 8 |
+
+- **Turnout is back** (OBS-042): about 85%, against the 34% the old indifference rule left.
+- **Fragmentation is not** (OBS-040): it did not depend on who stayed home. What changed is that the polities
+  now steer it -- six of the eleven ratified amendments set the electoral threshold, in four seeds, up to 0.08
+  and down to 0.02, and the two seeds that set it above the 5% default are the two inside the band at both
+  elections.
+- **The extra-legal act is reachable and was not taken** (OBS-041): legal twice, answered `none` twice, never
+  reasoned about; 0 of 350 president turns chose it.
+- **Fewer snap elections** (41 against 57), with recalls falling with them.
+
+*What it does not settle.* One ensemble per code state, and more than the three fixes changed between them:
+phase10 ran on vLLM 0.30.0 and code faab0efb, which also lacks the term limit's entrenchment (#784) and two
+prompt rewordings (the president "elected until the next scheduled election", the nominee's "may stay home").
+Turnout's change is large enough to stand and follows from #819; the others, the amendment counts included,
+are not attributed. The
+threshold amendments make seeds incomparable with each other on fragmentation; W2.1 was to freeze amendments for
+exactly that reason, but it stopped at its gate ([OBS-045](#obs-045)).
+
+*Status: recorded.*
+
+### OBS-045
+
+**Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way.**
+
+*Seen.* The W2.1 gate of `docs/plan/PLAN_BEYOND_CI.md`, on 2026-10-09: `python
+scripts/check_agent_prompt_neutrality.py --probe threshold --n 60`, from the `fast_api_voter/` of a worktree on
+`feat/winner-strip` (ae59f343, whose `fast_api_voter/` equals `polity` 9201bc58), vLLM 0.31.0 serving `qwen3:8b` at temperature 0.6, the citizens of `eng-8y-p100-seed2` (phase 4).
+Each of 60 citizens who could found a party (enough others would co-found) answers the same forum turn twice.
+The only change is the threshold in the sentence the founders have been told since PR #861: "a party with less
+than X% of the votes cast for parties wins no seat".
+
+| told | found |
+|---|---:|
+| 3% | 59 / 60 |
+| 7% | 59 / 60 |
+
+One citizen founded only at 3% and one only at 7%: exact McNemar p = 1. The output is in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`.
+
+*Reading.* Most of the 60 do not test the threshold. Each founder is told how many of the 100 citizens
+stand nearer to them than to their own party ("you included; founding a party needs 5"), and 46 of the 60 are
+told 7 or more, so founding at 7% is also what a founder who applies the rule would do. The 14 told 5 or 6 are
+the ones a 7% bar should stop. Since 59 of the 60 founded at 7%, at least 13 of those 14 founded anyway. The
+count, recomputed with `simple_rules.cofounders` on the same checkpoint and the gate's own selection
+(`_split_by_backing`): 5: 4, 6: 10, 7: 5, 8: 9, 9: 4, 10: 7, 11: 3, 12: 9, 13: 6, 14: 2, 16: 1.
+
+The same turn does respond to its state: `found` moves 97 points with the co-founder count (PR #861).
+
+*Suspected cause.* The forum turn weighs the co-founder count, which its prompt states as a fact about this
+citizen, and treats the threshold as a general rule it does not apply to its own party. Not tested.
+
+*What would settle it.* The exact figure for the 14 needs a rerun that logs each founder's answer next to their
+backing; the gate prints only totals. Stating the consequence outright ("your party would win no seat") would
+lead the answer (contract C3), so that probe is not planned.
+
+*Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
+pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold
+(`fit-for-inference.md`).
+
+*Status: open.*

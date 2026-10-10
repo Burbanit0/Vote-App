@@ -602,6 +602,11 @@ def generate_exhaustive_maximin_scenarios() -> list[dict]:
     either side to read this domain correctly; `to_score` is left at the
     shared helper's default identity.
 
+    Since #667 both engines draw a maximin tie by the same seeded lot over the
+    tied names (api/engine/utils/tie_lot.py, voter-app/src/lib/tieLot.ts), so the
+    raw winner is now a shared rule and the parity test asserts it on every
+    profile as well. The history below is why the tied-set checks came first.
+
     WHY THIS SECTION ALSO RECORDS `maximinTiedWinners`, not just `winners`:
     a raw winner-identity comparison (what approval/MJ's exhaustive sections
     rely on, and what this section itself did in an earlier version of this

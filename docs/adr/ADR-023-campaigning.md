@@ -58,6 +58,11 @@ All three checks pass: sensitivity 38% against a 20% noise band, no dead option,
 the answer 12% where the state moves it 38%. A nominee behind chases the citizens no candidate speaks
 for and one ahead mostly sits still -- strategy the mechanism allows rather than the prompt instructs.
 
+*Re-measured 2026-10-07 (OBS-043), n=80:* behind in the poll 51% / 14% / 35%, ahead 74% / 14% / 12%. The
+table above is one n=40 run, and the probe's run-to-run variance exceeds its binomial band: the shares are
+that run's; the ordering holds. It was also measured with a prompt sentence claiming own-party candidates count
+for more, false in every profile; removing it moves nothing beyond the noise.
+
 ## Not settled
 
 - **Whether 0.15 is the right step** is a guess, as ADR-021's thresholds were. Too small and

@@ -1,5 +1,7 @@
 # Contrats de décision — ce que chaque type de décision LLM doit recevoir
 
+> **status:** reference — what every prompt change is checked against. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Document de spécification. Il définit, pour les 9 types de décision LLM du simulateur, **quel
 comportement est attendu** et **quelles informations le prompt doit porter pour que la question
 posée soit répondable**.
@@ -53,7 +55,7 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 | `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
 | `chamber_deliberation` | ✅ | ✅ | ❌ | ✅ | n/a | Non tranché |
 | `reaction_to_event` | ✅ | ✅ | ❌ | ✅ | n/a | Pas de collapse détecté sur l'axe testé |
-| `pressure_action` | ✅ | ✅ | ❌ | ✅ | ❌ | **Collapse confirmé** |
+| `pressure_action` | ✅ | ✅ | ✅ | ✅ | ✅ | **Collapse confirmé** jusqu'au 2026-09-10 (C3 et C5 ❌ alors) ; corrigé depuis (« Livré, 2026-09-10 », §`pressure_action` ci-dessous) |
 
 ### La régularité que l'audit fait apparaître
 

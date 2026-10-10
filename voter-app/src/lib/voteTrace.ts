@@ -12,6 +12,7 @@
 //   twophase  — score everyone, then a final runoff (STAR / majority judgment)
 //   lottery   — draw a single ballot (random ballot)
 
+import { bestIndex } from './tieLot';
 import {
   argmax,
   bordaAlive,
@@ -214,8 +215,9 @@ function traceCount(
       key = 'replay.count.nash';
       params.cand = cands[r[0]].name;
     } else {
-      // score
-      for (let i = 0; i < m; i++) bars[i] += Math.round(scores[vi][i] * 5);
+      // score: the engine sums unrounded scores, so the bars do too (rounding each
+      // ballot could put the winner behind on the bars).
+      for (let i = 0; i < m; i++) bars[i] += scores[vi][i] * 5;
       key = 'replay.count.score';
       params.cand = cands[r[0]].name;
     }
@@ -597,12 +599,16 @@ function tracePairwise(cands: NamedPt[], ranks: number[][], m: number, rule: Rul
         if (r.indexOf(i) < r.indexOf(j)) av++;
         else bv++;
       }
-      const w = av >= bv ? i : j;
-      wins[w] += 1;
+      // A tied duel is a win for neither: the bars count duels won outright, which is
+      // what explainWinner reads to say whether the winner beat everyone.
+      let w = -1;
+      if (av > bv) w = i;
+      else if (bv > av) w = j;
+      if (w >= 0) wins[w] += 1;
       frames.push({
         caption: {
-          key: 'replay.pairwise.duel',
-          params: { a: cands[i].name, b: cands[j].name, av, bv, cand: cands[w].name },
+          key: w >= 0 ? 'replay.pairwise.duel' : 'replay.pairwise.duelTie',
+          params: { a: cands[i].name, b: cands[j].name, av, bv, cand: w >= 0 ? cands[w].name : '' },
         },
         bars: wins.slice(),
         highlight: [i, j],
@@ -640,8 +646,13 @@ function traceStar(cands: NamedPt[], scores: number[][], m: number): TraceFrame[
   const frames: TraceFrame[] = [
     { caption: { key: 'replay.phase.starScores' }, bars: totals.slice() },
   ];
-  const order = totals.map((_, i) => i).sort((a, b) => totals[b] - totals[a]);
-  const [a, b] = [order[0], order[1]];
+  // The finalists and a tied runoff are settled as the engine settles them (winStar).
+  const names = cands.map((c) => c.name);
+  const a = bestIndex(totals, names);
+  const b = bestIndex(
+    totals.map((v, i) => (i === a ? -Infinity : v)),
+    names
+  );
   let av = 0;
   let bv = 0;
   for (const s of scores) {
@@ -660,7 +671,7 @@ function traceStar(cands: NamedPt[], scores: number[][], m: number): TraceFrame[
     eliminated: elim.slice(),
     highlight: [a, b],
   });
-  const w = av >= bv ? a : b;
+  const w = av >= bv ? a : b; // a tied runoff: engineVerdict names the engine's pick
   frames.push({
     caption: { key: 'replay.phase.done', params: { cand: cands[w].name } },
     bars: rbars.slice(),
@@ -679,7 +690,13 @@ function traceMJ(cands: NamedPt[], ranks: number[][], scores: number[][], m: num
   const frames: TraceFrame[] = [
     { caption: { key: 'replay.phase.mjMedian' }, bars: grades.slice() },
   ];
-  const winner = ruleWinnerFromRanks(ranks, m, 'majority_judgment', scores);
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    'majority_judgment',
+    scores,
+    cands.map((c) => c.name)
+  );
   frames.push({
     caption: { key: 'replay.phase.done', params: { cand: winner >= 0 ? cands[winner].name : '—' } },
     bars: grades.slice(),
@@ -710,6 +727,21 @@ export function buildTrace(sample: Pt[], cands: NamedPt[], rule: Rule): VoteTrac
   return buildTraceFromBallots(cands, ranks, scores, rule, sample.length);
 }
 
+/** The engine has the final say on the winner; the last beat agrees with it (a rare exact
+ * tie ⇒ winner < 0 ⇒ a "no decisive winner" frame). Its caption names the engine's winner
+ * too (a tie the trace's own tally broke another way); the lottery's names the ballot it drew. */
+function engineVerdict(
+  last: TraceFrame,
+  winner: number,
+  cands: NamedPt[],
+  family: TraceFamily
+): TraceFrame {
+  if (winner < 0) return { ...last, caption: { key: 'replay.tie' }, highlight: [] };
+  if (family === 'lottery') return { ...last, highlight: [winner] };
+  const params = { ...last.caption.params, cand: cands[winner].name };
+  return { ...last, highlight: [winner], caption: { ...last.caption, params } };
+}
+
 /**
  * Build the replay of `rule` over ballots that already exist as ranks + scores —
  * e.g. language-transformed ballots (a single-name ballot keeps only its top
@@ -725,7 +757,13 @@ export function buildTraceFromBallots(
 ): VoteTrace {
   const m = cands.length;
   const family = FAMILY_OF[rule];
-  const winner = ruleWinnerFromRanks(ranks, m, rule, CARDINAL_RULES.has(rule) ? scores : undefined);
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    rule,
+    CARDINAL_RULES.has(rule) ? scores : undefined,
+    cands.map((c) => c.name)
+  );
 
   let frames: TraceFrame[];
   if (family === 'count') frames = traceCount(cands, ranks, scores, rule, m);
@@ -740,13 +778,6 @@ export function buildTraceFromBallots(
   else if (rule === 'raynaud') frames = traceRaynaud(cands, ranks, m);
   else frames = traceElimGeneric(cands, ranks, m, ELIM_SPECS[rule]!);
 
-  // The engine has the final say on the winner; make the last beat agree with it
-  // (a rare exact tie ⇒ winner < 0 ⇒ a "no decisive winner" frame).
-  const last = frames[frames.length - 1];
-  frames[frames.length - 1] =
-    winner < 0
-      ? { ...last, caption: { key: 'replay.tie' }, highlight: [] }
-      : { ...last, highlight: [winner] };
-
+  frames[frames.length - 1] = engineVerdict(frames[frames.length - 1], winner, cands, family);
   return { family, rule, frames, winner, unitKey: UNIT_OF[rule], sampleSize };
 }

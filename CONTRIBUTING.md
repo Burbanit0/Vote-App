@@ -70,10 +70,10 @@ Claude Code) lance `scripts/fast-gate.sh` puis l'agent `spec-checker`, qui ne
 voit que la demande et le diff. Un `FAIL` (quelque chose de demandé manque) =
 pas de PR. Une section `SKIPPED` de fast-gate (par exemple un `python3` plus
 ancien que le `python_version` de `mypy.ini`, ou des dépendances absentes)
-n'est pas un succès. Le modèle de PR demande `## Demande` (mot pour mot),
-`## Critères d'acceptation`, `## Preuves` (commandes réellement lancées et leur
-sortie) et une ligne **Non vérifié** obligatoire (« rien » seulement si c'est
-vrai).
+n'est pas un succès. Le modèle de PR demande `## Request` (mot pour mot),
+`## Acceptance criteria`, `## Evidence` (commandes réellement lancées et leur
+sortie) et une ligne **Not verified** obligatoire (« nothing » seulement si
+c'est vrai).
 
 ```bash
 git push origin feat/ma-feature
@@ -101,7 +101,7 @@ Aujourd'hui : 16 sur `polity`, 16 sur `develop`, 14 sur `main`,
 | Workflow lint | actionlint (+ shellcheck), zizmor `--offline` (medium et plus) ou les tests des hooks `.claude/hooks/tests` échouent ; le job est sauté si aucun workflow ni hook ne change |
 | CI health check | Instantané `.github/ci-health.json` périmé, workflow surveillé en échec ou inerte, ou protection de branche en dérive |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 90 %, une ligne modifiée non couverte (diff-cover 100 %), mypy, ruff, ou la couche `routes → domain → engine` en erreur |
+| Backend CI | Tests échouent, coverage (lignes + branches) < 90 %, une ligne modifiée non couverte ou une branche modifiée prise d'un seul côté (diff-cover 100 %), mypy, ruff, ou la couche `routes → domain → engine` en erreur |
 | npm audit | CVE haute détectée, hors exception datée de `.github/npm-audit-allowlist.json` (une exception expirée fait aussi échouer) |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium, Firefox, WebKit ou mobile — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts`, `engineParity.json` **ou** les blocs de doc générés désynchronisés du code (voir `scripts/check_openapi_drift.sh`, `scripts/check_engine_parity_drift.sh` et `scripts/check_generated_docs.sh`) |
@@ -375,7 +375,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
 | Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs, et `mypy_scripts` : erreurs mypy strict sur `fast_api_voter/scripts/*.py`, sans ses sous-dossiers) | ne doit jamais augmenter (ni baisser sans `--update`) | `.github/quality-baseline.json` via `scripts/check_quality_ratchet.sh` |
 | Complexité moyenne (radon) | rang A, bloquant | `xenon -a A` dans `audit.yml` |
-| Couverture des lignes modifiées | 100 %, bloquant (backend et frontend) | `diff-cover` dans les workflows Backend/Frontend CI |
+| Couverture des lignes et branches modifiées | 100 %, bloquant (backend et frontend) : une ligne modifiée qui est une branche (`if`/`else`, ternaire, `&&`/`||`, `??`) doit avoir été prise dans tous les sens ; une branche inatteignable par construction prend `# pragma: no branch` ou `/* v8 ignore else */`, avec sa raison | `diff-cover --branch-coverage` dans les workflows Backend/Frontend CI |
 | Score de mutation backend | ne baisse pas au-delà du bruit (hors PR) | `.github/mutation-baseline.json` via `scripts/check_mutation_score.sh` |
 | npm audit severity | high (arbre complet, exceptions datées) | `npm run audit:gate` + `.github/npm-audit-allowlist.json` |
 | Bandit severity | medium+ | `-ll` dans args bandit |

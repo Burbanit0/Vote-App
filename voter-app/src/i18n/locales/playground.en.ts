@@ -25,6 +25,11 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  report: {
+    contentError: 'Report a content error',
+    contentErrorTitle:
+      'Something wrong about voting? Opens a GitHub form, with this place already filled in.',
+  },
   stories: {
     launch: 'Stories',
     launchHint:
@@ -66,7 +71,7 @@ const pgEn: PlaygroundKeys = {
         irv: 'Switch to instant-runoff: Carol wins, with exactly the same ballots.',
         approval: 'Switch to approval voting: this time it is Bob. Three methods, three winners.',
         condorcet:
-          'Head-to-head, Alice beats both others — the Condorcet winner. And yet neither IRV nor approval picked her: the method alone changes the president.',
+          'Head-to-head, no one beats both others: Alice beats Bob, Bob beats Carol, but Carol beats Alice. There is no Condorcet winner — this is Condorcet’s paradox. The “Condorcet (Copeland)” rule must still pick someone: each candidate wins one duel, so a tie-break (here, list order) names Alice. When the majority goes in circles, the method does the choosing.',
       },
     },
     utile: {
@@ -111,7 +116,7 @@ const pgEn: PlaygroundKeys = {
       tagline:
         'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
       steps: {
-        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 56% of the electorate and wins comfortably.',
         clone:
           'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
         condorcet:
@@ -182,7 +187,7 @@ const pgEn: PlaygroundKeys = {
       tagline: 'Same ballots, same parties: proportional, first-past-the-post, or mixed?',
       steps: {
         pr: 'National proportional representation: every party gets roughly its vote share. The Gallagher index (votes-to-seats distortion) is very low.',
-        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 41 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
+        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 44 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
         mmp: 'Under mixed-member proportional, local winners are kept but compensatory seats restore the proportions: the fidelity of PR without giving up territorial representation.',
       },
     },
@@ -380,7 +385,7 @@ const pgEn: PlaygroundKeys = {
     manipMid:
       ': {{pct}}% of voters tempted to vote tactically ({{compromise}} compromise · {{burying}} burying). Random ballot:',
     manipEnd:
-      ' — the only strategyproof rule (Gibbard 1977). Every deterministic ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
+      ' — strategyproof; among lotteries, the only rule that is also Pareto-efficient and treats voters alike (Gibbard 1977). As soon as three or more candidates can win, every deterministic, non-dictatorial ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
     methodHeader: 'Method',
     criteriaLegend:
       '✓ satisfied · ✗ violated · – not triggered on this electorate. Measured live — drag a candidate to provoke a violation. The Condorcet winner is ringed on the map.',
@@ -638,9 +643,14 @@ const pgEn: PlaygroundKeys = {
     noFlip: ' — with all voters, it is C-supporters’ 3rd choice that wins.',
   },
   bilan: {
+    whyTitle: 'Why they disagree',
+    whyDuel: 'Head to head, {{x}} beats {{y}}: {{xv}} voters to {{yv}}.',
+    whyAnyway: '{{rule}} elects {{y}} all the same. {{reason}}',
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',
     fineTune: 'Fine-tune…',
+    dialTitle:
+      'One dial that sets correlated weights (a stated convention) — fine-tuning stays available.',
     simpleDial: '← Simple dial',
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',
@@ -729,7 +739,9 @@ const pgEn: PlaygroundKeys = {
     pairwise: {
       start: 'Every pair of candidates is put head-to-head.',
       duel: '{{a}} vs {{b}}: {{av}}–{{bv}} → {{cand}} wins the duel.',
-      doneCopeland: '{{cand}} wins the most duels (Copeland): elected.',
+      duelTie: '{{a}} vs {{b}}: {{av}}–{{bv}} → a tie, a win for neither.',
+      doneCopeland:
+        'Copeland: {{cand}} has the best record of duels won minus duels lost — elected.',
       doneMinimax: 'Minimax: {{cand}} has the smallest worst defeat — elected.',
       doneSchulze: 'Schulze: {{cand}} wins by strongest beat-paths — elected.',
       doneRankedPairs: 'Ranked pairs: lock the clearest duels first, {{cand}} leads — elected.',
@@ -916,13 +928,40 @@ const pgEn: PlaygroundKeys = {
   explain: {
     kicker: 'Why this winner?',
     count: '{{winner}} wins on the highest total: {{winnerVal}} to {{runnerUp}}’s {{runnerUpVal}}.',
-    elim: '{{winner}} wins on transfers: as the lowest-placed are eliminated their votes flow on, and {{winner}} ends ahead of {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     pairwise:
       '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
+    pairwiseCycle:
+      '{{winner}} does not beat every rival head to head ({{wins}} of {{duels}} duels won outright): this method elects them by how it weighs the duels.',
+    kickerRule: 'Why, under {{rule}}?',
     twophase:
       '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
     lottery:
       '{{winner}} is drawn by lot: each candidate’s chance was proportional to their support.',
+    byRule: '{{winner}} is elected by this method’s rule.',
+    maximin:
+      '{{winner}} leaves its least-satisfied voter best off: {{winnerPct}}% satisfied at worst, against {{runnerUpPct}}% for {{runnerUp}}.',
+    nash: '{{winner}} has the highest geometric mean of satisfaction: {{winnerPct}}%, against {{runnerUpPct}}% for {{runnerUp}}.',
+    irv: '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: the candidate with the fewest first choices is eliminated and their ballots transfer, until someone has a majority.',
+    twoRound:
+      '{{winner}} ends ahead of {{runnerUp}} in the last count, {{winnerVal}} to {{runnerUpVal}}: a first-round majority wins outright, otherwise the top two go on to a second round.',
+    rule: {
+      majority_judgment:
+        '{{winner}} has the best median grade (equal medians are settled by majority judgment’s tie-break): at least half the voters grade them that high or higher.',
+      bucklin:
+        '{{winner}} wins once lower preferences are added round by round: in the first round where anyone reaches a majority of mentions, {{winner}} has the most.',
+      coombs:
+        '{{winner}} survives the eliminations: round by round, the candidate ranked last by the most voters goes out, until someone has a majority.',
+      nanson:
+        '{{winner}} survives the eliminations: round by round, every candidate below the average Borda score goes out.',
+      baldwin:
+        '{{winner}} survives the eliminations: round by round, the candidate with the lowest Borda score goes out.',
+      raynaud:
+        '{{winner}} survives the eliminations: round by round, the candidate with the heaviest defeat in a duel goes out.',
+      benham:
+        '{{winner}} is elected by Benham’s rule: eliminations as in IRV, but as soon as one remaining candidate beats every other in a duel, that candidate wins.',
+      smith_irv:
+        '{{winner}} wins IRV run within the Smith set: the smallest group of candidates who each beat everyone outside it in a duel.',
+    },
   },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
@@ -985,7 +1024,7 @@ const pgEn: PlaygroundKeys = {
       'Number of voters who share your conviction and would vote like you — your collective leverage.',
     blocLabel: 'Voters like you: {{n}}',
     headlinePre: 'In your shoes,',
-    headlineMid: '/15 methods reward conviction;',
+    headlineMid: '/{{total}} methods reward conviction;',
     headlineEnd: 'push you toward a tactical vote.',
     temptingHead: '⚠ You would be tempted to betray your favourite',
     temptSincere: 'sincere → {{winner}} ; but vote',
@@ -1097,15 +1136,23 @@ const pgEn: PlaygroundKeys = {
     caption:
       'Positions are inferred from the ballots (PCA projection), not chosen: candidates cannot be dragged. Each candidate sits at the centroid of the voters who support it.',
   },
+  strip: {
+    under: 'Under {{rule}}:',
+    noFixedWinner: 'no fixed winner',
+    noFixedWinnerTitle:
+      'A random ballot draws one ballot at random: each candidate wins with the share of voters who rank them first.',
+    othersElect: 'The other ticked methods elect:',
+    othersAgree_one: 'The other ticked method elects the same winner.',
+    othersAgree_other: 'The other {{count}} ticked methods elect the same winner.',
+    sincere: '(sincere votes)',
+  },
   instrument: {
     labelLeader: 'Ideology map — leader',
     labelAssembly: 'Composition of the assembly',
     flipCaption: 'Same voters, opposite character.',
     paradox: 'paradox {{pct}} %',
-    paradoxLoading: '· · ·',
     paradoxTitle:
       'Share of resampled electorates with no Condorcet winner — a high rate signals the result depends heavily on the assumptions.',
-    condorcet: 'Condorcet: {{name}}',
     shake: '🎲 Shake the assumptions',
     shakeTitle:
       'Resamples the electorate 60 times (same assumptions, new draws) — separates a structural property from a chosen setting.',
@@ -1272,10 +1319,13 @@ const pgEn: PlaygroundKeys = {
       label: 'NP-hard, even for a single manipulator',
       ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
     },
-    ranked_pairs: { label: 'P (ranked pairs)', ref: 'Tideman 1987 — polynomial' },
+    ranked_pairs: {
+      label: 'NP-hard, even for a single manipulator',
+      ref: 'Xia et al. 2009',
+    },
     random_ballot: {
       label: 'Strategyproof — strategy gains nothing',
-      ref: 'Gibbard 1977 (only strategyproof rule, at the cost of chance)',
+      ref: 'Gibbard 1977 (the only strategyproof, Pareto-efficient, anonymous lottery)',
     },
     anti_plurality: { label: 'P (veto)', ref: 'positional rule' },
     dowdall: { label: 'P (positional)', ref: 'positional rule' },
@@ -1381,6 +1431,10 @@ const pgEn: PlaygroundKeys = {
     elecCurrent: 'Current electorate',
     matrix: {
       title: 'Method comparison',
+      colMethod: 'Method',
+      yes: 'Yes',
+      no: 'No',
+      conditional: 'Conditional',
       liveRow: 'Winner with your current electorate',
       familyMajoritarian: 'Majoritarian',
       familyOrdinal: 'Ordinal',

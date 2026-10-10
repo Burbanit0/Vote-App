@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CANDIDATE_PALETTE, textTone } from '../../lib/palette';
 import { useTranslation } from 'react-i18next';
 import { ruleWinnerFromRanks } from '../../lib/playgroundVoting';
 
@@ -47,7 +48,7 @@ function firstPrefs(abstain: number): number[] {
   return counts;
 }
 
-const COLORS = ['#2563eb', '#dc2626', '#16a34a'];
+const COLORS = CANDIDATE_PALETTE; // the map's palette: same candidate, same colour
 
 const NoShowParadox: React.FC = () => {
   const { t } = useTranslation('playground');
@@ -87,7 +88,7 @@ const NoShowParadox: React.FC = () => {
       <div className="mb-2 flex flex-col gap-0.5">
         {NAMES.map((n, i) => (
           <div key={n} className="flex items-center gap-2">
-            <span className="w-3" style={{ color: COLORS[i] }}>
+            <span className="w-3" style={{ color: textTone(COLORS[i]) }}>
               {n}
             </span>
             <div className="h-2 flex-1 overflow-hidden rounded bg-muted">
@@ -106,7 +107,8 @@ const NoShowParadox: React.FC = () => {
       </div>
 
       <div data-testid="noshow-verdict">
-        {t('noshow.winner')} <strong style={{ color: COLORS[winner] }}>{NAMES[winner]}</strong>
+        {t('noshow.winner')}{' '}
+        <strong style={{ color: textTone(COLORS[winner]) }}>{NAMES[winner]}</strong>
         {flipped ? (
           <span className="text-[#16a34a]">
             {t('noshow.paradox', {

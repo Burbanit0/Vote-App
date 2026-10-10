@@ -1,5 +1,7 @@
 # Plan — the flagship run: 30 simulated years at population 500
 
+> **status:** superseded — by plan-full-run.md, its tracker from Phase 7 on. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Living document.** Unlike the other `plan-*.md` files here, this one is a
 > *tracker*: every phase carries a status line that is updated as the work
 > lands, so the state of a multi-day effort survives a lost session. Written in

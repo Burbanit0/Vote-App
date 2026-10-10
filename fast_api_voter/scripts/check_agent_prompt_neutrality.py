@@ -46,6 +46,7 @@ Usage:
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py              # all probes, n=30
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --n 60
     python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe forum
+    python fast_api_voter/scripts/check_agent_prompt_neutrality.py --probe threshold --n 60   # PLAN_BEYOND_CI W2.1's gate
 """
 from __future__ import annotations
 
@@ -62,6 +63,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from api.domain.polity.bakeoff_statistics import mcnemar_exact  # noqa: E402
 from api.domain.polity.agents import (  # noqa: E402
     PRESIDENT_TURN,
     NOMINEE_TURN,
@@ -162,8 +164,8 @@ def _paraphrase(text: str, pairs: Sequence[tuple[str, str]]) -> str:
 
 _FORUM_PAIRS = (
     (
-        "At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only its own members.",
-        "At an election a candidate of a citizen's own party is weighed more favourably, and only its own members may be nominated by a party.",
+        "At an election, a party nominates only its own members.",
+        "At an election, only its own members may be nominated by a party.",
     ),
 )
 
@@ -172,7 +174,7 @@ def _forum_ask(
     citizen: Citizen, cell: str, paraphrased: bool, config: PolityConfig, client: LlmClientProtocol,
     *, population: list[Citizen], parties: list[Party], roll: str,
 ) -> str:
-    del cell  # the cell is which citizens these are (how many would co-found), not a prompt change
+    del cell  # the forum's cell is which citizens these are; the threshold gate's is the config passed in
     system = forum_system_prompt(citizen, config)
     if paraphrased:
         system = _paraphrase(system, _FORUM_PAIRS)
@@ -339,6 +341,51 @@ def _probes(citizens: list[Citizen], parties: list[Party]) -> dict[str, Probe]:
     }
 
 
+def _with_threshold(config: PolityConfig, threshold: float) -> PolityConfig:
+    return dataclasses.replace(
+        config, institutions=dataclasses.replace(config.institutions, electoral_threshold=threshold),
+    )
+
+
+GATE_LOW, GATE_HIGH, GATE_ALPHA = 0.03, 0.07, 0.05
+
+
+def _threshold_gate(
+    citizens: list[Citizen], parties: list[Party], n: int, config: PolityConfig, client: LlmClientProtocol,
+) -> bool:
+    """PLAN_BEYOND_CI W2.1's gate: does founding follow the seat threshold a founder is told (D2)?
+    The same citizens -- only those who could found; for the others `found` is refused anyway --
+    answer once told 3% and once told 7%, shipped wording only. Paired, so the test is an exact
+    McNemar on who founds at one bar and not the other; the gate passes when founding moves at
+    p < 0.05 (in either direction: the wrong sign is a finding too, and is printed as such)."""
+    able = _split_by_backing(citizens, parties, n, config)["enough would co-found"]
+    if not able:
+        raise SystemExit("threshold gate: no citizen in this checkpoint could found a party; use another --checkpoint")
+    low, high = _with_threshold(config, GATE_LOW), _with_threshold(config, GATE_HIGH)
+    roll = party_roll(parties, citizens)
+    jobs = [(citizen, cfg) for citizen in able for cfg in (low, high)]
+    with ThreadPoolExecutor(WORKERS) as pool:
+        answers = list(pool.map(
+            lambda job: _forum_ask(job[0], "", False, job[1], client, population=citizens, parties=parties, roll=roll),
+            jobs,
+        ))
+    found_low = [a == "found" for a in answers[0::2]]
+    found_high = [a == "found" for a in answers[1::2]]
+    test = mcnemar_exact(found_low, found_high)
+    moved = test.p_value < GATE_ALPHA
+    direction = "fewer at the higher bar" if sum(found_high) < sum(found_low) else "more at the higher bar"
+    print(f"\nW2.1 gate: does founding follow the stated seat threshold? ({len(able)} able founders, each told "
+          f"{GATE_LOW:.0%} then {GATE_HIGH:.0%})")
+    print(f"  found at {GATE_LOW:.0%}: {sum(found_low)}/{len(able)}    found at {GATE_HIGH:.0%}: {sum(found_high)}/{len(able)}")
+    print(f"  only at {GATE_LOW:.0%}: {test.first_only}   only at {GATE_HIGH:.0%}: {test.second_only}   "
+          f"exact McNemar p = {test.p_value:.3g}")
+    print(f"  GATE  {'PASS' if moved else 'STOP'}  " + (
+        f"founding moves with the threshold ({direction})" if moved
+        else "founding does not move with the threshold at this n: the experiment stops here (PLAN_BEYOND_CI W2.1)"
+    ))
+    return moved
+
+
 # ── running one probe ─────────────────────────────────────────────────────
 
 def _split_by_backing(
@@ -436,7 +483,7 @@ def _print_probe(probe: Probe, shares: dict[tuple[str, bool], dict[str, float]],
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--n", type=int, default=30, help="citizens per cell per wording (default 30)")
-    parser.add_argument("--probe", action="append", help="only this probe (forum, ballot, president)")
+    parser.add_argument("--probe", action="append", help="only this probe (forum, threshold, ballot, campaign, president)")
     parser.add_argument("--checkpoint", type=Path, default=Path(os.environ.get("POLITY_CHECKPOINT", _DEFAULT_CHECKPOINT)))
     args = parser.parse_args(argv)
 
@@ -447,6 +494,8 @@ def main(argv: list[str] | None = None) -> int:
     client = build_json_client(config.llm, seed=config.run.seed)
     probes = _probes(citizens, parties)
     chosen = args.probe or list(probes)
+    gate = "threshold" in chosen
+    chosen = [key for key in chosen if key != "threshold"]
     unknown = sorted(set(chosen) - set(probes))
     if unknown:
         raise SystemExit(f"unknown probe(s) {unknown}; known: {sorted(probes)}")
@@ -462,7 +511,9 @@ def main(argv: list[str] | None = None) -> int:
         verdicts = _verdicts(probe, shares, args.n)
         _print_probe(probe, shares, verdicts)
         failures += sum("FAIL" in line for line in verdicts)
-    print(f"\n{failures} check(s) failed across {len(chosen)} probe(s)")
+    if gate and not _threshold_gate(citizens, parties, args.n, config, client):
+        failures += 1
+    print(f"\n{failures} check(s) failed across {len(chosen) + gate} probe(s)")
     return 1 if failures else 0
 
 
