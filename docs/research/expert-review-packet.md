@@ -15,7 +15,7 @@ review of three things:
 2. **The cells we would most like a second opinion on**, set by earlier content fixes:
    - Split Cycle × Participation: no, after Moulin (1988). No Condorcet-consistent rule satisfies participation. Split Cycle keeps positive involvement, a weaker property (Holliday & Pacuit).
    - Random ballot (lottery) × Reversal symmetry: conditional. Not meaningful for a lottery: reversing every ballot turns first-choice shares into last-choice shares (the map lens says so too).
-   - Majority judgment × Majority criterion: conditional.
+   - Majority judgment × Majority criterion: conditional. Set by an earlier fix: it fails when the majority gives its favourite and another candidate the same top grade, as approval does.
    - The 4 variants (`V`, section 5): the textbook verdict, which this engine's own variant does not keep.
 3. **THEORY.md, sections 2 to 4** (methods, impossibility theorems, paradoxes; in French):
    [THEORY.md on the `polity` branch](https://github.com/Burbanit0/Vote-App/blob/polity/THEORY.md#2-les-méthodes-de-vote).
@@ -26,7 +26,7 @@ links to with the cell already named.
 
 ## 1. How each verdict is checked
 
-- **Engine-tested (`E`, 80 cells):** the 21 ordinal methods × Elects Condorcet winner, Eliminates Condorcet loser, Majority criterion, Monotonicity. Both of the app's engines (TypeScript and Python) run property-based tests on random preference profiles:
+- **Engine-tested (`E`, 80 cells):** the 21 ordinal methods × Elects Condorcet winner, Eliminates Condorcet loser, Majority criterion, Monotonicity, except the 4 variants below. Both of the app's engines (TypeScript and Python) run property-based tests on random preference profiles:
   - fast-check in `voter-app/src/lib/playgroundVoting.axioms.test.ts`, with 3 to 6 candidates and 3 to 25 voters;
   - Hypothesis in `fast_api_voter/api/tests/test_voting_criteria_matrix.py`, with 4 candidates.
 

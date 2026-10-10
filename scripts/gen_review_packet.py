@@ -10,6 +10,7 @@ The registry (voter-app/src/data/method_criteria.json) stays the source of truth
 is a dated snapshot of it to send.
 """
 
+import functools
 import hashlib
 import json
 import re
@@ -25,14 +26,25 @@ OUT = ROOT / "docs/research/expert-review-packet.md"
 REPO = "https://github.com/Burbanit0/Vote-App"
 
 SYMBOL = {"yes": "✓", "no": "✗", "conditional": "◐"}
-# Cells changed by the content fixes (W1.1, W1.2), which STATUS.md's open questions name.
-ASKED = [("split_cycle", "participation"), ("random_ballot", "reversal"), ("majority_judgment", "majority")]
+# Cells the content fixes (W1.1, W1.2) set, which STATUS.md's open questions name, with
+# the reason given when the registry's own note does not say it.
+ASKED: dict[tuple[str, str], str] = {
+    ("split_cycle", "participation"): "",
+    ("random_ballot", "reversal"): "",
+    ("majority_judgment", "majority"): "Set by an earlier fix: it fails when the majority gives its "
+    "favourite and another candidate the same top grade, as approval does.",
+}
 BASIS = {"engine-tested": "E", "literature": "L", "variant": "V"}
+
+
+@functools.cache
+def en_lines() -> list[str]:
+    return EN.read_text(encoding="utf-8").splitlines()
 
 
 def en_block(opening: str) -> dict[str, str]:
     """`key: 'label',` lines of the first block in playground.en.ts that opens with `opening`."""
-    lines = EN.read_text(encoding="utf-8").splitlines()
+    lines = en_lines()
     start = next(i for i, line in enumerate(lines) if line.strip() == opening)
     indent = len(lines[start]) - len(lines[start].lstrip())
     out: dict[str, str] = {}
@@ -45,14 +57,18 @@ def en_block(opening: str) -> dict[str, str]:
     return out
 
 
+@functools.cache
 def bib_entry(key: str) -> dict[str, str]:
     """One bibliography.bib entry's fields, one field per line as the file writes them."""
     text = BIB.read_text(encoding="utf-8")
     m = re.search(rf"@\w+\{{{re.escape(key)},\n(.*?)\n\}}", text, re.S)
     if not m:
         raise SystemExit(f"{key} is cited by the registry but not in {BIB.name}")
-    fields = dict(re.findall(r"^\s*(\w+)\s*=\s*\{(.*)\},?$", m.group(1), re.M))
-    return {k: latex_to_text(v) for k, v in fields.items()}
+    fields = {k: latex_to_text(v) for k, v in re.findall(r"^\s*(\w+)\s*=\s*\{(.*)\},?$", m.group(1), re.M)}
+    missing = [f for f in ("author", "year", "title") if f not in fields]
+    if missing:
+        raise SystemExit(f"{key}: no one-line {{...}} {', '.join(missing)} in {BIB.name}")
+    return fields
 
 
 ACCENT = {"'": "\u0301", "`": "\u0300", '"': "\u0308", "^": "\u0302"}
@@ -61,7 +77,13 @@ ACCENT = {"'": "\u0301", "`": "\u0300", '"': "\u0308", "^": "\u0302"}
 def latex_to_text(value: str) -> str:
     """BibTeX's accents ({\\'e}) as Unicode, its page ranges (--) as an en dash, no braces."""
     value = re.sub(r"\{\\(['`\"^])(\w)\}", lambda m: unicodedata.normalize("NFC", m[2] + ACCENT[m[1]]), value)
+    value = re.sub(r"\\([&%$#_])", r"\1", value)  # \& and friends
     return value.replace("--", "–").replace("{", "").replace("}", "")
+
+
+def md(text: str) -> str:
+    """Text for one Markdown table cell or list line: one line, no stray column bar."""
+    return " ".join(text.split()).replace("|", "\\|")
 
 
 def cite(key: str) -> str:
@@ -70,10 +92,10 @@ def cite(key: str) -> str:
     return f"{' & '.join(surnames)} ({entry['year']})"
 
 
-def verdict_line(entry: dict[str, Any]) -> str:
+def verdict_line(entry: dict[str, Any], why: str) -> str:
     source = f", after {cite(entry['source'])}" if entry["source"] else ""
-    note = f" {entry['note']}" if entry.get("note") else ""
-    return f"{entry['verdict']}{source}.{note}"
+    note = entry.get("note") or why
+    return md(f"{entry['verdict']}{source}. {note}".strip())
 
 
 def cell(entry: dict[str, Any]) -> str:
@@ -90,6 +112,9 @@ def render() -> str:
     criteria: list[str] = reg["criteria"]
     rule_label = en_block("rules: {")
     crit_label = en_block("criteria: {")
+    unlabelled = sorted(set(rules) - set(rule_label)) + sorted(set(criteria) - set(crit_label))
+    if unlabelled:
+        raise SystemExit(f"no English label read from {EN.name} for {', '.join(unlabelled)}")
     entries = [(r, c, e) for r, cells in rules.items() for c, e in cells.items()]
     count = {b: sum(1 for *_, e in entries if e["basis"] == b) for b in BASIS}
     sourced = sum(1 for *_, e in entries if e["basis"] == "literature" and e["source"])
@@ -100,7 +125,7 @@ def render() -> str:
     registry_hash = hashlib.sha256(raw).hexdigest()[:12]
 
     def row_link(rule: str, crit: str) -> str:
-        return f"{rule_label.get(rule, rule)} × {crit_label[crit]}"
+        return f"{rule_label[rule]} × {crit_label[crit]}"
 
     lines = [
         "# Expert review packet: Vote Lab's voting-criteria claims",
@@ -120,7 +145,7 @@ def render() -> str:
         f"1. **The {count['literature'] - sourced} literature verdicts that have no source yet** (marked `L?`"
         " below). Is each verdict right, and which work establishes it?",
         "2. **The cells we would most like a second opinion on**, set by earlier content fixes:",
-        *[f"   - {row_link(r, c)}: {verdict_line(rules[r][c])}" for r, c in ASKED],
+        *[f"   - {row_link(r, c)}: {verdict_line(rules[r][c], why)}" for (r, c), why in ASKED.items()],
         f"   - The {count['variant']} variants (`V`, section 5): the textbook verdict, which this engine's own "
         "variant does not keep.",
         "3. **THEORY.md, sections 2 to 4** (methods, impossibility theorems, paradoxes; in French):",
@@ -133,8 +158,9 @@ def render() -> str:
         "## 1. How each verdict is checked",
         "",
         f"- **Engine-tested (`E`, {count['engine-tested']} cells):** the {len(tested_rules)} ordinal methods × "
-        f"{', '.join(crit_label[c] for c in tested_criteria)}. Both of the app's engines (TypeScript and Python) "
-        "run property-based tests on random preference profiles:",
+        f"{', '.join(crit_label[c] for c in tested_criteria)}, except the {count['variant']} variants below. "
+        "Both of the app's engines (TypeScript and Python) run property-based tests on random preference "
+        "profiles:",
         "  - fast-check in `voter-app/src/lib/playgroundVoting.axioms.test.ts`, with 3 to 6 candidates and 3 to "
         "25 voters;",
         "  - Hypothesis in `fast_api_voter/api/tests/test_voting_criteria_matrix.py`, with 4 candidates.",
@@ -158,31 +184,33 @@ def render() -> str:
         "|---|" + "---|" * len(criteria),
     ]
     for rule, cells in rules.items():
-        lines.append(f"| {rule_label.get(rule, rule)} | " + " | ".join(cell(cells[c]) for c in criteria) + " |")
+        lines.append(f"| {rule_label[rule]} | " + " | ".join(cell(cells[c]) for c in criteria) + " |")
     lines += ["", "## 3. Every verdict, criterion by criterion", ""]
     for crit in criteria:
         lines += [f"### {crit_label[crit]}", "", "| Method | Verdict | Basis | Source | Note |", "|---|---|---|---|---|"]
         for rule, cells in rules.items():
             e = cells[crit]
             source = cite(e["source"]) if e["source"] else ("to be confirmed" if e["basis"] == "literature" else "")
-            note = (e.get("note") or "").replace("|", "\\|")
-            lines.append(f"| {rule_label.get(rule, rule)} | {e['verdict']} | {e['basis']} | {source} | {note} |")
+            note = md(e.get("note") or "")
+            lines.append(f"| {rule_label[rule]} | {e['verdict']} | {e['basis']} | {source} | {note} |")
         lines.append("")
     lines += ["## 4. Unsourced literature verdicts, by method", ""]
     for rule, cells in rules.items():
         missing = [crit_label[c] for c in criteria if cells[c]["basis"] == "literature" and not cells[c]["source"]]
         if missing:
-            lines.append(f"- **{rule_label.get(rule, rule)}:** {', '.join(missing)}")
+            lines.append(f"- **{rule_label[rule]}:** {', '.join(missing)}")
     lines += ["", "## 5. The variants", ""]
     for rule, crit, e in entries:
         if e["basis"] == "variant":
-            lines.append(f"- **{row_link(rule, crit)}** ({e['verdict']}): {e.get('note', '')}")
+            lines.append(f"- **{row_link(rule, crit)}** ({e['verdict']}): {md(e.get('note', ''))}")
     lines += ["", "## 6. Works cited", ""]
     for key in sources:
         b = bib_entry(key)
-        where = ", ".join(x for x in (b.get("journal"), b.get("volume") and f"vol. {b['volume']}",
-                                       b.get("number") and f"no. {b['number']}", b.get("pages") and f"pp. {b['pages']}") if x)
-        lines.append(f"- {b['author']} ({b['year']}). *{b['title']}*. {where}. (`{key}`)")
+        where = ", ".join(x for x in (
+            b.get("journal"), b.get("volume") and f"vol. {b['volume']}", b.get("number") and f"no. {b['number']}",
+            b.get("pages") and f"pp. {b['pages']}", b.get("publisher"), b.get("address"),
+        ) if x)
+        lines.append(f"- {b['author']} ({b['year']}). *{b['title']}*.{f' {where}.' if where else ''} (`{key}`)")
     return "\n".join(lines) + "\n"
 
 

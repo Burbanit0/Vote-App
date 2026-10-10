@@ -1,5 +1,6 @@
-"""The expert-review packet (docs/research/expert-review-packet.md) is regenerated, never
-edited by hand: it must be what scripts/gen_review_packet.py writes from the registry now.
+"""The expert-review packet's generator (scripts/gen_review_packet.py). The packet is a dated
+snapshot to send, named by the registry's content hash, so a registry change does not have
+to regenerate it; what is checked is that the generator still reads everything it needs.
 
 Run: python3 -m unittest discover -s scripts/tests -v
 """
@@ -15,18 +16,20 @@ import gen_review_packet as grp  # noqa: E402
 
 
 class ReviewPacketTest(unittest.TestCase):
-    def test_the_committed_packet_is_what_the_registry_generates(self) -> None:
-        self.assertEqual(
-            grp.OUT.read_text(encoding="utf-8"), grp.render(),
-            "the packet is stale: run python3 scripts/gen_review_packet.py and commit it",
-        )
+    def test_the_packet_renders_with_every_label_and_source_read(self) -> None:
+        # render() refuses an unlabelled rule or criterion and an unreadable source.
+        packet = grp.render()
+        self.assertIn("| Split Cycle |", packet)
+        self.assertIn("Moulin, Hervé (1988)", packet)
 
-    def test_bibtex_accents_and_ranges_read_as_text(self) -> None:
+    def test_bibtex_escapes_and_ranges_read_as_text(self) -> None:
         self.assertEqual(grp.latex_to_text("Moulin, Herv{\\'e}"), "Moulin, Hervé")
-        self.assertEqual(grp.latex_to_text("{587--601}"), "587–601")
+        self.assertEqual(grp.latex_to_text("Papers \\& Proceedings, {587--601}"), "Papers & Proceedings, 587–601")
 
-    def test_a_source_is_cited_from_the_bibliography(self) -> None:
-        self.assertEqual(grp.cite("moulin1988"), "Moulin (1988)")
+    def test_a_table_cell_stays_on_one_line(self) -> None:
+        self.assertEqual(grp.md("a |\nb"), "a \\| b")
+
+    def test_a_missing_source_names_itself(self) -> None:
         with self.assertRaises(SystemExit):
             grp.bib_entry("nobody2099")
 
