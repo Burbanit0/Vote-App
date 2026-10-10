@@ -25,3 +25,20 @@ def test_a_tie_one_rounding_apart_does_not_flip_the_sign():
 
 def test_a_zero_axis_is_left_as_is():
     np.testing.assert_array_equal(orient_axes(np.zeros((1, 3))), np.zeros((1, 3)))
+
+
+# Polity's map falls back to principal components when a run's latent structure does
+# not reproduce its census: a mirrored SVD must give it the same axes.
+def test_polity_pca_fallback_does_not_take_its_axes_signs_from_lapack(monkeypatch):
+    from api.domain.polity import run_projection
+
+    year_zero = np.random.default_rng(7).normal(size=(50, 6))
+    _, reference = run_projection._pca(year_zero)
+    svd = np.linalg.svd
+
+    def mirrored(a, full_matrices=True):
+        u, s, vt = svd(a, full_matrices=full_matrices)
+        return -u, s, -vt
+
+    monkeypatch.setattr(np.linalg, "svd", mirrored)
+    np.testing.assert_allclose(run_projection._pca(year_zero)[1], reference)
