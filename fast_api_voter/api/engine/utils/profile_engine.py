@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from . import tie_lot
+from .pca import orient_axes
 
 UtilityMatrix = Dict[int, Dict[str, float]]
 
@@ -645,7 +646,7 @@ def pca_embed_2d(matrix: UtilityMatrix, num_points: int) -> np.ndarray:
         return np.zeros((num_points, 2), dtype=float)
     centered = rows - rows.mean(axis=0)
     _, _, vt = np.linalg.svd(centered, full_matrices=False)
-    coords = centered @ vt[:2].T
+    coords = centered @ orient_axes(vt[:2]).T
     # Normalise into roughly [-1, 1] for display.
     span = np.abs(coords).max() or 1.0
     return np.asarray(coords / span)
