@@ -25,6 +25,7 @@ import numpy as np
 
 from api.domain.polity.citizen import LatentStructure, latent_structure
 from api.domain.polity.config import CitizensConfig, load_config
+from api.engine.utils.pca import orient_axes
 
 TOP_ISSUES = 3
 _LOGIT_EPS = 1e-6
@@ -127,10 +128,7 @@ def _pca(year_zero: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     components = vt[:2].copy()
     if components.shape[0] < 2:
         components = np.vstack([components, np.zeros((2 - components.shape[0], year_zero.shape[1]))])
-    for row in components:
-        if row[np.argmax(np.abs(row))] < 0:
-            row *= -1.0
-    return mean, components
+    return mean, orient_axes(components)
 
 
 def build_projection(config: Mapping[str, Any], census: Mapping[int, Sequence[Mapping[str, Any]]]) -> Projection:
