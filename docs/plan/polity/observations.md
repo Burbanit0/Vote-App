@@ -76,6 +76,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
+| [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | cause found |
 
 ---
 
@@ -2305,3 +2306,70 @@ no one left to vote, a confidence vote is not held and the petition runs on unti
 nothing changes.
 
 *Status: fixed.*
+
+### OBS-047
+
+**Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times
+what support adds.**
+
+*Seen.* The phase11 ensemble (`~/Documents/Dev/polity-runs/phase11/`, ten 8-year p100 seeds, exploration profile)
+holds 70 presidential elections and 41 recalls, all at the legitimacy floor, and 3 full terms. At the tick of their
+recall, every one of the 41 presidents was approved by a majority: approval 0.54 to 0.80 (median 0.71), on a mandate
+of 0.56 to 0.95 (median 0.80). A recalled president lasted a median 4 ticks, one year. In 4 of the 41 a confidence
+vote the president won had first averted the floor's recall; it came a tick later. The 29 presidencies not recalled
+were short: 16 snap winners who served to the next election, 10 elected on the run's last tick, and the 3 full
+terms. `refuse_to_leave`, open only in the last tick of a president's final term, was legal twice (OBS-044).
+
+*Cause, in two parts.*
+
+- **The citizens mobilise often.** 33.3% of phase11's 8,171 pressure acts are `MOBILIZE` (2,723), against 1.5% on
+  the LLM path with emotions off: OBS-019 traced that rise to the emotion fields in the pressure prompt, and the
+  exploration profile turns emotions on (ADR-021 needs them). During a recalled presidency a median 8.8 of 100
+  citizens mobilise each tick and 4.0 sign a petition, out of 28.4 consulted; presidencies not recalled that lasted
+  more than a tick met 5.4 mobilisers a tick.
+- **The legitimacy rule turns a few mobilisers into a recall.** `update_legitimacy` is
+  `L(t) = clamp(0.9 L(t-1) + 0.1 m - ecart(t), 0, 1)`, where support `m` blends mandate and approval and
+  `ecart = 0.5 petition_pressure + 0.5 street_pressure`. Support enters at a tenth of its weight and pressure at
+  full weight, so with steady pressure `e` legitimacy heads for `m - 10 e` (and stops at 0, where 9 of the 41
+  recalls were journaled), not `m - e`. Street pressure keeps 0.85 of itself each tick, so a steady share `r` of
+  citizens mobilising settles it at `6.7 r`, and legitimacy at `m - 33 r`. Petitions left aside, each recalled
+  president's support could absorb 1.2 to 2.0 mobilisers per hundred citizens per tick (median 1.6) before
+  heading under their floor; all 41 met more.
+
+*Against OBS-015.* On the deterministic twin, OBS-015 found that "amplification is not the cause: the rate is": a
+recall floor of 0.10 or 0.05 left 2 full terms of 20, and halving legitimacy's decay (amplifying pressure 2 times
+rather than 10) left 6, still recalling 71-74% of presidencies. The replay below agrees on the floor, but not on
+the decay: replayed on phase11's own support and pressure, a decay of 0.5 leaves 4 of the 41 presidencies settling
+under the floor. The twin met its own rate of pressure, and OBS-015 let behaviour respond where this replay holds
+it fixed; which of the two explains the gap is not tested.
+
+*Campaigning.* Not separable here: every phase11 seed campaigns. OBS-037 measured recalls about 50% higher with
+capped campaigning on three seeds (18 against 12).
+
+*Replay.* Each recalled presidency's legitimacy, recomputed from its own journaled support and pressure under
+other rules, behaviour held fixed. The shipped rule reproduces every recorded legitimacy exactly, and all 41
+recalls, with the floor each seed had in force (seed 6 amended it to 0.3). The fixed point is unclamped, at the
+presidency's mean support and pressure.
+
+| rule | how it would be set | recalled within the span served | fixed point (median) | fixed point under the floor |
+|---|---|---:|---:|---:|
+| shipped: `0.9 L + 0.1 m - e`, floor 0.2 | -- | 41 of 41 | -0.85 | 41 of 41 |
+| floor 0.1 | config (`legitimacy.recall_floor`, also an article) | 21 | -0.85 | 41 |
+| legitimacy decay 0.5 (OBS-015's knob): `0.5 L + 0.5 m - e` | config (`legitimacy.decay`) | 10 | +0.45 | 4 |
+| both pressure weights halved | code: the validator wants the two weights to sum to 1 | 0 | -0.06 | 36 |
+| pressure on support's scale: `0.9 L + 0.1 (m - e)` | code: `update_legitimacy` | 0 | +0.61 | 0 |
+| the floor recalls only a president a majority disapproves | code: the recall step | 0 (all 41 approved by a majority) | -- | -- |
+
+Lowering the floor or halving both weights slows the same fall. Halving legitimacy's memory, a config change,
+leaves 4 of 41 under the floor; pressure on support's scale or a floor tied to approval leave none. The replay
+cannot say how many recalls any of them would keep, since behaviour would change with longer presidencies.
+
+*Evidence.* `python scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase11` (from
+`fast_api_voter/`) prints every measured number above; `6.7 r`, `33 r` and `m - 10 e` are derived from the rule.
+
+*What would settle it.* The owner's choice of rule, as D9 is for the twin -- whether a president approved by 71%
+should be removable in a year by a tenth of the citizens mobilising -- then an ensemble under it, since a longer
+presidency changes what citizens and agents do. The model's mobilisation rate (OBS-019) is the other half, and is
+not measured against anything real.
+
+*Status: cause found.*

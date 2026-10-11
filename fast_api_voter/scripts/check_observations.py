@@ -13,6 +13,7 @@ Usage (from fast_api_voter/):
     python scripts/check_observations.py term-limit                                # OBS-012
     python scripts/check_observations.py indifference                              # OBS-042
     python scripts/check_observations.py founders scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl  # OBS-045
+    python scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase11                # OBS-047
 
 <run_dir> is the directory holding events.jsonl (and llm_calls.jsonl, for calls logged
 since S0.5). A run still in progress can be read; a torn final line is skipped.
@@ -27,6 +28,7 @@ import json
 import math
 import os
 import re
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -350,6 +352,138 @@ def founders(logs: list[Path]) -> None:
                   f"{kinds['alone']:>17}  {kinds['none']:>4}")
 
 
+# OBS-047: legitimacy's rule (legitimacy.update_legitimacy) and the alternatives replayed against it.
+_MOBILIZE, _SIGN = 3, 1
+
+
+def _clamped(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+_RECALL_RULES: dict[str, Any] = {
+    "shipped: 0.9 L + 0.1 m - e": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e), None, 10),
+    "floor 0.1": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e), 0.1, 10),
+    "legitimacy decay 0.5 (OBS-015's knob): 0.5 L + 0.5 m - e": (lambda L, m, e: _clamped(0.5 * L + 0.5 * m - e), None, 2),
+    "both pressure weights halved": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e / 2), None, 5),
+    "pressure on support's scale: 0.9 L + 0.1 (m - e)": (lambda L, m, e: _clamped(0.9 * L + 0.1 * (m - e)), None, 1),
+}
+
+
+@dataclasses.dataclass
+class _Presidency:
+    start: int
+    snap: bool
+    end: int = -1
+    how: str = ""  # "recalled", "next election" or "end of run"
+    series: list[dict[str, Any]] = dataclasses.field(default_factory=list)  # legitimacy_updated payloads, with "floor"
+    vetoed: bool = False  # a won confidence vote averted a floor recall during it
+
+
+def _presidencies(journal: Path) -> tuple[list[_Presidency], collections.Counter[int], dict[str, collections.Counter[int]]]:
+    events = list(_jsonl(journal))
+    last = max(e["tick"] for e in events)
+    acts: collections.Counter[int] = collections.Counter()
+    per_tick: dict[str, collections.Counter[int]] = {
+        "mobilize": collections.Counter(), "sign": collections.Counter(), "consulted": collections.Counter(),
+    }
+    terms: list[_Presidency] = []
+    floor, holder = 0.2, None
+    for e in events:
+        kind, payload, tick = e["event_type"], e["payload"], e["tick"]
+        if kind == "pressure_action":
+            acts[payload["act"]] += 1
+            per_tick["consulted"][tick] += 1
+            per_tick["mobilize"][tick] += payload["act"] == _MOBILIZE
+            per_tick["sign"][tick] += payload["act"] == _SIGN
+        elif kind == "constitution_amended" and payload["article"] == "legitimacy.recall_floor":
+            floor = payload["new"]
+        elif payload.get("office") != "president":
+            continue
+        elif kind == "elected":
+            if terms and terms[-1].end < 0:
+                terms[-1].end, terms[-1].how = tick, "next election"
+            terms.append(_Presidency(start=tick, snap=payload.get("attempt", 0) > 0))
+            holder = e["citizen_id"]
+        elif kind == "legitimacy_updated" and e["citizen_id"] == holder:
+            terms[-1].series.append({**payload, "floor": floor})
+        elif kind == "confidence_vote_result" and payload.get("averted_recall"):
+            terms[-1].vetoed = True
+        elif kind == "recalled":
+            terms[-1].end, terms[-1].how, holder = tick, "recalled", None
+    if terms and terms[-1].end < 0:
+        terms[-1].end, terms[-1].how = last + 1, "end of run"
+    return terms, acts, per_tick
+
+
+def _support(payload: dict[str, Any]) -> float:
+    return 0.5 * float(payload["mandate_strength"]) + 0.5 * float(payload["approval"])  # legitimacy.approval_weight 0.5
+
+
+def _replay_recalls(series: list[dict[str, Any]], update: Any, floor: float | None) -> bool:
+    level = series[0]["mandate_strength"]  # legitimacy.initial_legitimacy
+    for payload in series:
+        level = update(level, _support(payload), payload["ecart"])
+        if level < (payload["floor"] if floor is None else floor):
+            return True
+    return False
+
+
+def recalls(roots: list[Path]) -> None:
+    """OBS-047: every presidency in the runs under `roots`, what support each recalled president kept, what
+    pressure they met, and a replay of their legitimacy under other rules with that support and pressure fixed."""
+    terms: list[_Presidency] = []
+    acts: collections.Counter[int] = collections.Counter()
+    pressure: list[dict[str, float]] = []
+    for run_dir in _run_dirs(roots):
+        run_terms, run_acts, per_tick = _presidencies(run_dir / "events.jsonl")
+        terms += run_terms
+        acts += run_acts
+        for term in run_terms:
+            ticks = range(term.start, term.end + (term.how == "recalled"))
+            pressure.append({key: sum(count[t] for t in ticks) / max(len(ticks), 1) for key, count in per_tick.items()})
+    recalled = [(t, p) for t, p in zip(terms, pressure) if t.how == "recalled"]
+    kept = [(t, p) for t, p in zip(terms, pressure) if t.how != "recalled"]
+    med = statistics.median
+    at_recall = [t.series[-1] for t, _ in recalled]
+    print(f"presidential elections {len(terms)}, recalled {len(recalled)}, full terms "
+          f"{sum(not t.snap and t.how == 'next election' for t, _ in kept)}")
+    print(f"recalled, at the recall: approval {min(p['approval'] for p in at_recall):.2f} to {max(p['approval'] for p in at_recall):.2f} "
+          f"(median {med(p['approval'] for p in at_recall):.2f}), mandate {min(p['mandate_strength'] for p in at_recall):.2f} to "
+          f"{max(p['mandate_strength'] for p in at_recall):.2f} (median {med(p['mandate_strength'] for p in at_recall):.2f}); "
+          f"approved by a majority {sum(p['approval'] >= 0.5 for p in at_recall)}; ticks in office median "
+          f"{med(t.end - t.start for t, _ in recalled)}; a won confidence vote had first averted the recall {sum(t.vetoed for t, _ in recalled)}")
+    print(f"not recalled: snap winners to the next election {sum(t.snap and t.how == 'next election' for t, _ in kept)}, "
+          f"elected on the run's last tick {sum(t.how == 'end of run' and t.end - t.start <= 1 for t, _ in kept)}, "
+          f"other {sum(not (t.snap and t.how == 'next election') and not (t.how == 'end of run' and t.end - t.start <= 1) for t, _ in kept)}")
+    level, drift = 0.0, 0.0
+    for term in terms:  # the shipped rule, replayed, against every recorded legitimacy
+        level = term.series[0]["mandate_strength"] if term.series else 0.0
+        for payload in term.series:
+            level = _clamped(0.9 * level + 0.1 * _support(payload) - payload["ecart"])
+            drift = max(drift, abs(level - payload["legitimacy"]))
+    floors = sorted({p["floor"] for t, _ in recalled for p in t.series})
+    print(f"recalled at legitimacy 0 (the clamp): {sum(p['legitimacy'] == 0.0 for p in at_recall)}; floors in force "
+          f"during recalled presidencies: {floors}; the shipped rule replays every recorded legitimacy to within {drift:.0e}")
+    total = sum(acts.values())
+    print(f"pressure acts {total}, MOBILIZE {acts[_MOBILIZE]} ({acts[_MOBILIZE] / total:.1%}), SIGN {acts[_SIGN]}")
+    print("per tick in office, medians -- recalled: " + ", ".join(f"{k} {med(p[k] for _, p in recalled):.1f}" for k in ("mobilize", "sign", "consulted"))
+          + f"; not recalled, longer than a tick: mobilize {med(p['mobilize'] for t, p in kept if t.end - t.start > 1):.1f}")
+    # Street pressure keeps 0.85 of itself and enters ecart at 0.5; ecart costs ten times what support adds:
+    # legitimacy settles at m - 10 * 0.5 * r / 0.15 = m - 33.3 r for a steady share r mobilising (petitions left out).
+    absorbable = [100 * (statistics.fmean(_support(p) for p in t.series) - t.series[-1]["floor"]) / 33.3 for t, _ in recalled]
+    print(f"mobilisers per hundred a recalled president's support absorbs (street only): {min(absorbable):.1f} to "
+          f"{max(absorbable):.1f} (median {med(absorbable):.1f}); exceeded by {sum(p['mobilize'] > a for (_, p), a in zip(recalled, absorbable))}")
+    for name, (update, floor, amplification) in _RECALL_RULES.items():
+        fixed = [statistics.fmean(_support(p) for p in t.series) - amplification * statistics.fmean(p["ecart"] for p in t.series)
+                 for t, _ in recalled]
+        under = sum(f < (t.series[-1]["floor"] if floor is None else floor) for f, (t, _) in zip(fixed, recalled))
+        replayed = sum(_replay_recalls(t.series, update, floor) for t, _ in recalled)
+        print(f"  {name:<50} recalled in the span served {replayed:>2} of {len(recalled)}; unclamped fixed point "
+              f"{med(fixed):+.2f} (median), under the floor {under}")
+    print(f"  {'the floor recalls only a president a majority disapproves':<50} recalled in the span served "
+          f"{sum(p['approval'] < 0.5 for p in at_recall):>2} of {len(recalled)}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -363,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("term-limit")
     sub.add_parser("indifference")
     sub.add_parser("founders").add_argument("logs", nargs="+", type=Path)
+    sub.add_parser("recalls").add_argument("roots", nargs="+", type=Path)
     kernel_run = sub.add_parser("_kernel-run")
     kernel_run.add_argument("seed", type=int)
     kernel_run.add_argument("population", type=int)
@@ -385,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
         indifference()
     elif args.command == "founders":
         founders(args.logs)
+    elif args.command == "recalls":
+        recalls(args.roots)
     else:
         print(json.dumps(_kernel_run(args.seed, args.population, args.engine)))
     return 0
