@@ -50,7 +50,7 @@ async def handle(method: str, path: str, query: str, body: str) -> tuple[int, st
     async def send(message: Message) -> None:
         if message["type"] == "http.response.start":
             response["status"] = message["status"]
-        elif message["type"] == "http.response.body":
+        else:  # http.response.body: an HTTP response has no other message
             response["body"] += message.get("body", b"")
 
     try:
