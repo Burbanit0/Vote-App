@@ -363,7 +363,17 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
 - **Output:** a one-page memo, and the owner decides.
   - Done 2026-10-10:
     [EXP-023](../exploration/EXP-023-pyodide-web-worker-vs-fly-container.md), with the
-    spike on the branch `spike/pyodide-hosting`. Waiting on the owner's decision.
+    spike on the branch `spike/pyodide-hosting`.
+  - **Decided 2026-10-11: static hosting with the engine in Pyodide** (the memo's option A,
+    without the real-phone check first). The port, one PR each:
+    1. The backend runs without a server: `api/browser.py` answers requests through the
+       server's own compute routers in-process, workers run inline where threads do not
+       exist, and `scripts/build_browser_engine.py` bundles it.
+    2. A static build sends every `/api/v2` call to a Pyodide worker; the Monte Carlo
+       fiche uses HTTP instead of Socket.IO.
+    3. A CI check runs the routes under Pyodide against CPython.
+    4. Polity's run explorer: a static export, or left out of the static build.
+    5. Hosting: a static host with SPA routing, and its deploy workflow.
 
 ---
 

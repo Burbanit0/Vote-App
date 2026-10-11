@@ -78,6 +78,7 @@ from typing import Any, Callable, Dict, Tuple, TypeVar
 from fastapi import HTTPException, status as http_status
 from pydantic import BaseModel
 
+from api.engine.utils import runtime
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -97,6 +98,10 @@ async def run_bounded(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
     """Run any sync callable off the event loop, bounded by the shared
     concurrency limit and timeout. Raises `asyncio.TimeoutError` on timeout —
     see `run_worker_bounded` for the `(body, status)` convenience wrapper."""
+    if not runtime.THREADS:
+        # Pyodide, in one visitor's browser: no threads to run on, and nobody to share
+        # the machine with, so the worker runs inline, with no bound or timeout.
+        return fn(*args, **kwargs)
     async with _semaphore:
         return await asyncio.wait_for(
             asyncio.to_thread(fn, *args, **kwargs), timeout=WORKER_TIMEOUT_SECONDS
