@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from api.domain.polity.citizen import DISENGAGED, Citizen
+from api.domain.polity.config import load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.legitimacy import update_legitimacy
 from api.domain.polity.indexer import index_events
@@ -126,4 +127,18 @@ def test_petition_metrics_leave_out_the_votes_the_floor_called() -> None:
     assert (metrics.petition_success_rate, metrics.petition_removal_rate) == (1.0, 0.0)
     assert _petition_impact({"confidence_vote_triggered": [e for e in events if e["event_type"] == "confidence_vote_triggered"]})[
         "confidence_votes"] == 1
+
+
+def test_a_petition_vote_won_the_same_tick_holds_the_floor_without_a_second_vote(tmp_path: Path) -> None:
+    supporters = [_citizen(1, 0.5), _citizen(2, 0.5), _citizen(3, 0.0)]
+    events = _under_the_floor(tmp_path, supporters, calls_vote=True, petition=True)
+    assert _kinds(events) == ["legitimacy_updated", "confidence_vote_triggered", "confidence_vote_result"]
+    assert "cause" not in events[1]["payload"] and events[2]["payload"]["averted_recall"] is True
+
+
+def test_both_switches_are_off_in_the_shipped_config_and_on_in_the_exploration_profile(flagship: Any) -> None:
+    shipped = load_config().legitimacy
+    assert (shipped.pressure_like_support, shipped.floor_calls_vote) == (False, False)
+    explored = flagship._exploration_config(load_config()).legitimacy
+    assert (explored.pressure_like_support, explored.floor_calls_vote) == (True, True)
 
