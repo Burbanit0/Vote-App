@@ -238,7 +238,7 @@ def _petition_impact(by_type: EventsByType) -> dict[str, Any]:
         "signed": len(signed),
         "expired": len(by_type.get("petition_expired", [])),
         "peak_signed_ratio": max(ratios) if ratios else None,
-        "confidence_votes": len(by_type.get("confidence_vote_triggered", [])),
+        "confidence_votes": sum("cause" not in e["payload"] for e in by_type.get("confidence_vote_triggered", [])),  # ADR-025
     }
 
 

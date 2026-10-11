@@ -113,8 +113,10 @@ def support_strength(mandate: float, approval_share: float | None, config: Legit
 
 
 def update_legitimacy(previous: float, strength: float, ecart: float, config: LegitimacyConfig) -> float:
-    """L(t) = decay*L(t-1) + (1-decay)*m - ecart(t), clamped to [0, 1]."""
-    updated = config.decay * previous + (1.0 - config.decay) * strength - ecart
+    """L(t) = decay*L(t-1) + (1-decay)*m - ecart(t), clamped to [0, 1]; with `pressure_like_support`
+    (ADR-025), L(t) = decay*L(t-1) + (1-decay)*(m - ecart(t)), so a steady pressure costs what it says."""
+    pressure = (1.0 - config.decay) * ecart if config.pressure_like_support else ecart
+    updated = config.decay * previous + (1.0 - config.decay) * strength - pressure
     return max(0.0, min(1.0, updated))
 
 

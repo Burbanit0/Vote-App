@@ -468,9 +468,15 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
     petition_removal = None
     if config.metrics.petition_success_rate:
         launched = sum(1 for e in events if e["event_type"] == "petition_launched")
-        triggered = sum(1 for e in events if e["event_type"] == "confidence_vote_triggered")
+        # ADR-025: a vote the legitimacy floor called (its `cause`) is not a petition's; its result follows it.
+        petition_vote = [
+            e for e in events if e["event_type"] == "confidence_vote_triggered" and "cause" not in e["payload"]
+        ]
+        triggered = len(petition_vote)
         removed = sum(
-            1 for e in events if e["event_type"] == "recalled" and e["payload"]["trigger"] == "confidence_vote"
+            1 for before, e in zip(events, events[1:])
+            if e["event_type"] == "confidence_vote_result" and not e["payload"]["retained"]
+            and before["event_type"] == "confidence_vote_triggered" and "cause" not in before["payload"]
         )
         petition_success = _petition_success_rate_fn(triggered, launched)
         petition_removal = (removed / triggered) if triggered > 0 else None
