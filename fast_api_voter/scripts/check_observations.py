@@ -363,6 +363,7 @@ def _clamped(value: float) -> float:
 _RECALL_RULES: dict[str, Any] = {
     "shipped: 0.9 L + 0.1 m - e": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e), None, 10),
     "floor 0.1": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e), 0.1, 10),
+    "legitimacy decay 0.5 (OBS-015's knob): 0.5 L + 0.5 m - e": (lambda L, m, e: _clamped(0.5 * L + 0.5 * m - e), None, 2),
     "both pressure weights halved": (lambda L, m, e: _clamped(0.9 * L + 0.1 * m - e / 2), None, 5),
     "pressure on support's scale: 0.9 L + 0.1 (m - e)": (lambda L, m, e: _clamped(0.9 * L + 0.1 * (m - e)), None, 1),
 }
@@ -454,6 +455,15 @@ def recalls(roots: list[Path]) -> None:
     print(f"not recalled: snap winners to the next election {sum(t.snap and t.how == 'next election' for t, _ in kept)}, "
           f"elected on the run's last tick {sum(t.how == 'end of run' and t.end - t.start <= 1 for t, _ in kept)}, "
           f"other {sum(not (t.snap and t.how == 'next election') and not (t.how == 'end of run' and t.end - t.start <= 1) for t, _ in kept)}")
+    level, drift = 0.0, 0.0
+    for term in terms:  # the shipped rule, replayed, against every recorded legitimacy
+        level = term.series[0]["mandate_strength"] if term.series else 0.0
+        for payload in term.series:
+            level = _clamped(0.9 * level + 0.1 * _support(payload) - payload["ecart"])
+            drift = max(drift, abs(level - payload["legitimacy"]))
+    floors = sorted({p["floor"] for t, _ in recalled for p in t.series})
+    print(f"recalled at legitimacy 0 (the clamp): {sum(p['legitimacy'] == 0.0 for p in at_recall)}; floors in force "
+          f"during recalled presidencies: {floors}; the shipped rule replays every recorded legitimacy to within {drift:.0e}")
     total = sum(acts.values())
     print(f"pressure acts {total}, MOBILIZE {acts[_MOBILIZE]} ({acts[_MOBILIZE] / total:.1%}), SIGN {acts[_SIGN]}")
     print("per tick in office, medians -- recalled: " + ", ".join(f"{k} {med(p[k] for _, p in recalled):.1f}" for k in ("mobilize", "sign", "consulted"))

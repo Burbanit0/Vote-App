@@ -2338,13 +2338,13 @@ terms. `refuse_to_leave`, open only in the last tick of a president's final term
 
 *Against OBS-015.* On the deterministic twin, OBS-015 found that "amplification is not the cause: the rate is": a
 recall floor of 0.10 or 0.05 left 2 full terms of 20, and halving legitimacy's decay (amplifying pressure 2 times
-rather than 10) left 6, still recalling 71-74% of presidencies. The replay below agrees for those knobs. What it
-adds is that removing the amplification altogether, or tying the floor to approval, which OBS-015 did not try,
-stops these recalls at today's rate.
+rather than 10) left 6, still recalling 71-74% of presidencies. The replay below agrees on the floor, but not on
+the decay: replayed on phase11's own support and pressure, a decay of 0.5 leaves 4 of the 41 presidencies settling
+under the floor. The twin met its own rate of pressure, and OBS-015 let behaviour respond where this replay holds
+it fixed; which of the two explains the gap is not tested.
 
 *Campaigning.* Not separable here: every phase11 seed campaigns. OBS-037 measured recalls about 50% higher with
-capped campaigning on three seeds (18 against 12), through the attention it concentrates, which widens the gap a
-mobiliser sees; the approval of the presidents recalled here stays high either way.
+capped campaigning on three seeds (18 against 12).
 
 *Replay.* Each recalled presidency's legitimacy, recomputed from its own journaled support and pressure under
 other rules, behaviour held fixed. The shipped rule reproduces every recorded legitimacy exactly, and all 41
@@ -2355,15 +2355,17 @@ presidency's mean support and pressure.
 |---|---|---:|---:|---:|
 | shipped: `0.9 L + 0.1 m - e`, floor 0.2 | -- | 41 of 41 | -0.85 | 41 of 41 |
 | floor 0.1 | config (`legitimacy.recall_floor`, also an article) | 21 | -0.85 | 41 |
+| legitimacy decay 0.5 (OBS-015's knob): `0.5 L + 0.5 m - e` | config (`legitimacy.decay`) | 10 | +0.45 | 4 |
 | both pressure weights halved | code: the validator wants the two weights to sum to 1 | 0 | -0.06 | 36 |
 | pressure on support's scale: `0.9 L + 0.1 (m - e)` | code: `update_legitimacy` | 0 | +0.61 | 0 |
 | the floor recalls only a president a majority disapproves | code: the recall step | 0 (all 41 approved by a majority) | -- | -- |
 
-Lowering the floor or the weights slows the same fall, as on the twin. Only the last two stop it, and the replay
-cannot say how many recalls they would keep, since behaviour would change with longer presidencies.
+Lowering the floor or halving both weights slows the same fall. Halving legitimacy's memory, a config change,
+leaves 4 of 41 under the floor; pressure on support's scale or a floor tied to approval leave none. The replay
+cannot say how many recalls any of them would keep, since behaviour would change with longer presidencies.
 
 *Evidence.* `python scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase11` (from
-`fast_api_voter/`) prints every number above.
+`fast_api_voter/`) prints every measured number above; `6.7 r`, `33 r` and `m - 10 e` are derived from the rule.
 
 *What would settle it.* The owner's choice of rule, as D9 is for the twin -- whether a president approved by 71%
 should be removable in a year by a tenth of the citizens mobilising -- then an ensemble under it, since a longer
