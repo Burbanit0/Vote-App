@@ -1520,6 +1520,32 @@
   },
   {
    "branches": [
+    "feat/browser-engine"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "E           SystemExit: api.browser imports packages the browser has no copy of: ['opentelemetry']",
+     "FAILED api/tests/test_browser_engine.py::test_the_bundle_ships_what_the_browser_imports_and_nothing_server_only - SystemExit: api.browser imports packages the browser has no copy of: ['opentelemetry']",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     914
+    ],
+    "sha": "99e0924757c6dc8747cc1cacb8da594755bc6f08",
+    "step": "Tests with coverage (90% minimum)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38164187476"
+   },
+   "last_seen": "2026-10-11T18:31:39Z",
+   "signature": "code: E           SystemExit: api.browser imports packages the browser has no copy of: ['opentelemetry']",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
     "feat/lot9-atheris-coverage-fuzzing"
    ],
    "category": "code",
@@ -1767,45 +1793,20 @@
    "workflows": [
     "Backend CI"
    ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-9ff4bdc3c6"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v2/theory/majority-tyranny] - AssertionError: /api/v2/theory/majority-tyranny drew from or reseeded random",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     846
-    ],
-    "sha": "d8ab528f9e8a86e637b0796b2435adc2ce379bb0",
-    "step": "Tests with coverage (90% minimum)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37682298600"
-   },
-   "last_seen": "2026-10-07T20:28:50Z",
-   "signature": "code: FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v#/theory/majority-tyranny] - AssertionError: ",
-   "workflows": [
-    "Backend CI"
-   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 331,
+  "code": 332,
   "infra": 22,
   "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-11T18:17:04Z",
+ "generated_at": "2026-10-11T20:15:04Z",
  "grid": {
   "Backend CI": {
    "2026-09-11": {
-    "success": 13
+    "success": 11
    },
    "2026-09-12": {
     "failure": 8,
@@ -2028,7 +2029,7 @@
     "success": 70
    },
    "2026-10-11": {
-    "success": 16
+    "success": 17
    }
   },
   "CI Health Watchdog": {
@@ -2290,14 +2291,14 @@
     "success": 59
    },
    "2026-10-11": {
-    "success": 6
+    "success": 8
    }
   },
   "E2E Tests": {
    "2026-09-11": {
     "cancelled": 1,
     "failure": 1,
-    "success": 11
+    "success": 9
    },
    "2026-09-12": {
     "failure": 4,
@@ -2411,7 +2412,7 @@
   },
   "Frontend CI": {
    "2026-09-11": {
-    "success": 13
+    "success": 11
    },
    "2026-09-12": {
     "success": 27
@@ -2511,7 +2512,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-11": {
-    "success": 13
+    "success": 11
    },
    "2026-09-12": {
     "success": 38
@@ -2633,7 +2634,7 @@
     "success": 26
    },
    "2026-10-11": {
-    "skipped": 5,
+    "skipped": 7,
     "success": 2
    }
   },
@@ -2698,7 +2699,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-11": {
-    "success": 13
+    "success": 11
    },
    "2026-09-12": {
     "success": 27
@@ -2860,7 +2861,7 @@
   },
   "Security Audit": {
    "2026-09-11": {
-    "success": 13
+    "success": 11
    },
    "2026-09-12": {
     "cancelled": 2,
@@ -3018,7 +3019,7 @@
    },
    "2026-10-11": {
     "cancelled": 9,
-    "skipped": 33,
+    "skipped": 45,
     "success": 40
    }
   },
@@ -3055,9 +3056,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-11T18:09:21Z",
+   "created_at": "2026-10-11T18:14:33Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38162620669"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38162981140"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3083,9 +3084,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-11T17:58:13Z",
+   "created_at": "2026-10-11T18:33:03Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38161837890"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38164284635"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -3111,9 +3112,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-11T17:48:52Z",
+   "created_at": "2026-10-11T18:39:46Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38161206573"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38164750235"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -3152,10 +3153,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-11T18:14:33Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-11T18:42:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38162981130"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38164958091"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3165,11 +3166,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 15883,
+ "runs": 15898,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-11": 156,
+    "2026-09-11": 171,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
     "2026-09-14": 19.5,
@@ -3196,12 +3197,12 @@
     "2026-10-08": 451,
     "2026-10-09": 368.0,
     "2026-10-10": 396.0,
-    "2026-10-11": 431.5
+    "2026-10-11": 428
    },
-   "p50_s": 178,
+   "p50_s": 180,
    "p95_s": 480,
    "queue_p50_s": 0,
-   "runs": 1319
+   "runs": 1316
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3271,7 +3272,7 @@
     "2026-10-08": 13.0,
     "2026-10-09": 12.0,
     "2026-10-10": 11.0,
-    "2026-10-11": 11.5
+    "2026-10-11": 11.0
    },
    "p50_s": 9,
    "p95_s": 39,
@@ -3286,12 +3287,12 @@
     "2026-10-08": 399.5,
     "2026-10-09": 402,
     "2026-10-10": 408.0,
-    "2026-10-11": 364.0
+    "2026-10-11": 368
    },
    "p50_s": 395,
    "p95_s": 598,
    "queue_p50_s": 0,
-   "runs": 333
+   "runs": 334
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3324,7 +3325,7 @@
    "p50_s": 11,
    "p95_s": 42,
    "queue_p50_s": 0,
-   "runs": 799
+   "runs": 801
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3418,7 +3419,7 @@
     "2026-10-08": 11.5,
     "2026-10-09": 11.5,
     "2026-10-10": 11.0,
-    "2026-10-11": 10.0
+    "2026-10-11": 9.0
    },
    "p50_s": 11,
    "p95_s": 40,
@@ -3438,7 +3439,7 @@
    "p50_s": 12,
    "p95_s": 198,
    "queue_p50_s": 0,
-   "runs": 217
+   "runs": 219
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3451,11 +3452,11 @@
    "p50_s": 13,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 155
+   "runs": 157
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-11": 350,
+    "2026-09-11": 358,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
     "2026-09-14": 649,
@@ -3482,12 +3483,12 @@
     "2026-10-08": 476,
     "2026-10-09": 478.0,
     "2026-10-10": 492,
-    "2026-10-11": 478.5
+    "2026-10-11": 485.0
    },
-   "p50_s": 591,
+   "p50_s": 592,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1178
+   "runs": 1176
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3518,16 +3519,16 @@
     "2026-10-08": 115,
     "2026-10-09": 114.5,
     "2026-10-10": 167,
-    "2026-10-11": 99.0
+    "2026-10-11": 13.5
    },
    "p50_s": 20,
    "p95_s": 276,
    "queue_p50_s": 0,
-   "runs": 1300
+   "runs": 1298
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-11": 61.5,
+    "2026-09-11": 67.5,
     "2026-09-12": 11.5,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
@@ -3554,12 +3555,12 @@
     "2026-10-08": 99,
     "2026-10-09": 97,
     "2026-10-10": 86,
-    "2026-10-11": 90
+    "2026-10-11": 91
    },
    "p50_s": 73,
    "p95_s": 128,
    "queue_p50_s": 0,
-   "runs": 1408
+   "runs": 1406
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3577,7 +3578,7 @@
    "p50_s": 16,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 464
+   "runs": 466
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3632,7 +3633,7 @@
    "p50_s": 43,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 243
+   "runs": 241
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3642,12 +3643,12 @@
     "2026-10-08": 31.0,
     "2026-10-09": 45.0,
     "2026-10-10": 47,
-    "2026-10-11": 42.0
+    "2026-10-11": 42.5
    },
    "p50_s": 40,
    "p95_s": 168,
    "queue_p50_s": 0,
-   "runs": 228
+   "runs": 230
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3709,12 +3710,12 @@
     "2026-10-08": 155,
     "2026-10-09": 167.0,
     "2026-10-10": 165.5,
-    "2026-10-11": 175
+    "2026-10-11": 173
    },
    "p50_s": 129,
    "p95_s": 228,
    "queue_p50_s": 0,
-   "runs": 1343
+   "runs": 1341
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3728,7 +3729,7 @@
    "p50_s": 18,
    "p95_s": 72,
    "queue_p50_s": 0,
-   "runs": 322
+   "runs": 324
   },
   "polity red alert": {
    "daily_p50_s": {
