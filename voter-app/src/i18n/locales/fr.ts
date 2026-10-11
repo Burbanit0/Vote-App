@@ -934,6 +934,7 @@ const fr = {
     prompt:
       "Configurez les sièges et le quota pour simuler le STV irlandais/australien et le comparer à D'Hondt et FPTP.",
     run: 'Simuler le STV',
+    quotaName: 'quota de {{name}}',
     error: 'Erreur lors de la simulation.',
     numSeats: 'Nombre de sièges',
     quotaType: 'Type de quota',

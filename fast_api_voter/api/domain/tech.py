@@ -14,6 +14,7 @@ import numpy as _np
 
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils import tie_lot
+from api.engine.utils.pca import orient_axes
 
 
 
@@ -26,7 +27,7 @@ def _pca_2d(matrix: _np.ndarray) -> _np.ndarray:
         return _np.zeros((matrix.shape[0], 2))
     _, _, vt = _np.linalg.svd(centered, full_matrices=False)
     n_comp = min(2, vt.shape[0])
-    coords = centered @ vt[:n_comp].T
+    coords = centered @ orient_axes(vt[:n_comp]).T
     if n_comp < 2:
         coords = _np.column_stack([coords, _np.zeros(len(coords))])
     return _np.asarray(coords)
@@ -187,7 +188,9 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         else:            lbl = f"groupe {cid + 1}"
         clusters_out.append({
             "id": cid, "size": size, "label": lbl,
-            "center": {"x": round(cx, 3),
+            # The label sits on its cluster: both coordinates in the map's PCA frame
+            # (the name above comes from the members' ideology, cx).
+            "center": {"x": round(float(coords[mask, 0].mean()), 3) if mask.any() else 0.0,
                        "y": round(float(coords[mask, 1].mean()), 3) if mask.any() else 0.0},
             "votes": ca,
         })
