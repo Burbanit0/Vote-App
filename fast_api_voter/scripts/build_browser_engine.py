@@ -5,7 +5,9 @@ it needs that Pyodide does not provide, copied from this environment so the brow
 the server's own versions. Both lists follow the code: the `api` modules from every import
 statement, at module level or inside a function (a worker importing lazily is still
 shipped), and the third-party packages from those statements plus what importing
-`api.browser` loads. The build fails on a package neither provided by Pyodide nor bundled.
+`api.browser` loads. Both are checked by distribution, file by file: the build fails on
+a file whose distribution is neither provided by Pyodide nor bundled, and a bundled
+distribution ships exactly its own `.py` files.
 
 Usage, from fast_api_voter/:  python scripts/build_browser_engine.py OUT.zip
 """
@@ -13,28 +15,35 @@ Usage, from fast_api_voter/:  python scripts/build_browser_engine.py OUT.zip
 from __future__ import annotations
 
 import ast
-import importlib
 import json
+import os
+import re
 import subprocess
 import sys
-import sysconfig
 import zipfile
+from importlib import metadata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-#: Loaded by the worker from Pyodide's own distribution (`pyodide.loadPackage`).
-PYODIDE = {"numpy", "pydantic", "pydantic_core", "annotated_types", "typing_inspection"}
-#: Pure Python, bundled at this environment's versions. typing_extensions too: the bundled
-#: anyio needs a newer one than Pyodide's, and the bundle comes first on sys.path.
-BUNDLED = {"fastapi", "starlette", "anyio", "annotated_doc", "structlog", "typing_extensions"}
+#: Distributions the worker loads from Pyodide's own build (`pyodide.loadPackage`).
+PYODIDE = {"numpy", "pydantic", "pydantic-core", "annotated-types", "typing-inspection"}
+#: Pure Python, bundled at this environment's versions. typing-extensions too: anyio needs
+#: a newer one than Pyodide's, and the bundle comes first on sys.path. opentelemetry-api:
+#: FastAPI imports it since 0.142, for its native telemetry, which nothing turns on here.
+BUNDLED = {"fastapi", "starlette", "anyio", "annotated-doc", "structlog", "typing-extensions",
+           "opentelemetry-api"}
 #: Imported only on a path the browser never takes, or only because they happen to be
 #: installed here, with importers that do without them: the result cache's Redis (only
-#: when REDIS_URL is set), Starlette's form parser (python_multipart), structlog's greenlet
+#: when REDIS_URL is set), Starlette's form parser (python-multipart), structlog's greenlet
 #: support and console renderer (greenlet, rich, colorama, pygments), and what rich
-#: imports (attr...).
-OPTIONAL = {"redis", "python_multipart", "multipart", "greenlet", "rich", "colorama", "pygments",
-            "attr", "markdown_it", "mdurl", "_cffi_backend"}
+#: imports (attrs...).
+OPTIONAL = {"redis", "python-multipart", "greenlet", "rich", "colorama", "pygments", "attrs",
+            "markdown-it-py", "mdurl", "cffi"}
+
+
+def _canonical(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def _files(module: str) -> list[Path]:
@@ -74,45 +83,42 @@ def api_closure() -> tuple[list[Path], set[str]]:
     return sorted(seen), packages - set(sys.stdlib_module_names) - {"__future__", "", "api"}
 
 
-def closure() -> dict[str, str | None]:
-    """Module name -> file, for everything `import api.browser` loads."""
-    code = "import json, sys, api.browser; print(json.dumps({n: getattr(m, '__file__', None) for n, m in list(sys.modules.items())}))"
-    out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
-    loaded: dict[str, str | None] = json.loads(out.stdout.strip().splitlines()[-1])
-    return loaded
+def closure() -> list[str]:
+    """The files of everything `import api.browser` loads, in a fresh interpreter (without
+    coverage, which a test run would otherwise start in it)."""
+    code = "import json, sys, api.browser; print(json.dumps([getattr(m, '__file__', None) for m in list(sys.modules.values())]))"
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COV_CORE_", "COVERAGE_"))}
+    out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env=env, capture_output=True, text=True, check=True)
+    files: list[str] = [f for f in json.loads(out.stdout.strip().splitlines()[-1]) if f]
+    return files
 
 
-def installed(loaded: dict[str, str | None]) -> set[str]:
-    """The top-level installed (non-stdlib) packages among the loaded modules."""
-    site = {Path(sysconfig.get_paths()[k]).resolve() for k in ("purelib", "platlib")}
-    return {name.split(".")[0] for name, file in loaded.items()
-            if file and any(Path(file).resolve().is_relative_to(s) for s in site)}
+def distributions(loaded: list[str], tops: set[str]) -> set[str]:
+    """The installed distributions behind the loaded files, and behind the top-level names
+    the `api` code imports (a standard-library name has none)."""
+    owner = {Path(str(d.locate_file(f))).resolve(): _canonical(d.metadata["Name"])
+             for d in metadata.distributions() for f in d.files or []}
+    found = {owner[p] for f in loaded if (p := Path(f).resolve()) in owner}
+    by_top = metadata.packages_distributions()
+    return found | {_canonical(d) for top in tops for d in by_top.get(top, [])}
 
 
 def bundled() -> dict[str, Path]:
-    """Archive name -> source, for every file of the BUNDLED packages."""
+    """Archive name -> source, for every `.py` file of the BUNDLED distributions."""
     entries: dict[str, Path] = {}
     for name in sorted(BUNDLED):
-        file = importlib.import_module(name).__file__
-        if file is None:
-            raise SystemExit(f"{name} has no source file to bundle")
-        source = Path(file)
-        if source.name != "__init__.py":  # a single-file module
-            entries[source.name] = source
-            continue
-        package = source.parent
-        compiled = [p.name for p in package.rglob("*") if p.suffix in {".so", ".pyd"}]
-        if compiled:
-            raise SystemExit(f"{name} is not pure Python ({compiled[:3]}): Pyodide cannot load it from the zip")
-        for path in package.rglob("*.py"):
-            entries[(Path(name) / path.relative_to(package)).as_posix()] = path
+        dist = metadata.distribution(name)
+        for f in dist.files or []:
+            if f.suffix in {".so", ".pyd"}:
+                raise SystemExit(f"{name} is not pure Python ({f}): Pyodide cannot load it from the zip")
+            if f.suffix == ".py":
+                entries[f.as_posix()] = Path(str(dist.locate_file(f)))
     return entries
 
 
 def build(out: Path) -> list[str]:
-    files, imported = api_closure()
-    packages = imported | installed(closure())
-    unexpected = packages - PYODIDE - BUNDLED - OPTIONAL
+    files, tops = api_closure()
+    unexpected = distributions(closure(), tops) - PYODIDE - BUNDLED - OPTIONAL
     if unexpected:
         raise SystemExit(f"api.browser imports packages the browser has no copy of: {sorted(unexpected)}")
     entries = {path.relative_to(ROOT).as_posix(): path for path in files} | bundled()
