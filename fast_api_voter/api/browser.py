@@ -13,9 +13,12 @@ from fastapi import FastAPI
 from starlette.types import Message, Scope
 
 from api.core.errors import unhandled_exception_handler
+from api.engine.utils.logger import get_logger
 from api.routes import election, simulations, tech, theory
 
 ROUTERS = (election, simulations, tech, theory)
+
+log = get_logger("api.browser")
 
 app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
 for _module in ROUTERS:
@@ -55,5 +58,5 @@ async def handle(method: str, path: str, query: str, body: str) -> tuple[int, st
     except Exception:  # noqa: BLE001
         # Starlette re-raises an unhandled exception after the catch-all handler has
         # sent its 500; the response above is the one a client over HTTP would get.
-        pass
+        log.warning("browser.request_failed", method=method, path=path, exc_info=True)
     return response["status"], response["body"].decode()

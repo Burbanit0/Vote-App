@@ -89,30 +89,39 @@ def installed(loaded: dict[str, str | None]) -> set[str]:
             if file and any(Path(file).resolve().is_relative_to(s) for s in site)}
 
 
+def bundled() -> dict[str, Path]:
+    """Archive name -> source, for every file of the BUNDLED packages."""
+    entries: dict[str, Path] = {}
+    for name in sorted(BUNDLED):
+        file = importlib.import_module(name).__file__
+        if file is None:
+            raise SystemExit(f"{name} has no source file to bundle")
+        source = Path(file)
+        if source.name != "__init__.py":  # a single-file module
+            entries[source.name] = source
+            continue
+        package = source.parent
+        compiled = [p.name for p in package.rglob("*") if p.suffix in {".so", ".pyd"}]
+        if compiled:
+            raise SystemExit(f"{name} is not pure Python ({compiled[:3]}): Pyodide cannot load it from the zip")
+        for path in package.rglob("*.py"):
+            entries[(Path(name) / path.relative_to(package)).as_posix()] = path
+    return entries
+
+
 def build(out: Path) -> list[str]:
     files, imported = api_closure()
     packages = imported | installed(closure())
     unexpected = packages - PYODIDE - BUNDLED - OPTIONAL
     if unexpected:
         raise SystemExit(f"api.browser imports packages the browser has no copy of: {sorted(unexpected)}")
+    entries = {path.relative_to(ROOT).as_posix(): path for path in files} | bundled()
+    # Sorted, with a fixed date: the same sources give the same zip, byte for byte.
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for path in files:
-            z.write(path, path.relative_to(ROOT).as_posix())
-        for name in sorted(BUNDLED):
-            file = importlib.import_module(name).__file__
-            if file is None:
-                raise SystemExit(f"{name} has no source file to bundle")
-            source = Path(file)
-            if source.name != "__init__.py":  # a single-file module
-                z.write(source, source.name)
-                continue
-            package = source.parent
-            compiled = [p.name for p in package.rglob("*") if p.suffix in {".so", ".pyd"}]
-            if compiled:
-                raise SystemExit(f"{name} is not pure Python ({compiled[:3]}): Pyodide cannot load it from the zip")
-            for path in sorted(package.rglob("*.py")):
-                z.write(path, (Path(name) / path.relative_to(package)).as_posix())
-        return z.namelist()
+        for arcname in sorted(entries):
+            z.writestr(zipfile.ZipInfo(arcname, date_time=(1980, 1, 1, 0, 0, 0)), entries[arcname].read_bytes(),
+                       compress_type=zipfile.ZIP_DEFLATED)
+    return sorted(entries)
 
 
 if __name__ == "__main__":

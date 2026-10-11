@@ -84,18 +84,28 @@ def test_a_get_with_a_query_string_matches_the_server(client):
     assert answer.keys() == served.json().keys()
 
 
-def test_the_browser_app_has_every_compute_route_of_the_server():
-    """A route added to one of the compute routers is in both apps; a new router must be
-    added to browser.ROUTERS (or deliberately left server-only, as Polity's is)."""
-    prefixes = tuple(f"/api/v2/{name}/" for name in ("election", "simulations", "tech", "theory"))
-    served = {(c.path, *sorted(c.methods)) for c in _contexts(fastapi_app) if c.path.startswith(prefixes)}
+#: Monitoring, never rate-limited: the liveness probe and Prometheus's scrape endpoint.
+MONITORING = {"api.routes.health", "prometheus_fastapi_instrumentator.instrumentation"}
+#: Server routes the browser does not serve, by the module of their endpoint: monitoring,
+#: and Polity's run explorer, which reads run files from the server's disk.
+SERVER_ONLY = MONITORING | {"api.routes.polity"}
+
+
+def _v2(app: Any) -> list[RouteContext]:
+    return [c for c in _contexts(app) if c.path.startswith("/api/v2/")]
+
+
+def test_the_browser_app_serves_every_server_route_but_the_server_only_ones():
+    """A route added to a router is in both apps; a new router must go into
+    browser.ROUTERS or, deliberately, into SERVER_ONLY."""
+    served = {(c.path, *sorted(c.methods)) for c in _v2(fastapi_app) if c.endpoint.__module__ not in SERVER_ONLY}
     assert served == {(c.path, *sorted(c.methods)) for c in _contexts(browser.app)}
 
 
-def test_every_server_compute_route_is_rate_limited():
-    """The routers no longer carry the limiter; api/main.py adds it when it includes them."""
-    prefixes = tuple(f"/api/v2/{name}/" for name in ("election", "polity", "simulations", "tech", "theory"))
-    routes = [c for c in _contexts(fastapi_app) if c.path.startswith(prefixes)]
+def test_every_server_v2_route_but_monitoring_is_rate_limited():
+    """The routers no longer carry the limiter: api/main.py adds it when it includes them.
+    This checks the effective app, whatever a new router's prefix."""
+    routes = [c for c in _v2(fastapi_app) if c.endpoint.__module__ not in MONITORING]
     assert routes
     unlimited = [c.path for c in routes if check_v2_rate_limit not in [d.call for d in c.dependant.dependencies]]
     assert unlimited == []

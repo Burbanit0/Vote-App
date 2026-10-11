@@ -159,7 +159,7 @@ router = APIRouter(
     prefix="/api/v2/election",
     tags=["election"],
     # 400 (a domain worker's own status, lifted by `run_typed`), 500
-    # (api/main.py's catch-all Exception handler, same {"detail": ...} shape)
+    # (the catch-all Exception handler in api/core/errors.py, same {"detail": ...} shape)
     # and 503 (run_bounded's timeout) are reachable on every route in this
     # router. All three were reachable-but-undocumented until Schemathesis
     # (Lot 3) flagged them; api/schemas/common.py holds the one copy.
