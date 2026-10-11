@@ -294,11 +294,15 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     voting-method change when enough of them petition against it (ADR-020). Phase 4.4: a citizen
     angry enough for long enough stops voting and signing, and may leave for good (ADR-021). Phase 5.1: a president in their last term may refuse to leave, and the
     kernel rolls whether they stay (ADR-022). Phase 5.2: a nominee may campaign on one issue, and the
-    citizens it reaches come to weigh that issue more when they compare candidates (ADR-023)."""
+    citizens it reaches come to weigh that issue more when they compare candidates (ADR-023). At a legislative
+    election a voter whose party the sincere vote leaves below the threshold may desert it for the best party
+    above it (ADR-024); 0.07 is the median cost of that move to the stranded voters of phase11's final populations."""
     return dataclasses.replace(
         config,
         legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
-        vote=dataclasses.replace(config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0),
+        vote=dataclasses.replace(
+            config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0, strategic_margin=0.07,
+        ),
         legislation=dataclasses.replace(config.legislation, enabled=True),
         candidacy=dataclasses.replace(config.candidacy, incumbent_keeps_record=True),
         constitution=dataclasses.replace(config.constitution, referendum="petition"),
