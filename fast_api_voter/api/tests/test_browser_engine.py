@@ -151,3 +151,19 @@ def test_the_bundle_refuses_a_package_the_browser_cannot_load(tmp_path, monkeypa
     monkeypatch.setattr(builder, "BUNDLED", builder.BUNDLED - {"starlette"})
     with pytest.raises(SystemExit, match="starlette"):
         builder.build(tmp_path / "engine.zip")
+
+
+def test_an_unhandled_error_is_the_servers_500(monkeypatch):
+    """A route that raises: the catch-all handler's 500 JSON, as on the server, and the
+    exception Starlette re-raises afterwards is logged, not lost."""
+    @browser.app.get("/api/v2/raising-for-a-test")
+    def _boom() -> None:
+        raise ValueError("intentional")
+
+    logged: list[str] = []
+    monkeypatch.setattr(browser.log, "warning", lambda event, **_kw: logged.append(event))
+    try:
+        assert _ask("GET", "/api/v2/raising-for-a-test") == (500, {"detail": "Internal server error"})
+        assert logged == ["browser.request_failed"]
+    finally:
+        browser.app.router.routes = [r for r in browser.app.router.routes if getattr(r, "path", None) != "/api/v2/raising-for-a-test"]
