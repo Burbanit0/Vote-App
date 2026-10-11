@@ -126,7 +126,7 @@
     "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0"
    ],
    "category": "code",
-   "count": 60,
+   "count": 56,
    "example": {
     "job": "Playwright E2E",
     "lines": [
@@ -542,40 +542,6 @@
   },
   {
    "branches": [
-    "mergify/merge-queue/4439221af0",
-    "mergify/merge-queue/4cdbae48ec",
-    "mergify/merge-queue/5c4588c035",
-    "mergify/merge-queue/633458c653",
-    "mergify/merge-queue/6b6589e87e",
-    "mergify/merge-queue/6ebe506484",
-    "mergify/merge-queue/7980717d8d",
-    "mergify/merge-queue/bf47eb2184"
-   ],
-   "category": "code",
-   "count": 10,
-   "example": {
-    "job": "Validate branch source and naming",
-    "lines": [
-     "  refactor/ chore/    \u2192 refactoring / maintenance",
-     "  docs/     test/     \u2192 documentation / tests",
-     "  ci/       perf/     \u2192 CI/CD / performance",
-     "  dependabot/         \u2192 mises \u00e0 jour automatiques (Dependabot)",
-     "Exemple : feature/vote-blanc-toggle",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "b3351823c316d7777b0d75844de20070ce821f8c",
-    "step": "Check branch naming (PRs to develop)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34720379577"
-   },
-   "last_seen": "2026-09-12T21:35:21Z",
-   "signature": "code: Exemple : feature/vote-blanc-toggle",
-   "workflows": [
-    "Branch Policy"
-   ]
-  },
-  {
-   "branches": [
     "chore/sonarjs-high-confidence-fixes",
     "develop",
     "feat/dedupe-election-workers-jscpd-clones",
@@ -600,6 +566,39 @@
    "signature": "code: Error: locator.click: Test timeout of # exceeded.",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "mergify/merge-queue/4439221af0",
+    "mergify/merge-queue/4cdbae48ec",
+    "mergify/merge-queue/633458c653",
+    "mergify/merge-queue/6b6589e87e",
+    "mergify/merge-queue/6ebe506484",
+    "mergify/merge-queue/7980717d8d",
+    "mergify/merge-queue/bf47eb2184"
+   ],
+   "category": "code",
+   "count": 9,
+   "example": {
+    "job": "Validate branch source and naming",
+    "lines": [
+     "  refactor/ chore/    \u2192 refactoring / maintenance",
+     "  docs/     test/     \u2192 documentation / tests",
+     "  ci/       perf/     \u2192 CI/CD / performance",
+     "  dependabot/         \u2192 mises \u00e0 jour automatiques (Dependabot)",
+     "Exemple : feature/vote-blanc-toggle",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "b3351823c316d7777b0d75844de20070ce821f8c",
+    "step": "Check branch naming (PRs to develop)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34720379577"
+   },
+   "last_seen": "2026-09-12T21:35:21Z",
+   "signature": "code: Exemple : feature/vote-blanc-toggle",
+   "workflows": [
+    "Branch Policy"
    ]
   },
   {
@@ -1799,16 +1798,16 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 349,
+  "code": 344,
   "infra": 22,
-  "test-flaky": 40,
+  "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-11T14:52:43Z",
+ "generated_at": "2026-10-11T15:38:54Z",
  "grid": {
   "Backend CI": {
    "2026-09-11": {
-    "success": 18
+    "success": 17
    },
    "2026-09-12": {
     "failure": 8,
@@ -2030,7 +2029,7 @@
     "success": 70
    },
    "2026-10-11": {
-    "success": 11
+    "success": 12
    }
   },
   "CI Health Watchdog": {
@@ -2299,7 +2298,7 @@
    "2026-09-11": {
     "cancelled": 2,
     "failure": 1,
-    "success": 15
+    "success": 14
    },
    "2026-09-12": {
     "failure": 4,
@@ -2412,7 +2411,7 @@
   },
   "Frontend CI": {
    "2026-09-11": {
-    "success": 18
+    "success": 17
    },
    "2026-09-12": {
     "success": 27
@@ -2511,7 +2510,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-11": {
-    "success": 18
+    "success": 17
    },
    "2026-09-12": {
     "success": 38
@@ -2697,7 +2696,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-11": {
-    "success": 18
+    "success": 17
    },
    "2026-09-12": {
     "success": 27
@@ -2859,7 +2858,7 @@
   },
   "Security Audit": {
    "2026-09-11": {
-    "success": 18
+    "success": 17
    },
    "2026-09-12": {
     "cancelled": 2,
@@ -3054,9 +3053,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-11T10:12:15Z",
+   "created_at": "2026-10-11T14:52:36Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38131105497"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38148956141"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3164,7 +3163,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 15925,
+ "runs": 15880,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3200,7 +3199,7 @@
    "p50_s": 176,
    "p95_s": 479,
    "queue_p50_s": 0,
-   "runs": 1332
+   "runs": 1326
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3243,7 +3242,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-11": 7.0,
+    "2026-09-11": 7,
     "2026-09-12": 7.0,
     "2026-09-13": 7,
     "2026-09-14": 9.0,
@@ -3275,7 +3274,7 @@
    "p50_s": 9,
    "p95_s": 38,
    "queue_p50_s": 0,
-   "runs": 980
+   "runs": 975
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3285,12 +3284,12 @@
     "2026-10-08": 399.5,
     "2026-10-09": 402,
     "2026-10-10": 408.0,
-    "2026-10-11": 354
+    "2026-10-11": 357.0
    },
-   "p50_s": 396,
+   "p50_s": 395,
    "p95_s": 609,
    "queue_p50_s": 0,
-   "runs": 328
+   "runs": 329
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3390,7 +3389,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-11": 11.0,
+    "2026-09-11": 11,
     "2026-09-12": 10.0,
     "2026-09-13": 10,
     "2026-09-14": 11.0,
@@ -3422,7 +3421,7 @@
    "p50_s": 11,
    "p95_s": 40,
    "queue_p50_s": 0,
-   "runs": 900
+   "runs": 895
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3454,7 +3453,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-11": 358.5,
+    "2026-09-11": 357,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
     "2026-09-14": 649,
@@ -3483,14 +3482,14 @@
     "2026-10-10": 492,
     "2026-10-11": 482
    },
-   "p50_s": 589,
+   "p50_s": 591,
    "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1186
+   "runs": 1181
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-11": 11,
+    "2026-09-11": 11.0,
     "2026-09-12": 10.0,
     "2026-09-13": 9.0,
     "2026-09-14": 93,
@@ -3519,14 +3518,14 @@
     "2026-10-10": 167,
     "2026-10-11": 182
    },
-   "p50_s": 21,
+   "p50_s": 20,
    "p95_s": 276,
    "queue_p50_s": 0,
-   "runs": 1309
+   "runs": 1304
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-11": 72.0,
+    "2026-09-11": 69,
     "2026-09-12": 11.5,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
@@ -3558,7 +3557,7 @@
    "p50_s": 73,
    "p95_s": 128,
    "queue_p50_s": 0,
-   "runs": 1416
+   "runs": 1411
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3603,7 +3602,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-11": 43.0,
+    "2026-09-11": 43,
     "2026-09-12": 40,
     "2026-09-13": 39,
     "2026-09-14": 43.5,
@@ -3631,7 +3630,7 @@
    "p50_s": 43,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 248
+   "runs": 247
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3681,7 +3680,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-11": 99.5,
+    "2026-09-11": 103,
     "2026-09-12": 95.0,
     "2026-09-13": 101.0,
     "2026-09-14": 122,
@@ -3713,7 +3712,7 @@
    "p50_s": 129,
    "p95_s": 228,
    "queue_p50_s": 0,
-   "runs": 1351
+   "runs": 1346
   },
   "Workflow Lint": {
    "daily_p50_s": {
