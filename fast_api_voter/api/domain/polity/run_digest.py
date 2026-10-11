@@ -333,6 +333,7 @@ def effective_parties(events: list[dict[str, Any]], config: PolityConfig) -> lis
             "by_seats": _enp(event["payload"]["seats"]),
             "by_votes": _enp(event["payload"]["votes"]),
             "parties_standing": len(event["payload"]["votes"]),
+            **({"deserted": event["payload"]["deserted"]} if "deserted" in event["payload"] else {}),  # ADR-024
         }
         for event in events if event["event_type"] == "legislative_result"
     ]

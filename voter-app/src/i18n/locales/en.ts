@@ -925,6 +925,7 @@ const en: TranslationKeys = {
     prompt:
       "Configure seats and quota to simulate Irish/Australian STV and compare it to D'Hondt and FPTP.",
     run: 'Simulate STV',
+    quotaName: '{{name}} quota',
     error: 'Simulation error.',
     numSeats: 'Number of seats',
     quotaType: 'Quota type',
