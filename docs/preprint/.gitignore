@@ -1,0 +1,9 @@
+# latexmk output: the PDF is built, never committed (README.md).
+*.pdf
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
