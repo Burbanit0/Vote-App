@@ -123,11 +123,10 @@
     "dependabot/npm_and_yarn/voter-app/size-limit-13.0.3",
     "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
     "dependabot/npm_and_yarn/voter-app/size-limit/file-13.0.3",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/vitest/coverage-v8-5.0.0"
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0"
    ],
    "category": "code",
-   "count": 76,
+   "count": 60,
    "example": {
     "job": "Playwright E2E",
     "lines": [
@@ -274,43 +273,6 @@
   },
   {
    "branches": [
-    "develop",
-    "feat/claims-registry",
-    "feat/lot7-i18next-tooling",
-    "feat/lot7-pseudo-locale",
-    "feat/polity-biography-compact",
-    "feat/polity-constitution-reporting",
-    "feat/polity-timeline-phase5-glyphs",
-    "feat/reorganize-shared-components",
-    "feat/restore-arrow-theorem-fiche",
-    "feat/winner-strip",
-    "fix/playground-first-contact",
-    "refactor/lot14-type-coverage-anys",
-    "refactor/winner-from-utilities"
-   ],
-   "category": "code",
-   "count": 19,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  713ms",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     869
-    ],
-    "sha": "98d3d547d7da9ee20a98f4c280f1b97e8120dab2",
-    "step": "diff-cover \u2014 100% coverage on changed lines and branches",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37959628978"
-   },
-   "last_seen": "2026-10-09T16:30:35Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "chore/sync-develop-into-polity-20260927",
     "develop",
     "docs/plan-surface-2l-small-accuracies",
@@ -343,6 +305,41 @@
    "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "develop",
+    "feat/claims-registry",
+    "feat/polity-biography-compact",
+    "feat/polity-constitution-reporting",
+    "feat/polity-timeline-phase5-glyphs",
+    "feat/reorganize-shared-components",
+    "feat/restore-arrow-theorem-fiche",
+    "feat/winner-strip",
+    "fix/playground-first-contact",
+    "refactor/lot14-type-coverage-anys",
+    "refactor/winner-from-utilities"
+   ],
+   "category": "code",
+   "count": 17,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  713ms",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     869
+    ],
+    "sha": "98d3d547d7da9ee20a98f4c280f1b97e8120dab2",
+    "step": "diff-cover \u2014 100% coverage on changed lines and branches",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37959628978"
+   },
+   "last_seen": "2026-10-09T16:30:35Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -607,39 +604,6 @@
   },
   {
    "branches": [
-    "chore/sonarjs-high-confidence-fixes",
-    "feat/license-compliance-check",
-    "feat/lot9-atheris-coverage-fuzzing",
-    "feat/polity-emotions-prerequisite-verdict",
-    "feat/rng-fix-followup-recovery",
-    "fix/polity-ui-explorer-hardening",
-    "polity"
-   ],
-   "category": "code",
-   "count": 8,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          133    134      +1 \ud83d\udd34",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)             92     92      +0",
-     "jscpd (duplicate clones)                      19     19      +0",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3865fb870e4194e16fd253932b97911de95c2fb4",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35150675584"
-   },
-   "last_seen": "2026-09-16T21:08:24Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "ci/python-lockfile-freshness-check",
     "develop",
     "fix/playground-lens-click-layout-shift"
@@ -696,6 +660,38 @@
    },
    "last_seen": "2026-09-28T12:43:56Z",
    "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "chore/sonarjs-high-confidence-fixes",
+    "feat/lot9-atheris-coverage-fuzzing",
+    "feat/polity-emotions-prerequisite-verdict",
+    "feat/rng-fix-followup-recovery",
+    "fix/polity-ui-explorer-hardening",
+    "polity"
+   ],
+   "category": "code",
+   "count": 7,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "vulture (Python dead code)                     0      0      +0",
+     "radon (functions ranked C or worse)          133    134      +1 \ud83d\udd34",
+     "deptry (unused/undeclared deps)                0      0      +0",
+     "knip (TS dead code / unused deps)             92     92      +0",
+     "jscpd (duplicate clones)                      19     19      +0",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3865fb870e4194e16fd253932b97911de95c2fb4",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35150675584"
+   },
+   "last_seen": "2026-09-16T21:08:24Z",
+   "signature": "code: jscpd (duplicate clones)                      #     #      +#",
    "workflows": [
     "Security Audit"
    ]
@@ -1527,33 +1523,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "API contract fuzzing (Schemathesis)",
-    "lines": [
-     "E           Reproduce with:",
-     "E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"name\": \"0\", \"x\": 0.0, \"y\": 0.0}, {\"name\": \"0\", \"x\": 0.0, \"y\": 0.0}]}' http://testserver/api/v2/election/adaptive",
-     "E           You can reproduce this test case by temporarily adding @reproduce_failure('6.167.1', b'AXicc2RgYGw00GCAAjjDkcGREacEAwBl8wNM') as a decorator on your test function",
-     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/combined-effects] - requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
-     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/adaptive] - requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "4daf6e6e327a0f6935c575b61bc837298db1e99e",
-    "step": "Run contract fuzzing",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34601039003"
-   },
-   "last_seen": "2026-09-11T12:50:44Z",
-   "signature": "code: E           Reproduce with:",
-   "workflows": [
-    "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
     "feat/lot9-atheris-coverage-fuzzing"
    ],
    "category": "code",
@@ -1629,30 +1598,6 @@
    "signature": "code: ERROR: The required directory \"fuzz_corpus/engine\" does not exist",
    "workflows": [
     "Coverage-Guided Fuzzing (atheris)"
-   ]
-  },
-  {
-   "branches": [
-    "feat/lot7-pseudo-locale"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
-     "    Error: /decouvrir: page is 62px wider than the viewport in pseudo-locale",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "a41a91bdb448a23454a99c3e050b8f982b1c1665",
-    "step": "Run E2E tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34611444845"
-   },
-   "last_seen": "2026-09-11T14:39:39Z",
-   "signature": "code: Error: /decouvrir: page is #px wider than the viewport in pseudo-locale",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -1800,20 +1745,70 @@
    "workflows": [
     "E2E Tests"
    ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-9ff4bdc3c6"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v1/compare] - AssertionError: /api/v1/compare drew from or reseeded random",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     846
+    ],
+    "sha": "6233d745840b5f951cd8c723ec5b127fd0d22c6d",
+    "step": "Tests with coverage (90% minimum)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37656321368"
+   },
+   "last_seen": "2026-10-07T17:05:22Z",
+   "signature": "code: FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v#/compare] - AssertionError: /api/v#/compare ",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-9ff4bdc3c6"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v2/theory/majority-tyranny] - AssertionError: /api/v2/theory/majority-tyranny drew from or reseeded random",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     846
+    ],
+    "sha": "d8ab528f9e8a86e637b0796b2435adc2ce379bb0",
+    "step": "Tests with coverage (90% minimum)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37682298600"
+   },
+   "last_seen": "2026-10-07T20:28:50Z",
+   "signature": "code: FAILED api/tests/test_no_global_rng.py::test_endpoint_leaves_the_process_wide_rngs_alone[/api/v#/theory/majority-tyranny] - AssertionError: ",
+   "workflows": [
+    "Backend CI"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 370,
+  "code": 349,
   "infra": 22,
   "test-flaky": 40,
   "unknown": 2
  },
- "generated_at": "2026-10-11T10:12:24Z",
+ "generated_at": "2026-10-11T14:52:43Z",
  "grid": {
   "Backend CI": {
    "2026-09-11": {
-    "success": 24
+    "success": 18
    },
    "2026-09-12": {
     "failure": 8,
@@ -1912,7 +1907,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-11": {
-    "success": 8
+    "success": 7
    },
    "2026-09-12": {
     "success": 8
@@ -2035,7 +2030,7 @@
     "success": 70
    },
    "2026-10-11": {
-    "success": 10
+    "success": 11
    }
   },
   "CI Health Watchdog": {
@@ -2126,6 +2121,9 @@
    },
    "2026-10-10": {
     "success": 2
+   },
+   "2026-10-11": {
+    "success": 1
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
@@ -2301,7 +2299,7 @@
    "2026-09-11": {
     "cancelled": 2,
     "failure": 1,
-    "success": 21
+    "success": 15
    },
    "2026-09-12": {
     "failure": 4,
@@ -2414,7 +2412,7 @@
   },
   "Frontend CI": {
    "2026-09-11": {
-    "success": 24
+    "success": 18
    },
    "2026-09-12": {
     "success": 27
@@ -2513,7 +2511,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-11": {
-    "success": 24
+    "success": 18
    },
    "2026-09-12": {
     "success": 38
@@ -2699,7 +2697,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-11": {
-    "success": 24
+    "success": 18
    },
    "2026-09-12": {
     "success": 27
@@ -2781,7 +2779,6 @@
   "Schemathesis Contract Fuzzing": {
    "2026-09-11": {
     "cancelled": 3,
-    "failure": 1,
     "success": 4
    },
    "2026-09-12": {
@@ -2862,7 +2859,7 @@
   },
   "Security Audit": {
    "2026-09-11": {
-    "success": 24
+    "success": 18
    },
    "2026-09-12": {
     "cancelled": 2,
@@ -3057,16 +3054,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-11T09:19:40Z",
+   "created_at": "2026-10-11T10:12:15Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38127969153"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38131105497"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-10T15:49:01Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38065133059"
+   "created_at": "2026-10-11T14:52:16Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38148932627"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -3167,11 +3164,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 16065,
+ "runs": 15925,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-11": 11,
+    "2026-09-11": 12,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
     "2026-09-14": 19.5,
@@ -3200,14 +3197,14 @@
     "2026-10-10": 396.0,
     "2026-10-11": 428
    },
-   "p50_s": 174,
-   "p95_s": 478,
+   "p50_s": 176,
+   "p95_s": 479,
    "queue_p50_s": 0,
-   "runs": 1352
+   "runs": 1332
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-11": 265.0,
+    "2026-09-11": 262,
     "2026-09-12": 291.5,
     "2026-09-13": 283.0,
     "2026-09-14": 305,
@@ -3242,11 +3239,11 @@
    "p50_s": 304,
    "p95_s": 1032,
    "queue_p50_s": 0,
-   "runs": 167
+   "runs": 166
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-11": 7,
+    "2026-09-11": 7.0,
     "2026-09-12": 7.0,
     "2026-09-13": 7,
     "2026-09-14": 9.0,
@@ -3276,9 +3273,9 @@
     "2026-10-11": 14.0
    },
    "p50_s": 9,
-   "p95_s": 37,
+   "p95_s": 38,
    "queue_p50_s": 0,
-   "runs": 995
+   "runs": 980
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3288,12 +3285,12 @@
     "2026-10-08": 399.5,
     "2026-10-09": 402,
     "2026-10-10": 408.0,
-    "2026-10-11": 351.5
+    "2026-10-11": 354
    },
    "p50_s": 396,
    "p95_s": 609,
    "queue_p50_s": 0,
-   "runs": 327
+   "runs": 328
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3321,12 +3318,12 @@
     "2026-10-08": 14,
     "2026-10-09": 12.0,
     "2026-10-10": 11.0,
-    "2026-10-11": 13.5
+    "2026-10-11": 15
    },
    "p50_s": 11,
    "p95_s": 42,
    "queue_p50_s": 0,
-   "runs": 796
+   "runs": 797
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3425,7 +3422,7 @@
    "p50_s": 11,
    "p95_s": 40,
    "queue_p50_s": 0,
-   "runs": 914
+   "runs": 900
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3457,7 +3454,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-11": 354,
+    "2026-09-11": 358.5,
     "2026-09-12": 11,
     "2026-09-13": 10.0,
     "2026-09-14": 649,
@@ -3486,14 +3483,14 @@
     "2026-10-10": 492,
     "2026-10-11": 482
    },
-   "p50_s": 585,
-   "p95_s": 840,
+   "p50_s": 589,
+   "p95_s": 844,
    "queue_p50_s": 0,
-   "runs": 1201
+   "runs": 1186
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-11": 12,
+    "2026-09-11": 11,
     "2026-09-12": 10.0,
     "2026-09-13": 9.0,
     "2026-09-14": 93,
@@ -3522,14 +3519,14 @@
     "2026-10-10": 167,
     "2026-10-11": 182
    },
-   "p50_s": 22,
+   "p50_s": 21,
    "p95_s": 276,
    "queue_p50_s": 0,
-   "runs": 1323
+   "runs": 1309
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-11": 70.5,
+    "2026-09-11": 72.0,
     "2026-09-12": 11.5,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
@@ -3561,7 +3558,7 @@
    "p50_s": 73,
    "p95_s": 128,
    "queue_p50_s": 0,
-   "runs": 1432
+   "runs": 1416
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3606,7 +3603,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-11": 44.0,
+    "2026-09-11": 43.0,
     "2026-09-12": 40,
     "2026-09-13": 39,
     "2026-09-14": 43.5,
@@ -3634,7 +3631,7 @@
    "p50_s": 43,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 254
+   "runs": 248
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3684,7 +3681,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-11": 104,
+    "2026-09-11": 99.5,
     "2026-09-12": 95.0,
     "2026-09-13": 101.0,
     "2026-09-14": 122,
@@ -3716,7 +3713,7 @@
    "p50_s": 129,
    "p95_s": 228,
    "queue_p50_s": 0,
-   "runs": 1366
+   "runs": 1351
   },
   "Workflow Lint": {
    "daily_p50_s": {
