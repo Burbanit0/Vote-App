@@ -31,6 +31,9 @@ the plan's [ground rules](plan/PLAN_BEYOND_CI.md#context).
 
 ## Waiting on the owner
 
+- **How recall should weigh pressure against support (OBS-047).** In phase11 every recalled president
+  (41 of 70 elections) still had a majority behind them: pressure costs legitimacy ten times what support
+  adds. The options and a replay of each are in the entry.
 - **The W6 decision:** static hosting with the engine in Pyodide, or the Fly container
   ([EXP-023](exploration/EXP-023-pyodide-web-worker-vs-fly-container.md) recommends
   Pyodide for a class, and lists what each path still needs).

@@ -76,6 +76,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
+| [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | open |
 
 ---
 
@@ -2305,3 +2306,78 @@ no one left to vote, a confidence vote is not held and the petition runs on unti
 nothing changes.
 
 *Status: fixed.*
+
+### OBS-047
+
+**Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times
+what support adds.**
+
+*Seen.* The phase11 ensemble (`~/Documents/Dev/polity-runs/phase11/`, ten 8-year p100 seeds, exploration profile)
+holds 70 presidential elections and 41 recalls, all at the legitimacy floor. At the tick of their recall, every one
+of the 41 presidents was approved by a majority: approval 0.54 to 0.80 (median 0.71), on a mandate of 0.56 to
+0.95 (median 0.80). The median presidency lasted 4 ticks, one year. `refuse_to_leave`, which needs a president to
+reach the eve of their last term, was legal twice (OBS-044).
+
+*Cause, in two parts.*
+
+- **The citizens mobilise often.** 33% of phase11's 8,171 pressure acts are `MOBILIZE` (2,723), against 1.5% on
+  the LLM path with emotions off. OBS-019 traced that rise to the emotion fields in the pressure prompt, and the
+  exploration profile turns emotions on (ADR-021 needs them). During a recalled presidency a median 8.8 of 100
+  citizens mobilise each tick, 4.0 sign a petition, out of 28.4 consulted.
+- **The legitimacy rule turns a few mobilisers into a recall.** `update_legitimacy` is
+  `L(t) = 0.9 L(t-1) + 0.1 m - ecart(t)`, where support `m` blends mandate and approval and
+  `ecart = 0.5 petition_pressure + 0.5 street_pressure`. Support enters at a tenth of its weight and pressure at
+  full weight, so with steady pressure `e` legitimacy settles at `m - 10 e`, not `m - e`. Street pressure keeps
+  85% of itself each tick, so a steady share `r` of citizens mobilising settles it at `6.7 r`, and legitimacy at
+  `m - 33 r`. A president supported at `m = 0.76` (the median) is pushed under the 0.2 floor by 1.7 mobilisers per
+  hundred citizens per tick. Each of the 41 faced more than their support could absorb that way: 8.8 against 1.7,
+  medians. The 29 presidencies not recalled faced 6.0 a tick too, and were short: 16 snap winners who served to the
+  next election, 10 elected on the run's last tick. Only 3 of the 70 ran a full term.
+
+The same amplification is behind the deterministic twin's churn (OBS-015, D9: "an écart is amplified ×10"). There
+the rate of mobilising was the twin's; here it is the model's.
+
+*Replay.* Each recalled presidency's legitimacy, recomputed from its own journaled support and pressure under
+other rules, behaviour held fixed. The shipped rule reproduces every recorded legitimacy exactly, and all 41
+recalls, with the recall floor each seed had in force (seed 6 amended it to 0.3). "Settles" is legitimacy's fixed
+point at the presidency's mean support and pressure.
+
+| rule | recalled within the span served | settles at (median) | settles under the floor |
+|---|---:|---:|---:|
+| shipped: `0.9 L + 0.1 m - e`, floor 0.2 | 41 of 41 | -0.85 | 41 of 41 |
+| floor 0.1 | 21 | -0.85 | 41 |
+| both pressure weights halved | 0 | -0.06 | 36 |
+| pressure on support's scale: `0.9 L + 0.1 (m - e)` | 0 | +0.61 | 0 |
+| the floor recalls only a president a majority disapproves | 0 | -- | -- (41 approved by a majority) |
+
+Lowering the floor or the weights slows the same fall; only the last two stop it, and the replay cannot say how
+many recalls they would keep, since behaviour would change with longer presidencies.
+
+*What it does not settle.* Whether a president approved by 71% should be removable in a year by a mobilised tenth
+of the citizens is a model question, not a bug. The rule was designed this way (§7bis: `support(t) := (1-decay) m`,
+with `ecart` left unscaled), and D9 left the twin's version open. The model's mobilisation rate (OBS-019) is the
+other half, and is not measured against anything real.
+
+*Evidence* (from `~/Documents/Dev`; the full replay is the same loop with each rule's update):
+
+```bash
+python3 - <<'PY'
+import glob, json, statistics
+AW = 0.5  # legitimacy.approval_weight in the exploration profile
+for path in sorted(glob.glob("polity-runs/phase11/**/events.jsonl", recursive=True)):
+    holder, series, floor = None, [], 0.2
+    for line in open(path):
+        e = json.loads(line); t, p = e["event_type"], e["payload"]
+        if t == "constitution_amended" and p["article"] == "legitimacy.recall_floor": floor = p["new"]
+        elif p.get("office") != "president": continue
+        elif t == "elected": holder, series = e["citizen_id"], []
+        elif t == "legitimacy_updated" and e["citizen_id"] == holder: series.append(p)
+        elif t == "recalled":
+            m = statistics.fmean((1 - AW) * s["mandate_strength"] + AW * s["approval"] for s in series)
+            ecart = statistics.fmean(s["ecart"] for s in series)
+            print(path.split("/")[-2], e["tick"], f"approval {series[-1]['approval']:.2f}", f"settles {m - 10 * ecart:+.2f}")
+PY
+```
+
+*Status: open* -- the owner's decision, as D9 is for the twin.
+
