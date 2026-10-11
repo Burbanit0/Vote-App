@@ -31,8 +31,8 @@ checked on their outputs: does the simulated society behave plausibly? We report
 the aggregates raised no alarm while three decisions barely depended on their inputs. Polity is
 a simulated democracy in which many decisions of citizens, parties and an elected officeholder
 are delegated to an LLM (Qwen3-8B in its 4-bit AWQ build, served by vLLM), as closed codes in
-schema-constrained JSON. We built an instrument that reads, in a completion made exactly as
-production makes it, the probability the model gives a code at the token where it writes it,
+schema-constrained JSON. We built an instrument that reads, in a completion made with the production
+prompts and schemas, the probability the model gives a code at the token where it writes it,
 and that raises an error on the misalignments it can detect. Checked first on a decision with a computable rule (16 voters, mean probability 0.997
 against 0.049), it was then pointed at three decisions whose inputs we swept between extremes at
 temperature~0. An officeholder's probability of conceding to protest stayed between 0.999999 and
@@ -137,8 +137,8 @@ vLLM \citep{kwon2023vllm} on one 16\,GB consumer GPU, with the \code{qwen3} reas
 xgrammar structured outputs. The check against a known rule, the sweeps and the calibrations
 (Sections~\ref{sec:instrument} to~\ref{sec:calibration}) ran on vLLM 0.28.0. The case bank's Qwen
 control (Section~\ref{sec:diagnosis}) ran on vLLM 0.30.0, and the threshold probe
-(Section~\ref{sec:practice}) on 0.31.0. The client used
-temperature~0, seed~42 and the top~10 log-probabilities per token. The model's thinking mode was
+(Section~\ref{sec:practice}) on 0.31.0. Except for the threshold probe, sampled at
+temperature~0.6, the client used temperature~0, seed~42 and the top~10 log-probabilities per token. The model's thinking mode was
 on for the vote and off for the three other decisions. Section~\ref{sec:diagnosis} names the
 other models and servers used.
 
@@ -180,7 +180,8 @@ value.
 
 \paragraph{Silent cases.} Both readers return a value rather than an error when a code falls
 outside the top~10: the normalised reader returns 0.5 if neither code is present, and the raw
-reader returns 0.0. Multi-digit codes that share a leading digit defeated the alignment silently.
+reader returns 0.0. The raw reader also returns 0.0 when no alternative is exactly the code's
+text, as when a model's tokeniser writes the code inside a longer token. Multi-digit codes that share a leading digit defeated the alignment silently.
 Every code sat on an identical token, and one probe of a reaction decision read exactly 0.500000
 at every point, until an offset into the value was added. A flat reading near 0.5 or 0.0 is
 therefore a reason to check, not a result.
@@ -195,8 +196,9 @@ $+0.948$. This shows that the instrument reads the right token and that the prob
 the rule on clear cases. It is not a calibration curve. None of the 16 voters sat near their own
 threshold. The version of this check in a later case bank, with a different voter pool and
 nomination rule, aligned 13 of 16 readings on this model with the request settings of that
-time. With the vote grammar that production has used since 2026-09-16, it aligned 16 of 16, at a
-lower separation ($+0.652$ against $+0.942$).
+time. With the vote grammar alone, it aligned 16 of 16, at a lower separation ($+0.652$ against
+$+0.942$). Production has sent that grammar since 2026-09-16, together with a thinking budget;
+that combination was not checked.
 
 % ---------------------------------------------------------------------------------------
 \section{Three flat lines}
@@ -434,14 +436,15 @@ that holds in both is not an artefact of one construction. No correction for mul
 \label{tab:basevsinstruct}
 \end{table}
 
-\paragraph{The constant moves; the flatness does not.} The citizen's action was flat in every
-batched configuration and every configuration with the uncalibrated prompt, but at different
-constants. It always chose ``wait'' on the 8B model, and always ``do nothing'' on the same model
+\paragraph{The constant moves; the flatness does not.} The citizen's action was flat with the shipped prompt
+in every configuration we tried, and with the calibration-only prompts whenever they were
+batched, but at different constants. It always chose ``wait'' on the 8B model, and always ``do nothing'' on the same model
 with a more compact prompt format. On the 4B instruct model it always chose ``do nothing''; on the
-4B base model, ``wait'' in one geometry and ``do nothing'' in the other. Inputs shared by the
-whole call mattered more than each citizen's gap. On the 4B base model, the mean
+4B base model, ``wait'' in one geometry and ``do nothing'' in the other. On the 4B models,
+inputs shared by the whole call mattered more than each citizen's gap. On the 4B base model, the mean
 $P(\text{act}=4)$ was 0.95 in geometry A and 0.06 in geometry B, while within one call of
-geometry B the gap moved it only from 0.007 to 0.47.
+geometry B the gap moved it only from 0.007 to 0.47. Geometry B changed several shared inputs
+at once, so the shift cannot be pinned to any one of them.
 
 \paragraph{Other model families.} The question ``does the coalition decision's flatness, with
 $|\text{separation}| < 0.10$, persist on at least two non-Qwen families?'' was written down
@@ -449,17 +452,20 @@ twelve days before it was run. It was measured on a frozen bank of cases whose c
 probe differs from the one above: at every level the coalition is short of a majority, by 25
 down to 1 seat, and its distances are smaller. Granite 4.2 8B (IBM, 4-bit NVFP4) and Gemma 4
 12B (Google, quantisation-aware 4-bit weights) were each run in one plain session on vLLM 0.30.0,
-and Gemma in a second session with a thinking budget (Table~\ref{tab:families}).
+and again with a thinking budget; Gemma's coalition probabilities were readable only in the
+latter (Table~\ref{tab:families}).
 
-On Granite the decision was flat: it joined at every level, and its $P(\text{join})$ dipped to
-0.881 and 0.651 without a trend (separation $-0.033$). Gemma's reading is unusable. Its read
-responder wrote two different codes across the five levels, so it wrote ``join'' at least once,
-yet its $P(\text{join})$ read 0.000 at every level. A reading taken at the written token cannot
-produce that, because the written token is always among the alternatives. The likeliest
-explanation is the raw reader's silent 0.0 (Section~\ref{sec:instrument}): no alternative
-matched the code exactly under Gemma's tokenisation. We could not check this, because the
-session outputs were not kept. The question written in advance therefore has one answer, on
-Granite, not two.
+On Granite the decision was flat by the question's measure: it joined at every level, and the
+two ends differ by $-0.033$. Its $P(\text{join})$ did vary across levels, dipping to 0.881 and
+0.651 without a trend, a spread of 0.349.
+Gemma's reading is unusable. Its read responder wrote two different codes across the five
+levels, so it wrote ``join'' at least once, yet its $P(\text{join})$ read 0.000 at every level. A
+reading taken at a written token that is exactly the code cannot produce that, because the
+written token is always among the alternatives. The likeliest explanation is the raw reader's
+silent 0.0 (Section~\ref{sec:instrument}): no alternative matched the code exactly under Gemma's
+tokenisation. We could not check this, because the session outputs are not in the repository.
+The question written in advance is therefore not answered: flat on Granite, unreadable on
+Gemma.
 
 Other caveats:
 \begin{itemize}
@@ -483,7 +489,7 @@ Gemma 4 12B, QAT W4A16 (unusable) & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 \\
 \bottomrule
 \end{tabular}
 \caption{The coalition decision on two other families, on the bank's diagonal, not the one of
-Table~\ref{tab:sweeps}. Granite: one plain session, separation $-0.033$. Gemma: read in its
+Table~\ref{tab:sweeps}. Granite: read in its plain session, separation $-0.033$. Gemma: read in its
 thinking-budget session, and unusable (see text).}
 \label{tab:families}
 \end{table}
@@ -530,7 +536,8 @@ experiment did not run.
     total, and its last two points, with no seats missing, are situations production never
     creates.
   \item \textbf{The instrument's limits.} It refuses on misalignment, but returns 0.5 or 0.0 when
-    a code falls outside the top~10, and the frequency of that case was not recorded. Its
+    a code falls outside the top~10, or 0.0 when no alternative is exactly the code's text, and
+    the frequency of these cases was not recorded. Its
     validation is one balanced sample of 16 clear-cut voters, not a calibration curve. The case
     bank's version of the check aligned 13 of 16 on this model, and 16 of 16 only with the vote
     grammar. On another family it returned a reading that cannot be right (Gemma, Section~\ref{sec:diagnosis}). Whether
@@ -543,18 +550,21 @@ experiment did not run.
   \item \textbf{Not every decision collapsed.} The blank vote tracks its rule, candidacy and
     nomination decisions show no collapse, and a flat reading of a reaction to economic shocks
     was measured but not classified as one.
-  \item \textbf{Mechanism.} We do not explain the flatness. The evidence argues against
-    instruction tuning as its cause, and against a cause specific to one model or one prompt
-    format: the constant changes with the prompt format and the model while the flatness stays,
-    and on the 4B pair the base model's decisions were as flat as the instruct model's. Inputs shared by the whole call weighed more than each
-    agent's own.
+  \item \textbf{Mechanism.} We do not explain the flatness. For the citizen's action and the
+    coalition decision, the evidence argues against instruction tuning as the cause, and against
+    a cause specific to one model or one prompt format: the constant changes with the format and
+    the model while the flatness stays, and on the 4B pair the base model's decisions were as
+    flat as the instruct model's. The officeholder's flatness is the exception: it did not
+    appear on the 4B model, so something that differs between the 8B and 4B models matters
+    there.
 \end{itemize}
 
 % ---------------------------------------------------------------------------------------
 \section{Conclusion}
 
 An LLM-driven simulation can look right while some of its decisions do not listen to their
-inputs. Reading the probability of each closed code inside the production completion, and
+inputs. Reading the probability of each closed code in completions made with the production
+prompts and schemas, and
 moving the inputs from one extreme to the other, found three such decisions in Polity, one of
 them invisible in the simulation's aggregates. The first thing to check, every time, is
 whether the prompt carries what the decision is scored on. The second is whether the decision
@@ -567,7 +577,7 @@ into a rule for what a result may rest on.
 
 Polity, the instrument (\path{llm_logprob_instrumentation.py}) and every probe are open source
 (MIT) at \url{https://github.com/Burbanit0/Vote-App}, branch \path{polity}, as of commit
-\path{32569b6b}. Each number in this paper comes from a results file committed in
+\path{32569b6b}. Each measured number in this paper comes from a results file committed in
 \path{fast_api_voter/scripts/}, next to the script that produced it or with it in
 \path{scripts/archive/}:
 \begin{itemize}
@@ -594,7 +604,8 @@ Polity, the instrument (\path{llm_logprob_instrumentation.py}) and every probe a
     \path{check_vllm_speculation_ab_results.md}.
 \end{itemize}
 The serving settings are the \path{fast_api_voter/docker-compose.llm*.yml} files at the commits
-of these results. The question asked of other families is in
+of these results, and the production settings since 2026-09-16 are in
+\path{fast_api_voter/api/domain/polity/polity_config.yaml}. The question asked of other families is in
 \path{docs/plan/polity/plan-polity-build-order.md}. The aggregate counts and the threshold probe
 are entries OBS-007 and OBS-045 of \path{docs/plan/polity/observations.md}, and the table of
 decisions fit for inference is \path{docs/plan/polity/fit-for-inference.md}.
