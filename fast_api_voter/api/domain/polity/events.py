@@ -350,9 +350,11 @@ class ConfidenceVoteTriggered(Event):
     EVENT_TYPE = "confidence_vote_triggered"
     INSTITUTIONAL = True
     office: str  # Office value, e.g. "president"
-    opened_at_tick: int | None
-    signatures: int
-    signed_ratio: float
+    # A petition's: absent when the floor called the vote (ADR-025), which no one signed.
+    opened_at_tick: int | None = OMIT
+    signatures: int = OMIT
+    signed_ratio: float = OMIT
+    cause: str = OMIT  # ADR-025: "legitimacy_floor" when the floor called the vote; absent for a petition
 
 
 @dataclass(frozen=True, kw_only=True)

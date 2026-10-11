@@ -2147,6 +2147,34 @@ def _journal_vote_decisions(
         )
 
 
+def _confidence_vote(
+    holder: Citizen, voters: list[Citizen], trigger: ConfidenceVoteTriggered, config: PolityConfig, journal: Journal,
+    tick: int, *, floor_fires: bool,
+) -> bool:
+    """§7bis.4a's référendum sur le maintien, journaled: True when the president is retained. A petition or,
+    under ADR-025, the legitimacy floor calls it. `averted_recall` says a won vote met a same-tick floor
+    trip -- the floor arbitrates between triggers, never against a result: a president who won 69.2% was
+    once recalled the same tick, because the floor was read before the vote resolved (2026-09-11)."""
+    journal.write_event(tick=tick, event=trigger, citizen_id=holder.citizen_id)
+    ballots = [build_confidence_ballot(c, holder) for c in voters]
+    retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
+    keep_ratio = confidence_keep_ratio(ballots)
+    journal.write_event(
+        tick=tick,
+        event=ConfidenceVoteResult(
+            office=Office.PRESIDENT.value, bf=BallotFormat.BINARY, ballots=len(ballots), keep=sum(ballots),
+            keep_ratio=keep_ratio, retained=retained, averted_recall=retained and floor_fires,
+        ),
+        citizen_id=holder.citizen_id,
+    )
+    if retained:
+        # support(t) (§7.1): a demonstrated referendum result is the freshest measurement of the share
+        # that supports this officeholder -- the same quantity as the election's mandate_strength, so it
+        # replaces it, effective from the next tick's update_legitimacy.
+        holder.mandate_strength = keep_ratio
+    return retained
+
+
 def _voters(citizens: list[Citizen]) -> list[Citizen]:
     """ADR-021: who casts a ballot -- a disengaged or exited citizen stays home, at every vote.
     utility_ballot applies the same rule voter by voter (it returns None)."""
@@ -3002,6 +3030,9 @@ def _run_accountability_phase(
     citizen's act produced one] x N (ascending citizen_id) ->
     legitimacy_updated -> [confidence_vote_triggered +
     confidence_vote_result] | petition_expired (mutually exclusive) ->
+    with legitimacy.floor_calls_vote (ADR-025), a second [confidence_vote_triggered
+    (cause legitimacy_floor) + confidence_vote_result] when the floor trips and no
+    vote was lost this tick -- it can follow a petition_expired ->
     recalled (if any). representative_response events are PREPENDED to the
     tick's block, never interleaved with the rest -- this is what keeps the
     Lot 3/4/5 ordering contract intact byte-for-byte whenever this lot's
@@ -3039,7 +3070,9 @@ def _run_accountability_phase(
     state) -- menu.petition_enabled inside that function is the single
     authoritative gate, not a second one that could disagree.
 
-    Step 5/6 same-tick collision (§7bis.7: the floor wins on priority):
+    Step 5/6 same-tick collision (§7bis.7: the floor wins on priority; with
+    legitimacy.floor_calls_vote the floor no longer recalls, so a recall is always
+    a lost vote's, trigger confidence_vote -- ADR-025):
     `floor_fires` is captured immediately after legitimacy_updated, BEFORE
     step 5 runs -- step 5 then always runs in full (never short-circuited),
     so confidence_vote_triggered/confidence_vote_result are never silently
@@ -3274,64 +3307,14 @@ def _run_accountability_phase(
             # With no one left to vote (every citizen has given up) the vote is not held, and the
             # petition runs on until it expires: confidence_keep_ratio has no meaning over no ballots.
             if ratio >= config.petition.signature_threshold and voters:
-                journal.write_event(
-                    tick=tick,
-                    event=ConfidenceVoteTriggered(
-                        office=Office.PRESIDENT.value,
-                        opened_at_tick=holder.petition_open_since_tick,
-                        signatures=len(holder.petition_signers),
-                        signed_ratio=ratio,
-                    ),
-                    citizen_id=holder.citizen_id,
+                trigger = ConfidenceVoteTriggered(
+                    office=Office.PRESIDENT.value, opened_at_tick=holder.petition_open_since_tick,
+                    signatures=len(holder.petition_signers), signed_ratio=ratio,
                 )
-                ballots = [build_confidence_ballot(c, holder) for c in voters]
-                retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
-                keep_ratio = confidence_keep_ratio(ballots)
-                # A won vote vetoes a same-tick floor trip. §7bis.7 step 6's
-                # "the floor wins the attribution" (legitimacy.py's own
-                # module docstring) was written to arbitrate two TRIGGERS --
-                # the legitimacy floor vs the petition signature threshold --
-                # never a trigger against a RESULT. It was applied here to
-                # both regardless, and a real run demonstrated the gap: a
-                # president won retention 69.2% and was recalled the same
-                # tick anyway, because `floor_fires` was computed from L
-                # BEFORE this vote resolved and `retained` had no reader on
-                # that path at all (2026-09-11). A LOST vote never needs
-                # this: `lost_confidence` recalls unconditionally below, so
-                # the two recall paths never disagree when the vote fails --
-                # the veto only ever fires in the one case that was wrong.
-                averted_recall = retained and floor_fires
-                if averted_recall:
-                    floor_fires = False
-                journal.write_event(
-                    tick=tick,
-                    event=ConfidenceVoteResult(
-                        office=Office.PRESIDENT.value,
-                        bf=BallotFormat.BINARY,
-                        ballots=len(ballots),
-                        keep=sum(ballots),
-                        keep_ratio=keep_ratio,
-                        retained=retained,
-                        averted_recall=averted_recall,
-                    ),
-                    citizen_id=holder.citizen_id,
-                )
-                if retained:
-                    # support(t), §7.1's own admitted gap ("bloquant pour
-                    # v4", shipped without it): a demonstrated referendum
-                    # result is the freshest available measurement of "what
-                    # fraction of the population supports this
-                    # officeholder" -- the exact same quantity, in the same
-                    # units, from the same population-wide-ballot method as
-                    # the mandate_strength computed once at election time
-                    # (legitimacy.mandate_strength). Replaced, not blended:
-                    # both numbers measure the identical thing, so there is
-                    # no principled weight that would justify discounting
-                    # the newer, more relevant one toward the staler one.
-                    # Takes effect from the NEXT tick's update_legitimacy
-                    # call onward -- this tick's own L (step 4) already ran
-                    # before the vote resolved (step 5), unchanged by design.
-                    holder.mandate_strength = keep_ratio
+                retained = _confidence_vote(holder, voters, trigger, config, journal, tick, floor_fires=floor_fires)
+                # A won vote vetoes a same-tick floor trip: the floor arbitrates between two
+                # triggers, never against a result (2026-09-11, see _confidence_vote).
+                floor_fires = floor_fires and not retained
                 resolve_petition(holder, tick, config.petition)
                 lost_confidence = not retained
             elif petition_has_expired(holder, tick, config.petition):
@@ -3348,7 +3331,19 @@ def _run_accountability_phase(
                 )
                 resolve_petition(holder, tick, config.petition)
 
-        if is_irregular(holder, config.institutions.president_term_limit):  # ADR-022: no recall of a president who stayed
+        irregular = is_irregular(holder, config.institutions.president_term_limit)
+        if floor_fires and config.legitimacy.floor_calls_vote:  # ADR-025: the floor calls a vote; a majority recalls
+            floor_fires, voters = False, _voters(citizens)
+            # A vote this tick already lost recalls by itself; with no one left to vote, no majority is against;
+            # a president who stayed (ADR-022) cannot be recalled, so no vote is put.
+            if voters and not lost_confidence and not irregular:
+                trigger = ConfidenceVoteTriggered(office=Office.PRESIDENT.value, cause="legitimacy_floor")
+                retained = _confidence_vote(holder, voters, trigger, config, journal, tick, floor_fires=False)
+                lost_confidence = not retained
+                if retained:  # the majority it demonstrated restores legitimacy, as an election's mandate sets it
+                    holder.legitimacy_capital = initial_legitimacy(holder.mandate_strength)
+
+        if irregular:  # ADR-022: no recall of a president who stayed
             floor_fires = lost_confidence = False
 
         if floor_fires:  # step 6, floor wins the attribution
