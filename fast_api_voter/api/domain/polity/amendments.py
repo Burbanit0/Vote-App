@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import json
 
-from api.domain.polity.ballot_and_aggregation import get_presidential_winner
+from api.domain.polity.ballot_and_aggregation import allocate_seats, get_presidential_winner
+from api.domain.polity.citizen import Citizen
 from api.domain.polity.config import ARTICLES, Article, PolityConfig, amended, broken_rule
 from api.domain.polity.constitution import Constitution, article_value, threshold_for
 from api.domain.polity.llm_client import LlmResponseError
+from api.domain.polity.legislation import Legislature
 from api.domain.polity.llm_schemas import AmendmentProposal
+from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, citizen_id_from_label
 
 
 def value_text(value: object) -> str:
@@ -89,6 +92,48 @@ def referendum_count(ballots: list[list[str]], old: str, new: str) -> tuple[int,
         return None
     gaps = [_rank(b, after) - _rank(b, before) for b in ballots]
     return sum(gap < 0 for gap in gaps), sum(gap > 0 for gap in gaps)
+
+
+_THRESHOLDS = (0.0, 0.03, 0.05, 0.08, 0.15)
+"""The electoral thresholds the stakes re-seat at: the article's range, 0 to 0.15, and the usual bars between."""
+
+
+def stakes_text(
+    config: PolityConfig, president: Citizen, ballots: list[list[str]] | None, legislature: Legislature | None,
+) -> str | None:
+    """ADR-026: what the last elections would have given under other rules, for the president -- the last
+    presidential ballots counted under each voting method, and the last legislative votes re-seated under each
+    seat rule and threshold. Facts the kernel computes, so a self-interested proposal can be weighed (C3), with
+    nothing said about which to propose (C4). None when there is no election to recount yet."""
+    lines = []
+    if ballots:
+        elected: dict[str, list[str]] = {}
+        for method in ARTICLES["institutions.presidential_method"].choices:
+            elected.setdefault(_elected(get_presidential_winner(ballots, str(method)), president), []).append(str(method))
+        lines.append("Counted under each voting method, the last presidential election's ballots elect: "
+                     + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
+    party, votes = president.party_affiliation, legislature.votes if legislature is not None else None
+    if votes and party is not None and party in votes:
+        institutions = config.institutions
+
+        def seats(method: str, threshold: float) -> int:
+            won = allocate_seats({str(p): v for p, v in votes.items()}, institutions.assembly_seats, method, threshold)
+            return won[str(party)]
+
+        by_rule = ", ".join(f"{rule} {seats(str(rule), institutions.electoral_threshold)}"
+                            for rule in ARTICLES["institutions.seat_allocation"].choices)
+        by_bar = ", ".join(f"{bar:.0%} {seats(institutions.seat_allocation, bar)}" for bar in _THRESHOLDS)
+        lines.append(f"Re-seated from the last legislative election's votes, your party ({party}) wins "
+                     f"{seats(institutions.seat_allocation, institutions.electoral_threshold)} of "
+                     f"{institutions.assembly_seats} seats under the rules in force; under each seat allocation: "
+                     f"{by_rule}; at an electoral threshold of {by_bar}.")
+    return "\n".join(lines) or None
+
+
+def _elected(label: str | None, president: Citizen) -> str:
+    if label is None or label == BLANK_LABEL:
+        return "no one"
+    return "you" if label == candidate_label(president) else f"citizen {citizen_id_from_label(label)}"
 
 
 def _rank(ballot: list[str], label: str | None) -> int:

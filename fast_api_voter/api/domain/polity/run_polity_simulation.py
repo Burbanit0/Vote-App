@@ -54,7 +54,7 @@ from typing import Any, Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
-from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count
+from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count, stakes_text
 from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
@@ -1116,6 +1116,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
+            legislature.votes = votes
             legislature.policy_at_assembly_start = legislature.policy
 
 
@@ -1372,7 +1373,10 @@ def _president_briefing(
         public_median=population_median(state.citizens),
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
-        constitution=constitution_text(config, state.constitution, len(current_sortition_members(state.citizens))) if config.agents.amendments else None,
+        constitution=(
+            constitution_text(config, state.constitution, len(current_sortition_members(state.citizens)))
+            + (f"\n{stakes}" if config.agents.amendment_stakes and (stakes := stakes_text(config, president, state.last_ballots, legislature)) else "")
+        ) if config.agents.amendments else None,
     )
 
 
