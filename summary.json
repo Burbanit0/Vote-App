@@ -512,33 +512,6 @@
   },
   {
    "branches": [
-    "polity"
-   ],
-   "category": "code",
-   "count": 8,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "   -     sorted_candidates,",
-     "49 | )",
-     "   |",
-     "Found 1 error.",
-     "[*] 1 fixable with the `--fix` option.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0f645a5225857cbdd79f93137caebd267c058f5f",
-    "step": "Ruff (pyflakes \u2014 blocking)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34770823116"
-   },
-   "last_seen": "2026-09-13T17:11:14Z",
-   "signature": "code: -     sorted_candidates,",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
     "chore/sonarjs-high-confidence-fixes",
     "develop",
     "feat/dedupe-election-workers-jscpd-clones",
@@ -625,6 +598,33 @@
    "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "polity"
+   ],
+   "category": "code",
+   "count": 7,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "   -     sorted_candidates,",
+     "49 | )",
+     "   |",
+     "Found 1 error.",
+     "[*] 1 fixable with the `--fix` option.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "0f645a5225857cbdd79f93137caebd267c058f5f",
+    "step": "Ruff (pyflakes \u2014 blocking)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34770823116"
+   },
+   "last_seen": "2026-09-13T17:11:14Z",
+   "signature": "code: -     sorted_candidates,",
+   "workflows": [
+    "Backend CI"
    ]
   },
   {
@@ -1299,33 +1299,6 @@
   },
   {
    "branches": [
-    "polity"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "vulture (Python dead code)                     0      0      +0",
-     "radon (functions ranked C or worse)          140    144      +4 \ud83d\udd34",
-     "deptry (unused/undeclared deps)                0      0      +0",
-     "knip (TS dead code / unused deps)            104    104      +0",
-     "jscpd (duplicate clones)                      36     38      +2 \ud83d\udd34",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "1edd5c659dfd2223a93e3afc0e371bbe25a2aa3b",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34694591907"
-   },
-   "last_seen": "2026-09-12T12:46:26Z",
-   "signature": "code: jscpd (duplicate clones)                      #     #      +# \ud83d\udd34",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "ci/e2e-shards-in-playwright-image",
     "feat/polity-journal-extra-legal"
    ],
@@ -1788,20 +1761,47 @@
    "workflows": [
     "Security Audit"
    ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "API contract fuzzing (Schemathesis)",
+    "lines": [
+     "api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/adaptive] FAILED [ 92%]",
+     "+ Exception Group Traceback (most recent call last):",
+     "+ Exception Group Traceback (most recent call last):",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/nota] - + Exception Group Traceback (most recent call last):",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/adaptive] - + Exception Group Traceback (most recent call last):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "9f9f6e60a6c3e59fd385106667a56216d55f6d0b",
+    "step": "Run contract fuzzing",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35336370550"
+   },
+   "last_seen": "2026-09-18T10:46:35Z",
+   "signature": "code: api/tests/test_schema_contract.py::test_contract[POST /api/v#/election/adaptive] FAILED [ #%]",
+   "workflows": [
+    "Schemathesis Contract Fuzzing"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 304,
+  "code": 302,
   "infra": 22,
   "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-12T03:42:14Z",
+ "generated_at": "2026-10-12T03:47:44Z",
  "grid": {
   "Backend CI": {
    "2026-09-12": {
-    "failure": 3,
+    "failure": 2,
     "success": 11
    },
    "2026-09-13": {
@@ -2027,7 +2027,7 @@
     "success": 23
    },
    "2026-10-12": {
-    "success": 9
+    "success": 10
    }
   },
   "CI Health Watchdog": {
@@ -2506,7 +2506,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-12": {
-    "success": 14
+    "success": 13
    },
    "2026-09-13": {
     "success": 62
@@ -2633,7 +2633,7 @@
    },
    "2026-10-12": {
     "skipped": 10,
-    "success": 4
+    "success": 5
    }
   },
   "Mutation Testing": {
@@ -2852,7 +2852,7 @@
   },
   "Security Audit": {
    "2026-09-12": {
-    "failure": 3,
+    "failure": 2,
     "success": 11
    },
    "2026-09-13": {
@@ -3017,7 +3017,7 @@
    },
    "2026-10-12": {
     "cancelled": 2,
-    "skipped": 39,
+    "skipped": 40,
     "success": 25
    }
   },
@@ -3054,9 +3054,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T03:36:01Z",
+   "created_at": "2026-10-12T03:39:06Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38200388136"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38200587992"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3109,10 +3109,10 @@
   },
   "Human review attestation": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-10-12T03:39:41Z",
+   "conclusion": "success",
+   "created_at": "2026-10-12T03:46:53Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38200625249"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38201106403"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -3152,9 +3152,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-12T03:46:39Z",
+   "created_at": "2026-10-12T03:51:52Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38201091135"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38201441640"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3164,7 +3164,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 15661,
+ "runs": 15662,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3195,12 +3195,12 @@
     "2026-10-09": 368.0,
     "2026-10-10": 396.0,
     "2026-10-11": 407,
-    "2026-10-12": 481
+    "2026-10-12": 485.5
    },
-   "p50_s": 182,
+   "p50_s": 183,
    "p95_s": 482,
    "queue_p50_s": 0,
-   "runs": 1258
+   "runs": 1259
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3286,12 +3286,12 @@
     "2026-10-09": 402,
     "2026-10-10": 408.0,
     "2026-10-11": 368,
-    "2026-10-12": 456
+    "2026-10-12": 460.0
    },
    "p50_s": 395,
    "p95_s": 598,
    "queue_p50_s": 0,
-   "runs": 349
+   "runs": 350
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3529,7 +3529,7 @@
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-12": 70,
+    "2026-09-12": 70.0,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
     "2026-09-15": 12,
@@ -3561,7 +3561,7 @@
    "p50_s": 74,
    "p95_s": 131,
    "queue_p50_s": 0,
-   "runs": 1346
+   "runs": 1345
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3575,12 +3575,12 @@
     "2026-10-09": 18,
     "2026-10-10": 18.0,
     "2026-10-11": 19.5,
-    "2026-10-12": 17.0
+    "2026-10-12": 17
    },
    "p50_s": 16,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 482
+   "runs": 483
   },
   "Mutation Testing": {
    "daily_p50_s": {
