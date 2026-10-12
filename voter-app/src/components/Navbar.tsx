@@ -74,8 +74,7 @@ const Navbar: React.FC = () => {
   // The site may be served under a base path (GitHub Pages: /Vote-App/); these links load
   // a whole page, so they carry it, and the active link is read without it.
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  const currentPath =
-    typeof window !== 'undefined' ? window.location.pathname.slice(base.length) : '';
+  const currentPath = window.location.pathname.slice(base.length);
 
   return (
     <BootstrapNavbar
