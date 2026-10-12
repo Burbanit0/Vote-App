@@ -45,7 +45,8 @@ async function run({ id, method, path, query, body }: Request): Promise<void> {
   if (cancelled.delete(id)) return;
   let handle: Handle;
   try {
-    handle = await (engine ??= boot());
+    engine ??= boot();
+    handle = await engine;
   } catch (err) {
     // Offline, or the CDN or engine.zip unreachable: a 503, as a server that is down.
     const detail = `Engine unavailable: ${err}`;

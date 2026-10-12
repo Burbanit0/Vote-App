@@ -119,6 +119,20 @@ describe('createBrowserFetch', () => {
     expect(workers[0].sent[1]).toEqual({ cancel: 1 });
   });
 
+  it('a request the worker begins just as it is cancelled changes nothing', async () => {
+    vi.useFakeTimers();
+    const abort = new AbortController();
+    const answer = browserFetch()(post('/api/v2/election/stv', abort.signal));
+    await sent(1);
+    abort.abort();
+    await expect(answer).rejects.toThrow();
+    // The worker had already taken it before the cancel reached it.
+    workers[0].send({ id: 1, started: true });
+    workers[0].send({ id: 1, status: 200, body: '{}' });
+    vi.advanceTimersByTime(TIMEOUT_MS);
+    expect(workers[0].terminated).toBe(false);
+  });
+
   it('a request cancelled while running is dropped, and its timeout still stops the worker', async () => {
     vi.useFakeTimers();
     const fetchFromBrowser = browserFetch();

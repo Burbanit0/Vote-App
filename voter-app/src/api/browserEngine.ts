@@ -63,15 +63,13 @@ export function createBrowserFetch(
   };
 
   const onReply = ({ id, started, status = 500, body = '{}', fatal }: Reply) => {
+    if (fatal) return stop(status, body);
+    if (!started) return answer(id, status, body);
+    // The worker may begin a request just as the page cancels it: nothing waits for it then.
     const waiting = pending.get(id);
-    if (started && waiting) {
-      waiting.started = true;
-      waiting.timer = setTimeout(() => stop(503, TIMED_OUT), TIMEOUT_MS);
-    } else if (fatal) {
-      stop(status, body);
-    } else if (!started) {
-      answer(id, status, body);
-    }
+    if (!waiting) return;
+    waiting.started = true;
+    waiting.timer = setTimeout(() => stop(503, TIMED_OUT), TIMEOUT_MS);
   };
 
   return async (request: Request) => {
