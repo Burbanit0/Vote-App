@@ -1,21 +1,21 @@
 import { gzipSync } from 'node:zlib';
 import { createStaticPolity } from './staticPolity';
 
-const KEY = '0123456789abcdef';
-const BASE = `http://localhost/api/v2/polity/runs/${KEY}`;
+const RUN = '0123456789abcdef';
+const BASE = `http://localhost/api/v2/polity/runs/${RUN}`;
 const gz = (value: unknown) => new Uint8Array(gzipSync(JSON.stringify(value)));
 
 /** An export of one run: 5 ticks in chunks of 3, 3 citizens in files of 2. */
 const EXPORT: Record<string, BodyInit> = {
-  'runs.json': JSON.stringify({ runs: [{ key: KEY }] }),
-  [`${KEY}/run.json.gz`]: gz({
-    overview: { key: KEY, population: 3 },
+  'runs.json': JSON.stringify({ runs: [{ key: RUN }] }),
+  [`${RUN}/run.json.gz`]: gz({
+    overview: { key: RUN, population: 3 },
     frames: { '0-2': { from_tick: 0 }, '3-4': { from_tick: 3 } },
     citizens_per_file: 2,
   }),
-  [`${KEY}/citizens-0.json.gz`]: gz({ 0: { citizen_id: 0 }, 1: { citizen_id: 1 } }),
+  [`${RUN}/citizens-0.json.gz`]: gz({ 0: { citizen_id: 0 }, 1: { citizen_id: 1 } }),
   // As a host that gunzips on the way (Content-Encoding) hands it over.
-  [`${KEY}/citizens-1.json.gz`]: JSON.stringify({ 2: { citizen_id: 2 } }),
+  [`${RUN}/citizens-1.json.gz`]: JSON.stringify({ 2: { citizen_id: 2 } }),
 };
 
 let fetched: string[];
@@ -41,9 +41,9 @@ describe('createStaticPolity', () => {
     const polity = createStaticPolity();
     expect(await ask(polity, 'http://localhost/api/v2/polity/runs')).toEqual({
       status: 200,
-      body: { runs: [{ key: KEY }] },
+      body: { runs: [{ key: RUN }] },
     });
-    expect((await ask(polity, BASE)).body).toEqual({ key: KEY, population: 3 });
+    expect((await ask(polity, BASE)).body).toEqual({ key: RUN, population: 3 });
     expect((await ask(polity, `${BASE}/frames?from_tick=3&to_tick=4`)).body).toEqual({
       from_tick: 3,
     });
@@ -52,9 +52,9 @@ describe('createStaticPolity', () => {
     // Each file once; a citizen loads only its own file.
     expect(fetched).toEqual([
       'runs.json',
-      `${KEY}/run.json.gz`,
-      `${KEY}/citizens-0.json.gz`,
-      `${KEY}/citizens-1.json.gz`,
+      `${RUN}/run.json.gz`,
+      `${RUN}/citizens-0.json.gz`,
+      `${RUN}/citizens-1.json.gz`,
     ]);
   });
 
@@ -70,15 +70,15 @@ describe('createStaticPolity', () => {
     ]) {
       expect(await ask(polity, url)).toEqual({ status: 404, body: { detail: 'Not Found' } });
     }
-    expect(fetched).toEqual(['runs.json', `${KEY}/run.json.gz`]);
+    expect(fetched).toEqual(['runs.json', `${RUN}/run.json.gz`]);
   });
 
   it('answers 404 for a citizen its file lacks, not an empty answer', async () => {
-    EXPORT[`${KEY}/citizens-0.json.gz`] = gz({ 0: { citizen_id: 0 } });
+    EXPORT[`${RUN}/citizens-0.json.gz`] = gz({ 0: { citizen_id: 0 } });
     try {
       expect((await ask(createStaticPolity(), `${BASE}/citizens/1`)).status).toBe(404);
     } finally {
-      EXPORT[`${KEY}/citizens-0.json.gz`] = gz({ 0: { citizen_id: 0 }, 1: { citizen_id: 1 } });
+      EXPORT[`${RUN}/citizens-0.json.gz`] = gz({ 0: { citizen_id: 0 }, 1: { citizen_id: 1 } });
     }
   });
 
