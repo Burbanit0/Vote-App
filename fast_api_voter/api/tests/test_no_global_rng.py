@@ -23,49 +23,7 @@ import numpy as np
 import pytest
 
 from api.main import fastapi_app
-from api.tests.conftest import CANDS
-
-PARTIES = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
-           {"name": "Vert", "x": -0.2, "y": 0.5}]
-PRIMARY_PARTIES = [
-    {"name": "L", "ideology_center": -0.5, "primary_voters_pct": 0.3,
-     "primary_candidates": [{"name": "L1", "ideology_position": -0.6},
-                            {"name": "L2", "ideology_position": -0.3}]},
-    {"name": "R", "ideology_center": 0.5, "primary_voters_pct": 0.3,
-     "primary_candidates": [{"name": "R1", "ideology_position": 0.6},
-                            {"name": "R2", "ideology_position": 0.3}]},
-]
-
-#: Routes that reject `{}`, plus small bodies for the four whose defaults made
-#: this file 6s slower (the clamp floors keep every loop running).
-BODIES = {
-    "/api/v1/compare": {"candidates": ["Alice", "Bob", "Carol"], "num_voters": 60},
-    "/api/v1/simulate": {"num_voters": 50, "num_candidates": 3},
-    "/api/v2/election/affective-polarization": {"candidates": CANDS, "num_voters": 60,
-                                                "num_simulations": 5},
-    "/api/v2/election/conviction-voting": {
-        "proposals": [{"name": "P1", "x": -0.4}, {"name": "P2", "x": 0.4}], "num_voters": 20},
-    "/api/v2/election/gerrymander": {
-        "candidates": CANDS, "num_voters": 50,
-        "districts": [{"id": 0, "bounds": {"x_min": -1.0, "x_max": 0.0, "y_min": -1.0, "y_max": 1.0}},
-                      {"id": 1, "bounds": {"x_min": 0.0, "x_max": 1.0, "y_min": -1.0, "y_max": 1.0}}]},
-    "/api/v2/election/interpret": {
-        "methods": {"plurality": {"winner": "Alice"}, "borda": {"winner": "Bob"}}},
-    "/api/v2/election/multiwinner_compare": {"candidates": CANDS, "num_voters": 60, "num_seats": 2},
-    "/api/v2/election/polarization": {"candidates": CANDS, "num_voters": 50, "num_simulations": 5},
-    "/api/v2/election/power-indices": {
-        "parties": [{"name": "A", "seats": 40}, {"name": "B", "seats": 35}, {"name": "C", "seats": 25}]},
-    "/api/v2/election/primary": {"parties": PRIMARY_PARTIES, "general_num_voters": 60},
-    "/api/v2/election/stv": {"candidates": CANDS, "num_seats": 2, "num_voters": 60},
-    "/api/v2/simulations/monte-carlo": {"candidates": CANDS, "num_voters": 50, "num_runs": 5},
-    "/api/v2/theory/apportionment": {
-        "parties": [{"name": "A", "votes": 100}, {"name": "B", "votes": 80}], "num_seats": 10},
-}
-
-#: Tried in order for a route with no entry above: most take defaults once given
-#: candidates.
-FALLBACKS = ({}, {"candidates": CANDS}, {"candidates": CANDS, "num_voters": 60},
-             {"parties": PARTIES})
+from api.tests.route_bodies import BODIES, CANDS, FALLBACKS
 
 #: A body per branch of the switches that draw: the default body only ever
 #: reaches one arm, so the others would go unguarded.

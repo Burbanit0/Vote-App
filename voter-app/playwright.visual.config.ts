@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import e2e from './playwright.config';
+import e2e, { buildServer } from './playwright.config';
 
 /**
  * Visual regression (screenshot) tests — split out from playwright.config.ts on
@@ -28,6 +28,8 @@ import e2e from './playwright.config';
 export default defineConfig({
   ...e2e,
   testMatch: '**/visual.spec.ts',
+  // The e2e suite's production build only, not the static build's server.
+  webServer: buildServer,
   reporter: [['html', { outputFolder: 'playwright-report-visual' }], ['list']],
 
   // No `maxDiffPixelRatio`/`maxDiffPixels` tolerance: Playwright's own default

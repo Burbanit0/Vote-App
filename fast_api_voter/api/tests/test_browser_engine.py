@@ -26,10 +26,7 @@ from api.core.ratelimit import check_v2_rate_limit
 from api.domain.simulations import advanced
 from api.engine.utils import runtime
 from api.main import fastapi_app
-from api.tests.test_no_global_rng import BODIES, CANDS, FALLBACKS
-
-#: Unseeded by design (its docstring): only the status and the shape can match.
-UNSEEDED = {"/api/v2/simulations/monte-carlo"}
+from api.tests.route_bodies import BODIES, CANDS, FALLBACKS, GET, REFUSALS, UNSEEDED
 
 
 def _ask(method: str, path: str, query: str = "", body: Any = None) -> tuple[int, Any]:
@@ -61,25 +58,16 @@ def test_every_post_route_answers_as_the_server_does(client, path):
         assert answer == served.json()
 
 
-@pytest.mark.parametrize(
-    ("path", "body"),
-    [
-        # Pydantic's own refusal: a 422 with the same detail.
-        ("/api/v2/election/stv", {"candidates": "nobody"}),
-        # The worker's refusal: as many seats as candidates is a 400.
-        ("/api/v2/election/stv", {"candidates": CANDS[:3], "num_seats": 3, "num_voters": 60}),
-        ("/api/v2/election/no-such-route", {}),
-    ],
-)
+@pytest.mark.parametrize(("path", "body"), REFUSALS)
 def test_refusals_match_the_server(client, path, body):
     served = client.post(path, json=body)
     assert _ask("POST", path, body=body) == (served.status_code, served.json())
 
 
 def test_a_get_with_a_query_string_matches_the_server(client):
-    query = "num_candidates=3&num_voters=50&num_trials=5&methods=plurality"
-    served = client.get(f"/api/v2/simulations/manipulability?{query}")
-    status, answer = _ask("GET", "/api/v2/simulations/manipulability", query)
+    path, query = GET
+    served = client.get(f"{path}?{query}")
+    status, answer = _ask("GET", path, query)
     assert status == served.status_code == 200
     assert answer.keys() == served.json().keys()
 

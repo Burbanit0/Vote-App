@@ -22,12 +22,7 @@ from fastapi.testclient import TestClient
 from api.core.ratelimit import limiter
 from api.main import app
 
-# A spatial trio: Alice left-ish, Bob right-ish, Carol near the centre.
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.route_bodies import CANDS  # noqa: F401  (the tests import it from here)
 
 
 @pytest.fixture
