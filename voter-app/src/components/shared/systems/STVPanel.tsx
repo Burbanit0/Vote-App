@@ -281,6 +281,7 @@ const STVPanel: React.FC = () => {
           <Button
             variant="primary"
             className="w-full"
+            data-testid="stv-run"
             onClick={run}
             disabled={loading || !enoughCandidates}
           >
