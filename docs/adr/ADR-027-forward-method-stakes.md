@@ -27,14 +27,15 @@ losing a second mandate and push for a method that would keep them. In phase13 (
 ## Measured
 
 `check_amendment_stakes.py --at-risk` keeps presidents whom today's ballots defeat under the method in force
-but elect under another: 4 of the 39 finished runs' final states (28 still win, 7 lose under every method).
+but elect under another: 4 of the 39 finished runs' final states (24 still win, and 11 lose under every method or
+have no one left to count).
 
 | wording (4 at-risk presidents, 10 turns each, with the stakes) | method proposals | that elect the proposer |
 |---|---:|---:|
 | forward, grouped by winner | 10 | 0 |
 | forward, "you" first | 0 | – |
 
-The probe prints the 28 / 4 / 7 split itself. The backward line (ADR-026) was not probed on these four; on all 34
+The probe prints that split itself. The backward line (ADR-026) was not probed on these four; on all 34
 presidents it drew 2 method proposals in 68 turns, neither electing the proposer.
 
 - **Unstable on its own:** one president's turn decides most of the column, and reruns of the same turns
