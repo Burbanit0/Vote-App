@@ -325,6 +325,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 sim_voters, candidates, issues,
                 blank_vote=False,
                 override_utilities=sim_utils,
+                seed=sim_seed,
             )
 
             cw = mc_result.get("condorcet_winner")
@@ -451,12 +452,14 @@ def _run_all_on_utilities(
     candidates: List[Dict[str, Any]],
     issues:     List[str],
     utilities:  Dict[Any, Dict[str, float]],
+    seed:       object = 0,
 ) -> Dict[str, Any]:
     """Run compare_all_methods with pre-computed utilities."""
     return compare_all_methods(
         voters, candidates, issues,
         blank_vote=False,
         override_utilities=utilities,
+        seed=seed,
     )
 
 
@@ -509,8 +512,8 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     )
 
     # ── Run elections ──────────────────────────────────────────────────────
-    sincere_mc  = _run_all_on_utilities(voters, candidates, issues, sincere_utilities)
-    affective_mc = _run_all_on_utilities(voters, candidates, issues, affective_utilities)
+    sincere_mc  = _run_all_on_utilities(voters, candidates, issues, sincere_utilities, seed)
+    affective_mc = _run_all_on_utilities(voters, candidates, issues, affective_utilities, seed)
 
     sincere_winners  = {m: md.get("winner") for m, md in sincere_mc.get("methods", {}).items()}
     affective_winners = {m: md.get("winner") for m, md in affective_mc.get("methods", {}).items()}
@@ -535,8 +538,8 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
             best = tie_lot.favourite(su[uid], su[uid].__getitem__, uid)
             vcamps[uid] = candidate_camps.get(best, "centre")
         au = _apply_affective(su, vcamps, candidate_camps, affect_hostility)
-        sm = _run_all_on_utilities(sv, candidates, issues, su)
-        am = _run_all_on_utilities(sv, candidates, issues, au)
+        sm = _run_all_on_utilities(sv, candidates, issues, su, seed)
+        am = _run_all_on_utilities(sv, candidates, issues, au, seed)
         for m in sm.get("methods", {}):
             if sm["methods"][m].get("winner") != am.get("methods", {}).get(m, {}).get("winner"):
                 method_changes[m] += 1
@@ -551,7 +554,7 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     for step in range(11):
         h = round(step / 10, 1)
         au_step = _apply_affective(sincere_utilities, voter_camps, candidate_camps, h)
-        mc_step = _run_all_on_utilities(voters, candidates, issues, au_step)
+        mc_step = _run_all_on_utilities(voters, candidates, issues, au_step, seed)
         methods_step = mc_step.get("methods", {})
         winners_step = [md.get("winner") for md in methods_step.values() if md.get("winner")]
         cw_exists    = mc_step.get("condorcet_winner") is not None

@@ -204,12 +204,13 @@ def _dt_winners_by_method(
     subsets: List[List[Dict[str, Any]]],
     candidates: List[Dict[str, Any]],
     issues: Any,
+    seed: object = 0,
 ) -> List[Dict[str, Any]]:
     """Winner per method for each voter subset. All-or-nothing on failure, kept
     from before the split: the two subsets must never disagree about whether the
     comparison ran at all, or the caller would read one as a real change."""
     def _compare_subsets() -> List[Dict[str, Any]]:
-        return [compare_all_methods(vs, candidates, issues) for vs in subsets]
+        return [compare_all_methods(vs, candidates, issues, seed=seed) for vs in subsets]
 
     def _empty_subsets() -> List[Dict[str, Any]]:
         return [{} for _ in subsets]
@@ -319,7 +320,7 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         raw_voters, voted_ids, voter_demo, prof, num_voters, n_actual,
     )
     biased_by_method, corrected_by_method = _dt_winners_by_method(
-        [actual_voters, raw_voters], candidates, issues,
+        [actual_voters, raw_voters], candidates, issues, seed,
     )
 
     return {
@@ -485,8 +486,8 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         vol_voters  = [v for v in voters if v["id"] in voluntary_ids]
         comp_voters = [v for v in voters if v["id"] in compulsory_ids]
-        vol_compare  = compare_all_methods(vol_voters,  candidates, issues)
-        comp_compare = compare_all_methods(comp_voters, candidates, issues)
+        vol_compare  = compare_all_methods(vol_voters,  candidates, issues, seed=seed)
+        comp_compare = compare_all_methods(comp_voters, candidates, issues, seed=seed)
         return (
             {m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()},
             {m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()},

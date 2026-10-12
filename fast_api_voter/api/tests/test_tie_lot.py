@@ -14,6 +14,8 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter, vote_ranked
 from api.engine.utils.tie_lot import _fnv1a, best, draw, ranking, tied
+from api.engine.utils.method_registry import SCORE_RULES, rule_winner, winner_from_utilities
+from api.engine.utils.simulation_metrics import compare_all_methods
 
 
 def test_the_hash_is_fnv1a_32():
@@ -194,3 +196,65 @@ def test_noise_streams_follow_the_name_and_keep_two_models_apart():
     with pytest.raises(ValueError, match="2 names for 3 candidate columns"):
         apply_information_asymmetry([[0.1, 0.2, 0.3]], {}, {"low_info": 1.0}, seed=1,
                                     names=["Ann", "Ben"])
+
+
+# ── The request's seed reaches the rule-level lot ────────────────────────────
+# Ann and Ben are twins on every ballot, so each score rule ties them at the top. With
+# the lot seeded 0 everywhere, the same pair always drew the same one; seeded with the
+# request's seed, the draw follows the request (LISTING_ORDER_TIES.md).
+TWINS = [{"Ann": 0.8, "Ben": 0.8, "Cy": 0.1}, {"Ann": 0.6, "Ben": 0.6, "Cy": 0.3}]
+SEEDS = range(12)
+
+
+def _winner(result):
+    return result["winner"] if isinstance(result, dict) else result
+
+
+@pytest.mark.parametrize("name", sorted(SCORE_RULES))
+def test_each_score_rule_draws_a_tie_with_the_seed_it_is_given(name):
+    winners = {s: _winner(SCORE_RULES[name](TWINS, seed=s)) for s in SEEDS}
+    assert winners == {s: draw(["Ann", "Ben"], s) for s in SEEDS}
+    # The seed decides: across seeds, either twin wins.
+    assert set(winners.values()) == {"Ann", "Ben"}
+    # Without one, the lot is seeded 0, as before.
+    assert _winner(SCORE_RULES[name](TWINS)) == winners[0]
+
+
+def test_compare_all_methods_seeds_every_score_rule():
+    voters = [{"id": 0}, {"id": 1}]
+    candidates = [{"name": n} for n in ("Ann", "Ben", "Cy")]
+    utilities = {0: TWINS[0], 1: TWINS[1]}
+    for s in SEEDS:
+        methods = compare_all_methods(voters, candidates, [], override_utilities=utilities, seed=s)["methods"]
+        assert {n: methods[n]["winner"] for n in SCORE_RULES} == dict.fromkeys(SCORE_RULES, draw(["Ann", "Ben"], s))
+
+
+def test_the_registry_passes_the_seed_to_a_score_rule():
+    voters = [{"id": 0}, {"id": 1}]
+    utilities = {0: TWINS[0], 1: TWINS[1]}
+    for s in SEEDS:
+        expected = draw(["Ann", "Ben"], s)
+        assert rule_winner("simple_score", scores=TWINS, seed=s) == expected
+        assert winner_from_utilities("star_voting", utilities, voters, seed=s) == expected
+        assert winner_from_utilities("majority_judgment", utilities, voters, seed=s) == expected
+
+
+# Two candidates at the same place are twins for every voter, so every score rule ties
+# them. An endpoint with a request seed must draw that tie with it: /simulate through
+# compare_all_methods, /divergence through _electorate.py's helper.
+TWIN_CANDIDATES = [{"name": "Ann", "x": 0.2, "y": 0.2}, {"name": "Ben", "x": 0.2, "y": 0.2}]
+
+
+@pytest.mark.parametrize(
+    ("path", "methods_of"),
+    [
+        ("/api/v2/election/simulate", lambda body: body["methods"]),
+        ("/api/v2/election/divergence", lambda body: body["without_blank"]["methods"]),
+    ],
+)
+def test_an_endpoint_draws_a_score_tie_with_its_request_seed(client, path, methods_of):
+    for s in range(1, 5):
+        response = client.post(path, json={"candidates": TWIN_CANDIDATES, "num_voters": 60, "seed": s})
+        assert response.status_code == 200, response.text
+        methods = methods_of(response.json())
+        assert {n: methods[n]["winner"] for n in SCORE_RULES} == dict.fromkeys(SCORE_RULES, draw(["Ann", "Ben"], s))

@@ -90,7 +90,7 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters_a = copy.deepcopy(voters)
     run_a = _run_methods_on_electorate(
         voters_a, candidates, true_utilities, issues,
-        blank_enabled=False, blank_rule=BlankVoteRule.SYMBOLIC,
+        blank_enabled=False, blank_rule=BlankVoteRule.SYMBOLIC, seed=seed,
     )
 
     # ── Run B: with blank vote (optional contagion) ───────────────────────
@@ -101,7 +101,7 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     run_b = _run_methods_on_electorate(
         voters_b, candidates, true_utilities, issues,
-        blank_enabled=True, blank_rule=blank_rule,
+        blank_enabled=True, blank_rule=blank_rule, seed=seed,
     )
 
     # ── Compute divergence metrics ────────────────────────────────────────
@@ -230,7 +230,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
                 day_utilities[v["id"]][c_name] = max(0.0, min(1.0, blended))
 
         methods_out = _snapshot_election_winners(
-            voters, candidates, day_utilities, issues, blank_enabled, blank_rule
+            voters, candidates, day_utilities, issues, blank_enabled, blank_rule, seed,
         )
 
         snapshots.append({
@@ -391,7 +391,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 
                 methods_out = _snapshot_election_winners(
                     cur_voters, candidates, cur_utils, issues,
-                    blank_enabled=blank_on, blank_rule=blank_rule,
+                    blank_enabled=blank_on, blank_rule=blank_rule, seed=seed,
                 )
 
                 # Condorcet winner from adjusted rankings
@@ -875,6 +875,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         voters, candidates, issues,
         blank_vote=blank_enabled,
         override_utilities=effective_utilities,
+        seed=seed,
     )
     condorcet_w     = result_mc.get("condorcet_winner")
     blank_pct       = result_mc.get("blank_pct") or 0.0
@@ -1012,6 +1013,7 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         voters, candidates, issues,
         blank_vote=False,
         override_utilities=true_utilities,
+        seed=seed,
     ).get("methods", {})
 
     seat_threshold = int(_np.ceil(total_seats * government_threshold))
@@ -1281,6 +1283,7 @@ def _run_primary(
     utilities: Dict[Any, Dict[str, float]],
     method: str,
     lots: "_np.random.Generator",
+    seed: object = 0,
 ) -> Dict[str, Any]:
     """
     Run a single party primary among party_voters.
@@ -1307,6 +1310,7 @@ def _run_primary(
         {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
          for v in party_voters},
         party_voters,
+        seed=seed,
     )
 
     # A party must field a nominee even when its rule elects nobody (an IRV
@@ -1411,7 +1415,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         n_primary = max(2, int(len(general_voters) * pm["voters_pct"]))
         party_voters = sorted_voters[:n_primary]
 
-        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method, lots)
+        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method, lots, seed)
         winner_name = prim_result["winner"]
 
         # Find winner candidate object
@@ -1458,7 +1462,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # None on an exact tie. It used to become the first candidate on the
     # ballot, who then also got a runner-up and a median-voter distance.
-    general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters)
+    general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters, seed=seed)
 
     sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
     general_runner_up = next(
@@ -1491,7 +1495,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             tie_lot.ranking(center_utils[uid], center_utils[uid].__getitem__, uid)
         )
 
-    no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters)
+    no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters, seed=seed)
 
     # Map back from "PartyNameCentre" → party name
     if no_primary_winner:

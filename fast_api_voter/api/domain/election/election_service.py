@@ -185,6 +185,7 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         issues,
         blank_vote=blank_enabled,
         override_utilities=effective_utilities,
+        seed=seed,
     )
 
     condorcet_winner = result.get("condorcet_winner")
