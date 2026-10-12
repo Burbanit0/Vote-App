@@ -1,5 +1,7 @@
 # Plan de conception — Simulateur de Polity ("La Fourmilière")
 
+> **status:** reference — the authority on intent; its §13 roadmap (v0–v8) is done. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Révision 2c — 30/07/2026.** Intègre au document initial : la
 > résolution du bloquant A6 (formule de `écart(t)`), la pression
 > citoyenne repensée comme **leviers actionnables** et non comme

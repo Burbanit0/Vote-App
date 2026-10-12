@@ -1,5 +1,7 @@
 # Plan — Distribution des positions citoyennes et représentativité des runs
 
+> **status:** done — Phases 1–3 done (factor_structure is the default) and the p500 question moved to build-order S0.7. Left open: Phase 4 (a selective re-baseline, never started) and §4 point 3 (marking the v4–v6b runs unvalidated). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Document de scoping, à discuter et amender avant toute implémentation.
 > Objectif : résoudre à la racine le problème découvert lors de
 > l'investigation `mobilization_only` (27,5% des seeds font gagner le

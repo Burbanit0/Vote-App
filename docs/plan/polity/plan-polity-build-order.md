@@ -1,5 +1,7 @@
 # Polity build order — execution plan
 
+> **status:** live — several steps have no closing commit yet. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 **What this is.** The executable form of the 2026-09-13 research synthesis ("Polity Build
 Order": five tracks — simulation model, inference speed, model evaluation, research
 tooling, code structure). Every step has a scope, a dependency, a branch, and an

@@ -1,5 +1,8 @@
 # Prompt — Reconstruction rétroactive du journal de bord
 
+> **Retired 2026-10-08** with the journal (`docs/plan/PLAN_BEYOND_CI.md`, D7): the
+> `journal-writer` agent and `/log-session` command it uses no longer exist. Kept as history.
+
 > À utiliser une seule fois, avec Claude Code, à la racine du repo
 > Vote-App, après avoir installé `journal-writer.md` (agent) et
 > `log-session.md` (commande /log-session). Sert à peupler `docs/journal/JOURNAL_DE_BORD.md` avec

@@ -1,5 +1,7 @@
 # Démarrage du chantier Polity — v0
 
+> **status:** done — the v0 handover; v0–v8 of the design's §13 roadmap are done (plan-polity-agency-roadmap.md §1.1). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Document de transmission. À déposer à la racine du repo Vote-App aux
 > côtés de `polity-simulation-design-v2.md`, ou à copier dans Claude Code
 > comme prompt de démarrage (même convention que

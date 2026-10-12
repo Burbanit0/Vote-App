@@ -6,7 +6,8 @@ import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 
 // Axe rules disabled globally:
 //   color-contrast — the maps and charts are SVG with theme-aware colours axe
-//     scores against the wrong background; validated by hand in chartColors.ts.
+//     scores against the wrong background; candidate text contrast is computed
+//     by hand for both themes in src/lib/palette.ts (textTone).
 const DISABLED_RULES = ['color-contrast'];
 
 async function audit(page: import('@playwright/test').Page, name: string) {
@@ -88,6 +89,24 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
     await expect(async () => {
       expect(Number(await dot.getAttribute('cx'))).toBeGreaterThan(before);
     }).toPass();
+  });
+
+  // W3.6: the results in words. Text is language-dependent, so this checks the wiring by
+  // testid: each map is described, and each winner is announced once it settles.
+  test('a screen reader gets each map described and each winner announced', async ({ page }) => {
+    await page.goto('/playground');
+    const described = async (map: string) => {
+      const id = await page.getByTestId(map).getAttribute('aria-describedby');
+      await expect(page.locator(`[id="${id}"]`)).toHaveText(/\S/);
+    };
+    await described('leader-map');
+    await expect(page.getByTestId('winner-announce')).toHaveText(/\S/);
+
+    await page.getByTestId('mode-toggle-parliament').click();
+    await described('parliament-map');
+    // Seats come from the backend.
+    await expect(page.getByTestId('assembly-announce')).toHaveText(/\S/, { timeout: 30_000 });
+    await expect(page.getByTestId('hemicycle-svg')).toHaveAttribute('aria-label', /\d/);
   });
 
   test('a party can be nudged with arrow keys on the assembly map', async ({ page }) => {

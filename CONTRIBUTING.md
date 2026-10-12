@@ -70,10 +70,10 @@ Claude Code) lance `scripts/fast-gate.sh` puis l'agent `spec-checker`, qui ne
 voit que la demande et le diff. Un `FAIL` (quelque chose de demandé manque) =
 pas de PR. Une section `SKIPPED` de fast-gate (par exemple un `python3` plus
 ancien que le `python_version` de `mypy.ini`, ou des dépendances absentes)
-n'est pas un succès. Le modèle de PR demande `## Demande` (mot pour mot),
-`## Critères d'acceptation`, `## Preuves` (commandes réellement lancées et leur
-sortie) et une ligne **Non vérifié** obligatoire (« rien » seulement si c'est
-vrai).
+n'est pas un succès. Le modèle de PR demande `## Request` (mot pour mot),
+`## Acceptance criteria`, `## Evidence` (commandes réellement lancées et leur
+sortie) et une ligne **Not verified** obligatoire (« nothing » seulement si
+c'est vrai).
 
 ```bash
 git push origin feat/ma-feature
@@ -509,9 +509,11 @@ en est un — est un faux positif knip : il s'ajoute à `ignore`.
 propres à ce repo. Deux règles maison, **bloquantes**, tournent dans la même
 étape gating que le reste de Semgrep (`audit.yml`) :
 
-- `v2-router-missing-rate-limit` — tout `APIRouter(prefix="/api/v2/...")` doit
-  porter `dependencies=[Depends(check_v2_rate_limit)]` (sauf `/api/v2/health`,
-  une sonde de vivacité). Trouvé et corrigé en écrivant la règle : `tech.py`,
+- `v2-router-missing-rate-limit` — tout routeur inclus dans `api/main.py` doit
+  l'être avec `dependencies=_v2_limited` (sauf la sonde de vivacité et
+  `/api/v1`, qui a ses propres limites). La limite est posée à l'inclusion, pas
+  sur l'`APIRouter`, pour que l'application du navigateur (`api/browser.py`)
+  inclue les mêmes routeurs sans elle. Trouvé et corrigé en écrivant la règle : `tech.py`,
   `theory.py`, `export.py` n'avaient aucune limite de débit.
 - `except-exception-without-log` — un `except Exception` sans appel `log.*`
   dans le bloc est un bug avalé en silence. Scope limité à

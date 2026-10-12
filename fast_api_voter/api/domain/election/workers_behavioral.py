@@ -31,6 +31,7 @@ from ._electorate import _build_electorate_from_seed
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy, prose_list, result_label, tied_extremes,
 )
+from api.engine.utils import tie_lot
 
 log = get_logger(__name__)
 
@@ -58,7 +59,7 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     )
 
     def _sincere_choice(voter_id: Any) -> str:
-        return max(sincere_utilities[voter_id], key=lambda k: sincere_utilities[voter_id][k])
+        return tie_lot.favourite(sincere_utilities[voter_id], sincere_utilities[voter_id].__getitem__, voter_id)
 
     def _run_cascade(
         strength: float, rng: _random.Random
@@ -221,7 +222,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         u   = biased_utilities[vid]
         # Expressive: emotional attachment inflates ideal candidate utility ×10
         if vid in expressive_ids:
-            ideal = max(u, key=lambda k: u[k])
+            ideal = tie_lot.favourite(u, u.__getitem__, vid)
             u[ideal] = u[ideal] * 10.0
         # Primacy: position bias nudges voter toward first-listed candidate
         if vid in primacy_ids:
@@ -234,7 +235,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         raises is reported as None rather than taking the whole panel down."""
         def _winner(method: str) -> Optional[str]:
             return safe_call(
-                lambda: winner_from_utilities(method, utils, voters),
+                lambda: winner_from_utilities(method, utils, voters, seed=seed),
                 lambda: None,
                 log=log, event="workers_behavioral.method_failed", method=method,
             )
@@ -250,7 +251,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             if not u:
                 continue
             if vid in bids:
-                tally[max(u, key=lambda k: u[k])] += 1
+                tally[tie_lot.favourite(u, u.__getitem__, vid)] += 1
             else:
                 threshold = sum(u.values()) / len(u)
                 for cname, val in u.items():
@@ -432,7 +433,7 @@ def _ld_gini(vals: List[Any]) -> float:
 
 def _ld_top_choice(sincere_utilities: Dict[int, Dict[str, float]], vid: int) -> str:
     """The candidate this voter most prefers."""
-    return max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
+    return tie_lot.favourite(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
 
 
 def _ld_tally(
@@ -650,7 +651,8 @@ def _cv_voter_choice(
         for v in voters
     }
     return {
-        vid: min(prop_names, key=lambda pn: abs(voter_ide[vid] - prop_x[pn]))
+        # An equidistant voter is drawn by lot, seeded with their id (#665).
+        vid: tie_lot.favourite(prop_names, lambda pn: -abs(voter_ide[vid] - prop_x[pn]), vid)
         for vid in all_ids
     }
 
@@ -898,7 +900,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             if max_util < threshold:
                 tally["NOTA"] += 1
             else:
-                choice = max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
+                choice = tie_lot.favourite(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
                 tally[choice] += 1
         # NOTA must beat every candidate outright: a tie goes to the candidate
         # (then by name), so whether it voids the election can't hang on how
@@ -911,7 +913,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _sincere_winner(method: str) -> Optional[str]:
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, voters),
+            lambda: winner_from_utilities(method, sincere_utilities, voters, seed=seed),
             lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
@@ -1068,7 +1070,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if not vlist:
             return None
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, vlist),
+            lambda: winner_from_utilities(method, sincere_utilities, vlist, seed=seed),
             lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
@@ -1162,7 +1164,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Sincere votes ─────────────────────────────────────────────────────
     sincere_votes: Dict[int, str] = {
-        v["id"]: max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
+        v["id"]: tie_lot.favourite(sincere_utilities[v["id"]], sincere_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
     real_counts = Counter(sincere_votes.values())
@@ -1333,7 +1335,7 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if not vlist:
             return cand_names[0], {c: 0.0 for c in cand_names}
         rnk = rankings_from_utilities(sincere_utilities, vlist)
-        w = winner_from_utilities(primary_method, sincere_utilities, vlist)
+        w = winner_from_utilities(primary_method, sincere_utilities, vlist, seed=seed)
 
         total  = len(vlist)
         fc     = Counter(r[0] for r in rnk)
@@ -1452,6 +1454,7 @@ def _co_majority_judgment(
     is_h: Dict[int, bool],
     rnk: List[List[str]],
     cnames: List[str],
+    seed: object = 0,
 ) -> Optional[str]:
     """Majority judgment, falling back to plurality when the grade profile is one
     the MJ implementation cannot resolve.
@@ -1467,7 +1470,7 @@ def _co_majority_judgment(
             {c: float(c == voted[v["id"]]) for c in cnames} if is_h[v["id"]]
             else utils[v["id"]].copy()
             for v in v_list
-        ])
+        ], seed=seed)
         return str(r["winner"]) if r.get("winner") else cnames[0]
 
     return safe_call(
@@ -1484,6 +1487,7 @@ def _co_winner(
     voted: Dict[int, str],
     is_h: Dict[int, bool],
     cnames: List[str],
+    seed: object = 0,
 ) -> Optional[str]:
     """Winner under one method, for one candidate count."""
     if not v_list:
@@ -1494,7 +1498,7 @@ def _co_winner(
         t2 = _co_approval_tally(v_list, utils, voted, is_h)
         return min(t2, key=lambda c: (-t2[c], c)) if t2 else cnames[0]
     if method == "majority_judgment":
-        return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames)
+        return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames, seed)
     # Plurality included: each ballot in `rnk` already leads with the voter's
     # actual pick (`_co_rankings` promotes the heuristic choice to the top).
     return rule_winner(method, rnk)
@@ -1582,7 +1586,7 @@ def _co_rankings(
     s_rnk: List[List[str]] = []
     for v in voters:
         vid = v["id"]
-        sorder = sorted(utils_n[vid].keys(), key=lambda k: -utils_n[vid][k])
+        sorder = tie_lot.ranking(utils_n[vid], utils_n[vid].__getitem__, vid)
         s_rnk.append(sorder)
         choice = voted[vid]
         if choice != sorder[0]:
@@ -1603,6 +1607,7 @@ def _co_method_comparison(
     sinc_vote: Dict[int, str],
     s_rnk: List[List[str]],
     overloaded: bool,
+    seed: object = 0,
 ) -> tuple[Dict[str, Optional[str]], Dict[str, int]]:
     """Each method's winner on the heuristic ballots, plus whether that matches
     what the same method would have elected had every voter gone sincere."""
@@ -1612,10 +1617,10 @@ def _co_method_comparison(
     matches: Dict[str, int] = {}
     for meth in methods_req:
         winner_by_method[meth] = _co_winner(
-            meth, voters, h_rnk, utils_n, voted, is_h, cnames_n,
+            meth, voters, h_rnk, utils_n, voted, is_h, cnames_n, seed,
         )
         sincere_winner = _co_winner(
-            meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n,
+            meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n, seed,
         )
         # None == None is not agreement: a rule electing nobody both times has
         # not shown it is robust.
@@ -1646,7 +1651,7 @@ def _co_round(
         for v in voters
     }
     sinc_vote: Dict[int, str] = {
-        v["id"]: max(utils_n[v["id"]], key=lambda k: utils_n[v["id"]][k])
+        v["id"]: tie_lot.favourite(utils_n[v["id"]], utils_n[v["id"]].__getitem__, v["id"])
         for v in voters
     }
     voted, is_h = _co_heuristic_votes(
@@ -1662,7 +1667,7 @@ def _co_round(
 
     winner_by_method, matches = _co_method_comparison(
         methods_req, voters, utils_n, cnames_n, voted, is_h, h_rnk,
-        sinc_vote, s_rnk, overloaded,
+        sinc_vote, s_rnk, overloaded, seed,
     )
     condorcet_w = get_condorcet_winner(s_rnk)
     return {

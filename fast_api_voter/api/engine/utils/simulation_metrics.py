@@ -1,3 +1,4 @@
+from functools import partial
 from itertools import permutations
 from math import factorial
 import random
@@ -12,7 +13,7 @@ from .simulation_ranked_utils import (
 from .simulation_score_utils import (
     get_evaluative_winner,
 )
-from .method_registry import RANKED_RULES, SCORE_RULES
+from .method_registry import RANKED_RULES, SCORE_RULES, rankings_from_utilities
 from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
@@ -74,10 +75,15 @@ def compare_all_methods(
     blank_candidate_name: str = "Blank",
     override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
     compute_strategic: bool = False,
+    *,
+    seed: object = 0,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
     structured comparison report.
+
+    `seed` seeds the score rules' tie lot (tie_lot.best): pass the request's, so an
+    exact tie is drawn per request rather than always the same way.
 
     When blank_vote=True, each voter's ranking includes a "Blank" candidate
     inserted at the position determined by their blank_threshold field.
@@ -124,27 +130,19 @@ def compare_all_methods(
     #    When blank_vote=True, the blank candidate is spliced in at the
     #    position corresponding to each voter's blank_threshold.
     # ------------------------------------------------------------------
-    candidate_names = [c["name"] for c in candidates]
-
+    rankings = rankings_from_utilities(utilities, voters)
     if blank_vote:
-        rankings: List[List[str]] = [
+        rankings = [
             _insert_blank(
-                sorted(candidate_names, key=lambda n: -utilities[v["id"]][n]),
-                utilities[v["id"]],
-                v.get("blank_threshold", 0.375),
-                blank_candidate_name,
+                r, utilities[v["id"]], v.get("blank_threshold", 0.375), blank_candidate_name
             )
-            for v in voters
+            for r, v in zip(rankings, voters)
         ]
         blank_pct = round(
             sum(1 for r in rankings if r and r[0] == blank_candidate_name) / len(voters),
             4,
         )
     else:
-        rankings = [
-            sorted(utilities[v["id"]].keys(), key=lambda name: -utilities[v["id"]][name])
-            for v in voters
-        ]
         blank_pct = None
 
     # ------------------------------------------------------------------
@@ -327,20 +325,21 @@ def compare_all_methods(
     for name, fn in SCORE_RULES.items():
         if name == "majority_judgment":
             continue   # reads raw utilities, not 0-5 ballots -- run just below
-        raw = fn(score_votes)
+        # Seeded once, so the strategic probe reruns the rule with the same lot.
+        seeded = partial(fn, seed=seed)
+        raw = seeded(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
-        methods_result[name] = _build_metrics_score(fn, winner, score_votes)
+        methods_result[name] = _build_metrics_score(seeded, winner, score_votes)
 
     # ── Majority Judgment — uses raw float utilities, not 0-5 scaled ──────────
     mj_utility_scores: List[Dict[str, float]] = [
         utilities[v["id"]].copy() for v in voters
     ]
-    mj_raw: Dict[str, Any]   = SCORE_RULES["majority_judgment"](mj_utility_scores)
+    mj_rule = partial(SCORE_RULES["majority_judgment"], seed=seed)
+    mj_raw: Dict[str, Any]   = mj_rule(mj_utility_scores)
     mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
     # The real rule on the ballots it grades: a stub here pinned MJ/EV at 0.0.
-    mj_entry = _build_metrics_score(
-        SCORE_RULES["majority_judgment"], mj_winner, mj_utility_scores,
-    )
+    mj_entry = _build_metrics_score(mj_rule, mj_winner, mj_utility_scores)
     mj_entry["mj_grades"]             = mj_raw.get("grades", {})
     mj_entry["mj_medians"]            = mj_raw.get("medians", {})
     mj_entry["mj_scores"]             = mj_raw.get("scores", {})
@@ -459,10 +458,7 @@ def compare_all_methods_mc(
         for voter in voters
     }
 
-    rankings: List[List[str]] = [
-        sorted(candidate_names, key=lambda name: -utilities[v["id"]][name])
-        for v in voters
-    ]
+    rankings = rankings_from_utilities(utilities, voters)
     score_votes: List[Dict[str, int]] = [
         {
             name: max(0, min(5, round(5 * utilities[v["id"]][name])))

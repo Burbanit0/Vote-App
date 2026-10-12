@@ -4,10 +4,11 @@ import { Play } from 'lucide-react';
 import { useInstrumentCtx } from '../playground/PlaygroundController';
 import MethodReplayModal from '../playground/MethodReplayModal';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
 import { getMethodInfo, methodAnalogy, type Lang } from '../../lib/methodInfo';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../lib/palette';
 
 // MethodGallery — one browsable card per voting method. Common methods first
 // (the ones a newcomer recognises), then the Tier B "explained, not compared"
@@ -21,8 +22,6 @@ const MethodGallery: React.FC = () => {
   const { ruleLabels } = useVotingLabels();
   const { votingVoters, leaderCandidates } = useInstrumentCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
-
-  const candColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
 
   return (
     <section className="flex flex-col gap-3">
@@ -39,7 +38,7 @@ const MethodGallery: React.FC = () => {
           const info = getMethodInfo(rule)?.[lang];
           const analogy = methodAnalogy(rule, lang);
           const winIdx =
-            votingVoters.length && leaderCandidates.length
+            hasFixedWinner(rule) && votingVoters.length && leaderCandidates.length
               ? ruleWinner(votingVoters, leaderCandidates, rule)
               : -1;
           const winner = winIdx >= 0 ? leaderCandidates[winIdx] : null;
@@ -51,11 +50,14 @@ const MethodGallery: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-sm font-semibold leading-tight">{ruleLabels[rule]}</h3>
+                {!hasFixedWinner(rule) && (
+                  <NoFixedWinner className="shrink-0 text-[0.62rem] font-normal italic text-muted-foreground" />
+                )}
                 {winner && (
                   <span
                     className="shrink-0 rounded border px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold"
                     style={{
-                      color: candColor(winIdx),
+                      color: textTone(candColor(winIdx)),
                       borderColor: `${candColor(winIdx)}55`,
                       background: `${candColor(winIdx)}12`,
                     }}

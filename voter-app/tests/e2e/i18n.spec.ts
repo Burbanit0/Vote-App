@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './coverageFixtures';
-import { SURFACES, ANCHORS } from './routes';
+import { SURFACES, ANCHORS, settled } from './routes';
 
 // The app ships FR (source of truth) and EN, and i18next renders a missing key
 // as the key itself. These tests walk both languages over every surface and fail
@@ -54,14 +54,15 @@ async function switchToEnglish(page: Page) {
   await page.locator('#user-settings-dropdown').click();
   await page.getByRole('button', { name: /switch to english/i }).click();
   await expect(
-    page.locator('[data-tour="navbar"]').getByRole('link', { name: /your turn/i })
+    page.locator('[data-testid="navbar"]').getByRole('link', { name: /your turn/i })
   ).toBeVisible();
 }
 
 test.describe('i18n', () => {
   test('the language switch changes the UI and survives a reload', async ({ page }) => {
     await page.goto('/');
-    const nav = page.locator('[data-tour="navbar"]');
+    await settled(page, '/');
+    const nav = page.locator('[data-testid="navbar"]');
     await expect(nav).toContainText('Laboratoire');
 
     await switchToEnglish(page);
@@ -81,6 +82,7 @@ test.describe('i18n', () => {
   for (const path of SURFACES) {
     test(`${path} shows no untranslated key in English`, async ({ page }) => {
       await page.goto('/');
+      await settled(page, '/');
       await switchToEnglish(page);
       await page.goto(path);
       await expect(page.locator(ANCHORS[path])).toBeVisible();

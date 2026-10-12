@@ -13,9 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import run_passthrough, run_typed
 
 
@@ -39,7 +38,6 @@ from api.schemas.simulations import (
 router = APIRouter(
     prefix="/api/v2/simulations",
     tags=["simulations"],
-    dependencies=[Depends(check_v2_rate_limit)],
     # See election.py's router for why 400/500/503 apply to every route here.
     # This router also used to declare 404, for a real-election lookup in
     # api/domain/simulations/advanced.py that PR 2 deleted with the endpoint

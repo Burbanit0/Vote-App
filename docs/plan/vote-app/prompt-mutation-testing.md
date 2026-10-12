@@ -1,5 +1,7 @@
 # Prompt — Mise en place du mutation testing (mutmut)
 
+> **status:** done — a one-shot prompt; mutmut shipped (PR #157). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Copie ce prompt dans Claude Code à la racine du repo Vote-App.
 
 ---

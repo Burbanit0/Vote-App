@@ -165,6 +165,9 @@ steps had been added to the real workflows without ever being mirrored
 here — license compliance (`backend.Dockerfile`/`frontend.Dockerfile`),
 the webkit browser (`e2e.Dockerfile`), and the project's own custom
 Semgrep rules (`audit-ci.sh`'s `--config=.semgrep/vote-app-rules.yml`).
-All three now match. If a future PR adds a new gating step to any of the
+All three now match. Since 2026-10-07 CI's e2e shards run in the pinned
+`mcr.microsoft.com/playwright` image, while `e2e.Dockerfile` still installs the
+same browser builds on bookworm: browsers match, OS libraries and fonts do not.
+If a future PR adds a new gating step to any of the
 four mirrored workflows, mirror it here in the same PR — this caveat list
 is the whole point of this file, and it's only honest if it stays current.

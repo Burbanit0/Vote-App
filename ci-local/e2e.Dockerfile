@@ -8,9 +8,11 @@
 #  - python:3.14 == actions/setup-python '3.14' (same base as backend.Dockerfile),
 #    plus Node 24 via NodeSource == actions/setup-node '24'. One image, because the
 #    workflow runs backend + frontend + browsers on ONE runner.
-#  - `npx playwright install --with-deps chromium firefox webkit` — the exact CI
-#    step (Lot 7, PLAN_SOLIDITE_TECHNIQUE.md added webkit), so the browser builds
-#    match the pinned @playwright/test.
+#  - `npx playwright install --with-deps chromium firefox webkit` -- what CI ran until
+#    2026-10-07 (Lot 7, PLAN_SOLIDITE_TECHNIQUE.md added webkit). CI's shards now run
+#    in the pinned mcr.microsoft.com/playwright image instead (e2e.yml); the browser
+#    builds still match, both following the lockfile's @playwright/test, but the OS
+#    libraries and fonts around them are bookworm here and noble there.
 #  - The backend here is a FIXTURE (Assemblée mode and two Laboratoire fiches call
 #    /api/v2/*); Backend CI is the job that actually tests it.
 #  - CI=true → Playwright retries once, forbids test.only, and starts its own vite

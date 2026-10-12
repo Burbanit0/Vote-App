@@ -30,6 +30,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
 )
 from ._electorate import _build_electorate_from_seed
 from ._helpers import dhondt as _dhondt, modal_keys, prose_list, tied_extremes
+from api.engine.utils import tie_lot
 
 log = get_logger(__name__)
 
@@ -355,7 +356,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         fc: Counter[str] = Counter()
         for v in voters:
             uid  = v["id"]
-            best = max(current_u[uid], key=lambda k: current_u[uid][k])
+            best = tie_lot.favourite(current_u[uid], current_u[uid].__getitem__, uid)
             fc[best] += 1
         total      = len(voters) or 1
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
@@ -365,7 +366,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for v in voters:
             uid = v["id"]
             rankings.append(
-                sorted(current_u[uid].keys(), key=lambda k: -current_u[uid][k])
+                tie_lot.ranking(current_u[uid], current_u[uid].__getitem__, uid)
             )
 
         condorcet_w  = get_condorcet_winner(rankings)
@@ -684,7 +685,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        v["id"]: tie_lot.favourite(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -699,7 +700,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
-            sorted(true_utilities[v["id"]].keys(), key=lambda k: -true_utilities[v["id"]][k])
+            tie_lot.ranking(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
             for v in active_voters
         ]
         return get_condorcet_winner(rankings)
@@ -785,12 +786,12 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Enables the LabCentralView pinned matrix to show how abstention
     # affects every voting method, not just plurality.
     def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        sincere_compare = compare_all_methods(voters, candidates, issues)
+        sincere_compare = compare_all_methods(voters, candidates, issues, seed=seed)
         # num_rounds >= 0 is enforced by Pydantic validation before this runs,
         # so the loop above always executes >= 1 time and `active` is always
         # assigned; not provable locally by pyright (PLAN_SOLIDITE_TECHNIQUE.md
         # Lot 14.5)
-        final_compare = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
+        final_compare = compare_all_methods(active, candidates, issues, seed=seed)  # pyright: ignore[reportPossiblyUnboundVariable]
         return (
             {m: data.get("winner") for m, data in sincere_compare.get("methods", {}).items()},
             {m: data.get("winner") for m, data in final_compare.get("methods", {}).items()},
@@ -871,7 +872,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     for v in voters:
         uid = v["id"]
         rankings.append(
-            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+            tie_lot.ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # ── STV ────────────────────────────────────────────────────────────────
@@ -973,7 +974,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Each voter's preferred candidate (highest true utility)
     voter_preferred: Dict[Any, str] = {
-        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        v["id"]: tie_lot.favourite(true_utilities[v["id"]], true_utilities[v["id"]].__getitem__, v["id"])
         for v in voters
     }
 
@@ -1123,7 +1124,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     for v in voters:
         uid = v["id"]
         rankings.append(
-            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+            tie_lot.ranking(true_utilities[uid], true_utilities[uid].__getitem__, uid)
         )
 
     # Approval ballots: approve candidates above own mean utility
@@ -1134,7 +1135,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         threshold  = sum(u.values()) / max(len(u), 1)
         approved   = [c for c in cand_names if u.get(c, 0) > threshold]
         if not approved:                          # always approve at least 1st choice
-            approved = [max(u, key=lambda k: u[k])]
+            approved = [tie_lot.favourite(u, u.__getitem__, uid)]
         approval_ballots.append(approved)
 
     # First-choice vote shares for D'Hondt / FPTP

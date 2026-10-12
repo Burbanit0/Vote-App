@@ -15,7 +15,8 @@ vote blank. The roadmap wants them able to stop taking part, and to leave.
   (today's behaviour); validation wants `return_anger < disengage_anger <= exit_anger` and emotions on.
 - **What giving up costs**: a disengaged or exited citizen abstains (`utility_ballot` returns None,
   and the LLM vote skips them, so they count in `abstained`) and signs no petition. They are still
-  polled, still in the graph and still drawn for the chamber.
+  polled, still in the graph and still drawn for the chamber. The legislative election and the confidence vote
+  skipped no one until 2026-10-10 (OBS-046).
 - **Exited is a state, not a deletion**: `apply_dynamics` requires citizen ids equal to `range(n)`.
 - Each tick journals `engagement_updated` (how many are disengaged, how many exited), and
   `Citizen.engagement` is checkpointed only once set.

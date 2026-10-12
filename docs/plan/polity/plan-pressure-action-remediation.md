@@ -1,5 +1,7 @@
 # Plan — Remédiation `pressure_action` (collapse de contenu, cause structurelle non identifiée)
 
+> **status:** history — its premise was invalidated on 2026-08-31. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > ## ⚠️ PRÉMISSE INVALIDÉE — 2026-08-31
 >
 > **Le « collapse de contenu » que ce document cherche à remédier n'existe

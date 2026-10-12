@@ -25,16 +25,17 @@
 #   scripts/test-visual-docker.sh                 # run the suite, compare to committed baselines
 #   scripts/test-visual-docker.sh --update-snapshots   # (re)generate baselines
 #
-# The image is the one CI's visual-regression job pins (tag and digest, in
-# .github/workflows/e2e.yml), so local and CI baselines come from the same
-# browser build; it must match package.json's @playwright/test version.
+# The image is the one CI pins for its e2e shards and visual-regression (tag and
+# digest, the `&playwright-image` anchor in .github/workflows/e2e.yml), so local
+# and CI baselines come from the same browser build; it must match the
+# @playwright/test version package-lock.json installs.
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-PW_VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace(/^[^0-9]*/, '')")
-IMAGE=$(grep -m1 -oE '^\s+image:\s*mcr\.microsoft\.com/playwright:\S+' ../.github/workflows/e2e.yml \
-  | sed -E 's/^\s+image:\s*//' || true)
+PW_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+IMAGE=$(grep -m1 -oE '^\s+image:\s*(&\S+\s+)?mcr\.microsoft\.com/playwright:\S+' ../.github/workflows/e2e.yml \
+  | sed -E 's/^\s+image:\s*(&\S+\s+)?//' || true)
 if [ -z "$IMAGE" ] || ! [[ "$IMAGE" =~ :v${PW_VERSION//./\\.}-noble@sha256:[0-9a-f]{64}$ ]]; then
   echo "The image pinned in .github/workflows/e2e.yml ('${IMAGE:-none}') is not v${PW_VERSION}-noble with a digest: fix the pin first." >&2
   exit 1

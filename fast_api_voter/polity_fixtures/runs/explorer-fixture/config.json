@@ -1,5 +1,6 @@
 {
   "agents": {
+    "amendment_stakes": false,
     "amendments": false,
     "coalition": false,
     "forum": false,
@@ -131,7 +132,9 @@
     "approval_weight": 0.0,
     "decay": 0.9,
     "enabled": true,
+    "floor_calls_vote": false,
     "passive_erosion_weight": 0.0,
+    "pressure_like_support": false,
     "recall_cooldown_ticks": 4,
     "recall_floor": 0.2,
     "recall_floor_indexed_on_l0": false
@@ -257,6 +260,7 @@
     "mode": "llm",
     "partisanship": 0.0,
     "policy_retrospection": 0.0,
+    "strategic_margin": 0.0,
     "turnout_cost": 0.0,
     "valence": 0.0
   }

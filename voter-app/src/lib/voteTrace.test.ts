@@ -108,3 +108,52 @@ describe('voteTrace', () => {
     expect(trace.winner).toBe(0);
   });
 });
+
+describe('traces agree with the engine on a tie (tie lot, #667)', () => {
+  const pair = [
+    { name: 'Ann', x: -0.5, y: 0 },
+    { name: 'Ben', x: 0.5, y: 0 },
+  ];
+
+  it('the last caption names the drawn winner, not the first-listed one', () => {
+    // Ann and Ben tie on score; the lot draws Ben (tieLot.test.ts), the tally's argmax Ann.
+    const tr = buildTraceFromBallots(
+      pair,
+      [
+        [0, 1],
+        [1, 0],
+      ],
+      [
+        [1, 0],
+        [0, 1],
+      ],
+      'score'
+    );
+    expect(tr.winner).toBe(1);
+    const last = tr.frames[tr.frames.length - 1];
+    expect(last.highlight).toEqual([1]);
+    expect(last.caption.params?.cand).toBe('Ben');
+  });
+
+  it('STAR picks its finalists as the engine does', () => {
+    const three = [
+      { name: 'Alice', x: -0.5, y: 0 },
+      { name: 'Bob', x: 0.5, y: 0 },
+      { name: 'Carol', x: 0, y: 0.5 },
+    ];
+    // Each candidate tops one voter, so all three tie on score and the lot picks the
+    // finalists: Carol, then Alice (tie_lot's pinned draws). Carol takes the runoff 2-1.
+    // Listing order would have sent Alice and Bob through and eliminated Carol.
+    const scores = [
+      [1, 0.5, 0],
+      [0, 1, 0.5],
+      [0.5, 0, 1],
+    ];
+    const ranks = scores.map((s) => [0, 1, 2].sort((a, b) => s[b] - s[a]));
+    const tr = buildTraceFromBallots(three, ranks, scores, 'star');
+    expect(tr.winner).toBe(2);
+    const last = tr.frames[tr.frames.length - 1];
+    expect(last.caption.params?.cand).toBe('Carol');
+    expect(last.eliminated?.[2]).toBe(false);
+  });
+});

@@ -211,6 +211,9 @@ class LegislativeResult(Event):
     seats: dict[int, int]
     votes: dict[int, float]
     blank_count: int
+    abstained: int = OMIT  # ADR-021: disengaged and exited citizens, present once any stayed home
+    deserted: int = OMIT  # ADR-024: voters who left a party below the threshold, present while strategic voting is on
+    sincere_votes: dict[int, float] = OMIT  # ADR-024: the vote before desertion (the poll), present with `deserted`
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -347,9 +350,11 @@ class ConfidenceVoteTriggered(Event):
     EVENT_TYPE = "confidence_vote_triggered"
     INSTITUTIONAL = True
     office: str  # Office value, e.g. "president"
-    opened_at_tick: int | None
-    signatures: int
-    signed_ratio: float
+    # A petition's: absent when the floor called the vote (ADR-025), which no one signed.
+    opened_at_tick: int | None = OMIT
+    signatures: int = OMIT
+    signed_ratio: float = OMIT
+    cause: str = OMIT  # ADR-025: "legitimacy_floor" when the floor called the vote; absent for a petition
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -548,6 +553,9 @@ class AgentTurn(Event):
     note_to_self: str
     other_initiative: str  # something the rules do not offer: recorded, never applied
     provenance: LlmProvenance
+    # ADR-022: a president's answer to the extra-legal act ("none" or "refuse_to_leave"), present when the act
+    # is on the menu -- recorded whether or not it is legal that tick, so an act not taken is in the journal too.
+    extra_legal: str = OMIT
 
 
 @dataclass(frozen=True, kw_only=True)

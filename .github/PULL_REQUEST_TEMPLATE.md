@@ -1,69 +1,70 @@
-## Demande
+## Request
 
-<!-- La demande d'origine, mot pour mot (lien vers l'issue ou citation). Pas un résumé écrit après coup. -->
+<!-- The original request, verbatim (a link to the issue, or a quote). Not a summary written afterwards. -->
 
 ## Description
 
-<!-- Décris les changements apportés et pourquoi -->
+<!-- What changed, and why -->
 
-## Critères d'acceptation
+## Acceptance criteria
 
-<!-- Un critère vérifiable par ligne, tiré de la demande. Coche seulement ce qu'une preuve ci-dessous montre. -->
+<!-- One checkable criterion per line, taken from the request. Tick only what the evidence below shows. -->
 
 - [ ] C1 —
 - [ ] C2 —
 
-## Preuves
+## Evidence
 
 <!--
-Les commandes lancées et leur résultat réel (dernières lignes utiles), captures pour l'UI.
-Le bloc que `/verify` imprime convient tel quel.
+The commands run and their real output (the useful last lines), screenshots for UI.
+The block `/verify` prints can be pasted as is.
 -->
 
-**Non vérifié :** <!-- obligatoire : ce qui n'a pas été vérifié et pourquoi ; « rien » seulement si c'est vrai -->
+**Not verified:** <!-- required: what was not checked, and why; "nothing" only when true -->
 
-## Type de changement
+## Type of change
 
-- [ ] `feat` — nouvelle fonctionnalité
-- [ ] `fix` — correction de bug
-- [ ] `refactor` — refactoring sans changement de comportement
-- [ ] `docs` — documentation uniquement
-- [ ] `ci` — CI/CD / pipeline
-- [ ] `security` — correctif sécurité
-- [ ] `perf` — amélioration de performance
+- [ ] `feat` — new feature
+- [ ] `fix` — bug fix
+- [ ] `refactor` — no behaviour change
+- [ ] `docs` — documentation only
+- [ ] `ci` — CI/CD, pipeline
+- [ ] `security` — security fix
+- [ ] `perf` — performance
 
 ## Checklist
 
 ### Code
-- [ ] Le code respecte le style existant (pas de console.log, imports inutilisés, etc.)
-- [ ] Aucun secret / credential n'est committé (cf. detect-secrets)
-- [ ] Les noms de variables et fonctions sont clairs et en anglais
+- [ ] Follows the existing style (no console.log, no unused imports, etc.)
+- [ ] No secret or credential committed (see detect-secrets)
+- [ ] Variable and function names are clear and in English
 
 ### Tests
-- [ ] Les tests existants passent (`npm test` / `pytest`)
-- [ ] Des tests ont été ajoutés pour les nouvelles fonctionnalités (si applicable)
-- [ ] Le coverage ne régresse pas
+- [ ] Existing tests pass (`npm test` / `pytest`)
+- [ ] Tests were added for new behaviour (where applicable)
+- [ ] Coverage does not drop
 
-### Sécurité
-- [ ] `npm run audit:gate` (dans `voter-app/`) passe
-- [ ] Les inputs utilisateur sont validés côté backend
-- [ ] Aucune dépendance vulnérable ajoutée
+### Security
+- [ ] `npm run audit:gate` (in `voter-app/`) passes
+- [ ] User input is validated on the backend
+- [ ] No vulnerable dependency added
 
-### Frontend (si applicable)
-- [ ] Testé en mode light et dark
-- [ ] Testé en mode Expert et Débutant
-- [ ] Testé sur mobile (tableaux responsifs)
-- [ ] Aucune régression sur HomePage, PlaygroundPage, LaboratoirePage
+### Frontend (if applicable)
+- [ ] Checked in light and dark mode
+- [ ] Checked in Expert and Beginner mode
+- [ ] Checked with plain-language rule names on
+- [ ] Checked on mobile (responsive tables)
+- [ ] No regression on HomePage, PlaygroundPage, LaboratoirePage
 
-### Backend (si applicable)
-- [ ] Les nouveaux endpoints coûteux en calcul sont protégés par rate limiting (`check_v2_rate_limit` ou équivalent)
-- [ ] Les nouvelles routes sont testées
-- [ ] CORS respecté (pas de `*` ajouté)
+### Backend (if applicable)
+- [ ] New compute-heavy endpoints are rate limited (`check_v2_rate_limit` or equivalent)
+- [ ] New routes are tested
+- [ ] CORS respected (no `*` added)
 
-## Screenshots (si changement UI)
+## Screenshots (UI changes)
 
-<!-- Avant / Après si pertinent -->
+<!-- Before / after, where relevant -->
 
-## Notes pour le reviewer
+## Notes for the reviewer
 
-<!-- Informations utiles : décisions architecturales, compromis, points d'attention -->
+<!-- Useful context: architectural decisions, trade-offs, points to look at -->

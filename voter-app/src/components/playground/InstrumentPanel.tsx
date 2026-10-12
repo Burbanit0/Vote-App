@@ -63,32 +63,21 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     democracyEntries,
   } = usePlaygroundCtx();
 
+  // While the rate loads, the same words with dots for the number. The readout is monospace, so
+  // it keeps its width and wraps the same before and after: the shorter `· · ·` it replaced fitted
+  // on one line on a phone, and the rate arriving wrapped it onto a second one, pushing the map a
+  // line down (mobile.spec.ts's W3.4 story test, on loaded runners).
   const paradox = (
     <span data-testid="cycle-rate" title={t('instrument.paradoxTitle')}>
-      {loading || !result
-        ? t('instrument.paradoxLoading')
-        : t('instrument.paradox', { pct: Math.round(result.cycle_rate * 100) })}
+      {t('instrument.paradox', {
+        pct: loading || !result ? '··' : Math.round(result.cycle_rate * 100),
+      })}
     </span>
   );
 
-  // Telemetry (top strip): the instrument's live OUTPUTS — Condorcet winner and
-  // the paradox rate. Configuration (bottom strip): the standing INPUTS.
+  // Telemetry (top strip): the instrument's live OUTPUT, the paradox rate (the
+  // winners are in the WinnerStrip above). Configuration (bottom strip): the INPUTS.
   const point = mode === 'leader' ? t('common.candidates') : t('common.parties');
-  const telemetry = (
-    <span className="flex items-center gap-2">
-      {result?.condorcet_winner && (
-        <>
-          <span className="text-muted-foreground">
-            {t('instrument.condorcet', { name: result.condorcet_winner })}
-          </span>
-          <span aria-hidden className="text-border">
-            ·
-          </span>
-        </>
-      )}
-      {paradox}
-    </span>
-  );
   const status = (
     <>
       <span className="text-primary">
@@ -125,7 +114,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     <Instrument
       variant="scope"
       label={mode === 'leader' ? t('instrument.labelLeader') : t('instrument.labelAssembly')}
-      readout={telemetry}
+      readout={paradox}
       status={status}
     >
       <div className="flex flex-col gap-3">

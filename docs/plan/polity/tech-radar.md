@@ -1,5 +1,7 @@
 # Polity — tech radar
 
+> **status:** reference — a recurring log of tools to watch. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 A recurring log of anything in the LLM-serving / open-model / agent-simulation space that could
 matter for `polity` (the 30-year, population-500 election-history goal: autonomous citizens,
 chambers, multiple voting methods, leader-countering mechanisms — currently a single Qwen model

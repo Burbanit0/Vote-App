@@ -57,7 +57,7 @@ const ValuesLabPanel: React.FC = () => {
               step={0.05}
               value={dial}
               onChange={(e) => setDial(Number(e.target.value))}
-              title="Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible."
+              title={t('bilan.dialTitle')}
             />
             <div className="flex justify-between text-[0.68rem] text-muted-foreground">
               <span>{t('bilan.majoritarian')}</span>

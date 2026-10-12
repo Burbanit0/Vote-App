@@ -228,6 +228,9 @@ class VoteConfig:
     policy_retrospection: float
     """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
     term, on the judged incumbent and, in legislative elections, the governing parties."""
+    strategic_margin: float
+    """ADR-024: at a legislative election, how much utility a voter gives up to leave a party the sincere
+    vote leaves below the electoral threshold for the best party above it. 0 is the sincere vote."""
 
 
 @dataclass(frozen=True)
@@ -338,6 +341,12 @@ class LegitimacyConfig:
     passive_erosion_weight: float
     approval_weight: float = 0.0
     """Share of support(t) taken from approval (legitimacy.approval) instead of the mandate."""
+    pressure_like_support: bool = False
+    """ADR-025: pressure enters legitimacy on support's scale, (1 - decay) x (support - pressure), so legitimacy
+    settles at support minus pressure; false keeps pressure at full weight, which settles it at support minus
+    1 / (1 - decay) times the pressure (ten times at decay 0.9, OBS-047)."""
+    floor_calls_vote: bool = False
+    """ADR-025: legitimacy under the floor calls a confidence vote instead of recalling; only a lost vote recalls."""
 
 
 @dataclass(frozen=True)
@@ -707,6 +716,10 @@ class AgentsConfig:
     amendments: bool = False
     """The president may propose an amendment, and the sortition chamber's members vote on it,
     each in a turn of their own (ADR-015)."""
+    amendment_stakes: bool = False
+    """ADR-026: the president's briefing shows what the last elections would have given under other rules --
+    the last presidential ballots counted under each voting method, the last legislative votes re-seated
+    under each seat rule and threshold. Facts, no advice (C3/C4)."""
     forum: bool = False
     """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
     launched a petition post, or stay silent, in a turn of their own, and read what their
@@ -915,6 +928,7 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
         policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+        strategic_margin=_get_nonneg_float(s, "vote", "strategic_margin"),
     )
 
 
@@ -993,6 +1007,8 @@ def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
         recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
         passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
         approval_weight=_get_ratio(s, "legitimacy", "approval_weight"),
+        pressure_like_support=_get(s, "legitimacy", "pressure_like_support", bool),
+        floor_calls_vote=_get(s, "legitimacy", "floor_calls_vote", bool),
     )
 
 
@@ -1308,6 +1324,9 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
     lambda c: (
+        "'legitimacy.pressure_like_support' and 'legitimacy.floor_calls_vote' require 'legitimacy.enabled' (ADR-025)"
+    ) if (c.legitimacy.pressure_like_support or c.legitimacy.floor_calls_vote) and not c.legitimacy.enabled else None,
+    lambda c: (
         "'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'llm.enabled': an agent's turn is a model call"
     ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and not c.llm.enabled else None,
     lambda c: (
@@ -1322,6 +1341,8 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
     lambda c: (
         "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
     ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
+    lambda c: "'agents.amendment_stakes' requires 'agents.amendments': the stakes are those of an amendment (ADR-026)"
+    if c.agents.amendment_stakes and not c.agents.amendments else None,
     lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
@@ -1504,6 +1525,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
             amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
+            amendment_stakes=_get(_section(raw, "agents"), "agents", "amendment_stakes", bool),
             forum=_get(_section(raw, "agents"), "agents", "forum", bool),
             forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
             stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),

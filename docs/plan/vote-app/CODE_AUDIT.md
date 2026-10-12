@@ -1,5 +1,7 @@
 # Audit code — code mort, duplication & garde-fous "vibe coding"
 
+> **status:** history — a dated audit (2026-08-20, updated until 2026-09-13). Most §7 items are done; left open: the two polity rank-F functions and the `workers*.py` consolidation (§7). Today's numbers are the CI ratchets (`.github/quality-baseline.json`). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 *Première édition : 2026-08-20. Section complexité cyclomatique (radon/xenon)
 ajoutée le 2026-08-21. À relancer et mettre à jour après chaque passe de
 nettoyage significative (voir "Prochaines étapes" en bas de page).*

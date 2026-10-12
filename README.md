@@ -5,7 +5,7 @@ choice of voting method changes the winner**, and exploring what happens when
 campaign dynamics, blank votes, information asymmetry, and social contagion all act
 on the same electorate.
 
-> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)
+> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md) · Project status: [docs/STATUS.md](docs/STATUS.md)
 
 > **No hosted instance.** This is a personal, public-source research project, not a
 > deployed product — there's no live demo URL. See **Quick Start** below to run it
@@ -245,7 +245,7 @@ evidence, not just a claim.
   clones…) turned into fuzzed executable tests; four documented-but-unenforced
   conventions turned into blocking gates, two of which caught real, unfixed
   debt.
-- **[14 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
+- **[22 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
   — adopt, reject, or suspend, backed by real findings and real cost rather
   than "we added X."
 - **[`RETROSPECTIVE.md`](docs/plan/vote-app/RETROSPECTIVE.md)** (French) — did
@@ -254,8 +254,8 @@ evidence, not just a claim.
   collisions revealed about running concurrent agents against the same repo.
 - **[`CODE_AUDIT.md`](docs/plan/vote-app/CODE_AUDIT.md)** and
   **[`PLAN_SOLIDITE_TECHNIQUE.md`](docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)**
-  (French) — the quantified baseline and the lot-by-lot plan behind all of
-  the above, both still maintained as the work continues.
+  (French) — the quantified baseline (a dated audit, 2026-08-20 to
+  2026-09-13) and the lot-by-lot plan behind all of the above.
 
 ---
 
@@ -263,9 +263,12 @@ evidence, not just a claim.
 
 ```
 main       ← stable releases (develop → main)
-develop    ← integration branch
-feat/xxx   ← one branch per step → PR to develop (merged --no-ff)
+develop    ← release syncs only (polity → develop)
+polity     ← working branch
+feat/xxx   ← one branch per step → PR to polity (merged --no-ff)
 ```
+
+Where things stand and what comes next: [`docs/STATUS.md`](docs/STATUS.md).
 
 Public repo (MIT). See [CONTRIBUTING.md](CONTRIBUTING.md) and
 [SECURITY.md](SECURITY.md).

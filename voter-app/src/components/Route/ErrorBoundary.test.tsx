@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import ErrorBoundary from './ErrorBoundary';
 
 // Silence the expected console.error noise from intentional throws.
@@ -36,6 +36,22 @@ describe('ErrorBoundary', () => {
     expect(screen.getByTestId('error-boundary-retry')).toBeInTheDocument();
     expect(screen.getByTestId('error-boundary-home')).toBeInTheDocument();
     expect(screen.getByTestId('error-boundary-copy')).toBeInTheDocument();
+  });
+
+  it('"home" loads the site\'s home, under its base path', () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    try {
+      render(
+        <ErrorBoundary>
+          <Boom />
+        </ErrorBoundary>
+      );
+      fireEvent.click(screen.getByTestId('error-boundary-home'));
+      expect(assign).toHaveBeenCalledWith(import.meta.env.BASE_URL);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('exposes the dev-mode details panel with the stack', () => {

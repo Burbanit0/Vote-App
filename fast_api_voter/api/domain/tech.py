@@ -13,6 +13,8 @@ from typing import Any, Dict, List
 import numpy as _np
 
 from api.engine.utils.demographic_data import _seeded_rng_pair
+from api.engine.utils import tie_lot
+from api.engine.utils.pca import orient_axes
 
 
 
@@ -25,7 +27,7 @@ def _pca_2d(matrix: _np.ndarray) -> _np.ndarray:
         return _np.zeros((matrix.shape[0], 2))
     _, _, vt = _np.linalg.svd(centered, full_matrices=False)
     n_comp = min(2, vt.shape[0])
-    coords = centered @ vt[:n_comp].T
+    coords = centered @ orient_axes(vt[:n_comp]).T
     if n_comp < 2:
         coords = _np.column_stack([coords, _np.zeros(len(coords))])
     return _np.asarray(coords)
@@ -186,7 +188,9 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         else:            lbl = f"groupe {cid + 1}"
         clusters_out.append({
             "id": cid, "size": size, "label": lbl,
-            "center": {"x": round(cx, 3),
+            # The label sits on its cluster: both coordinates in the map's PCA frame
+            # (the name above comes from the members' ideology, cx).
+            "center": {"x": round(float(coords[mask, 0].mean()), 3) if mask.any() else 0.0,
                        "y": round(float(coords[mask, 1].mean()), 3) if mask.any() else 0.0},
             "votes": ca,
         })
@@ -227,12 +231,14 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         score = sum(1.0 - abs(cand_x[ci] - stmts[j]["position"]) for j in target_indices)
         cand_scores[cname] = round(score / len(target_indices), 4)
 
-    polis_winner    = max(cand_scores, key=cand_scores.__getitem__)
+    polis_winner    = tie_lot.best(cand_scores, cand_scores.__getitem__, seed)  # a tie by lot
 
     # ── Classical election (plurality by ideology proximity) ──────────────
     vote_tally: Counter[str] = Counter()
     for px in pax:
-        vote_tally[cand_names[int(_np.argmin([abs(px - cx) for cx in cand_x]))]] += 1
+        # An equidistant voter is drawn by lot, seeded with their position (#665).
+        gap = dict(zip(cand_names, (abs(px - cx) for cx in cand_x)))
+        vote_tally[tie_lot.favourite(cand_names, lambda c: -gap[c], px)] += 1
     election_winner = min(vote_tally, key=lambda c: (-vote_tally[c], c)) if vote_tally else cand_names[0]
     winners_agree   = polis_winner == election_winner
 

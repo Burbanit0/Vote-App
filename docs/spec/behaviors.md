@@ -36,6 +36,7 @@ accountability, JRN the journal, DET determinism.
 | ELE-08 | Every configured ranked and score method elects a unanimous winner, and empty ballots elect no one. | `ballot_and_aggregation.py` |
 | ELE-09 | The winner of a rerun serves until the calendar's next election, not a full term from the rerun (OBS-041). | `observations.md` (OBS-041) |
 | ELE-10 | A citizen casts at most one counted `vote_cast` per election tick; an audit ballot, journaled beside the utility vote, is never counted. | `events.py` (`VoteCast.audit`), `run_polity_simulation.py` |
+| ELE-11 | With the strategic margin at zero, every legislative vote is the sincere one; above it, a voter who changes party leaves one the sincere vote puts below the electoral threshold for the best party above it, within the margin and their tolerance. | ADR-024 |
 
 ## Legislation
 

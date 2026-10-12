@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -82,15 +82,64 @@ def clopper_pearson(successes: int, trials: int, *, confidence: float = 0.95) ->
 
 
 @dataclass(frozen=True)
+class PairedContrast:
+    """Arm B minus arm A, seed by seed (PLAN_BEYOND_CI W2.1). The test is the sign-flip permutation
+    on the per-seed differences: under the null each difference is as likely to have either sign.
+    scipy enumerates every one of the 2^n flips whenever that is no more than the 100,000 asked
+    for (n <= 16: exact p), and draws 100,000 seeded random flips beyond (2^n flips held at once
+    would need gigabytes from about 20 seeds). The BCa
+    interval on the differences is reported, not trusted, at n=10 (see mean_bca_interval)."""
+
+    seeds: tuple[int, ...]
+    differences: tuple[float, ...]
+    mean_difference: float
+    p_value: float
+    interval: tuple[float, float] | None
+
+
+def paired_contrast(arm_a: Mapping[int, float], arm_b: Mapping[int, float]) -> PairedContrast | None:
+    """Pair the two arms on the seeds they share (a seed missing from one arm is dropped, never
+    imputed) and test whether B differs from A. None when no seed is shared; a non-finite value
+    raises rather than reading as "no effect". One seed, or no difference at all, gives p = 1:
+    every flip is then as extreme as the observed one."""
+    seeds = tuple(sorted(set(arm_a) & set(arm_b)))
+    if not seeds:
+        return None
+    differences = tuple(float(arm_b[seed]) - float(arm_a[seed]) for seed in seeds)
+    if not all(math.isfinite(d) for d in differences):
+        raise ValueError(f"non-finite paired difference for seeds {seeds}: {differences}")
+    if len(differences) < 2 or not any(differences):
+        p_value = 1.0
+    else:
+        p_value = float(stats.permutation_test(
+            (np.asarray(differences),), np.mean, permutation_type="samples", n_resamples=100_000, random_state=0,
+        ).pvalue)
+    return PairedContrast(
+        seeds=seeds, differences=differences, mean_difference=float(np.mean(differences)),
+        p_value=p_value, interval=mean_bca_interval(differences),
+    )
+
+
+@dataclass(frozen=True)
 class SweepRun:
     seed: int
     repeat: int
     run_id: str
     outcome: str
+    arm: str = ""
+    """Which arm of a two-arm experiment this run belongs to; empty for a one-arm sweep."""
     office_occupancy: float | None = None
+    last_election: dict[str, Any] | None = None
+    """The digest's effective_parties row for the run's last legislative election (tick, by_seats,
+    by_votes, parties_standing); None before the first, or when the metric is off."""
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     fallback_by_type: dict[str, int] = field(default_factory=dict)
     run_metadata: dict[str, Any] = field(default_factory=dict)
+    constitution: tuple[tuple[int, str, Any], ...] | None = ()
+    """The run's constitutional history: the amendments it ratified, in order, as (tick, article, new
+    value) -- ADR-015's versions with when each took effect. () is the unamended constitution and None
+    an unknown one (no readable journal). Runs whose histories differ were not under one set of rules
+    for the whole run, which is what a whole-run metric averages over."""
 
     @property
     def completed(self) -> bool:
@@ -100,12 +149,26 @@ class SweepRun:
         return {t: self.fallback_by_type.get(t, 0) / n for t, n in sorted(self.decisions_by_type.items()) if n}
 
 
+def constitution_groups(
+    runs: Sequence[SweepRun],
+) -> dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]]:
+    """Completed runs grouped by constitutional history: a metric is pooled within a group, never across
+    two, since runs in different groups were not under the same rules all along (ADR-015). The None group
+    (history unknown) is never pooled."""
+    groups: dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]] = {}
+    for run in runs:
+        if run.completed:
+            groups.setdefault(run.constitution, []).append(run)
+    return groups
+
+
 def first_completed_runs(runs: Sequence[SweepRun]) -> list[SweepRun]:
-    """Each seed's first completed run: the independent sample across seeds."""
-    chosen: dict[int, SweepRun] = {}
-    for run in sorted(runs, key=lambda r: (r.seed, r.repeat)):
-        if run.completed and run.seed not in chosen:
-            chosen[run.seed] = run
+    """Each seed's first completed run, per arm: the independent sample across seeds. Keyed by
+    (arm, seed), so two arms run on the same seed are never folded into one."""
+    chosen: dict[tuple[str, int], SweepRun] = {}
+    for run in sorted(runs, key=lambda r: (r.arm, r.seed, r.repeat)):
+        if run.completed and (run.arm, run.seed) not in chosen:
+            chosen[(run.arm, run.seed)] = run
     return list(chosen.values())
 
 

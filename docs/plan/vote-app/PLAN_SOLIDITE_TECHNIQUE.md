@@ -1,5 +1,7 @@
 # PLAN — Solidité technique & exploration outillée
 
+> **status:** live — two rows (Lot 14's sonarjs debt, the scheduled agents) are still open. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Plan d'exécution auto-suffisant, écrit pour être repris étape par étape (par
 > moi ou par un agent) sans contexte préalable. **Une branche `feat/*` + une PR
 > par item**, contre `develop`, merge `--no-ff` — comme le mandate `CLAUDE.md`.

@@ -1,5 +1,7 @@
 # Polity LLM — reference
 
+> **status:** reference — what the simulator actually does today. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 **What this is.** A precise account of what the polity simulator actually does today: the
 vocabulary, the mechanisms, the nine LLM decisions, every knob, and — stated plainly — which parts
 are trustworthy and which are not. Written to be read by someone deciding where to spend effort
