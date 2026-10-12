@@ -7,15 +7,36 @@
  */
 export const ENGINE_IN_BROWSER = process.env.VITE_ENGINE === 'browser';
 
-/** The server's own worker timeout and 503 (api/core/worker_dispatch.py). */
+/**
+ * How long one request may compute: the server's limit (WORKER_TIMEOUT_SECONDS in
+ * api/core/worker_dispatch.py), counted as there only while the request runs, not while
+ * it waits behind others or while the engine downloads and starts.
+ */
 export const TIMEOUT_MS = 180_000;
 const TIMED_OUT = JSON.stringify({ detail: 'Request took too long to process' });
+/** Routes only a server can answer: Polity's run explorer reads run files from its disk. */
+const SERVER_ONLY = ['/api/v2/polity/'];
 
-interface Reply {
+/**
+ * From the worker: `started` when it begins a request, then the answer; `fatal` when the
+ * engine could not start, so that worker is dropped and the next request starts a new one.
+ */
+export interface Reply {
   id: number;
-  status: number;
-  body: string;
+  started?: boolean;
+  status?: number;
+  body?: string;
+  fatal?: boolean;
 }
+
+interface Waiting {
+  resolve: (response: Response) => void;
+  started: boolean;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+const json = (status: number, body: string) =>
+  new Response(body, { status, headers: { 'Content-Type': 'application/json' } });
 
 /** A `fetch` for the API client that answers /api/v2 from the worker `makeWorker` starts. */
 export function createBrowserFetch(
@@ -23,37 +44,43 @@ export function createBrowserFetch(
 ): (request: Request) => Promise<Response> {
   let worker: Worker | undefined;
   let seq = 0;
-  const pending = new Map<
-    number,
-    { resolve: (r: Response) => void; timer: ReturnType<typeof setTimeout> }
-  >();
+  const pending = new Map<number, Waiting>();
 
-  const answer = ({ id, status, body }: Reply) => {
+  const answer = (id: number, status: number, body: string) => {
     const waiting = pending.get(id);
     if (!waiting) return;
     clearTimeout(waiting.timer);
     pending.delete(id);
-    waiting.resolve(
-      new Response(body, { status, headers: { 'Content-Type': 'application/json' } })
-    );
+    waiting.resolve(json(status, body));
   };
 
-  // The worker answers one request at a time. Past the server's timeout, it is stopped,
-  // the request and those queued behind it get the server's 503, and the next request
-  // starts a fresh one.
-  const giveUp = () => {
+  // Stop the worker and answer everything it still owed: past the timeout, the server's
+  // 503; when the engine could not start, the worker's own 503.
+  const stop = (status: number, body: string) => {
     worker?.terminate();
     worker = undefined;
-    for (const id of [...pending.keys()]) answer({ id, status: 503, body: TIMED_OUT });
+    for (const id of [...pending.keys()]) answer(id, status, body);
+  };
+
+  const onReply = ({ id, started, status = 500, body = '{}', fatal }: Reply) => {
+    const waiting = pending.get(id);
+    if (started && waiting) {
+      waiting.started = true;
+      waiting.timer = setTimeout(() => stop(503, TIMED_OUT), TIMEOUT_MS);
+    } else if (fatal) {
+      stop(status, body);
+    } else if (!started) {
+      answer(id, status, body);
+    }
   };
 
   return async (request: Request) => {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/v2/')) return fetch(request);
-    if (!worker) {
-      worker = makeWorker();
-      worker.onmessage = (e: MessageEvent<Reply>) => answer(e.data);
+    if (SERVER_ONLY.some((prefix) => url.pathname.startsWith(prefix))) {
+      return json(404, JSON.stringify({ detail: 'Not Found' }));
     }
+    request.signal.throwIfAborted();
     const message = {
       id: ++seq,
       method: request.method,
@@ -61,9 +88,30 @@ export function createBrowserFetch(
       query: url.search.slice(1),
       body: await request.text(),
     };
-    return new Promise<Response>((resolve) => {
-      pending.set(message.id, { resolve, timer: setTimeout(giveUp, TIMEOUT_MS) });
-      worker!.postMessage(message);
+    if (!worker) {
+      worker = makeWorker();
+      worker.onmessage = (e: MessageEvent<Reply>) => onReply(e.data);
+    }
+    const target = worker;
+    return new Promise<Response>((resolve, reject) => {
+      const waiting: Waiting = { resolve, started: false };
+      pending.set(message.id, waiting);
+      // A cancelled request (react-query aborts on unmount or a new key): still queued,
+      // the worker skips it; already running, its answer is dropped, and its timeout
+      // still stops a computation that would never end.
+      request.signal.addEventListener(
+        'abort',
+        () => {
+          waiting.resolve = () => {};
+          if (!waiting.started) {
+            pending.delete(message.id);
+            target.postMessage({ cancel: message.id });
+          }
+          reject(request.signal.reason);
+        },
+        { once: true }
+      );
+      target.postMessage(message);
     });
   };
 }

@@ -144,6 +144,8 @@ def test_the_bundle_ships_what_the_browser_imports_and_nothing_server_only(tmp_p
     assert not {n for n in names if n in {"api/main.py"} or n.startswith(("api/tests/", "api/sockets/", "api/domain/polity/"))}
     with zipfile.ZipFile(tmp_path / "engine.zip") as z:
         assert z.testzip() is None
+        # The worker loads these from Pyodide before importing api.browser.
+        assert json.loads(z.read("engine.json")) == {"packages": sorted(_builder().PYODIDE)}
 
 
 def test_the_bundle_refuses_a_package_the_browser_cannot_load(tmp_path, monkeypatch):

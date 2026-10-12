@@ -122,12 +122,16 @@ def build(out: Path) -> list[str]:
     if unexpected:
         raise SystemExit(f"api.browser imports packages the browser has no copy of: {sorted(unexpected)}")
     entries = {path.relative_to(ROOT).as_posix(): path for path in files} | bundled()
+    # What the worker loads from Pyodide before importing api.browser
+    # (voter-app/src/workers/engine.worker.ts reads it), so the list lives here only.
+    contents = {name: path.read_bytes() for name, path in entries.items()}
+    contents["engine.json"] = json.dumps({"packages": sorted(PYODIDE)}).encode()
     # Sorted, with a fixed date: the same sources give the same zip, byte for byte.
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for arcname in sorted(entries):
-            z.writestr(zipfile.ZipInfo(arcname, date_time=(1980, 1, 1, 0, 0, 0)), entries[arcname].read_bytes(),
+        for arcname in sorted(contents):
+            z.writestr(zipfile.ZipInfo(arcname, date_time=(1980, 1, 1, 0, 0, 0)), contents[arcname],
                        compress_type=zipfile.ZIP_DEFLATED)
-    return sorted(entries)
+    return sorted(contents)
 
 
 if __name__ == "__main__":

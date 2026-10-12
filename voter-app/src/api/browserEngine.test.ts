@@ -1,31 +1,35 @@
-import { createBrowserFetch, TIMEOUT_MS } from './browserEngine';
+import { createBrowserFetch, TIMEOUT_MS, type Reply } from './browserEngine';
 
 /** Every FakeWorker started, in order. */
-const started: FakeWorker[] = [];
+const workers: FakeWorker[] = [];
 
 /** A stand-in for the engine worker: records what it is sent, answers when told. */
 class FakeWorker {
-  sent: { id: number; method: string; path: string; query: string; body: string }[] = [];
+  sent: Record<string, unknown>[] = [];
   terminated = false;
   onmessage: ((e: MessageEvent) => void) | null = null;
   constructor() {
-    started.push(this);
+    workers.push(this);
   }
-  postMessage(message: FakeWorker['sent'][number]) {
+  postMessage(message: Record<string, unknown>) {
     this.sent.push(message);
   }
   terminate() {
     this.terminated = true;
   }
-  reply(id: number, status: number, body: unknown) {
-    this.onmessage?.({ data: { id, status, body: JSON.stringify(body) } } as MessageEvent);
+  send(reply: Reply) {
+    this.onmessage?.({ data: reply } as MessageEvent);
   }
 }
 
 const browserFetch = () => createBrowserFetch(() => new FakeWorker() as unknown as Worker);
+const post = (path: string, signal?: AbortSignal) =>
+  new Request(`http://localhost${path}`, { method: 'POST', body: '{}', signal });
+/** Wait until the worker has been sent `n` messages. */
+const sent = (n: number) => vi.waitFor(() => expect(workers[0]?.sent).toHaveLength(n));
 
 beforeEach(() => {
-  started.length = 0;
+  workers.length = 0;
 });
 
 afterEach(() => {
@@ -41,19 +45,21 @@ describe('createBrowserFetch', () => {
         body: '{"num_seats":2}',
       })
     );
-    await vi.waitFor(() => expect(started[0]?.sent).toHaveLength(1));
-    const [worker] = started;
-    expect(worker.sent[0]).toEqual({
+    await sent(1);
+    expect(workers[0].sent[0]).toEqual({
       id: 1,
       method: 'POST',
       path: '/api/v2/election/stv',
       query: 'x=1',
       body: '{"num_seats":2}',
     });
-    worker.reply(1, 422, { detail: 'nope' });
+    workers[0].send({ id: 1, started: true });
+    workers[0].send({ id: 1, status: 422, body: '{"detail":"nope"}' });
     const response = await answer;
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ detail: 'nope' });
+    // A reply for a request already answered changes nothing.
+    workers[0].send({ id: 1, status: 200, body: '{}' });
   });
 
   it('leaves every other request to the network', async () => {
@@ -62,30 +68,75 @@ describe('createBrowserFetch', () => {
     const response = await browserFetch()(new Request('http://localhost/engine.zip'));
     expect(await response.text()).toBe('ok');
     expect(network).toHaveBeenCalledOnce();
-    expect(started).toHaveLength(0);
+    expect(workers).toHaveLength(0);
   });
 
-  it("past the server's timeout, gives every waiting request its 503 and starts afresh", async () => {
+  it("answers Polity's server-only routes 404 without starting the engine", async () => {
+    const response = await browserFetch()(new Request('http://localhost/api/v2/polity/runs'));
+    expect(response.status).toBe(404);
+    expect(workers).toHaveLength(0);
+  });
+
+  it('counts the timeout only while a request runs, then answers all with the 503', async () => {
     vi.useFakeTimers();
     const fetchFromBrowser = browserFetch();
-    const long = fetchFromBrowser(
-      new Request('http://localhost/api/v2/simulations/monte-carlo', { method: 'POST', body: '{}' })
-    );
-    const queued = fetchFromBrowser(
-      new Request('http://localhost/api/v2/election/stv', { method: 'POST', body: '{}' })
-    );
-    await vi.waitFor(() => expect(started[0]?.sent).toHaveLength(2));
+    const long = fetchFromBrowser(post('/api/v2/simulations/monte-carlo'));
+    const queued = fetchFromBrowser(post('/api/v2/election/stv'));
+    await sent(2);
+    // The engine downloading and starting does not count.
+    vi.advanceTimersByTime(TIMEOUT_MS * 2);
+    expect(workers[0].terminated).toBe(false);
+    workers[0].send({ id: 1, started: true });
     vi.advanceTimersByTime(TIMEOUT_MS);
     for (const response of await Promise.all([long, queued])) {
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({ detail: 'Request took too long to process' });
     }
-    expect(started[0].terminated).toBe(true);
-    // A late reply from the stopped worker changes nothing; the next request gets a new one.
-    started[0].reply(1, 200, {});
-    void fetchFromBrowser(
-      new Request('http://localhost/api/v2/election/stv', { method: 'POST', body: '{}' })
-    );
-    await vi.waitFor(() => expect(started).toHaveLength(2));
+    expect(workers[0].terminated).toBe(true);
+    void fetchFromBrowser(post('/api/v2/election/stv'));
+    await vi.waitFor(() => expect(workers).toHaveLength(2));
+  });
+
+  it('when the engine cannot start, answers what waits and replaces the worker', async () => {
+    const fetchFromBrowser = browserFetch();
+    const first = fetchFromBrowser(post('/api/v2/election/stv'));
+    const second = fetchFromBrowser(post('/api/v2/election/stv'));
+    await sent(2);
+    workers[0].send({ id: 1, fatal: true, status: 503, body: '{"detail":"Engine unavailable"}' });
+    expect((await first).status).toBe(503);
+    expect(await (await second).json()).toEqual({ detail: 'Engine unavailable' });
+    expect(workers[0].terminated).toBe(true);
+    void fetchFromBrowser(post('/api/v2/election/stv'));
+    await vi.waitFor(() => expect(workers).toHaveLength(2));
+  });
+
+  it('a request cancelled while queued is skipped by the worker', async () => {
+    const abort = new AbortController();
+    const answer = browserFetch()(post('/api/v2/election/stv', abort.signal));
+    await sent(1);
+    abort.abort();
+    await expect(answer).rejects.toThrow();
+    expect(workers[0].sent[1]).toEqual({ cancel: 1 });
+  });
+
+  it('a request cancelled while running is dropped, and its timeout still stops the worker', async () => {
+    vi.useFakeTimers();
+    const fetchFromBrowser = browserFetch();
+    const abort = new AbortController();
+    const running = fetchFromBrowser(post('/api/v2/election/stv', abort.signal));
+    await sent(1);
+    workers[0].send({ id: 1, started: true });
+    abort.abort();
+    await expect(running).rejects.toThrow();
+    expect(workers[0].sent).toHaveLength(1);
+    vi.advanceTimersByTime(TIMEOUT_MS);
+    expect(workers[0].terminated).toBe(true);
+  });
+
+  it('refuses a request already cancelled', async () => {
+    const abort = new AbortController();
+    abort.abort();
+    await expect(browserFetch()(post('/api/v2/election/stv', abort.signal))).rejects.toThrow();
+    expect(workers).toHaveLength(0);
   });
 });
