@@ -105,29 +105,34 @@ def stakes_text(
     presidential ballots counted under each voting method, and the last legislative votes re-seated under each
     seat rule and threshold. Facts the kernel computes, so a self-interested proposal can be weighed (C3), with
     nothing said about which to propose (C4). None when there is no election to recount yet."""
-    lines = []
-    if ballots:
-        elected: dict[str, list[str]] = {}
-        for method in ARTICLES["institutions.presidential_method"].choices:
-            elected.setdefault(_elected(get_presidential_winner(ballots, str(method)), president), []).append(str(method))
-        lines.append("Counted under each voting method, the last presidential election's ballots elect: "
-                     + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
-    party, votes = president.party_affiliation, legislature.votes if legislature is not None else None
-    if votes and party is not None and party in votes:
-        institutions = config.institutions
+    lines = [_method_stakes(president, ballots) if ballots else None,
+             _seat_stakes(config, president, legislature.votes if legislature is not None else None)]
+    return "\n".join(line for line in lines if line) or None
 
-        def seats(method: str, threshold: float) -> int:
-            won = allocate_seats({str(p): v for p, v in votes.items()}, institutions.assembly_seats, method, threshold)
-            return won[str(party)]
 
-        by_rule = ", ".join(f"{rule} {seats(str(rule), institutions.electoral_threshold)}"
-                            for rule in ARTICLES["institutions.seat_allocation"].choices)
-        by_bar = ", ".join(f"{bar:.0%} {seats(institutions.seat_allocation, bar)}" for bar in _THRESHOLDS)
-        lines.append(f"Re-seated from the last legislative election's votes, your party ({party}) wins "
-                     f"{seats(institutions.seat_allocation, institutions.electoral_threshold)} of "
-                     f"{institutions.assembly_seats} seats under the rules in force; under each seat allocation: "
-                     f"{by_rule}; at an electoral threshold of {by_bar}.")
-    return "\n".join(lines) or None
+def _method_stakes(president: Citizen, ballots: list[list[str]]) -> str:
+    elected: dict[str, list[str]] = {}
+    for method in ARTICLES["institutions.presidential_method"].choices:
+        elected.setdefault(_elected(get_presidential_winner(ballots, str(method)), president), []).append(str(method))
+    return ("Counted under each voting method, the last presidential election's ballots elect: "
+            + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
+
+
+def _seat_stakes(config: PolityConfig, president: Citizen, votes: dict[int, float] | None) -> str | None:
+    party = president.party_affiliation
+    if not votes or party is None or party not in votes:
+        return None
+    institutions = config.institutions
+
+    def seats(method: str, threshold: float) -> int:
+        return allocate_seats({str(p): v for p, v in votes.items()}, institutions.assembly_seats, method, threshold)[str(party)]
+
+    by_rule = ", ".join(f"{rule} {seats(str(rule), institutions.electoral_threshold)}"
+                        for rule in ARTICLES["institutions.seat_allocation"].choices)
+    by_bar = ", ".join(f"{bar:.0%} {seats(institutions.seat_allocation, bar)}" for bar in _THRESHOLDS)
+    return (f"Re-seated from the last legislative election's votes, your party ({party}) wins "
+            f"{seats(institutions.seat_allocation, institutions.electoral_threshold)} of {institutions.assembly_seats} "
+            f"seats under the rules in force; under each seat allocation: {by_rule}; at an electoral threshold of {by_bar}.")
 
 
 def _elected(label: str | None, president: Citizen) -> str:
