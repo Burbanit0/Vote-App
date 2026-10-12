@@ -171,7 +171,7 @@ const StoryPlayer: React.FC = () => {
             data-testid="story-quit"
             variant="ghost"
             size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
+            className="h-7 shrink-0 gap-1 px-2 text-muted-foreground max-sm:-my-2"
             onClick={() => quit()}
           >
             <X aria-hidden className="h-3.5 w-3.5" />
@@ -186,7 +186,9 @@ const StoryPlayer: React.FC = () => {
           <ReportContentError where={`story:${active.id}/${step.id}`} />
         </p>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        {/* On a phone the buttons are 44 px tall (W3.6); their negative margin keeps this row,
+            and so the sticky bar, as high as before, so the map still fits under it (W3.4). */}
+        <div className="mt-3 flex items-center justify-between gap-3 max-sm:[&>button]:-my-1.5">
           <Button
             data-testid="story-prev"
             variant="outline"

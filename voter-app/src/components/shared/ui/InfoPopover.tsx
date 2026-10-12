@@ -59,7 +59,7 @@ const InfoPopover: React.FC<Props> = ({
       <button
         type="button"
         className={cn(
-          'inline-flex shrink-0 cursor-pointer items-center border-0 bg-transparent px-0.5 align-middle leading-none text-muted-foreground hover:text-foreground',
+          'touch-expand inline-flex shrink-0 cursor-pointer items-center border-0 bg-transparent px-0.5 align-middle leading-none text-muted-foreground hover:text-foreground',
           className
         )}
         style={{ fontSize: '0.72rem' }}

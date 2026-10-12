@@ -238,7 +238,7 @@ def _petition_impact(by_type: EventsByType) -> dict[str, Any]:
         "signed": len(signed),
         "expired": len(by_type.get("petition_expired", [])),
         "peak_signed_ratio": max(ratios) if ratios else None,
-        "confidence_votes": len(by_type.get("confidence_vote_triggered", [])),
+        "confidence_votes": sum("cause" not in e["payload"] for e in by_type.get("confidence_vote_triggered", [])),  # ADR-025
     }
 
 
@@ -333,6 +333,7 @@ def effective_parties(events: list[dict[str, Any]], config: PolityConfig) -> lis
             "by_seats": _enp(event["payload"]["seats"]),
             "by_votes": _enp(event["payload"]["votes"]),
             "parties_standing": len(event["payload"]["votes"]),
+            **({"deserted": event["payload"]["deserted"]} if "deserted" in event["payload"] else {}),  # ADR-024
         }
         for event in events if event["event_type"] == "legislative_result"
     ]

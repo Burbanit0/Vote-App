@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from api.domain.polity.sweep_statistics import (
+    RedFlag,
     SweepRun,
     clopper_pearson,
     constitution_groups,
@@ -222,14 +223,34 @@ def test_the_history_is_read_from_the_journal_and_unknown_when_it_cannot_be(seed
     assert seed_sweep._amendments(tmp_path / "missing.jsonl") is None
 
 
-def test_the_written_summary_reads_each_runs_history_and_flags_the_pooled_red_flags(seed_sweep: Any, tmp_path: Path) -> None:
+def test_the_written_summary_reads_each_runs_history_and_qualifies_the_flag_that_pools(seed_sweep: Any, tmp_path: Path) -> None:
     amended = {"event_type": "constitution_amended", "tick": 2,
                "payload": {"article": "institutions.electoral_threshold", "new": 0.08}}
-    for seed, journal in ((1, []), (2, []), (3, [amended])):
-        run_dir = tmp_path / f"sweep-1y-p10-seed{seed}" / "run" / f"sweep-1y-p10-seed{seed}"
+    for run_id, journal in (("seed1", []), ("seed2", []), ("seed3", [amended]), ("seed1-rep2", [amended])):
+        run_dir = tmp_path / f"sweep-1y-p10-{run_id}" / "run" / f"sweep-1y-p10-{run_id}"
         run_dir.mkdir(parents=True)
         (run_dir / "digest.json").write_text(json.dumps({"outcome": "completed", "office_occupancy": 0.9}), encoding="utf-8")
         (run_dir / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in journal), encoding="utf-8")
-    text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3]).read_text(encoding="utf-8")
-    assert "- electoral_threshold 0.08 at t2: seed 3" in text
-    assert "- note: these pre-registered flags pool across 2 constitutional histories (see Constitutions)" in text
+    text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3, 1]).read_text(encoding="utf-8")
+    assert "- electoral_threshold 0.08 at t2: seed 3, seed 1 rep 2" in text
+    assert ("- note on the third flag: its across-seed spread mixes 2 known constitutional histories; "
+            "set against a first run of another or unknown history: seed 1 rep 2 (see Constitutions)") in text
+
+
+def test_the_note_is_silent_unless_the_pooling_flag_ran_across_histories(seed_sweep: Any) -> None:
+    evaluated = RedFlag("same-seed divergence", "clear", "")
+    one_history = [_run(1), _run(2), _run(1, 2)]
+    assert seed_sweep._divergence_note(one_history, evaluated) == []
+    assert seed_sweep._divergence_note([_run(1), dataclasses.replace(_run(2), constitution=THRESHOLD)],
+                                       RedFlag("same-seed divergence", "not evaluable", "")) == []
+    unknown = [_run(1), dataclasses.replace(_run(2), constitution=None), _run(1, 2)]
+    assert seed_sweep._divergence_note(unknown, evaluated) == [
+        "- note on the third flag: its across-seed spread mixes 1 known constitutional history "
+        "and runs whose history is unknown (see Constitutions)"]
+    unmeasured = [_run(1), dataclasses.replace(_run(2, occupancy=None), constitution=THRESHOLD),
+                  _run(2, 2), dataclasses.replace(_run(1, 2, occupancy=None), constitution=THRESHOLD)]
+    assert seed_sweep._divergence_note(unmeasured, evaluated) == []  # the flag compared neither unmeasured run
+    all_unknown = [dataclasses.replace(r, constitution=None) for r in unknown]
+    assert seed_sweep._divergence_note(all_unknown, evaluated) == [
+        "- note on the third flag: its across-seed spread mixes runs whose history is unknown; "
+        "set against a first run of another or unknown history: seed 1 rep 2 (see Constitutions)"]

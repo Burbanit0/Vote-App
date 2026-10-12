@@ -329,6 +329,10 @@ graphify-out/
 # lecteur externe au dépôt — la raison d'être même de ce dossier disparaît
 # s'il ne survit que sur un seul disque.
 !/docs/stories/
+# The preprint draft (PLAN_BEYOND_CI D5), written from the stories piece above: the same
+# reason, a text meant for readers outside the repository. Its build output is ignored
+# by its own .gitignore.
+!/docs/preprint/
 # docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
 # aussi les fichiers directement sous docs/, pas seulement les
 # sous-dossiers, d'où cette ligne séparée des `!/docs/<dir>/` ci-dessus.

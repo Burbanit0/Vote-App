@@ -228,6 +228,9 @@ class VoteConfig:
     policy_retrospection: float
     """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
     term, on the judged incumbent and, in legislative elections, the governing parties."""
+    strategic_margin: float
+    """ADR-024: at a legislative election, how much utility a voter gives up to leave a party the sincere
+    vote leaves below the electoral threshold for the best party above it. 0 is the sincere vote."""
 
 
 @dataclass(frozen=True)
@@ -338,6 +341,12 @@ class LegitimacyConfig:
     passive_erosion_weight: float
     approval_weight: float = 0.0
     """Share of support(t) taken from approval (legitimacy.approval) instead of the mandate."""
+    pressure_like_support: bool = False
+    """ADR-025: pressure enters legitimacy on support's scale, (1 - decay) x (support - pressure), so legitimacy
+    settles at support minus pressure; false keeps pressure at full weight, which settles it at support minus
+    1 / (1 - decay) times the pressure (ten times at decay 0.9, OBS-047)."""
+    floor_calls_vote: bool = False
+    """ADR-025: legitimacy under the floor calls a confidence vote instead of recalling; only a lost vote recalls."""
 
 
 @dataclass(frozen=True)
@@ -915,6 +924,7 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
         policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+        strategic_margin=_get_nonneg_float(s, "vote", "strategic_margin"),
     )
 
 
@@ -993,6 +1003,8 @@ def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
         recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
         passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
         approval_weight=_get_ratio(s, "legitimacy", "approval_weight"),
+        pressure_like_support=_get(s, "legitimacy", "pressure_like_support", bool),
+        floor_calls_vote=_get(s, "legitimacy", "floor_calls_vote", bool),
     )
 
 
@@ -1307,6 +1319,9 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
     lambda c: (
         "'legitimacy.approval_weight' > 0 requires 'legitimacy.enabled': approval only feeds L(t)"
     ) if c.legitimacy.approval_weight > 0 and not c.legitimacy.enabled else None,
+    lambda c: (
+        "'legitimacy.pressure_like_support' and 'legitimacy.floor_calls_vote' require 'legitimacy.enabled' (ADR-025)"
+    ) if (c.legitimacy.pressure_like_support or c.legitimacy.floor_calls_vote) and not c.legitimacy.enabled else None,
     lambda c: (
         "'agents.president', 'agents.nominees', 'agents.amendments', 'agents.forum' and 'agents.coalition' require 'llm.enabled': an agent's turn is a model call"
     ) if (c.agents.president or c.agents.nominees or c.agents.amendments or c.agents.forum or c.agents.coalition) and not c.llm.enabled else None,

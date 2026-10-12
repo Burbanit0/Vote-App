@@ -279,6 +279,10 @@ vote:
                                 # Poids à 0 = le bulletin sincère de build_ranking
                                 #   (bras témoin), jusqu'à calibration contre les
                                 #   faits pré-enregistrés de l'ADR-011.
+  strategic_margin: 0.0         # ADR-024 : aux législatives, utilité qu'un électeur
+                                #   cède pour quitter un parti que le vote sincère
+                                #   laisse sous le seuil, pour le meilleur au-dessus
+                                #   (vote utile) ; 0 = vote sincère
 
 # =============================================================================
 # LÉGISLATION ORDINAIRE (S4.2, D3/D7 — docs/adr/ADR-009-ordinary-legislation.md)
@@ -340,6 +344,11 @@ legitimacy:
                               #   (legitimacy.approval : part des citoyens qui
                               #   classeraient la conduite du président au-dessus
                               #   du blanc) au lieu du seul mandat. 0.0 = mandat seul.
+  pressure_like_support: false  # ADR-025 : true = la pression pèse comme le soutien,
+                              #   L(t) = decay·L(t-1) + (1-decay)·(support − écart) ;
+                              #   false = écart à plein poids (amplifié ×10, OBS-047)
+  floor_calls_vote: false     # ADR-025 : true = sous le plancher, un vote de confiance
+                              #   décide ; seule une majorité contre révoque
 
 # =============================================================================
 # PRESSION CITOYENNE (§7bis) — inactive avant v4

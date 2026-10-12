@@ -75,6 +75,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-043](#obs-043) | Agents were told a citizen's own party counts for more at the ballot; in every run it counted for nothing | 2026-10-07 | fixed |
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
+| [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
+| [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 
 ---
 
@@ -2240,8 +2242,139 @@ citizen, and treats the threshold as a general rule it does not apply to its own
 backing; the gate prints only totals. Stating the consequence outright ("your party would win no seat") would
 lead the answer (contract C3), so that probe is not planned.
 
+*Follow-up, 2026-10-10: the exact figure, and what the founders cite.* The gate now logs every answer next to the
+founder's backing (`--gate-log`), and can state the founding rule as a count (`--gate-wording count`). Two runs,
+same checkpoint, vLLM 0.31.0, `qwen3:8b` at temperature 0.6. The tables are in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_results.md`, the 240 answers in
+`fast_api_voter/scripts/check_agent_prompt_neutrality_d2_answers/`, and `python scripts/check_observations.py founders
+scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl` recounts every figure below from them.
+
+| founding rule worded | found at 3% / 7% | McNemar p | backing 5-6: found at 3% / 7% | answers naming the seat bar |
+|---|---:|---:|---:|---:|
+| shipped: "at least 5% of the citizens" | 56 / 59 of 60 | 0.375 | 12 / **14 of 14** | **0** of 120 |
+| count: "at least 5 of the 100 citizens" | 60 / 58 of 60 | 0.5 | 14 / **14 of 14** | **0** of 120 |
+
+- **The exact figure.** Every one of the 14 founders a 7% bar should stop founded at 7%, in both runs.
+- **No answer names the seat bar.** None of the 240 rationales, notes and posts mentions the bar it was told (3% or
+  7%), a seat, or votes.
+- **The threshold they do cite is the founding rule.** With the shipped wording, 54 of 120 name it ("meets the 5%
+  threshold with 6 citizens closer to my positions"), 2 call their own share a threshold and 2 say "the threshold"
+  alone. With the count wording, 16 name it ("the 5-citizen threshold", "the founding threshold") and 16 say "meets
+  the threshold" alone, which could be either rule.
+- **Stating the founding rule without its percentage changes nothing.** That weakens, but does not exclude, a
+  confusion of the two bars: the party roll still gives each party's share of citizens as a percentage.
+
+*Reading.* Where an answer says what it weighed, it is whether founding is allowed, and founding follows that
+(`found` moves 97 points with the co-founder count, PR #861); no answer weighs the seat rule, under either wording. That
+narrows the suspected cause above: whatever the model does with the seat sentence, it never refers to it. A
+rationale shows what the answer cites, not what drives it, and each wording is one sample at temperature 0.6 (the
+shipped wording founded 59 and 59 of 60 times on 2026-10-09, 56 and 59 here). Why the seat sentence is passed over
+is not known.
+
 *Consequence.* By the plan's rule the threshold experiment stops here: no pilot, no main run, no
 pre-registration (W2.1 steps 2-5, W2.4). Forum `found` stays unfit for a claim about the threshold
 (`fit-for-inference.md`).
 
 *Status: open.*
+
+### OBS-046
+
+**Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in
+confidence votes.**
+
+*Seen.* Every `legislative_result` of the phase11 ensemble (`~/Documents/Dev/polity-runs/phase11/`) counts 100
+ballots, party votes plus blanks, while the `engagement_updated` event before it reports 8 to 28 citizens disengaged
+or exited (mean 17.2 over the 20 legislative elections; seed 8 had 28 at both). Its 14 confidence votes likewise
+count 100 ballots each, with 10 to 28 citizens disengaged or exited at the time (mean 19.4); all 14 kept the president.
+
+*Cause.* ADR-021 says a disengaged or exited citizen abstains. The presidential vote applies it (`utility_ballot`
+returns None, and `_llm_ballots` skips them), but `_hold_legislative_election` called `choose_party` for every
+citizen, and the confidence vote a petition forces built a ballot for every citizen. The first was found while
+reading the legislative loop for strategic voting, the second by the review of its fix.
+
+*What it touched.* Only runs with engagement on, that is the exploration profile since Phase 4.4 (#708): there,
+legislative turnout was overstated and the vote shares behind the seat counts included citizens who had given up.
+Whether excluding them would have changed a confidence vote depends on how they voted, which is not journaled.
+The effective numbers of parties in OBS-040 and OBS-044 were computed on those results. They are not recomputed:
+`snapshots.jsonl` holds every citizen's position at the election ticks, but `engagement_updated` journals only how
+many had given up, not who, so which ballots to drop is unknown, and so is the direction of the change.
+
+*Fix (2026-10-10).* Every ballot site now takes its voters from one helper (`_voters`, ADR-021's rule); the
+legislative election and the confidence vote skip citizens who are not engaged. `legislative_result` journals
+`abstained` once any stayed home, as `elected` does; `confidence_vote_result` already journals its `ballots`. With
+no one left to vote, a confidence vote is not held and the petition runs on until it expires. With engagement off
+nothing changes.
+
+*Status: fixed.*
+
+### OBS-047
+
+**Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times
+what support adds.**
+
+*Seen.* The phase11 ensemble (`~/Documents/Dev/polity-runs/phase11/`, ten 8-year p100 seeds, exploration profile)
+holds 70 presidential elections and 41 recalls, all at the legitimacy floor, and 3 full terms. At the tick of their
+recall, every one of the 41 presidents was approved by a majority: approval 0.54 to 0.80 (median 0.71), on a mandate
+of 0.56 to 0.95 (median 0.80). A recalled president lasted a median 4 ticks, one year. In 4 of the 41 a confidence
+vote the president won had first averted the floor's recall; it came a tick later. The 29 presidencies not recalled
+were short: 16 snap winners who served to the next election, 10 elected on the run's last tick, and the 3 full
+terms. `refuse_to_leave`, open only in the last tick of a president's final term, was legal twice (OBS-044).
+
+*Cause, in two parts.*
+
+- **The citizens mobilise often.** 33.3% of phase11's 8,171 pressure acts are `MOBILIZE` (2,723), against 1.5% on
+  the LLM path with emotions off: OBS-019 traced that rise to the emotion fields in the pressure prompt, and the
+  exploration profile turns emotions on (ADR-021 needs them). During a recalled presidency a median 8.8 of 100
+  citizens mobilise each tick and 4.0 sign a petition, out of 28.4 consulted; presidencies not recalled that lasted
+  more than a tick met 5.4 mobilisers a tick.
+- **The legitimacy rule turns a few mobilisers into a recall.** `update_legitimacy` is
+  `L(t) = clamp(0.9 L(t-1) + 0.1 m - ecart(t), 0, 1)`, where support `m` blends mandate and approval and
+  `ecart = 0.5 petition_pressure + 0.5 street_pressure`. Support enters at a tenth of its weight and pressure at
+  full weight, so with steady pressure `e` legitimacy heads for `m - 10 e` (and stops at 0, where 9 of the 41
+  recalls were journaled), not `m - e`. Street pressure keeps 0.85 of itself each tick, so a steady share `r` of
+  citizens mobilising settles it at `6.7 r`, and legitimacy at `m - 33 r`. Petitions left aside, each recalled
+  president's support could absorb 1.2 to 2.0 mobilisers per hundred citizens per tick (median 1.6) before
+  heading under their floor; all 41 met more.
+
+*Against OBS-015.* On the deterministic twin, OBS-015 found that "amplification is not the cause: the rate is": a
+recall floor of 0.10 or 0.05 left 2 full terms of 20, and halving legitimacy's decay (amplifying pressure 2 times
+rather than 10) left 6, still recalling 71-74% of presidencies. The replay below agrees on the floor, but not on
+the decay: replayed on phase11's own support and pressure, a decay of 0.5 leaves 4 of the 41 presidencies settling
+under the floor. The twin met its own rate of pressure, and OBS-015 let behaviour respond where this replay holds
+it fixed; which of the two explains the gap is not tested.
+
+*Campaigning.* Not separable here: every phase11 seed campaigns. OBS-037 measured recalls about 50% higher with
+capped campaigning on three seeds (18 against 12).
+
+*Replay.* Each recalled presidency's legitimacy, recomputed from its own journaled support and pressure under
+other rules, behaviour held fixed. The shipped rule reproduces every recorded legitimacy exactly, and all 41
+recalls, with the floor each seed had in force (seed 6 amended it to 0.3). The fixed point is unclamped, at the
+presidency's mean support and pressure.
+
+| rule | how it would be set | recalled within the span served | fixed point (median) | fixed point under the floor |
+|---|---|---:|---:|---:|
+| shipped: `0.9 L + 0.1 m - e`, floor 0.2 | -- | 41 of 41 | -0.85 | 41 of 41 |
+| floor 0.1 | config (`legitimacy.recall_floor`, also an article) | 21 | -0.85 | 41 |
+| legitimacy decay 0.5 (OBS-015's knob): `0.5 L + 0.5 m - e` | config (`legitimacy.decay`) | 10 | +0.45 | 4 |
+| both pressure weights halved | code: the validator wants the two weights to sum to 1 | 0 | -0.06 | 36 |
+| pressure on support's scale: `0.9 L + 0.1 (m - e)` | code: `update_legitimacy` | 0 | +0.61 | 0 |
+| the floor recalls only a president a majority disapproves | code: the recall step | 0 (all 41 approved by a majority) | -- | -- |
+
+Lowering the floor or halving both weights slows the same fall. Halving legitimacy's memory, a config change,
+leaves 4 of 41 under the floor; pressure on support's scale or a floor tied to approval leave none. The replay
+cannot say how many recalls any of them would keep, since behaviour would change with longer presidencies.
+
+*Evidence.* `python scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase11` (from
+`fast_api_voter/`) prints every measured number above; `6.7 r`, `33 r` and `m - 10 e` are derived from the rule.
+
+*What would settle it.* The owner's choice of rule, as D9 is for the twin -- whether a president approved by 71%
+should be removable in a year by a tenth of the citizens mobilising -- then an ensemble under it, since a longer
+presidency changes what citizens and agents do. The model's mobilisation rate (OBS-019) is the other half, and is
+not measured against anything real.
+
+*Decided (2026-10-11, owner).* "A president should be recalled when the population is against them, not a few
+of them": both rules that express it, in the exploration profile (ADR-025). Pressure weighs on legitimacy like
+support (`legitimacy.pressure_like_support`), and legitimacy under the floor calls a confidence vote that only a
+majority against the president loses (`legitimacy.floor_calls_vote`). The flagship keeps today's rule.
+
+*Status: decided.*

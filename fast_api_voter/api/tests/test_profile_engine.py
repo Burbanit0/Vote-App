@@ -18,6 +18,7 @@ from api.engine.utils.profile_engine import (
     didi_profile,
     stratification_profile,
     polya_urn_profile,
+    pca_embed_2d,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -593,3 +594,24 @@ class TestStrategicVoterCap:
         with pytest.raises(ValidationError):
             ProfileSimulateRequest(candidates=[{"name": "A"}, {"name": "B"}],
                                    source="handcrafted", handcrafted_matrix=[[1.0, 0.0]] * 1001)
+
+
+# numpy's SVD leaves each axis's sign to the LAPACK build (EXP-023): an SVD answering
+# with the opposite signs must place a non-spatial profile's voters at the same points.
+@pytest.mark.parametrize("flip", [(1.0, -1.0), (-1.0, -1.0)])
+def test_profile_map_does_not_take_its_axes_signs_from_lapack(monkeypatch, flip):
+    import numpy as np
+
+    rng = np.random.default_rng(5)
+    matrix = [dict(zip("ABCD", rng.random(4))) for _ in range(30)]
+    reference = pca_embed_2d(matrix, 30)
+    svd = np.linalg.svd
+
+    def mirrored(a, full_matrices=True):
+        u, s, vt = svd(a, full_matrices=full_matrices)
+        signs = np.ones(len(vt))
+        signs[:2] = flip
+        return u * signs, s, vt * signs[:, None]
+
+    monkeypatch.setattr(np.linalg, "svd", mirrored)
+    np.testing.assert_allclose(pca_embed_2d(matrix, 30), reference)

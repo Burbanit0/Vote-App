@@ -1,7 +1,9 @@
 """Re-seat a run's recorded legislative votes under another electoral threshold
 (PLAN_BEYOND_CI W2.1/W2.2 item 4): the mechanical effect of the threshold, on CPU.
 
-Voters and founders do not see the new bar here -- that is the point. The difference
+Voters and founders do not see the new bar here -- that is the point. Where voters
+deserted parties below the bar in force (ADR-024), a re-seat at another bar starts from
+the vote before desertion (`sincere_votes`), so they do not see that bar either. The difference
 between a re-seated run and a run actually played at that threshold is what the
 agents did about it (the behavioural effect). OBS-040 did this by hand once.
 
@@ -36,8 +38,10 @@ def _election_row(
     tick, payload = event["tick"], event["payload"]
     in_force = float(rules["institutions.electoral_threshold"])
     applied = in_force if threshold is None else threshold
+    # The recorded vote reproduces the record; another bar starts from the vote no bar shaped (ADR-024).
+    votes = payload["votes"] if threshold is None else payload.get("sincere_votes", payload["votes"])
     seats = allocate_seats(
-        {str(party): float(votes) for party, votes in payload["votes"].items()},
+        {str(party): float(count) for party, count in votes.items()},
         total_seats=int(rules["institutions.assembly_seats"]),
         method=str(rules["institutions.seat_allocation"]),
         electoral_threshold=applied,
