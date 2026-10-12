@@ -270,7 +270,7 @@ def _experiment_overrides(config: PolityConfig, *, threshold: float | None, free
     if freeze_amendments:
         config = dataclasses.replace(
             config,
-            agents=dataclasses.replace(config.agents, amendments=False),
+            agents=dataclasses.replace(config.agents, amendments=False, amendment_stakes=False),
             regime=dataclasses.replace(config.regime, enabled=False),
             constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
         )
@@ -313,6 +313,7 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
         constitution=dataclasses.replace(config.constitution, referendum="petition"),
         agents=dataclasses.replace(
             config.agents, president=config.llm.enabled, nominees=config.llm.enabled, amendments=config.llm.enabled,
+            amendment_stakes=config.llm.enabled,
             forum=config.llm.enabled, coalition=config.llm.enabled, stance_step=0.25 if config.llm.enabled else 0.0,
             turn_temperature=0.6, party_moves=config.llm.enabled,
         ),

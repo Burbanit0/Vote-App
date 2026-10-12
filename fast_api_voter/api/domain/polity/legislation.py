@@ -44,6 +44,10 @@ class Legislature:
     policy: tuple[float, ...]
     seats: dict[int, int] | None = None
     """From the last legislative election; None before the first."""
+    votes: dict[int, float] | None = None
+    """ADR-026: the party votes of the last legislative election, re-seated under other rules for the president."""
+    votes_tick: int | None = None
+    """ADR-026: the tick of that election, whose seeded lot the re-seating draws its ties from."""
     coalition: tuple[int, ...] | None = None
     """The governing coalition that election formed; None when none did."""
     policy_at_term_start: tuple[float, ...] | None = None

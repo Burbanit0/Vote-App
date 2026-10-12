@@ -700,6 +700,8 @@ agents:
   amendments: false           # true = le président peut proposer un amendement, et les membres de la
                               #   chambre tirée au sort le votent, chacun dans un tour (ADR-015).
                               #   Exige agents.president et sortition_chamber.enabled.
+  amendment_stakes: false     # ADR-026 : le président voit ce que les dernières élections auraient donné
+                              #   sous d'autres règles (chaque mode de scrutin, chaque répartition des sièges)
   forum: false                # true = la chambre tirée au sort et les citoyens qui viennent de lancer
                               #   une pétition (8 ticks) postent ou se taisent, chacun dans un tour,
                               #   et lisent leurs voisins, le président et (pour la chambre) leurs

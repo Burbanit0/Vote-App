@@ -102,6 +102,12 @@ def get_presidential_winner(ballots: list[Any], method: str) -> Optional[str]:
     raise ValueError(f"unknown presidential_method: {method!r}")
 
 
+def seat_lot(seed: int, tick: int) -> random.Random:
+    """The lot a legislative election draws its seat ties from, seeded per election from (seed, tick) as a
+    string: no checkpointed state, and no other stream's draws shift. ADR-026's re-seating draws from it too."""
+    return random.Random(f"legislative-seats:{seed}:{tick}")
+
+
 def allocate_seats(
     vote_shares: dict[str, float], total_seats: int, method: str, electoral_threshold: float,
     *, rng: random.Random | None = None,

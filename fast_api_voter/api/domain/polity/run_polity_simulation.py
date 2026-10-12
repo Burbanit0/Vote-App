@@ -40,7 +40,6 @@ import dataclasses
 import hashlib
 import json
 import logging
-import random
 import subprocess
 import time
 from functools import partial
@@ -54,7 +53,7 @@ from typing import Any, Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
-from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count
+from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count, stakes_text
 from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
@@ -115,6 +114,7 @@ from api.domain.polity.ballot_and_aggregation import (
     confidence_keep_ratio,
     get_presidential_winner,
     resolve_confidence_vote,
+    seat_lot,
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.regime import refusal_succeeds
@@ -1116,6 +1116,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
+            legislature.votes, legislature.votes_tick = votes, context.tick
             legislature.policy_at_assembly_start = legislature.policy
 
 
@@ -1364,6 +1365,9 @@ def _president_briefing(
     pledge: tuple[float, ...], stated: tuple[float, ...], agenda_closed: str | None,
 ) -> PresidentBriefing:
     config, legislature = context.config, state.legislature
+    members = len(current_sortition_members(state.citizens))
+    # ADR-026: only when an amendment can be proposed this tick -- the stakes are those of a proposal.
+    stakes_open = config.agents.amendment_stakes and proposal_closed(state.constitution, members) is None
     return PresidentBriefing(
         tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
         approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
@@ -1372,7 +1376,8 @@ def _president_briefing(
         public_median=population_median(state.citizens),
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
-        constitution=constitution_text(config, state.constitution, len(current_sortition_members(state.citizens))) if config.agents.amendments else None,
+        constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
+        stakes=stakes_text(config, president, state.last_ballots, legislature) if stakes_open else None,
     )
 
 
@@ -2453,10 +2458,7 @@ def _hold_legislative_election(
         total_seats=config.institutions.assembly_seats,
         method=config.institutions.seat_allocation,
         electoral_threshold=config.institutions.electoral_threshold,
-        # A seat tie is drawn by lot, not handed to the lowest party_id. Seeded
-        # per election from (seed, tick) as a string, so it needs no checkpointed
-        # state and never shifts another stream's draws.
-        rng=random.Random(f"legislative-seats:{config.run.seed}:{tick}"),
+        rng=seat_lot(config.run.seed, tick),  # a seat tie is drawn by lot, not handed to the lowest party_id
     )
     seats = {int(party_id): count for party_id, count in raw_seats.items()}
 

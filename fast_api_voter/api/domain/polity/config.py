@@ -716,6 +716,10 @@ class AgentsConfig:
     amendments: bool = False
     """The president may propose an amendment, and the sortition chamber's members vote on it,
     each in a turn of their own (ADR-015)."""
+    amendment_stakes: bool = False
+    """ADR-026: the president's briefing shows what the last elections would have given under other rules --
+    the last presidential ballots counted under each voting method, the last legislative votes re-seated
+    under each seat rule and threshold. Facts, no advice (C3/C4)."""
     forum: bool = False
     """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
     launched a petition post, or stay silent, in a turn of their own, and read what their
@@ -1337,6 +1341,8 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
     lambda c: (
         "'agents.amendments' requires 'agents.president' (who proposes) and 'sortition_chamber.enabled' (who ratifies)"
     ) if c.agents.amendments and not (c.agents.president and c.sortition_chamber.enabled) else None,
+    lambda c: "'agents.amendment_stakes' requires 'agents.amendments': the stakes are those of an amendment (ADR-026)"
+    if c.agents.amendment_stakes and not c.agents.amendments else None,
     lambda c: (
         "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
         "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
@@ -1519,6 +1525,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             nominees=_get(_section(raw, "agents"), "agents", "nominees", bool),
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
             amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
+            amendment_stakes=_get(_section(raw, "agents"), "agents", "amendment_stakes", bool),
             forum=_get(_section(raw, "agents"), "agents", "forum", bool),
             forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
             stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),

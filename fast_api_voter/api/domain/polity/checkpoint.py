@@ -257,6 +257,8 @@ def _legislature_to_dict(legislature: Legislature) -> dict[str, Any]:
     data = dataclasses.asdict(legislature)
     if legislature.seats is not None:
         data["seats"] = {str(k): v for k, v in legislature.seats.items()}
+    if legislature.votes is not None:
+        data["votes"] = {str(k): v for k, v in legislature.votes.items()}
     return data
 
 
@@ -265,6 +267,8 @@ def _legislature_from_dict(data: Mapping[str, Any]) -> Legislature:
     return Legislature(
         policy=tuple(data["policy"]),
         seats=None if data["seats"] is None else {int(k): v for k, v in data["seats"].items()},
+        votes=None if data.get("votes") is None else {int(k): v for k, v in data["votes"].items()},
+        votes_tick=data.get("votes_tick"),
         coalition=_optional_tuple(data["coalition"]),
         policy_at_term_start=_optional_tuple(data["policy_at_term_start"]),
         policy_at_assembly_start=_optional_tuple(data["policy_at_assembly_start"]),

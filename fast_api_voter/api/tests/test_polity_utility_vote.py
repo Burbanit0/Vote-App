@@ -288,7 +288,7 @@ def test_a_term_counts_against_the_limit_only_if_won_with_at_least_half_of_it_le
         config=dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, president_term_limit=2)),
         tick=2 * term - 1,
     )
-    assert not engine._declares_refusal(limit_two, veteran, ActingLeaderTurn(**_turn(extra_legal="refuse_to_leave")))
+    assert not engine._declares_refusal(limit_two, veteran, ActingLeaderTurn(**_turn(extra_legal="refuse_to_leave", amendment=None)))
 
 
 def test_an_invalidated_election_carries_the_outgoing_president_into_its_rerun(tmp_path: Path) -> None:

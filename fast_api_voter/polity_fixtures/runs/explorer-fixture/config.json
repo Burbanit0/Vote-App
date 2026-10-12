@@ -1,5 +1,6 @@
 {
   "agents": {
+    "amendment_stakes": false,
     "amendments": false,
     "coalition": false,
     "forum": false,
