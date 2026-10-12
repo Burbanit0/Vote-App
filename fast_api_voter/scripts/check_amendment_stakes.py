@@ -4,7 +4,10 @@ times, at the exploration profile's temperature, with and without the stakes in 
 they propose are counted by article, and a proposed voting method is checked against whom it would have elected.
 
 Needs vLLM on config.llm.base_url. Usage (from fast_api_voter/):
-    python scripts/check_amendment_stakes.py ~/Documents/Dev/polity-runs/phase12/runs --samples 20
+    python scripts/check_amendment_stakes.py ~/Documents/Dev/polity-runs/phase11 ~/Documents/Dev/polity-runs/phase12/runs --samples 2
+
+A president's answer barely varies between samples at temperature 0.6 (40 of 40 alike, then 0 of 40 in a second
+run of the same turns), so presidents, not samples, are the unit: give it many runs, few samples.
 """
 from __future__ import annotations
 
@@ -90,15 +93,16 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
     wins = None
     if amendment.article == "institutions.presidential_method" and state.last_ballots:
         wins = get_presidential_winner(state.last_ballots, str(amendment.value)) == candidate_label(president)
-    return {"article": amendment.article, "value": amendment.value, "wins": wins}
+    return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins,
+            "reason": amendment.reason}
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("root", type=Path, help="a directory of finished runs (their checkpoint.json and events.jsonl)")
+    parser.add_argument("roots", type=Path, nargs="+", help="directories of finished runs (their checkpoint.json and events.jsonl)")
     parser.add_argument("--samples", type=int, default=20, help="turns per president per arm")
     args = parser.parse_args(argv)
-    scenarios = _scenarios(args.root)
+    scenarios = [s for root in args.roots for s in _scenarios(root)]
     print(f"{len(scenarios)} presidents: " + ", ".join(f"{s['run']} t{s['tick']} c{s['president'].citizen_id}" for s in scenarios))
     for with_stakes in (False, True):
         jobs = [(s, k) for s in scenarios for k in range(args.samples)]
@@ -109,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         methods = [p for p in made if p["wins"] is not None]
         print(f"\n{'with' if with_stakes else 'without'} the stakes: {len(made)} proposals in {len(jobs)} turns")
         print("  by article: " + ", ".join(f"{a} {n}" for a, n in by_article.most_common()))
+        for (run, article, value), n in collections.Counter(
+            (p["run"], p["article"].split(".")[-1], str(p["value"])) for p in made
+        ).most_common():
+            reason = next(p["reason"] for p in made if p["run"] == run and str(p["value"]) == value)
+            print(f"    {run}: {article} -> {value} x{n} -- {reason[:110]}")
         if methods:
             print(f"  voting-method proposals under which the president would have won: {sum(p['wins'] for p in methods)} of {len(methods)} "
                   f"({', '.join(sorted(str(p['value']) for p in methods))})")
