@@ -199,3 +199,20 @@ def test_todays_ballots_are_the_last_candidates_ranked_on_todays_opinions() -> N
     assert sum(ballot[0] == "citizen_2" for ballot in ballots) > len(ballots) / 2  # today's opinions, not the last count
     assert ballots_today(dataclasses.replace(state, last_ballots=None), president, load_config()) is None
 
+
+
+def test_a_presidents_goal_follows_their_ambition_and_ambition_has_a_scale() -> None:
+    from api.domain.polity.agents import persona, president_goal
+
+    def at(ambition: float) -> Citizen:
+        return dataclasses.replace(PRESIDENT, ambition_score=ambition, issue_positions=MIDDLE, issue_priorities=(1 / len(MIDDLE),) * len(MIDDLE))
+
+    assert president_goal(at(0.5)).startswith("Keeping office matters more to you than your convictions")
+    assert "watch where opinion is heading" in president_goal(at(0.4))  # the bar itself is high
+    assert president_goal(at(0.3)).startswith("You want to govern by your convictions and to keep office")
+    assert president_goal(at(0.1)).startswith("Your convictions and the country's interest matter more")
+    assert "0.50 -- high: few citizens want office as much as you do" in persona(at(0.5))
+    assert "0.25 -- moderate: more than most citizens" in persona(at(0.25))
+    assert "0.10 -- low, like most citizens'" in persona(at(0.1))
+    for ambition in (0.1, 0.3, 0.5):  # a motive (C1), never an act to take (C4)
+        assert not re.search(r"\b(propose|amend|should|must|vote)\b", president_goal(at(ambition)), re.IGNORECASE)

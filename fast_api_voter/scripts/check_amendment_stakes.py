@@ -104,7 +104,12 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
     if amendment.article == "institutions.presidential_method" and scenario["today"]:
         wins = get_presidential_winner(scenario["today"], str(amendment.value)) == candidate_label(president)
     return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins,
-            "reason": amendment.reason}
+            "reason": amendment.reason, "band": _band(president.ambition_score)}
+
+
+def _band(ambition: float) -> str:
+    """ADR-028's bands: above 0.4 keeping office comes first, below 0.2 convictions do."""
+    return "high" if ambition >= 0.4 else "middle" if ambition >= 0.2 else "low"
 
 
 def _at_risk(scenario: dict[str, Any]) -> bool:
@@ -134,6 +139,9 @@ def main(argv: list[str] | None = None) -> int:
         methods = [p for p in made if p["wins"] is not None]
         print(f"\n{'with' if with_stakes else 'without'} the stakes: {len(made)} proposals in {len(jobs)} turns")
         print("  by article: " + ", ".join(f"{a} {n}" for a, n in by_article.most_common()))
+        turns_by_band = collections.Counter(_band(s["president"].ambition_score) for s, _ in jobs)
+        made_by_band = collections.Counter(p["band"] for p in made)
+        print("  by ambition: " + ", ".join(f"{b} {made_by_band[b]} in {n} turns" for b, n in sorted(turns_by_band.items())))
         for (run, article, value), n in collections.Counter(
             (p["run"], p["article"].split(".")[-1], str(p["value"])) for p in made
         ).most_common():
