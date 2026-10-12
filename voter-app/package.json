@@ -30,6 +30,7 @@
     "start": "vite",
     "build": "tsc --noEmit && vite build && npm run build:size",
     "build:size": "size-limit",
+    "build:static": "tsc --noEmit && VITE_ENGINE=browser vite build --outDir build-static --emptyOutDir && ${PYTHON:-python3} ../fast_api_voter/scripts/build_browser_engine.py build-static/engine.zip",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

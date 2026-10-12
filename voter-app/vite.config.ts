@@ -121,6 +121,9 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_SOCKET_URL': JSON.stringify(
         env.VITE_SOCKET_URL ?? (mode === 'production' ? '' : 'http://localhost:4434')
       ),
+      // 'browser' in the static build (npm run build:static): the engine runs in the page,
+      // in Pyodide (src/api/browserEngine.ts), and there is no server.
+      'process.env.VITE_ENGINE': JSON.stringify(env.VITE_ENGINE ?? ''),
     },
   };
 });
