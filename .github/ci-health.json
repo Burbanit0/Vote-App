@@ -1,25 +1,25 @@
 {
-  "generated_at": "2026-10-10T14:25:44Z",
+  "generated_at": "2026-10-12T17:46:19Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-10T12:05:40Z",
+      "last_run_at": "2026-10-12T12:00:11Z",
       "recent_conclusions": [
-        "success",
+        "failure",
         "success",
         "success",
         "success",
         "success"
       ],
-      "consecutive_failures": 0,
+      "consecutive_failures": 1,
       "status": "healthy",
       "detail": "ok"
     },
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-10T12:05:40Z",
+      "last_run_at": "2026-10-12T16:00:31Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +49,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-10T12:05:40Z",
+      "last_run_at": "2026-10-12T16:00:31Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-10T12:05:40Z",
+      "last_run_at": "2026-10-12T16:00:31Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-09T15:42:48Z",
+      "last_run_at": "2026-10-10T15:49:01Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -94,17 +94,17 @@
     "audit.yml": {
       "display_name": "Security Audit",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-05T14:02:30Z",
+      "last_run_at": "2026-10-12T14:51:24Z",
       "recent_conclusions": [
         "failure",
         "failure",
         "failure",
         "failure",
-        "success"
+        "failure"
       ],
-      "consecutive_failures": 4,
+      "consecutive_failures": 5,
       "status": "unhealthy",
-      "detail": "last 4 completed runs all failed"
+      "detail": "last 5 completed runs all failed"
     }
   },
   "branch_protection": {
