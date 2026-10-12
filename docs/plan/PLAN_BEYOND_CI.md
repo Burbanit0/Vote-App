@@ -383,6 +383,8 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
        under `ci/`. `release.yml` attaches the built site to the release as
        `static-site.zip`, and `ci-dashboard.yml`, which deploys the site, publishes the
        latest one with the dashboard. Deep links go through a `404.html` copy of the page.
+  - **Built 2026-10-12:** steps 1–5 merged (#914, #916, #917, #921, #924). It goes live
+    with the first release after the owner pushes the two workflow edits in #924's body.
 
 ---
 
