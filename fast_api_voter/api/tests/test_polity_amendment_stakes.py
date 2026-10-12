@@ -58,3 +58,19 @@ def test_the_legislatures_votes_survive_a_checkpoint() -> None:
     before_adr026 = {k: v for k, v in _legislature_to_dict(Legislature(policy=(0.5,))).items() if k != "votes"}
     assert _legislature_from_dict(before_adr026).votes is None  # a checkpoint from before ADR-026 loads
 
+
+def test_the_amendment_is_a_required_field_a_president_may_set_to_null() -> None:
+    import pydantic
+
+    from api.domain.polity.llm_schemas import AMENDING_LEADER_TURN_JSON_SCHEMA, AmendingLeaderTurn
+
+    assert "amendment" in AMENDING_LEADER_TURN_JSON_SCHEMA["required"]  # OBS-031: a field the model may omit, it omits
+    base = dict(rationale="r", positions=[], bill=[], speech="s", note_to_self="", other_initiative="")
+    assert AmendingLeaderTurn(**base, amendment=None).amendment is None
+    try:
+        AmendingLeaderTurn(**base)
+    except pydantic.ValidationError:
+        pass
+    else:
+        raise AssertionError("a turn without its amendment field must not decode")
+

@@ -66,14 +66,14 @@ class _RefuserClient(_AgentFakeClient):
     def complete_json(self, **kwargs: Any) -> str:
         if kwargs["json_schema"].get("title") != "ActingLeaderTurn":
             return str(super().complete_json(**kwargs))
-        return json.dumps(_turn(extra_legal="refuse_to_leave"))
+        return json.dumps(_turn(extra_legal="refuse_to_leave", amendment=None))
 
 
 class _DeclinerClient(_AgentFakeClient):
     def complete_json(self, **kwargs: Any) -> str:
         if kwargs["json_schema"].get("title") != "ActingLeaderTurn":
             return str(super().complete_json(**kwargs))
-        return json.dumps(_turn(extra_legal="none"))
+        return json.dumps(_turn(extra_legal="none", amendment=None))
 
 
 def _run(tmp_path: Path, regime: RegimeConfig, client: _AgentFakeClient | None = None) -> list[dict[str, Any]]:

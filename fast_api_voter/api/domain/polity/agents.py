@@ -290,7 +290,7 @@ def _amendment_rules(config: PolityConfig) -> str:
     return (
         f"The constitution can be amended. Its articles:\n{articles_text(config)}\n"
         f"You may propose one amendment in a turn -- \"amendment\": {{\"article\": ..., \"value\": ..., \"reason\": "
-        f"why, in a sentence}} -- when none is pending; leave \"amendment\" out otherwise. The next tick the chamber, "
+        f"why, in a sentence}} -- when none is pending; set \"amendment\" to null otherwise. The next tick the chamber, "
         f"{chamber.seats} citizens drawn by lot, votes on it, each member for themselves; it is ratified when more than the "
         "share your briefing shows for that article vote yes, and holds from then on."
     )
