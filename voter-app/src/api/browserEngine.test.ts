@@ -71,10 +71,26 @@ describe('createBrowserFetch', () => {
     expect(workers).toHaveLength(0);
   });
 
-  it("answers Polity's server-only routes 404 without starting the engine", async () => {
-    const response = await browserFetch()(new Request('http://localhost/api/v2/polity/runs'));
-    expect(response.status).toBe(404);
+  it("answers Polity's routes from their export, without starting the engine", async () => {
+    const polity = vi.fn(async () => ({ status: 200, body: { runs: [] } }));
+    const fetchFromBrowser = createBrowserFetch(
+      () => new FakeWorker() as unknown as Worker,
+      polity
+    );
+    const response = await fetchFromBrowser(new Request('http://localhost/api/v2/polity/runs'));
+    expect(await response.json()).toEqual({ runs: [] });
+    expect(polity).toHaveBeenCalledWith(new URL('http://localhost/api/v2/polity/runs'));
     expect(workers).toHaveLength(0);
+  });
+
+  it('answers 503 when the Polity export cannot be downloaded, as a server that is down', async () => {
+    const fetchFromBrowser = createBrowserFetch(
+      () => new FakeWorker() as unknown as Worker,
+      () => Promise.reject(new Error('offline'))
+    );
+    const response = await fetchFromBrowser(new Request('http://localhost/api/v2/polity/runs'));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ detail: 'Run files unavailable: Error: offline' });
   });
 
   it('counts the timeout only while a request runs, then answers all with the 503', async () => {

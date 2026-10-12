@@ -372,7 +372,10 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
     2. A static build sends every `/api/v2` call to a Pyodide worker; the Monte Carlo
        fiche uses HTTP instead of Socket.IO.
     3. A CI check runs the routes under Pyodide against CPython.
-    4. Polity's run explorer: a static export, or left out of the static build.
+    4. Polity's run explorer: a static export, or left out of the static build. Decided
+       2026-10-12: exported. The three full 30y/p500 runs (seeds 1, 2, 42) are committed in
+       `voter-app/polity-export/` (`fast_api_voter/scripts/export_polity_runs.py`, about
+       0.7 MB per run, gzipped).
     5. Hosting: a static host with SPA routing, and its deploy workflow.
 
 ---
