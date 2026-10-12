@@ -141,6 +141,8 @@ export default [
     ignores: [
       'dist/',
       'build/',
+      // npm run build:static's output (the static build, W6): gitignored, like build/.
+      'build-static/',
       'coverage/',
       'playwright-report/',
       'node_modules/',

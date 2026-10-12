@@ -26,6 +26,7 @@ import ResponsiveTable from '../shared/ui/ResponsiveTable';
 import SkeletonCard from '../shared/ui/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
+import { ENGINE_IN_BROWSER } from '../../api/browserEngine';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
@@ -73,7 +74,8 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useStreaming, setUseStreaming] = useState(true);
+  // Streaming needs the server's Socket.IO; the static build has none.
+  const [useStreaming, setUseStreaming] = useState(!ENGINE_IN_BROWSER);
 
   const stream = useMonteCarloStream();
 
@@ -276,16 +278,18 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                 )}
               </Button>
             </Col>
-            <Col md={2} className="flex items-end">
-              <Check
-                type="switch"
-                id="streaming-toggle"
-                label={<span className="text-sm">{t('simulation.useStreaming')}</span>}
-                checked={useStreaming}
-                onChange={(e) => setUseStreaming(e.target.checked)}
-                disabled={loading || stream.isRunning}
-              />
-            </Col>
+            {!ENGINE_IN_BROWSER && (
+              <Col md={2} className="flex items-end">
+                <Check
+                  type="switch"
+                  id="streaming-toggle"
+                  label={<span className="text-sm">{t('simulation.useStreaming')}</span>}
+                  checked={useStreaming}
+                  onChange={(e) => setUseStreaming(e.target.checked)}
+                  disabled={loading || stream.isRunning}
+                />
+              </Col>
+            )}
           </Row>
           <p className="text-muted-foreground text-sm mt-2 mb-0">
             {t('simulation.monteCarloInfo')}
