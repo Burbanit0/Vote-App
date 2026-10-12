@@ -76,7 +76,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-044](#obs-044) | Ten seeds again with OBS-041-043 fixed: turnout recovers, fragmentation does not, and `refuse_to_leave` is reachable but not taken | 2026-10-09 | recorded |
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
-| [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | cause found |
+| [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 
 ---
 
@@ -2372,4 +2372,9 @@ should be removable in a year by a tenth of the citizens mobilising -- then an e
 presidency changes what citizens and agents do. The model's mobilisation rate (OBS-019) is the other half, and is
 not measured against anything real.
 
-*Status: cause found.*
+*Decided (2026-10-11, owner).* "A president should be recalled when the population is against them, not a few
+of them": both rules that express it, in the exploration profile (ADR-025). Pressure weighs on legitimacy like
+support (`legitimacy.pressure_like_support`), and legitimacy under the floor calls a confidence vote that only a
+majority against the president loses (`legitimacy.floor_calls_vote`). The flagship keeps today's rule.
+
+*Status: decided.*

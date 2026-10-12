@@ -296,10 +296,15 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
     kernel rolls whether they stay (ADR-022). Phase 5.2: a nominee may campaign on one issue, and the
     citizens it reaches come to weigh that issue more when they compare candidates (ADR-023). At a legislative
     election a voter whose party the sincere vote leaves below the threshold may desert it for the best party
-    above it (ADR-024); 0.07 is the median cost of that move to the stranded voters of phase11's final populations."""
+    above it (ADR-024); 0.07 is the median cost of that move to the stranded voters of phase11's final populations.
+    A president is recalled when the population is against them, not a mobilised few (ADR-025, OBS-047): pressure
+    weighs on legitimacy like support does, and legitimacy under the floor calls a confidence vote that only a
+    majority against the president loses."""
     return dataclasses.replace(
         config,
-        legitimacy=dataclasses.replace(config.legitimacy, approval_weight=0.5),
+        legitimacy=dataclasses.replace(
+            config.legitimacy, approval_weight=0.5, pressure_like_support=True, floor_calls_vote=True,
+        ),
         vote=dataclasses.replace(
             config.vote, approval=0.1, approval_party_carryover=0.5, policy_retrospection=2.0, strategic_margin=0.07,
         ),
