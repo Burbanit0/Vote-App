@@ -22,8 +22,8 @@ actually renders (its content, imports and i18n keys), not on its filename.
 | `analysis/`   | Deep/meta-analysis panels (ManipulationAnalysis, CollectiveWill, AssumptionTester, CombinedEffectsMatrix).                                                                                 |
 | `blank/`      | The blank-vote / none-of-the-above family (NOTA, BlankVoteDivergence, Abstention).                                                                                                         |
 | `results/`    | Results-reporting helpers consumed by `playground/FullResultsModule` (ElectionInsightPanel, HistoricalReferencePanel, ResultsMethodTable, MethodGroupDonut).                               |
-| `ui/`         | Generic, app-wide UI primitives (LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, InfoPopover, MetricTooltip, SkeletonCard).                                                                    |
-| `common/`     | Genuinely cross-cutting, non-panel, non-primitive components used in exactly one page each and not fitting the panel taxonomy (CuriosityQuestions, OnboardingTour).                        |
+| `ui/`         | Generic, app-wide UI primitives (LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, InfoPopover, MetricTooltip, SkeletonCard, ReportContentError).                                                |
+| `common/`     | Genuinely cross-cutting, non-panel, non-primitive components used in exactly one page each and not fitting the panel taxonomy (CuriosityQuestions).                        |
 
 Each sub-folder has its own `__tests__/`, matching the convention already
 used elsewhere in `components/` (`playground/__tests__/`, `lab/__tests__/`,

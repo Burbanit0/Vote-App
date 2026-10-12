@@ -1,5 +1,7 @@
 # Cadrage acte/réponse vs auto-évaluation à seuil, et collapse de contenu en isolation — une hypothèse de conception, pas encore une loi générale
 
+> **status:** history — its evidence base was cut on 2026-08-31; the constraint lives in the design's §3.6.0. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > ## ⚠️ BASE DE PREUVE AMPUTÉE — 2026-08-31 : `pressure_action` retiré des cas confirmés
 >
 > **`pressure_action`, le cas « le mieux caractérisé » sur lequel cette

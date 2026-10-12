@@ -94,3 +94,22 @@ describe('CRITERIA metadata', () => {
     for (const id of resultIds) expect(metaIds.has(id)).toBe(true);
   });
 });
+
+describe('a tie is drawn by the same lot throughout a criteria check (#667)', () => {
+  it('an exact Score tie is not reported as an IIA violation', () => {
+    // Two mirrored voters: Ann and Ben tie exactly on score, Cy trails far behind. The lot
+    // over the names draws Ben with or without Cy; a lot over indices would draw Ann.
+    const cands = [
+      { name: 'Ann', x: -0.5, y: 0 },
+      { name: 'Ben', x: 0.5, y: 0 },
+      { name: 'Cy', x: 0, y: 2 },
+    ];
+    const voters = [
+      { x: -0.3, y: 0 },
+      { x: 0.3, y: 0 },
+    ];
+    const row = criteriaMatrix(voters, cands).find((r) => r.rule === 'score')!;
+    expect(row.winner).toBe('Ben');
+    expect(row.results.iia).toBe(true);
+  });
+});

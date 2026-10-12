@@ -1,5 +1,7 @@
 # Réflexion — programme scientifique et programme LLM, comme un seul chantier
 
+> **status:** history — a record of the program as planned; plan-polity-build-order.md S1.2, S2.1 and S0.7/S0.8 cover similar ground, but nothing states that they replace it. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 ## Context
 
 Two questions, asked together while the Phase 7 flagship run executes in the

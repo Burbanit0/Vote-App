@@ -455,7 +455,7 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
         'On tire un bulletin au hasard ; son premier choix l’emporte. La probabilité de gagner = la part de premières voix.',
       how: 'Chaque électeur indique un favori ; un bulletin est tiré uniformément au sort et son premier choix est élu.',
       strength:
-        'Seule règle vraiment non-manipulable (Gibbard 1977) : mentir n’améliore jamais son espérance. Représentation proportionnelle en probabilité.',
+        'Non-manipulable : mentir n’améliore jamais son espérance. Parmi les loteries, la seule à la fois Pareto-efficace et égale entre électeurs (Gibbard 1977). Représentation proportionnelle en probabilité.',
       weakness:
         'Le hasard peut élire un candidat minoritaire ; résultat non reproductible et politiquement contre-intuitif.',
       criterion:
@@ -469,7 +469,7 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
         'Draw one ballot at random; its first choice wins. Win probability = first-preference share.',
       how: 'Each voter names a favourite; a single ballot is drawn uniformly at random and its top choice is elected.',
       strength:
-        'The only genuinely strategyproof rule (Gibbard 1977): lying never improves your expectation. Proportional in probability.',
+        'Strategyproof: lying never improves your expectation. Among lotteries, the only rule that is also Pareto-efficient and treats voters alike (Gibbard 1977). Proportional in probability.',
       weakness:
         'Randomness can elect a minority candidate; the outcome is non-reproducible and politically counter-intuitive.',
       criterion: 'Strategyproof and neutral/anonymous — at the cost of determinism (Gibbard 1977).',

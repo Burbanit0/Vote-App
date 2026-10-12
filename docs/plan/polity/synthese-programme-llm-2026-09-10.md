@@ -1,5 +1,7 @@
 # Synthèse — ce que le programme LLM a établi au 10/09/2026
 
+> **status:** history — an interim conclusion dated 2026-09-10. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Document de conclusion intermédiaire. Il résume ce qui a été **mesuré**, ce qui reste
 **suggéré mais non établi**, et ce qui a été **éliminé**. Chaque affirmation renvoie au
 script et au results doc qui la porte ; rien ici n'est un résumé de raisonnement, tout

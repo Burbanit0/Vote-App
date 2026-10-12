@@ -1,10 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useScorecardCtx, useJourneyCtx } from './PlaygroundController';
-import { RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
+import { type Rule } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { selectCls } from './playgroundFields';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../lib/palette';
 
 // NonSpatialProfileMap — the read-only biplot for statistical-culture profiles
 // (Impartial, Mallows, urn, Plackett-Luce, DiDi, stratification). These have no
@@ -26,10 +27,9 @@ const PAD = 26;
 // Display points live in ~[-1,1]; project to the padded SVG box.
 const toSvg = (v: number): number => PAD + ((v + 1) / 2) * (SVG - 2 * PAD);
 
-const candColor = (i: number): string => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
-
 const NonSpatialProfileMap: React.FC = () => {
   const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
   const { result, loading } = useScorecardCtx();
   const { leaderRule, setLeaderRule } = useJourneyCtx();
 
@@ -61,7 +61,7 @@ const NonSpatialProfileMap: React.FC = () => {
         >
           {LEADER_RULES.map((r) => (
             <option key={r} value={r}>
-              {RULE_LABELS[r]}
+              {ruleLabels[r]}
             </option>
           ))}
         </select>
@@ -125,7 +125,7 @@ const NonSpatialProfileMap: React.FC = () => {
         {winnerName ? (
           <>
             {t('nonspatial.winnerPre')}{' '}
-            <strong style={{ color: candColor(winnerIdx) }}>{winnerName}</strong>
+            <strong style={{ color: textTone(candColor(winnerIdx)) }}>{winnerName}</strong>
           </>
         ) : (
           t('nonspatial.noWinner')

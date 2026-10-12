@@ -4,15 +4,40 @@ import { defineConfig, devices } from '@playwright/test';
 // visual.spec.ts only runs via playwright.visual.config.ts's pinned Docker
 // image (see that file's header). Neither belongs to the default chromium/
 // firefox projects.
-const EXCLUDED_FROM_DEFAULT = /(mobile|visual)\.spec\.ts$/;
+const EXCLUDED_FROM_DEFAULT = /(mobile|visual|static)\.spec\.ts$/;
+
+// The static build is tested under the base path GitHub Pages serves it from (the repo's
+// name; PLAN_BEYOND_CI W6, step 5), so a link that assumes the root fails here first.
+export const STATIC_BASE = '/Vote-App/';
+
+// A production build (playwright.visual.config.ts reuses it). The dev server hands each
+// navigation 59-127 separate module requests; a build makes 17-39. WebKit intermittently
+// drops one: the entry graph never runs and the page stays blank, or a lazy route fails
+// with "Importing a module script failed" (5 WebKit-only flakes in 400 runs,
+// 2026-09-15..25). The build is also what ships. `vite build`, not `npm run build`: tsc
+// and size-limit gate the build job, not this one. Its own outDir, so it never overwrites
+// or races `npm run build`'s build/ (a coverage build left there failed size-limit).
+// `vite preview` keeps server.proxy, so /api (Socket.IO included) still reaches :4434.
+export const buildServer = {
+  command:
+    'npx vite build --outDir node_modules/.e2e-build && ' +
+    'npx vite preview --outDir node_modules/.e2e-build --port 3000 --strictPort',
+  // A production build reads .env.local / .env.production too: blank the
+  // tracker so a maintainer's Umami config never counts test page views.
+  env: { VITE_UMAMI_SRC: '', VITE_UMAMI_WEBSITE_ID: '' },
+  url: 'http://localhost:3000',
+  reuseExistingServer: !process.env.CI,
+  timeout: 180_000, // includes the build
+};
 
 export default defineConfig({
   testDir: './tests/e2e',
   // Visual regression has its own config (playwright.visual.config.ts) and its
   // own CI job, pinned to a specific Docker image for stable pixel comparisons
   // — see that file's header. Running it here too would compare Docker-
-  // generated baselines against this native project's rendering, which is
-  // exactly the cross-environment mismatch that setup avoids.
+  // generated baselines against whatever renders this config: a native host
+  // locally (CI's shards use the same image, but only for its browsers), which
+  // is exactly the cross-environment mismatch that setup avoids.
   //
   // NOT set here as a top-level `testIgnore`: each project below already
   // defines its own `testIgnore` (for mobile.spec.ts), and Playwright's
@@ -73,27 +98,29 @@ export default defineConfig({
       use: { ...devices['Galaxy S24'] },
       testMatch: /mobile\.spec\.ts$/,
     },
+    // The static build (PLAN_BEYOND_CI W6): no server, the engine runs in the page, in
+    // Pyodide. static.setup.ts builds it only when this project runs (it needs the
+    // backend's Python); the second webServer below serves it.
+    { name: 'static-build', testMatch: /static\.setup\.ts$/ },
+    {
+      name: 'static',
+      dependencies: ['static-build'],
+      use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:3002${STATIC_BASE}` },
+      testMatch: /static\.spec\.ts$/,
+    },
   ],
 
-  webServer: {
-    // A production build (playwright.visual.config.ts reuses this block). The
-    // dev server hands each navigation 59-127 separate module requests; a build
-    // makes 17-39. WebKit intermittently drops one: the entry graph never runs
-    // and the page stays blank, or a lazy route fails with "Importing a module
-    // script failed" (5 WebKit-only flakes in 400 runs, 2026-09-15..25). The
-    // build is also what ships. `vite build`, not `npm run build`: tsc and
-    // size-limit gate the build job, not this one. Its own outDir, so it never
-    // overwrites or races `npm run build`'s build/ (a coverage build left there
-    // failed size-limit). `vite preview` keeps server.proxy, so /api (Socket.IO
-    // included) still reaches :4434.
-    command:
-      'npx vite build --outDir node_modules/.e2e-build && ' +
-      'npx vite preview --outDir node_modules/.e2e-build --port 3000 --strictPort',
-    // A production build reads .env.local / .env.production too: blank the
-    // tracker so a maintainer's Umami config never counts test page views.
-    env: { VITE_UMAMI_SRC: '', VITE_UMAMI_WEBSITE_ID: '' },
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000, // includes the build
-  },
+  webServer: [
+    buildServer,
+    {
+      // The static build, once static.setup.ts has written it: `vite preview` reads its
+      // folder on each request. Ready when the port answers: the folder is empty until then.
+      command:
+        'mkdir -p node_modules/.e2e-static && ' +
+        'npx vite preview --outDir node_modules/.e2e-static --port 3002 --strictPort',
+      env: { VITE_BASE: STATIC_BASE },
+      port: 3002,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });

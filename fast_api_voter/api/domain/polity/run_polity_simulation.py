@@ -40,7 +40,6 @@ import dataclasses
 import hashlib
 import json
 import logging
-import random
 import subprocess
 import time
 from functools import partial
@@ -54,7 +53,7 @@ from typing import Any, Iterator
 import numpy as np
 
 from api.domain.polity import run_provenance
-from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count
+from api.domain.polity.amendments import constitution_text, proposal_closed, ratified, referendum_count, stakes_text
 from api.domain.polity.agents import (
     NOMINEE_TURN,
     PRESIDENT_TURN,
@@ -115,6 +114,7 @@ from api.domain.polity.ballot_and_aggregation import (
     confidence_keep_ratio,
     get_presidential_winner,
     resolve_confidence_vote,
+    seat_lot,
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.regime import refusal_succeeds
@@ -254,6 +254,7 @@ from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    candidate_label,
     apply_party_move,
     assign_party_affiliation,
     dissolve_small_parties,
@@ -274,6 +275,7 @@ from api.domain.polity.simple_rules import (
     PolicyRecord,
     select_party_nominee,
     select_party_nominee_from_declared,
+    strategic_choices,
     utility_ballot,
     vacate_office,
 )
@@ -1115,6 +1117,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
+            legislature.votes, legislature.votes_tick = votes, context.tick
             legislature.policy_at_assembly_start = legislature.policy
 
 
@@ -1299,6 +1302,7 @@ def _phase_leaders(context: TickContext, state: TickState) -> None:
             provenance=LlmProvenance(
                 llm_fallback=int(outcome.turn is None), retry_sampling_varied=int(outcome.sampling_varied), llm_call_id=outcome.call_id,
             ),
+            extra_legal=outcome.turn.extra_legal if isinstance(outcome.turn, ActingLeaderTurn) else OMIT,
         ),
         citizen_id=president.citizen_id,
         codebook_version=config.llm.codebook_version,
@@ -1362,6 +1366,9 @@ def _president_briefing(
     pledge: tuple[float, ...], stated: tuple[float, ...], agenda_closed: str | None,
 ) -> PresidentBriefing:
     config, legislature = context.config, state.legislature
+    members = len(current_sortition_members(state.citizens))
+    # ADR-026: only when an amendment can be proposed this tick -- the stakes are those of a proposal.
+    stakes_open = config.agents.amendment_stakes and proposal_closed(state.constitution, members) is None
     return PresidentBriefing(
         tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
         approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
@@ -1370,7 +1377,11 @@ def _president_briefing(
         public_median=population_median(state.citizens),
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
-        constitution=constitution_text(config, state.constitution, len(current_sortition_members(state.citizens))) if config.agents.amendments else None,
+        constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
+        stakes=stakes_text(
+            config, president, ballots_today(state, president, config), legislature,
+            barred=is_term_limited(president, config.institutions.president_term_limit),
+        ) if stakes_open else None,
     )
 
 
@@ -2112,6 +2123,34 @@ def _judged_incumbent(
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
+def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+    """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
+    the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
+    profile's; an LLM-cast electorate is not forecast), the president judged on their record, on today's
+    opinions. What a president who means to stay needs to weigh a change of voting method: the next election."""
+    candidates = _last_candidates(state, config.candidacy.incumbent_keeps_record)
+    if not candidates:
+        return None
+    incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
+    cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
+    return [ballot for ballot in cast if ballot is not None] or None
+
+
+def _last_candidates(state: TickState, keep_record: bool) -> list[Citizen]:
+    """The last election's candidates who still take part (ADR-021), as copies standing where declare_candidacy
+    would stand them -- no citizen's own state is touched. Who would actually be nominated is not forecast."""
+    labels = {label for ballot in state.last_ballots or [] for label in ballot}
+    return [dataclasses.replace(c, pledged_platform=_standing(c, keep_record))
+            for c in state.citizens if candidate_label(c) in labels and c.engaged]
+
+
+def _standing(candidate: Citizen, keep_record: bool) -> tuple[float, ...]:
+    """declare_candidacy's platform: a former officeholder's conduct in office under keep_record, else their views."""
+    if keep_record and candidate.mandates_served > 0 and candidate.revealed_position is not None:
+        return candidate.revealed_position
+    return candidate.issue_positions
+
+
 def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:
     """S4.1's LLM audit sample: each voter in with probability vote.audit_fraction, decided
     by a hash of (seed, tick, citizen) -- the same voters on every replay of the run, and
@@ -2145,11 +2184,45 @@ def _journal_vote_decisions(
         )
 
 
+def _confidence_vote(
+    holder: Citizen, voters: list[Citizen], trigger: ConfidenceVoteTriggered, config: PolityConfig, journal: Journal,
+    tick: int, *, floor_fires: bool,
+) -> bool:
+    """§7bis.4a's référendum sur le maintien, journaled: True when the president is retained. A petition or,
+    under ADR-025, the legitimacy floor calls it. `averted_recall` says a won vote met a same-tick floor
+    trip -- the floor arbitrates between triggers, never against a result: a president who won 69.2% was
+    once recalled the same tick, because the floor was read before the vote resolved (2026-09-11)."""
+    journal.write_event(tick=tick, event=trigger, citizen_id=holder.citizen_id)
+    ballots = [build_confidence_ballot(c, holder) for c in voters]
+    retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
+    keep_ratio = confidence_keep_ratio(ballots)
+    journal.write_event(
+        tick=tick,
+        event=ConfidenceVoteResult(
+            office=Office.PRESIDENT.value, bf=BallotFormat.BINARY, ballots=len(ballots), keep=sum(ballots),
+            keep_ratio=keep_ratio, retained=retained, averted_recall=retained and floor_fires,
+        ),
+        citizen_id=holder.citizen_id,
+    )
+    if retained:
+        # support(t) (§7.1): a demonstrated referendum result is the freshest measurement of the share
+        # that supports this officeholder -- the same quantity as the election's mandate_strength, so it
+        # replaces it, effective from the next tick's update_legitimacy.
+        holder.mandate_strength = keep_ratio
+    return retained
+
+
+def _voters(citizens: list[Citizen]) -> list[Citizen]:
+    """ADR-021: who casts a ballot -- a disengaged or exited citizen stays home, at every vote.
+    utility_ballot applies the same rule voter by voter (it returns None)."""
+    return [citizen for citizen in citizens if citizen.engaged]
+
+
 def _llm_ballots(
     citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
     llm_client: LlmClientProtocol,
 ) -> tuple[list[list[str]], int]:
-    voters = [voter for voter in citizens if voter.engaged]  # ADR-021: the rest stay home
+    voters = _voters(citizens)
     outcome = cast_votes(voters, nominees, config, llm_client)
     _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
     return outcome.ballots, len(citizens) - len(voters)
@@ -2273,10 +2346,11 @@ def _hold_presidential_election(
                 winner.office = Office.PRESIDENT
                 # Not tick + term: the calendar resumes after a rerun, so a winner off it serves only
                 # until the calendar's next election (OBS-041).
-                winner.term_end_tick = InstitutionalClock.from_config(
-                    config.institutions, config.run, config.sortition_chamber,
-                ).next_presidential_election(tick)
+                clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
+                winner.term_end_tick = clock.next_presidential_election(tick)
                 winner.mandates_served += 1
+                # Won with less than half a term left: a short term, which the limit does not count (OBS-041).
+                winner.short_terms += int(2 * (winner.term_end_tick - tick) < clock.president_term_ticks)
                 if config.legitimacy.enabled:
                     # Independent of config.mandate.enabled: m only needs
                     # ballots/winner_label, not pledge/deviation tracking. No
@@ -2399,8 +2473,13 @@ def _hold_legislative_election(
 ) -> tuple[dict[int, int], dict[int, float]]:
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
-    for voter in citizens:
-        choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
+    voters = _voters(citizens)
+    retrospection, margin = config.vote.policy_retrospection, config.vote.strategic_margin
+    sincere = [choose_party(voter, parties, governing, retrospection) for voter in voters]
+    choices = strategic_choices(
+        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection,
+    )
+    for choice in choices:
         if choice is None:
             blank_count += 1
         else:
@@ -2411,10 +2490,7 @@ def _hold_legislative_election(
         total_seats=config.institutions.assembly_seats,
         method=config.institutions.seat_allocation,
         electoral_threshold=config.institutions.electoral_threshold,
-        # A seat tie is drawn by lot, not handed to the lowest party_id. Seeded
-        # per election from (seed, tick) as a string, so it needs no checkpointed
-        # state and never shifts another stream's draws.
-        rng=random.Random(f"legislative-seats:{config.run.seed}:{tick}"),
+        rng=seat_lot(config.run.seed, tick),  # a seat tie is drawn by lot, not handed to the lowest party_id
     )
     seats = {int(party_id): count for party_id, count in raw_seats.items()}
 
@@ -2424,9 +2500,19 @@ def _hold_legislative_election(
             seats=seats,
             votes=votes,
             blank_count=blank_count,
+            abstained=abstained if (abstained := len(citizens) - len(voters)) else OMIT,  # present once anyone stays home
+            **(_desertions(parties, sincere, choices) if margin > 0 else {}),
         ),
     )
     return seats, votes
+
+
+def _desertions(parties: list[Party], sincere: list[int | None], choices: list[int | None]) -> dict[str, Any]:
+    """ADR-024's journal fields: how many voters changed party, and the vote before they did."""
+    return {
+        "deserted": sum(choice != vote for choice, vote in zip(choices, sincere)),
+        "sincere_votes": {party.party_id: float(sincere.count(party.party_id)) for party in parties},
+    }
 
 
 def _form_and_journal_coalition(
@@ -2978,6 +3064,9 @@ def _run_accountability_phase(
     citizen's act produced one] x N (ascending citizen_id) ->
     legitimacy_updated -> [confidence_vote_triggered +
     confidence_vote_result] | petition_expired (mutually exclusive) ->
+    with legitimacy.floor_calls_vote (ADR-025), a second [confidence_vote_triggered
+    (cause legitimacy_floor) + confidence_vote_result] when the floor trips and no
+    vote was lost this tick -- it can follow a petition_expired ->
     recalled (if any). representative_response events are PREPENDED to the
     tick's block, never interleaved with the rest -- this is what keeps the
     Lot 3/4/5 ordering contract intact byte-for-byte whenever this lot's
@@ -3015,7 +3104,9 @@ def _run_accountability_phase(
     state) -- menu.petition_enabled inside that function is the single
     authoritative gate, not a second one that could disagree.
 
-    Step 5/6 same-tick collision (§7bis.7: the floor wins on priority):
+    Step 5/6 same-tick collision (§7bis.7: the floor wins on priority; with
+    legitimacy.floor_calls_vote the floor no longer recalls, so a recall is always
+    a lost vote's, trigger confidence_vote -- ADR-025):
     `floor_fires` is captured immediately after legitimacy_updated, BEFORE
     step 5 runs -- step 5 then always runs in full (never short-circuited),
     so confidence_vote_triggered/confidence_vote_result are never silently
@@ -3246,65 +3337,18 @@ def _run_accountability_phase(
         lost_confidence = False
         if holder.petition_open_since_tick is not None:  # step 5
             ratio = petition_pressure(holder, config.run.population_size)
-            if ratio >= config.petition.signature_threshold:
-                journal.write_event(
-                    tick=tick,
-                    event=ConfidenceVoteTriggered(
-                        office=Office.PRESIDENT.value,
-                        opened_at_tick=holder.petition_open_since_tick,
-                        signatures=len(holder.petition_signers),
-                        signed_ratio=ratio,
-                    ),
-                    citizen_id=holder.citizen_id,
+            voters = _voters(citizens)
+            # With no one left to vote (every citizen has given up) the vote is not held, and the
+            # petition runs on until it expires: confidence_keep_ratio has no meaning over no ballots.
+            if ratio >= config.petition.signature_threshold and voters:
+                trigger = ConfidenceVoteTriggered(
+                    office=Office.PRESIDENT.value, opened_at_tick=holder.petition_open_since_tick,
+                    signatures=len(holder.petition_signers), signed_ratio=ratio,
                 )
-                ballots = [build_confidence_ballot(c, holder) for c in citizens]
-                retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
-                keep_ratio = confidence_keep_ratio(ballots)
-                # A won vote vetoes a same-tick floor trip. §7bis.7 step 6's
-                # "the floor wins the attribution" (legitimacy.py's own
-                # module docstring) was written to arbitrate two TRIGGERS --
-                # the legitimacy floor vs the petition signature threshold --
-                # never a trigger against a RESULT. It was applied here to
-                # both regardless, and a real run demonstrated the gap: a
-                # president won retention 69.2% and was recalled the same
-                # tick anyway, because `floor_fires` was computed from L
-                # BEFORE this vote resolved and `retained` had no reader on
-                # that path at all (2026-09-11). A LOST vote never needs
-                # this: `lost_confidence` recalls unconditionally below, so
-                # the two recall paths never disagree when the vote fails --
-                # the veto only ever fires in the one case that was wrong.
-                averted_recall = retained and floor_fires
-                if averted_recall:
-                    floor_fires = False
-                journal.write_event(
-                    tick=tick,
-                    event=ConfidenceVoteResult(
-                        office=Office.PRESIDENT.value,
-                        bf=BallotFormat.BINARY,
-                        ballots=len(ballots),
-                        keep=sum(ballots),
-                        keep_ratio=keep_ratio,
-                        retained=retained,
-                        averted_recall=averted_recall,
-                    ),
-                    citizen_id=holder.citizen_id,
-                )
-                if retained:
-                    # support(t), §7.1's own admitted gap ("bloquant pour
-                    # v4", shipped without it): a demonstrated referendum
-                    # result is the freshest available measurement of "what
-                    # fraction of the population supports this
-                    # officeholder" -- the exact same quantity, in the same
-                    # units, from the same population-wide-ballot method as
-                    # the mandate_strength computed once at election time
-                    # (legitimacy.mandate_strength). Replaced, not blended:
-                    # both numbers measure the identical thing, so there is
-                    # no principled weight that would justify discounting
-                    # the newer, more relevant one toward the staler one.
-                    # Takes effect from the NEXT tick's update_legitimacy
-                    # call onward -- this tick's own L (step 4) already ran
-                    # before the vote resolved (step 5), unchanged by design.
-                    holder.mandate_strength = keep_ratio
+                retained = _confidence_vote(holder, voters, trigger, config, journal, tick, floor_fires=floor_fires)
+                # A won vote vetoes a same-tick floor trip: the floor arbitrates between two
+                # triggers, never against a result (2026-09-11, see _confidence_vote).
+                floor_fires = floor_fires and not retained
                 resolve_petition(holder, tick, config.petition)
                 lost_confidence = not retained
             elif petition_has_expired(holder, tick, config.petition):
@@ -3321,7 +3365,19 @@ def _run_accountability_phase(
                 )
                 resolve_petition(holder, tick, config.petition)
 
-        if is_irregular(holder, config.institutions.president_term_limit):  # ADR-022: no recall of a president who stayed
+        irregular = is_irregular(holder, config.institutions.president_term_limit)
+        if floor_fires and config.legitimacy.floor_calls_vote:  # ADR-025: the floor calls a vote; a majority recalls
+            floor_fires, voters = False, _voters(citizens)
+            # A vote this tick already lost recalls by itself; with no one left to vote, no majority is against;
+            # a president who stayed (ADR-022) cannot be recalled, so no vote is put.
+            if voters and not lost_confidence and not irregular:
+                trigger = ConfidenceVoteTriggered(office=Office.PRESIDENT.value, cause="legitimacy_floor")
+                retained = _confidence_vote(holder, voters, trigger, config, journal, tick, floor_fires=False)
+                lost_confidence = not retained
+                if retained:  # the majority it demonstrated restores legitimacy, as an election's mandate sets it
+                    holder.legitimacy_capital = initial_legitimacy(holder.mandate_strength)
+
+        if irregular:  # ADR-022: no recall of a president who stayed
             floor_fires = lost_confidence = False
 
         if floor_fires:  # step 6, floor wins the attribution

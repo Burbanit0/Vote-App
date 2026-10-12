@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import ReportContentError from '../shared/ui/ReportContentError';
 import {
   Ghost,
   Minimize2,
@@ -151,7 +152,13 @@ const StoryPlayer: React.FC = () => {
     return (
       <div
         data-testid="story-bar"
-        className="mb-3 rounded-xl border border-primary/40 bg-primary/5 p-3 shadow-sm"
+        // Below lg the map sits far under the narration, so the bar sticks under the navbar
+        // (48 px) and the reader scrolls to the map with the beat still in view (W3.4).
+        // Opaque so the map does not show through; at most 40% of the screen, scrolling
+        // inside, so a long beat on a short or landscape screen leaves room for the map.
+        // tailwind.css pads page scrolling by the same amount (`[data-story-bar]`).
+        data-story-bar
+        className="mb-3 rounded-xl border border-primary/40 bg-primary/5 p-3 shadow-sm max-lg:sticky max-lg:top-12 max-lg:z-20 max-lg:max-h-[40svh] max-lg:overflow-y-auto max-lg:bg-card"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -164,7 +171,7 @@ const StoryPlayer: React.FC = () => {
             data-testid="story-quit"
             variant="ghost"
             size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
+            className="h-7 shrink-0 gap-1 px-2 text-muted-foreground max-sm:-my-2"
             onClick={() => quit()}
           >
             <X aria-hidden className="h-3.5 w-3.5" />
@@ -175,8 +182,13 @@ const StoryPlayer: React.FC = () => {
         <p data-testid="story-beat" className="mt-2 text-sm leading-relaxed text-foreground">
           {t(step.beatKey)}
         </p>
+        <p className="mt-1">
+          <ReportContentError where={`story:${active.id}/${step.id}`} />
+        </p>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        {/* On a phone the buttons are 44 px tall (W3.6); their negative margin keeps this row,
+            and so the sticky bar, as high as before, so the map still fits under it (W3.4). */}
+        <div className="mt-3 flex items-center justify-between gap-3 max-sm:[&>button]:-my-1.5">
           <Button
             data-testid="story-prev"
             variant="outline"

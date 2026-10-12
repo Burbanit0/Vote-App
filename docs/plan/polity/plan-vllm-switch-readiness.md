@@ -1,5 +1,7 @@
 # v8 — bascule vLLM : document d'exécution (pas de nouveau code)
 
+> **status:** done — unblocked and finished (2026-09-11). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Contrairement à `plan-rupture-candidacy-threshold.md`/`plan-llm-decision-
 audit-sampling.md`, ce document ne scope pas une implémentation à écrire :
 `VllmJsonClient`, `test_polity_vllm_live.py` (8 tests), et

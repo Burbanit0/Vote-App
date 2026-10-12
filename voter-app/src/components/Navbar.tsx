@@ -9,12 +9,13 @@ import { useExpertMode } from '../stores/useUIStore';
 import { usePlainLanguage } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
+import { NEW_ISSUE_URL } from '../lib/repo';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Four destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
-// → À vous de jouer (cast one ballot yourself) → Polity (replay a simulated
-// society's run). Everything theory/mechanism/system lives inside the
-// Laboratoire's fiches now.
+// Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
+// → À vous de jouer (cast one ballot yourself). Everything theory/mechanism/system
+// lives inside the Laboratoire's fiches. Polity (a research run explorer, not part
+// of the teaching path) is linked from the home page footer; its route is unchanged.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -70,22 +71,28 @@ const Navbar: React.FC = () => {
   const [navExpanded, setNavExpanded] = useState(false);
 
   const toggleLang = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  // The site may be served under a base path (GitHub Pages: /Vote-App/); these links load
+  // a whole page, so they carry it, and the active link is read without it.
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const currentPath = window.location.pathname.slice(base.length);
 
   return (
     <BootstrapNavbar
-      data-tour="navbar"
+      data-testid="navbar"
+      data-touch
       expand="lg"
       expanded={navExpanded}
       onToggle={setNavExpanded}
-      className="border-b border-border shadow-sm"
+      // On a phone its items are 44 px (W3.6); a 1-px padding keeps the bar at 47 px, as
+      // before, under the stories' sticky bar at 48 (top-12).
+      className="border-b border-border shadow-sm max-sm:py-px"
       sticky="top"
       style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
     >
       <Container className="flex flex-wrap items-center justify-between">
         {/* ── Brand ── */}
         <BootstrapNavbar.Brand
-          href="/"
+          href={`${base}/`}
           className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
           style={{ fontSize: '1.1rem' }}
           onClick={() => setNavExpanded(false)}
@@ -96,7 +103,7 @@ const Navbar: React.FC = () => {
             variant="info"
             style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
           >
-            Bêta
+            {t('nav.beta')}
           </Badge>
         </BootstrapNavbar.Brand>
 
@@ -112,7 +119,8 @@ const Navbar: React.FC = () => {
           <Nav className="mr-auto lg:items-center gap-1">
             {/* Playground — hero link */}
             <Nav.Link
-              href="/playground"
+              href={`${base}/playground`}
+              data-testid="nav-playground"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/playground'}
               onClick={() => setNavExpanded(false)}
@@ -129,7 +137,8 @@ const Navbar: React.FC = () => {
 
             {/* Laboratoire — the "go deeper" destination */}
             <Nav.Link
-              href="/laboratoire"
+              href={`${base}/laboratoire`}
+              data-testid="nav-laboratoire"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/laboratoire'}
               onClick={() => setNavExpanded(false)}
@@ -144,7 +153,8 @@ const Navbar: React.FC = () => {
 
             {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
             <Nav.Link
-              href="/a-vous-de-jouer"
+              href={`${base}/a-vous-de-jouer`}
+              data-testid="nav-a-vous-de-jouer"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/a-vous-de-jouer'}
               onClick={() => setNavExpanded(false)}
@@ -156,46 +166,10 @@ const Navbar: React.FC = () => {
             >
               ✍️ {t('nav.play')}
             </Nav.Link>
-
-            {/* Polity — the simulated society's run explorer */}
-            <Nav.Link
-              href="/polity"
-              data-testid="nav-polity"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/polity'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                color: currentPath === '/polity' ? 'var(--bs-primary)' : 'inherit',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              🏛 {t('nav.polity')}
-            </Nav.Link>
           </Nav>
 
           {/* ── Right side ── */}
           <Nav className="lg:items-center gap-2">
-            {/* Tour ? */}
-            <Nav.Link
-              href="/?tour=1"
-              className="flex items-center justify-center"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                border: '1.5px solid var(--bs-secondary-color, #6c757d)',
-                color: 'var(--bs-secondary-color, #6c757d)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                padding: 0,
-                flexShrink: 0,
-              }}
-              aria-label={t('nav.tourLabel')}
-            >
-              ?
-            </Nav.Link>
-
             {/* ── User / Settings dropdown ── */}
             <Dropdown>
               <Dropdown.Toggle
@@ -254,7 +228,7 @@ const Navbar: React.FC = () => {
                 <hr className="my-1" style={{ borderColor: 'var(--bs-border-color)' }} />
 
                 <a
-                  href="https://github.com/Burbanit0/Vote-App/issues/new"
+                  href={NEW_ISSUE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="dropdown-item flex items-center gap-2 px-3 py-2"

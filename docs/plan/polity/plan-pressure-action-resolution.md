@@ -1,5 +1,7 @@
 # Plan — Résolution du collapse `pressure_action` (voie tout-LLM)
 
+> **status:** history — its premise was invalidated on 2026-08-31. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > ## ⚠️ CE PLAN EST INVALIDÉ DANS SA PRÉMISSE — 2026-08-31
 >
 > **Il n'y a pas de collapse `pressure_action`.** Toutes les mesures de ce

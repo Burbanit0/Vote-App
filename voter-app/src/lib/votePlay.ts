@@ -114,7 +114,13 @@ export function winnerWith(
   copies = 1
 ): number {
   const { ranks, scores } = tallyBallots(mine, lang, copies);
-  return ruleWinnerFromRanks(ranks, CANDIDATES.length, rule, scores);
+  return ruleWinnerFromRanks(
+    ranks,
+    CANDIDATES.length,
+    rule,
+    scores,
+    CANDIDATES.map((c) => c.name)
+  );
 }
 
 /** How large your camp can get before it stops being a minority worth measuring. */

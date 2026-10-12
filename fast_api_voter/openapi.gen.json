@@ -15421,7 +15421,7 @@
     },
     "/api/v2/theory/agenda-manipulation": {
       "post": {
-        "description": "Enumerates all `n!` agendas for `n` alternatives and reports which\noutcomes the agenda-setter can engineer. A consequence of Plott's\nChaos Theorem when no Condorcet winner exists.",
+        "description": "Enumerates all `n!` agendas for `n` alternatives and reports which\noutcomes the agenda-setter can engineer. When no Condorcet winner exists,\nmajority cycles let the agenda decide: the finite counterpart of\nMcKelvey's chaos theorem.",
         "operationId": "agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post",
         "requestBody": {
           "content": {

@@ -1,7 +1,7 @@
 # Vote Lab backend — FastAPI (Flask fully retired in Phase 4.5.b).
 
 # ── Web framework (ASGI) ─────────────────────────────────────────────────────
-fastapi==0.141.1               # 0.121.2 capped starlette below the fix for PYSEC-2026-{161,249,248,2281,2280}
+fastapi==0.142.2               # 0.121.2 capped starlette below the fix for PYSEC-2026-{161,249,248,2281,2280}
 uvicorn[standard]==0.54.0
 python-socketio==5.17.0        # WebSocket streaming (AsyncServer mounted on FastAPI)
 slowapi==0.1.10                 # per-IP rate limiting for the public /api/v1 surface
@@ -34,7 +34,7 @@ prometheus_client==0.26.0      # api/routes/metrics.py imports CONTENT_TYPE_LATE
 python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==26.1.0              # JSON structured logging (api/engine/utils/logger.py)
 PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml loader
-sentry-sdk==2.70.0             # Lot 10.1 — error tracking client, points at a
+sentry-sdk==2.71.0             # Lot 10.1 — error tracking client, points at a
                                 # self-hosted GlitchTip DSN (GLITCHTIP_DSN),
                                 # never Sentry SaaS; GlitchTip speaks the same
                                 # ingestion API so this is the correct package
@@ -44,15 +44,15 @@ sentry-sdk==2.70.0             # Lot 10.1 — error tracking client, points at a
 # on by default since Jaeger v2), and this avoids a grpcio dependency — see
 # api/core/tracing.py's module docstring. Disabled by default (empty
 # OTEL_EXPORTER_OTLP_ENDPOINT); see docs/exploration/EXP-012.
-opentelemetry-api==1.44.0
-opentelemetry-sdk==1.44.0
-opentelemetry-exporter-otlp-proto-http==1.44.0
-opentelemetry-instrumentation-fastapi==0.65b0  # matching contrib pre-release line for core 1.44.0
+opentelemetry-api==1.45.0
+opentelemetry-sdk==1.45.0
+opentelemetry-exporter-otlp-proto-http==1.45.0
+opentelemetry-instrumentation-fastapi==0.66b0  # matching contrib pre-release line for core 1.45.0
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.5.3
 scipy==1.18.1                  # polity statistics (bakeoff_statistics, sweep_statistics: stats tests)
-duckdb==1.5.5                  # §16.6 — compaction post-run du journal JSONL en base
+duckdb==1.5.6                  # §16.6 — compaction post-run du journal JSONL en base
                                 # analytique (domain/polity/compaction.py). Embarqué,
                                 # sans serveur : un fichier .duckdb par run.
 networkx==3.7                  # §5 — génération du graphe social (v6),

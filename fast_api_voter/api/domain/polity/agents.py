@@ -147,6 +147,28 @@ def lean(dimension: int, value: float) -> str:
     return f"strongly for {issue.high}"
 
 
+HIGH_AMBITION, LOW_AMBITION = 0.4, 0.2
+"""ADR-028: about the 92nd and 58th percentiles of the population's ambition (phase13 pooled: median 0.175, max 0.68)."""
+
+
+def _ambition_scale(ambition: float) -> str:
+    """The scale the bare number lacked (C3): where it stands among the citizens."""
+    if ambition >= HIGH_AMBITION:
+        return "high: few citizens want office as much as you do"
+    return "moderate: more than most citizens" if ambition >= LOW_AMBITION else "low, like most citizens'"
+
+
+def president_goal(president: Citizen) -> str:
+    """ADR-028: what the president wants, from their ambition -- like anyone, a president may put their own interest
+    before the country's, the more so the more they want office. A motive (C1), never an act to take (C4)."""
+    if president.ambition_score >= HIGH_AMBITION:
+        return ("Keeping office matters more to you than your convictions or the country's interest, and you watch where "
+                "opinion is heading so as not to be caught out by it.")
+    if president.ambition_score >= LOW_AMBITION:
+        return "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+    return "Your convictions and the country's interest matter more to you than keeping office."
+
+
 def persona(citizen: Citizen) -> str:
     """Who the agent is, from their numbers alone -- stable across ticks, so it sits in the
     system prompt and is served from the prefix cache. The numbers stay the kernel's truth."""
@@ -158,7 +180,7 @@ def persona(citizen: Citizen) -> str:
     return (
         f"You are {agent_name(citizen)} (citizen {citizen.citizen_id}), a member of {party}. "
         f"The issues you care most about: {', '.join(ISSUES[d].name for d in top)}. "
-        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f}.\n"
+        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f} -- {_ambition_scale(citizen.ambition_score)}.\n"
         f"Your own convictions on each issue (0 = the first pole, 1 = the second):\n{views}"
     )
 
@@ -290,7 +312,7 @@ def _amendment_rules(config: PolityConfig) -> str:
     return (
         f"The constitution can be amended. Its articles:\n{articles_text(config)}\n"
         f"You may propose one amendment in a turn -- \"amendment\": {{\"article\": ..., \"value\": ..., \"reason\": "
-        f"why, in a sentence}} -- when none is pending; leave \"amendment\" out otherwise. The next tick the chamber, "
+        f"why, in a sentence}} -- when none is pending; set \"amendment\" to null otherwise. The next tick the chamber, "
         f"{chamber.seats} citizens drawn by lot, votes on it, each member for themselves; it is ratified when more than the "
         "share your briefing shows for that article vote yes, and holds from then on."
     )
@@ -313,7 +335,10 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     """The rules the president acts under and who they are; nothing tick-dependent, so the
     whole prompt is a stable prefix. It states the rules and never says what to do (C4)."""
     inst, mandate, legislation = config.institutions, config.mandate, config.legislation
-    limit = "with no limit on terms" if inst.president_term_limit is None else f"for at most {inst.president_term_limit} terms"
+    limit = (
+        "with no limit on terms" if inst.president_term_limit is None
+        else f"for at most {inst.president_term_limit} terms (a term won with less than half of it left does not count)"
+    )
     rules = [
         # Until the calendar's next election, not for a full term: a snap winner serves only the rest (OBS-041).
         f"Each tick is a quarter of a year. A president is elected until the next scheduled election, held every "
@@ -346,8 +371,7 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(president)}\n\n"
-        "You are now its president. You want to govern by your convictions and to keep office; how you weigh the "
-        "two is yours to decide.\n\nThe rules you act under:\n"
+        f"You are now its president. {president_goal(president)}\n\nThe rules you act under:\n"
         + "\n".join(f"- {rule}" for rule in rules)
         + f"\n\n{_ANSWER_FORMAT}"
     )
@@ -371,6 +395,9 @@ class PresidentBriefing:
     constitution: str | None = None
     """The constitution in force and whether an amendment can be proposed (amendments.constitution_text);
     None when the polity cannot amend itself."""
+    stakes: str | None = None
+    """ADR-026/027: what the rules would give the president -- today's ballots under each voting method, the last
+    legislative votes under each seat rule (amendments.stakes_text)."""
 
 
 def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
@@ -395,6 +422,7 @@ def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
     ]
     year, quarter = divmod(briefing.tick, briefing.ticks_per_year)
     constitution = f"\n\n{briefing.constitution}" if briefing.constitution is not None else ""
+    constitution += f"\n{briefing.stakes}" if briefing.stakes else ""
     return (
         f"Tick {briefing.tick} (year {year}, quarter {quarter + 1}). {term}; {again}.\n"
         f"Your standing: {', '.join(standing)}.\n{agenda}\n\n"
@@ -719,14 +747,18 @@ def ballot_words(ballot: AmendmentBallot | None) -> dict[str, str]:
 def _party_move_rules(config: PolityConfig) -> str:
     """What each membership move does, one consequence each and no advice (C4). The wording it
     replaced ("founding your own is a legitimate way to be heard") advocated one of the three,
-    and the neutrality harness measured the phrasing outweighing the citizen's own situation."""
+    and the neutrality harness measured the phrasing outweighing the citizen's own situation.
+    The seat threshold is stated too (PLAN_BEYOND_CI D2), and dropped when it is 0: no bar."""
+    threshold = round(config.institutions.electoral_threshold * 100, 1)
     return (
         " You may also change party, through \"party_move\" and \"party_id\". \"join\" (with the party's number): you "
         "are counted among its members. \"leave\" (with -1): you are counted among no party's members. \"found\" (with "
         "-1): a new party whose platform is your own positions, which comes into being only if at least "
         f"{config.parties.founding_ratio:.0%} of the citizens stand nearer to your positions than to their own party's "
         "platform -- your briefing says how many do -- and which holds no seats until the next legislative election. "
-        "\"none\" with -1 changes nothing. "
+        + (f"At a legislative election, a party with less than {threshold:g}% of the votes cast for parties wins no "
+           "seat. " if threshold > 0 else "")
+        + "\"none\" with -1 changes nothing. "
         + ("At an election, citizens weigh a candidate of their own party more favourably, and a party nominates only "
            "its own members." if config.vote.partisanship > 0 else "At an election, a party nominates only its own members.")
     )
@@ -748,7 +780,7 @@ def stand_line(citizen: Citizen, citizens: Sequence[Citizen], parties: Sequence[
 
 
 def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
-    """A forum participant's rules and who they are -- stable for the run, so a prefix."""
+    """A forum participant's rules and who they are -- stable between amendments, so a prefix."""
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(citizen)}\n\n"

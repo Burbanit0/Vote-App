@@ -31,6 +31,8 @@ runtime code (`fast_api_voter/**` minus `scripts/`, `api/tests/` and `*.md`), in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
 starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
 serves exactly the committed fixture run (`fast_api_voter/polity_fixtures/`).
+The `static` project's setup (`tests/e2e/static.setup.ts`) builds the static site and runs
+the backend's routers under CPython: `PYTHON` (default `python3`) must have its packages.
 
 Two rules keep it from rotting the way it did before (5 specs frozen against a
 UI that had moved on for two months):
@@ -54,7 +56,7 @@ mypy api/                                    # strict, must stay clean
 `scripts/fast-gate.sh <base>` runs the relevant subset of all of the above on a branch's
 changed files (the push guard runs it before every `git push`). A `SKIPPED` section is not a
 pass: it means the tool could not run here (missing deps, or a `python3`/`python` older than
-`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Non vérifié**.
+`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Not verified**.
 A PR touching `.github/workflows/` or `.claude/hooks/` must also pass the required
 `Workflow lint` (actionlint + `zizmor --offline` + `python3 -m unittest discover -s
 .claude/hooks/tests`).
@@ -143,9 +145,9 @@ Before opening a PR:
 - Run `/verify "<the original request, verbatim>"`. It runs `scripts/fast-gate.sh`, then
   the `spec-checker` agent, which sees only the request and the diff, never your summary.
   A `FAIL` (something asked is missing) means no PR yet.
-- Fill the PR template's `## Demande` (verbatim), `## Critères d'acceptation` and
-  `## Preuves` (commands actually run and their output) sections.
-- The **Non vérifié** line is mandatory: say what you did not check and why. "rien" only
+- Fill the PR template's `## Request` (verbatim), `## Acceptance criteria` and
+  `## Evidence` (commands actually run and their output) sections.
+- The **Not verified** line is mandatory: say what you did not check and why. "nothing" only
   when true. An unverified claim stated as done is worse than a gap stated plainly.
 
 ## Workflow (mandated)

@@ -432,7 +432,9 @@ CAMPAIGNING_NOMINEE_TURN_JSON_SCHEMA = CampaigningNomineeTurn.model_json_schema(
 class AmendingLeaderTurn(LeaderTurn):
     """A leader's turn where the constitution can be amended (agents.amendments)."""
 
-    amendment: AmendmentProposal | None = None
+    # Required and nullable, as `campaign` and `extra_legal` are (OBS-031): optional, it was weighed only when a
+    # president already meant to amend -- 4 voting-method proposals in every run before ADR-026.
+    amendment: AmendmentProposal | None = Field(..., description="The amendment you propose, or null to propose none.")
 
 
 AMENDING_LEADER_TURN_JSON_SCHEMA = AmendingLeaderTurn.model_json_schema()

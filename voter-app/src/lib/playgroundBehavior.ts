@@ -144,6 +144,7 @@ export function vseSweep(
 ): VseCurve[] {
   const { rules = VSE_RULES, shares = VSE_SHARES, replications = 14 } = opts;
   const m = cands.length;
+  const names = cands.map((c) => c.name);
   if (m < 2) return [];
 
   // [rule][share] → one VSE sample per replication.
@@ -161,7 +162,9 @@ export function vseSweep(
     for (const rule of rules) {
       for (let si = 0; si < shares.length; si++) {
         const b = ballots[si];
-        acc[rule][si].push(vseOfWinner(meanU, ruleWinnerFromRanks(b.ranks, m, rule, b.scores)));
+        acc[rule][si].push(
+          vseOfWinner(meanU, ruleWinnerFromRanks(b.ranks, m, rule, b.scores, names))
+        );
       }
     }
   }

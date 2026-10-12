@@ -3,6 +3,8 @@
 .git
 ci-local
 voter-app
+# ...except the criteria registry, which a backend test reads (test_method_criteria_registry.py).
+!voter-app/src/data/method_criteria.json
 **/node_modules
 **/__pycache__
 **/*.pyc

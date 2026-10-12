@@ -1,5 +1,7 @@
 # Validation de la qualité des décisions LLM — le vrai Lot 1 de v8
 
+> **status:** history — last status 2026-08-30, before the 2026-08-31 invalidation; current verdicts: fit-for-inference.md. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 ## Contexte
 
 `reasoning_budget_and_decision_quality_findings.md` (2026-08-24, jamais

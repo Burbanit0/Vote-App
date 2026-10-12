@@ -1,5 +1,7 @@
 # Plan — the full run: 30 simulated years at population 500
 
+> **status:** done — the run is done (2026-09-26). Backlog #1 moved to the agency roadmap (step 0.1); rows 2–8 are still open and tracked only here. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Living document, English, like `plan-flagship-30y-run.md`, which it picks up.** That plan built
 > the runner, checkpointing and observability (Phases 0-6) and left Phase 7, "the run", as `TODO`
 > since 2026-09-11. Since then the serving stack, the defaults and the known defects all moved.
@@ -242,7 +244,7 @@ not a decision, and it changes what the fallback rates mean, so it should land w
 4. **The prompts:** `llm_prompts.jsonl` gives, per `call_id`, the system prompt, the user prompt and the JSON schema the model was asked (`llm_call_log.read_prompts`).
    Read the ones behind every fallback, every `finish_reason='length'` and every decision you find odd in the explorer, next to the model's reasoning in `llm_calls.jsonl`.
 5. **The explorer**: walk the run tick by tick (presidents and their terms, recalls, the chamber, the citizen biographies). Note anything that looks wrong as an OBS entry (see `observations.md`).
-6. **The narrative:** `/log-run` writes `TIMELINE.md` beside the events, and `/log-session` the journal entry.
+6. **The narrative:** `/log-run` writes `TIMELINE.md` beside the events; the run's PR body and `docs/STATUS.md` carry the rest (the journal and `/log-session` were retired on 2026-10-08).
 7. **The server and the GPU:** the acceptance length over time and the preemption count in `<run-id>.vllm.log`, the utilisation and temperature curve in `<run-id>.telemetry.jsonl`.
 8. Compare with the p100 sweep (`office_occupancy` 0.93, standard deviation 0.05) and with `sweep-8y-p500-seed1` and `-seed2`.
 

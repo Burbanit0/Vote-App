@@ -1,5 +1,5 @@
 /**
- * AgendaManipulationPanel — demonstrates agenda manipulation power (Plott 1967):
+ * AgendaManipulationPanel — demonstrates agenda manipulation power (McKelvey 1976):
  * by choosing the order of binary votes, an agenda-setter can produce any desired
  * outcome with the same electorate.
  */

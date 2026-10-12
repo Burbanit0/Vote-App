@@ -1,11 +1,12 @@
 from collections import defaultdict
-from operator import itemgetter
 from typing import Any, Dict, List, Optional
 import math
 import statistics
 
+from api.engine.utils.tie_lot import best, draw
 
-def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
+
+def get_simple_score_winner(all_scores: Any, *, seed: object = 0) -> Dict[str, Any]:
     candidate_scores: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0}
     )
@@ -21,17 +22,20 @@ def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
         avg = data["sum"] / data["count"] if data["count"] > 0 else 0
         averages.append((candidate, avg))
 
-    # Sort by average score (descending)
-    averages.sort(key=itemgetter(1), reverse=True)
+    # An exact tie for first is drawn by lot; by average score (descending), the
+    # winner first among any tied with it.
+    mean = dict(averages)
+    winner = best(mean, mean.__getitem__, seed) if averages else None
+    averages.sort(key=lambda a: (-a[1], a[0] != winner))
 
     return {
         "method": "Simple Score",
-        "winner": averages[0][0] if averages else None,
+        "winner": winner,
         "details": {candidate: avg for candidate, avg in averages},
     }
 
 
-def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
+def get_star_voting_winner(all_scores: Any, *, seed: object = 0) -> Dict[str, Any]:
     """
     Determine the winner using STAR (Score Then Automatic Runoff) voting.
     """
@@ -50,9 +54,6 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         avg = data["sum"] / data["count"] if data["count"] > 0 else 0
         averages.append((candidate, avg))
 
-    # Sort by average score (descending)
-    averages.sort(key=itemgetter(1), reverse=True)
-
     # Take top two candidates for runoff
     if len(averages) < 2:
         return {
@@ -64,8 +65,12 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
             },
         }
 
-    top_two = averages[:2]
-    candidate1, candidate2 = top_two[0][0], top_two[1][0]
+    # The two finalists by average score; a tie for a place is drawn by lot.
+    mean = dict(averages)
+    candidate1 = best(mean, mean.__getitem__, seed)
+    candidate2 = best([c for c in mean if c != candidate1], mean.__getitem__, seed)
+    # By average score (descending), the first finalist first among any tied with it.
+    averages.sort(key=lambda a: (-a[1], a[0] != candidate1))
 
     # Runoff: compare head-to-head
     votes1 = 0
@@ -83,9 +88,11 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         else:
             tied += 1
 
-    # On a tied runoff, STAR breaks it by score — candidate1 is the higher-scored
-    # finalist, so it must win the tie (>=, not >).
-    runoff_winner = candidate1 if votes1 >= votes2 else candidate2
+    # A tied runoff goes to the higher-scored finalist; tied on score too, to the lot.
+    if votes1 != votes2:
+        runoff_winner = candidate1 if votes1 > votes2 else candidate2
+    else:
+        runoff_winner = best([candidate1, candidate2], mean.__getitem__, seed)
 
     return {
         "method": "STAR Voting",
@@ -105,8 +112,8 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def _score_candidates(all_scores: Any) -> List[Any]:
-    """Candidates in first-encountered order (deterministic tie-break, matching
-    the client's argmax-over-index convention)."""
+    """Every rated candidate, in first-encountered order. An exact tie is drawn by
+    lot (tie_lot.py), so this order never decides a winner."""
     candidates: List[Any] = []
     seen: set = set()
     for vote in all_scores:
@@ -117,7 +124,7 @@ def _score_candidates(all_scores: Any) -> List[Any]:
     return candidates
 
 
-def get_cumulative_winner(all_scores: Any) -> Optional[str]:
+def get_cumulative_winner(all_scores: Any, *, seed: object = 0) -> Optional[str]:
     """
     Cumulative voting: each voter splits ONE point across candidates in
     proportion to their scores (favourites get more, but the budget is
@@ -132,10 +139,10 @@ def get_cumulative_winner(all_scores: Any) -> Optional[str]:
         if total > 0:
             for c, s in vote.items():
                 tally[c] += s / total
-    return str(max(candidates, key=lambda c: tally[c]))
+    return str(best(candidates, lambda c: tally[c], seed))
 
 
-def get_maximin_score_winner(all_scores: Any) -> Optional[str]:
+def get_maximin_score_winner(all_scores: Any, *, seed: object = 0) -> Optional[str]:
     """
     Maximin (Rawlsian): elect the candidate whose WORST rating across voters
     is highest — the least-bad option for the most disadvantaged voter.
@@ -147,10 +154,10 @@ def get_maximin_score_winner(all_scores: Any) -> Optional[str]:
     for vote in all_scores:
         for c, s in vote.items():
             worst[c] = min(worst[c], s)
-    return str(max(candidates, key=lambda c: worst[c]))
+    return str(best(candidates, lambda c: worst[c], seed))
 
 
-def get_nash_winner(all_scores: Any) -> Optional[str]:
+def get_nash_winner(all_scores: Any, *, seed: object = 0) -> Optional[str]:
     """
     Nash (proportional welfare): maximise the PRODUCT of voter utilities —
     summed in log-space to stay numerically stable. Rating a candidate 0
@@ -165,10 +172,10 @@ def get_nash_winner(all_scores: Any) -> Optional[str]:
     for vote in all_scores:
         for c, s in vote.items():
             acc[c] += math.log(max(s, eps))
-    return str(max(candidates, key=lambda c: acc[c]))
+    return str(best(candidates, lambda c: acc[c], seed))
 
 
-def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
+def get_median_voting_winner(all_scores: Any, *, seed: object = 0) -> Dict[str, Any]:
     candidate_scores: "defaultdict[Any, list[Any]]" = defaultdict(list)
 
     for vote in all_scores:
@@ -180,17 +187,20 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
         median = statistics.median(scores) if scores else 0
         medians.append((candidate, median))
 
-    # Sort by median score (descending)
-    medians.sort(key=itemgetter(1), reverse=True)
+    # An exact tie for first is drawn by lot; by median score (descending), the
+    # winner first among any tied with it.
+    median_of = dict(medians)
+    winner = best(median_of, median_of.__getitem__, seed) if medians else None
+    medians.sort(key=lambda m: (-m[1], m[0] != winner))
 
     return {
         "method": "Median Voting",
-        "winner": medians[0][0] if medians else None,
+        "winner": winner,
         "details": {candidate: median for candidate, median in medians},
     }
 
 
-def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
+def get_mean_median_hybrid_winner(all_scores: Any, *, seed: object = 0) -> Dict[str, Any]:
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0, "scores": []}
     )
@@ -218,16 +228,18 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=itemgetter("combined"), reverse=True)
+    combined_of = {r["candidate"]: r["combined"] for r in results}
+    winner = best(combined_of, combined_of.__getitem__, seed) if results else None
+    results.sort(key=lambda r: (-r["combined"], r["candidate"] != winner))
 
     return {
         "method": "Mean-Median Hybrid",
-        "winner": results[0]["candidate"] if results else None,
+        "winner": winner,
         "details": results,
     }
 
 
-def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
+def get_variance_based_winner(all_scores: Any, *, seed: object = 0) -> Dict[str, Any]:
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "sum_sq": 0, "count": 0}
     )
@@ -262,11 +274,13 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=itemgetter("weighted_score"), reverse=True)
+    weighted = {r["candidate"]: r["weighted_score"] for r in results}
+    winner = best(weighted, weighted.__getitem__, seed) if results else None
+    results.sort(key=lambda r: (-r["weighted_score"], r["candidate"] != winner))
 
     return {
         "method": "Variance-Based",
-        "winner": results[0]["candidate"] if results else None,
+        "winner": winner,
         "details": results,
     }
 
@@ -313,7 +327,7 @@ def _mj_lower_median(grades: List[int]) -> int:
     return grades[_mj_lower_median_index(len(grades))] if grades else -1
 
 
-def _mj_strip_to_winner(pool: List[str], work: Dict[str, List[int]]) -> str:
+def _mj_strip_to_winner(pool: List[str], work: Dict[str, List[int]], seed: object = 0) -> str:
     """
     The actual Balinski-Laraki (2010) tie-break: repeatedly strip one
     occurrence of the tied top median grade from every candidate still tied
@@ -350,11 +364,12 @@ def _mj_strip_to_winner(pool: List[str], work: Dict[str, List[int]]) -> str:
         for c in top:
             work[c].pop(_mj_lower_median_index(len(work[c])))
         pool = top
-    return pool[0]
+    # Every grade compared and still tied: drawn by lot, not by listing order.
+    return draw(pool, seed)
 
 
 def _mj_winner(
-    candidate_names: List[str], all_grades: Dict[str, List[int]]
+    candidate_names: List[str], all_grades: Dict[str, List[int]], seed: object = 0
 ) -> tuple[Optional[str], Dict[str, int]]:
     """
     The Majority Judgment winner (see `_mj_strip_to_winner` for the actual
@@ -377,13 +392,15 @@ def _mj_winner(
     # `_score_candidates` union), so this is always a real grade, never -1.
     true_medians: Dict[str, int] = {c: _mj_lower_median(work[c]) for c in candidate_names}
 
-    winner = _mj_strip_to_winner(list(candidate_names), work)
+    winner = _mj_strip_to_winner(list(candidate_names), work, seed)
     return winner, true_medians
 
 
 def get_majority_judgment_winner(
     utility_scores: List[Dict[str, float]],
     grade_labels:   List[str] = DEFAULT_MJ_GRADES,
+    *,
+    seed:           object = 0,
 ) -> Dict[str, object]:
     """
     Majority Judgment (Balinski & Laraki, 2010).
@@ -445,7 +462,7 @@ def get_majority_judgment_winner(
     # reported as unequal) — see `_mj_winner`'s docstring.
     winner: Optional[str]
     medians: Dict[str, int]
-    winner, medians = _mj_winner(candidate_names, all_grades)
+    winner, medians = _mj_winner(candidate_names, all_grades, seed)
 
     # 3. Build grade distribution and continuous-score dicts for the
     # frontend, read from the TRUE, un-stripped grades.

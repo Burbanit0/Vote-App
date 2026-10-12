@@ -6,7 +6,7 @@ import HomePage from './HomePage';
 import { ElectionProvider } from '../stores/useElectionStore';
 
 // The redesigned homepage makes no API calls — the hero instrument is a
-// self-contained, deterministic demo. OnboardingTour mounts inert (run=false).
+// self-contained, deterministic demo.
 
 function renderHome() {
   return render(

@@ -1,5 +1,7 @@
 # RETROSPECTIVE — Le plan de solidité technique a-t-il survécu au contact ?
 
+> **status:** history — written on 2026-09-11 for Lot 13. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Rédigé le 2026-09-11, pour l'item « Rétrospective du plan » du Lot 13 du
 > [plan de solidité technique](PLAN_SOLIDITE_TECHNIQUE.md). Question posée par
 > le plan lui-même : *« Ce plan a-t-il survécu au contact ? Quels items

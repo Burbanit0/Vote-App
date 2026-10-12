@@ -365,6 +365,6 @@ def test_a_proposal_made_while_another_is_pending_or_with_no_chamber_is_dropped(
     state.constitution = None
     engine._open_proposal(context, state, _president(), turn)  # type: ignore[arg-type]
     assert state.constitution is None and not journal.events
-    engine._open_proposal(context, state, _president(), AmendingLeaderTurn(**_turn()))  # type: ignore[arg-type]
+    engine._open_proposal(context, state, _president(), AmendingLeaderTurn(**_turn(amendment=None)))  # type: ignore[arg-type]
     assert not journal.events
     assert re.fullmatch(r"[a-z_]+", "amendment_proposed")

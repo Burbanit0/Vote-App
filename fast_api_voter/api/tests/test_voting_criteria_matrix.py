@@ -102,8 +102,8 @@ tie" for every borderline cell needs a more careful pass than this PR's
 budget covers. Documented as a named follow-up rather than shipped with a
 guessed or possibly-flaky classification.
 
-**Cardinal methods** (score, STAR, cumulative, maximin, nash — the other 5
-of the 26 "locked" methods) are out of scope for this file: most of these
+**Cardinal methods** (score, STAR, cumulative, maximin, nash, approval and
+majority judgment — the other 7 of the 28 parity-locked methods) are out of scope for this file: most of these
 criteria are defined over preference orderings, and cardinal-ballot
 analogues would need their own careful theoretical treatment rather than a
 mechanical reuse of the ranking-based checks here.
@@ -125,6 +125,7 @@ from api.engine.utils.simulation_ranked_utils import (
     get_bucklin_winner,
     get_condorcet_winner,
     get_coombs_winner,
+    get_copeland_winner,
     get_dowdall_winner,
     get_irv_winner,
     get_kemeny_young_winner,
@@ -144,14 +145,16 @@ Rankings = list[list[str]]
 MethodFn = Callable[[Rankings], Optional[str]]
 
 # Mirrors scripts/gen_engine_parity.py's RULES — the 21 ordinal methods in
-# the parity-locked set (CLAUDE.md).
+# the parity-locked set (CLAUDE.md). `condorcet` is Copeland, as there and in
+# the client; the strict criterion (get_condorcet_winner, None on a cycle) is
+# tested in test_literature_counterexamples.py.
 METHODS: dict[str, MethodFn] = {
     "plurality":      get_plurality_winner,
     "two_round":      get_two_round_winner,
     "borda":          get_borda_winner,
     "irv":            get_irv_winner,
     "coombs":         get_coombs_winner,
-    "condorcet":      get_condorcet_winner,
+    "condorcet":      get_copeland_winner,
     "minimax":        get_minimax_winner,
     "schulze":        get_schulze_winner,
     "bucklin":        get_bucklin_winner,
@@ -204,6 +207,16 @@ def _condorcet_loser(rankings: Rankings) -> Optional[str]:
 
 _CANDS4 = ["A", "B", "C", "D"]
 _profiles4 = st.lists(st.permutations(_CANDS4), min_size=3, max_size=12)
+
+
+@settings(max_examples=200, deadline=None, derandomize=True, suppress_health_check=[HealthCheck.too_slow])
+@given(rankings=_profiles4)
+def test_the_strict_condorcet_function_finds_the_condorcet_winner_or_none(rankings):
+    """get_condorcet_winner is the strict criterion, not a rule: the Condorcet winner, or
+    None on a cycle. The matrix's `condorcet` row is Copeland since PLAN_BEYOND_CI W1.2, so
+    this keeps the property check the strict function had there; simulation_metrics and
+    gibbard_satterthwaite still call it."""
+    assert get_condorcet_winner(rankings) == _condorcet_winner(rankings)
 
 
 # ── 1. Condorcet winner criterion ───────────────────────────────────────────
@@ -533,7 +546,7 @@ def test_pareto_efficiency_anti_plurality_can_be_violated():
 CLONE_INDEPENDENCE_VIOLATES = {
     "borda", "coombs", "bucklin", "nanson", "kemeny", "black",
     "anti_plurality", "dowdall", "split_cycle",
-    "ranked_pairs", "river", "baldwin",
+    "ranked_pairs", "river", "baldwin", "condorcet",
 }
 CLONE_INDEPENDENCE_SATISFIES = METHODS.keys() - CLONE_INDEPENDENCE_VIOLATES
 
@@ -636,9 +649,22 @@ def test_clone_independence_baldwin_can_be_violated():
     assert get_baldwin_winner(cloned) == "D"
 
 
+def test_clone_independence_condorcet_copeland_can_be_violated():
+    """`condorcet` is Copeland here, as in the parity script and the client
+    (PLAN_BEYOND_CI W1.2: it used to be the strict get_condorcet_winner, a
+    different function under the same name). Copeland's win-minus-loss score
+    is a textbook clone-manipulable rule. The client's pinned counterexample
+    (playgroundVoting.axioms.test.ts), in letters: original winner C; cloning
+    non-winner E hands the win to E itself."""
+    rankings = [["B", "E", "C", "A", "D"], ["E", "D", "C", "B", "A"], ["C", "D", "B", "A", "E"]]
+    assert get_copeland_winner(rankings) == "C"
+    cloned = _clone_after(rankings, "E", "F")
+    assert get_copeland_winner(cloned) == "E"
+
+
 @pytest.mark.parametrize(
     "method_name",
-    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river", "baldwin"}),
+    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river", "baldwin", "condorcet"}),
 )
 def test_clone_independence_can_be_violated(method_name):
     fn = METHODS[method_name]

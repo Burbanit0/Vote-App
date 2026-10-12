@@ -16,7 +16,6 @@ export default defineConfig({
     outputFormat: 'ts',
     ignoredAttributes: [
       'data-testid',
-      'data-tour',
       'data-tab',
       'id',
       'name',

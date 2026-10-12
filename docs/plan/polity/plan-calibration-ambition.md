@@ -1,5 +1,7 @@
 # Plan — Calibration candidature (ADR-002, moitié restante)
 
+> **status:** done — settled and implemented on 2026-08-29 (ambition_threshold 0.7 → 0.30). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > Document de scoping, à discuter et amender avant toute implémentation.
 > Suite directe d'ADR-002 (moitié visibilité déjà close, commit
 > `218d1d6`). Objectif : trancher pourquoi la configuration livrée

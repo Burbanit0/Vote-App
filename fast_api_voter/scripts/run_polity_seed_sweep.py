@@ -49,14 +49,20 @@ import json
 import statistics
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from api.domain.polity.config import ARTICLES  # noqa: E402
+from api.domain.polity.run_digest import read_journal_tolerant  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
+    RedFlag,
     SweepRun,
     clopper_pearson,
+    constitution_groups,
     first_completed_runs,
     mean_bca_interval,
     prediction_interval,
@@ -80,9 +86,31 @@ def _digest_path(output_dir: Path, run_id: str) -> Path:
     return output_dir / run_id / "run" / run_id / "digest.json"
 
 
+def _run_flags(args: argparse.Namespace) -> list[str]:
+    """The flags that make this sweep one arm (PLAN_BEYOND_CI W2.1), passed to every run."""
+    return [
+        "--engine", args.engine, "--profile", args.profile,
+        *(["--threshold", repr(args.threshold)] if args.threshold is not None else []),
+        *(["--freeze-amendments"] if args.freeze_amendments else []),
+    ]
+
+
+def _claim_output_dir(output_dir: Path, run_flags: Sequence[str]) -> None:
+    """One output directory is one arm: record its flags, and refuse a sweep with other flags,
+    so a --resume-sweep into the wrong directory cannot count one arm's runs as the other's."""
+    record = output_dir / "sweep_flags.json"
+    if record.exists():
+        recorded = json.loads(record.read_text(encoding="utf-8"))
+        if recorded != list(run_flags):
+            raise SystemExit(f"{output_dir} holds a sweep run with {recorded}, not {list(run_flags)}: use another --output-dir")
+    else:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps(list(run_flags)), encoding="utf-8")
+
+
 def _run_one_seed(
     *, years: int, population: int, seed: int, repeat: int, seats: int, output_dir: Path, max_batch_replays: int,
-    resume_sweep: bool, model: str | None = None,
+    resume_sweep: bool, run_flags: Sequence[str], model: str | None = None,
 ) -> trial.TrialResult:
     run_id = _run_id_for(years, population, seed, repeat)
     run_dir = output_dir / run_id
@@ -95,7 +123,7 @@ def _run_one_seed(
 
     args = [
         sys.executable, str(_FLAGSHIP_SCRIPT),
-        "--engine", "llm",
+        *run_flags,
         "--years", str(years),
         "--population", str(population),
         "--seats", str(seats),
@@ -164,10 +192,63 @@ def _load_run(output_dir: Path, years: int, population: int, seed: int, repeat: 
     return SweepRun(
         seed=seed, repeat=repeat, run_id=run_id, outcome=str(digest.get("outcome")),
         office_occupancy=digest.get("office_occupancy"),
+        last_election=(digest.get("effective_parties") or [None])[-1],
         decisions_by_type=dict(progress.get("decisions_by_type") or {}),
         fallback_by_type=dict(progress.get("fallback_by_type") or {}),
         run_metadata=metadata,
+        constitution=_amendments(digest_path.with_name("events.jsonl")),
     )
+
+
+def _amendments(events_path: Path) -> tuple[tuple[int, str, Any], ...] | None:
+    """The run's constitutional history, from its journal (the digest counts amendments but does not
+    name them): None when the journal is missing or damaged beyond a torn last line, so an unknown
+    history is never taken for an unamended one."""
+    if not events_path.is_file():
+        return None
+    events, skipped = read_journal_tolerant(events_path)
+    if skipped > 1:
+        return None
+    return tuple(
+        (e["tick"], e["payload"].get("article", "?"), e["payload"].get("new"))
+        for e in events if e.get("event_type") == "constitution_amended"
+    )
+
+
+def _rules(constitution: tuple[tuple[int, str, Any], ...] | None) -> str:
+    if constitution is None:
+        return "unknown (journal missing or damaged)"
+    return "; ".join(f"{article.split('.')[-1]} {value} at t{tick}" for tick, article, value in constitution) or "unamended"
+
+
+def _label(run: SweepRun) -> str:
+    return f"seed {run.seed}" if run.repeat == 1 else f"seed {run.seed} rep {run.repeat}"
+
+
+def _divergence_note(runs: list[SweepRun], divergence: RedFlag) -> list[str]:
+    """S0.7's flags stay as pre-registered. The first two judge each run on its own; the third pools: its
+    spread takes every seed's first run, and each repeat is set against its seed's first run, whatever
+    constitution each ran under (ADR-015). Say so when that flag was evaluated across histories."""
+    if divergence.status == "not evaluable":
+        return []
+    # The runs the flag compared: those with an office_occupancy.
+    firsts = [r for r in first_completed_runs(runs) if r.office_occupancy is not None]
+    histories = constitution_groups(firsts)
+    first_history = {r.seed: r.constitution for r in firsts}
+    parts = []
+    if len(histories) > 1 or None in histories:
+        known = len(histories) - (None in histories)
+        mixed = [f"{known} known constitutional histor{'y' if known == 1 else 'ies'}"] if known else []
+        mixed += ["runs whose history is unknown"] if None in histories else []
+        parts.append(f"its across-seed spread mixes {' and '.join(mixed)}")
+    crossed = [
+        _label(r) for r in runs
+        if r.completed and r.repeat > 1 and r.office_occupancy is not None and r.seed in first_history
+        and (None in (r.constitution, first_history[r.seed]) or r.constitution != first_history[r.seed])
+    ]
+    if crossed:
+        parts.append(f"set against a first run of another or unknown history: {', '.join(crossed)}")
+    return [f"- note on the third flag: {'; '.join(parts)} (see Constitutions)"] if parts else []
 
 
 def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
@@ -177,30 +258,56 @@ def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
 def _per_run_section(runs: list[SweepRun]) -> list[str]:
     lines = [
         "## Per-run results\n",
-        "| seed | repeat | run_id | outcome | office_occupancy | types above 10% fallback |",
-        "|---|---|---|---|---|---|",
+        "| seed | repeat | run_id | outcome | office_occupancy | last legislative election: tick, ENP seats / votes, parties | types above 10% fallback |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in runs:
         over = {t: f"{rate:.1%}" for t, rate in r.fallback_rates().items() if rate > 0.10}
         occupancy = "-" if r.office_occupancy is None else f"{r.office_occupancy:.4f}"
-        lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {over or '-'} |")
+        e = r.last_election
+        shown = {key: "-" if e is None or e[key] is None else e[key] for key in ("by_seats", "by_votes")}
+        enp = "-" if e is None else f"t{e['tick']}: {shown['by_seats']} / {shown['by_votes']}, {e['parties_standing']}"
+        lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {enp} | {over or '-'} |")
     return [*lines, ""]
 
 
-def _occupancy_section(firsts: list[SweepRun]) -> list[str]:
-    values = [r.office_occupancy for r in firsts if r.office_occupancy is not None]
-    lines = ["## office_occupancy across seeds (first completed run per seed)\n"]
+def _occupancy_summary(values: list[float]) -> list[str]:
     if len(values) >= 2:
-        lines += [
+        return [
             f"- n={len(values)}, mean={statistics.fmean(values):.4f}, stdev={statistics.stdev(values):.4f}, "
             f"min={min(values):.4f}, max={max(values):.4f}",
             f"- 95% BCa bootstrap interval for the mean: {_interval(mean_bca_interval(values))}",
             f"- 95% prediction interval for one new seed: {_interval(prediction_interval(values))}",
         ]
-    elif values:
-        lines.append(f"- only one completed seed with office_occupancy: {values[0]:.4f} (no variance to report)")
-    else:
-        lines.append("- no completed seed produced an office_occupancy value yet")
+    if values:
+        return [f"- only one completed seed with office_occupancy: {values[0]:.4f} (no variance to report)"]
+    return ["- no completed seed produced an office_occupancy value yet"]
+
+
+def _occupancy_section(firsts: list[SweepRun]) -> list[str]:
+    lines = ["## office_occupancy across seeds (first completed run per seed)\n"]
+    groups = constitution_groups(firsts)
+    if len(groups) <= 1 and None not in groups:
+        values = [r.office_occupancy for r in firsts if r.office_occupancy is not None]
+        return [*lines, *_occupancy_summary(values), ""]
+    # ADR-015: the seeds did not run under one set of rules, so occupancy is pooled within a shared
+    # constitutional history only.
+    lines.append(f"- **not pooled across seeds:** they ran under {len(groups)} constitutional histories (see Constitutions)")
+    alone = []
+    for constitution, members in groups.items():
+        values = [r.office_occupancy for r in members if r.office_occupancy is not None]
+        if constitution is not None and len(values) >= 2:
+            lines += [f"- {_rules(constitution)} ({', '.join(map(_label, members))}):", *("  " + line for line in _occupancy_summary(values))]
+        else:
+            alone += [_label(r) for r in members]
+    if alone:
+        lines.append(f"- not summarised (alone in their history, or history unknown): {', '.join(alone)}")
+    return [*lines, ""]
+
+
+def _constitution_section(runs: list[SweepRun]) -> list[str]:
+    lines = ["## Constitutions (ADR-015; every completed run)\n"]
+    lines += [f"- {_rules(constitution)}: {', '.join(map(_label, members))}" for constitution, members in constitution_groups(runs).items()]
     return [*lines, ""]
 
 
@@ -244,7 +351,9 @@ def _provenance_section(runs: list[SweepRun]) -> list[str]:
     return [*lines, ""]
 
 
-def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: list[int]) -> Path:
+def _write_sweep_summary(
+    output_dir: Path, years: int, population: int, seeds: list[int], run_flags: Sequence[str] = (),
+) -> Path:
     """Generated from each run's own digest.json and progress.json -- never
     hand-typed. Across-seed statistics use each seed's first completed run;
     repeats of a seed are reported against them, and S0.7's pre-registered red
@@ -252,16 +361,20 @@ def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: l
     results doc S0.8 needs is this file, read against the pre-registration."""
     runs = [_load_run(output_dir, years, population, seed, repeat) for seed, repeat in sweep_run_plan(seeds)]
     firsts = first_completed_runs(runs)
+    flags = red_flags(runs)
     lines = [
         f"# Seed sweep — {years}y, population {population} ({len(runs)} runs)\n",
+        f"- run flags (this sweep's arm): `{' '.join(run_flags) or 'none recorded'}`",
         f"- seeds requested, in order: {seeds}",
         f"- completed: {sum(r.completed for r in runs)}/{len(runs)} runs; {len(firsts)} distinct seeds completed\n",
         *_provenance_section(runs),
         *_per_run_section(runs),
+        *_constitution_section(runs),
         *_occupancy_section(firsts),
         *_fallback_section(firsts),
         "## Pre-registered red flags (S0.7)\n",
-        *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in red_flags(runs)],
+        *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in flags],
+        *_divergence_note(runs, flags[-1]),
         "",
     ]
     summary_path = output_dir / f"sweep-{years}y-p{population}-summary.md"
@@ -285,6 +398,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument("--model", default=None, help="passed to run_polity_flagship.py --model (S2.3)")
+    # PLAN_BEYOND_CI W2.1. One arm of a two-arm experiment is one sweep with its own --output-dir,
+    # so two arms never share a summary; paired_contrast pairs them afterwards.
+    parser.add_argument("--engine", choices=("llm", "deterministic"), default="llm")
+    parser.add_argument("--profile", choices=("flagship", "exploration"), default="flagship")
+    parser.add_argument("--threshold", type=float, default=None, help="passed to run_polity_flagship.py --threshold")
+    parser.add_argument("--freeze-amendments", action="store_true", help="passed to run_polity_flagship.py")
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/seed_sweep_runs"))
     parser.add_argument(
         "--resume-sweep", action="store_true",
@@ -298,9 +417,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--planned-n", type=int, default=None, help="defaults to len(seeds)")
     args = parser.parse_args(argv)
 
+    article = ARTICLES["institutions.electoral_threshold"]
+    if args.threshold is not None and not article.allows(args.threshold):
+        parser.error(f"--threshold is a share from {article.low} to {article.high} (the article's range): 0.03 for 3%, "
+                     f"not {args.threshold}")
+    run_flags = _run_flags(args)
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
     if not seeds:
         parser.error("--seeds must name at least one seed")
+    _claim_output_dir(args.output_dir, run_flags)
 
     hypothesis = args.hypothesis or (
         f"office_occupancy and the per-type LLM fallback rate at population={args.population}, "
@@ -316,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
             "qualitatively from the others (see the generated sweep summary, not this report)."
         ),
         planned_n=args.planned_n or len(seeds),
-        budget_description=f"{len(seeds)} seeds x ~{args.years}y/p{args.population} flagship runs",
+        budget_description=f"{len(seeds)} seeds x ~{args.years}y/p{args.population} runs: {' '.join(run_flags)}",
     )
     print(f"registered experiment {experiment.experiment_id}: {experiment.hypothesis}")
 
@@ -327,18 +452,18 @@ def main(argv: list[str] | None = None) -> int:
         result = trial.record_trial(
             experiment.experiment_id, i,
             container_name="vllm-polity",
-            inference_backend="vllm",
+            inference_backend="vllm" if args.engine == "llm" else "none (deterministic engine)",
             run_call=lambda seed=seed, repeat=repeat: _run_one_seed(
                 years=args.years, population=args.population, seed=seed, repeat=repeat, seats=args.seats or 75,
                 output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
-                resume_sweep=args.resume_sweep, model=args.model,
+                resume_sweep=args.resume_sweep, model=args.model, run_flags=run_flags,
             ),
         )
         print(f"  -> ok={result.ok} detail={result.detail}", flush=True)
 
     report_path = args.output_dir / f"harness-report-{experiment.experiment_id}.md"
     report_path.write_text(report.generate_report(experiment.experiment_id), encoding="utf-8")
-    summary_path = _write_sweep_summary(args.output_dir, args.years, args.population, seeds)
+    summary_path = _write_sweep_summary(args.output_dir, args.years, args.population, seeds, run_flags)
 
     print(f"\nharness report: {report_path}")
     print(f"sweep summary: {summary_path}")

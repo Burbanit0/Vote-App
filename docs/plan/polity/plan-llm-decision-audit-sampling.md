@@ -1,5 +1,7 @@
 # Point ouvert #3 — fréquence et taille de l'audit d'échantillon des décisions LLM
 
+> **status:** done — fixed by implementing it (scripts/sample_llm_decisions_for_audit.py). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Document de cadrage, même discipline que
 `plan-rupture-candidacy-threshold.md`. Pas de LLM impliqué dans le
 mécanisme lui-même (c'est un outil de lecture de journal), donc pas de

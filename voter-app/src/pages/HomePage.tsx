@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { SlidersHorizontal, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
-import OnboardingTour from '../components/shared/common/OnboardingTour';
 import HeroInstrument from '../components/home/HeroInstrument';
 import { MOMENTS } from '../components/playground/MomentRail';
 import { STORIES } from '../lib/stories';
@@ -19,6 +18,7 @@ const FOOTER_LINKS = [
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
   { href: '/laboratoire?exp=lexique', key: 'nav.lexique' },
+  { href: '/polity', key: 'nav.polity', testid: 'home-foot-polity' },
 ];
 
 const HomePage: React.FC = () => {
@@ -26,22 +26,11 @@ const HomePage: React.FC = () => {
   const { t: tp } = useTranslation('playground');
   const navigate = useNavigate();
   const { applyScenario } = useElection();
-  const [tourRun, setTourRun] = useState(false);
 
   useMetaTags({
     title: `Vote Lab — ${t('home.h1Line1')} ${t('home.h1Line2')}`,
     description: t('home.heroLede'),
   });
-
-  // The onboarding tour is started from the navbar "?" (a ?tour=1 deep link).
-  useEffect(() => {
-    // Only the navbar's "?tour=1" deep link (or the button) starts the tour — the
-    // landing page leads with the instrument, not a popup.
-    if (new URLSearchParams(window.location.search).get('tour') === '1') {
-      const id = setTimeout(() => setTourRun(true), 600);
-      return () => clearTimeout(id);
-    }
-  }, []);
 
   // Primary CTA: seed the spoiler electorate (the hero's story) then open the instrument.
   const openInstrument = useCallback(() => {
@@ -60,8 +49,6 @@ const HomePage: React.FC = () => {
       data-style="tailwind"
       className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)_and_(min-height:1090px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)_and_(min-height:1090px)]:min-h-0 [@media(min-width:1024px)_and_(min-height:1090px)]:overflow-hidden"
     >
-      <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
-
       {/* ── Newcomer banner: the shortest path to /decouvrir, for the visitor who
           doesn't yet know other voting methods exist. Thin (shrink-0) so it costs
           the one-screen layout as little height as possible. */}
@@ -88,7 +75,7 @@ const HomePage: React.FC = () => {
           basis:0 and sizes sections by ratio alone, which shrinks the hero under
           its own instrument and clips it. */}
       <section
-        data-tour="hero"
+        data-testid="home-hero"
         className="flex flex-1 flex-col justify-center border-b border-border lg:grow-0 lg:basis-auto"
       >
         <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
@@ -217,6 +204,7 @@ const HomePage: React.FC = () => {
               <Link
                 key={l.href}
                 to={l.href}
+                data-testid={l.testid}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 {t(l.key)}

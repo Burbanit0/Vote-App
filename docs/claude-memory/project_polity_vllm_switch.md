@@ -8,6 +8,8 @@ metadata:
   modified: 2026-08-30T12:50:25.063Z
 ---
 
+**Superseded 2026-09-27** on branches: `polity` is the working branch and `develop` only receives release syncs (CLAUDE.md, "Workflow (mandated)"); any polity → develop merge rule below is history.
+
 **Update 2026-09-15: the switch happened, and the blocker below is spent.** This project now
 runs on native Linux (`uname -r`: 7.0.0-31-generic), which is one of the two reopening conditions
 the 2026-08-30 entry wrote down for itself. The `vllm-polity` container serves

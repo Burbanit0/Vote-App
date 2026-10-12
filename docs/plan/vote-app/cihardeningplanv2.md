@@ -1,5 +1,7 @@
 # Plan de durcissement CI — Vote-App / La Fourmilière (v2)
 
+> **status:** history — v2 of 2026-08-25; its follow-up boxes were never ticked though items landed. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > État vérifié directement sur `develop` (tarball `codeload.github.com`, commit HEAD au
 > 2026-08-25), pas sur un résumé. La suite `api/tests/test_polity_*.py` a été exécutée
 > localement pour obtenir un vrai chiffre de couverture plutôt qu'une estimation.

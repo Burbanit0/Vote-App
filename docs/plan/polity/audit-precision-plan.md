@@ -1,5 +1,7 @@
 # Audit de précision — Plan de conception Polity
 
+> **status:** history — its blockers were settled in polity-simulation-design-v2.md. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Trace historique.** Les bloquants listés ici ont été tranchés dans
 > `polity-simulation-design-v2.md`, dont le tableau « État des bloquants de
 > l'audit de précision » fait désormais autorité — s'y référer en cas de
