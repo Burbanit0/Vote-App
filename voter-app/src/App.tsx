@@ -93,7 +93,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <ElectionProvider>
-    <Router>
+    <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       <AppContent />
     </Router>
   </ElectionProvider>

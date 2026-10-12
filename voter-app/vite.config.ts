@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import istanbul from 'vite-plugin-istanbul';
-import { cpSync } from 'node:fs';
+import { copyFileSync, cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
@@ -13,8 +13,13 @@ export default defineConfig(({ mode }) => {
   // instrumentation adds real transform overhead we don't want on every `npm
   // start`/`npm run build`. `scripts/e2e_coverage.sh` sets this env var itself.
   const coverageEnabled = process.env.E2E_COVERAGE === 'true';
+  // Where the site is served from: GitHub Pages serves the static build under /Vote-App/
+  // (PLAN_BEYOND_CI W6, step 5). The router, the engine worker and the Polity export
+  // read it back as import.meta.env.BASE_URL.
+  const base = env.VITE_BASE || '/';
 
   return {
+    base,
     resolve: {
       alias: {
         // shadcn/ui convention: `@/` → src (Tailwind migration, Phase 6).
@@ -23,12 +28,16 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       // The static build carries Polity's run export (src/api/staticPolity.ts), under a
-      // path no page uses: a static host would answer /polity with the folder.
+      // path no page uses: a static host would answer /polity with the folder. And a
+      // 404.html that is the page itself: GitHub Pages answers an unknown path (any page
+      // but the home, opened directly) with it, and the router takes over.
       env.VITE_ENGINE === 'browser' && {
-        name: 'polity-export',
+        name: 'static-site',
         apply: 'build',
-        writeBundle: ({ dir }: { dir?: string }) =>
-          cpSync('polity-export', `${dir}/polity-data`, { recursive: true }),
+        writeBundle: ({ dir }: { dir?: string }) => {
+          cpSync('polity-export', `${dir}/polity-data`, { recursive: true });
+          copyFileSync(`${dir}/index.html`, `${dir}/404.html`);
+        },
       },
       react(),
       tailwindcss(),
@@ -36,6 +45,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          // The static build's copy of the page, for GitHub Pages (static-site below).
+          globIgnores: ['404.html'],
+          // The Pages site also carries the CI dashboard under ci/ (release.yml,
+          // ci-dashboard.yml): the worker must not answer it with the app.
+          navigateFallbackDenylist: [new RegExp(`^${base}ci/`)],
         },
         manifest: {
           name: 'Vote Lab — Théorie du vote',
@@ -44,16 +58,14 @@ export default defineConfig(({ mode }) => {
           theme_color: '#0e7068',
           background_color: '#f6f7f4',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
           icons: [
             {
-              src: '/icons/pwa-192x192.png',
+              src: 'icons/pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
             },
             {
-              src: '/icons/pwa-512x512.png',
+              src: 'icons/pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable',

@@ -46,7 +46,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   private handleGoHome = (): void => {
     // Force a full reload to /, which also clears any corrupt in-memory state.
-    window.location.assign('/');
+    window.location.assign(import.meta.env.BASE_URL);
   };
 
   private handleCopy = async (): Promise<void> => {

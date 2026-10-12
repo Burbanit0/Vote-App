@@ -6,6 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
 // firefox projects.
 const EXCLUDED_FROM_DEFAULT = /(mobile|visual|static)\.spec\.ts$/;
 
+// The static build is tested under the base path GitHub Pages serves it from (the repo's
+// name; PLAN_BEYOND_CI W6, step 5), so a link that assumes the root fails here first.
+export const STATIC_BASE = '/Vote-App/';
+
 // A production build (playwright.visual.config.ts reuses it). The dev server hands each
 // navigation 59-127 separate module requests; a build makes 17-39. WebKit intermittently
 // drops one: the entry graph never runs and the page stays blank, or a lazy route fails
@@ -101,7 +105,7 @@ export default defineConfig({
     {
       name: 'static',
       dependencies: ['static-build'],
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3002' },
+      use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:3002${STATIC_BASE}` },
       testMatch: /static\.spec\.ts$/,
     },
   ],
@@ -114,6 +118,7 @@ export default defineConfig({
       command:
         'mkdir -p node_modules/.e2e-static && ' +
         'npx vite preview --outDir node_modules/.e2e-static --port 3002 --strictPort',
+      env: { VITE_BASE: STATIC_BASE },
       port: 3002,
       reuseExistingServer: !process.env.CI,
     },
