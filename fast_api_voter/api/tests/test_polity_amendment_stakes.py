@@ -232,3 +232,28 @@ def test_a_president_barred_by_the_term_limit_is_told_so() -> None:
     text = stakes_text(load_config(), PRESIDENT, BALLOTS, None, barred=True)
     assert text is not None and "but under the term limit in force you cannot stand again" in text
 
+
+def test_with_opinion_unchanged_todays_ballots_are_the_elections_own(tmp_path: Any) -> None:
+    import numpy as np
+
+    from api.domain.polity import run_polity_simulation as engine
+    from api.domain.polity.citizen import Office, Role
+    from api.domain.polity.journal import Journal
+    from api.domain.polity.tick_state import TickState
+
+    def citizen(cid: int, at: float, **kw: Any) -> Citizen:
+        return Citizen(citizen_id=cid, issue_positions=(at,), issue_priorities=(1.0,), blank_threshold=0.4,
+                       ambition_score=0.5, **kw)
+
+    president = citizen(1, 0.3, role=Role.ELECTED, office=Office.PRESIDENT, pledged_platform=(0.3,), revealed_position=(0.3,))
+    rival = citizen(2, 0.7, pledged_platform=(0.7,), revealed_position=(0.7,))
+    voters = [citizen(10 + i, x) for i, x in enumerate((0.1, 0.25, 0.4, 0.55, 0.65, 0.8, 0.95))]
+    config = load_config()
+    population = [president, rival, *voters]
+    with Journal(tmp_path / "e.jsonl", "run") as journal:
+        held, _ = engine._presidential_ballots(population, [president, rival], config, journal, 4, None,
+                                               engine._judged_incumbent(population, 1, config))
+    state = TickState(citizens=population, parties=[], rupture_rng=np.random.default_rng(0), events_rng=np.random.default_rng(0),
+                      sortition_rng=np.random.default_rng(0), last_ballots=held)
+    assert engine.ballots_today(state, president, config) == held
+

@@ -31,9 +31,11 @@ but elect under another: 4 of the 39 finished runs' final states (28 still win, 
 
 | wording (4 at-risk presidents, 10 turns each, with the stakes) | method proposals | that elect the proposer |
 |---|---:|---:|
-| backward line (ADR-026) | 0 | – |
 | forward, grouped by winner | 10 | 0 |
 | forward, "you" first | 0 | – |
+
+The probe prints the 28 / 4 / 7 split itself. The backward line (ADR-026) was not probed on these four; on all 34
+presidents it drew 2 method proposals in 68 turns, neither electing the proposer.
 
 - **Unstable on its own:** one president's turn decides most of the column, and reruns of the same turns
   flip.

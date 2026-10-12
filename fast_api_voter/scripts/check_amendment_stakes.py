@@ -130,8 +130,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="ADR-027: only presidents today's ballots defeat under the method in force but elect under another")
     args = parser.parse_args(argv)
     scenarios = [s for root in args.roots for s in _scenarios(root)]
+    me = {id(s): candidate_label(s["president"]) for s in scenarios}
+    winning = sum(1 for s in scenarios if s["today"] and get_presidential_winner(s["today"], s["config"].institutions.presidential_method) == me[id(s)])
+    at_risk = [s for s in scenarios if _at_risk(s)]
+    print(f"today's ballots: {winning} presidents win under the method in force, {len(at_risk)} lose under it and win under "
+          f"another, {len(scenarios) - winning - len(at_risk)} lose under every method or have none to count")
     if args.at_risk:
-        scenarios = [s for s in scenarios if _at_risk(s)]
+        scenarios = at_risk
     print(f"{len(scenarios)} presidents: " + ", ".join(f"{s['run']} t{s['tick']} c{s['president'].citizen_id}" for s in scenarios))
     for with_stakes in (False, True):
         jobs = [(s, k) for s in scenarios for k in range(args.samples)]

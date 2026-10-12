@@ -15,9 +15,9 @@ showed it as a bare number ("ambition from 0 to 1: 0.24"), with no scale (contra
     and you watch where opinion is heading so as not to be caught out by it."
   - **0.2 to 0.4:** D8's sentence.
   - **Below 0.2:** "Your convictions and the country's interest matter more to you than keeping office."
-- **The bands come from the population.** 0.4 and 0.2 sit at about the population's 92nd and 70th
-  percentiles (phase13: median 0.16, max 0.68). Presidents run from 0.07 to 0.62, so all three bands
-  hold.
+- **The bands come from the population.** 0.4 and 0.2 sit at about the population's 92nd and 58th
+  percentiles (phase13's five populations pooled: median 0.175, max 0.68). The 39 probed presidents run
+  from 0.03 to 0.62, so all three bands hold.
 - **Ambition gets its scale in every persona:** "high: few citizens want office as much as you do",
   "moderate: more than most citizens", "low, like most citizens'".
 - **A motive (C1), never an act (C4).** No goal names an amendment or any other act; a test holds it.

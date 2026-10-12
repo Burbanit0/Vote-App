@@ -148,7 +148,7 @@ def lean(dimension: int, value: float) -> str:
 
 
 HIGH_AMBITION, LOW_AMBITION = 0.4, 0.2
-"""ADR-028: about the 92nd and 70th percentiles of the population's ambition (phase13: median 0.16, max 0.68)."""
+"""ADR-028: about the 92nd and 58th percentiles of the population's ambition (phase13 pooled: median 0.175, max 0.68)."""
 
 
 def _ambition_scale(ambition: float) -> str:
