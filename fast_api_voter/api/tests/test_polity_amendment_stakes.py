@@ -29,9 +29,14 @@ MIDDLE = (0.5,) * len(ISSUES)
 
 
 def _groups(text: str) -> dict[str, list[str]]:
-    """'X under m1, m2; Y under m3.' -> {X: [m1, m2], Y: [m3]}, from the voting-method line."""
-    line = text.splitlines()[0].split(": ", 1)[1].rstrip(".")
-    return {who: methods.split(", ") for who, methods in (part.split(" under ") for part in line.split("; "))}
+    """'... elect you under: m1, m2. They would elect Y under: m3; Z under: m4.' -> {you: [...], Y: [...], Z: [...]}."""
+    line = text.splitlines()[0].replace(" (in force)", "")
+    mine, _, theirs = line.partition(" They would elect ")
+    groups = {"you": [] if mine.endswith("no method.") else mine.split("you under: ", 1)[1].rstrip(".").split(", ")}
+    for part in filter(None, theirs.rstrip(".").split("; ")):
+        who, methods = part.split(" under: ")
+        groups[who] = methods.split(", ")
+    return groups
 
 
 def _seat_rows(text: str) -> dict[str, int]:
@@ -158,7 +163,97 @@ def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_pr
             return engine._president_briefing(context, state, president, (0.5, 0.5), (0.5, 0.5), None)
 
     shown = briefing(stakes=True, members=[member]).stakes
-    assert shown is not None and shown.startswith("Counted under each voting method")
+    assert shown is not None and shown.startswith("If the last election's candidates stood again today")
     assert briefing(stakes=False, members=[member]).stakes is None
     assert briefing(stakes=True, members=[]).stakes is None  # no chamber drawn: no amendment can be proposed
+
+
+def test_the_method_in_force_is_named_among_the_others() -> None:
+    config = load_config()
+    text = stakes_text(config, PRESIDENT, BALLOTS, None)
+    assert text is not None and f"{config.institutions.presidential_method} (in force)" in text
+
+
+def test_todays_ballots_are_the_last_candidates_ranked_on_todays_opinions() -> None:
+    import numpy as np
+
+    from api.domain.polity.citizen import DISENGAGED, Office, Role
+    from api.domain.polity.run_polity_simulation import ballots_today
+    from api.domain.polity.tick_state import TickState
+
+    def citizen(cid: int, at: float, **kw: Any) -> Citizen:
+        return Citizen(citizen_id=cid, issue_positions=(at,), issue_priorities=(1.0,), blank_threshold=0.5,
+                       ambition_score=0.5, pledged_platform=(at,), revealed_position=(at,), **kw)
+
+    president = citizen(1, 0.2, role=Role.ELECTED, office=Office.PRESIDENT)
+    rival, bystander = citizen(2, 0.8), citizen(3, 0.5)
+    # The last election was fought between 1 and 2; opinion has since moved toward the rival.
+    voters = [citizen(10 + i, 0.75) for i in range(4)] + [citizen(20, 0.1), citizen(21, 0.9, engagement=DISENGAGED)]
+    state = TickState(citizens=[president, rival, bystander, *voters], parties=[], rupture_rng=np.random.default_rng(0),
+                      events_rng=np.random.default_rng(0), sortition_rng=np.random.default_rng(0),
+                      last_ballots=[["citizen_1", "citizen_2"]] * 5)
+    ballots = ballots_today(state, president, load_config())
+    assert ballots is not None
+    assert {label for ballot in ballots for label in ballot} <= {"citizen_1", "citizen_2", "Blank"}  # not the bystander
+    assert len(ballots) == 8  # every engaged citizen, the candidates included; the one who gave up stays home
+    assert sum(ballot[0] == "citizen_2" for ballot in ballots) > len(ballots) / 2  # today's opinions, not the last count
+    assert ballots_today(dataclasses.replace(state, last_ballots=None), president, load_config()) is None
+
+
+
+def test_a_presidents_goal_follows_their_ambition_and_ambition_has_a_scale() -> None:
+    from api.domain.polity.agents import persona, president_goal
+
+    def at(ambition: float) -> Citizen:
+        return dataclasses.replace(PRESIDENT, ambition_score=ambition, issue_positions=MIDDLE, issue_priorities=(1 / len(MIDDLE),) * len(MIDDLE))
+
+    assert president_goal(at(0.5)).startswith("Keeping office matters more to you than your convictions")
+    assert "watch where opinion is heading" in president_goal(at(0.4))  # the bar itself is high
+    assert president_goal(at(0.3)).startswith("You want to govern by your convictions and to keep office")
+    assert president_goal(at(0.1)).startswith("Your convictions and the country's interest matter more")
+    assert "0.50 -- high: few citizens want office as much as you do" in persona(at(0.5))
+    assert "0.25 -- moderate: more than most citizens" in persona(at(0.25))
+    assert "0.10 -- low, like most citizens'" in persona(at(0.1))
+    for ambition in (0.1, 0.3, 0.5):  # a motive (C1), never an act to take (C4)
+        assert not re.search(r"\b(propose|amend|should|must|vote)\b", president_goal(at(ambition)), re.IGNORECASE)
+
+
+def test_candidates_stand_where_declare_candidacy_would_stand_them() -> None:
+    from api.domain.polity.run_polity_simulation import _standing
+
+    office = dataclasses.replace(PRESIDENT, issue_positions=(0.2,), revealed_position=(0.6,), mandates_served=1)
+    assert _standing(office, keep_record=True) == (0.6,)  # on their conduct in office
+    assert _standing(office, keep_record=False) == (0.2,)  # on their own views
+    newcomer = dataclasses.replace(office, mandates_served=0)
+    assert _standing(newcomer, keep_record=True) == (0.2,)
+
+
+def test_a_president_barred_by_the_term_limit_is_told_so() -> None:
+    text = stakes_text(load_config(), PRESIDENT, BALLOTS, None, barred=True)
+    assert text is not None and "but under the term limit in force you cannot stand again" in text
+
+
+def test_with_opinion_unchanged_todays_ballots_are_the_elections_own(tmp_path: Any) -> None:
+    import numpy as np
+
+    from api.domain.polity import run_polity_simulation as engine
+    from api.domain.polity.citizen import Office, Role
+    from api.domain.polity.journal import Journal
+    from api.domain.polity.tick_state import TickState
+
+    def citizen(cid: int, at: float, **kw: Any) -> Citizen:
+        return Citizen(citizen_id=cid, issue_positions=(at,), issue_priorities=(1.0,), blank_threshold=0.4,
+                       ambition_score=0.5, **kw)
+
+    president = citizen(1, 0.3, role=Role.ELECTED, office=Office.PRESIDENT, pledged_platform=(0.3,), revealed_position=(0.3,))
+    rival = citizen(2, 0.7, pledged_platform=(0.7,), revealed_position=(0.7,))
+    voters = [citizen(10 + i, x) for i, x in enumerate((0.1, 0.25, 0.4, 0.55, 0.65, 0.8, 0.95))]
+    config = load_config()
+    population = [president, rival, *voters]
+    with Journal(tmp_path / "e.jsonl", "run") as journal:
+        held, _ = engine._presidential_ballots(population, [president, rival], config, journal, 4, None,
+                                               engine._judged_incumbent(population, 1, config))
+    state = TickState(citizens=population, parties=[], rupture_rng=np.random.default_rng(0), events_rng=np.random.default_rng(0),
+                      sortition_rng=np.random.default_rng(0), last_ballots=held)
+    assert engine.ballots_today(state, president, config) == held
 
