@@ -147,6 +147,28 @@ def lean(dimension: int, value: float) -> str:
     return f"strongly for {issue.high}"
 
 
+HIGH_AMBITION, LOW_AMBITION = 0.4, 0.2
+"""ADR-028: about the 92nd and 70th percentiles of the population's ambition (phase13: median 0.16, max 0.68)."""
+
+
+def _ambition_scale(ambition: float) -> str:
+    """The scale the bare number lacked (C3): where it stands among the citizens."""
+    if ambition >= HIGH_AMBITION:
+        return "high: few citizens want office as much as you do"
+    return "moderate: more than most citizens" if ambition >= LOW_AMBITION else "low, like most citizens'"
+
+
+def president_goal(president: Citizen) -> str:
+    """ADR-028: what the president wants, from their ambition -- like anyone, a president may put their own interest
+    before the country's, the more so the more they want office. A motive (C1), never an act to take (C4)."""
+    if president.ambition_score >= HIGH_AMBITION:
+        return ("Keeping office matters more to you than your convictions or the country's interest, and you watch where "
+                "opinion is heading so as not to be caught out by it.")
+    if president.ambition_score >= LOW_AMBITION:
+        return "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+    return "Your convictions and the country's interest matter more to you than keeping office."
+
+
 def persona(citizen: Citizen) -> str:
     """Who the agent is, from their numbers alone -- stable across ticks, so it sits in the
     system prompt and is served from the prefix cache. The numbers stay the kernel's truth."""
@@ -158,7 +180,7 @@ def persona(citizen: Citizen) -> str:
     return (
         f"You are {agent_name(citizen)} (citizen {citizen.citizen_id}), a member of {party}. "
         f"The issues you care most about: {', '.join(ISSUES[d].name for d in top)}. "
-        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f}.\n"
+        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f} -- {_ambition_scale(citizen.ambition_score)}.\n"
         f"Your own convictions on each issue (0 = the first pole, 1 = the second):\n{views}"
     )
 
@@ -349,8 +371,7 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(president)}\n\n"
-        "You are now its president. You want to govern by your convictions and to keep office; how you weigh the "
-        "two is yours to decide.\n\nThe rules you act under:\n"
+        f"You are now its president. {president_goal(president)}\n\nThe rules you act under:\n"
         + "\n".join(f"- {rule}" for rule in rules)
         + f"\n\n{_ANSWER_FORMAT}"
     )
