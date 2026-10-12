@@ -216,3 +216,19 @@ def test_a_presidents_goal_follows_their_ambition_and_ambition_has_a_scale() -> 
     assert "0.10 -- low, like most citizens'" in persona(at(0.1))
     for ambition in (0.1, 0.3, 0.5):  # a motive (C1), never an act to take (C4)
         assert not re.search(r"\b(propose|amend|should|must|vote)\b", president_goal(at(ambition)), re.IGNORECASE)
+
+
+def test_candidates_stand_where_declare_candidacy_would_stand_them() -> None:
+    from api.domain.polity.run_polity_simulation import _standing
+
+    office = dataclasses.replace(PRESIDENT, issue_positions=(0.2,), revealed_position=(0.6,), mandates_served=1)
+    assert _standing(office, keep_record=True) == (0.6,)  # on their conduct in office
+    assert _standing(office, keep_record=False) == (0.2,)  # on their own views
+    newcomer = dataclasses.replace(office, mandates_served=0)
+    assert _standing(newcomer, keep_record=True) == (0.2,)
+
+
+def test_a_president_barred_by_the_term_limit_is_told_so() -> None:
+    text = stakes_text(load_config(), PRESIDENT, BALLOTS, None, barred=True)
+    assert text is not None and "but under the term limit in force you cannot stand again" in text
+

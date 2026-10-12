@@ -396,7 +396,8 @@ class PresidentBriefing:
     """The constitution in force and whether an amendment can be proposed (amendments.constitution_text);
     None when the polity cannot amend itself."""
     stakes: str | None = None
-    """ADR-026: what the last elections would have given under other rules (amendments.stakes_text)."""
+    """ADR-026/027: what the rules would give the president -- today's ballots under each voting method, the last
+    legislative votes under each seat rule (amendments.stakes_text)."""
 
 
 def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:

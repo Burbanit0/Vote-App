@@ -45,3 +45,5 @@ confidence votes, safeguarding my re-election prospects".
 - **Thin samples:** five high-ambition presidents, final states, a few turns each.
 - **Ambition is static.** Power does not grow it.
 - **Only the president's goal changed.** Nominees and party leaders keep their own sentences.
+- **The scale reaches every agent, unmeasured.** It sits in `persona`, which nominees, forum posters,
+  chamber members and party leaders share. None of their behaviour has been probed under it.

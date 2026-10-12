@@ -1378,7 +1378,10 @@ def _president_briefing(
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
         constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
-        stakes=stakes_text(config, president, ballots_today(state, president, config), legislature) if stakes_open else None,
+        stakes=stakes_text(
+            config, president, ballots_today(state, president, config), legislature,
+            barred=is_term_limited(president, config.institutions.president_term_limit),
+        ) if stakes_open else None,
     )
 
 
@@ -2121,10 +2124,11 @@ def _judged_incumbent(
 
 
 def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
-    """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again --
-    the election's own rule (utility_ballot, the president judged on their record), on today's opinions. What a
-    president who means to stay needs to weigh a change of voting method: the next election, not the last."""
-    candidates = _last_candidates(state, president)
+    """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
+    the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
+    profile's; an LLM-cast electorate is not forecast), the president judged on their record, on today's
+    opinions. What a president who means to stay needs to weigh a change of voting method: the next election."""
+    candidates = _last_candidates(state, config.candidacy.incumbent_keeps_record)
     if not candidates:
         return None
     incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
@@ -2132,17 +2136,19 @@ def ballots_today(state: TickState, president: Citizen, config: PolityConfig) ->
     return [ballot for ballot in cast if ballot is not None] or None
 
 
-def _last_candidates(state: TickState, president: Citizen) -> list[Citizen]:
-    """The last election's candidates, as copies standing on a platform -- no citizen's own state is touched."""
+def _last_candidates(state: TickState, keep_record: bool) -> list[Citizen]:
+    """The last election's candidates who still take part (ADR-021), as copies standing where declare_candidacy
+    would stand them -- no citizen's own state is touched. Who would actually be nominated is not forecast."""
     labels = {label for ballot in state.last_ballots or [] for label in ballot}
-    return [dataclasses.replace(c, pledged_platform=_standing(c, president)) for c in state.citizens if candidate_label(c) in labels]
+    return [dataclasses.replace(c, pledged_platform=_standing(c, keep_record))
+            for c in state.citizens if candidate_label(c) in labels and c.engaged]
 
 
-def _standing(candidate: Citizen, president: Citizen) -> tuple[float, ...]:
-    """The president on their conduct in office (incumbent_keeps_record), the others on their last pledge, or their
-    own views once it has lapsed."""
-    stood = candidate.revealed_position if candidate.citizen_id == president.citizen_id else candidate.pledged_platform
-    return stood or candidate.issue_positions
+def _standing(candidate: Citizen, keep_record: bool) -> tuple[float, ...]:
+    """declare_candidacy's platform: a former officeholder's conduct in office under keep_record, else their views."""
+    if keep_record and candidate.mandates_served > 0 and candidate.revealed_position is not None:
+        return candidate.revealed_position
+    return candidate.issue_positions
 
 
 def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:

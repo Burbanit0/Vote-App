@@ -10,12 +10,13 @@ losing a second mandate and push for a method that would keep them. In phase13 (
 ## Decision
 
 - **Today's ballots, not the last election's.** `ballots_today` builds the ballots the citizens would cast
-  today if the last election's candidates stood again, by the election's own rule (`utility_ballot`, the
-  president judged on their record), on today's opinions.
-  - **Platforms:** the president stands on their conduct in office (`revealed_position`, as
-    `incumbent_keeps_record` has them run). The others stand on their last pledge, or their own views
-    once it has lapsed. These are copies; no citizen's state is touched.
-  - **Who votes:** citizens who gave up stay home (ADR-021).
+  today if the last election's candidates stood again. It uses the utility vote (`utility_ballot`, the
+  exploration profile's `vote.mode`), with the president judged on their record, on today's opinions.
+  - **Platforms:** each candidate stands where `declare_candidacy` would stand them: a former officeholder
+    on their conduct in office under `incumbent_keeps_record` (on in the exploration profile), anyone
+    else on their own views. These are copies; no citizen's state is touched.
+  - **Who:** candidates and voters who gave up are left out (ADR-021).
+  - **The term limit:** a president it bars from standing again is told so beside the methods.
 - **The president's own position first.** The line opens with "would elect you under: …" (or "no
   method"), then the other winners, and marks the method in force.
   - Grouped by winner, the old line buried "you" among thirteen methods. An at-risk president
@@ -41,6 +42,12 @@ but elect under another: 4 of the 39 finished runs' final states (28 still win, 
 
 ## Not settled
 
-- **The field may differ.** Today's ballots assume the last election's candidates; the next election's
-  field may differ.
-- **Final states only.** All the probe states are final states.
+- **The field may differ.** Today's ballots assume the last election's candidates, minus those who gave
+  up. Who the parties would nominate, and new rupture candidates, are not forecast.
+- **The referendum counts other ballots.** It (ADR-020) still re-counts the last election's ballots, so
+  a change the president proposes on today's ballots can still be referred and lost on the old ones.
+- **No forecast for an LLM-cast electorate.** With `vote.mode` "llm" the citizens' ballots are the
+  model's; the forecast stays the utility rule.
+- **Final states only.** All the probe states are final states. The 39-president comparison ran before
+  the platforms followed `declare_candidacy`; for presidents under `incumbent_keeps_record` it is the
+  same platform.

@@ -1,7 +1,8 @@
-"""ADR-026's measurement: does showing a president what the last elections would have given under other rules
+"""ADR-026/027's measurement: does showing a president what the rules would give them -- today's ballots under each
+voting method, the last legislative votes under each seat rule --
 change what they propose? Each sitting president of a finished run's final checkpoint takes the same turn many
 times, at the exploration profile's temperature, with and without the stakes in their briefing; the amendments
-they propose are counted by article, and a proposed voting method is checked against whom it would have elected.
+they propose are counted by article, and a proposed voting method is checked against whom today's ballots elect.
 
 Needs vLLM on config.llm.base_url. Usage (from fast_api_voter/):
     python scripts/check_amendment_stakes.py ~/Documents/Dev/polity-runs/phase11 ~/Documents/Dev/polity-runs/phase12/runs --samples 2
@@ -24,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.accountability import current_sortition_members, is_term_limited, ticks_to_election  # noqa: E402
-from api.domain.polity.agents import PRESIDENT_TURN, PresidentBriefing, decide_turn  # noqa: E402
+from api.domain.polity.agents import HIGH_AMBITION, LOW_AMBITION, PRESIDENT_TURN, PresidentBriefing, decide_turn  # noqa: E402
 from api.domain.polity.agents import president_system_prompt, president_user_prompt  # noqa: E402
 from api.domain.polity.amendments import constitution_text, stakes_text  # noqa: E402
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner  # noqa: E402
@@ -71,14 +72,16 @@ def _scenarios(root: Path) -> list[dict[str, Any]]:
         constitution = dataclasses.replace(state.constitution, pending=None) if state.constitution else None
         config = in_force(founding, constitution)
         found.append(dict(run=f"{root.name}/{checkpoint_path.parent.name}", tick=tick, state=state, president=president,
-                          constitution=constitution, config=config, today=ballots_today(state, president, config)))
+                          constitution=constitution, config=config, today=(today := ballots_today(state, president, config)),
+                          stakes=stakes_text(config, president, today, state.legislature,
+                                             barred=is_term_limited(president, config.institutions.president_term_limit))))
     return found
 
 
 def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str, Any] | None:
     config, state, president, tick = scenario["config"], scenario["state"], scenario["president"], scenario["tick"]
     text = constitution_text(config, scenario["constitution"], len(current_sortition_members(state.citizens)))
-    stakes = stakes_text(config, president, scenario["today"], state.legislature) if with_stakes else None
+    stakes = scenario["stakes"] if with_stakes else None
     briefing = PresidentBriefing(
         tick=tick, ticks_per_year=config.run.ticks_per_year,
         context=ResponseContext(
@@ -109,7 +112,7 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
 
 def _band(ambition: float) -> str:
     """ADR-028's bands: above 0.4 keeping office comes first, below 0.2 convictions do."""
-    return "high" if ambition >= 0.4 else "middle" if ambition >= 0.2 else "low"
+    return "high" if ambition >= HIGH_AMBITION else "middle" if ambition >= LOW_AMBITION else "low"
 
 
 def _at_risk(scenario: dict[str, Any]) -> bool:
