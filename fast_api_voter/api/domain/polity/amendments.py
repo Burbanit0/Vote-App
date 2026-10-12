@@ -102,20 +102,22 @@ _BARS = tuple(float(bar) for bar in (_THRESHOLD.low, 0.03, 0.05, 0.08, _THRESHOL
 def stakes_text(
     config: PolityConfig, president: Citizen, ballots: list[list[str]] | None, legislature: Legislature | None,
 ) -> str | None:
-    """ADR-026: what the last elections would have given under other rules, for the president -- the last
-    presidential ballots counted under each voting method, and the last legislative votes re-seated under each
-    seat rule and threshold. Facts the kernel computes, so a self-interested proposal can be weighed (C3), with
-    nothing said about which to propose (C4). None when there is no election to recount yet."""
-    lines = [_method_stakes(president, ballots) if ballots else None,
+    """ADR-026: what the rules would give the president -- `ballots`, the citizens' ballots today over the last
+    election's candidates (ADR-027: the next election, not the last), counted under each voting method; and the
+    last legislative votes re-seated under each seat rule and threshold. Facts the kernel computes, so a
+    self-interested proposal can be weighed (C3), with nothing said about which to propose (C4). None when there
+    is nothing to count yet."""
+    lines = [_method_stakes(president, ballots, config.institutions.presidential_method) if ballots else None,
              _seat_stakes(config, president, legislature) if legislature is not None and legislature.votes else None]
     return "\n".join(line for line in lines if line) or None
 
 
-def _method_stakes(president: Citizen, ballots: list[list[str]]) -> str:
+def _method_stakes(president: Citizen, ballots: list[list[str]], in_force: str) -> str:
     elected: dict[str, list[str]] = {}
-    for method in ARTICLES["institutions.presidential_method"].choices:
-        elected.setdefault(_elected(get_presidential_winner(ballots, str(method)), president), []).append(str(method))
-    return ("Counted under each voting method, the last presidential election's ballots elect: "
+    for method in map(str, ARTICLES["institutions.presidential_method"].choices):
+        label = f"{method} (in force)" if method == in_force else method
+        elected.setdefault(_elected(get_presidential_winner(ballots, method), president), []).append(label)
+    return ("If the last election's candidates stood again today, the citizens' ballots would elect: "
             + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
 
 

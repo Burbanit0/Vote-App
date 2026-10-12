@@ -30,11 +30,13 @@ from api.domain.polity.amendments import constitution_text, stakes_text  # noqa:
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner  # noqa: E402
 from api.domain.polity.checkpoint import load_checkpoint  # noqa: E402
 from api.domain.polity.citizen import Office  # noqa: E402
+from api.domain.polity.config import ARTICLES  # noqa: E402
 from api.domain.polity.constitution import in_force  # noqa: E402
 from api.domain.polity.legislation import population_median  # noqa: E402
 from api.domain.polity.legitimacy import approval  # noqa: E402
 from api.domain.polity.llm_behavior_engine import ResponseContext  # noqa: E402
 from api.domain.polity.llm_client import build_json_client  # noqa: E402
+from api.domain.polity.run_polity_simulation import ballots_today  # noqa: E402
 from api.domain.polity.simple_rules import candidate_label  # noqa: E402
 
 WORKERS = 8
@@ -67,15 +69,16 @@ def _scenarios(root: Path) -> list[dict[str, Any]]:
                    if '"legislative_result"' in line]
         state.legislature.votes = {int(p): v for p, v in results[-1]["payload"]["votes"].items()} if results else None
         constitution = dataclasses.replace(state.constitution, pending=None) if state.constitution else None
+        config = in_force(founding, constitution)
         found.append(dict(run=f"{root.name}/{checkpoint_path.parent.name}", tick=tick, state=state, president=president,
-                          constitution=constitution, config=in_force(founding, constitution)))
+                          constitution=constitution, config=config, today=ballots_today(state, president, config)))
     return found
 
 
 def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str, Any] | None:
     config, state, president, tick = scenario["config"], scenario["state"], scenario["president"], scenario["tick"]
     text = constitution_text(config, scenario["constitution"], len(current_sortition_members(state.citizens)))
-    stakes = stakes_text(config, president, state.last_ballots, state.legislature) if with_stakes else None
+    stakes = stakes_text(config, president, scenario["today"], state.legislature) if with_stakes else None
     briefing = PresidentBriefing(
         tick=tick, ticks_per_year=config.run.ticks_per_year,
         context=ResponseContext(
@@ -98,18 +101,29 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
     if amendment is None:
         return None
     wins = None
-    if amendment.article == "institutions.presidential_method" and state.last_ballots:
-        wins = get_presidential_winner(state.last_ballots, str(amendment.value)) == candidate_label(president)
+    if amendment.article == "institutions.presidential_method" and scenario["today"]:
+        wins = get_presidential_winner(scenario["today"], str(amendment.value)) == candidate_label(president)
     return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins,
             "reason": amendment.reason}
+
+
+def _at_risk(scenario: dict[str, Any]) -> bool:
+    today, me = scenario["today"], candidate_label(scenario["president"])
+    if not today or get_presidential_winner(today, scenario["config"].institutions.presidential_method) == me:
+        return False
+    return any(get_presidential_winner(today, str(m)) == me for m in ARTICLES["institutions.presidential_method"].choices)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("roots", type=Path, nargs="+", help="directories of finished runs (their checkpoint.json and events.jsonl)")
     parser.add_argument("--samples", type=int, default=20, help="turns per president per arm")
+    parser.add_argument("--at-risk", action="store_true",
+                        help="ADR-027: only presidents today's ballots defeat under the method in force but elect under another")
     args = parser.parse_args(argv)
     scenarios = [s for root in args.roots for s in _scenarios(root)]
+    if args.at_risk:
+        scenarios = [s for s in scenarios if _at_risk(s)]
     print(f"{len(scenarios)} presidents: " + ", ".join(f"{s['run']} t{s['tick']} c{s['president'].citizen_id}" for s in scenarios))
     for with_stakes in (False, True):
         jobs = [(s, k) for s in scenarios for k in range(args.samples)]

@@ -254,6 +254,7 @@ from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    candidate_label,
     apply_party_move,
     assign_party_affiliation,
     dissolve_small_parties,
@@ -1377,7 +1378,7 @@ def _president_briefing(
         assembly_median=seat_weighted_median(state.parties, legislature.seats) if legislature is not None and legislature.seats else None,
         pledge=pledge, stated=stated,
         constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
-        stakes=stakes_text(config, president, state.last_ballots, legislature) if stakes_open else None,
+        stakes=stakes_text(config, president, ballots_today(state, president, config), legislature) if stakes_open else None,
     )
 
 
@@ -2117,6 +2118,25 @@ def _judged_incumbent(
         return None
     record = incumbent_record(next(c for c in citizens if c.citizen_id == incumbent_id))
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
+
+
+def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+    """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again --
+    the election's own rule (utility_ballot, the president's record judged), on today's opinions. What a
+    president who means to stay needs to weigh a change of voting method: the next election, not the last."""
+    labels = {label for ballot in state.last_ballots or [] for label in ballot}
+    # Copies standing on a platform: the president on their conduct in office (incumbent_keeps_record), the others
+    # on their last pledge, or their own views once it has lapsed -- no citizen's own state is touched.
+    candidates = [
+        dataclasses.replace(c, pledged_platform=(c.revealed_position if c is president else c.pledged_platform)
+                            or c.issue_positions)
+        for c in state.citizens if candidate_label(c) in labels
+    ]
+    if not candidates:
+        return None
+    incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
+    cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
+    return [ballot for ballot in cast if ballot is not None] or None
 
 
 def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:

@@ -31,7 +31,7 @@ MIDDLE = (0.5,) * len(ISSUES)
 def _groups(text: str) -> dict[str, list[str]]:
     """'X under m1, m2; Y under m3.' -> {X: [m1, m2], Y: [m3]}, from the voting-method line."""
     line = text.splitlines()[0].split(": ", 1)[1].rstrip(".")
-    return {who: methods.split(", ") for who, methods in (part.split(" under ") for part in line.split("; "))}
+    return {who: methods.replace(" (in force)", "").split(", ") for who, methods in (part.split(" under ") for part in line.split("; "))}
 
 
 def _seat_rows(text: str) -> dict[str, int]:
@@ -158,7 +158,39 @@ def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_pr
             return engine._president_briefing(context, state, president, (0.5, 0.5), (0.5, 0.5), None)
 
     shown = briefing(stakes=True, members=[member]).stakes
-    assert shown is not None and shown.startswith("Counted under each voting method")
+    assert shown is not None and shown.startswith("If the last election's candidates stood again today")
     assert briefing(stakes=False, members=[member]).stakes is None
     assert briefing(stakes=True, members=[]).stakes is None  # no chamber drawn: no amendment can be proposed
+
+
+def test_the_method_in_force_is_named_among_the_others() -> None:
+    config = load_config()
+    text = stakes_text(config, PRESIDENT, BALLOTS, None)
+    assert text is not None and f"{config.institutions.presidential_method} (in force)" in text
+
+
+def test_todays_ballots_are_the_last_candidates_ranked_on_todays_opinions() -> None:
+    import numpy as np
+
+    from api.domain.polity.citizen import DISENGAGED, Office, Role
+    from api.domain.polity.run_polity_simulation import ballots_today
+    from api.domain.polity.tick_state import TickState
+
+    def citizen(cid: int, at: float, **kw: Any) -> Citizen:
+        return Citizen(citizen_id=cid, issue_positions=(at,), issue_priorities=(1.0,), blank_threshold=0.5,
+                       ambition_score=0.5, pledged_platform=(at,), revealed_position=(at,), **kw)
+
+    president = citizen(1, 0.2, role=Role.ELECTED, office=Office.PRESIDENT)
+    rival, bystander = citizen(2, 0.8), citizen(3, 0.5)
+    # The last election was fought between 1 and 2; opinion has since moved toward the rival.
+    voters = [citizen(10 + i, 0.75) for i in range(4)] + [citizen(20, 0.1), citizen(21, 0.9, engagement=DISENGAGED)]
+    state = TickState(citizens=[president, rival, bystander, *voters], parties=[], rupture_rng=np.random.default_rng(0),
+                      events_rng=np.random.default_rng(0), sortition_rng=np.random.default_rng(0),
+                      last_ballots=[["citizen_1", "citizen_2"]] * 5)
+    ballots = ballots_today(state, president, load_config())
+    assert ballots is not None
+    assert {label for ballot in ballots for label in ballot} <= {"citizen_1", "citizen_2", "Blank"}  # not the bystander
+    assert len(ballots) == 8  # every engaged citizen, the candidates included; the one who gave up stays home
+    assert sum(ballot[0] == "citizen_2" for ballot in ballots) > len(ballots) / 2  # today's opinions, not the last count
+    assert ballots_today(dataclasses.replace(state, last_ballots=None), president, load_config()) is None
 
