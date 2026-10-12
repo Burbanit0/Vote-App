@@ -70,6 +70,13 @@ def test_the_party_seats_are_re_seated_under_each_rule_and_threshold_with_the_el
     assert rows["0%"] == seats(config.institutions.seat_allocation, 0.0) and rows["15%"] == 0  # 9% clears no 15% bar
 
 
+def test_a_method_under_which_the_blank_ballot_wins_elects_no_one() -> None:
+    from api.domain.polity.simple_rules import BLANK_LABEL
+
+    text = stakes_text(load_config(), PRESIDENT, [[BLANK_LABEL, A]] * 3 + [[A, BLANK_LABEL]], None)
+    assert text is not None and "plurality" in _groups(text)["no one"]
+
+
 def test_nothing_to_show_before_any_election_or_for_a_president_without_party() -> None:
     config = load_config()
     assert stakes_text(config, PRESIDENT, None, None) is None
