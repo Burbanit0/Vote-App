@@ -46,9 +46,20 @@ def _scenarios(root: Path) -> list[dict[str, Any]]:
     import run_polity_flagship as flagship
 
     found = []
+    founding = flagship._flagship_config(
+        engine="llm", years=8, population=100, seats=15, seed=1, output_dir=Path("/tmp/stakes-probe"),
+        max_batch_replays=2, provider="vllm", workers=1, profile="exploration",
+    )
     for checkpoint_path in sorted(root.rglob("checkpoint.json")):
-        state = load_checkpoint(checkpoint_path).state
-        tick = load_checkpoint(checkpoint_path).tick
+        checkpoint = load_checkpoint(checkpoint_path)
+        state, tick = checkpoint.state, checkpoint.tick
+        ran = json.loads((checkpoint_path.parent / "config.json").read_text())
+        rules = (ran["institutions"]["electoral_threshold"], ran["institutions"]["seat_allocation"],
+                 ran["institutions"]["assembly_seats"], ran["sortition_chamber"]["seats"], len(state.citizens))
+        if rules != (founding.institutions.electoral_threshold, founding.institutions.seat_allocation,
+                     founding.institutions.assembly_seats, founding.sortition_chamber.seats, founding.run.population_size):
+            print(f"skipped {checkpoint_path.parent}: founded on other rules than the exploration profile's {rules}")
+            continue
         president = next((c for c in state.citizens if c.office == Office.PRESIDENT), None)
         if president is None or state.legislature is None:
             continue
@@ -56,11 +67,7 @@ def _scenarios(root: Path) -> list[dict[str, Any]]:
                    if '"legislative_result"' in line]
         state.legislature.votes = {int(p): v for p, v in results[-1]["payload"]["votes"].items()} if results else None
         constitution = dataclasses.replace(state.constitution, pending=None) if state.constitution else None
-        founding = flagship._flagship_config(
-            engine="llm", years=8, population=len(state.citizens), seats=15, seed=1, output_dir=Path("/tmp/stakes-probe"),
-            max_batch_replays=2, provider="vllm", workers=1, profile="exploration",
-        )
-        found.append(dict(run=checkpoint_path.parent.name, tick=tick, state=state, president=president,
+        found.append(dict(run=f"{root.name}/{checkpoint_path.parent.name}", tick=tick, state=state, president=president,
                           constitution=constitution, config=in_force(founding, constitution)))
     return found
 
@@ -80,7 +87,7 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
         policy=state.legislature.policy, public_median=population_median(state.citizens), assembly_median=None,
         pledge=president.pledged_platform or president.issue_positions,
         stated=president.revealed_position or president.issue_positions,
-        constitution=text + (f"\n{stakes}" if stakes else ""),
+        constitution=text, stakes=stakes,
     )
     outcome = decide_turn(
         president, decision_type=PRESIDENT_TURN, system_prompt=president_system_prompt(president, config),
@@ -116,7 +123,8 @@ def main(argv: list[str] | None = None) -> int:
         for (run, article, value), n in collections.Counter(
             (p["run"], p["article"].split(".")[-1], str(p["value"])) for p in made
         ).most_common():
-            reason = next(p["reason"] for p in made if p["run"] == run and str(p["value"]) == value)
+            reason = next(p["reason"] for p in made
+                          if p["run"] == run and p["article"].endswith(article) and str(p["value"]) == value)
             print(f"    {run}: {article} -> {value} x{n} -- {reason[:110]}")
         if methods:
             print(f"  voting-method proposals under which the president would have won: {sum(p['wins'] for p in methods)} of {len(methods)} "

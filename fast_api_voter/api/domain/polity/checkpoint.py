@@ -268,6 +268,7 @@ def _legislature_from_dict(data: Mapping[str, Any]) -> Legislature:
         policy=tuple(data["policy"]),
         seats=None if data["seats"] is None else {int(k): v for k, v in data["seats"].items()},
         votes=None if data.get("votes") is None else {int(k): v for k, v in data["votes"].items()},
+        votes_tick=data.get("votes_tick"),
         coalition=_optional_tuple(data["coalition"]),
         policy_at_term_start=_optional_tuple(data["policy_at_term_start"]),
         policy_at_assembly_start=_optional_tuple(data["policy_at_assembly_start"]),

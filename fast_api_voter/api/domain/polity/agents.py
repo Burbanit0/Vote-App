@@ -374,6 +374,8 @@ class PresidentBriefing:
     constitution: str | None = None
     """The constitution in force and whether an amendment can be proposed (amendments.constitution_text);
     None when the polity cannot amend itself."""
+    stakes: str | None = None
+    """ADR-026: what the last elections would have given under other rules (amendments.stakes_text)."""
 
 
 def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
@@ -398,6 +400,7 @@ def president_user_prompt(briefing: PresidentBriefing, memory: str) -> str:
     ]
     year, quarter = divmod(briefing.tick, briefing.ticks_per_year)
     constitution = f"\n\n{briefing.constitution}" if briefing.constitution is not None else ""
+    constitution += f"\n{briefing.stakes}" if briefing.stakes else ""
     return (
         f"Tick {briefing.tick} (year {year}, quarter {quarter + 1}). {term}; {again}.\n"
         f"Your standing: {', '.join(standing)}.\n{agenda}\n\n"

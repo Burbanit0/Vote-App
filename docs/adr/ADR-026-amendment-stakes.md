@@ -21,8 +21,13 @@ other rules too: the voting method, the institutions. Two things stood in the wa
     methods, and whom each elects: "you" or a citizen. These are the ballots ADR-020 already keeps for
     referendums.
   - **The seats:** the last legislative election's party votes re-seated under each seat allocation and
-    at thresholds of 0, 3, 5, 8 and 15%, giving the seats the president's party wins. The legislature
-    now keeps those votes; they are checkpointed, and older checkpoints load.
+    at thresholds of 0, 3, 5, 8 and 15% (the article's ends and the usual bars between), giving the seats
+    the president's party wins.
+    - Ties are drawn from the election's own seeded lot (`seat_lot`, which the election now uses too), so
+      "under the rules in force" is the seats the party holds.
+    - The legislature keeps those votes and their tick; they are checkpointed, and older checkpoints load.
+  - **Only when an amendment can be proposed:** with one pending, or no chamber drawn, the stakes are left
+    out.
   - **The contract:** these are facts the kernel computes, which give the state a scale (C3). Nothing
     says which change to propose (C4).
 - **The amendment is required and nullable**, like `campaign` and `extra_legal`: every turn says
@@ -71,5 +76,12 @@ temperature 0.6. The optional-field column ran on ca39ec09, the required-field c
   How often presidents amend over a whole run, and what the chamber ratifies, needs an ensemble.
 - **Thresholds only.** The seats are shown at five thresholds and the three seat allocations, not at
   other assembly sizes or with other articles changed.
+- **Votes as cast.** The seats re-seat the votes as cast: the mechanical effect of each rule. Under
+  ADR-024, voters cast them against the threshold in force, so a lower bar would also have kept some
+  deserters at home. That is not shown, and the stakes understate what a lower bar gives a small
+  party.
+- **The probe builds its own briefing.** It does not reuse the kernel's, so a later change to the
+  president's briefing has to be mirrored in it. It also checks that each probed run was founded on the
+  exploration profile's rules, and skips any run that was not; the 34 probed runs all were.
 - **Only the president sees them.** Chamber members vote on a proposal
   without the stakes.
