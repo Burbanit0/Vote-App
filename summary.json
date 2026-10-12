@@ -1133,6 +1133,31 @@
   },
   {
    "branches": [
+    "develop",
+    "polity"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Frontend mutation score (Stryker, floor 80%)",
+    "lines": [
+     "23:06:57 (2512) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+     "23:06:57 (2512) ERROR Stryker There were failed tests in the initial test run.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "ce0e674971d013d79165d21eb2106453df33d4e0",
+    "step": "Run Stryker (fails under thresholds.break)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303209"
+   },
+   "last_seen": "2026-10-12T23:05:39Z",
+   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+   "workflows": [
+    "Mutation Testing"
+   ]
+  },
+  {
+   "branches": [
     "polity"
    ],
    "category": "code",
@@ -1366,30 +1391,6 @@
    "signature": "code: ##[error]  #:#  error  Replace these # tests with a single Parameterized one  sonarjs/parameterized-tests",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Frontend mutation score (Stryker, floor 80%)",
-    "lines": [
-     "12:01:37 (2439) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-     "12:01:37 (2439) ERROR Stryker There were failed tests in the initial test run.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "714f08c42140c71574d9bd4399bf70c5f11f7286",
-    "step": "Run Stryker (fails under thresholds.break)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38246263308"
-   },
-   "last_seen": "2026-10-12T12:00:11Z",
-   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-   "workflows": [
-    "Mutation Testing"
    ]
   },
   {
@@ -1781,17 +1782,14 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 282,
+  "code": 283,
   "infra": 22,
   "test-flaky": 41,
   "unknown": 2
  },
- "generated_at": "2026-10-12T23:18:28Z",
+ "generated_at": "2026-10-12T23:24:42Z",
  "grid": {
   "Backend CI": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 5,
     "failure": 15,
@@ -1888,9 +1886,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 1,
     "success": 10
@@ -2016,7 +2011,7 @@
    },
    "2026-10-12": {
     "failure": 1,
-    "success": 38
+    "success": 39
    }
   },
   "CI Health Watchdog": {
@@ -2164,9 +2159,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 1,
     "success": 10
@@ -2280,9 +2272,6 @@
    }
   },
   "E2E Tests": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 4,
     "failure": 1,
@@ -2393,9 +2382,6 @@
    }
   },
   "Frontend CI": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "success": 30
    },
@@ -2493,9 +2479,6 @@
    }
   },
   "Generated Artifacts Contract": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "success": 62
    },
@@ -2677,13 +2660,10 @@
     "success": 1
    },
    "2026-10-12": {
-    "failure": 1
+    "failure": 2
    }
   },
   "OpenSSF Scorecard": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 1,
     "success": 31
@@ -2762,9 +2742,6 @@
    }
   },
   "Schemathesis Contract Fuzzing": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 3,
     "failure": 1,
@@ -2841,9 +2818,6 @@
    }
   },
   "Security Audit": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "cancelled": 7,
     "failure": 3,
@@ -3008,7 +2982,7 @@
    "2026-10-12": {
     "cancelled": 9,
     "skipped": 112,
-    "success": 81
+    "success": 82
    }
   },
   "zizmor online": {
@@ -3044,9 +3018,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T23:10:16Z",
+   "created_at": "2026-10-12T23:16:09Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320703940"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38321233062"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3105,11 +3079,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38321476341"
   },
   "Mutation Testing": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "failure",
-   "created_at": "2026-10-12T12:00:11Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38246263308"
+   "created_at": "2026-10-12T23:05:39Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303209"
   },
   "OpenSSF Scorecard": {
    "branch": "develop",
@@ -3142,9 +3116,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T23:22:31Z",
+   "created_at": "2026-10-12T23:28:41Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38321793886"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38322329423"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3154,11 +3128,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 15810,
+ "runs": 15804,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-12": 190,
     "2026-09-13": 10.0,
     "2026-09-14": 19.5,
     "2026-09-15": 178,
@@ -3190,11 +3163,10 @@
    "p50_s": 184,
    "p95_s": 489,
    "queue_p50_s": 0,
-   "runs": 1248
+   "runs": 1247
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-12": 283,
     "2026-09-13": 283.0,
     "2026-09-14": 305,
     "2026-09-15": 313,
@@ -3229,7 +3201,7 @@
    "p50_s": 313,
    "p95_s": 1047,
    "queue_p50_s": 0,
-   "runs": 162
+   "runs": 161
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3275,12 +3247,12 @@
     "2026-10-09": 402,
     "2026-10-10": 408.0,
     "2026-10-11": 368,
-    "2026-10-12": 393.5
+    "2026-10-12": 396
    },
    "p50_s": 395,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 378
+   "runs": 379
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3340,7 +3312,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-12": 172,
     "2026-09-13": 176.5,
     "2026-09-14": 180,
     "2026-09-15": 169.0,
@@ -3375,7 +3346,7 @@
    "p50_s": 175,
    "p95_s": 198,
    "queue_p50_s": 0,
-   "runs": 264
+   "runs": 263
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3444,7 +3415,6 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-12": 756,
     "2026-09-13": 10.0,
     "2026-09-14": 649,
     "2026-09-15": 618.0,
@@ -3476,11 +3446,10 @@
    "p50_s": 598,
    "p95_s": 845,
    "queue_p50_s": 0,
-   "runs": 1118
+   "runs": 1117
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-12": 10,
     "2026-09-13": 9.0,
     "2026-09-14": 93,
     "2026-09-15": 152,
@@ -3512,11 +3481,10 @@
    "p50_s": 36,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 1231
+   "runs": 1230
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-12": 56,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
     "2026-09-15": 12,
@@ -3548,7 +3516,7 @@
    "p50_s": 74,
    "p95_s": 130,
    "queue_p50_s": 0,
-   "runs": 1329
+   "runs": 1328
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3594,7 +3562,6 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-12": 49,
     "2026-09-13": 39,
     "2026-09-14": 43.5,
     "2026-09-15": 45.0,
@@ -3622,7 +3589,7 @@
    "p50_s": 44,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 205
+   "runs": 204
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3642,7 +3609,6 @@
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-09-12": 1382,
     "2026-09-13": 1797.0,
     "2026-09-14": 1721.5,
     "2026-09-16": 1889.5,
@@ -3667,13 +3633,12 @@
     "2026-10-12": 72.5
    },
    "p50_s": 78,
-   "p95_s": 1851,
+   "p95_s": 1862,
    "queue_p50_s": 0,
-   "runs": 132
+   "runs": 131
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-12": 168,
     "2026-09-13": 101.0,
     "2026-09-14": 122,
     "2026-09-15": 118.0,
@@ -3705,7 +3670,7 @@
    "p50_s": 131,
    "p95_s": 226,
    "queue_p50_s": 0,
-   "runs": 1277
+   "runs": 1276
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3732,12 +3697,12 @@
     "2026-10-09": 28.5,
     "2026-10-10": 27.0,
     "2026-10-11": 27,
-    "2026-10-12": 28
+    "2026-10-12": 28.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1080
+   "runs": 1081
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3944,10 +3909,10 @@
      "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303249"
     },
     "Mutation Testing": {
-     "conclusion": "success",
-     "created_at": "2026-10-10T12:05:40Z",
-     "sha": "7b02c78180e80fda79786531fcf784c035ca01c4",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38050715101"
+     "conclusion": "failure",
+     "created_at": "2026-10-12T23:05:39Z",
+     "sha": "ce0e674971d013d79165d21eb2106453df33d4e0",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303209"
     },
     "Schemathesis Contract Fuzzing": {
      "conclusion": "success",
