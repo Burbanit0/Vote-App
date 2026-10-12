@@ -63,10 +63,10 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
   percentage. Why the seat rule never enters the answer is still open.
 - Expert review: are the 110 unsourced criteria cells right, and are W1.1's MJ
   "majority: conditional" and W1.2's two cell changes right?
-- The tie lot's seed: #667's draws for a rule's tie use seed 0, so a given set of tied names
-  always draws the same one. The per-voter draws vary from voter to voter (seeded with the
-  voter's id), and only the nearest-option draws (#663, #665) also take the request's seed.
-  Thread the request's seed into the others too?
-- What remains of the 2026-10-09 tie decision has no issue yet: the ranked rules'
-  tie-breaks on both engines (a parity-fixture regeneration), tallies that still break a tie
-  by name, and approval (`docs/plan/vote-app/LISTING_ORDER_TIES.md`).
+- The tie lot's seed: the backend's endpoints with a request seed now draw a score tie with
+  it; the client, and with it `/profile-simulate`, still draw with 0 until the playground
+  threads `config.seed` through its analysis code. A two-way tie also follows the seed's
+  parity, a hash weakness to fix with #926 (`docs/plan/vote-app/LISTING_ORDER_TIES.md`).
+- What remains of the 2026-10-09 tie decision is #926: the ranked rules' tie-breaks on both
+  engines (a parity-fixture regeneration), IRV and Coombs on a full tie, tallies that still
+  break a tie by name, and approval.

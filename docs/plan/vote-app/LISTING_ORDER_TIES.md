@@ -21,17 +21,41 @@ every tie). So:
 #667 did the score rules and #662 a voter's own ties. **Still to do from this decision:**
 the ranked rules' aggregate tie-break (first bullet), IRV and Coombs on a full tie (second),
 and the client's ordinal rules with them (third): 21 parity-locked rules, so one PR with the
-fixture regenerated. No issue tracks it yet.
+fixture regenerated. Tracked by #926.
 
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
 FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
 tied names in code-point order; the index is the hash modulo the number of tied names.
 Both test files pin the same draws. A tie is equal up to float noise (1e-9 relative,
 as `break_tie` reads one): the engines' logs and sums can differ in the last bits. The client draws over names when its caller passes
-them (`ruleWinnerFromRanks`' `names`), and over indices otherwise. No caller passes a seed yet,
-so it is 0 everywhere: the draw is reproducible and free of listing order, but a given
-set of tied names always draws the same one. Threading the request's or trial's seed
-through is still to do; it needs a parameter on `compare_all_methods` and the client.
+them (`ruleWinnerFromRanks`' `names`), and over indices otherwise.
+
+**The lot's seed.** On the backend, every score rule takes a keyword `seed` (0 by default),
+and so do `compare_all_methods`, `rule_winner` and `winner_from_utilities`. The endpoints
+with a request seed pass it to their score rules, so a tie is drawn per request rather than
+always the same way: `/simulate`, `/simulate-pipeline`, `/coalition`, `/primary`,
+`/divergence`, `/campaign-sensitivity`, `/combined-effects`, `/demographic-turnout`,
+`/compulsory-voting`, `/behavioral-biases`, `/nota`, `/ballot-complexity`,
+`/electoral-fatigue`, `/choice-overload` (its majority judgment), `/polarization` (each trial
+its own), `/affective-polarization`, `/abstention` and `/collective-will`. The strategic
+probe reruns a rule with the same seed. `test_tie_lot.py` checks `/simulate` and
+`/divergence` end to end.
+
+Still at 0:
+- **`/profile-simulate`**, on purpose: it feeds the playground, whose client engine still
+  draws with 0. Threading `config.seed` through the client's ~20 analysis entry points
+  (scorecard, sincerity, criteria, equilibrium, …) comes first, then this endpoint follows.
+- **Endpoints without a seed:** the public v1 API, and `/simulations/monte-carlo` and its
+  socket, which draw a fresh electorate each run.
+- **The ranked rules,** which ignore the seed until they draw ties by lot (#926).
+- **Polity's elections** (`domain/polity/`), out of scope as below: seeding them would change
+  the archived runs' outcomes.
+
+**A two-way tie follows the seed's parity.** `draw` takes FNV-1a modulo the number of tied
+names, and FNV-1a's low bit is the parity of its input, so between two names the draw
+alternates with the seed's last digit. The per-voter lot was finalised with fmix32 for this
+reason (#663). Doing the same for `draw` changes its pinned values on both engines and the
+parity fixture's draws: it belongs with #926's fixture regeneration.
 
 ## Fixed
 
@@ -52,7 +76,7 @@ through is still to do; it needs a parameter on `compare_all_methods` and the cl
 
 ## Open
 
-No issue is open. What remains has none yet:
+#926 tracks what remains:
 - the decision's ranked-rule tie-breaks, IRV and Coombs on a full tie, and the client's
   ordinal rules (above);
 - aggregate tallies that still break a tie by name, `min(tally, key=(-count, name))`, in the

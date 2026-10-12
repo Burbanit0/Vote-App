@@ -168,6 +168,8 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     result = compare_all_methods(
         voters, candidates, [], override_utilities=projected,
         compute_strategic=want_strategic,
+        # No seed: the client's playground engine still draws a tie with 0, and this
+        # endpoint feeds the same playground (LISTING_ORDER_TIES.md, "The lot's seed").
     )
     raw_methods = result.get("methods", {})
     methods_out: Dict[str, Any] = {

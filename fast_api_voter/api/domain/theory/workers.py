@@ -2569,7 +2569,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         it rather than the rankings, and the multi-simulation loop below hands
         both a re-drawn electorate."""
         if method in _SCORED:
-            winner = _SCORED[method](_score_votes(util_matrix))["winner"]
+            winner = _SCORED[method](_score_votes(util_matrix), seed=seed)["winner"]
             return str(winner) if winner else None
         return _RANKED[method](rankings)
 

@@ -235,7 +235,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         raises is reported as None rather than taking the whole panel down."""
         def _winner(method: str) -> Optional[str]:
             return safe_call(
-                lambda: winner_from_utilities(method, utils, voters),
+                lambda: winner_from_utilities(method, utils, voters, seed=seed),
                 lambda: None,
                 log=log, event="workers_behavioral.method_failed", method=method,
             )
@@ -913,7 +913,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _sincere_winner(method: str) -> Optional[str]:
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, voters),
+            lambda: winner_from_utilities(method, sincere_utilities, voters, seed=seed),
             lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
@@ -1070,7 +1070,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if not vlist:
             return None
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, vlist),
+            lambda: winner_from_utilities(method, sincere_utilities, vlist, seed=seed),
             lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
@@ -1335,7 +1335,7 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if not vlist:
             return cand_names[0], {c: 0.0 for c in cand_names}
         rnk = rankings_from_utilities(sincere_utilities, vlist)
-        w = winner_from_utilities(primary_method, sincere_utilities, vlist)
+        w = winner_from_utilities(primary_method, sincere_utilities, vlist, seed=seed)
 
         total  = len(vlist)
         fc     = Counter(r[0] for r in rnk)
@@ -1454,6 +1454,7 @@ def _co_majority_judgment(
     is_h: Dict[int, bool],
     rnk: List[List[str]],
     cnames: List[str],
+    seed: object = 0,
 ) -> Optional[str]:
     """Majority judgment, falling back to plurality when the grade profile is one
     the MJ implementation cannot resolve.
@@ -1469,7 +1470,7 @@ def _co_majority_judgment(
             {c: float(c == voted[v["id"]]) for c in cnames} if is_h[v["id"]]
             else utils[v["id"]].copy()
             for v in v_list
-        ])
+        ], seed=seed)
         return str(r["winner"]) if r.get("winner") else cnames[0]
 
     return safe_call(
@@ -1486,6 +1487,7 @@ def _co_winner(
     voted: Dict[int, str],
     is_h: Dict[int, bool],
     cnames: List[str],
+    seed: object = 0,
 ) -> Optional[str]:
     """Winner under one method, for one candidate count."""
     if not v_list:
@@ -1496,7 +1498,7 @@ def _co_winner(
         t2 = _co_approval_tally(v_list, utils, voted, is_h)
         return min(t2, key=lambda c: (-t2[c], c)) if t2 else cnames[0]
     if method == "majority_judgment":
-        return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames)
+        return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames, seed)
     # Plurality included: each ballot in `rnk` already leads with the voter's
     # actual pick (`_co_rankings` promotes the heuristic choice to the top).
     return rule_winner(method, rnk)
@@ -1605,6 +1607,7 @@ def _co_method_comparison(
     sinc_vote: Dict[int, str],
     s_rnk: List[List[str]],
     overloaded: bool,
+    seed: object = 0,
 ) -> tuple[Dict[str, Optional[str]], Dict[str, int]]:
     """Each method's winner on the heuristic ballots, plus whether that matches
     what the same method would have elected had every voter gone sincere."""
@@ -1614,10 +1617,10 @@ def _co_method_comparison(
     matches: Dict[str, int] = {}
     for meth in methods_req:
         winner_by_method[meth] = _co_winner(
-            meth, voters, h_rnk, utils_n, voted, is_h, cnames_n,
+            meth, voters, h_rnk, utils_n, voted, is_h, cnames_n, seed,
         )
         sincere_winner = _co_winner(
-            meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n,
+            meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n, seed,
         )
         # None == None is not agreement: a rule electing nobody both times has
         # not shown it is robust.
@@ -1664,7 +1667,7 @@ def _co_round(
 
     winner_by_method, matches = _co_method_comparison(
         methods_req, voters, utils_n, cnames_n, voted, is_h, h_rnk,
-        sinc_vote, s_rnk, overloaded,
+        sinc_vote, s_rnk, overloaded, seed,
     )
     condorcet_w = get_condorcet_winner(s_rnk)
     return {

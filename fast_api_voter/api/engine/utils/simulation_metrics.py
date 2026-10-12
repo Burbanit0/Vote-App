@@ -1,3 +1,4 @@
+from functools import partial
 from itertools import permutations
 from math import factorial
 import random
@@ -74,10 +75,15 @@ def compare_all_methods(
     blank_candidate_name: str = "Blank",
     override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
     compute_strategic: bool = False,
+    *,
+    seed: object = 0,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
     structured comparison report.
+
+    `seed` seeds the score rules' tie lot (tie_lot.best): pass the request's, so an
+    exact tie is drawn per request rather than always the same way.
 
     When blank_vote=True, each voter's ranking includes a "Blank" candidate
     inserted at the position determined by their blank_threshold field.
@@ -319,20 +325,21 @@ def compare_all_methods(
     for name, fn in SCORE_RULES.items():
         if name == "majority_judgment":
             continue   # reads raw utilities, not 0-5 ballots -- run just below
-        raw = fn(score_votes)
+        # Seeded once, so the strategic probe reruns the rule with the same lot.
+        seeded = partial(fn, seed=seed)
+        raw = seeded(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
-        methods_result[name] = _build_metrics_score(fn, winner, score_votes)
+        methods_result[name] = _build_metrics_score(seeded, winner, score_votes)
 
     # ── Majority Judgment — uses raw float utilities, not 0-5 scaled ──────────
     mj_utility_scores: List[Dict[str, float]] = [
         utilities[v["id"]].copy() for v in voters
     ]
-    mj_raw: Dict[str, Any]   = SCORE_RULES["majority_judgment"](mj_utility_scores)
+    mj_rule = partial(SCORE_RULES["majority_judgment"], seed=seed)
+    mj_raw: Dict[str, Any]   = mj_rule(mj_utility_scores)
     mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
     # The real rule on the ballots it grades: a stub here pinned MJ/EV at 0.0.
-    mj_entry = _build_metrics_score(
-        SCORE_RULES["majority_judgment"], mj_winner, mj_utility_scores,
-    )
+    mj_entry = _build_metrics_score(mj_rule, mj_winner, mj_utility_scores)
     mj_entry["mj_grades"]             = mj_raw.get("grades", {})
     mj_entry["mj_medians"]            = mj_raw.get("medians", {})
     mj_entry["mj_scores"]             = mj_raw.get("scores", {})
