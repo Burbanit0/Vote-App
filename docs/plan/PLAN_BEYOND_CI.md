@@ -376,7 +376,13 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
        2026-10-12: exported. The three full 30y/p500 runs (seeds 1, 2, 42) are committed in
        `voter-app/polity-export/` (`fast_api_voter/scripts/export_polity_runs.py`, about
        0.7 MB per run, gzipped).
-    5. Hosting: a static host with SPA routing, and its deploy workflow.
+    5. Hosting: a static host with SPA routing, and its deploy workflow. Decided
+       2026-10-12: GitHub Pages, deployed with each release. The repo's one Pages site
+       already carried the CI dashboard, so it is shared: the app at
+       https://burbanit0.github.io/Vote-App/ (base path `/Vote-App/`), the dashboard
+       under `ci/`. `release.yml` attaches the built site to the release as
+       `static-site.zip`, and `ci-dashboard.yml`, which deploys the site, publishes the
+       latest one with the dashboard. Deep links go through a `404.html` copy of the page.
 
 ---
 

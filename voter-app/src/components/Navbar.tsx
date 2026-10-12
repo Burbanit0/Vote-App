@@ -71,7 +71,11 @@ const Navbar: React.FC = () => {
   const [navExpanded, setNavExpanded] = useState(false);
 
   const toggleLang = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  // The site may be served under a base path (GitHub Pages: /Vote-App/); these links load
+  // a whole page, so they carry it, and the active link is read without it.
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const currentPath =
+    typeof window !== 'undefined' ? window.location.pathname.slice(base.length) : '';
 
   return (
     <BootstrapNavbar
@@ -89,7 +93,7 @@ const Navbar: React.FC = () => {
       <Container className="flex flex-wrap items-center justify-between">
         {/* ── Brand ── */}
         <BootstrapNavbar.Brand
-          href="/"
+          href={`${base}/`}
           className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
           style={{ fontSize: '1.1rem' }}
           onClick={() => setNavExpanded(false)}
@@ -116,7 +120,8 @@ const Navbar: React.FC = () => {
           <Nav className="mr-auto lg:items-center gap-1">
             {/* Playground — hero link */}
             <Nav.Link
-              href="/playground"
+              href={`${base}/playground`}
+              data-testid="nav-playground"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/playground'}
               onClick={() => setNavExpanded(false)}
@@ -133,7 +138,8 @@ const Navbar: React.FC = () => {
 
             {/* Laboratoire — the "go deeper" destination */}
             <Nav.Link
-              href="/laboratoire"
+              href={`${base}/laboratoire`}
+              data-testid="nav-laboratoire"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/laboratoire'}
               onClick={() => setNavExpanded(false)}
@@ -148,7 +154,8 @@ const Navbar: React.FC = () => {
 
             {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
             <Nav.Link
-              href="/a-vous-de-jouer"
+              href={`${base}/a-vous-de-jouer`}
+              data-testid="nav-a-vous-de-jouer"
               className="font-semibold px-3 py-1 rounded"
               active={currentPath === '/a-vous-de-jouer'}
               onClick={() => setNavExpanded(false)}

@@ -6,6 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { test as setup } from '@playwright/test';
+import { STATIC_BASE } from '../../playwright.config';
 
 const STATIC_DIR = 'node_modules/.e2e-static';
 const PYTHON = process.env.PYTHON ?? 'python3';
@@ -15,7 +16,13 @@ setup('build the static site, its engine and the answers it must give', () => {
   const vite = ['node_modules/vite/bin/vite.js', 'build', '--outDir', STATIC_DIR, '--emptyOutDir'];
   execFileSync(process.execPath, vite, {
     // A production build reads .env.local / .env.production too: blank the tracker.
-    env: { ...process.env, VITE_ENGINE: 'browser', VITE_UMAMI_SRC: '', VITE_UMAMI_WEBSITE_ID: '' },
+    env: {
+      ...process.env,
+      VITE_ENGINE: 'browser',
+      VITE_BASE: STATIC_BASE,
+      VITE_UMAMI_SRC: '',
+      VITE_UMAMI_WEBSITE_ID: '',
+    },
   });
   for (const [script, out] of [
     ['build_browser_engine.py', 'engine.zip'],

@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import { loadPyodide } from 'pyodide';
 import { test, expect } from './coverageFixtures';
+import { STATIC_BASE } from '../../playwright.config';
 
 const STATIC_DIR = 'node_modules/.e2e-static';
 
@@ -83,31 +84,43 @@ async function withoutServer(page: Page): Promise<string[]> {
   return escaped;
 }
 
+// Pages under the base path (playwright.config.ts's STATIC_BASE), so each goto is relative.
+// vite preview answers any path with the page; GitHub Pages answers a deep link with
+// 404.html, which must be the page itself.
+test('the static build answers a deep link with the page itself', () => {
+  expect(readFileSync(`${STATIC_DIR}/404.html`)).toEqual(readFileSync(`${STATIC_DIR}/index.html`));
+});
+
 test('the playground, the fiches and Polity work with no server', async ({ page }) => {
   test.setTimeout(240_000);
   const escaped = await withoutServer(page);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
-  await page.goto('/playground');
+  await page.goto('playground');
   await expect(page.getByTestId('cycle-rate')).toContainText(/\d/, { timeout: 90_000 });
 
-  await page.goto('/laboratoire?exp=sys-stv');
+  // The navbar's links load a whole page: they must carry the base path.
+  await page.getByTestId('nav-laboratoire').click();
+  await expect(page).toHaveURL(new RegExp(`${STATIC_BASE}laboratoire$`));
+  await expect(page.getByTestId('nav-laboratoire')).toHaveAttribute('aria-current', 'page');
+
+  await page.goto('laboratoire?exp=sys-stv');
   await page.getByTestId('stv-run').click();
   await expect(page.getByTestId('stv-round-0')).toBeVisible({ timeout: 60_000 });
 
-  await page.goto('/laboratoire?exp=thy-polis');
+  await page.goto('laboratoire?exp=thy-polis');
   await page.getByTestId('simulate-btn').click();
   await expect(page.getByTestId('polis-scatter-svg')).toBeVisible({ timeout: 60_000 });
 
   // Over HTTP: the static build has no Socket.IO, so no streaming switch either.
-  await page.goto('/laboratoire?exp=ana-montecarlo');
+  await page.goto('laboratoire?exp=ana-montecarlo');
   await page.getByTestId('mc-run').click();
   await expect(page.getByTestId('mc-results')).toBeVisible({ timeout: 120_000 });
   await expect(page.locator('#streaming-toggle')).toHaveCount(0);
 
   // Polity's explorer, from its export (src/api/staticPolity.ts): the three full runs.
-  await page.goto('/polity?citizen=3');
+  await page.goto('polity?citizen=3');
   await expect(page.getByTestId('polity-run-picker').locator('option')).toHaveCount(3);
   await expect(page.getByTestId('polity-fact-population')).toContainText('500');
   await expect(page.getByTestId('polity-map-canvas')).toBeVisible();
