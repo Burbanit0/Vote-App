@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import istanbul from 'vite-plugin-istanbul';
+import { cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
@@ -21,6 +22,14 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      // The static build carries Polity's run export (src/api/staticPolity.ts), under a
+      // path no page uses: a static host would answer /polity with the folder.
+      env.VITE_ENGINE === 'browser' && {
+        name: 'polity-export',
+        apply: 'build',
+        writeBundle: ({ dir }: { dir?: string }) =>
+          cpSync('polity-export', `${dir}/polity-data`, { recursive: true }),
+      },
       react(),
       tailwindcss(),
       VitePWA({

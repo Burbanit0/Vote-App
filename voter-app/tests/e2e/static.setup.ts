@@ -1,8 +1,8 @@
 // What the `static` project tests (playwright.config.ts), built only when it runs: the static
-// build as `npm run build:static` makes it (no tsc: the build job types it), its engine.zip,
-// and the answers the engine gives under CPython, which the backend's test_browser_engine.py
-// holds to the server's. PYTHON names an interpreter with the backend's packages (the e2e
-// job's, which also runs the backend).
+// build as `npm run build:static` makes it (no tsc: the build job types it), its engine.zip
+// and Polity's run export (vite.config.ts copies it), and the answers the engine gives under CPython, which the
+// backend's test_browser_engine.py holds to the server's. PYTHON names an interpreter with
+// the backend's packages (the e2e job's, which also runs the backend).
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { test as setup } from '@playwright/test';

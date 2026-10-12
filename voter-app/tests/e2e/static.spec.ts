@@ -83,7 +83,7 @@ async function withoutServer(page: Page): Promise<string[]> {
   return escaped;
 }
 
-test('the playground and the fiches compute with no server', async ({ page }) => {
+test('the playground, the fiches and Polity work with no server', async ({ page }) => {
   test.setTimeout(240_000);
   const escaped = await withoutServer(page);
   const errors: string[] = [];
@@ -105,6 +105,14 @@ test('the playground and the fiches compute with no server', async ({ page }) =>
   await page.getByTestId('mc-run').click();
   await expect(page.getByTestId('mc-results')).toBeVisible({ timeout: 120_000 });
   await expect(page.locator('#streaming-toggle')).toHaveCount(0);
+
+  // Polity's explorer, from its export (src/api/staticPolity.ts): the three full runs.
+  await page.goto('/polity?citizen=3');
+  await expect(page.getByTestId('polity-run-picker').locator('option')).toHaveCount(3);
+  await expect(page.getByTestId('polity-fact-population')).toContainText('500');
+  await expect(page.getByTestId('polity-map-canvas')).toBeVisible();
+  await expect(page.getByTestId('polity-biography')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('polity-biography-error')).toHaveCount(0);
 
   expect(escaped).toEqual([]);
   expect(errors).toEqual([]);

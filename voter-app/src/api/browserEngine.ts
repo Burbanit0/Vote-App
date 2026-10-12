@@ -4,7 +4,10 @@
  * The static build (`npm run build:static`, VITE_ENGINE=browser) has no server: every
  * /api/v2 request goes to a Web Worker (workers/engine.worker.ts) that runs the backend's
  * own routers in Pyodide (fast_api_voter/api/browser.py) and answers as the server would.
+ * Polity's run explorer, which reads run files, answers from their export (staticPolity.ts).
  */
+import { createStaticPolity, type Answer } from './staticPolity';
+
 export const ENGINE_IN_BROWSER = process.env.VITE_ENGINE === 'browser';
 
 /**
@@ -14,8 +17,12 @@ export const ENGINE_IN_BROWSER = process.env.VITE_ENGINE === 'browser';
  */
 export const TIMEOUT_MS = 180_000;
 const TIMED_OUT = JSON.stringify({ detail: 'Request took too long to process' });
-/** Routes only a server can answer: Polity's run explorer reads run files from its disk. */
-const SERVER_ONLY = ['/api/v2/polity/'];
+const POLITY = '/api/v2/polity/';
+/** The export could not be read: a 503, as a server that is down, saying why. */
+const polityUnavailable = (error: unknown): Answer => ({
+  status: 503,
+  body: { detail: `Run files unavailable: ${String(error)}` },
+});
 
 /**
  * From the worker: `started` when it begins a request, then the answer; `fatal` when the
@@ -38,9 +45,13 @@ interface Waiting {
 const json = (status: number, body: string) =>
   new Response(body, { status, headers: { 'Content-Type': 'application/json' } });
 
-/** A `fetch` for the API client that answers /api/v2 from the worker `makeWorker` starts. */
+/**
+ * A `fetch` for the API client that answers /api/v2 from the worker `makeWorker` starts,
+ * and Polity's routes with `polity`.
+ */
 export function createBrowserFetch(
-  makeWorker: () => Worker
+  makeWorker: () => Worker,
+  polity = createStaticPolity()
 ): (request: Request) => Promise<Response> {
   let worker: Worker | undefined;
   let seq = 0;
@@ -75,8 +86,9 @@ export function createBrowserFetch(
   return async (request: Request) => {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/v2/')) return fetch(request);
-    if (SERVER_ONLY.some((prefix) => url.pathname.startsWith(prefix))) {
-      return json(404, JSON.stringify({ detail: 'Not Found' }));
+    if (url.pathname.startsWith(POLITY)) {
+      const { status, body } = await polity(url).catch(polityUnavailable);
+      return json(status, JSON.stringify(body));
     }
     request.signal.throwIfAborted();
     const message = {
