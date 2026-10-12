@@ -12,7 +12,8 @@ const PYTHON = process.env.PYTHON ?? 'python3';
 
 setup('build the static site, its engine and the answers it must give', () => {
   setup.setTimeout(300_000);
-  execFileSync('npx', ['vite', 'build', '--outDir', STATIC_DIR, '--emptyOutDir'], {
+  const vite = ['node_modules/vite/bin/vite.js', 'build', '--outDir', STATIC_DIR, '--emptyOutDir'];
+  execFileSync(process.execPath, vite, {
     // A production build reads .env.local / .env.production too: blank the tracker.
     env: { ...process.env, VITE_ENGINE: 'browser', VITE_UMAMI_SRC: '', VITE_UMAMI_WEBSITE_ID: '' },
   });
