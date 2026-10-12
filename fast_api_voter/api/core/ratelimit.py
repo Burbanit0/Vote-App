@@ -14,8 +14,7 @@ tests (REDIS_URL unset) fall back to `memory://` just like the Flask limiter.
 The limiter is wired into the app in api/main.py via `app.state.limiter` +
 the RateLimitExceeded handler.
 
-`check_v2_rate_limit` extends the same limiter to the /api/v2/simulations and
-/api/v2/election routers (the actual frontend-facing, unauthenticated, CPU-
+`check_v2_rate_limit` extends the same limiter to the /api/v2 compute routers (the actual frontend-facing, unauthenticated, CPU-
 heavy surface — previously unthrottled). Those routers' handlers all name
 their Pydantic body parameter `request` (see api/routes/simulations.py,
 api/routes/election.py), which collides with slowapi's `@limiter.limit`
@@ -25,7 +24,9 @@ by type annotation, and raises if what it finds isn't a
 `starlette.requests.Request`. Decorating every handler would mean renaming
 that parameter across ~70 functions. Decorating this standalone function
 instead — whose only parameter is genuinely named `request: Request` — and
-wiring it in as a router-level dependency sidesteps that entirely: slowapi's
+wiring it in as a dependency of the whole router sidesteps that entirely (api/main.py
+adds it when it includes each router, so the in-browser app, api/browser.py, can
+include the same routers without it): slowapi's
 per-endpoint storage key is the request path (`key_style="url"`, the
 default), so every route sharing this one dependency still gets its own
 independent per-IP bucket, not a pooled one.
@@ -62,7 +63,8 @@ limiter = Limiter(
 async def check_v2_rate_limit(request: Request) -> None:
     """FastAPI dependency form of `@limiter.limit` — see module docstring for
     why this isn't a decorator on each route handler directly. Add via
-    `APIRouter(..., dependencies=[Depends(check_v2_rate_limit)])`.
+    `app.include_router(router, dependencies=[Depends(check_v2_rate_limit)])` in api/main.py
+    (as `_v2_limited`), not on the APIRouter itself.
 
     120/minute (2/s), not the /api/v1-style 5-10/min: /api/v2/election's
     `/profile-simulate` is a live, debounced call fired from a `useEffect` on

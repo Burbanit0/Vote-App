@@ -10,10 +10,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Any, Callable, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.core.config import get_settings
-from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import run_bounded
 from api.domain.polity.explorer_workers import (
     MAX_FRAME_SPAN,
@@ -31,7 +30,6 @@ from api.schemas.polity import PolityCitizen, PolityFrames, PolityRunList, Polit
 router = APIRouter(
     prefix="/api/v2/polity",
     tags=["polity"],
-    dependencies=[Depends(check_v2_rate_limit)],
     # 400: a run that cannot be explored or a frame range out of bounds; 404: an
     # unknown run key or citizen; 503: run_bounded's timeout.
     responses={

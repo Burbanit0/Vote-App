@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 from api.domain.election._helpers import modal_keys
+from api.engine.utils import runtime
 from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.error_handling import log_and_error_response
@@ -70,9 +71,12 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         return compare_all_methods_mc(voters, candidates, issues)
 
     try:
-        with ThreadPoolExecutor(max_workers=min(4, num_runs)) as executor:
-            futures = [executor.submit(_single_run, i) for i in range(num_runs)]
-            run_results = [f.result() for f in as_completed(futures)]
+        if runtime.THREADS:
+            with ThreadPoolExecutor(max_workers=min(4, num_runs)) as executor:
+                futures = [executor.submit(_single_run, i) for i in range(num_runs)]
+                run_results = [f.result() for f in as_completed(futures)]
+        else:
+            run_results = [_single_run(i) for i in range(num_runs)]
 
         method_names = list(run_results[0]["methods"].keys())
         n_candidates = len(candidate_configs)

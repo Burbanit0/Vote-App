@@ -23,9 +23,8 @@ Backend layering (top to bottom):
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import run_typed
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
@@ -159,9 +158,8 @@ from api.domain.election import (
 router = APIRouter(
     prefix="/api/v2/election",
     tags=["election"],
-    dependencies=[Depends(check_v2_rate_limit)],
     # 400 (a domain worker's own status, lifted by `run_typed`), 500
-    # (api/main.py's catch-all Exception handler, same {"detail": ...} shape)
+    # (the catch-all Exception handler in api/core/errors.py, same {"detail": ...} shape)
     # and 503 (run_bounded's timeout) are reachable on every route in this
     # router. All three were reachable-but-undocumented until Schemathesis
     # (Lot 3) flagged them; api/schemas/common.py holds the one copy.

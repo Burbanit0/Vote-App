@@ -1,6 +1,6 @@
 # EXP-023 — Pyodide in a Web Worker vs the Fly container: where the engine runs once hosted
 
-- **Date**: 2026-10-10 · **Status**: open, for the owner's decision (PLAN_BEYOND_CI W6) ·
+- **Date**: 2026-10-10 · **Status**: adopted, option A (the owner, 2026-10-11; PLAN_BEYOND_CI W6) ·
   **Real cost**: about two hours in one session; the spike is the branch
   `spike/pyodide-hosting` (commit `c735ca57`, not for merging) · **Token cost**: not
   measured

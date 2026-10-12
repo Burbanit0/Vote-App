@@ -39,23 +39,24 @@ rules:
     languages: [python]
     severity: ERROR
     message: >-
-      /api/v2/* router with no check_v2_rate_limit dependency — this is the
-      frontend-facing, unauthenticated surface and needs a rate limit (see
-      commit 614238f, "fix(backend): rate-limit /api/v2/simulations and
-      /api/v2/election"). Add `dependencies=[Depends(check_v2_rate_limit)]`
-      to the APIRouter(...) call (api/core/ratelimit.py).
+      Router included in api/main.py with no rate limit — /api/v2 is the
+      frontend-facing, unauthenticated surface and needs one (see commit
+      614238f, "fix(backend): rate-limit /api/v2/simulations and
+      /api/v2/election"). Include it with `dependencies=_v2_limited`
+      (check_v2_rate_limit, api/core/ratelimit.py). The limit is applied here,
+      not on the APIRouter, so the in-browser app (api/browser.py) can include
+      the same routers without it; test_browser_engine.py checks every
+      effective /api/v2 route.
     paths:
-      exclude:
-        - /fast_api_voter/api/routes/health.py  # liveness probe — monitoring
-                                                 # needs unrestricted access.
+      include:
+        - /fast_api_voter/api/main.py
     patterns:
-      - pattern: |
-          APIRouter(prefix=$PREFIX, ...)
-      - metavariable-regex:
-          metavariable: $PREFIX
-          regex: ^"/api/v2/.+"$
-      - pattern-not: |
-          APIRouter(..., dependencies=[..., Depends(check_v2_rate_limit), ...], ...)
+      - pattern: app.include_router(...)
+      - pattern-not: app.include_router(..., dependencies=_v2_limited, ...)
+      # The liveness probe (monitoring needs unrestricted access), and /api/v1,
+      # whose routes carry their own @limiter.limit decorators.
+      - pattern-not: app.include_router(health_routes.router)
+      - pattern-not: app.include_router(public_routes.router)
 
   - id: except-exception-without-log
     languages: [python]
