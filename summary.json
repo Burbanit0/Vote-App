@@ -632,33 +632,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 6,
-   "example": {
-    "job": "API contract fuzzing (Schemathesis)",
-    "lines": [
-     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
-     "  | E           Reproduce with:",
-     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
-     "    | Traceback (most recent call last):",
-     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
-    "step": "Run contract fuzzing",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
-   },
-   "last_seen": "2026-09-26T23:58:34Z",
-   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
-   "workflows": [
-    "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -767,6 +740,33 @@
    "signature": "code: [gw#] [ #%] FAILED api/tests/test_polity_golden.py::test_prompts_and_journals_match_the_golden_references",
    "workflows": [
     "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "API contract fuzzing (Schemathesis)",
+    "lines": [
+     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
+     "  | E           Reproduce with:",
+     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
+     "    | Traceback (most recent call last):",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
+    "step": "Run contract fuzzing",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
+   },
+   "last_seen": "2026-09-26T23:58:34Z",
+   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
+   "workflows": [
+    "Schemathesis Contract Fuzzing"
    ]
   },
   {
@@ -1212,33 +1212,6 @@
    "signature": "code: The type coverage rate(#%) is lower than the target(#%).",
    "workflows": [
     "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Backend mutation score (mutmut, floor 70%)",
-    "lines": [
-     "==================================== ERRORS ====================================",
-     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
-     "Traceback:",
-     "E   ImportError: cannot load module more than once per process",
-     "ERROR api/tests/test_anti_plurality.py",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
-    "step": "Mutation score floor (70%)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
-   },
-   "last_seen": "2026-09-13T02:15:34Z",
-   "signature": "code: ______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
-   "workflows": [
-    "Mutation Testing"
    ]
   },
   {
@@ -1782,20 +1755,47 @@
    "workflows": [
     "Security Audit"
    ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Backend mutation score (mutmut, floor 70%)",
+    "lines": [
+     "==================================== ERRORS ====================================",
+     "______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
+     "Traceback:",
+     "E   ImportError: cannot load module more than once per process",
+     "ERROR api/tests/test_anti_plurality.py",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3640f9d3bd5165e3c7dca36610cfd10857075c60",
+    "step": "Mutation score floor (70%)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34732602786"
+   },
+   "last_seen": "2026-09-13T02:15:34Z",
+   "signature": "code: ______________ ERROR collecting api/tests/test_anti_plurality.py _______________",
+   "workflows": [
+    "Mutation Testing"
+   ]
   }
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 294,
+  "code": 292,
   "infra": 22,
   "test-flaky": 40,
   "unknown": 2
  },
- "generated_at": "2026-10-12T16:07:38Z",
+ "generated_at": "2026-10-12T16:14:35Z",
  "grid": {
   "Backend CI": {
    "2026-09-12": {
-    "success": 8
+    "success": 7
    },
    "2026-09-13": {
     "cancelled": 5,
@@ -1894,7 +1894,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-12": {
-    "success": 5
+    "success": 4
    },
    "2026-09-13": {
     "cancelled": 1,
@@ -1988,7 +1988,7 @@
     "success": 4
    },
    "2026-10-12": {
-    "success": 5
+    "success": 6
    }
   },
   "CI Dashboard": {
@@ -2020,7 +2020,7 @@
     "success": 23
    },
    "2026-10-12": {
-    "success": 24
+    "success": 25
    }
   },
   "CI Health Watchdog": {
@@ -2117,9 +2117,6 @@
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "2026-09-12": {
-    "success": 1
-   },
    "2026-09-13": {
     "success": 3
    },
@@ -2169,7 +2166,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-12": {
-    "success": 6
+    "success": 5
    },
    "2026-09-13": {
     "cancelled": 1,
@@ -2286,7 +2283,7 @@
   "E2E Tests": {
    "2026-09-12": {
     "failure": 2,
-    "success": 6
+    "success": 5
    },
    "2026-09-13": {
     "cancelled": 4,
@@ -2399,7 +2396,7 @@
   },
   "Frontend CI": {
    "2026-09-12": {
-    "success": 8
+    "success": 7
    },
    "2026-09-13": {
     "success": 30
@@ -2499,7 +2496,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-12": {
-    "success": 8
+    "success": 7
    },
    "2026-09-13": {
     "success": 62
@@ -2630,9 +2627,6 @@
    }
   },
   "Mutation Testing": {
-   "2026-09-12": {
-    "failure": 1
-   },
    "2026-09-13": {
     "cancelled": 4,
     "failure": 2,
@@ -2690,7 +2684,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-12": {
-    "success": 8
+    "success": 7
    },
    "2026-09-13": {
     "cancelled": 1,
@@ -2768,7 +2762,6 @@
   },
   "Schemathesis Contract Fuzzing": {
    "2026-09-12": {
-    "failure": 1,
     "success": 4
    },
    "2026-09-13": {
@@ -2848,7 +2841,7 @@
   },
   "Security Audit": {
    "2026-09-12": {
-    "success": 8
+    "success": 7
    },
    "2026-09-13": {
     "cancelled": 7,
@@ -3014,7 +3007,7 @@
    "2026-10-12": {
     "cancelled": 3,
     "skipped": 65,
-    "success": 47
+    "success": 48
    }
   },
   "zizmor online": {
@@ -3041,18 +3034,18 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38274343906"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-12T10:39:17Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38237675486"
+   "created_at": "2026-10-12T16:00:31Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38274343871"
   },
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T16:01:10Z",
+   "created_at": "2026-10-12T16:04:58Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38274432783"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38274894007"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3148,9 +3141,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T16:11:16Z",
+   "created_at": "2026-10-12T16:19:14Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38275629153"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38276561744"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3160,11 +3153,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38020311011"
   }
  },
- "runs": 15719,
+ "runs": 15711,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-12": 185.5,
+    "2026-09-12": 187,
     "2026-09-13": 10.0,
     "2026-09-14": 19.5,
     "2026-09-15": 178,
@@ -3196,11 +3189,11 @@
    "p50_s": 184,
    "p95_s": 485,
    "queue_p50_s": 0,
-   "runs": 1256
+   "runs": 1255
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-12": 302,
+    "2026-09-12": 306.0,
     "2026-09-13": 283.0,
     "2026-09-14": 305,
     "2026-09-15": 313,
@@ -3230,7 +3223,7 @@
     "2026-10-09": 1032,
     "2026-10-10": 950,
     "2026-10-11": 979.0,
-    "2026-10-12": 1104
+    "2026-10-12": 1105.5
    },
    "p50_s": 310,
    "p95_s": 1045,
@@ -3282,12 +3275,12 @@
     "2026-10-09": 402,
     "2026-10-10": 408.0,
     "2026-10-11": 368,
-    "2026-10-12": 393.5
+    "2026-10-12": 396
    },
    "p50_s": 395,
    "p95_s": 590,
    "queue_p50_s": 0,
-   "runs": 364
+   "runs": 365
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3325,7 +3318,6 @@
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-09-12": 1836,
     "2026-09-13": 1832,
     "2026-09-14": 1843,
     "2026-09-16": 1835,
@@ -3344,11 +3336,11 @@
    "p50_s": 1837,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 32
+   "runs": 31
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-12": 179.0,
+    "2026-09-12": 173,
     "2026-09-13": 176.5,
     "2026-09-14": 180,
     "2026-09-15": 169.0,
@@ -3383,7 +3375,7 @@
    "p50_s": 175,
    "p95_s": 200,
    "queue_p50_s": 0,
-   "runs": 266
+   "runs": 265
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3453,7 +3445,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-12": 670.0,
+    "2026-09-12": 665,
     "2026-09-13": 10.0,
     "2026-09-14": 649,
     "2026-09-15": 618.0,
@@ -3485,11 +3477,11 @@
    "p50_s": 599,
    "p95_s": 845,
    "queue_p50_s": 0,
-   "runs": 1122
+   "runs": 1121
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-12": 10.0,
+    "2026-09-12": 10,
     "2026-09-13": 9.0,
     "2026-09-14": 93,
     "2026-09-15": 152,
@@ -3521,11 +3513,11 @@
    "p50_s": 28,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 1240
+   "runs": 1239
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-12": 59,
+    "2026-09-12": 57.5,
     "2026-09-13": 63.0,
     "2026-09-14": 73,
     "2026-09-15": 12,
@@ -3557,7 +3549,7 @@
    "p50_s": 74,
    "p95_s": 131,
    "queue_p50_s": 0,
-   "runs": 1338
+   "runs": 1337
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3603,7 +3595,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-12": 41.5,
+    "2026-09-12": 44,
     "2026-09-13": 39,
     "2026-09-14": 43.5,
     "2026-09-15": 45.0,
@@ -3630,7 +3622,7 @@
    "p50_s": 44,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 211
+   "runs": 210
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3681,7 +3673,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-12": 94,
+    "2026-09-12": 93.5,
     "2026-09-13": 101.0,
     "2026-09-14": 122,
     "2026-09-15": 118.0,
@@ -3713,7 +3705,7 @@
    "p50_s": 130,
    "p95_s": 227,
    "queue_p50_s": 0,
-   "runs": 1284
+   "runs": 1283
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3740,12 +3732,12 @@
     "2026-10-09": 28.5,
     "2026-10-10": 27.0,
     "2026-10-11": 27,
-    "2026-10-12": 28
+    "2026-10-12": 28.0
    },
    "p50_s": 28,
    "p95_s": 58,
    "queue_p50_s": 0,
-   "runs": 1046
+   "runs": 1047
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3917,9 +3909,9 @@
     },
     "Backend Flaky Test Hunt": {
      "conclusion": "success",
-     "created_at": "2026-10-12T04:07:40Z",
-     "sha": "9ef6d61ac7aabb903d4044cc7b80576e7cb7b21b",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38202518249"
+     "created_at": "2026-10-12T16:00:31Z",
+     "sha": "153cdf3ee8d893ad04a5cc523080113825e6e695",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38274343871"
     },
     "Coverage-Guided Fuzzing (atheris)": {
      "conclusion": "success",
