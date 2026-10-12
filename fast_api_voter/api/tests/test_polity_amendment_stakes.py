@@ -29,9 +29,14 @@ MIDDLE = (0.5,) * len(ISSUES)
 
 
 def _groups(text: str) -> dict[str, list[str]]:
-    """'X under m1, m2; Y under m3.' -> {X: [m1, m2], Y: [m3]}, from the voting-method line."""
-    line = text.splitlines()[0].split(": ", 1)[1].rstrip(".")
-    return {who: methods.replace(" (in force)", "").split(", ") for who, methods in (part.split(" under ") for part in line.split("; "))}
+    """'... elect you under: m1, m2. They would elect Y under: m3; Z under: m4.' -> {you: [...], Y: [...], Z: [...]}."""
+    line = text.splitlines()[0].replace(" (in force)", "")
+    mine, _, theirs = line.partition(" They would elect ")
+    groups = {"you": [] if mine.endswith("no method.") else mine.split("you under: ", 1)[1].rstrip(".").split(", ")}
+    for part in filter(None, theirs.rstrip(".").split("; ")):
+        who, methods = part.split(" under: ")
+        groups[who] = methods.split(", ")
+    return groups
 
 
 def _seat_rows(text: str) -> dict[str, int]:

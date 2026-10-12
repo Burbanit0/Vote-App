@@ -117,8 +117,12 @@ def _method_stakes(president: Citizen, ballots: list[list[str]], in_force: str) 
     for method in map(str, ARTICLES["institutions.presidential_method"].choices):
         label = f"{method} (in force)" if method == in_force else method
         elected.setdefault(_elected(get_presidential_winner(ballots, method), president), []).append(label)
-    return ("If the last election's candidates stood again today, the citizens' ballots would elect: "
-            + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
+    # Yours first and on its own: a president reading thirteen methods grouped by winner picked one that elected
+    # the rival in every probed turn (ADR-027).
+    yours = ", ".join(elected.pop("you", [])) or "no method"
+    others = "; ".join(f"{who} under: {', '.join(methods)}" for who, methods in elected.items())
+    return (f"If the last election's candidates stood again today, the citizens' ballots would elect you under: {yours}."
+            + (f" They would elect {others}." if others else ""))
 
 
 def _seat_stakes(config: PolityConfig, president: Citizen, legislature: Legislature) -> str | None:
