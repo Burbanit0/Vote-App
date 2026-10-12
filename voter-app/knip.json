@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/App.tsx"],
+  "entry": ["src/App.tsx", "tests/e2e/*.setup.ts"],
   "ignore": [
     "src/api/types.gen.ts",
     "vitest.stryker.config.ts",

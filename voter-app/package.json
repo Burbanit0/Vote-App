@@ -90,6 +90,7 @@
     "nyc": "^18.0.0",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.9",
+    "pyodide": "314.0.7",
     "size-limit": "14.1.0",
     "tailwindcss": "^4.3.0",
     "type-coverage": "^2.30.2",

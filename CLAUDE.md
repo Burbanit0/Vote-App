@@ -31,6 +31,8 @@ runtime code (`fast_api_voter/**` minus `scripts/`, `api/tests/` and `*.md`), in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
 starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
 serves exactly the committed fixture run (`fast_api_voter/polity_fixtures/`).
+The `static` project's setup (`tests/e2e/static.setup.ts`) builds the static site and runs
+the backend's routers under CPython: `PYTHON` (default `python3`) must have its packages.
 
 Two rules keep it from rotting the way it did before (5 specs frozen against a
 UI that had moved on for two months):
