@@ -218,8 +218,8 @@ jobs:
 
   # The static site (PLAN_BEYOND_CI W6): the app built from the commit just tagged, with the
   # engine in Pyodide, attached to the release as static-site.zip. ci-dashboard.yml deploys
-  # the one Pages site (a repo has one, and each deploy replaces all of it): this app at its
-  # root, the CI dashboard under ci/. Dispatching it publishes the release now rather than
+  # the one Pages site (a repo has one, and each deploy replaces all of it): the newest
+  # release's app at its root, the CI dashboard under ci/. Dispatching it publishes the release now rather than
   # at the next hourly run; a dispatch is the one event GITHUB_TOKEN may start.
   static-site:
     name: Static site (attached, then published)
@@ -249,12 +249,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
         working-directory: ./voter-app
-      # Served at https://burbanit0.github.io/Vote-App/; with a custom domain, '/'.
+      # Served under the repo's name (https://burbanit0.github.io/Vote-App/); with a
+      # custom domain, '/'.
       - name: Build (npm run build:static)
         run: npm run build:static
         working-directory: ./voter-app
         env:
-          VITE_BASE: /Vote-App/
+          VITE_BASE: /${{ github.event.repository.name }}/
       - name: Attach to the release, then publish
         env:
           GH_TOKEN: ${{ github.token }}
