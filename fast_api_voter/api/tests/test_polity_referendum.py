@@ -92,5 +92,6 @@ def test_the_referendum_is_a_new_vote_on_todays_opinions(tmp_path: Path, mode: s
         context = engine.TickContext(tick=5, config=config, journal=journal, client=None, clock=None, graph=None,  # type: ignore[arg-type]
                                      snapshots_path=tmp_path / "s.jsonl", election=None)
         assert engine._referendum(context, state, proposal)
+        assert engine._referendum(context, dataclasses.replace(state, last_ballots=None), proposal)  # no election yet: nothing to vote on
     held = _of([json.loads(line) for line in (tmp_path / "e.jsonl").read_text().splitlines()], "referendum_held")
     assert [(e["payload"]["yes"], e["payload"]["no"]) for e in held] == ([counted] if counted else [])
