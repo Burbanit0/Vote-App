@@ -77,6 +77,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
+| [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | open |
 
 ---
 
@@ -2378,3 +2379,88 @@ support (`legitimacy.pressure_like_support`), and legitimacy under the floor cal
 majority against the president loses (`legitimacy.floor_calls_vote`). The flagship keeps today's rule.
 
 *Status: decided.*
+
+### OBS-048
+
+**Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count
+jumps by 10, and one assembly sat empty.**
+
+*Seen.* Phase14 (`~/Documents/Dev/polity-runs/phase14/`) has phase13's settings: 5 seeds, 8 years, p100, 15
+seats, the exploration profile. It adds ADR-027's forward stakes and ADR-028's ambition-shaped goal. Phase13 ran
+on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there on the crash fix alone
+(cd08e7fb, #931), which changes nothing but the assembly median shown when no party sits.
+
+| | phase13 | phase14 |
+|---|---:|---:|
+| presidential elections / recalls | 15 / 0 | 15 / 0 |
+| amendments proposed (all by the sitting president) / ratified | 31 / 15 | 34 / 15 |
+| voting-method proposals | 0 | 5 |
+| reasons naming the president's own interest (regex below) | 10 of 31 | 18 of 34 |
+| the same, without seed 5 | 9 of 23 | 8 of 24 |
+| founding-ratio cuts ratified | 0 | 2 |
+| live parties at the end, by seed | 20-25 | 18-47 |
+| peak live parties, by seed | 23-28 | 21-48 |
+| seat-based effective number of parties, median of the legislative elections | 7.02 (10) | 10.20 (9 of 10) |
+| legislative elections where no party won a seat | 0 of 10 | 1 of 10 |
+
+- **One president, not the ensemble.**
+  - The rise in self-interested reasons is all seed 5. Citizen 88 (ambition 0.44) presides there in both runs
+    and goes from 1 such reason to 10, for 10 proposals, all rejected: "Extend my term to secure another
+    election", "Reduce petition risk to secure re-election".
+  - Without seed 5 the share does not move.
+  - Elsewhere, reasons that name the party exist in both phases: "will help my party gain seats" (phase13,
+    seed 3), "to 0% to increase seat viability for parties like mine" (phase14, seed 2).
+- **The method proposals.**
+  - Seed 2: plurality, against two-round, from two successive presidents (ticks 2, 15, 20). The first failed at
+    exactly the 0.6 bar (9 of 15; ratification needs more than the bar). The chamber ratified the other two,
+    at 10 and 12 of 15.
+  - Each time, the last election's ballots, recounted under both methods, preferred the old winner. Enough
+    of them did to reach the petition threshold, so ADR-020 held a referendum, and it lost 40-51 and 24-56.
+    That is a recount of ballots already cast, not a vote on the amendment.
+  - Seed 5: approval failed at 9 of 15.
+  - Seed 3: Borda was ratified 15 of 15 and won its referendum 62-22 (tick 25). It is the one method change
+    of either ensemble.
+- **The party count.** Live parties are the 5 founding parties plus `party_founded` minus `party_dissolved`.
+  - Seed 2 cut the founding ratio from 0.05 to 0.03, ratified at tick 17, and went from 29 live parties at
+    tick 16 to 39 at tick 20.
+  - Seed 4 made the same cut at tick 19 and went from 30 to 40.
+  - Between those ticks no phase13 seed grew (-2 to 0). Phase14 seed 3, with no cut, grew by 5.
+  - Seed 4's president (ambition 0.62) had earlier proposed *raising* the ratio twice, "to consolidate
+    political stability and strengthen my party's base"; the chamber rejected both (2 and 3 of 15).
+  - Phase13 proposed only raises of the ratio (3, all rejected).
+- **The bar moves both ways.** Phase14 ratified all 6 cuts to the electoral threshold that came to a vote,
+  at 9 to 15 of 15, and 2 of its 3 raises.
+- **The empty assembly.** Seed 2, tick 24 legislative election:
+  - 42 parties were on the ballot, and the largest drew 4.9%, against a 5% bar.
+  - The president first elected had lowered the bar to 3% (tick 5), then restored it "to reduce
+    fragmentation" (tick 11).
+  - No party was seated, and the president's briefing crashed on the assembly median (fixed in #931).
+  - At tick 28 the sitting president, who had cut the founding ratio, lowered the bar to 0.
+
+*Suspected cause* (labelled, not tested).
+- **The president's reasons:** ADR-028's goal, on a president with high ambition. Seed 5 is the same person in
+  both runs, but one president is a case, not a rate.
+- **The jumps:** the founding-ratio cuts. Nothing shown to the president or the chamber counts what a lower
+  ratio or bar does to the number of parties. ADR-026's stakes show only the president's own seats.
+
+*Evidence.* From `~/Documents/Dev/polity-runs/`, in each `phase1[34]/runs/*/run/*/`:
+- `events.jsonl`:
+  - `amendment_proposed`, `amendment_resolved` and `referendum_held` for the amendments;
+  - `elected` and `recalled` with `office: president`;
+  - `legislative_result` (seats, votes) for the effective number and the empty assembly;
+  - `party_founded` and `party_dissolved` for the live counts.
+- `checkpoint.json`: `parties` for the end counts, `citizens[].ambition_score` for ambition.
+- `run_metadata.json`: the commits and seed 2's resumes.
+- The regex, case-insensitive, over each proposal's `reason`:
+  `\bre-?elect|\bmy (?:party|term|base)\b|\bmine\b|\b(?:petition|recall) risk`. A regex count is a rough
+  measure.
+
+*What would settle it.*
+- **Which change drives what:** phase13 to phase14 is two changes on 5 seeds. Arms that turn the forward
+  stakes and the ambition goal on one at a time would separate them.
+- **The founding ratio:** seeds with `parties.founding_ratio` frozen would show whether the jumps follow the
+  cuts.
+- **The owner's call:** is a president who lowers entry barriers, or extends their own term, behaviour to
+  keep, as the third-term attempts were (ADR-026)?
+
+*Status: open.*
