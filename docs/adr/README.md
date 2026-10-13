@@ -37,6 +37,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [026](ADR-026-amendment-stakes.md) | The president knows what a rule change would do | polity | 2026-10-11 | Accepted (exploration profile) |
 | [027](ADR-027-forward-method-stakes.md) | A voting method is weighed by the next election, not the last | polity | 2026-10-12 | Accepted (exploration profile) |
 | [028](ADR-028-ambition-shapes-the-presidents-goal.md) | A president's goal follows their ambition (supersedes roadmap D8) | polity | 2026-10-12 | Accepted |
+| [029](ADR-029-referendum-is-a-new-vote.md) | A referendum is a new vote, each citizen for their own interest (amends ADR-020) | polity | 2026-10-13 | Accepted |
 
 Also in this folder, not ADRs:
 

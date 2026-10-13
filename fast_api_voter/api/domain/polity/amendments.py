@@ -84,9 +84,9 @@ def ratified(yes: int, members: int, threshold: float) -> bool:
 
 
 def referendum_count(ballots: list[list[str]], old: str, new: str) -> tuple[int, int] | None:
-    """The last election's ballots re-counted under both methods: how many citizens ranked the
-    new method's winner above the old one's (yes), and how many the reverse (no). None when both
-    methods elect the same person, so the change would have altered nothing."""
+    """Ballots counted under both methods -- the referendum's, cast today (ADR-029): how many citizens rank
+    the new method's winner above the old one's (yes), and how many the reverse (no). None when both
+    methods elect the same person, so the change would alter nothing."""
     before, after = get_presidential_winner(ballots, old), get_presidential_winner(ballots, new)
     if before == after:
         return None
