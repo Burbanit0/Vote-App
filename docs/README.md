@@ -7,16 +7,17 @@ of discipline, is what made them drift.
 
 | Surface | Job | Rhythm |
 |---|---|---|
+| [`docs/overview/`](overview/README.md) | **The map.** Architecture and functional diagrams, why each piece is built the way it is, open questions, and the [glossary](overview/glossary.md). For anyone new, researchers included. | When the architecture changes |
 | [`docs/STATUS.md`](STATUS.md) | **Start here.** Where each part stands, the next 3 steps, the open questions. One page. | At the end of each plan phase, and whenever the next steps change |
 | `docs/plan/` | Plans. The current one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Each plan's first lines say its status; [Plans](#plans) below lists them all. | Per plan |
 | `docs/exploration/EXP-*.md` | One file per tool or method tried: the verdict (adopted, rejected or suspended), plus what it actually found and cost. | Per closed experiment (`/log-experiment`) |
 | `docs/exploration/README.md` | Index of every verdict. | Each time an experiment closes |
-| `docs/adr/` | Binding architecture decisions, with the alternatives that were rejected. | Rarely |
+| `docs/adr/` | Binding architecture decisions, with the alternatives that were rejected. Indexed in [`adr/README.md`](adr/README.md). | Rarely |
 | `docs/spec/behaviors.md` | Polity's behaviour catalogue: each invariant, with the test that locks it (`@pytest.mark.behavior`). | With the code |
 | `docs/journal/commits.jsonl` | Generated machine trace of every commit, for archaeology. | Per commit, in the polity worktree only (`scripts/git_commit_capture.py`); enable it once per clone with `pre-commit install --hook-type post-commit` |
 | `…/run/<run>/digest.json` + `digest.jsonl` | Machine trace of a simulation run: outcome (finished, crashed or interrupted), ticks reached, counts of every event type per year, population impact. Generated, never written by hand. | At **every** run end, crashes and interruptions included (`api/domain/polity/run_digest.py`) |
 | `…/run/<run>/progress.json` | Live state of a running run: the completed tick **and the one in progress**, decisions by type, fallbacks, and an **LLM heartbeat** (`last_llm_response_at`). The only surface that answers "is this run alive?"; read it with `fast_api_voter/scripts/check_run_liveness.py`. | Per tick **and** on every LLM response (throttled to 5 s) |
-| `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. | Per finished run (`/log-run` → `run-narrator` sub-agent) |
+| `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. Stories meant for outside readers are copied to [`docs/runs/`](runs/README.md). | Per finished run (`/log-run` → `run-narrator` sub-agent) |
 | `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
 | `docs/plan/vote-app/CODE_AUDIT.md` | Dated health check of the code (2026-08-20 to 2026-09-13), with the commands to replay it. Kept as history. | — |
 | `docs/journal/JOURNAL_DE_BORD.md` | **Retired 2026-10-08.** A narrative log per work session, from 2026-09-04 to 2026-09-27 (older, reconstructed history in `docs/journal/archive/`). Kept as history; `STATUS.md` and PR bodies carry the state now. | — |
