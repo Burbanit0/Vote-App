@@ -1,8 +1,19 @@
 # Journal de bord — Archive 2026 (reconstruction rétroactive)
 
+> **Rotation du 2026-10-12** : la période 2026-08-31 → 2026-09-14 est
+> désormais ici, en tête. Six de ces entrées viennent du journal actif
+> (09-04, 09-06, 09-10 (soir), 09-11 (suite), 09-12 → 09-13, 09-13 → 09-14),
+> écrites en temps réel ou reconstruites peu après, comme celle du
+> 2026-09-13 → 2026-09-14, qui le dit. Les sept autres ont été reconstruites
+> a posteriori le 2026-10-12 depuis le git log et les descriptions de PR et
+> écrites directement ici ; chacune le dit en tête.
+>
 > **Rotation du 2026-09-27** : les entrées 2026-08-17 → 2026-08-30, écrites
-> en temps réel dans le journal actif, ont été déplacées ici, en tête. Elles
-> ne sont pas des reconstructions, contrairement à ce qui suit.
+> en temps réel dans le journal actif, ont été déplacées ici, juste sous
+> celles de la rotation du 2026-10-12. Elles ne sont pas des
+> reconstructions, contrairement à ce qui suit, sauf six entrées
+> (2026-08-20 → 2026-08-29) ajoutées le 2026-10-12 pour combler des trous,
+> reconstruites a posteriori et marquées comme telles en tête.
 >
 > Entrées 2026-05-03 → 2026-08-19, déplacées hors de
 > [`../JOURNAL_DE_BORD.md`](../JOURNAL_DE_BORD.md) lors de sa rotation
@@ -12,6 +23,1115 @@
 > réel. Entrées plus récentes : [journal actif](../JOURNAL_DE_BORD.md).
 > Entrées plus anciennes (2025 et la reprise de janvier 2026) :
 > [`JOURNAL_2025.md`](./JOURNAL_2025.md).
+
+---
+
+## 2026-09-13 → 2026-09-14 — Clôture du chantier CI/qualité (décomposition radon, mutation testing, sonarjs) et sync vers polity
+
+**Contexte du jour.** Entrée reconstruite depuis les commits/PR (pas de transcript de session associé). En parallèle de la session polity du 13/09 déjà journalisée (seed sweep, worktree/venv cassés, `check_llm_stack_versions.py`), une autre session fermait les derniers items du plan de remédiation CI/CD et du plan de solidité technique sur `develop`.
+
+**Ce qui a avancé**
+- Dernières fonctions de complexité rang F (radon) décomposées (#431 à #435, 09-13) : `workers*.py`/`election_service.py` dédupliqués (clones jscpd), 4 fonctions ramenées de F à B/C/A — clôture documentée (#436).
+- Plan de remédiation CI/CD ajouté (#438), mis à jour avec les vrais résultats et liens de PR (#448), puis fermé le lendemain au profit d'un plan « structural-gaps » qui prend la suite (#482).
+- Watchdog ci-health pour repérer les workflows non-requis qui pourrissent en silence (#451), suivi de plusieurs correctifs (#452, #454, #455, #456), puis regroupement des PR de snapshot triviales en cadence hebdomadaire plutôt que quotidienne (#460).
+- Score de mutation : plancher mutmut codé à la main remplacé par un cliquet anti-régression (#462) ; fermeture de 53/57 puis 22/27 survivants de mutation sur le vote STAR et le split cycle (#459, #463).
+- Lot 14 sonarjs : 19 corrections à haute confiance (#466) — 288 signalements restants, catégorisés et volontairement reportés à un lot dédié (mémoire `sonarjs-debt-status`).
+- Bumps d'outillage : Node 20→24 sur tous les workflows (#468), TypeScript 6 + size-limit 13 (#477), jsdom 30 (#479), lockfiles Python compilés ajoutés (#484), image Docker Playwright resynchronisée (#478, #483).
+- Sync `develop→polity` (#486, 09-14).
+- **Ajout reconstruit a posteriori le 2026-10-12 (git log et descriptions de PR) : ce que l'entrée ne cite pas.**
+  - **Mutation** : le job backend échouait à chaque run depuis 17 jours, avant même de tester un mutant. La cause : la garde de numpy ≥ 2.4 contre une double initialisation dans le même processus. Passer à mutmut 3.8.0 le répare (#447). Le score de 64,4 % qui suit n'est pas une régression : le nombre de mutants a plus que triplé (1906 → 6322). Un vrai trou est comblé : aucun test n'appelait de règle avec des bulletins au format dict (#458).
+  - **Mergify** : réactiver `strict` sur `develop` cassait la file. Le batching et les vérifications spéculatives sont désactivés (#450). Le passage `/code-review ultra` est avancé à avant l'ouverture de la PR, puisque la file fusionne en quelques minutes (#449).
+  - **CI** :
+    - #439 : `ci-local` reproduit désormais la conformité des licences, WebKit et les règles Semgrep maison ;
+    - #440 : retrait du déclencheur `merge_group` mort, qui n'avait jamais tourné ;
+    - #442 : les commentaires de cinq workflows et du skill voter-ci sont mis à jour, la branche par défaut étant déjà `develop` ;
+    - #444 : une garde empêche `release.yml` de taguer `main` après avoir testé autre chose ;
+    - #461 : retrait d'une mise en sourdine ci-health devenue sans objet.
+  - **Flake WebKit** :
+    - #465 : sa cause est une tempête de re-rendus. La sélection des méthodes sort du contexte monolithique dans son propre `useMethodSelection()`, la scission que `CLAUDE.md` décrit aujourd'hui.
+    - #467 : la boucle de 28 cases coûte réellement 30,8 s sous WebKit, contre 3,9 s sous Chromium. Le budget du test est ajusté en conséquence.
+  - **Lot 14** :
+    - #464 élimine 211 des 238 `any` implicites et active le cliquet de couverture de types ;
+    - #485 met sonarjs sous cliquet (référence 288). `/code-review ultra` y trouve deux bugs dans le script de comptage.
+  - **Divers** :
+    - #480 resynchronise `engines.node` dans le lockfile ;
+    - #481 corrige un numéro de version de pygit2 cité à trois endroits ;
+    - #487 (sur `polity`) étend la CI frontend et e2e à `polity` et `polity-ui`.
+  - Dependabot : #469, #471, #472 (`dependency-cruiser` 17 → 18, possible maintenant que la CI est sous Node 24), #474, #475, #476. Snapshots ci-health : #453, #457, #488.
+
+**Points bloquants**
+- 288 signalements sonarjs restants (cognitive-complexity 38, no-nested-conditional 101, parameterized-tests 39, prefer-specific-assertions 33, no-unused-vars/no-dead-store 40, ~19 dispersés) — catégorisés mais délibérément reportés à un lot dédié plutôt que traités à la volée.
+
+**Décisions prises**
+- Remplacer le plancher mutmut fixe par un cliquet sans régression — *pourquoi* : un chiffre codé à la main dérive avec le temps, un cliquet suit automatiquement les progrès sans plafond arbitraire à remettre à jour.
+- Regrouper les PR de snapshot ci-health en cadence hebdomadaire — *pourquoi* : une PR triviale par jour noie le flux de revue sans apporter d'information supplémentaire.
+
+**Prochaines étapes**
+- [ ] Attaquer le lot sonarjs dédié (cognitive-complexity en priorité, la catégorie la plus porteuse selon le plan lui-même).
+- [ ] Poursuivre le plan « structural-gaps » qui a remplacé le plan de remédiation CI/CD clos ici.
+
+**Pour aller plus loin** : mémoire `sonarjs-debt-status`, `docs/plan/vote-app/` (plan de remédiation CI/CD et plan structural-gaps).
+
+---
+
+## 2026-09-12 → 2026-09-13 — Track D confirme `office_occupancy` sur 10 seeds, un worktree et un venv abîmés par la migration ressurgissent, le système de lois se révèle pur design
+
+**Contexte du jour.** Track D (politique de validation multi-seed du §4 de `plan-distribution-
+positions-seeds.md`) devait recevoir son premier vrai sweep multi-seed depuis que le run flagship
+existe — jusque-là chaque résultat publié tournait sur la seule seed 42, jamais validée comme
+représentative (§4.3, `seed_representativeness: unvalidated`). Lancé le 12/09, le sweep a tourné
+toute la journée ; la session du 13/09 devait construire un outil de vérification des versions du
+stack LLM avant de lancer le lot p500, ce qui a d'abord exigé de réparer deux dégâts laissés par la
+migration Ubuntu (§2026-09-04), puis a débouché sur un audit complet de l'état du projet Polity.
+
+**Ce qui a avancé**
+- **Bug réel trouvé sur le tout premier lancement du sweep** (`1edd5c65`) : `--resume-sweep`
+  passait `--resume` sans condition dès que le `run_dir` existait, alors que `run_flagship` refuse
+  de reprendre un dossier sans `checkpoint.json` — corrigé en vérifiant `checkpoint.json`
+  spécifiquement et en passant `--force` sinon.
+- **10 seeds indépendantes (1 à 10) exécutées** (`6be5cea6`), chacune un vrai
+  `run_polity_flagship.py --engine llm --years 8 --population 100 --seats 15` contre le vLLM de
+  production, ~11,5h de temps d'horloge au total. `office_occupancy` : moyenne 0,9303, stdev
+  0,0516, min 0,8182 (seed 6), max 0,9697 (seeds 1, 2, 3, 7, 9) — voir
+  `fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`. Règle, pour cette métrique à
+  cette échelle, la question de représentativité ouverte au §4.3 : le correctif de vacance
+  présidentielle (Track A, livré la veille) tient à travers les seeds, pas seulement sur celle où
+  il a été vérifié à l'origine.
+- **Effet de bord noté, pas encore un motif** : l'alerte de repli de `representative_response`
+  (seuil >10 %, Track C2) s'est déclenchée sur 2 des 10 seeds (2 et 3 : 30,3 % et 36,4 %), muette
+  sur les 8 autres. Résultat formalisé dans le plan lui-même, nouveau §4.1
+  (`docs/plan/polity/plan-distribution-positions-seeds.md`). Le lot p500 (seeds 1, 2, 42) est
+  construit et prêt, explicitement **mis en pause sur demande** après ce lot — pas lancé.
+- **Worktree cassé, trouvé et réparé** : `.git` du worktree pointait encore vers
+  `/home/burbanit0/Vote-App-polity/.git/worktrees/Vote-App-polity` (ancien chemin, pré-migration
+  Ubuntu du 04/09), inexistant — toute commande git échouait. Réparé par `git worktree repair`
+  depuis le dépôt principal (désormais `/home/burbanit0/Documents/Dev/Vote-App`) ; `git status`/
+  `git log` fonctionnels après coup.
+- **Même défaut de migration trouvé dans le venv, seulement contourné** :
+  `fast_api_voter/.venv/bin/mypy` (et vraisemblablement les autres scripts installés) porte encore
+  le shebang `#!/home/burbanit0/Vote-App-polity/fast_api_voter/.venv314/bin/python` — un venv créé
+  `.venv314` à l'ancien chemin, renommé/déplacé sans jamais être recréé, ce qui casse tout
+  script-console installé. Contourné en appelant `python -m mypy`/`python -m ruff` directement.
+  Confirmé au passage : `flake8` n'est plus installé dans ce venv — `ruff` l'a remplacé projet
+  entier (`pyproject.toml`, commentaire « Lot 1 de PLAN_SOLIDITE_TECHNIQUE.md ») ; `CLAUDE.md`
+  reste muet sur ce point côté backend.
+- **Nouvel outil construit** : `fast_api_voter/scripts/check_llm_stack_versions.py` (474 lignes),
+  demandé avant le lancement du p500, pour vérifier que les images Docker et révisions Hugging Face
+  épinglées (`docker-compose.llm*.yml`/`.ollama.yml`) sont encore à jour contre leur source réelle
+  — reporte seulement, ne bump jamais automatiquement. Deux vrais bugs trouvés et corrigés pendant
+  la construction, vérifiés en direct contre Internet :
+  - Égress IPv6 de ce sandbox black-holé (SYN-SENT sans résolution, confirmé via `ss -tnp` et
+    `curl -6`). `httpx` n'a pas de repli Happy-Eyeballs comme `curl` — un seul mauvais chemin
+    dévorait tout le budget de timeout, en série sur ~11 appels HTTP successifs : ressemblait à un
+    blocage, était ~180s de retries légitimes mais gâchés. Corrigé en forçant IPv4
+    (`httpx.HTTPTransport(local_address="0.0.0.0")`) et un timeout connect/read explicitement
+    séparé (5s/15s).
+  - L'API REST de tags de `hub.docker.com` plafonne la pagination anonyme (confirmé en direct :
+    403 en page 11, « pagination offset too large for anonymous requests ») — bien en deçà des
+    ~1174 tags d'`ollama/ollama`. Une version antérieure du script contournait ce plafond en
+    triant par récence et en ne lisant que les premières pages, ce qui n'est pas une approximation
+    sûre mais activement FAUSSE : elle renvoyait `0.5.5` (poussé 2025-01-11) comme « dernière
+    version » contre un vrai `0.33.3` pinné (poussé 2026-09-03), le bruit de tags multi-arch/
+    rebuild ayant enterré la vraie dernière release hors de cette fenêtre. Corrigé en basculant
+    entièrement sur l'API OCI Distribution v2 (`registry-1.docker.io`, le protocole que
+    `docker pull` lui-même utilise pour les dépôts publics anonymes), sans cette limite — vérifié
+    en paginant intégralement les ~1174 tags via l'en-tête `Link`.
+  - Résultat final, re-vérifié en direct pendant la rédaction de cette entrée : mypy propre, ruff
+    propre, et deux vrais écarts de version non appliqués — vLLM épinglé `v0.28.0` vs `v0.29.0`
+    disponible (poussé 2026-09-09), Ollama épinglé `0.33.3` vs `0.34.0` disponible (poussé
+    2026-09-09) — signalés, délibérément PAS bumpés.
+- **Audit à 3 agents** (aucun code touché) de tout `docs/plan/polity/` + `ADR-008` +
+  `fast_api_voter/api/domain/polity/`, pour répondre à « où en est le projet, en particulier le
+  système de lois ». Confirmé : roadmap v0-v8 tous terminés (v8, bascule vLLM, « DÉBLOQUÉ ET
+  TERMINÉ » depuis le 06/09) ; Phase 7 (dry-runs étagés) a passé ses 3 stages, porte franchie le
+  11/09 — Stage 4 (le vrai run de 30 ans) est débloqué mais **pas lancé**
+  (`plan-flagship-30y-run.md`, lignes 14-16). Qualité LLM par type de décision, état mixte :
+  `pressure_action` corrigé et livré (10/09) mais un effondrement aveugle au contenu reconfirmé la
+  même semaine via logprobs ; `representative_response` partiellement corrigé (11/09) ;
+  `party_nomination_choice` corrigé et vérifié en direct ; `candidacy_considered` — tentative de
+  calibration ÉCHOUÉE (accuracy 64 %→58,4 %), pas livrée ; `coalition_decision` — tenté, échoué,
+  effondre toujours ; `chamber_deliberation`/`reaction_to_event` — véhicules seulement écrits.
+  **Système de lois : pur design, zéro implémentation** — `ADR-008` (statut « Proposed »,
+  2026-09-11) spécifie `law_proposal` + overlay borné `AmendableParameter`/`ActiveLaws` +
+  `law_version`, mais son propre texte dit « No code changes ship with this ADR », confirmé par un
+  grep du dépôt entier (zéro hit réel pour law/legislation/ratification) ; `veto_power` de
+  `polity_config.yaml` est parsé mais sans effet comportemental, conséquence directe.
+- **Les 4 autres constats de péremption documentaire trouvés pendant l'audit sont désormais
+  corrigés** (non commités au moment de la rédaction) : `polity-llm-reference.md` (contredisait sa
+  propre date de rédaction sur `representative_response`), `polity-decision-contracts.md`
+  (compteur « 1 véhicule sur 6 » remplacé par « 4 sur 6 construits, 2 livrés »),
+  `polity-simulation-design-v2.md` (B3 sorti de « reste bloquant avant v2 » — jamais bloqué en
+  pratique, le roadmap est allé de v2 à v8 sans le critère prévu ; provider mis à jour vers `vllm`
+  en production depuis le 06/09), `plan-coalition-negotiation-v7.md` (section « État » de fin
+  passée de « Lot 1 pas encore autorisé » à « TERMINÉ », alignée sur son propre en-tête).
+- **Discussion exploratoire NON actée** : une architecture multi-agent-citoyen plus riche (état
+  affectif par citoyen pilotant une dérive continue de position dans l'espace 20-dim,
+  élargissement de la fenêtre pré-élection à 2 ticks de Track E vers une vraie phase de campagne à
+  4 ticks) a été discutée — déterminisme séquentiel du projet vs volonté affichée de sacrifier la
+  reproductibilité inter-run pour la diversité narrative et la vitesse ; confirmé que les citoyens
+  ordinaires ont des positions statiques aujourd'hui, seuls titulaires/candidats/membres de chambre
+  bougent via `apply_shifts`. Reporté explicitement à après l'audit complet — piste ouverte, pas
+  une décision.
+
+**Points bloquants**
+- Le lot p500 (seeds 1, 2, 42) est construit et prêt mais pas lancé — en pause sur demande.
+- Bump vLLM (`v0.28.0`→`v0.29.0`) et/ou Ollama (`0.33.3`→`0.34.0`) avant ou après ce lot : pas
+  tranché.
+- Le venv `fast_api_voter/.venv` est diagnostiqué cassé (shebangs stale depuis la migration), pas
+  réparé — à recréer proprement.
+- Le hook `SessionStart` a signalé en début de session que
+  `scaleprobe-8y-p500-deterministic-twin` a un `digest.json`/`digest.jsonl` (confirmé) mais pas de
+  `TIMELINE.md` — toujours pas traité, nécessiterait `/log-run`.
+- L'architecture multi-agent-citoyen (affect, dérive continue, campagne à 4 ticks) reste une
+  discussion ouverte, non tranchée.
+
+**Décisions prises**
+- Réparer le worktree via `git worktree repair` plutôt que de le recréer — *pourquoi* : préserve
+  tout l'état de travail en cours (branche, fichiers non commités) sans reconstruction manuelle.
+- Contourner (pas corriger) le venv cassé via `python -m <outil>` plutôt que de le recréer
+  immédiatement — *pourquoi* : éviter une opération lourde en plein milieu d'une session
+  d'outillage/audit ; réparation reportée délibérément.
+- Vérifier les versions du stack LLM via l'API brute du registre OCI (`registry-1.docker.io`)
+  plutôt que l'API REST de `hub.docker.com` — *pourquoi* : seule à ne pas plafonner la pagination
+  anonyme, la première approche ayant produit un résultat activement faux (`0.5.5` comme
+  « dernière version »), pas seulement incomplet.
+- Ne pas bumper vLLM/Ollama malgré les deux écarts trouvés — *pourquoi* : un bump doit rester une
+  édition délibérée et revue, jamais un effet de bord d'une vérification, et il faut éviter de
+  confondre un changement de version avec le p500 imminent.
+- Reporter l'idée d'architecture multi-agent-citoyen à après l'audit complet — *pourquoi* :
+  décision de l'utilisateur, établir l'état réel avant d'ouvrir un nouveau chantier de conception.
+
+**Prochaines étapes**
+- [ ] Lancer le lot p500 (seeds 1, 2, 42), construit et prêt depuis Track D.
+- [ ] Trancher le bump vLLM/Ollama avant ou après ce lot.
+- [ ] Recréer proprement `fast_api_voter/.venv` (shebangs cassés depuis la migration Ubuntu).
+- [ ] Committer les 4 corrections de péremption documentaire encore non commitées et le nouvel
+      outil `check_llm_stack_versions.py`.
+
+**Pour aller plus loin** : `fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`,
+`docs/plan/polity/plan-distribution-positions-seeds.md` §4.1, `docs/adr/ADR-008-law-system-seam-
+bounds-and-comparability.md`, `docs/plan/polity/polity-llm-reference.md`,
+`docs/plan/polity/polity-decision-contracts.md`, `fast_api_voter/scripts/
+check_llm_stack_versions.py`.
+
+---
+
+## 2026-09-12 — Sur develop : la dette mesurée par le Lot 6 commence à baisser, un RNG partagé derrière trois flakes, et deux pièges de Mergify
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Le lendemain de la clôture des Lots 6 à 13 (entrée du 11/09), sur `develop`, en parallèle de la session polity Track D. Le Lot 14, ajouté la veille pour rembourser la dette que le Lot 6 avait mesurée sans la corriger, et les points restants de `CODE_AUDIT.md` §7 et §8.
+
+**Ce qui a avancé**
+- **Lot 14 et `CODE_AUDIT.md`** :
+  - vulture devient un hook pre-commit bloquant au seuil de confiance déjà mesuré (#417) ;
+  - les 34 faux positifs de basedpyright sont réduits au silence un par un, et le compte tombe à 0 (#419) ;
+  - refurb passe de 145 à 6, perflint de 85 à 37, les 43 restants étant justifiés un par un (#420) ;
+  - neuf fichiers morts, une dépendance et un hook orphelin sont supprimés. `api/domain/polity/*`, à 0 % de couverture e2e, est explicitement laissé en place : ce n'est pas du code mort mais un sous-système développé ailleurs (#416).
+- **`CODE_AUDIT.md` §7** :
+  - les 9 fonctions `get_*_winner` « sans test » n'étaient en réalité que 3 ; elles reçoivent des tests dédiés (#424) ;
+  - `components/shared/` est réparti en 11 sous-dossiers thématiques (#423) ;
+  - 33 des 42 `except Exception` sont factorisés en deux formes, `safe_call` (15) et `log_and_error_response` (18) ; 9 sont laissés tels quels, délibérément, dont 3 qui journalisent sans `exc_info=True`. Le décorateur, approche évidente, est abandonné parce qu'il aurait élargi la portée des exceptions attrapées (#430).
+- **Le RNG partagé** (#421) : une enquête `flake-hunter` montre que `ElectionService.simulate()` et plusieurs workers réinitialisaient les singletons `random` et `np.random` du processus. C'est la cause probable de 3 flakes sous `pytest-randomly`. En démonstration concurrente, le taux de résultats identiques passe de 1/30 à 30/30. Le `/code-review ultra` de #421 trouve deux trous restants, dont `run_bandwagon_simulation`. Leur correctif avait été poussé pendant la revue, mais Mergify avait déjà fusionné le commit précédent : il est réintroduit par #422, ouverte en brouillon pour que cela ne se reproduise pas.
+- **Deux pièges de Mergify, trouvés en essayant de fusionner #423** :
+  - la branche synthétique `mergify/merge-queue/*` échouait à la politique de nommage (#426) ;
+  - le `checks_timeout` automatique, tiré vers une minute par une série de petites PR, faisait sortir de la file des PR dont l'e2e tournait encore. Il est fixé à 25 minutes (#428).
+- **Les documents de plan rangés** dans `docs/plan/vote-app/`, avec l'historique préservé (#437, 23 h 48).
+
+**Points bloquants**
+- 37 trouvailles perflint et 6 refurb restent, chacune justifiée comme faux positif ou comme changement qui casserait un contrat (#420).
+
+**Décisions prises**
+- Gater vulture au seuil où il ne voit que des classes sans faux positif (paramètres inutilisés, code inatteignable, imports), et laisser le reste informatif (#417).
+- Garder le code polity non routé plutôt que le supprimer comme code mort (#416).
+- Un RNG local par appel, plutôt que de réinitialiser l'état global (#421).
+
+**Prochaines étapes** *(ce qui a suivi)*
+- [x] Les derniers rangs F de radon : #431 à #435 (13/09, entrée suivante).
+- [x] La dette sonarjs : 19 corrections par #466, puis le cliquet de #485 (13-14/09).
+
+**Pour aller plus loin** : `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md` (Lot 14), `docs/plan/vote-app/CODE_AUDIT.md` §7-§8, `.mergify.yml`.
+
+---
+
+## 2026-09-11 (suite) — Vacance présidentielle corrigée aux deux bouts, deux calibrations sur trois échouent proprement, Stage 3 repasse et déverrouille le run de 30 ans
+
+**Contexte du jour.** Suite immédiate de la session du matin (retractation du « hang », clôturée à
+`ebcbd773` 12:37) : combler la vraie lacune qu'elle avait révélée — rien ne distingue un run lent
+d'un run figé — puis auditer l'état des 22 plans du dépôt avant d'enchaîner sur les chantiers
+restés ouverts de `lets-build-a-solid-spicy-otter.md` : la vacance présidentielle chronique
+(Track A), les calibrations de contrat C3 sur les décisions encore effondrées (Track B), trois
+derniers points de fiabilité (Track C), l'étalement de l'élection présidentielle sur plusieurs
+ticks (Track E), et le design — sans code — du système de lois (ADR-008). Refermé par un second
+passage du Stage 3 du run flagship, qui franchit sa porte.
+
+**Ce qui a avancé**
+- **Battement de cœur intra-tick** (`1a2093bb`) : `ProgressTracker.record_llm_activity` écrit
+  `progress.json` à chaque réponse LLM complétée, plus seulement par tick —
+  `last_llm_response_at` (horodatage absolu, jamais « il y a N secondes »), `llm_calls_completed`,
+  `tick_in_progress` distinct de `tick`. Porté par un point de passage unique
+  (`HeartbeatClient` dans `_llm_client_scope`), donc aucun des neuf types de décision ne sait que
+  le battement existe. Nouveau `scripts/check_run_liveness.py` consulte le battement ET le serveur
+  d'inférence, refuse de trancher sur la seule preuve côté client — vérifié en direct contre le
+  Stage 3 en cours : renvoie `ALIVE` exactement dans la configuration qui avait trompé la lecture
+  du matin. 2159 tests passed, ruff/mypy propres (2 erreurs mypy pré-existantes dans
+  `workers_playground.py`).
+- **Audit des 22 plans du dépôt** (`f8d2bcc2`) : six documents affichaient un état devenu faux,
+  dont un cassé le jour même — l'EXP écrit le matin avait pris le numéro « 002 », déjà utilisé sur
+  `develop` ; renumérotée EXP-008 (puis EXP-015 après le merge du 12/09, puis EXP-017 après celui du 27/09, la même collision
+  s'étant reproduite avec le `develop` synchronisé entretemps — voir l'entrée du 12-13/09).
+  Corrigés aussi : `plan-coalition-negotiation-v7` (« Lot 1 pas encore autorisé » alors que les 3
+  lots sont livrés depuis ~2 semaines, `rounds_used: 2` vérifié sur un run pop 500),
+  `plan-vllm-switch-readiness` (« BLOQUÉ » alors que vLLM est le backend de prod depuis le 06/09),
+  `polity-decision-contracts` (« corrections non commencées » contredisant son propre §3 « Livré »
+  pour `pressure_action`), `plan-llm-protocol` (TOON « non shippé » pour `candidacy_considered`,
+  shippé le jour même), `ci-hardening-plan.md` (supersédé par sa v2 le jour même de sa rédaction,
+  jamais marqué).
+- **Sonde de précision négative** (`c9396bf4`) : cinquième piste pour les effondrements de
+  `representative_response`/`coalition_decision`, après framing adversarial et alignement/RLHF
+  (éliminés) et la lacune C3 (ne corrigeait qu'un type sur cinq). Servi
+  `ELVISIO/Qwen3-8B-NVFP4A16` (même modèle de base que l'AWQ de prod, quantification poids-seuls
+  vérifiée via `config.json`) : négatif sur les deux types — `representative_response` toujours
+  P(stance=1) = 0,999996–1,000000 sur les 9 points, `coalition_decision` toujours JOIN partout
+  (≥0,88). Les effondrements ne sont pas un artefact de quantification.
+- **Track A — vacance présidentielle corrigée aux deux bouts** (`847e26f5`) : 8/8 runs avec un
+  recall tombaient en longue vacance (pire cas 87,5 %), prouvé structurel à `simple_rules.py` (un
+  double déterministe pur recale deux fois et reste vacant pire que son jumeau LLM). A1+A2 : un
+  vote de confiance gagné compte désormais réellement (`support(t)` remplace `mandate_strength` ;
+  nouveau champ `averted_recall` empêche qu'un recall du même tick écrase une rétention gagnée —
+  cas réel mesuré : président retenu à 69,2 % puis recalé le même tick avant le correctif). A3 :
+  élection anticipée sur recall (`institutions.snap_election_on_recall`), vérifiée en direct :
+  recall au tick 5, remplacé au tick 6. A4 : continuité de la chambre de tirage au sort pinnée en
+  test (75/75 sièges, aucun trou, ticks 0–32). A5 : `office_occupancy` promu en vraie métrique
+  (`RunMetrics`/`digest.json`) — corrige au passage les propres chiffres Track 0b du document
+  (0,531/0,281 → 0,5152/0,2727, dénominateur faux). 2168 tests passed.
+- **Track B — calibrations C3, deux échecs propres et un correctif partiel** : B1
+  `representative_response` — correctif PARTIEL livré, énonçant enfin l'échelle de `mandate_dev`
+  ([0,1] géométrique) et `street` (asymptote ~6,67) ; P(stance=1) chute à 0,1225 exactement au pôle
+  zéro-pression (bascule vers SILENCE) — une vraie distinction zéro/non-zéro, pas un gradient
+  lisse. B2 `coalition_decision` — TENTÉ, NÉGATIF, pas livré : même logique de référence (distance
+  moyenne inter-partis), aucune amélioration mesurée (écart pôle-à-pôle -0,0004 contre -0,0026
+  avant, plus petit en magnitude). B3 `candidacy_considered` — la clause C3 ne s'applique pas non
+  plus ici : calibré sur l'ambition moyenne de la population, les déclarations montent de 40,4 % à
+  47,6 % et l'exactitude CHUTE de 64 % à 58,4 % contre la vérité terrain. Pas livré. B6 : défaut
+  d'échantillonnage corrigé dans le harnais de calibration lui-même (taille 1 tirait toujours du
+  même pôle par construction) — la conclusion déjà tirée à une autre taille tenait déjà par une
+  preuve indépendante, pas rejouée.
+- **Track C — trois derniers points de fiabilité** : C1 isole le repli de
+  `party_nomination_choice` parti par parti au lieu de faire échouer tout le tick (Stage 3 :
+  10/15 nominations en repli à cause d'un seul parti sur cinq à chaque fois), puis énonce
+  explicitement la borne par parti dans le prompt (`candidate_count`) — reproduction exacte du
+  checkpoint Stage 3 vérifiée : le même parti répond 19 (légal) au lieu de 26 après correctif, avec
+  la même confiance. C2 ajoute un taux de repli PAR TYPE et une alerte (seuil 10 %) à
+  `run_digest.json` — le taux global de Stage 3 (0,26 %) masquait un type à 67 %. C3 corrige une
+  vraie dérive : le contexte journalisé de `pressure_action` ne portait plus `blank_threshold`
+  depuis la Phase E, silencieusement, sur un type à haut volume.
+- **Track E — élection présidentielle étalée sur 3 ticks** (`75cde4b1`) :
+  `institutions.staggered_election` (défaut `false`) sépare déclaration (J-2), nomination+
+  positionnement (J-1) et vote (jour J) au lieu d'un seul tick portant ~1221 décisions LLM d'un
+  coup. Neuf tests + vérification live confirment un vainqueur réel élu. PAS câblé dans
+  `run_polity_flagship.py` — le changement d'ordre de tirage RNG qu'il force est explicitement
+  renvoyé au Track D.
+- **ADR-008, design du système de lois** (`92b44071`) : seam = nouveau decision type
+  `law_proposal` sur la chambre de tirage au sort, paramètres bornés dans un overlay `ActiveLaws`
+  plutôt que de muter le `PolityConfig` figé, comparabilité via un compteur `law_version`
+  monotone. Aucun code livré avec cet ADR — sa propre section « When to build » constate que, des
+  trois symptômes nommés comme raisons d'attendre, seule la vacance présidentielle est réellement
+  corrigée (Track A) ; `representative_response` est partiel, `coalition_decision` reste un
+  effondrement non résolu.
+- **Stage 3 repassé et validé** (`54598c56`) : `completed`, 32/32 ticks, 8226 événements, 0 ligne
+  malformée. Le correctif `vote_cast` (`246da0b`, 10/09) tient à population 500 sur les DEUX
+  scrutins présidentiels (6/500 puis 0/500 replis, contre 494/500 et 476/500 avant correctif).
+  Mais `party_nomination_choice` devient le pire type mesuré du simulateur (10/15 replis, 67 %) —
+  root-cause tracée dans `replays.log` jusqu'à une réponse confiante et fausse
+  (`winner_position=26` contre 18-19 candidats, P("2")=0,994). Projection du run de 30 ans revue à
+  ~22,5h à partir des vrais chronométrages (tick ordinaire ~246s, tick électoral ~7580s, 120 ticks,
+  7 élections), contre 35,6h/40,8h estimés précédemment. `TIMELINE.md` (245 lignes), premier récit
+  produit par l'agent `run-narrator`, révèle qu'un président ayant GAGNÉ son vote de confiance
+  (69,2 %) au tick 17 a quand même été recalé le même tick par le plancher de légitimité (avant le
+  correctif Track A), puis la présidence est restée vacante ticks 18-31 (44 % du run) — tout le pan
+  « redevabilité » du modèle à zéro strict sur ces 14 ticks, vérifié dans le journal.
+
+**Points bloquants**
+- `coalition_decision` reste un effondrement non expliqué — ni framing adversarial, ni
+  alignement/RLHF, ni C3, ni précision de quantification ne l'expliquent. Deux hypothèses
+  non tranchées : mauvaise référence choisie côté prompt, ou « rejoindre sur invitation » est une
+  politique institutionnellement plausible indépendante de la distance de plateforme — auquel cas
+  la réponse du modèle serait correcte, pas effondrée.
+- `candidacy_considered` continue de violer la clause C3 (référence de population absente du
+  prompt) ; la tentative de calibration a empiré l'exactitude plutôt que de la corriger — le
+  véhicule est à repenser, pas juste à finir.
+- Stage 4 est débloqué mais soulève une vraie question de conception avant d'être lancé : un
+  plancher de légitimité automatique a recalé un président venant de GAGNER un vote de confiance
+  populaire explicite ; Track A empêche désormais ce cas précis (A2), mais la question de fond
+  (le plancher doit-il pouvoir écraser un vote populaire) reste posée devant toute décision de
+  lancer le run de 30 ans.
+- Track E n'est pas câblé dans le run flagship — le changement d'ordre RNG qu'il force reste à
+  re-baseliner, tâche explicitement renvoyée à Track D.
+
+**Décisions prises**
+- Construire `scripts/check_run_liveness.py` plutôt que de fixer un seuil de temps arbitraire pour
+  juger un run figé — *pourquoi* : le seul test honnête de vivacité est de consulter le serveur
+  d'inférence lui-même, exactement ce que la mauvaise lecture du matin même n'avait pas fait.
+- Ne pas rejouer Track B6 corrigé sur la matrice de calibration de `pressure_action` — *pourquoi* :
+  la conclusion déjà tirée tenait déjà par une preuve indépendante (12/12 citoyens alternés).
+- Ne pas câbler Track E dans le run flagship malgré des tests verts — *pourquoi* : le changement
+  d'ordre de tirage RNG qu'il force est une frontière de version à re-baseliner, du ressort de
+  Track D, pas de celui-ci.
+- Écrire l'ADR-008 maintenant mais différer toute implémentation — *pourquoi* : son propre critère
+  de lancement (les effondrements connus corrigés) n'est que partiellement rempli.
+
+**Prochaines étapes**
+- [ ] Retenter `coalition_decision` sous un angle différent de C3, ou documenter le verdict
+      « réponse correcte, pas effondrée » comme hypothèse retenue.
+- [ ] Statuer sur le plancher de légitimité pouvant recaler un président venant de gagner un vote
+      de confiance — question nommée par le `TIMELINE.md` du Stage 3, à trancher avant Stage 4.
+- [ ] Câbler Track E après le re-baseline RNG que Track D doit produire.
+- [ ] Reprendre `candidacy_considered` avec un véhicule différent, la calibration C3 ayant empiré
+      l'exactitude.
+
+**Pour aller plus loin** : `docs/exploration/EXP-017-hook-taskcompleted-recit-run-polity.md`,
+`docs/plan/polity/lets-build-a-solid-spicy-otter.md` (Tracks A-E), `docs/adr/ADR-008-law-system-
+seam-bounds-and-comparability.md`, `docs/plan/polity/polity-decision-contracts.md` §3,
+`fast_api_voter/scripts/flagship_runs/` (Stage 3, `TIMELINE.md`).
+
+---
+
+## 2026-09-11 — Sur develop : les Lots 6 à 13 du plan de solidité en une journée, de basedpyright à la rétrospective
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Pendant la longue session polity du 10-11/09 (entrées voisines), une autre session déroule la suite de `PLAN_SOLIDITE_TECHNIQUE.md` sur `develop`. À partir du Lot 7, plusieurs PR sont construites par des agents en arrière-plan dans des worktrees isolés, puis revérifiées avant ouverture (#377, #379 à #385). #408 a mesuré le coût de la journée avec `ccusage` : **10 936 requêtes API et 628,47 $** pour le seul 11/09.
+
+**Ce qui a avancé**
+- **Lot 6, des outils pour mesurer, pas pour tout corriger d'un coup** :
+  - **basedpyright** (#362) : 2 vrais bugs. L'un donnait un 500 sur `/api/v2/simulations` avec `simulationType: "ranked_scores"`, confirmé en direct, dans un endpoint que Schemathesis ne peut pas fuzzer utilement. 34 faux positifs sont laissés en référence.
+  - **refurb et perflint** (#363) : 145 et 85 trouvailles en référence. La règle `loop-invariant-statement` (1593 alertes) est désactivée.
+  - **Couverture de types** (#364) : 99,58 %.
+  - **Couverture runtime e2e** (#365) : 34,4 % du backend et 63,15 % du frontend, contre 91,56 % et 87,05 % en unitaire. `api/domain/polity/*` (2813 lignes) est à 0 % e2e, et un orphelin de `/simulation/compare` était invisible pour knip. Le script reste manuel : l'instrumentation complète faisait dépasser un délai sous Firefox.
+  - **sonarjs** (#367) : 307 trouvailles, dont 2 vrais bugs d'affichage.
+  - **Licences** (#368) : le seul item du Lot 6 rendu bloquant, vérifié dans un venv isolé de production. 39 paquets, tous sous licence permissive.
+  - #372 crée le Lot 14 pour rembourser cette dette, « hors flux », sans urgence.
+- **Lot 7, interface et i18n** :
+  - #373 : l'a11y sur toutes les routes existait déjà depuis le 22/08 (10/10 tests) ;
+  - #374 : viewport mobile, avec un profil Android ;
+  - #375 : `i18next-cli` en informatif, épinglé en 1.0.0 pour Node 20, avec un override `glob` contre une CVE ;
+  - #376 : pseudo-locale qui allonge les chaînes d'environ 35 % ;
+  - #377 : régression visuelle par captures Playwright, générées uniquement dans l'image Docker épinglée (Lost Pixel, archivé, est écarté, EXP-004) ;
+  - #407 : WebKit ajouté à la matrice e2e, après un diagnostic local : la `libpthread` du snap VS Code cassait WebKit, alors que 114/114 tests passent en conteneur.
+- **Lot 8, performance** :
+  - #379 : l'invariant de performance du form-lock, mesuré par nombre de commits et coût relatif, et non par des millisecondes trop bruitées ; budget de bundle ;
+  - #380 : plafonds `pytest-benchmark` bloquants sur 27 cas, plus un test de charge Locust en script manuel.
+- **Lot 9, sécurité** :
+  - #381 et #382 : aucune image n'étant publiée, c'est le SBOM qui est signé (cosign sans clé, avec attestation SLSA). Le chemin OIDC est confirmé à son premier vrai run.
+  - #383 : fuzzing atheris, **4 vrais bugs** corrigés (regret sur un bulletin vide, Nanson et Baldwin sur des bulletins vides, jugement majoritaire bâti sur le seul électeur 0, 9 parseurs de réponses LLM vulnérables à une `RecursionError`). #387 ajoute la graine de corpus manquante, qui faisait échouer le premier run.
+  - #384 : scan ZAP baseline. L'application n'envoyait aucun en-tête de sécurité ; `nosniff` est ajouté.
+  - #385 : guarddog, trufflehog et OSV-Scanner en informatif. Le `minimumReleaseAge` demandé était déjà couvert par le délai Dependabot de 7 jours.
+- **Lot 10, observabilité** : `/metrics` Prometheus avec des sondes `health/live` et `health/ready` distinctes (#393), GlitchTip auto-hébergé (#394), OpenTelemetry vers un Jaeger auto-hébergé (#395). #396 corrige une collision de numéros EXP-012/013.
+- **Lot 11, outillage Claude** :
+  - agents `dep-triage` (#398), `parity-guardian` (#399), `doc-drift` (#400, 2 vraies dérives trouvées), `axiom-checker` (#403) et `flake-hunter` (#405) ;
+  - skills `voter-testing`, `voter-ci` et `release` (#404) ;
+  - rappel `/code-review ultra` dans `CLAUDE.md` (#402) ;
+  - routine mensuelle `doc-drift` réellement branchée (#401) ;
+  - décompte du lot corrigé à 7 agents et 5 skills (#406).
+  - Un agent créé en cours de session n'est pas invocable dans cette même session (#398).
+- **Lot 12** :
+  - #408 vérifie la télémétrie OpenTelemetry de Claude Code et `ccusage` ;
+  - #410 : `.claudeignore` n'existe pas comme mécanisme. Un hook avertit à la lecture complète d'un fichier généré, `nbstripout` réduit le notebook de 95,9 %, et le journal est découpé en archives.
+- **Lot 13, synthèse** :
+  - #412 rejoue `CODE_AUDIT.md` et corrige 2 régressions du cliquet ;
+  - #413 écrit 4 récits en anglais (`docs/stories/`) ;
+  - #414 ajoute `RETROSPECTIVE.md`. On y relève notamment **aucune entrée du journal entre le 06/09 et le 11/09**, l'origine même des trous que ces reconstructions comblent ;
+  - #415 ajoute la section « A second thing being explored here » au README.
+- **Dependabot** :
+  - #386 ignore pylint 4, incompatible avec perflint, et ferme #371 ;
+  - #390 ignore les versions majeures bloquées par Node 20 ou par `eslint-plugin-jsx-a11y`, et ferme #370, #327, #325 et #324 ;
+  - #369 et #388 sont fusionnées. #388 porte `i18next-cli` de 1.0.0 à 1.73.1 le même jour où #375 l'avait épinglé en 1.0.0 pour Node 20 ; la PR n'en discute pas.
+
+**Points bloquants**
+- Les versions majeures de vitest, jsdom et ESLint restent bloquées par Node 20 et par jsx-a11y (#390).
+- Seul l'un des 15 sites d'appel du moteur est tracé par OpenTelemetry (#395).
+- Les captures WebKit ne peuvent pas être rejouées dans le terminal VS Code de cette machine (#407).
+
+**Décisions prises**
+- Mesurer et consigner plutôt que tout corriger dans le Lot 6 : chaque item reste dans son budget d'effort. Le remboursement est renvoyé au Lot 14 (#372).
+- Ne rendre bloquant que ce qui part d'une référence propre (licences, #368 ; plafonds de benchmark, #380).
+- L'auto-hébergement plutôt que le SaaS pour le suivi d'erreurs, à la demande explicite du propriétaire (#394). Jaeger suit la même préférence, sans confirmation explicite pour le traçage (#395).
+
+**Prochaines étapes** *(ce qui a suivi)*
+- [x] Lot 14 : entrée du 12/09, puis #464 et #485 (13-14/09).
+- [x] Node 20 → 24 : #468 (13-14/09).
+
+**Pour aller plus loin** : `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md` (Lots 6 à 13), `docs/exploration/` (EXP-003 à EXP-013), `docs/plan/vote-app/RETROSPECTIVE.md`, `docs/stories/`.
+
+---
+
+## 2026-09-10 (soir) → 2026-09-11 — `pressure_action` calibré livré, trois runs tués sur quatre jours par un repli manquant, et un run figé qui avait l'air vivant
+
+**Contexte du jour.** Session continue, ouverte pour livrer la Phase E du plan de calibration de
+`pressure_action` (signal `blank_threshold`, taille de batch 1) — la dernière étape de
+`polity-decision-contracts.md`. Elle a fini par toucher presque tout le protocole LLM de la
+polity : vérification en conditions réelles, adoption sélective de TOON, la clôture d'une série de
+pannes fatales du run Stage 3 (scale probe population 500) étalée sur quatre jours, un document de
+référence complet, la fermeture de la vulnérabilité « un batch invalide tue le run » sur les neuf
+types de décision — et, en clôturant la journée, la découverte d'une panne plus grave que toutes
+celles corrigées : un run qui se fige sans rien déclencher.
+
+**Ce qui a avancé**
+- **Phase E livrée** (`da83b28`) : `decide_pressure_actions` bascule sur les builders calibrés
+  (`PRESSURE_THRESHOLD_SIGNAL`), chunké à 1 citoyen par appel. Les deux barres du plan étaient
+  déjà franchies — Phase C : 100 % d'accord à batch 1 ; Phase D : coût réel 2,8-3,0x le batch 25,
+  pas ~25x supposé. 14 tests réécrits, vérification live 12/12 sur le fil.
+- **« A-t-on testé en conditions réelles ? » a fait remonter deux trous** (`1ada806`, `448b72d`) :
+  le fichier de tests live `pressure_action` pour Ollama ne peut par construction pas tourner
+  contre le vrai serveur vLLM (404 sur `/api/chat`, jamais servi par vLLM — un problème structurel
+  de provider, pas une fixture devenue obsolète) ; les tests manquants recopiés dans
+  `test_polity_vllm_live.py`, tous deux verts en direct. Et le test `vote_cast` qui échouait en
+  direct depuis longtemps envoyait 25 citoyens en un seul batch, une forme que `cast_votes` ne
+  produit jamais en production (toujours chunké à 3) — corrigé en testant à la vraie taille de
+  production, ce qui donne au passage la première confirmation live du correctif de troncature du
+  10/09.
+- **Petit run réel de bout en bout** (`11aebdd`) : `run_simulation()` complet, 20 citoyens, 4 ans,
+  contre le vrai serveur vLLM. Premier essai : zéro décision `pressure_action` malgré de vraies
+  élections — `awakening.enabled`/`legitimacy.enabled` étaient à `false` dans le yaml livré (la
+  porte de consultation de `pressure_action` elle-même), donc personne n'était jamais consulté.
+  Corrigé en les activant. Résultat : 64 décisions réelles, histogramme `{0: 42, 4: 22}` — pas une
+  constante — et un `self_gap` moyen matériellement plus élevé pour ceux qui choisissent le levier
+  le plus affirmé (0,382 vs 0,234), même sens que la matrice de calibration.
+- **TOON adopté, mais seulement pour `candidacy_considered`** (`1223c3c`) : 853→794 tokens de
+  prompt (-6,9 %), précision IDENTIQUE contre la vérité terrain (16/25 dans les deux formats).
+  `pressure_action` avait montré l'inverse (vraies économies, vraie régression de qualité) et reste
+  sur JSON — pas de politique « TOON partout », chaque type tranche son propre A/B.
+- **Trois runs multi-heures tués net par un repli manquant, sur quatre jours** : `chamber_deliberation`
+  (08/09, Stage 1 smoke pop 100 — une boucle Mode-A `finish_reason='length'` épuise chaque replay à
+  l'identique et remonte hors de `run_simulation`, réparée ce jour-là) ; `party_nomination_choice`
+  (11/09, Stage 3 pop 500, `a8cf2f4`) — un `winner_position=26` hors bornes, contre **deux partis
+  contestés distincts, l'un à 18 candidats déclarés, l'autre à 19** (vérifié verbatim dans le
+  `replays.log` du run : `grep -o "winner_position=[0-9]* is out of range for its own [0-9]*
+  declared" replays.log`) ; `representative_response` (11/09, Stage 3 pop 500, `a691e29`), 2,5h
+  dans le run, sur deux shifts ciblant la même dimension. Un quatrième arrêt le même jour n'était
+  pas un bug : un reboot de l'hôte a tué le process en cours à 07:14 (`0454010`).
+- **Et une illustration mesurée que « repli » ne veut pas dire « sauvetage gratuit »** : le 10/09
+  (`246da0b`), ce même Stage 3 a *survécu* à un défaut `vote_cast` (le prompt disait de classer
+  tout candidat acceptable, le validateur imposait un top-5) précisément parce que `vote_cast` a un
+  repli depuis le 06/09 — en basculant 494/500 puis 476/500 votes sur deux scrutins. Ces deux
+  élections ont, dans les faits, été tranchées par la ligne de base déterministe pendant que le
+  journal les enregistrait comme un run LLM.
+- **De la lecture manuelle de ces arrêts est né le besoin d'un récit lisible par run** (`658b3e7`,
+  `0454010`) : mesuré, pas supposé — seuls 3 des 8 répertoires de run flagship avaient un
+  `viz_export.json`, écrit après le `try/finally` et donc sauté par toute exception. Nouveau
+  `run_digest.py` écrit un `digest.json` à CHAQUE fin de run (succès, crash, SIGTERM), classifié
+  sur si l'arrêt a été *demandé* plutôt que sur le type d'exception. Vérifié d'abord en synthétique
+  (3/3 SIGTERM en cours de run produisent `outcome=interrupted` avec des comptes de ticks honnêtes),
+  puis, en toute fin de journée, **en conditions réelles sur un vrai run de ~2h** — voir plus bas.
+  Agent `run-narrator` + commande `/log-run` + hook `SessionStart` ajoutés pour transformer ce
+  digest en `TIMELINE.md` — le hook `TaskCompleted` a été testé en premier et ne se déclenche pas
+  pour les tâches Bash en arrière-plan (vérifié comme un vrai négatif : un hook `PostToolUse`
+  ajouté dans le même changement, lui, s'est déclenché dans la même session).
+- **Document de référence écrit** (`bdc2e4f`, `polity-llm-reference.md`, ~500 lignes) : demandé
+  pour pouvoir conseiller sur l'état réel du simulateur sans relire 4000 lignes de moteur. Deux
+  affirmations contradictoires d'agents de recherche vérifiées contre le code avant publication :
+  la négociation de coalition EST une vraie boucle multi-tours, et la config flagship OUVRE bien
+  le menu de pression (`electoral_only=False`, pétitions et mobilisation actives) — confirmé
+  contre le journal d'un run réel dont des citoyens ont signé des pétitions. Ça décide si
+  l'effondrement documenté de `pressure_action` en menu fermé s'applique aux vrais runs : non,
+  c'est le bras de contrôle du palier §11.4.
+- **Les neuf types de décision LLM ne peuvent plus tuer un run** (`9929651`) : les quatre qui
+  pouvaient encore mourir ont chacun un repli déterministe reproduisant leur propre ligne de base
+  §11.4 — `candidacy_considered` → `simple_rules.decide_candidacy` (seuil d'ambition),
+  `campaign_positioning` → l'épingle sincère de `declare_candidacy` (aucun shift),
+  `pressure_action` → `deterministic_pressure_action` à partir du contexte figé déjà vu par le
+  modèle, `reaction_to_event` → le delta plat de `deterministic_reaction_to_event`. Deux trous
+  trouvés en chemin, refermés : `party_nomination_choice` avait déjà un repli, mais son `try`
+  n'entourait que la validation, pas l'appel LLM — un budget de replays épuisé passait à travers, un
+  trou à moitié fermé qui se lisait comme fermé ; `coalition_decision` relançait l'exception au
+  tour 1 alors qu'un échec au tour ≥2 dégradait proprement depuis v7 Lot 2 — aligné sur le même
+  repli, mais explicitement PAS sa ligne de base (le polity finit sans gouvernement là où
+  `form_coalition` en aurait produit un réel, choix de modélisation assumé et révisable). Les neuf
+  types varient désormais l'échantillonnage en cas de retry (température 0,3 + décalage de seed
+  par tentative, jamais au premier essai). Mesuré sur le run Stage 3 en cours pendant l'écriture :
+  155 batches rejetés, `vote_cast` en a récupéré 108/115 et `chamber_deliberation` 38/38 grâce à
+  cette variation — sans elle, ces 155 étaient irrécupérables par construction. Honnêteté
+  nécessaire : les six types tout juste corrigés n'ont enregistré aucun rejet sur ces 15 ticks —
+  une assurance contre une queue de distribution, pas un correctif pour un taux observé. Suite
+  verte : 2146 passed, 43 skipped, mypy/ruff propres (les 2 erreurs mypy restantes sont
+  préexistantes, dans `api/domain/election/workers_playground.py`, vérifié en stashant).
+- **Incident mineur en fin de session** (`e947472`) : le hook de capture pre-commit a écrasé
+  l'entrée de `bdc2e4f` dans `docs/journal/commits.jsonl` (son stash/restore est entré en conflit
+  avec sa propre écriture fraîche). Récupérée verbatim depuis le patch laissé dans le cache
+  pre-commit, réinsérée dans l'ordre chronologique, chaque ligne re-parsée en JSON avant écriture
+  — `--no-verify` sur ce seul commit correctif pour ne pas retomber dans la même course.
+- **Le run Stage 3 lui-même a fourni la première validation en conditions réelles de la chaîne
+  SIGTERM → digest de `658b3e7`.** Il n'avançait pas lentement, il était bloqué : diagnostiqué
+  après coup (1,92s de CPU en 1h59, journal inchangé depuis 09:57:51, une socket ESTABLISHED vers
+  vLLM ouverte avec Recv-Q et Send-Q à 0 pendant que vLLM lui-même répondait normalement à
+  `/v1/models` en 4 ms) — l'`eta_min` de `progress.json` était simplement périmé, écrit au dernier
+  tick complété deux heures plus tôt. Tué proprement par SIGTERM sur décision de l'utilisateur :
+  `digest.json` obtenu avec `outcome: interrupted`, `error: {"type": "_Terminated", "message":
+  "received signal 15"}`, 7447,8s écoulées, 16/32 ticks journalisés, checkpoint au tick 15, 4624
+  événements, **0 ligne malformée**, 3 replis, 240 retries, 1 mandat, 7 entrées de chronologie
+  institutionnelle — vérifié directement dans le fichier. Relancé depuis ce checkpoint, désormais
+  sur le code de `9929651`.
+
+**Points bloquants**
+- **L'erreur de la journée, et elle est de moi : j'ai diagnostiqué le run Stage 3 comme figé et je
+  l'ai fait tuer. Il ne l'était pas. Il travaillait.** ~2h de calcul jetées sur une mauvaise
+  lecture ; seul le checkpoint au tick 15 a limité la perte à un tick. Les quatre indices qui
+  semblaient accablants ont tous une explication innocente : (1) 1,92s de CPU en 1h59 — normal, le
+  processus est bloqué ~100 % du temps sur un serveur GPU et parser un petit batch JSON coûte moins
+  d'un jiffy de 10 ms ; (2) journal muet pendant ~2h — normal, `cast_votes` décide **toute la
+  population** avant que l'appelant ne journalise quoi que ce soit, soit ~167 appels séquentiels à
+  ~3/min à population 500, donc ~1h de silence légitime, et le tick 16 est un tick d'élection (8 à
+  10× un tick ordinaire, ce que je savais déjà) ; (3) une socket ESTABLISHED ouverte 1h41 plus tôt
+  — ma pire inférence : httpx réutilise une seule connexion keep-alive, l'âge de la socket ne dit
+  strictement rien sur l'âge de la requête ; (4) ETA de `progress.json` périmé — normal, il n'est
+  écrit qu'à chaque tick complété.
+  **La vérification que je n'ai pas faite et qui tranche en dix secondes : demander au serveur s'il
+  travaille.** `docker logs vllm-polity` montrait `Running: 1 reqs` à 130-170 tok/s en continu,
+  `nvidia-smi` 94 % de GPU, et un débit stable de 84 requêtes en 30 min avec notre processus pour
+  seul client. Il n'y a pas de bug de gel. Il n'y en a jamais eu.
+- **La vraie lacune, elle, est réelle : rien ne permet de distinguer un run lent d'un run figé.** À
+  population 500, un run peut légitimement passer une heure sans une seule écriture de journal,
+  sans mise à jour de `progress.json` et à ~0 % de CPU. Il faut un **battement de cœur intra-tick**
+  dans `progress.json` (décisions complétées, phase courante, date de la dernière réponse LLM),
+  pas seulement une écriture par tick. D'ici là, le seul test de vivacité honnête est le log du
+  serveur LLM — et toute affirmation « le run est bloqué » qui ne l'a pas consulté doit être tenue
+  pour fausse, y compris la mienne.
+- `candidacy_considered` échoue à la même clause de contrat (C3, état perceptible) qui avait causé
+  l'effondrement de `pressure_action` : `ambition_score` est envoyé sans aucune référence de
+  population. Un run réel montre ~40 % des citoyens se déclarant candidats, invraisemblable face à
+  une vraie polity. Le véhicule de correction est déjà écrit dans `polity-decision-contracts.md`,
+  non construit.
+- Rien n'agrège encore `payload.llm_fallback` en alerte lisible — seul `progress.json` porte un
+  `fallback_count` brut, sans seuil ni porte. Un run dégradé sur la moitié de ses décisions et un
+  run qui n'a jamais basculé finissent tous les deux et se ressemblent.
+- Question ouverte, nommée mais non tranchée : donner aux DEUX tours de `coalition_decision` un
+  repli `form_coalition`, ou garder la sémantique d'abandon actuelle du tour 1.
+
+**Décisions prises**
+- Adopter TOON pour `candidacy_considered` seul, pas pour `pressure_action` — *pourquoi* : chaque
+  type de décision tranche son propre A/B (gain de tokens ET précision inchangée pour l'un, gain
+  de tokens mais régression de qualité pour l'autre) plutôt qu'une politique uniforme.
+- Faire dégrader les neuf types de décision au lieu d'en laisser mourir quatre — *pourquoi* :
+  trois pannes fatales sur quatre jours, toutes sur des types qui n'avaient jamais échoué
+  jusque-là, montrent qu'un run de plusieurs heures ne peut pas dépendre de l'absence historique
+  d'échec pour rester en vie.
+- Garder la sémantique d'abandon de `coalition_decision` au tour 1, alignée sur le tour ≥2 déjà en
+  place depuis v7, plutôt que d'inventer un repli `form_coalition` pour ce cas précis —
+  *pourquoi* : hérite d'une règle déjà livrée plutôt que d'improviser une deuxième règle pour un
+  échec à un round d'écart ; documenté au code comme choix révisable.
+- Utiliser `SessionStart` plutôt que `TaskCompleted` pour le hook de narration de run —
+  *pourquoi* : `TaskCompleted` ne se déclenche pas pour les tâches Bash en arrière-plan (vérifié,
+  pas supposé), et un reboot hôte qui tue un run en cours ne laisse justement rien tourner en
+  session pour le détecter autrement.
+- Tuer le run Stage 3 figé par SIGTERM plutôt que d'attendre plus longtemps — *pourquoi* : aucun
+  signal disponible (progression, repli, crash) n'indiquait qu'il avançait encore, et la reprise
+  depuis le checkpoint du tick 15 récupère de toute façon les correctifs de `9929651`.
+
+**Prochaines étapes**
+- [ ] Ajouter un battement de cœur intra-tick à `progress.json` (décisions complétées, phase
+      courante, horodatage de la dernière réponse LLM), pour qu'un run lent soit distinguable d'un
+      run figé sans avoir à lire les logs du serveur — la lacune qui m'a fait tuer un run sain.
+- [ ] Attendre la fin du Stage 3 (relancé depuis le tick 15), narrer son `TIMELINE.md`, et mettre à
+      jour `plan-flagship-30y-run.md` avec le verdict Stage 3 — porte d'entrée du Stage 4 (le run
+      flagship de 30 ans).
+- [ ] Construire le véhicule de correction C3 de `candidacy_considered` déjà écrit dans
+      `polity-decision-contracts.md`.
+- [ ] Agréger `payload.llm_fallback` en quelque chose de visible (seuil, avertissement, ou porte)
+      plutôt que de laisser un run dégradé ressembler à un run réussi.
+
+**Pour aller plus loin** : `polity-llm-reference.md` (référence complète, §4.4 pour la table des
+runs tués et l'illustration `vote_cast`, §10 pour les lacunes connues), `polity-decision-contracts.md`
+(véhicule de correction C3), `plan-flagship-30y-run.md` (Phase 7 Stage 3),
+`fast_api_voter/scripts/flagship_runs/scaleprobe-8y-p500-v2-postfix/run/scaleprobe-8y-p500-v2-postfix/digest.json`,
+`fast_api_voter/scripts/check_pressure_shipped_wiring_results.md`,
+`check_pressure_small_run_results.md`, `check_toon_candidacy_ab_results.md`.
+
+---
+
+## 2026-09-10 — Sur develop : les Lots 3 à 5 du plan de solidité, et un moteur de vote contrôlé contre trois oracles indépendants
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Suite directe des Lots 0 à 2 (brouillon A, 07-09/09). La journée enchaîne le Lot 3 (contrat d'API et résilience), le Lot 4 (le moteur de vote face à la théorie), le Lot 5 (robustesse des tests eux-mêmes) et la phase 2 du Lot 6.1.
+
+**Ce qui a avancé**
+- **Lot 3, contrat et résilience** :
+  - Schemathesis fuzz les 95 opérations et trouve **6 vrais bugs** : codes de statut non documentés, deux `IndexError`, un `max()` sur un dict vide causé par des partis homonymes, deux `AttributeError` (#346). Environ 40 endpoints restent en dette nommée dans `KNOWN_FAILURES`.
+  - La limite de 120 requêtes par minute est vérifiée : elle renvoie bien un 429 (#347).
+  - Quand Redis tombait, toute l'API `/api/v2` répondait 500 ; le limiteur laisse désormais passer au lieu de bloquer (#348).
+  - Un sémaphore partagé (4 places) et un délai de 90 s, mesuré contre les deux workers les plus lourds (34 s et 57 s), encadrent chaque dispatch (#349).
+  - Un client qui se déconnectait laissait tourner son run Monte-Carlo (595 appels après la déconnexion) : un drapeau était effacé au lieu d'être posé (#352).
+- **Lot 4, le moteur face à la théorie** :
+  - **4.1** : matrice de 7 critères sur 21 règles ordinales, en tests Hypothesis (#353). Un échantillonnage trop faible avait d'abord mal classé quatre méthodes ; seul le shrinking d'Hypothesis a trouvé les contre-exemples, sur des égalités exactes.
+  - **4.2** : contre la bibliothèque `pref_voting`, sur 3000 profils (#354). 18 règles sur 21 sans écart. Vrais bugs corrigés : Baldwin et Raynaud n'éliminaient qu'un candidat par tour ; Smith-IRV avait deux défauts dans l'ensemble de Smith. L'écart sur Dowdall vient de `pref_voting` lui-même.
+  - **4.3** : parité exhaustive sur 119 235 petits profils (n ≤ 4, m ≤ 5), sans filtre (#355). **5 vrais bugs** front/back : « condorcet » était comparé à la mauvaise fonction backend (23 840 écarts), Copeland départageait différemment, et le second tour, Benham, Smith-IRV et Dowdall avaient chacun leur défaut, dont un `defaultdict(float)` qui annulait l'usage de `Fraction`. Les 481 profils n ≤ 3 entrent dans le fixture de parité.
+  - **4.4** : la matrice portée côté client avec fast-check, sur un domaine plus large (#356). 6 corrections de classement, vérifiées aussi côté backend.
+  - **4.5** : quatre contre-exemples classiques de la littérature en fixtures sourcées : Condorcet 1785, Saari 1995, Tideman 1987, Fishburn et Brams 1983 (#357).
+  - **4.6** : preuves Z3 sur des comptes de voix symboliques (#358). Minimax et Schulze sont prouvés jusqu'à n = 7. Un premier encodage d'IRV avait « prouvé » un faux, faute d'encoder la règle de départage du code. EXP-002 : adopté en partie.
+- **Lot 5** : `pytest-randomly` sur tous les runs, plus un chasseur de flakes backend qui rejoue la suite 3 fois (0 flake sur 1974 tests, #359). Snapshot `syrupy` de `compare_all_methods` (#360). Le lot est clos.
+- **Lot 6.1, phase 2** : lecture sémantique des 329 candidats de la phase 1 (#361). 15 commentaires périmés corrigés, 59 redondants supprimés, 45 « pourquoi » gardés, 210 encore valides. La plupart des vrais périmés dataient d'une **migration** (retrait de Flask, Jest → Vitest).
+- **Côté `polity`, le même matin** :
+  - #350 fusionne quatre jours de travail polity (entrée suivante) ;
+  - #351 synchronise `develop` dans `polity` (249 commits). Trois conflits sont résolus : deux workflows où `polity` réintroduisait le filtre `paths:` corrigé depuis #205, et la référence qualité, remesurée sur l'arbre fusionné plutôt que fusionnée à la main.
+
+**Points bloquants**
+- Schemathesis n'est pas ajouté au pipeline backend : 3,5 à 4 min en local, non mesuré sur un runner GitHub (#346).
+- Un thread qui dépasse le délai continue de tourner en arrière-plan : Python ne peut pas le tuer (#349).
+- Participation et symétrie d'inversion sont reportées dans la matrice d'axiomes : le bruit des départages reste à démêler (#353).
+- Après #351, `mypy` signale 2 erreurs dans le worktree polity. Elles viennent de son venv en Python 3.11 et numpy 2.4.6, non vérifiées localement.
+
+**Décisions prises**
+- Classer les axiomes par fuzzing puis les figer en tests, jamais de mémoire (#353).
+- Comparer à un oracle tiers pour casser la corrélation « les deux moteurs se trompent ensemble » (#354).
+- Comparer sans filtre : le filtre `strict_winner` du fixture écartait justement les profils où se cachaient 4 des 5 bugs (#355).
+- Ne pas committer l'encodage IRV de Z3, trop fragile pour ce qu'il apporte de plus (#358).
+
+**Prochaines étapes** *(ce qui a suivi)*
+- [x] Lots 6 à 13 : entrée du 11/09.
+
+**Pour aller plus loin** : `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md` (Lots 3 à 6.1), `CONTRIBUTING.md` (méthodologie des axiomes), `docs/exploration/EXP-002-z3-formal-voting-proofs.md`, `docs/comment-audit/README.md`.
+
+---
+
+## 2026-09-07 → 2026-09-09 — Plan de solidité technique : ouverture, Lot 0 (documentation), Lot 1 (infrastructure, Mergify) et Lot 2 (conventions rendues exécutables)
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** La journée du 06/09 (revue en 14 PR, cascade Dependabot, passe documentaire #313) avait recensé une soixantaine d'idées d'amélioration. Le 07/09, elles deviennent `PLAN_SOLIDITE_TECHNIQUE.md`, ouvert sur `develop` à `a5cb7ce` avec tous les gates verts (en-tête du plan). Les deux jours suivants enchaînent ses trois premiers lots.
+
+**Ce qui a avancé**
+- **Le plan** (#314, 07/09) compte 13 lots séquencés. Chaque item y est une expérience qui se termine par un verdict écrit (adopté, rejeté ou suspendu). Deux axes de notation coexistent : solidité ⭐ et matière à raconter 📝. Le Lot 0, consacré au dispositif de documentation, passe en premier. #315 ajoute le Lot 6.1, un audit de pertinence des commentaires : environ 253 k tokens, soit 26,6 % du backend et 9,5 % du frontend. Il est explicitement borné contre l'idée de sortir les commentaires du code pour économiser des tokens : `package-lock.json` seul (environ 155 k) pèse plus que tous les commentaires du frontend (environ 79 k).
+- **Lot 0** (08/09) :
+  - #317 (items 0.1 à 0.4) : `docs/README.md` (quelle surface de documentation sert à quoi), `docs/exploration/` (gabarit, index des verdicts, EXP-001), `/log-experiment` et l'agent `experiment-writer`.
+  - #318 (0.6) : ADR-004 à ADR-007, rédigés rétroactivement côté application (double moteur verrouillé par la parité, SVG natif contre Recharts, instrument Playground à 5 moments, absence de comptes). ADR-007 est signalé comme le moins sûr : sa motivation d'origine n'a jamais été pleinement consignée.
+  - #320 (0.5, premier étage) : `scripts/git_commit_capture.py`, un hook `post-commit` qui écrit une ligne JSON par commit avec 4 signaux, sans aucun appel LLM. Il ne bloque jamais et ne commite jamais.
+- **Lot 6.1, phase 1.** #316 concluait à 4 candidats seulement et à un « dépôt trop jeune ». C'était un artefact de fetch tronqué. #319 la remplace : sur l'historique complet (1553 commits), on obtient **329 candidats, avec des écarts jusqu'à 379 jours**. Les 5 vérifiés à la main présentent tous un vrai décalage dans le temps, et aucun n'est réellement périmé. L'écart `git blame` est donc un bon filtre pour savoir quoi relire, pas un détecteur de faux. EXP-001 consigne le verdict « adopté comme filtre, pas comme verdict », corrigé avant la fusion de #317.
+- **Lot 1** (08-09/09) :
+  - #321 : groupes Dependabot `patch-and-minor` sur les 6 entrées. C'était la cause racine de la cascade du 06/09.
+  - #328 : Ruff remplace flake8 à périmètre identique (`F` seulement). Deux écarts de parité sont réglés : la whitelist vulture, et les notebooks, exclus explicitement.
+  - #329 : cache de couches GHA sur le job `image-scan`. Le cache pip/npm existait déjà partout.
+  - #332 : `uv` remplace `pip` dans 5 workflows et 4 Dockerfiles. Chaque image a été construite et lancée pour de vrai (1789 tests backend, 90,99 % ; 218 tests e2e).
+  - #333 : `diff-cover` exige 100 % de couverture sur les lignes modifiées, en gate de PR uniquement.
+  - #334 : `act`, documenté pour les workflows que `ci-local/` ne reproduit pas.
+  - #335 : Codecov, en mode informatif.
+- **File de merge** :
+  - #336 : la merge queue native de GitHub est réservée aux dépôts publics d'organisation (422 confirmé). Effet de bord : `develop` n'avait plus que **5 des 12 checks requis** documentés, et ils ont été restaurés en direct.
+  - #337 : `.mergify.yml`.
+  - #338 : premier test réel, fusionnée par `app/mergify` en 15 s.
+  - #339 : marque l'item comme fait. Deux blocages avaient été levés en route : le produit Merge Queue s'active à part sur le tableau de bord Mergify, et `strict` a été désactivé sur `develop`.
+- **Dépendances** :
+  - #322 et #323 : premières PR Dependabot groupées (3 mises à jour pip, 16 npm).
+  - #330 : override `js-yaml` resserré à `^4.3.2` (GHSA-2883-xcg3-v3hh). Cette faille préexistante bloquait l'étape `npm audit` des PR Dependabot.
+  - #326 et #331 : `@types/node` passe de 20 à 26.4.1. Cette version ne laisse plus fuiter de déclaration globale de `.at()`, ce qui révèle deux appels `.at(-1)` jusque-là typés par accident. `tsconfig` passe en ES2022.
+- **Lot 2** (09/09, terminé avec ses 6 items) :
+  - #340 : `deptry`, baseline à 0. Il trouve un vrai bug : `ruff` et les paquets `pytest*` étaient dupliqués dans le `requirements.txt` de production.
+  - #341 : `madge`, en mode informatif. Il trouve un cycle bénin, composé uniquement d'`import type`.
+  - #342 : `import-linter` rend bloquant le découpage `routes → domain → engine`. Aucune violation.
+  - #343 : deux règles Semgrep bloquantes, qui trouvent de la vraie dette, corrigée dans la même PR : 3 routers v2 sans limite de débit (`tech`, `theory`, `export`) et 18 `except Exception` muets répartis sur 9 fichiers.
+  - #344 : hooks Claude. Un `PreToolUse` refuse toute édition d'`engineParity.json`, testé en direct. Un `PostToolUse` rappelle de régénérer la parité.
+  - #345 : `dependency-cruiser`, avec la règle bloquante `lib-is-pure` (aucune violation).
+
+**Points bloquants**
+- ESLint 10 (#325, #327) est bloqué en amont : `eslint-plugin-jsx-a11y` 6.10.2 ne déclare de compatibilité (peer) que jusqu'à `eslint@^9`. Constaté le 08/09, les PR sont fermées le 11/09.
+- jsdom 30 (#324) reste ouvert. Il est fermé le 11/09 : il exige Node ≥ 22, alors que la CI tourne sous Node 20. Node 20 impose aussi d'épingler `dependency-cruiser` en 17.4.3 (#345).
+- Le Lot 0.5 n'est pas activé dans le worktree polity, qui contenait du travail non commité. L'étage 3 est renvoyé à un suivi (#320).
+- La reproductibilité par lockfile reste hors du périmètre de la bascule vers `uv` (#332).
+
+**Décisions prises**
+- Un rejet argumenté compte comme un résultat : c'est ce qui manque ailleurs, puisque personne ne publie ses rejets (#314).
+- Le Lot 0 passe en premier : c'est lui qui transforme les lots suivants en matière partageable (#314).
+- L'audit des commentaires vise leur justesse, pas leur volume. Sortir les « pourquoi » du code recréerait la dérive que #313 venait de corriger (#315).
+- Les bascules d'outils restent fidèles (Ruff limité à `F`, uv comme simple installeur) : élargir le périmètre a été écarté (#328, #332).
+- Codecov reste informatif et `diff-cover` est le seul gate de couverture. Cela évite de refaire le piège de #205 : un statut qui cesse de remonter peut bloquer une PR indéfiniment (#335).
+- `strict` n'a été désactivé qu'une fois Mergify vérifié en direct. Plus tôt, des PR obsolètes auraient fusionné sans filet (#336, #337, #339).
+- `.mergify.yml` ne liste pas les checks : ils sont injectés depuis la protection de branche, ce qui évite un second endroit qui pourrait dériver (#337).
+- La troisième règle Semgrep n'a pas été écrite : `import-linter` l'applique déjà, plus précisément (#343).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Lot 3 (contrat API et résilience) : #346, #347, #348, #349, #352 (10/09).
+- [x] Lot 6.1, phase 2 (passe sémantique des 329 candidats) : #361 (11/09).
+- [x] Débloquer jsdom 30 par un passage à Node ≥ 22 : Node 20 → 24 par #468, jsdom 30 par #479 (entrée du 13-14/09).
+- [x] Reproductibilité par lockfile Python : lockfiles compilés par #484 (14/09), consommés par #498 et #506 (15/09).
+- [ ] Lot 0.5, étage 3, et activation réelle dans le worktree polity (#320) : statut non vérifié.
+
+**Pour aller plus loin** : `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md` (Lots 0, 1, 2 et 6.1), `docs/exploration/EXP-001-audit-commentaires-heuristique-git-blame.md`, `docs/comment-audit/README.md`, `docs/plan/vote-app/CODE_AUDIT.md` (mises à jour datées du 08/09 et du 09/09), ADR-004 à ADR-007.
+
+---
+
+## 2026-09-06 (soir) → 2026-09-10 — Côté polity : bascule vers vLLM, préparation du run de 30 ans en sept phases, et un programme de mesure du protocole LLM
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Le 06/09, `polity` avait levé le blocage de troncature propre à vLLM (`disable_any_whitespace`, addendum du 06/09). Ce travail-ci vit dans une seule PR, #350, fusionnée le 10/09 à 9 h 30, avec 36 commits datés du 06/09 au soir jusqu'au 10/09. C'est le seul endroit où il est raconté : `RETROSPECTIVE.md` (#414) note qu'aucune entrée du journal n'a été écrite entre le 06/09 et le 11/09.
+
+**Ce qui a avancé**
+- **Le provider livré passe à vLLM** : commit « switch the shipped LLM provider to vLLM », 06/09, dans #350. La porte d'échelle v3 est franchie à population 500, avec deux correctifs au passage (titres des commits du 06/09).
+- **`plan-flagship-30y-run.md`, Phases 1 à 7** (#350) :
+  - Phase 1 : les types de décision signalés comme effondrés sont retestés sous vLLM ;
+  - Phase 2 : le déblocage de la concurrence est construit, prouvé non sûr, puis annulé ; `VLLM_BATCH_INVARIANT` corrige le problème mais coûte plus cher (commits du 07 et du 08/09) ;
+  - Phase 3 : checkpoint et reprise à chaque tick ;
+  - Phase 4 : `progress.json` ;
+  - Phase 6 : instantanés annuels des citoyens et `viz_export.py` ;
+  - des tailles de chunk supérieures à 1 comme levier de débit ;
+  - Phase 7 : smoke, parité puis sonde d'échelle. Celle-ci trouve un bug critique de `vote_cast` : le prompt et le validateur se contredisaient, d'où un échec de vote quasi total à population 500. Il est corrigé.
+- **Programme protocole LLM et théorie** (`plan-llm-protocol-and-theory-program.md`, #350) :
+  - décodage spéculatif n-gram ;
+  - continuité du cache de préfixe pour `vote_cast` et `chamber_deliberation`, que cassait une liste de cid par chunk dans le prompt système ;
+  - précision des flottants réduite dans les prompts (§5.B) ;
+  - localisation d'un token décisif dans une complétion réelle avec pensée et grammaire (§5.C), validée sur `vote_cast` (16/16). Appliquée aux quatre types « effondrés », elle quantifie un effondrement jusque-là invisible de `pressure_action` (P(act=4) ≥ 0,976 quel que soit l'état du citoyen) et précise celui de `representative_response` (P(stance=1) = 1,0).
+- **Vérification** : chaque changement de comportement est vérifié en direct contre le vrai serveur vLLM, avec un `check_*_results.md` commité. Suite polity verte : 1342 tests (#350).
+
+**Points bloquants**
+- La concurrence entre runs reste non sûre sans `VLLM_BATCH_INVARIANT`, qui coûte du débit (commits du 08/09 dans #350).
+- Les effondrements de `pressure_action`, `representative_response` et `coalition_decision` sont mesurés, pas résolus (#350). La suite se lit dans l'entrée du 10/09 (soir), avec la Phase E de `pressure_action`.
+
+**Décisions prises**
+- Basculer le provider livré vers vLLM. La décision n'est consignée que par le titre du commit ; sa justification détaillée n'a pas été retrouvée hors de `plan-vllm-switch-readiness.md`.
+
+**Prochaines étapes** *(ce qui a suivi)*
+- [x] Phase E de `pressure_action` et Stage 3 : entrées du 10/09 (soir) → 11/09 et du 11/09 (suite).
+
+**Pour aller plus loin** : `docs/plan/polity/plan-flagship-30y-run.md`, `docs/plan/polity/plan-llm-protocol-and-theory-program.md`, `docs/plan/polity/plan-vllm-switch-readiness.md`, les `fast_api_voter/scripts/check_*_results.md` de #350.
+
+---
+
+## 2026-09-06 — Revue de code full-stack en 14 PR, cascade de 13 PR Dependabot, et passe de correction de la documentation
+
+**Contexte du jour.** Suite de la consolidation du 04/09 (worktree Polity prêt,
+mais rien avancé dessus depuis). Objectif du jour : une revue de code complète
+de `develop` hors périmètre Polity (Polity ne se repère pas par le chemin des
+fichiers mais par leur contenu — plusieurs fichiers comme
+`fast_api_voter/scripts/*.md` ou `docs/adr/*` vivent sur `develop` sans que
+« polity » apparaisse dans leur chemin, et ont donc été exclus de cette passe).
+Un préalable, distinct de cette revue : `#272` avait basculé le backend de
+Python 3.11 à 3.14 le 05/09 au matin, débloquant une PR Dependabot scipy
+bloquée — ce changement s'avérera pertinent plus tard dans la journée.
+
+**Ce qui a avancé**
+- **Revue full-stack → 14 PR `feat/*`, toutes mergées sur `develop`** (#279,
+  #281, #282, #284, #286, #287, #288, #290, #291, #293, #294, #297, #311,
+  #312), couvrant frontend, backend, CI/CD et sécurité :
+  - Bornage des schémas `BandwagonRequest`/`MonteCarloRequest`/
+    `RealElectionRequest`, jusque-là sans limite sur `num_voters`/`num_rounds`/
+    `num_runs` — un risque de DoS sur des endpoints non authentifiés partageant
+    un pool de threads (#279).
+  - Logging structuré ajouté aux 21 sites de `except Exception` du moteur de
+    simulation (zéro appel `log.*` sous `api/domain/` avant), plus un handler
+    d'exception global en filet (#281).
+  - Rate-limiting de `/api/v2/simulations` et `/api/v2/election` — jusque-là
+    sans aucune limite alors que `/api/v1` en avait une. Valeur initiale
+    30/min, corrigée à 120/min **dans la même PR** après 2 échecs sur 3 runs
+    CI de `playground-strategy.spec.ts` : `profile-simulate` est un appel
+    debouncé déclenché à chaque changement de config dans le Playground, pas
+    une action explicite, et deux navigateurs Playwright × 25 tests e2e
+    dépassaient largement 30/min en usage normal (#284, commits `614238f` puis
+    `b30286f`).
+  - Bug de thread-safety sur `get_kemeny_young_winner` : le flag
+    `was_approx` était stocké sur l'objet fonction sous un commentaire le
+    disant thread-local, alors que chaque appel passe par
+    `asyncio.to_thread` — extrait en helper pur `kemeny_used_approximation`.
+    CORS Socket.IO câblé sur le même `CORS_ORIGINS` que le middleware HTTP, à
+    la place d'un `"*"` en dur laissé par un commentaire « à resserrer plus
+    tard » jamais suivi d'effet (#282).
+  - Suppression de l'arbre mort `voter-app/src/components/Simulation/` :
+    16 758 lignes supprimées (confirmé via un script de graphe d'imports
+    tracé depuis `src/index.tsx`, pas un simple grep — deux erreurs évitées de
+    justesse : trois composants réellement importés par le Laboratoire, et un
+    mock global câblé par alias Vitest, invisible pour `tsc`) (#286).
+  - Dépendance `react-router-dom` supprimée — le seul import restant
+    (`MemoryRouter` dans `Navbar.test.tsx`) est aussi exporté par
+    `react-router` v8, déjà le routeur réel de l'app (#287).
+  - Erreurs API typées (`ApiError` avec statut + corps préservés sur
+    `apiPost`/`apiGet`/`apiDelete`) (#288). Mémoïsation du contexte
+    `PlaygroundController` (#290).
+  - Navigation clavier ajoutée aux cartes SVG (`LeaderCanvas`,
+    `ParliamentCanvas`) — a fait remonter un vrai bug a11y au passage : les
+    deux `<svg>` portaient `role="img"` (contenu déclaré non interactif) tout
+    en devenant focusables, détecté par la règle `nested-interactive`
+    d'axe-core ; corrigé en `role="group"` (#291).
+  - Backfill de tests sur `services/{assembly,issues,profile,structural}Api.ts`
+    (0 % de couverture avant — exactement la frontière client/serveur que la
+    garantie de parité moteur du `CLAUDE.md` suppose surveillée) et sur les
+    panneaux Playground les plus faibles (`ReplayStage.tsx` 15→100 %,
+    `NonSpatialProfileMap.tsx` 29→100 %, `MethodsMatrix.tsx` 25→100 %) (#293).
+  - Côté CI/CD : suppression du workflow redondant `merge-to-main.yml`
+    (doublon de `branch-policy.yml`, vérifié non requis et `main` sans
+    protection de branche configurée), re-pin de `trivy-action` sur un tag de
+    release plutôt qu'un SHA de branche mouvante, ajout de l'écosystème
+    `docker` à Dependabot pour les 3 Dockerfiles du repo (#294) ;
+    `permissions: contents: read` et `timeout-minutes` ajoutés partout où ils
+    manquaient sur les 10 workflows (#297) ; job `image-scan` + génération de
+    SBOM (SPDX, via `anchore/sbom-action`) ajouté sur les images Docker
+    construites, jusque-là jamais scannées en tant qu'images (#312).
+- **Découverte en construisant réellement les images Docker (#312)** : les
+  deux Dockerfiles backend (`fast_api_voter/Dockerfile.prod`, `ci-local/` non
+  concerné) étaient restés silencieusement sur `python:3.11-slim` depuis la
+  migration `#272` — cassés parce que `scipy==1.18.1` (bumpé le même jour)
+  exige Python ≥ 3.12. `docker build` échouait net. Corrigé vers
+  `python:3.14-slim-bookworm`, build + `curl /api/v2/health` vérifiés
+  réellement, pas seulement en lisant le Dockerfile.
+- **Cascade de 13 PR Dependabot mergées** (#295, #296, #299–#309), apparues
+  automatiquement une fois l'écosystème `docker` ajouté à Dependabot dans
+  #294. La protection de branche (« doit être à jour avec `develop` »)
+  invalidait chaque PR restante à chaque merge, imposant une boucle
+  update-branch → attente CI → merge répétée plutôt qu'un lot en une passe.
+  Contrairement à la session du 04/09, l'agent a exécuté directement tous ces
+  merges (`gh pr merge`) sans blocage — le classifieur de sécurité qui avait
+  forcé l'utilisateur à fusionner lui-même `#255`/`#252`/`#254` ce jour-là ne
+  s'est pas manifesté ici.
+- **Vérification de clôture** : `ci-local/run-ci.sh all` exécuté contre
+  `develop` à jour avant la passe documentation, tous les gates verts —
+  Backend CI, Frontend CI, Playwright E2E, Security Audit (1789 tests
+  backend, 91 % de couverture, 0 vulnérabilité Trivy, 0 secret Gitleaks),
+  documenté directement dans le corps de PR #313.
+- **Passe de correction de la documentation, PR #313, mergée** (16 fichiers,
+  523 insertions / 335 suppressions) — 4 sous-agents en parallèle, chacun
+  vérifiant contre le code réel plutôt que contre les affirmations existantes
+  des docs. Corrections notables : `voter-app/README.md` était resté
+  intégralement le boilerplate Create-React-App par défaut sur un projet migré
+  vers Vite de longue date ; `SECURITY.md` décrivait une authentification JWT
+  et des identifiants Postgres qui n'existent pas dans l'app ; `CLAUDE.md`
+  annonçait 17 méthodes en parité moteur au lieu des 26 réelles ;
+  `docs/research/traceability.md` marquait 8 méthodes comme « prévues » alors
+  qu'elles sont déjà implémentées (démocratie liquide, tirage au sort, sondage
+  délibératif, chaos de Plott, etc.) ; `ci-local/README.md` décrivait des
+  étapes de CI comme non-bloquantes alors qu'elles bloquent réellement.
+  `CODE_AUDIT.md` et le plan d'amélioration CI/CD ont été re-datés avec les
+  chiffres du jour (recalcul vulture/knip/jscpd/radon) plutôt que réécrits,
+  pour rester une trace historique utile de ce qui a été corrigé depuis.
+- **Ajout reconstruit a posteriori le 2026-10-12 (git log et descriptions de PR) : `polity` a avancé ce jour-là, contrairement à ce que dit la fin de cette entrée.** Huit PR ont été fusionnées sur `polity` entre 00 h 17 et 11 h 31, dans une session distincte de la revue `develop`.
+  - #277 clôt la grille de bascule vLLM, axes (a) et (b), au vert : amorçage du cache de préfixe 6/6, `campaign_positioning` 0/18 tronqué, `chamber_deliberation` 0/10.
+  - #278 nuance aussitôt ce verdict. Sur le vrai schéma de `pressure_action`, vLLM tronque 60 fois sur 70. Cause : `sort_keys=True` réordonne les champs, ce qui déclenche une boucle d'espaces sous vLLM, mais pas sous Ollama. #280 ajoute la correction à `vllm_switch_results.md`.
+  - Balayage sur les 9 types de décision (#283, #285) : `ResponseDecision` et `CoalitionDecision` sont sains. `candidacy_considered` est un second vrai bug de production. `party_nomination_choice` casse dans l'ordre inverse, si bien qu'aucune règle d'ordre des champs ne convient à tous.
+  - **Cause racine et correctif** (#289) : la grammaire par défaut de xgrammar autorise des espaces arbitraires, et le décodage glouton s'y enferme. `--structured-outputs-config '{"backend": "xgrammar", "disable_any_whitespace": true}'` rend les 9 types sains dans les deux ordres. `backend` doit être explicite. Le déterminisme est revérifié.
+  - #292 confirme le mécanisme par les logprobs : après l'avant-dernier champ, l'espace est préféré à environ 98-99 % à la virgule.
+  - #310 réfute l'hypothèse « nom de champ » : le déclencheur est dans le contenu du prompt, pas dans le schéma.
+  - Le soir même commence la préparation du run de 30 ans ; parmi ses premiers commits, l'un bascule le provider livré vers vLLM. Elle est arrivée par #350 (10/09) ; voir l'entrée « 2026-09-06 (soir) → 2026-09-10 ».
+
+**Points bloquants**
+- Le classifieur de sécurité qui bloquait `gh pr merge` pour l'agent le 04/09
+  ne s'est pas déclenché aujourd'hui — tous les merges de la session (14 PR de
+  revue, 13 PR Dependabot, PR doc) ont été exécutés directement par l'agent.
+  À confirmer si c'est un changement durable de configuration ou une
+  variation ponctuelle.
+- Deux échecs CI apparents pendant la cascade Dependabot (Dependency Review
+  « fetch failed », Playwright E2E) se sont révélés être des faux positifs sur
+  des commits déjà rendus obsolètes par le cycle d'update-branch suivant — pas
+  un vrai problème, mais un bruit qui a ralenti la boucle de merge et qu'il a
+  fallu diagnostiquer à chaque occurrence plutôt que réflexivement ignorer.
+- Deux vrais bugs (rate-limit à 30/min cassant l'usage normal du Playground,
+  Dockerfiles muets sur Python 3.11) n'ont été découverts qu'en exécutant
+  réellement le code concerné (CI e2e, `docker build`) — aucun des deux
+  n'était visible à la seule lecture du diff. Reste un signal à prendre au
+  sérieux : la revue statique seule ne suffit pas sur ce genre de changement.
+
+**Décisions prises**
+- Exécuter la revue de code en 14 PR séquentielles plutôt qu'un gros commit —
+  *pourquoi* : chaque correction est indépendamment vérifiable (tests, mypy,
+  lint) et review-able, cohérent avec le workflow `feat/*` déjà mandaté par
+  `CLAUDE.md`.
+- Corriger le rate-limit `/api/v2/*` à 120/min plutôt que garder 30/min ou
+  désactiver la limite — *pourquoi* : 120/min borne toujours un abus réel
+  (un attaquant envoyant des centaines de requêtes/s ne voit pas la
+  différence entre 30 et 120) tout en laissant l'usage interactif normal du
+  Playground respirer.
+- Rendre le job `image-scan` non-bloquant pour l'instant et scopé à
+  `schedule` + `push: develop` (jamais sur PR) — *pourquoi* : un premier run
+  ferait remonter des CVE de base d'image essentiellement à la charge de
+  l'amont, pas quelque chose qu'une seule PR peut corriger, et bloquer
+  immédiatement gèlerait `develop` indéfiniment (même logique déjà appliquée
+  au job `trivy` sur système de fichiers).
+- Re-dater `CODE_AUDIT.md` et le plan d'amélioration CI/CD plutôt que les
+  réécrire — *pourquoi* : ce sont des documents d'audit ponctuels, les garder
+  comme trace historique de ce qui a été corrigé depuis leur reste plus utile
+  qu'un lissage qui effacerait l'historique du diagnostic initial.
+- Exclure les fichiers Polity de la passe documentation par leur contenu et
+  non leur chemin — *pourquoi* : plusieurs fichiers Polity (`fast_api_voter/
+  scripts/*.md`, `docs/adr/*`) vivent sur `develop` sans que « polity »
+  apparaisse dans leur chemin ; un filtrage par chemin les aurait traités par
+  erreur.
+
+**Prochaines étapes**
+- [ ] Pas de tâche précise en attente à ce stade — la session s'est terminée
+      sur la passe de documentation (PR #313), en attente de la prochaine
+      demande de l'utilisateur.
+- *(Correction reconstruite le 2026-10-12)* La ligne ci-dessous était juste pour la session `develop` qui a écrit cette entrée, pas pour le dépôt : voir l'ajout « `polity` a avancé ce jour-là » (#277 à #310).
+- [ ] Reprendre le projet Polity depuis le worktree `~/Vote-App-polity` reste
+      ouvert depuis le 04/09 — toujours rien avancé dessus.
+- [ ] Surveiller le premier run réel du job `image-scan` (#312) sur `push:
+      develop` — non gating pour l'instant, mais à regarder pour d'éventuelles
+      CVE de base d'image à traiter.
+
+**Pour aller plus loin** : PR #279, #281, #282, #284, #286, #287, #288, #290,
+#291, #293, #294, #297, #311, #312 (revue de code), #295–#309 (cascade
+Dependabot), #313 (documentation) ; commits `614238f`/`b30286f` (rate-limit) ;
+`CODE_AUDIT.md` (re-daté 2026-09-06) ; `CLAUDE.md` (parité moteur corrigée à
+26 méthodes) ; `docs/research/traceability.md`.
+
+---
+
+## 2026-09-05 — Checks CI vraiment requis et backend sur Python 3.14 ; côté polity, vLLM enfin vérifié en direct sous Ubuntu natif, et la Phase 4 de `pressure_action` échoue
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** C'est le lendemain de la consolidation post-migration. #253 (pip-audit bloquant et passage à fastapi 0.141.1), que l'entrée du 04/09 laissait en suspens, a finalement été fusionnée dans la nuit du 04 au 05/09. La journée suit deux pistes : `develop` et, pour la première fois depuis la migration, `polity`. L'entrée du 06/09 dit pourtant encore que rien n'a avancé côté polity, ce que #273-#276 contredisent. Quelle session a produit ces PR n'est pas consigné.
+
+**Ce qui a avancé**
+- **Des checks requis qui ne bloquaient pas** (#257) traitent les items 1, 3 et 5 d'un audit de robustesse CI mené dans la session.
+  - Backend CI, Frontend CI, Playwright E2E et « Generated artifacts in sync » étaient exclus des checks requis : leur filtre `paths:` au déclenchement faisait qu'un check requis jamais lancé bloquait une PR pour toujours (constaté avec #205). Le filtre passe dans un job `changes` (`dorny/paths-filter`) : le workflow démarre toujours, et un check « skipped » compte comme réussi. Dependency Review et les deux CodeQL sont ajoutés.
+  - Le contrôle du titre de PR échoue désormais vraiment.
+  - Un `CODEOWNERS` est ajouté, à titre documentaire seulement.
+  - Caches ajoutés : navigateurs Playwright, pip pour Semgrep, Stryker `--incremental` (le job de mutation durait environ 2 h 51).
+- **Python 3.11 → 3.14** sur tout le backend (#272) : workflows, Dockerfiles `ci-local/`, `mypy.ini`, `.python-version` et README, avec `scipy` passé de 1.15.3 à 1.18.1. La déclencheuse en partie : la PR Dependabot scipy #266, bloquée parce que scipy 1.18.1 exige Python ≥ 3.12. Elle est fermée le jour même. Vérifié dans un venv 3.14 propre : **1779 tests passent, 41 skipped, 91,15 % de couverture**. Le miroir `ci-local` backend et audit passe aussi.
+- **vLLM vérifié en direct** (#273, polity) :
+  - Le blocage WSL2 du 30/08 (`UVA is not available`) ne se reproduit plus sous Ubuntu natif. C'était l'une des deux conditions de réouverture notées à l'époque.
+  - La suite live et le script de déterminisme, écrits mais jamais lancés, révèlent deux bugs de configuration dans `docker-compose.llm.yml`, corrigés.
+  - Sorties **identiques à l'octet** pour des lots de 1, 5, 25 et 50 appels concurrents, sur 10 appels séquentiels et après redémarrage du conteneur. C'est l'inverse d'Ollama, qui diverge dès des lots de 5.
+  - Réglage retenu : `--max-model-len 16384` et `--gpu-memory-utilization 0.80`, ce qui laisse environ 2,6-2,7 Gio libres. À 24576, il restait 37 Mio et le GPU tombait en manque de mémoire (OOM CUDA).
+- **Ollama épinglé** (#274) : `docker-compose.ollama.yml` fige l'image en 0.33.3 et note les digests de `qwen3:8b`, à titre informatif (Ollama n'a pas de pull par digest). Trouvé en route : Ollama et vLLM partageaient le GPU de 16 Go, et Ollama avait placé en silence 98 % des couches sur le CPU, sans se ré-évaluer une fois le GPU libéré. Il a fallu un `stop` et un rechargement explicites.
+- **Compose** (#275) : les trois fichiers compose partageaient le même projet implicite et se signalaient mutuellement leurs conteneurs comme orphelins. Ils ont maintenant des `name:` distincts. Au passage, `fastapi_app` était « unhealthy » depuis 3 h parce que Redis était arrêté depuis 38 h.
+- **`pressure_action`, Phase 4 testée en direct** (#276). Le script, écrit le 30/08, avait été bloqué par `sort_keys=True`. Le champ est renommé `a_reasoning` pour passer avant `act` dans l'ordre alphabétique, et l'ordre est vérifié sur 70 réponses sur 70. Le taux global de 81,4 % franchit la barre de 80 %, mais c'est un artefact de déséquilibre de classes : 53/53 sur les cas « ne doit pas agir », **4/17 (23,5 %) sur les seuls cas informatifs, « doit agir »**. Le raisonnement varie (70 chaînes distinctes), mais la décision s'effondre quand même vers l'inaction : c'est la troisième issue pré-enregistrée.
+- **Dependabot, matinée du 05/09** : 13 PR fusionnées entre 10 h 28 et 12 h 39. Ce sont les premières à porter le préfixe `fix(deps)` et les labels introduits par #253 :
+  - #258 (`structlog` 25 → 26), #259, #260, #261 (`redis` 5 → 8), #262, #263, #264, #267, #268 ;
+  - côté actions, #265 (`setup-node` 4 → 7), #269 (`gitleaks-action` 2 → 3), #270, #271 (`dependency-review-action` 4 → 5).
+  - Seule scipy (#266) est restée bloquée, puis fermée au profit de #272.
+
+**Points bloquants**
+- `pressure_action` : toutes les pistes de remédiation identifiées sont épuisées. Un nouveau levier serait une nouvelle enquête (#276, `plan-pressure-action-resolution.md` §4).
+- Le provider de polity reste `ollama`. La bascule vers vLLM est une décision séparée, pas encore autorisée, et l'axe (b) de `plan-vllm-switch-readiness.md` reste ouvert (#273).
+- La suite live vLLM passe 5 tests sur 8. Les 3 échecs viennent du défaut `blank`/`ranking` déjà documenté (#273).
+- Les vérifications post-fusion de #257 (appliquer `setup-branch-protection.sh`, PR de test) n'étaient pas cochées.
+
+**Décisions prises**
+- Le filtre `paths:` passe dans un job : un check requis qui ne se déclenche jamais bloque une PR pour toujours, alors qu'un check « skipped » compte comme réussi (#257).
+- Pas de relecture obligatoire ni d'`enforce_admins` : avec un seul mainteneur, cela bloquerait la fusion de ses propres PR (#257).
+- Passage direct à 3.14 plutôt qu'à 3.12 ou 3.13 : la vérification coûte pareil, et 3.14 offre la plus longue durée de support (fin de vie 2030-10-31) tout en débloquant scipy (#272).
+- Renommer le champ en `a_reasoning` plutôt que toucher à `sort_keys` : le plan interdit de modifier `sort_keys` pour cette seule remédiation (#276).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Basculer le provider de polity sur vLLM : commit `35e41bb` (06/09), arrivé sur `polity` via #350 (10/09). D'après `plan-vllm-switch-readiness.md`, tous les runs depuis le 06/09 tournent sous vLLM.
+- [x] Fermer l'axe (b) : #277 (06/09, « all clear »), aussitôt nuancé par #278 (troncature propre à vLLM sur `pressure_action`), dont la cause racine est corrigée par #289.
+- [x] Fermer #266 : fermée le 05/09.
+- [x] Vérifier les sites sensibles à la version de Python (suivi de #272) : les Dockerfiles backend restés sur `python:3.11-slim` sont trouvés et corrigés par #312 (06/09).
+- [x] Vérifier que les 12 checks requis sont bien appliqués (#257) : le 09/09, #336 constate que `develop` n'en avait que 5 et les restaure.
+
+**Pour aller plus loin** : `fast_api_voter/scripts/vllm_determinism_results.md`, `docs/plan/polity/plan-vllm-switch-readiness.md`, `docs/plan/polity/plan-pressure-action-resolution.md` §4, `check_pressure_action_reasoning_field_first_results.md`.
+
+---
+
+## 2026-09-04 — Consolidation post-migration Ubuntu : trois PR de docs/outillage triées et fusionnées, projet Polity prêt à être repris (mais rien avancé dessus)
+
+**Contexte du jour.** Reprise du projet après la migration Windows/WSL2 → Ubuntu
+native. Trois PR ouvertes contenaient des documents qui n'existaient jusque-là
+que sur la machine Windows : `#252` (`chore/track-local-docs`, base `develop`),
+`#254` (`chore/portable-workspace-ubuntu`, base `polity`) et `#253`
+(`chore/ci-dependabot-metadata`, base `develop`, sans rapport avec la
+migration). Objectif du jour : trancher le chevauchement entre `#252` et `#254`
+et fusionner ce qui doit l'être pour pouvoir reprendre le travail sur Polity.
+
+**Ce qui a avancé**
+- Règle de répartition tranchée avec l'utilisateur : l'outillage journal
+  (agent `journal-writer` + commande `/log-session`) est générique et doit
+  vivre sur `develop` ; tout ce qui est spécifique à Polity reste sur la
+  branche `polity`.
+- Extraction de cet outillage en une PR dédiée, `#255`
+  (`chore/claude-journal-tooling`, base `develop`), avec les règles
+  `.gitignore` correspondantes — mergée dans `develop`.
+- `#252` élaguée : les 5 docs polity-spécifiques
+  (`DEMARRAGE-polity-v0.md`, `polity-simulation-design-v2.md`,
+  `dev-plan-v0-worktree.md`, `audit-precision-plan.md`,
+  `prompt-liquid-democracy-conviction-voting.md`) retirés, lignes `.gitignore`
+  correspondantes restaurées — force-push, puis mergée dans `develop`
+  (commit `eb26deb`).
+- `develop` fusionné dans `polity` (sync de routine, cohérent avec
+  l'historique de la branche qui l'a déjà fait des dizaines de fois).
+- `#254` rebasée sur le nouveau tip de `polity` : conflit sur `.gitignore`
+  résolu à la main (règles `.claude/agents`/`.claude/commands` devenues
+  redondantes retirées, lignes d'ignore des 5 docs polity transformées en
+  commentaires pour qu'ils restent versionnés sur cette branche) —
+  force-push, puis mergée dans `polity` (commit `d7ecc51`) : `docs/claude-memory/`
+  (24 fichiers), `polity-simulation-design-v2.md`, l'enquête `pressure_action`
+  et un commit `wip` de travail non commité sur Windows sont maintenant
+  disponibles côté Linux.
+- Worktree `~/Vote-App-polity` créé (`git worktree add -b polity
+  ../Vote-App-polity origin/polity`), conforme à la convention déjà
+  documentée dans `dev-plan-v0-worktree.md`.
+- Instantané `docs/claude-memory/` restauré dans son propre espace mémoire
+  Claude Code (`~/.claude/projects/-home-burbanit0-Vote-App-polity/memory/`,
+  distinct de celui du repo principal), suivant la procédure de
+  `docs/claude-memory/README.md`.
+- Mémoire Claude Code du repo principal mise à jour (deux nouveaux souvenirs :
+  consolidation du jour, règle de répartition develop/polity).
+- **Ajout reconstruit a posteriori le 2026-10-12 (git log et descriptions de PR) : ce que cette entrée ne cite pas.**
+  - **#233 (17 h 48)** : `ci-local` copiait le `.venv` local dans le contexte Docker, et flake8 analysait alors des centaines de fichiers tiers. Il est exclu, et `.python-version` est ajouté. Trouvé au premier `ci-local/run-ci.sh all` sous Linux natif : 1779 tests passent, couverture 91,09 %.
+  - **Cascade Dependabot, de 18 h 16 à 18 h 52** : 15 PR fusionnées, de #237 à #251. Parmi elles, plusieurs sauts majeurs : `actions/checkout` 4 → 7 (#237), `mypy` 1.16 → 2.3.1 (#239), `pytest-cov` 6 → 7 (#241), `codeql-action/upload-sarif` 3 → 4 (#246), `actions/upload-artifact` 4 → 7 (#247), `action-gh-release` 2 → 3 (#251). Qui a fusionné cette cascade n'est pas consigné.
+- **#253 fusionnée le soir même, à 23 h 57**, après cette entrée : #256, qui l'a ajoutée au journal, est fusionnée à 23 h 13. La PR porte trois commits : les labels Dependabot, `pip-audit` rendu bloquant, et la montée de `fastapi` de 0.121.2 à 0.141.1, qui lève les 5 CVE de `starlette`. `pip-audit` ne trouve plus aucune vulnérabilité ; 1779 tests passent, couverture 91,25 %. C'était la troisième option envisagée ci-dessous, « l'accompagner du bump fastapi ».
+
+**Points bloquants**
+- Le classifieur de sécurité de l'environnement bloque l'action `gh pr merge`
+  pour l'agent : chaque fusion de PR (`#255`, `#252`, `#254`) a dû être
+  exécutée par l'utilisateur lui-même, pas par l'agent.
+- Obsidian : le vault était enraciné sur le repo principal `Vote-App` ; le
+  nouveau worktree `Vote-App-polity` est un répertoire séparé sans config
+  `.obsidian/` propre. Pas automatisable depuis l'agent — l'utilisateur doit
+  l'ouvrir lui-même comme vault (ou vault lié) dans l'interface Obsidian.
+- `#253` (labels Dependabot + `pip-audit` bloquant en CI) reste ouverte,
+  intacte, non traitée : son propre corps de PR prévient que le flip
+  `pip-audit` fera passer la CI backend au rouge tant que `fastapi` n'est pas
+  mis à jour. Décision à prendre séparément (accepter le rouge, scinder le
+  commit, ou l'accompagner du bump `fastapi`).
+
+**Décisions prises**
+- Partager l'outillage journal sur `develop` plutôt que de le laisser
+  dépendre de `polity` — *pourquoi* : il n'est pas spécifique à Polity et
+  alimente `docs/journal/`, déjà versionné sur `develop`.
+- Garder tout le reste (docs de conception, enquêtes, checklists) spécifique
+  à `polity` plutôt que de le dupliquer sur `develop` — *pourquoi* : consigne
+  explicite de l'utilisateur pour éviter la redondance entre les deux
+  branches à mesure que le projet Polity avance.
+- Laisser `#253` de côté pour cette session — *pourquoi* : sans rapport avec
+  la migration, et son impact (CI rouge) mérite une décision séparée plutôt
+  qu'un arbitrage rapide en fin de session.
+
+**Prochaines étapes**
+- [ ] Ouvrir `~/Vote-App-polity` comme vault Obsidian (ou vault lié) pour
+      retrouver l'accès au journal et aux docs depuis l'interface.
+- [x] Trancher le sort de `#253` : fusionnée le 04/09 à 23 h 57, avec la montée de `fastapi` (*ajout reconstruit le 2026-10-12*).
+- [ ] Reprendre effectivement le contenu du projet Polity depuis le worktree
+      `~/Vote-App-polity` — rien n'a avancé sur ce plan aujourd'hui, la
+      session était uniquement de la consolidation d'infrastructure.
+
+**Pour aller plus loin** : PR `#255`, `#252` (élaguée), `#254` (rebasée) ;
+commits `eb26deb`, `d7ecc51` ; `docs/claude-memory/README.md` ;
+`dev-plan-v0-worktree.md`.
+
+---
+
+## 2026-08-31 → 2026-09-03 — Préparer le passage à Ubuntu natif : config Claude Code versionnée, vault Obsidian, et un flake e2e attribué à une course de rendu
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Ce sont les jours qui précèdent la consolidation du 04/09 : on prépare un environnement de développement sous Linux natif. #235 dit faire partie de la « Phase 5 du plan de migration » ; ce plan n'a pas été retrouvé dans le dépôt.
+
+**Ce qui a avancé**
+- **La config Claude Code est versionnée** (#232, 31/08) : `.claude/settings.json`, les skills `voter-api` et `voter-ui`, et `CLAUDE.md`. Les worktrees ne partagent pas les fichiers non suivis, donc une session ouverte sur un autre worktree ne les voyait pas. `settings.local.json`, `.claude/worktrees/` et `scheduled_tasks.lock` restent ignorés. Comme le dépôt est public, `CLAUDE.md` devient visible ; rien de sensible n'a été trouvé à la relecture.
+- **`.obsidian/` ignoré** (#235, 03/09) : un vault Obsidian à la racine du dépôt sert à lire `JOURNAL_DE_BORD.md` et `docs/research/`, et sa config locale ne doit pas être commitée.
+- **CVE de `fast-uri`** (#234, intégrée à la branche de #236 et arrivée avec elle le 03/09). Quatre alertes de sévérité haute venaient de `@stryker-mutator/core → ajv → fast-uri`. La correction passe par un override npm : la plage déclarée par `ajv` admet déjà la version corrigée. L'override `qs` est resserré et un autre est ajouté pour `@humanfs/node`. Le problème a été trouvé en lançant `ci-local/run-ci.sh all` pour la première fois sous Linux natif.
+- **Flake e2e sur les lentilles** (#236, 03/09). La CI de #234 échouait sur le gate `check-flaky`, au test « the four lenses each paint their own overlay ». Diagnostic de l'époque : la lentille par défaut était posée par un `useEffect` passif, qu'un clic juste après le changement de moment pouvait devancer. Le correctif passe en `useLayoutEffect`. Le test a tourné 15 fois par navigateur sans échec ; les 214 tests e2e et les 1745 tests vitest passent.
+
+**Points bloquants**
+- Aucun n'est consigné dans les sources. À noter après coup : le diagnostic de #236 a été corrigé par #491 (15/09). La vraie cause était le bandeau `WinnerRobustness`, qui apparaissait au-dessus des lentilles et poussait le bouton entre l'appui et le relâchement du clic sous Firefox. Selon #491, la course d'effet décrite ne pouvait pas se produire. Le `useLayoutEffect` a été conservé.
+
+**Décisions prises**
+- Versionner la config Claude Code : un fichier non suivi n'atteint pas les autres worktrees (#232).
+- Laisser `settings.local.json` et l'état de session hors du dépôt : c'est de l'état propre à la machine ou à la session, pas de la config de projet (#232).
+- Corriger `fast-uri` par un override de lockfile plutôt que par une montée de version : la plage déclarée par `ajv` admet déjà la version corrigée (#234).
+
+**Prochaines étapes** *(aucune n'est écrite dans les sources ; ce qui a suivi)*
+- [x] Consolidation post-migration : #255, #252 et #254 le 04/09 (entrée du 04/09), puis #253 dans la nuit du 04 au 05/09.
+
+**Pour aller plus loin** : `docs/claude-memory/project_polity_portable_workspace_ubuntu.md`, entrée du 2026-09-04.
 
 ---
 
@@ -90,6 +1210,40 @@
 - [ ] Si repris un jour : #11 (veto de sortition) et le correctif upstream vLLM `#47579`, tous deux avec conditions de réouverture déjà écrites (doc de conception / `plan-vllm-switch-readiness.md`).
 
 **Pour aller plus loin** : `plan-vllm-switch-readiness.md` (confond AWQ, blocage UVA, conditions de réouverture), `plan-rupture-candidacy-threshold.md`, `plan-llm-decision-audit-sampling.md`, `fast_api_voter/scripts/acceptance_v7_results.md`, `polity-simulation-design-v2.md` (gitignoré — liste complète des points ouverts, #11 sortition différé), PR #227, #228, #229, #230, #231.
+
+---
+
+## 2026-08-29 (fin d'après-midi) — Le plancher de troncature de `chamber_deliberation` levé, v7 construit en trois lots, et `polity` reçoit enfin une CI
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Entre la calibration d'ambition (entrée de l'après-midi) et la clôture de v7 (entrée du soir, qui s'ouvre « en plein suivi du run d'acceptance v7 lancé en tâche de fond »), huit PR fusionnées sur `polity` entre 16 h 32 et 20 h 24. Aucune entrée ne les racontait : c'est ici que v7 a été scopé, codé et vérifié.
+
+**Ce qui a avancé**
+- **Plancher de troncature de `chamber_deliberation` diagnostiqué et levé** (#219). C'était le dernier point ouvert de v6b (entrée du 22/08). Un balayage de 270 appels réels trouve 7 échecs (2,6 %), tous au plafond exact de 9596 tokens. Le champ `reasoning` brut montre une boucle de Mode A : le même paragraphe répété 70 à 140 fois. Les 7 cas ont tous `chamber_position == sincere_position`, un état courant en production que le prompt ne présentait jamais comme le cas trivial attendu. Une phrase ajoutée au prompt système : **0/7 échecs** au rejeu, 23 à 39 tokens au lieu de 9596.
+- **`independent_signature_ratio` supprimé** (#220), classe A2 de `v3-readiness-checklist.md`. Le brancher aurait demandé une catégorie de citoyen non affilié qui n'existe pas : `assign_party_affiliation` renvoie toujours le parti le plus proche. Décision consignée dans ADR-003.
+- **v7, la négociation de coalition multi-tours (§3.4 Cas 2)** :
+  - Cadrage (#221) : le cache de réponses du §4.2 de la conception n'existe pas en réalité, la transcription s'appuie donc sur le journal d'événements. `max_negotiation_rounds=3` est posé comme choix pragmatique : Riker et Axelrod ne donnent pas de nombre de tours.
+  - Lot 1 (#222) : le seul paramètre `parties.coalition_max_negotiation_rounds: 3`, validé mais pas encore consommé.
+  - Lot 2 (#223) : `decide_coalition` devient une boucle bornée, arrêtée au plafond ou au point fixe. Le tour 1 reproduit les prompts d'avant v7 à l'octet. Un échec au tour ≥ 2 se replie sur `coalition_failed`/`aborted_at_round` au lieu de faire tomber le run.
+  - Lot 3 (#224) : spike de fiabilité en direct, **30 formations sur 30, aucune `LlmResponseError`** sur 5 scénarios. Mais aucune révision d'un tour à l'autre, même dans un scénario construit pour la provoquer : toutes les formations convergent en exactement 2 tours.
+  - Script d'acceptance (#225) : rounds=1 contre rounds=3 sur la base `electoral_only`. Les deux bras déterministes sont identiques à l'octet, ce qui vérifie le câblage de la config. La lecture est pré-enregistrée avant tout résultat : à environ 2 formations par bras, le run n'a pas la puissance pour trancher la question de la révision.
+- **`polity` sous CI pour la première fois** (#226). Tous les workflows filtraient sur `develop` et `main` : chaque PR `polity` ne reposait jusque-là que sur des tests locaux. Backend CI, `audit.yml`, Dependency Review, le contrat d'artefacts générés et la politique de branche s'appliquent désormais à `polity`. Les nouveaux checks ont tous tourné sur #226 elle-même.
+
+**Points bloquants**
+- Que la négociation produise jamais une révision reste une question ouverte, renvoyée à un lot futur (#224).
+- Frontend CI et e2e restent hors de `polity`, jugés sans objet pour un travail purement backend (#226). Ils y seront ajoutés le 14/09 (#487).
+
+**Décisions prises**
+- Lever la boucle par une phrase de désambiguïsation, pas par plus de budget : c'est le correctif établi du Mode A sur ce projet, depuis le précédent de `vote_cast` (#219).
+- Supprimer le ratio plutôt que le brancher : aucun chemin de code ne pouvait le lire (#220).
+- Lancer les deux bras d'acceptance à neuf plutôt que citer un ancien run `electoral_only` : la calibration a changé depuis (ADR-002, ADR-003), un ancien run mêlerait deux variables (#225).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Résultats du run d'acceptance v7 : #227, le soir même (entrée suivante).
+- [x] Étendre la CI frontend et e2e à `polity` : #487 (14/09).
+
+**Pour aller plus loin** : `docs/plan/polity/plan-coalition-negotiation-v7.md`, `scripts/lot3_chamber_reliability_results.md` (section « Lot 5 correction »), `scripts/coalition_negotiation_v7_lot3_reliability_results.md`, ADR-003.
 
 ---
 
@@ -191,6 +1345,47 @@ corriger.
 
 ---
 
+## 2026-08-27 → 2026-08-29 — Sur develop : Dependabot arrive, la sécurité de la chaîne d'approvisionnement se durcit, et les premières casses de dépendances
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Pendant que polity refermait le chantier distribution, `develop` recevait les « gains rapides » d'une revue de durcissement de la CI, puis trois pratiques CI/CD retenues lors d'une discussion sur les nouveautés à adopter (#207). Le plan est probablement `cihardeningplanv2.md` (25/08) : il note Dependabot absent, `pip-audit` non bloquant et le « chantier cardinal », trois points que #189 et #214 traitent. #215 se réfère à son « point 3 ». Le premier passage de Dependabot a suivi aussitôt.
+
+**Ce qui a avancé**
+- **Durcissement de base** (#189, 27/08) :
+  - groupes `concurrency:` sur les 7 workflows qui n'en avaient pas ;
+  - `.github/dependabot.yml` (pip, npm, github-actions), avec un délai de 7 jours que la règle Semgrep `dependabot-missing-cooldown` a fait ajouter ;
+  - les deux jobs homonymes « Tests + Coverage + Security » sont renommés, car la protection de branche les confondait ;
+  - les 9 workflows sont documentés dans `CONTRIBUTING.md`.
+  - `pip-audit` reste informatif : son premier passage trouve 5 CVE dans `starlette 0.49.3`, bloqué par `fastapi==0.121.2`. Ce sera réglé par #253 (04/09).
+- **Checks requis** (#206, 28/08) : #205 était restée bloquée parce qu'un check requis filtré par `paths:` ne se lance jamais, et il a fallu `--admin` pour la fusionner. Les quatre workflows filtrés sortent donc de la liste des checks requis. La vraie correction viendra par #257 (05/09).
+- **Première vague Dependabot** (28/08) : #190, #191, #192 (`react-router` 7 → 8), #195, #196, #197, #198 (`jest-dom` 6 → 7), #200, #203, #204. Trois ont demandé une vraie intervention :
+  - #200 ne montait que l'action `analyze` de CodeQL. Les autres références étaient restées sur l'ancien commit, ce qui faisait échouer CodeQL en erreur de configuration. #210 aligne les quatre restantes et remplace #201 et #202.
+  - Dependabot #199 (`web-vitals` 2 → 6) est résolue en supprimant `reportWebVitals`, un reste de Create React App qui ne s'exécutait jamais (#211). Au passage, `.stryker-tmp/` est exclu d'ESLint : sa présence locale faisait planter le linter.
+  - Dependabot #194 (`@babel/preset-react` 8 seul) échouait à `npm ci` à cause du pair `~8.0.0` exigé par Stryker. Les quatre paquets Babel passent ensemble en 8.x (#213).
+  - `numpy` passe de 2.2.6 à 2.4.6 (#212).
+- **Les trois pratiques retenues** (28/08) : `dependency-review-action` sur les PR (#207), OpenSSF Scorecard (#208), et la prise en charge de `merge_group` dans `audit.yml` en vue de la merge queue native de GitHub (#209), motivée par #188, fusionnée verte alors qu'elle était en retard sur `develop`.
+- **Tests** :
+  - #214 couvre le départage itératif du jugement majoritaire et les bornes de `get_score_distribution_analysis`, et ajoute `test_cardinal_score_and_regret.py`.
+  - #215 appelle directement 11 des 15 workers de `theory/workers.py`, sans `TestClient`, ce qui permet de les faire entrer dans le périmètre de mutmut. C'est la suite de l'exclusion décidée en #157.
+
+**Points bloquants**
+- mutmut casse juste après le passage à numpy 2.4.6 (#212) : `ImportError: cannot load module more than once per process`, reproduit deux fois et consigné dans `pyproject.toml` (#214). Le job de mutation échouera ainsi pendant 17 jours, jusqu'à #447 (13/09).
+- Les 4 workers de `theory/workers.py` qui touchent numpy restent hors du périmètre de mutmut (#215).
+
+**Décisions prises**
+- Résoudre une montée de version Dependabot cassante par suppression quand le code concerné est mort (#211), et par montée groupée quand le conflit vient de pairs (#213), plutôt que fusionner la PR telle quelle.
+- `branch-policy.yml` reste hors de `merge_group` : il lit `head_ref` et le titre de la PR, qui n'existent pas dans ce contexte (#209).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Rendre `pip-audit` bloquant avec la montée de `fastapi` : #253 (04/09).
+- [x] Relancer `setup-branch-protection.sh develop` après #206 : remplacé par la refonte des checks requis de #257 (05/09).
+- [ ] Merge queue native : jamais activée. Elle est réservée aux dépôts d'organisation (#336), et le déclencheur `merge_group` mort est retiré par #440 (13/09).
+
+**Pour aller plus loin** : `docs/plan/vote-app/cihardeningplanv2.md`, `CONTRIBUTING.md` (carte des workflows), `fast_api_voter/pyproject.toml` (`[tool.mutmut]`).
+
+---
+
 ## 2026-08-24 — Le run cascade à trois ingrédients ne franchit pas la barre de go/no-go, et révèle un problème plus grave que celui qu'il cherchait à tester
 
 **Contexte du jour.** La PR #184 (v6b Lot 4 acceptance + investigation fiabilité LLM + déterminisme GPU + métrique de déviation unifiée), qui rassemble le travail déjà raconté dans les entrées du 19 au 23 août, a été mergée sur `develop` ce matin (squash `c40b1bb`) — non re-racontée ici. Nouvelle branche `feat/polity-cascade-acceptance` ouverte pour le chantier suivant, identifié depuis plusieurs sessions comme le point qui referme la revendication à trois ingrédients du §7bis.9e (« un basculement de type Gilets jaunes n'est pas atteignable avant v6… il requiert simultanément le graphe social, les chocs exogènes et les leviers de pression ») : un run d'acceptation qui active pour la première fois `events` (v5) et `social_graph`/`neighbors_acting` (v6a) *ensemble*, sous `mobilization_only`, alors que chaque run précédent n'en avait isolé qu'un seul à la fois.
@@ -236,6 +1431,52 @@ corriger.
 
 ---
 
+## 2026-08-23 (soir) → 2026-08-25 — Le mutation testing pris au mot : un score qui mesurait sa propre configuration, et 13 règles qui n'étaient pas anonymes
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Le plan de durcissement CI (entrée du 22-23/08) se termine. Un second plan, « validé » d'après chaque PR mais non retrouvé comme document daté, prend le relais sur `develop` : rendre le score de mutation honnête, puis combler ce qu'il révèle.
+
+**Ce qui a avancé**
+- **mutmut ne lançait que 14 fichiers de test sur 80** (#176). Les neuf règles que la config disait « sans test dédié » en avaient toutes un, simplement pas sélectionné, et deux suites Hypothesis ne tournaient pas. La liste est désormais dérivée. Sur les mêmes 1761 mutants, le score passe de **58,9 % à 64,2 %**. Le module cardinal reste à **51,7 % : aucun de ses mutants n'est tué** par les fichiers ajoutés.
+- **Le workflow de mutation n'avait jamais tourné** (#177) : `schedule` et `workflow_dispatch` se résolvent sur la branche par défaut, alors `main`, où le fichier n'existait pas. Il se déclenche désormais sur les `push` qui touchent le moteur.
+- **Le déficit cardinal comblé** (#178) : 41 tests sur les six règles sans test dédié, chacun avec un profil construit pour isoler le mécanisme visé. 8 défauts réinjectés à la main sont tous tués. Un vrai bug est corrigé au passage : un score de exactement 5,0 ne tombait dans aucun bin de `get_score_distribution_analysis`.
+- **Des planchers** (#179) : mutmut 62 % (mesuré 64,2 %), Stryker 76 % (mesuré 80,8 %). Les timeouts ne comptent pas comme des mutants tués.
+- **knip de 156 à 87** (#180) :
+  - toutes les catégories sauf les types tombent à zéro ;
+  - deux dépendances réellement non déclarées sont ajoutées (`@eslint/js`, `globals`) ;
+  - les types `User` et `Profile_` sont supprimés, quatre mois après la suppression de l'authentification ;
+  - un second système de thème, mort, disparaît de `chartColors.ts`.
+- **Tests renforcés côté client** :
+  - #181 : sur la géométrie de grille, 14 mutations Stryker réinjectées sur 15 sont tuées ;
+  - #182 : neuf branches dégénérées couvertes. Au passage, la règle que l'interface appelle « condorcet » se révèle être Copeland.
+- **Treize règles n'étaient pas anonymes** (#183, 24/08). Sur 26 règles backend, 13 élisaient un autre vainqueur quand on permutait les mêmes bulletins : `max(counter.items(), …)` renvoie le premier maximum dans l'ordre d'apparition des candidats. Dowdall avait en plus une cause flottante, corrigée par de l'arithmétique exacte des deux côtés.
+  - **0 règle sur 26 dépend de l'ordre côté backend, 0 sur 21 côté client.** Le départage devient alphabétique, la convention que le code utilisait déjà ailleurs.
+  - Le harnais de parité, qui permute pourtant les bulletins, écartait silencieusement les scénarios en désaccord au lieu de les signaler.
+  - Un test existant présentait comme « une vraie différence algorithmique » ce qui n'était, pour Schulze, qu'un artefact de départage.
+- **Décomposition des fonctions de rang F et E** (#185) : 6 fonctions de `workers_advanced.py` et `workers_behavioral.py` sont découpées, et les deux fichiers ne contiennent plus de rang F ni E. Une branche morte est retirée dans `_party_dynamics_worker`.
+- **Doublons frontend réduits** (#186) : les trois plus gros fichiers signalés par jscpd sont dédupliqués. Un test différentiel sur 200 essais vérifie que l'« opposition » de Minimax est bien la transposée de la matrice des duels.
+- **Les deux gates de mutation réparés avant tout relèvement** (#187, 25/08) :
+  - Stryker n'avait jamais passé en CI : `@stryker-mutator/core` 10 exige Node ≥ 22, et la CI tournait sous Node 20. Ce seul job passe sous Node 22.
+  - Les 96 tests de #183 n'étaient pas dans la sélection de mutmut, d'où un score inchangé (64,2 % → 63,2 %) malgré 13 vrais bugs corrigés. La sélection est régénérée.
+
+**Points bloquants**
+- 87 types exportés inutilisés restent dans knip (#180).
+- Le relèvement des planchers de mutation reste à faire : #187 ne touche à aucun seuil.
+
+**Décisions prises**
+- Une liste de tests dérivée plutôt que tenue à la main, avec la commande qui la régénère dans le commentaire (#176).
+- Le départage alphabétique pour toutes les règles : aucun départage déterministe ne peut être à la fois anonyme et neutre, et l'alphabétique était déjà la convention documentée (#183).
+- Réparer les gates avant de relever un seul plancher : un seuil posé sur une mesure cassée ne mesure rien (#187).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Relever les planchers une fois les gates fiables : remplacés par un cliquet anti-régression, #462 (13/09).
+- [ ] Les 87 types exportés inutilisés : non retrouvé comme chantier dédié.
+
+**Pour aller plus loin** : `fast_api_voter/pyproject.toml` (`[tool.mutmut]`), `voter-app/stryker.config.json`, `docs/plan/vote-app/CODE_AUDIT.md`.
+
+---
+
 ## 2026-08-23 — Troisième run d'acceptance (electoral_only) : même maximum au bit près, et un pré-enregistrement vérifié à trois horodatages indépendants
 
 **Contexte du jour.** Suite directe de la session de la veille (commit `ab91fa2`) : le second run d'acceptance v6b Lot 4 (`legitimacy.recall_floor=0.0`) avait éliminé le confond de vacance en gardant le président en poste sans interruption, mais via un levier qui désactive la responsabilité plutôt que de la tester — recall_floor à zéro. Objectif du jour : planifier deux chantiers de suivi, puis exécuter le plus rigoureux des deux — un troisième run résolvant le même confond via `pressure_menu.electoral_only`, un levier qui teste la responsabilité électorale sans l'éteindre.
@@ -268,6 +1509,42 @@ corriger.
 - [ ] Statuer, à terme, sur une correction du clamp silencieux d'`apply_shifts` (retour/journalisation), au-delà de la documentation actuelle du défaut.
 
 **Pour aller plus loin** : `THEORY.md` §10.9-§10.10 (récit à trois runs, commit `922a070`), `fast_api_voter/scripts/acceptance_v6b_results.md` (régénéré), `fast_api_voter/scripts/acceptance_v6b_runs_electoral_only/` (troisième run), `fast_api_voter/scripts/acceptance_v6b_electoral_only_results.md`, entrée du 2026-08-22 précédente pour le contexte des deux premiers runs et du plafonnement du clamp.
+
+---
+
+## 2026-08-22 → 2026-08-23 — La suite e2e réécrite après deux mois de dérive, et un plan de durcissement CI en cinq chantiers
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Côté `develop`, suite directe de la journée du 21/08 (brouillon A : outils qualité, contrat OpenAPI, release passée par l'e2e). Les cinq derniers runs de `e2e.yml` s'arrêtaient tous en `cancelled` à 25 minutes : la suite pilotait une application qui n'existait plus. Le plan suivi par #172 à #175 est désigné dans les PR comme le « plan de durcissement CI ». Sa première version n'est plus dans le dépôt ; sa v2, datée du 25/08, est `docs/plan/vote-app/cihardeningplanv2.md`.
+
+**Ce qui a avancé**
+- **Le vote blanc en élection réelle** : un champ `blank_rule` laisse l'appelant choisir l'interprétation de `/simulations/real-election`, `SYMBOLIC` par défaut (#168). Une 5e colonne l'affiche dans l'interface (#169).
+- **La suite e2e réécrite** (#170) : 212 tests chromium et firefox en environ 2 min, ancrés sur les `data-testid`. Elle a trouvé et corrigé quatre vrais bugs :
+  - le Bilan ignorait la sélection de méthodes ;
+  - le Web Worker de simulation mourait au démarrage (`window is not defined`), après avoir importé des composants React ;
+  - l'anglais ne survivait pas au rechargement ;
+  - `/api-docs` ne redirigeait pas en développement.
+  - Anti-pourrissement : l'e2e tourne désormais sur chaque PR, et les routes deviennent des données (`src/routes.ts`), ce que `CLAUDE.md` décrit encore aujourd'hui.
+- **`JWT_SECRET_KEY` retiré** (#171) : plus aucun code ne le lisait depuis la suppression de l'authentification. Trouvé au passage : le hook pre-push backend visait des chemins disparus (`pytest tests --cov=app`), si bien que tout `git push` hooké mourait. Il est corrigé, avec un seuil remonté de 30 à 85.
+- **Le plan de durcissement CI, chantiers 1 à 5** :
+  - **Parité verrouillée en CI** (#172). Rien ne régénérait `engineParity.json`. Le générateur n'était pas reproductible non plus : trois exécutions donnaient trois fixtures différents, à cause de la randomisation des hash Python. Désormais `PYTHONHASHSEED=0` est imposé, et `check_engine_parity_drift.sh` échoue au moindre écart.
+  - **Les tests instables bloquent** (#173) : `retries: 1` rapportait en vert tout test qui ne passait qu'au second essai, et `check-flaky.mjs` les fait maintenant échouer. Le bug du worker reçoit deux gardes : une règle ESLint et un test e2e Monte-Carlo. Le test ne cassait pas à la première réinjection du bug ; il casse avec le vrai coupable (`MethodSimilarityGraph`).
+  - **Mutation testing sur les deux moteurs** (#174) : mutmut s'étend à `simulation_score_utils.py`, et Stryker est introduit sur `playgroundVoting.ts`, en mode informatif.
+  - **Cliquet qualité** (#175) : `check_quality_ratchet.sh` compare les comptes de vulture, radon, knip et jscpd à `.github/quality-baseline.json` (référence 0 / 140 / 156 / 49). Il échoue aussi quand un compte baisse sans mise à jour de la référence. `CONTRIBUTING.md` annonçait 30 % de couverture et un `jest.config.cjs` supprimé : c'est corrigé.
+
+**Points bloquants**
+- Scores de référence de la mutation non relevés : mutmut ne tourne pas sous Windows, le relevé est renvoyé à un `workflow_dispatch` (#174).
+
+**Décisions prises**
+- Faire tourner l'e2e sur chaque PR plutôt qu'à la seule release : c'est parce qu'il ne tournait qu'à la release que deux mois de dérive sont passés inaperçus (#170).
+- Le cliquet lit les sorties que le job produit déjà : zéro seconde de CI en plus (#175).
+- Un `.txt` d'outil manquant est un échec, pas « 0 trouvaille » (#175).
+
+**Prochaines étapes** *(ce qui a suivi)*
+- [x] Relever les scores de mutation et combler les trous : entrée suivante (#176 à #187).
+
+**Pour aller plus loin** : `docs/plan/vote-app/cihardeningplanv2.md`, `CONTRIBUTING.md` (gates de PR), `scripts/check_engine_parity_drift.sh`, `scripts/check_quality_ratchet.sh`.
 
 ---
 
@@ -347,6 +1624,78 @@ corriger.
 - [ ] Revoir si la découverte "rappel quasi immédiat sous menu de pression complet" mérite sa propre section théorique distincte de §10.9, ou reste une note dans cette dernière.
 
 **Pour aller plus loin** : `fast_api_voter/scripts/lot3_chamber_reliability_results.md` (historique complet 10 → 5 → 1), `fast_api_voter/scripts/acceptance_v6b_results.md` (résultats détaillés du run), `THEORY.md` §10.7/§10.8 (caveats datés 2026-08-22) et §10.9, `docs/research/traceability.md`, `fast_api_voter/scripts/cache_recycle_chunk_size_tension_findings.md` (taux d'incohérence ~6,7% cité dans les caveats), run préservé `fast_api_voter/scripts/acceptance_v6b_runs/sortition-llm-8y-failed-chamber-deliberation-truncation-20260821/`, runs archivés dans `_archived_failed_runs/`, marqueurs `INVALID_PRE_GPU_FIXES.md` dans `acceptance_v5_runs/electoral_only-llm-8y-events-r0.15-s0.25/` et `acceptance_v6a_runs/contagion-llm-8y/`, entrée du 2026-08-19 pour le contexte complet de l'investigation bug 4.
+
+---
+
+## 2026-08-21 — Garde-fous anti-« vibe coding » sur develop : mutation testing, code mort/duplication/complexité, contrat OpenAPI bloquant, et une première passe de nettoyage
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Pendant que le chantier polity traitait la troncature de `chamber_deliberation` (entrée du 22/08), une autre session travaillait sur `develop`. Deux sources la cadrent : `prompt-mutation-testing.md` pour mutmut, et `CODE_AUDIT.md` (première édition le 20/08, section radon ajoutée le 21/08 d'après son en-tête), qui recensait les angles morts de l'outillage qualité. S'y ajoutait une réflexion sur l'organisation de la CI (#160, #161).
+
+**Ce qui a avancé**
+- **Mutation testing, mesure de référence** (#157) : `mutmut` 3.7.0, workflow `mutation-testing.yml` lancé à la main ou par le cron hebdomadaire, jamais sur PR, en `continue-on-error` et sans seuil. Sur `simulation_ranked_utils.py`, il produit **1175 mutants : 730 tués, 435 survivants et 10 timeouts, soit un score d'environ 62 %**. Le run passe par Docker, car mutmut ne tourne pas sous Windows. `domain/theory/workers.py` est exclu : mutmut ré-exécute pytest dans le même processus, ce qui casse les tests `TestClient` (erreurs « NumPy module was reloaded » puis `asyncio.InvalidStateError`, reproduit 3 fois). L'échantillon manuel fait deux constats. Le paramètre `blank_candidate_name` est mort dans 23 signatures, ce qui donne des mutants équivalents. Un vrai trou existe aussi dans `get_split_cycle_winner` : la mutation `-` → `+` sur la marge survit.
+- **Quatre outils de détection, en mode informatif** (#158, qui remplace #156, fermée à cause du nom de branche) : `vulture` (code mort Python), `knip` (fichiers, exports et dépendances inutilisés côté TS), `jscpd` (duplication) et `radon`/`xenon` (complexité). Ils tournent dans `scripts/audit.sh --quality` et dans un job `code-quality` d'`audit.yml` qui ne bloque pas. Le premier audit est consigné dans `CODE_AUDIT.md`. `CONTRIBUTING.md` reçoit des conventions anti-dérive.
+- **Contrat OpenAPI vérifié en CI** (#159) : `scripts/check_openapi_drift.sh` régénère `openapi.gen.json` et `types.gen.ts`, puis échoue au moindre `git diff`. Il bloque dès son ouverture. Les deux fichiers se régénéraient déjà à l'identique, et le chemin d'échec a été testé.
+- **La release passe désormais par l'e2e** (#160). `release.yml` poussait sur `main` après sa propre copie allégée des tests. `e2e.yml` n'était branché nulle part : il ne se lançait qu'à la main. Il devient un `workflow_call`, exigé avant le job `release`.
+- **Tests backend parallélisés** (#161) : l'étape pytest prenait 14 min 07 s sur un job de 15 min 19 s. En local, avec `-n auto` et la couverture, elle prend 472 s (environ -44 %) : 1508 tests passent, couverture 89,63 %.
+- **Passe de nettoyage, étapes 1 à 4** :
+  - #162 : 4 lignes de debug inaccessibles après `return results`, dans `run_simulation`.
+  - #163 : 9 fichiers de tests dédiés aux méthodes classées qui n'en avaient pas. Le survivant `-`/`+` de split cycle était un vrai trou, verrouillé par un profil trouvé par recherche aléatoire. Le survivant `== 1` est un mutant équivalent, marqué `# pragma: no mutate`. On passe de 1508 à 1545 tests.
+  - #164 : `d3-delaunay` est déclaré (il n'arrivait que par `d3`, en transitif), 8 fichiers et 2 dépendances mortes sont supprimés (`@radix-ui/react-label`, `@react-oauth/google`).
+  - #165 : 10 fonctions sans référence supprimées, dont `engine/utils/utils.py` en entier, qui n'avait aucun appelant.
+- **Deux suites qui demandaient une vraie enquête** :
+  - #166 : `ideology_variance` était reçu mais jamais utilisé dans `_run_district_fptp`. Il pilote maintenant aussi la dispersion des électeurs à l'intérieur d'un district.
+  - #167 : que « Blanc » puisse gagner dans `methods_with_blank` n'est pas un bug : c'est le cadre `COMPETITIVE`. Un champ additif `methods_with_blank_rule` donne l'interprétation `SYMBOLIC`, et le contrat OpenAPI est régénéré.
+
+**Points bloquants**
+- `workers.py` reste hors de la mesure de mutation, à cause de l'incompatibilité mutmut/`TestClient`. La piste WSL est notée mais pas essayée (#157).
+- Les 435 survivants ne sont pas classés : seul un échantillon manuel l'a été (#157).
+- Le gate e2e de la release ne pouvait pas être déclenché depuis la session. Il reste à confirmer à la prochaine vraie release (#160).
+- Le hook pre-push `backend-tests-coverage` pointe encore vers les anciens chemins (`pytest tests --cov=app`). Il a été repéré mais volontairement laissé tel quel (#161).
+
+**Décisions prises**
+- Les quatre outils restent informatifs (script, CI, pas de hook pre-commit) : il fallait d'abord une passe de nettoyage, sans casser le quotidien du développement (#158).
+- Le contrat OpenAPI bloque immédiatement : il n'y a aucune dette existante et le check est binaire (#159).
+- Pas de seuil de mutation : le prompt source demandait explicitement de ne pas en fixer un a priori (#157).
+- Le gate de release se limite à l'e2e. Faire pointer `release.yml` vers les vrais workflows backend et frontend a été jugé plus large et plus risqué, donc renvoyé à un suivi séparé (#160).
+- Le mutant `== 1` est marqué équivalent plutôt que testé, car aucun test ne peut le tuer (#163).
+- Le comportement « Blanc peut gagner » est conservé : il correspond au cadre `COMPETITIVE`, et le badge de crise du frontend en dépend (#167).
+
+**Prochaines étapes** *(celles notées à l'époque)*
+- [x] Faire bloquer les outils qualité (critères de `CODE_AUDIT.md` §8) : fait sous forme de cliquet anti-régression par #175 (23/08).
+- [x] Réparer le hook pre-push : #171 (22/08), commit `ba1dfab`, qui pointe vers `api/tests --cov=api` avec un seuil passé de 30 à 85.
+- [ ] Essayer mutmut sous WSL pour couvrir `workers.py` : aucune suite trouvée. #174 (23/08) étend la mesure à `simulation_score_utils.py` et au moteur client, pas à `workers.py`.
+- [ ] Relancer mutmut pour mesurer le gain de #163 : pas retrouvé en tant que tel.
+- [ ] Faire réutiliser les workflows Backend/Frontend par `release.yml` : toujours ouvert (issue #683, ouverte le 27/09).
+
+**Pour aller plus loin** : `docs/plan/vote-app/CODE_AUDIT.md`, `docs/plan/vote-app/prompt-mutation-testing.md`.
+
+---
+
+## 2026-08-20 — Les seuils de couverture remontés au niveau mesuré, et les premiers tests par propriétés
+
+> Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.
+
+**Contexte du jour.** Deux PR sur `develop`, tirées de `prompt-coverage-hypothesis.md`. C'est le premier pas du chantier qualité que l'entrée du 21/08 (brouillon A) prolonge.
+
+**Ce qui a avancé**
+- **Couverture** (#154) : le seuil backend restait à 30 % pour une couverture mesurée de 89,55 %. Il passe à 85 %. Les seuils frontend passent de 20/25/50/50 à 70/75/85/80. Un `.coveragerc` hérité de Flask, qui masquait la config de `pyproject.toml`, est supprimé.
+- **Hypothesis** (#155), sur 200 exemples chacun et sans contre-exemple trouvé :
+  - Schulze, Copeland et Minimax élisent le vainqueur de Condorcet quand il existe ;
+  - la monotonie tient pour Plurality, Approval et Ranked Pairs ;
+  - la légitimité `L(t)` reste dans [0, 1].
+
+**Points bloquants**
+- Les invariants « délégation liquide » et « D'Hondt/Sainte-Laguë » du prompt source ne sont pas écrits : ces modules n'existaient pas encore (#155).
+
+**Décisions prises**
+- Arrondir les seuils sous la mesure, avec de la marge, plutôt que de les caler exactement dessus (#154).
+- Ne pas écrire de test de propriété pour du code qui n'existe pas (#155).
+
+**Prochaines étapes** *(aucune n'est écrite dans les sources)*
+
+**Pour aller plus loin** : `docs/plan/vote-app/prompt-coverage-hypothesis.md`.
 
 ---
 
