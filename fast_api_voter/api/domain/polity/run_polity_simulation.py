@@ -1407,6 +1407,8 @@ def _agenda_closed(context: TickContext, state: TickState, president: Citizen) -
         return "legislation is not in force"
     if legislature.seats is None:
         return "no assembly has been elected yet"
+    if not any(legislature.seats.values()):
+        return "no party won a seat in the assembly"  # every party under the threshold: no bill could pass
     if legislature.suspended is not None:
         return "a bill the chamber suspended comes back first"
     if context.tick % legislation.bill_interval_ticks:
