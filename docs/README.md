@@ -20,11 +20,13 @@ of discipline, is what made them drift.
 | `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. Stories meant for outside readers are copied to [`docs/runs/`](runs/README.md). | Per finished run (`/log-run` → `run-narrator` sub-agent) |
 | `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
 | `docs/plan/vote-app/CODE_AUDIT.md` | Dated health check of the code (2026-08-20 to 2026-09-13), with the commands to replay it. Kept as history. | — |
-| `docs/journal/JOURNAL_DE_BORD.md` | **Retired 2026-10-08.** A narrative log per work session, from 2026-09-04 to 2026-09-27 (older, reconstructed history in `docs/journal/archive/`). Kept as history; `STATUS.md` and PR bodies carry the state now. | — |
+| [`docs/journal/JOURNAL_DE_BORD.md`](journal/JOURNAL_DE_BORD.md) | A narrative log per work session, in French: what moved, what blocked, what was decided and why, what comes next (older and reconstructed history in `docs/journal/archive/`). Retired 2026-10-08, reopened 2026-10-12 (PLAN_BEYOND_CI D7). | Per work session (`/log-session` → `journal-writer` sub-agent) |
 
 ## Which surface?
 
 - **What's the state of things, and what's next?** → `docs/STATUS.md`.
+- **A work session ended and its story is worth keeping** → `/log-session` →
+  an entry in `docs/journal/JOURNAL_DE_BORD.md`, proposed before it is written.
 - **I tried a tool or a method and want to keep the verdict** →
   `/log-experiment` → `docs/exploration/EXP-*.md`, indexed in
   `docs/exploration/README.md`.

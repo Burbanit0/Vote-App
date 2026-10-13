@@ -3,7 +3,7 @@
 One file per binding decision, with the alternatives that were rejected. ADRs are numbered in the
 order they were written. Each file's own `**Status**` line is authoritative; this index summarises
 it. For the decisions in context, see [`docs/overview/`](../overview/README.md); for their history,
-the [journal](../journal/JOURNAL_DE_BORD.md) (to 2026-09-27) and the pull requests each ADR cites.
+the [journal](../journal/JOURNAL_DE_BORD.md) and the pull requests each ADR cites.
 
 Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving and inference).
 

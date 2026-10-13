@@ -66,7 +66,7 @@ it *claims*, and none of its three parts has a finish line or an outside reader.
 | D4 | Where this plan lives | `docs/plan/PLAN_BEYOND_CI.md`, pointed to by `docs/STATUS.md` |
 | D5 | LLM-collapse write-up (W2.6) | **A `docs/stories/` piece, then an arXiv preprint** (cs.MA / cs.CL) |
 | D6 | Teacher path (W3.5) | **A `?niveau=intro` mode** over the existing pages, plus a 1-page teacher guide |
-| D7 | The journal (`docs/journal/`), last entry 2026-09-27 | **Retire it** with a closing note. `STATUS.md` plus PR bodies carry the state |
+| D7 | The journal (`docs/journal/`), last entry 2026-09-27 | ~~**Retire it** with a closing note. `STATUS.md` plus PR bodies carry the state~~ **Reversed 2026-10-12 by the owner:** the journal is reopened, its gaps are backfilled from git and PR bodies, and a `docs/HISTORY.md` (to come) will tell the project by era. Entries stay in French like the ones before them, an exception to D3. `STATUS.md` keeps its role |
 | D8 | IRV, Coombs, Benham and Raynaud can fail the Condorcet-loser criterion in our engines, because tied last places are eliminated together | **Show the textbook verdict plus a variant note**, in the registry and the UI. The engines are unchanged |
 | D9 | Where the claims registry lives (W1.2) | `voter-app/src/data/method_criteria.json`. The backend test reads it from the repo root |
 | D10 | Teacher trial without a hosted instance | **A projector demo** run locally. Hands-on use waits for W6 |
@@ -333,7 +333,7 @@ on the e2e phone profile): no long task during a drag, so no blocking work. One 
 - **Mark the finished plans.** Every plan carries a `status:` line, and `docs/README.md`
   gets a plan index. They stay where they are: moving them to `docs/plan/archive/` would
   break about 300 references across the repo.
-- **Journal (D7).**
+- **Journal (D7, reversed 2026-10-12: the journal is reopened; the items below were done, then undone).**
   - Add a closing note.
   - Remove the journal surface from `docs/README.md`.
   - Deleting `/log-session` and `journal-writer` is a `.claude/` change and is held for
