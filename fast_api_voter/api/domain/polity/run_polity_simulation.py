@@ -891,17 +891,22 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
 
 
 def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str]]) -> None:
-    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens."""
+    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens:
+    their candidates are the ones a referendum (ADR-029) and the president's stakes (ADR-027) rank today."""
     if config.agents.amendments and counted:
         state.last_ballots = counted
 
 
 def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:
     """ADR-020: whether the citizens let a ratified change of voting method stand. They vote when
-    the constitution asks for it, or when the share who would have preferred the old method's winner
-    reaches the petition threshold; the vote counts the last election's ballots under both methods."""
-    config, ballots = context.config, state.last_ballots
-    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never" or not ballots:
+    the constitution asks for it, or when the share who would prefer the old method's winner reaches
+    the petition threshold. It is a new vote (ADR-029): the citizens who would vote today rank the last
+    election's candidates who may stand again, and each votes for the method whose winner they prefer."""
+    config = context.config
+    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never":
+        return True
+    ballots = _referendum_ballots(state, config)
+    if not ballots:
         return True
     counted = referendum_count(ballots, config.institutions.presidential_method, proposal.value)
     if counted is None:
@@ -915,6 +920,13 @@ def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> b
         yes=yes, no=no, passed=int(yes > no),
     ))
     return yes > no
+
+
+def _referendum_ballots(state: TickState, config: PolityConfig) -> list[list[str]]:
+    """ADR-029: today's ballots, with every candidate the term limit bars struck from them."""
+    today = ballots_today(state, next(iter(current_office_holders(state.citizens, Office.PRESIDENT)), None), config) or []
+    barred = {candidate_label(c) for c in state.citizens if is_term_limited(c, config.institutions.president_term_limit)}
+    return [[label for label in ballot if label not in barred] for ballot in today]
 
 
 def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
@@ -2125,15 +2137,18 @@ def _judged_incumbent(
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
-def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:
     """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
     the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
     profile's; an LLM-cast electorate is not forecast), the president judged on their record, on today's
-    opinions. What a president who means to stay needs to weigh a change of voting method: the next election."""
+    opinions. What a president who means to stay needs to weigh a change of voting method: the next election; and,
+    ADR-029, the referendum's vote on one (no president to judge: none weighed)."""
     candidates = _last_candidates(state, config.candidacy.incumbent_keeps_record)
     if not candidates:
         return None
-    incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
+    incumbent = _judged_incumbent(
+        state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
+    )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
     return [ballot for ballot in cast if ballot is not None] or None
 

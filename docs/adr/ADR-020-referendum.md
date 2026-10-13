@@ -34,4 +34,5 @@ the citizens able to stop that, with a vote counted on what the change would hav
 - The agents do not vote in it: the crowd's ballots decide. The chamber has already voted.
 - A petition against other articles, or against a bill. Add it when a run shows agents amending
   articles the citizens visibly oppose.
-- Stale ballots: the count is of the last election, not of today's opinions.
+- ~~Stale ballots: the count is of the last election, not of today's opinions.~~ Settled by ADR-029: the
+  referendum is a new vote on today's opinions.
