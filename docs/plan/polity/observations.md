@@ -77,6 +77,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
+| [OBS-048](#obs-048) | Told what each rule would give them, presidents amend for their party; two founding-ratio cuts doubled the party count, and one assembly sat empty | 2026-10-12 | open |
 
 ---
 
@@ -2378,3 +2379,76 @@ support (`legitimacy.pressure_like_support`), and legitimacy under the floor cal
 majority against the president loses (`legitimacy.floor_calls_vote`). The flagship keeps today's rule.
 
 *Status: decided.*
+
+### OBS-048
+
+**Told what each rule would give them, presidents amend for their party; two founding-ratio cuts doubled the
+party count, and one assembly sat empty.**
+
+*Seen.* Phase14 (`~/Documents/Dev/polity-runs/phase14/`) has phase13's settings: 5 seeds, 8 years, p100, 15
+seats, the exploration profile. It adds ADR-027's forward stakes and ADR-028's ambition-shaped goal.
+
+| | phase13 | phase14 |
+|---|---:|---:|
+| presidential elections / recalls | 15 / 0 | 15 / 0 |
+| amendments proposed (all by the sitting president) | 31 | 34 |
+| voting-method proposals | 0 | 5 |
+| reasons naming the president's own interest (regex below) | 10 of 31 | 19 of 34 |
+| ratified | 15 | 15 |
+| founding-ratio cuts ratified | 0 | 2 |
+| peak party count, by seed | 23-28 | 21-48 |
+| seat-based effective number of parties, median of the legislative elections | 7.02 (10) | 10.20 (9 of 10) |
+| legislative elections where no party won a seat | 0 of 10 | 1 of 10 |
+
+- **The method proposals.**
+  - Seed 2: two presidents in turn proposed plurality, against two-round (ticks 2, 15 and 20). The chamber
+    turned down the first at exactly the 0.6 bar (9 of 15; ratification needs more than the bar). The other
+    two (10 and 12 of 15) went to the population and lost 40-51 and 24-56 (`referendum_held`, ticks 16
+    and 21).
+  - Seed 5: approval was turned down at 9 of 15.
+  - Seed 3: Borda was ratified 15 of 15 and passed its referendum 62-22 (tick 25), the one method change of
+    either ensemble.
+- **The reasons name the president.** The seed-5 president (ambition 0.44) made 10 proposals, all rejected:
+  - "Extend my term to secure another election";
+  - "Reduce petition risk to secure re-election".
+
+  Others aim at the party's seats:
+  - "Lower threshold to 0% to increase seat viability for parties like mine" (seed 2, ratified);
+  - "Lower threshold to encourage more parties, strengthening my party's electoral base" (seed 4, ambition
+    0.62, ratified).
+- **The party count.**
+  - Seed 2: the founding ratio was cut from 0.05 to 0.03 (ratified at tick 17), and the net count of parties
+    founded went from 24 at tick 16 to 34 at tick 20.
+  - Seed 4: the same cut at tick 19 went with 25 at tick 16 to 35 at tick 20.
+  - The two seeds peak at 43 and 48 parties and end at 37 and 47. Phase13 proposed only raising the ratio (3 times), and the chamber
+    rejected all three.
+- **The empty assembly.** At seed 2's tick-24 legislative election, 42 parties were on the ballot and the
+  largest drew 4.9%, against a 5% bar. The same president had restored that bar at tick 11 "to reduce
+  fragmentation", after lowering it to 3% at tick 5. No party was seated. The president's briefing then
+  crashed on the assembly median, fixed in #931, which also closes the agenda when no party sits. The president
+  then in office, who had cut the founding ratio, lowered the bar to 0 at tick 28.
+
+*Suspected cause* (labelled, not tested). The stakes show each president their own party's seats at every
+threshold. That makes a lower bar read as a gain for a small party, and every party is small once dozens
+exist. Nothing shown counts what a lower founding ratio or bar does to the number of parties, and the chamber
+ratified all 6 cuts to the bar that came to a vote in phase14, at 9 to 15 of 15. That gives a ratchet toward fragmentation, which OBS-040 already
+found in the vote; ADR-026's "not settled" notes that the stakes leave out the deserters a lower bar keeps.
+
+*Evidence.* From `~/Documents/Dev/polity-runs/`:
+- every count above:
+  `grep -h '"amendment_proposed"\|"amendment_resolved"\|"referendum_held"\|"legislative_result"' phase1[34]/runs/*/run/*/events.jsonl`;
+- party counts: `party_founded` minus `party_dissolved`;
+- the self-interest regex, case-insensitive, over each proposal's `reason`:
+  `re-?elect|my party|mine|my term|petition risk|recall risk|my (?:own )?|secure`. A regex count is a
+  rough measure.
+
+*What would settle it.*
+- The phase13/14 difference is two changes in one arm, on 5 seeds each.
+- Whether presidents lower the bars because of the forward stakes, or because of the ambition goal, needs
+  arms that turn each on alone.
+- Whether fragmentation follows from the founding-ratio cuts needs seeds with `parties.founding_ratio`
+  frozen.
+- The owner's call: is a president who lowers entry barriers for their own party behaviour to keep, as the
+  third-term attempts were (ADR-026)?
+
+*Status: open.*
