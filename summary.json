@@ -1787,7 +1787,7 @@
   "test-flaky": 39,
   "unknown": 2
  },
- "generated_at": "2026-10-13T09:45:58Z",
+ "generated_at": "2026-10-13T10:38:01Z",
  "grid": {
   "Backend CI": {
    "2026-09-13": {
@@ -1984,7 +1984,7 @@
     "success": 9
    },
    "2026-10-13": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Dashboard": {
@@ -2020,7 +2020,7 @@
     "success": 46
    },
    "2026-10-13": {
-    "success": 13
+    "success": 14
    }
   },
   "CI Health Watchdog": {
@@ -3026,7 +3026,7 @@
    "2026-10-13": {
     "cancelled": 12,
     "skipped": 50,
-    "success": 28
+    "success": 29
    }
   },
   "zizmor online": {
@@ -3056,18 +3056,18 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38342101698"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-13T03:08:02Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38340243446"
+   "created_at": "2026-10-13T10:26:59Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38383424943"
   },
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-13T03:42:00Z",
+   "created_at": "2026-10-13T09:45:51Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38342939142"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38378640625"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3163,9 +3163,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-13T09:45:51Z",
+   "created_at": "2026-10-13T10:37:52Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38378640761"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38384681331"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3175,7 +3175,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567392"
   }
  },
- "runs": 15954,
+ "runs": 15957,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3245,12 +3245,12 @@
     "2026-10-10": 950,
     "2026-10-11": 979.0,
     "2026-10-12": 1104,
-    "2026-10-13": 1136
+    "2026-10-13": 893.5
    },
-   "p50_s": 324,
+   "p50_s": 339,
    "p95_s": 1056,
    "queue_p50_s": 0,
-   "runs": 158
+   "runs": 159
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3298,12 +3298,12 @@
     "2026-10-10": 408.0,
     "2026-10-11": 368,
     "2026-10-12": 413.0,
-    "2026-10-13": 443
+    "2026-10-13": 433.0
    },
-   "p50_s": 396,
+   "p50_s": 397,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 399
+   "runs": 400
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3763,12 +3763,12 @@
     "2026-10-10": 27.0,
     "2026-10-11": 27,
     "2026-10-12": 28.0,
-    "2026-10-13": 28.5
+    "2026-10-13": 29
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1119
+   "runs": 1120
   },
   "zizmor online": {
    "daily_p50_s": {
