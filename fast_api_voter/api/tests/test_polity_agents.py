@@ -129,6 +129,9 @@ def test_the_assembly_median_counts_each_party_once_per_seat() -> None:
     parties = [Party(0, (0.1, 0.9)), Party(1, (0.5, 0.5)), Party(2, (0.9, 0.1))]
     assert seat_weighted_median(parties, {0: 60, 1: 20, 2: 20}) == (0.1, 0.9)
     assert seat_weighted_median(parties, {0: 30, 1: 20, 2: 50, 3: 0}) == (0.5, 0.1)  # exactly half at 0.1: the lower median
+    # No party seated -- every one under the threshold, or every seated one dissolved: no median, no crash.
+    assert seat_weighted_median(parties, {0: 0, 1: 0, 2: 0}) is None
+    assert seat_weighted_median(parties, {99: 40}) is None
 
 
 def test_a_nominee_campaigns_on_the_poll_under_the_campaign_s_rules() -> None:
