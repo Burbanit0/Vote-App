@@ -22,8 +22,14 @@ and later, and the exploration-profile mechanisms (ADR-014 onward).
 
 | Run | Seed | Code commit | Wall clock | Explorer key | Story |
 |---|---|---|---|---|---|
-| `full-30y-p500-seed1-20260926` | 1 | `cca7d12a` | 7,162 s | `81aa1c96f54109d1` | to come |
-| `full-30y-p500-seed2-20260926` | 2 | `cca7d12a` | 7,498 s | `40891af63e3d8811` | to come |
-| `full-30y-p500-seed42-20260926` | 42 | `e362f4d3` | 7,705 s | `f94644cd849efaa8` | to come |
+| `full-30y-p500-seed1-20260926` | 1 | `cca7d12a` | 7,162 s | `81aa1c96f54109d1` | [story](full-30y-p500-seed1.md) |
+| `full-30y-p500-seed2-20260926` | 2 | `cca7d12a` | 7,498 s | `40891af63e3d8811` | [story](full-30y-p500-seed2.md) |
+| `full-30y-p500-seed42-20260926` | 42 | `e362f4d3` | 7,705 s | `f94644cd849efaa8` | [story](full-30y-p500-seed42.md) |
 
 Commit, model and timings come from each run's `run_metadata.json` and `digest.json`.
+
+Each story passes `check_timeline_claims.py` against its run's journal with 0 contradicted
+anchors (seed 1: 75 anchors; seed 2: 61; seed 42: 37). Zeros that come from the configuration
+(legislation, emotions and opinion dynamics off, a static population) are labelled as such.
+The blank-vote figures in them are the model's answers on the uncounted 10% audit probe
+(ADR-011), drawn from the whole population, not the electorate's blank voting.
