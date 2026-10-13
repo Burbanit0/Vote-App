@@ -14,7 +14,8 @@ Vote-App is one repository with three parts:
 | **Process** | How the code is kept correct: a dual voting engine locked by a parity test, property-based axiom tests, CI ratchets, recorded experiments (EXP), observations (OBS) and decisions (ADR). | [Process and evidence](#process-and-evidence) below |
 
 The vocabulary for all three is in [`glossary.md`](glossary.md). Where each part stands today and
-what comes next is in [`../STATUS.md`](../STATUS.md).
+what comes next is in [`../STATUS.md`](../STATUS.md). How it got here, era by era, is in
+[`../HISTORY.md`](../HISTORY.md).
 
 ## System context
 
@@ -198,6 +199,7 @@ These are where outside review would help most. Each links to where it is tracke
 | EXP | One file per tool or method tried, with its verdict and real cost | [`../exploration/README.md`](../exploration/README.md) |
 | OBS | Every strange simulation behaviour, numbered, with its status | [`../plan/polity/observations.md`](../plan/polity/observations.md) |
 | Plans | Each plan's first lines give its status (live, reference, done, superseded) | [`../README.md`](../README.md#plans) |
+| History | The project told era by era, with the decisions and reversals of each | [`../HISTORY.md`](../HISTORY.md) |
 | Journal | The narrative of each work session, from 2025 (archive) on; retired 2026-10-08 and reopened 2026-10-12 (PLAN_BEYOND_CI D7), with its gaps being backfilled | [`../journal/JOURNAL_DE_BORD.md`](../journal/JOURNAL_DE_BORD.md) |
 | Run stories | What a simulated society went through, claim-checked against its journal | [`../runs/`](../runs/) |
 | Behaviour catalogue | Each Polity invariant, with the test that locks it | [`../spec/behaviors.md`](../spec/behaviors.md) |

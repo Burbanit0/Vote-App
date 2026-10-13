@@ -336,6 +336,7 @@ graphify-out/
 # The project overview (architecture, glossary) and the run stories: written for readers
 # outside the repository, like stories/ and preprint/ above.
 !/docs/overview/
+!/docs/HISTORY.md
 !/docs/runs/
 # docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
 # aussi les fichiers directement sous docs/, pas seulement les

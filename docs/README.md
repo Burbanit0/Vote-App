@@ -8,6 +8,7 @@ of discipline, is what made them drift.
 | Surface | Job | Rhythm |
 |---|---|---|
 | [`docs/overview/`](overview/README.md) | **The map.** Architecture and functional diagrams, why each piece is built the way it is, open questions, and the [glossary](overview/glossary.md). For anyone new, researchers included. | When the architecture changes |
+| [`docs/HISTORY.md`](HISTORY.md) | **How the project got here**, era by era: what was built, what was decided and why, what was reversed. Built from the journal. | When an era closes |
 | [`docs/STATUS.md`](STATUS.md) | **Start here.** Where each part stands, the next 3 steps, the open questions. One page. | At the end of each plan phase, and whenever the next steps change |
 | `docs/plan/` | Plans. The current one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Each plan's first lines say its status; [Plans](#plans) below lists them all. | Per plan |
 | `docs/exploration/EXP-*.md` | One file per tool or method tried: the verdict (adopted, rejected or suspended), plus what it actually found and cost. | Per closed experiment (`/log-experiment`) |
