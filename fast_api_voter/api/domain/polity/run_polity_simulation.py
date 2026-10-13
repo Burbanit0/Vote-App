@@ -891,7 +891,8 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
 
 
 def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str]]) -> None:
-    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens."""
+    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens:
+    their candidates are the ones a referendum (ADR-029) and the president's stakes (ADR-027) rank today."""
     if config.agents.amendments and counted:
         state.last_ballots = counted
 
@@ -899,11 +900,13 @@ def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str
 def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:
     """ADR-020: whether the citizens let a ratified change of voting method stand. They vote when
     the constitution asks for it, or when the share who would prefer the old method's winner reaches
-    the petition threshold. It is a new vote (ADR-029): every engaged citizen ranks the last election's
-    candidates on today's opinions, and votes for the method whose winner they prefer."""
+    the petition threshold. It is a new vote (ADR-029): the citizens who would vote today rank the last
+    election's candidates who may stand again, and each votes for the method whose winner they prefer."""
     config = context.config
-    ballots = ballots_today(state, next((c for c in state.citizens if c.office == Office.PRESIDENT), None), config)
-    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never" or not ballots:
+    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never":
+        return True
+    ballots = _referendum_ballots(state, config)
+    if not ballots:
         return True
     counted = referendum_count(ballots, config.institutions.presidential_method, proposal.value)
     if counted is None:
@@ -917,6 +920,13 @@ def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> b
         yes=yes, no=no, passed=int(yes > no),
     ))
     return yes > no
+
+
+def _referendum_ballots(state: TickState, config: PolityConfig) -> list[list[str]]:
+    """ADR-029: today's ballots, with every candidate the term limit bars struck from them."""
+    today = ballots_today(state, next(iter(current_office_holders(state.citizens, Office.PRESIDENT)), None), config) or []
+    barred = {candidate_label(c) for c in state.citizens if is_term_limited(c, config.institutions.president_term_limit)}
+    return [[label for label in ballot if label not in barred] for ballot in today]
 
 
 def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
