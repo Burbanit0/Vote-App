@@ -898,9 +898,11 @@ def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str
 
 def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:
     """ADR-020: whether the citizens let a ratified change of voting method stand. They vote when
-    the constitution asks for it, or when the share who would have preferred the old method's winner
-    reaches the petition threshold; the vote counts the last election's ballots under both methods."""
-    config, ballots = context.config, state.last_ballots
+    the constitution asks for it, or when the share who would prefer the old method's winner reaches
+    the petition threshold. It is a new vote (ADR-029): every engaged citizen ranks the last election's
+    candidates on today's opinions, and votes for the method whose winner they prefer."""
+    config = context.config
+    ballots = ballots_today(state, next((c for c in state.citizens if c.office == Office.PRESIDENT), None), config)
     if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never" or not ballots:
         return True
     counted = referendum_count(ballots, config.institutions.presidential_method, proposal.value)
@@ -2125,15 +2127,18 @@ def _judged_incumbent(
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
-def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:
     """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
     the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
     profile's; an LLM-cast electorate is not forecast), the president judged on their record, on today's
-    opinions. What a president who means to stay needs to weigh a change of voting method: the next election."""
+    opinions. What a president who means to stay needs to weigh a change of voting method: the next election; and,
+    ADR-029, the referendum's vote on one (no president to judge: none weighed)."""
     candidates = _last_candidates(state, config.candidacy.incumbent_keeps_record)
     if not candidates:
         return None
-    incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
+    incumbent = _judged_incumbent(
+        state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
+    )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
     return [ballot for ballot in cast if ballot is not None] or None
 
