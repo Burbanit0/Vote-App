@@ -1,10 +1,10 @@
 # Journal de bord — Vote-App / La Fourmilière
 
-> **Retired 2026-10-08** (`docs/plan/PLAN_BEYOND_CI.md`, decision D7). The last
-> entry below runs to 2026-09-27; 124 pull requests merged after it without one.
-> Current state and next steps live in [`docs/STATUS.md`](../STATUS.md), and
-> each change's story in its PR body. This file is kept as history and is no
-> longer updated.
+> **Rouvert le 2026-10-12.** Retiré le 2026-10-08 (`docs/plan/PLAN_BEYOND_CI.md`,
+> décision D7), puis rouvert par le propriétaire le 2026-10-12. Les journées
+> restées sans entrée sont reconstruites a posteriori depuis le git log et les
+> descriptions de PR, et chaque entrée reconstruite le dit en tête. L'état
+> courant et les prochaines étapes restent dans [`docs/STATUS.md`](../STATUS.md).
 
 > Une entrée par session de travail significative, la plus récente en
 > haut. Objectif : raconter l'histoire du projet au jour le jour — ce qui

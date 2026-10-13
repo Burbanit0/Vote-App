@@ -198,7 +198,7 @@ These are where outside review would help most. Each links to where it is tracke
 | EXP | One file per tool or method tried, with its verdict and real cost | [`../exploration/README.md`](../exploration/README.md) |
 | OBS | Every strange simulation behaviour, numbered, with its status | [`../plan/polity/observations.md`](../plan/polity/observations.md) |
 | Plans | Each plan's first lines give its status (live, reference, done, superseded) | [`../README.md`](../README.md#plans) |
-| Journal | The narrative of each work session, from 2025 (archive) to 2026-09-27; retired on 2026-10-08 (PLAN_BEYOND_CI D7), since then `STATUS.md` and PR bodies carry the story | [`../journal/JOURNAL_DE_BORD.md`](../journal/JOURNAL_DE_BORD.md) |
+| Journal | The narrative of each work session, from 2025 (archive) on; retired 2026-10-08 and reopened 2026-10-12 (PLAN_BEYOND_CI D7), with its gaps being backfilled | [`../journal/JOURNAL_DE_BORD.md`](../journal/JOURNAL_DE_BORD.md) |
 | Run stories | What a simulated society went through, claim-checked against its journal | [`../runs/`](../runs/) |
 | Behaviour catalogue | Each Polity invariant, with the test that locks it | [`../spec/behaviors.md`](../spec/behaviors.md) |
 

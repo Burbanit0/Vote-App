@@ -20,7 +20,7 @@ what it did to the people living in it. A reader who was not there, six months
 later, should be able to follow it.
 
 **Language note.** This file is in English, unlike some of its siblings still in
-French (`experiment-writer`, `dep-triage`), because the artifact it
+French (`experiment-writer`, `journal-writer`, `dep-triage`), because the artifact it
 produces is English — matching `plan-flagship-30y-run.md` and every
 `scripts/*_results.md`, the document lineage a run report belongs to. Deliberate,
 not drift.
