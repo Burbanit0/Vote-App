@@ -97,10 +97,31 @@ jobs:
             data/summary.json
           if-no-files-found: error
           retention-days: 7 # long enough to re-run a failed persist job
+      # A repo has one Pages site, and each deploy replaces all of it. It is the app (the
+      # static build, PLAN_BEYOND_CI W6: the latest release's static-site.zip, which
+      # release.yml attaches) with this dashboard under ci/. Before the first release that
+      # carries it, the dashboard alone, at the root as before. A failed lookup stops here:
+      # publishing without the app would take the public site down until the next run.
       - name: Assemble the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          mkdir -p "$RUNNER_TEMP/site"
-          cp ci-dashboard/index.html data/summary.json "$RUNNER_TEMP/site/"
+          set -euo pipefail
+          site="$RUNNER_TEMP/site"
+          mkdir -p "$site/ci"
+          cp ci-dashboard/index.html data/summary.json "$site/ci/"
+          if ! assets=$(gh release view --repo "$REPO" --json assets -q '.assets[].name' 2> "$RUNNER_TEMP/err"); then
+            grep -q 'release not found' "$RUNNER_TEMP/err" || { cat "$RUNNER_TEMP/err" >&2; exit 1; }
+            assets=""
+          fi
+          if grep -qx static-site.zip <<< "$assets"; then
+            gh release download --repo "$REPO" --pattern static-site.zip --dir "$RUNNER_TEMP"
+            unzip -q "$RUNNER_TEMP/static-site.zip" -d "$site"
+          else
+            echo "::warning::The latest release has no static-site.zip: publishing the dashboard alone."
+            cp "$site/ci/index.html" "$site/ci/summary.json" "$site/"
+          fi
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ${{ runner.temp }}/site
@@ -182,7 +203,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          DASHBOARD: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          DASHBOARD: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ci/
         run: |
           set -euo pipefail
           python3 scripts/ci_dashboard/weekly_report.py --data "$RUNNER_TEMP/data" \

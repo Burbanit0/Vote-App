@@ -215,3 +215,53 @@ jobs:
             - 🐛 [Signaler un bug](${{ github.server_url }}/${{ github.repository }}/issues/new)
           generate_release_notes: true   # GitHub auto-generates changelog from commits
           make_latest: true
+
+  # The static site (PLAN_BEYOND_CI W6): the app built from the commit just tagged, with the
+  # engine in Pyodide, attached to the release as static-site.zip. ci-dashboard.yml deploys
+  # the one Pages site (a repo has one, and each deploy replaces all of it): this app at its
+  # root, the CI dashboard under ci/. Dispatching it publishes the release now rather than
+  # at the next hourly run; a dispatch is the one event GITHUB_TOKEN may start.
+  static-site:
+    name: Static site (attached, then published)
+    needs: [version, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # the release asset
+      actions: write # dispatching ci-dashboard.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
+      # engine.zip is built from the backend's own code and packages (build:static).
+      # No caches in a job that publishes (zizmor's cache-poisoning audit).
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+      - name: Install the backend's runtime packages
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./voter-app
+      # Served at https://burbanit0.github.io/Vote-App/; with a custom domain, '/'.
+      - name: Build (npm run build:static)
+        run: npm run build:static
+        working-directory: ./voter-app
+        env:
+          VITE_BASE: /Vote-App/
+      - name: Attach to the release, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          (cd voter-app/build-static && zip -qr "$RUNNER_TEMP/static-site.zip" .)
+          gh release upload "$VERSION" "$RUNNER_TEMP/static-site.zip" --clobber --repo "$REPO"
+          gh workflow run ci-dashboard.yml --repo "$REPO"
