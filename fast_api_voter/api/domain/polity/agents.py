@@ -514,8 +514,8 @@ def _value(values: Sequence[float] | None, dimension: int) -> str:
 
 def seat_weighted_median(parties: Sequence[Party], seats: Mapping[int, int]) -> tuple[float, ...] | None:
     """Each issue's median of the seated parties' platforms, a party counting once per seat; None for an assembly
-    no party sits in -- every party under the threshold (phase14 seed 2: 42 parties, the largest at 4.9% against a
-    5% bar), or every seated party since dissolved."""
+    no party sits in: every party under the threshold (phase14 seed 2: 42 parties, the largest at 4.9% against a
+    5% bar)."""
     seated = [(p.platform, seats[p.party_id]) for p in parties if seats.get(p.party_id, 0) > 0]
     if not seated:
         return None
