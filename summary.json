@@ -923,6 +923,31 @@
   },
   {
    "branches": [
+    "develop",
+    "polity"
+   ],
+   "category": "code",
+   "count": 3,
+   "example": {
+    "job": "Frontend mutation score (Stryker, floor 80%)",
+    "lines": [
+     "23:44:23 (2595) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+     "23:44:23 (2595) ERROR Stryker There were failed tests in the initial test run.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "5b7968b19b386b2b98bc276368d5b6c44f25e0d4",
+    "step": "Run Stryker (fails under thresholds.break)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567330"
+   },
+   "last_seen": "2026-10-12T23:42:52Z",
+   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+   "workflows": [
+    "Mutation Testing"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-extra-legal",
     "feat/polity-nvfp4-probe-profile",
     "feat/polity-s24-first-wave"
@@ -1129,31 +1154,6 @@
    "signature": "test-flaky: error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
    "workflows": [
     "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop",
-    "polity"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Frontend mutation score (Stryker, floor 80%)",
-    "lines": [
-     "23:06:57 (2512) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-     "23:06:57 (2512) ERROR Stryker There were failed tests in the initial test run.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "ce0e674971d013d79165d21eb2106453df33d4e0",
-    "step": "Run Stryker (fails under thresholds.break)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303209"
-   },
-   "last_seen": "2026-10-12T23:05:39Z",
-   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-   "workflows": [
-    "Mutation Testing"
    ]
   },
   {
@@ -1782,12 +1782,12 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 283,
+  "code": 284,
   "infra": 22,
   "test-flaky": 41,
   "unknown": 2
  },
- "generated_at": "2026-10-12T23:55:05Z",
+ "generated_at": "2026-10-13T00:01:15Z",
  "grid": {
   "Backend CI": {
    "2026-09-13": {
@@ -2011,7 +2011,7 @@
    },
    "2026-10-12": {
     "failure": 1,
-    "success": 44
+    "success": 45
    }
   },
   "CI Health Watchdog": {
@@ -2663,7 +2663,7 @@
     "success": 1
    },
    "2026-10-12": {
-    "failure": 2
+    "failure": 3
    }
   },
   "OpenSSF Scorecard": {
@@ -2985,7 +2985,10 @@
    "2026-10-12": {
     "cancelled": 10,
     "skipped": 112,
-    "success": 91
+    "success": 92
+   },
+   "2026-10-13": {
+    "success": 1
    }
   },
   "zizmor online": {
@@ -3024,9 +3027,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T23:46:19Z",
+   "created_at": "2026-10-12T23:54:02Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323867322"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38324523539"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3085,11 +3088,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323534926"
   },
   "Mutation Testing": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-12T23:05:39Z",
+   "created_at": "2026-10-12T23:42:52Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38320303209"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567330"
   },
   "OpenSSF Scorecard": {
    "branch": "develop",
@@ -3122,9 +3125,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-12T23:54:02Z",
+   "created_at": "2026-10-13T00:02:12Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38324523595"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38325226099"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3134,7 +3137,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567392"
   }
  },
- "runs": 15833,
+ "runs": 15837,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3253,12 +3256,12 @@
     "2026-10-09": 402,
     "2026-10-10": 408.0,
     "2026-10-11": 368,
-    "2026-10-12": 401.5
+    "2026-10-12": 407
    },
    "p50_s": 396,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 384
+   "runs": 385
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3704,12 +3707,13 @@
     "2026-10-09": 28.5,
     "2026-10-10": 27.0,
     "2026-10-11": 27,
-    "2026-10-12": 28
+    "2026-10-12": 28.0,
+    "2026-10-13": 26
    },
    "p50_s": 28,
-   "p95_s": 58,
+   "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1090
+   "runs": 1092
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3793,10 +3797,10 @@
      "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567403"
     },
     "Mutation Testing": {
-     "conclusion": "success",
-     "created_at": "2026-10-08T18:11:37Z",
-     "sha": "f4962b601dd8e6136f95f383773de583a62609c1",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37822376294"
+     "conclusion": "failure",
+     "created_at": "2026-10-12T23:42:52Z",
+     "sha": "5b7968b19b386b2b98bc276368d5b6c44f25e0d4",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38323567330"
     },
     "OpenSSF Scorecard": {
      "conclusion": "success",
