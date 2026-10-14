@@ -77,7 +77,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
-| [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | open |
+| [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | accepted |
 
 ---
 
@@ -2463,4 +2463,9 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
 - **The owner's call:** is a president who lowers entry barriers, or extends their own term, behaviour to
   keep, as the third-term attempts were (ADR-026)?
 
-*Status: open.*
+*Accepted (2026-10-13, owner).* "We can keep presidents who lower the bars": a president who lowers the bar to
+found a party or win seats, for their own party, is behaviour the polity keeps, as the third-term attempts were
+(ADR-026). Nothing curbs it. Which of ADR-027 and ADR-028 drives it, and whether the jumps follow the
+founding-ratio cuts, stay unmeasured: the two arms above would tell.
+
+*Status: accepted.*
