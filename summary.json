@@ -273,45 +273,6 @@
   },
   {
    "branches": [
-    "chore/ci-health-snapshot",
-    "chore/ci-health-snapshot-20260915-025105",
-    "chore/ci-health-snapshot-20260918-125539",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "develop",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 14,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "ci-health snapshot generated_at=2026-10-14T13:37:10Z (0.0h ago)",
-     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-21 (the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped.)]",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 3 completed runs all failed",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     941
-    ],
-    "sha": "782b33ecfa6eb5dceb66643ea053a0c3e661cf87",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38573323824"
-   },
-   "last_seen": "2026-10-14T13:37:21Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "feat/claims-registry",
     "feat/polity-reseat-script",
     "feat/polity-strategic-voting",
@@ -343,6 +304,45 @@
    "signature": "code: scripts/loadtest_v#_engine.py:#: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "chore/ci-health-snapshot",
+    "chore/ci-health-snapshot-20260915-025105",
+    "chore/ci-health-snapshot-20260918-125539",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "develop",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 13,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-14T13:37:10Z (0.0h ago)",
+     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-21 (the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped.)]",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 3 completed runs all failed",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     941
+    ],
+    "sha": "782b33ecfa6eb5dceb66643ea053a0c3e661cf87",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38573323824"
+   },
+   "last_seen": "2026-10-14T13:37:21Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -403,6 +403,29 @@
    "signature": "advisory: To address all issues, run:",
    "workflows": [
     "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 9,
+   "example": {
+    "job": "Collect run history",
+    "lines": [
+     "Traceback (most recent call last):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "5b7968b19b386b2b98bc276368d5b6c44f25e0d4",
+    "step": "Collect",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38623017651"
+   },
+   "last_seen": "2026-10-14T19:21:44Z",
+   "signature": "test-flaky: Traceback (most recent call last):",
+   "workflows": [
+    "CI Dashboard"
    ]
   },
   {
@@ -500,29 +523,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 7,
-   "example": {
-    "job": "Collect run history",
-    "lines": [
-     "Traceback (most recent call last):",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "5b7968b19b386b2b98bc276368d5b6c44f25e0d4",
-    "step": "Collect",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38486926557"
-   },
-   "last_seen": "2026-10-13T23:53:10Z",
-   "signature": "test-flaky: Traceback (most recent call last):",
-   "workflows": [
-    "CI Dashboard"
-   ]
-  },
-  {
-   "branches": [
     "feat/browser-engine",
     "feat/polity-emotions-prerequisite-verdict",
     "feat/polity-fresh-referendum",
@@ -581,34 +581,6 @@
    "signature": "advisory: Fix: `npm audit fix --package-lock-only` with npm >= # (so .npmrc's min-release-age is honoured). If no fixed version is usable yet, add an ",
    "workflows": [
     "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop",
-    "feat/claims-registry",
-    "feat/winner-strip",
-    "polity-ui"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: page.goto: WebKit encountered an internal error",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     869
-    ],
-    "sha": "11baa96e1821d30234cd80119d08753cffe8199b",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38067846304"
-   },
-   "last_seen": "2026-10-10T16:29:08Z",
-   "signature": "code: Error: page.goto: WebKit encountered an internal error",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -719,28 +691,6 @@
    "signature": "test-flaky: Cleaning up orphan processes",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Scorecard analysis",
-    "lines": [
-     "2026/09/15 14:02:51 scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv4.Query: Something went wrong while executing your query on 2026-09-15T14:02:51Z. Please include `F040:1F994A:37B17CB:BA7C0CA:6AA95009` when reporting this issue."
-    ],
-    "pr": [],
-    "sha": "d4b5d425b335b5819be278a4002889b5c5e52126",
-    "step": "Run ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34978973289"
-   },
-   "last_seen": "2026-09-15T14:02:41Z",
-   "signature": "code: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: Something",
-   "workflows": [
-    "OpenSSF Scorecard"
    ]
   },
   {
@@ -878,6 +828,33 @@
   },
   {
    "branches": [
+    "develop",
+    "feat/claims-registry",
+    "feat/winner-strip"
+   ],
+   "category": "code",
+   "count": 3,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: page.goto: WebKit encountered an internal error",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     869
+    ],
+    "sha": "11baa96e1821d30234cd80119d08753cffe8199b",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38067846304"
+   },
+   "last_seen": "2026-10-10T16:29:08Z",
+   "signature": "code: Error: page.goto: WebKit encountered an internal error",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "ci/fix-ci-health-self-reference-deadlock",
     "feat/polity-full-run-prep"
    ],
@@ -957,27 +934,24 @@
   },
   {
    "branches": [
-    "polity",
-    "polity-ui"
+    "develop"
    ],
    "category": "code",
    "count": 2,
    "example": {
-    "job": "Playwright E2E",
+    "job": "Scorecard analysis",
     "lines": [
-     "    Error: expect(locator).toHaveAttribute(expected) failed",
-     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
-     "##[error]Process completed with exit code 1."
+     "2026/09/15 14:02:51 scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv4.Query: Something went wrong while executing your query on 2026-09-15T14:02:51Z. Please include `F040:1F994A:37B17CB:BA7C0CA:6AA95009` when reporting this issue."
     ],
     "pr": [],
-    "sha": "84e50b03ad11d55d9a0828fde6f1aef6f8abcf49",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34972011887"
+    "sha": "d4b5d425b335b5819be278a4002889b5c5e52126",
+    "step": "Run ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34978973289"
    },
-   "last_seen": "2026-09-15T12:57:53Z",
-   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
+   "last_seen": "2026-09-15T14:02:41Z",
+   "signature": "code: #/#/# #:#:# scorecard had an error: internal error: ListCommits:error during graphqlHandler.setup: internal error: githubv#.Query: Something",
    "workflows": [
-    "E2E Tests"
+    "OpenSSF Scorecard"
    ]
   },
   {
@@ -1320,6 +1294,30 @@
    },
    "last_seen": "2026-09-15T12:17:22Z",
    "signature": "code: Error: /polity: page is #px wider than the viewport in pseudo-locale; past its edge: none found",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "polity-ui"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toHaveAttribute(expected) failed",
+     "        14 \u00d7 locator resolved to <button role=\"radio\" type=\"button\" aria-checked=\"false\" data-testid=\"lens-winner\" class=\"rounded border px-2 py-0.5 border-border text-muted-foreground\">Vainqueur</button>",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "84e50b03ad11d55d9a0828fde6f1aef6f8abcf49",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/34972011887"
+   },
+   "last_seen": "2026-09-15T12:57:53Z",
+   "signature": "code: Error: expect(locator).toHaveAttribute(expected) failed",
    "workflows": [
     "E2E Tests"
    ]
@@ -1758,17 +1756,14 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 207,
+  "code": 203,
   "infra": 14,
-  "test-flaky": 35,
+  "test-flaky": 37,
   "unknown": 2
  },
- "generated_at": "2026-10-14T13:37:31Z",
+ "generated_at": "2026-10-14T23:12:51Z",
  "grid": {
   "Backend CI": {
-   "2026-09-14": {
-    "success": 6
-   },
    "2026-09-15": {
     "success": 9
    },
@@ -1860,9 +1855,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-09-14": {
-    "success": 1
-   },
    "2026-09-15": {
     "success": 1
    },
@@ -1994,14 +1986,11 @@
     "success": 27
    },
    "2026-10-14": {
-    "success": 4
+    "failure": 2,
+    "success": 5
    }
   },
   "CI Health Watchdog": {
-   "2026-09-14": {
-    "failure": 1,
-    "success": 4
-   },
    "2026-09-15": {
     "failure": 1,
     "success": 9
@@ -2096,9 +2085,6 @@
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "2026-09-14": {
-    "success": 1
-   },
    "2026-09-16": {
     "success": 1
    },
@@ -2143,9 +2129,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-09-14": {
-    "success": 1
-   },
    "2026-09-15": {
     "success": 4
    },
@@ -2264,11 +2247,6 @@
    }
   },
   "E2E Tests": {
-   "2026-09-14": {
-    "cancelled": 1,
-    "failure": 1,
-    "success": 3
-   },
    "2026-09-15": {
     "cancelled": 1,
     "success": 8
@@ -2373,9 +2351,6 @@
    }
   },
   "Frontend CI": {
-   "2026-09-14": {
-    "success": 5
-   },
    "2026-09-15": {
     "success": 9
    },
@@ -2470,9 +2445,6 @@
    }
   },
   "Generated Artifacts Contract": {
-   "2026-09-14": {
-    "success": 6
-   },
    "2026-09-15": {
     "success": 9
    },
@@ -2654,10 +2626,6 @@
    }
   },
   "OpenSSF Scorecard": {
-   "2026-09-14": {
-    "failure": 1,
-    "success": 4
-   },
    "2026-09-15": {
     "cancelled": 1,
     "failure": 2,
@@ -2731,9 +2699,6 @@
    }
   },
   "Schemathesis Contract Fuzzing": {
-   "2026-09-14": {
-    "success": 1
-   },
    "2026-09-16": {
     "success": 2
    },
@@ -2804,10 +2769,6 @@
    }
   },
   "Security Audit": {
-   "2026-09-14": {
-    "cancelled": 1,
-    "success": 5
-   },
    "2026-09-15": {
     "success": 9
    },
@@ -2978,7 +2939,7 @@
    },
    "2026-10-14": {
     "skipped": 12,
-    "success": 2
+    "success": 3
    }
   },
   "zizmor online": {
@@ -3019,10 +2980,10 @@
   },
   "CI Dashboard": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-14T10:10:20Z",
+   "conclusion": "failure",
+   "created_at": "2026-10-14T19:21:44Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38547683951"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38623017651"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3117,10 +3078,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-10-14T13:39:43Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38573654060"
+   "conclusion": "success",
+   "created_at": "2026-10-14T14:34:09Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38581672102"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3130,11 +3091,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38484942503"
   }
  },
- "runs": 15156,
+ "runs": 15053,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-14": 195,
     "2026-09-15": 178,
     "2026-09-16": 193,
     "2026-09-17": 89.0,
@@ -3163,14 +3123,13 @@
     "2026-10-13": 11.0,
     "2026-10-14": 10.0
    },
-   "p50_s": 188,
-   "p95_s": 493,
+   "p50_s": 187,
+   "p95_s": 494,
    "queue_p50_s": 0,
-   "runs": 1117
+   "runs": 1102
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-14": 305,
     "2026-09-15": 313,
     "2026-09-16": 286,
     "2026-09-17": 262,
@@ -3205,11 +3164,10 @@
    "p50_s": 571,
    "p95_s": 1104,
    "queue_p50_s": 0,
-   "runs": 152
+   "runs": 151
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-14": 8.5,
     "2026-09-15": 7,
     "2026-09-16": 7,
     "2026-09-17": 6.5,
@@ -3239,9 +3197,9 @@
     "2026-10-14": 11.0
    },
    "p50_s": 9,
-   "p95_s": 36,
+   "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 835
+   "runs": 827
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3254,16 +3212,15 @@
     "2026-10-11": 368,
     "2026-10-12": 413.0,
     "2026-10-13": 443,
-    "2026-10-14": 422.5
+    "2026-10-14": 406
    },
    "p50_s": 399,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 417
+   "runs": 418
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-14": 11.0,
     "2026-09-15": 11,
     "2026-09-16": 10,
     "2026-09-17": 10.0,
@@ -3294,11 +3251,10 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 754
+   "runs": 744
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-09-14": 1843,
     "2026-09-16": 1835,
     "2026-09-17": 1840,
     "2026-09-18": 1833,
@@ -3316,11 +3272,10 @@
    "p50_s": 1837,
    "p95_s": 1949,
    "queue_p50_s": 0,
-   "runs": 28
+   "runs": 27
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-14": 173,
     "2026-09-15": 169.0,
     "2026-09-16": 172.0,
     "2026-09-17": 175.0,
@@ -3355,11 +3310,10 @@
    "p50_s": 173,
    "p95_s": 200,
    "queue_p50_s": 0,
-   "runs": 245
+   "runs": 244
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-14": 12.5,
     "2026-09-15": 10.0,
     "2026-09-16": 10.0,
     "2026-09-17": 11,
@@ -3391,7 +3345,7 @@
    "p50_s": 11,
    "p95_s": 33,
    "queue_p50_s": 0,
-   "runs": 780
+   "runs": 772
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3429,7 +3383,6 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-14": 592.5,
     "2026-09-15": 618.0,
     "2026-09-16": 635.5,
     "2026-09-17": 762,
@@ -3458,14 +3411,13 @@
     "2026-10-13": 13,
     "2026-10-14": 11.5
    },
-   "p50_s": 602,
-   "p95_s": 840,
+   "p50_s": 601,
+   "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1048
+   "runs": 1038
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-14": 11,
     "2026-09-15": 152,
     "2026-09-16": 195,
     "2026-09-17": 195.5,
@@ -3494,14 +3446,13 @@
     "2026-10-13": 10.0,
     "2026-10-14": 11.0
    },
-   "p50_s": 72,
-   "p95_s": 276,
+   "p50_s": 91,
+   "p95_s": 277,
    "queue_p50_s": 0,
-   "runs": 1135
+   "runs": 1122
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-14": 12,
     "2026-09-15": 12,
     "2026-09-16": 12,
     "2026-09-17": 11.5,
@@ -3533,7 +3484,7 @@
    "p50_s": 76,
    "p95_s": 130,
    "queue_p50_s": 0,
-   "runs": 1183
+   "runs": 1168
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3579,7 +3530,6 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-14": 49.5,
     "2026-09-15": 45.0,
     "2026-09-16": 44,
     "2026-09-17": 45,
@@ -3606,7 +3556,7 @@
    "p50_s": 45,
    "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 159
+   "runs": 155
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3628,7 +3578,6 @@
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-09-14": 1881,
     "2026-09-16": 1889.5,
     "2026-09-17": 1842,
     "2026-09-18": 1152.5,
@@ -3652,13 +3601,12 @@
     "2026-10-13": 56.5
    },
    "p50_s": 76,
-   "p95_s": 1790,
+   "p95_s": 1766,
    "queue_p50_s": 0,
-   "runs": 125
+   "runs": 124
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-14": 121.0,
     "2026-09-15": 118.0,
     "2026-09-16": 119,
     "2026-09-17": 121,
@@ -3690,7 +3638,7 @@
    "p50_s": 135,
    "p95_s": 221,
    "queue_p50_s": 0,
-   "runs": 1145
+   "runs": 1131
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3721,12 +3669,12 @@
     "2026-10-11": 27,
     "2026-10-12": 28.0,
     "2026-10-13": 29,
-    "2026-10-14": 28.0
+    "2026-10-14": 32
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1154
+   "runs": 1155
   },
   "zizmor online": {
    "daily_p50_s": {
