@@ -447,16 +447,18 @@ def recalls(roots: list[Path]) -> None:
     at_recall = [t.series[-1] for t, _ in recalled]
     print(f"presidential elections {len(terms)}, recalled {len(recalled)}, full terms "
           f"{sum(not t.snap and t.how == 'next election' for t, _ in kept)}")
-    if not recalled:  # ADR-025's runs (phase12 on): nothing to describe or replay
+    print(f"not recalled: snap winners to the next election {sum(t.snap and t.how == 'next election' for t, _ in kept)}, "
+          f"elected on the run's last tick {sum(t.how == 'end of run' and t.end - t.start <= 1 for t, _ in kept)}, "
+          f"other {sum(not (t.snap and t.how == 'next election') and not (t.how == 'end of run' and t.end - t.start <= 1) for t, _ in kept)}")
+    total = sum(acts.values())
+    print(f"pressure acts {total}, MOBILIZE {acts[_MOBILIZE]} ({acts[_MOBILIZE] / max(total, 1):.1%}), SIGN {acts[_SIGN]}")
+    if not recalled:  # what follows describes the recalled presidencies (none since ADR-025 in phases 12-14)
         return
     print(f"recalled, at the recall: approval {min(p['approval'] for p in at_recall):.2f} to {max(p['approval'] for p in at_recall):.2f} "
           f"(median {med(p['approval'] for p in at_recall):.2f}), mandate {min(p['mandate_strength'] for p in at_recall):.2f} to "
           f"{max(p['mandate_strength'] for p in at_recall):.2f} (median {med(p['mandate_strength'] for p in at_recall):.2f}); "
           f"approved by a majority {sum(p['approval'] >= 0.5 for p in at_recall)}; ticks in office median "
           f"{med(t.end - t.start for t, _ in recalled)}; a won confidence vote had first averted the recall {sum(t.vetoed for t, _ in recalled)}")
-    print(f"not recalled: snap winners to the next election {sum(t.snap and t.how == 'next election' for t, _ in kept)}, "
-          f"elected on the run's last tick {sum(t.how == 'end of run' and t.end - t.start <= 1 for t, _ in kept)}, "
-          f"other {sum(not (t.snap and t.how == 'next election') and not (t.how == 'end of run' and t.end - t.start <= 1) for t, _ in kept)}")
     level, drift = 0.0, 0.0
     for term in terms:  # the shipped rule, replayed, against every recorded legitimacy
         level = term.series[0]["mandate_strength"] if term.series else 0.0
@@ -466,8 +468,6 @@ def recalls(roots: list[Path]) -> None:
     floors = sorted({p["floor"] for t, _ in recalled for p in t.series})
     print(f"recalled at legitimacy 0 (the clamp): {sum(p['legitimacy'] == 0.0 for p in at_recall)}; floors in force "
           f"during recalled presidencies: {floors}; the shipped rule replays every recorded legitimacy to within {drift:.0e}")
-    total = sum(acts.values())
-    print(f"pressure acts {total}, MOBILIZE {acts[_MOBILIZE]} ({acts[_MOBILIZE] / total:.1%}), SIGN {acts[_SIGN]}")
     print("per tick in office, medians -- recalled: " + ", ".join(f"{k} {med(p[k] for _, p in recalled):.1f}" for k in ("mobilize", "sign", "consulted"))
           + f"; not recalled, longer than a tick: mobilize {med(p['mobilize'] for t, p in kept if t.end - t.start > 1):.1f}")
     # Street pressure keeps 0.85 of itself and enters ecart at 0.5; ecart costs ten times what support adds:

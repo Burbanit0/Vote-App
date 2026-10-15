@@ -51,4 +51,8 @@ def test_runs_without_a_recall_report_their_presidencies_and_stop(tmp_path: Path
     (run / "events.jsonl").write_text(_event(0, "elected", {"office": "president", "attempt": 0}, 1), encoding="utf-8")
     out = subprocess.run([sys.executable, str(SCRIPT), "recalls", str(tmp_path)], capture_output=True, text=True,
                          check=True).stdout
-    assert out.strip() == "presidential elections 1, recalled 0, full terms 0"
+    assert out.splitlines() == [
+        "presidential elections 1, recalled 0, full terms 0",
+        "not recalled: snap winners to the next election 0, elected on the run's last tick 1, other 0",
+        "pressure acts 0, MOBILIZE 0 (0.0%), SIGN 0",
+    ]
