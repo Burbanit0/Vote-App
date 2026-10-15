@@ -308,45 +308,6 @@
   },
   {
    "branches": [
-    "chore/ci-health-snapshot",
-    "chore/ci-health-snapshot-20260915-025105",
-    "chore/ci-health-snapshot-20260918-125539",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "develop",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 13,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "ci-health snapshot generated_at=2026-10-14T13:37:10Z (0.0h ago)",
-     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-21 (the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped.)]",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 3 completed runs all failed",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     941
-    ],
-    "sha": "782b33ecfa6eb5dceb66643ea053a0c3e661cf87",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38573323824"
-   },
-   "last_seen": "2026-10-14T13:37:21Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0600667cd0",
     "develop",
     "test/scripts-import-smoke"
@@ -407,6 +368,43 @@
   },
   {
    "branches": [
+    "chore/ci-health-snapshot",
+    "chore/ci-health-snapshot-20260918-125539",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 11,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-14T13:37:10Z (0.0h ago)",
+     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-21 (the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped.)]",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 3 completed runs all failed",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     941
+    ],
+    "sha": "782b33ecfa6eb5dceb66643ea053a0c3e661cf87",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38573323824"
+   },
+   "last_seen": "2026-10-14T13:37:21Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "test-flaky",
@@ -457,35 +455,6 @@
     "Frontend CI",
     "Generated Artifacts Contract",
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "ci/python-lockfile-freshness-check",
-    "develop",
-    "fix/playground-lens-click-layout-shift"
-   ],
-   "category": "test-flaky",
-   "count": 8,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
-     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "ddd0ae26358b8bb58043ac8abc80dca658c09e88",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142252246"
-   },
-   "last_seen": "2026-09-25T13:38:35Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -551,6 +520,33 @@
    "signature": "code: -------------",
    "workflows": [
     "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 5,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
+     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "ddd0ae26358b8bb58043ac8abc80dca658c09e88",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142252246"
+   },
+   "last_seen": "2026-09-25T13:38:35Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -1756,16 +1752,16 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 203,
+  "code": 201,
   "infra": 14,
-  "test-flaky": 37,
+  "test-flaky": 34,
   "unknown": 2
  },
- "generated_at": "2026-10-15T01:28:10Z",
+ "generated_at": "2026-10-15T07:24:30Z",
  "grid": {
   "Backend CI": {
    "2026-09-15": {
-    "success": 9
+    "success": 8
    },
    "2026-09-16": {
     "cancelled": 1,
@@ -1988,11 +1984,13 @@
    "2026-10-14": {
     "failure": 2,
     "success": 6
+   },
+   "2026-10-15": {
+    "success": 1
    }
   },
   "CI Health Watchdog": {
    "2026-09-15": {
-    "failure": 1,
     "success": 9
    },
    "2026-09-16": {
@@ -2249,7 +2247,7 @@
   "E2E Tests": {
    "2026-09-15": {
     "cancelled": 1,
-    "success": 8
+    "success": 7
    },
    "2026-09-16": {
     "cancelled": 6,
@@ -2352,7 +2350,7 @@
   },
   "Frontend CI": {
    "2026-09-15": {
-    "success": 9
+    "success": 8
    },
    "2026-09-16": {
     "cancelled": 1,
@@ -2446,7 +2444,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-15": {
-    "success": 9
+    "success": 8
    },
    "2026-09-16": {
     "success": 36
@@ -2627,9 +2625,8 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-15": {
-    "cancelled": 1,
     "failure": 2,
-    "success": 10
+    "success": 8
    },
    "2026-09-16": {
     "success": 19
@@ -2770,7 +2767,7 @@
   },
   "Security Audit": {
    "2026-09-15": {
-    "success": 9
+    "success": 8
    },
    "2026-09-16": {
     "success": 36
@@ -2981,9 +2978,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-14T23:12:41Z",
+   "created_at": "2026-10-15T01:28:01Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38652659154"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38665798033"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3091,11 +3088,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38484942503"
   }
  },
- "runs": 15054,
+ "runs": 15000,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-15": 178,
+    "2026-09-15": 182.5,
     "2026-09-16": 193,
     "2026-09-17": 89.0,
     "2026-09-18": 125,
@@ -3123,10 +3120,10 @@
     "2026-10-13": 11.0,
     "2026-10-14": 10.0
    },
-   "p50_s": 187,
+   "p50_s": 188,
    "p95_s": 494,
    "queue_p50_s": 0,
-   "runs": 1102
+   "runs": 1095
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3168,7 +3165,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-15": 7,
+    "2026-09-15": 7.0,
     "2026-09-16": 7,
     "2026-09-17": 6.5,
     "2026-09-18": 7.0,
@@ -3199,7 +3196,7 @@
    "p50_s": 9,
    "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 827
+   "runs": 822
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3212,12 +3209,13 @@
     "2026-10-11": 368,
     "2026-10-12": 413.0,
     "2026-10-13": 443,
-    "2026-10-14": 430.5
+    "2026-10-14": 430.5,
+    "2026-10-15": 421
    },
    "p50_s": 400,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 419
+   "runs": 420
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3251,7 +3249,7 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 744
+   "runs": 742
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3314,7 +3312,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-15": 10.0,
+    "2026-09-15": 10,
     "2026-09-16": 10.0,
     "2026-09-17": 11,
     "2026-09-18": 11,
@@ -3343,9 +3341,9 @@
     "2026-10-14": 14.5
    },
    "p50_s": 11,
-   "p95_s": 33,
+   "p95_s": 34,
    "queue_p50_s": 0,
-   "runs": 772
+   "runs": 767
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3383,7 +3381,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-15": 618.0,
+    "2026-09-15": 630,
     "2026-09-16": 635.5,
     "2026-09-17": 762,
     "2026-09-18": 783.0,
@@ -3411,14 +3409,14 @@
     "2026-10-13": 13,
     "2026-10-14": 11.5
    },
-   "p50_s": 601,
+   "p50_s": 602,
    "p95_s": 838,
    "queue_p50_s": 0,
-   "runs": 1038
+   "runs": 1031
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-15": 152,
+    "2026-09-15": 153.5,
     "2026-09-16": 195,
     "2026-09-17": 195.5,
     "2026-09-18": 161.0,
@@ -3446,14 +3444,14 @@
     "2026-10-13": 10.0,
     "2026-10-14": 11.0
    },
-   "p50_s": 91,
+   "p50_s": 104,
    "p95_s": 277,
    "queue_p50_s": 0,
-   "runs": 1122
+   "runs": 1115
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-15": 12,
+    "2026-09-15": 11.5,
     "2026-09-16": 12,
     "2026-09-17": 11.5,
     "2026-09-18": 24,
@@ -3484,7 +3482,7 @@
    "p50_s": 76,
    "p95_s": 130,
    "queue_p50_s": 0,
-   "runs": 1168
+   "runs": 1161
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3556,7 +3554,7 @@
    "p50_s": 45,
    "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 155
+   "runs": 153
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3607,7 +3605,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-15": 118.0,
+    "2026-09-15": 118,
     "2026-09-16": 119,
     "2026-09-17": 121,
     "2026-09-18": 114.5,
@@ -3638,7 +3636,7 @@
    "p50_s": 135,
    "p95_s": 221,
    "queue_p50_s": 0,
-   "runs": 1131
+   "runs": 1124
   },
   "Workflow Lint": {
    "daily_p50_s": {
