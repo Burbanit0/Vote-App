@@ -77,7 +77,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-045](#obs-045) | Founders told the seat threshold is 3% or 7% found a party at the same rate, 59 of 60 either way | 2026-10-09 | open |
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
-| [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | open |
+| [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
 
 ---
 
@@ -2463,4 +2463,20 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
 - **The owner's call:** is a president who lowers entry barriers, or extends their own term, behaviour to
   keep, as the third-term attempts were (ADR-026)?
 
-*Status: open.*
+*Decided (2026-10-13, owner), point by point:*
+
+- **Lowering the bars.** "We can keep presidents who lower the bars." A president who proposes lowering the
+  electoral threshold or the founding ratio is kept as is. No rule is added against it: the chamber still
+  ratifies or refuses each change, as above.
+- **Extending one's own term.** Already kept: the owner liked the third-term attempts (ADR-026's context).
+- **The method proposals' referendums.** They were a recount of the last election. ADR-029 makes the
+  referendum a new vote on today's opinions.
+- **The empty assembly.** Handled, not ruled on. Since #931 the polity runs on with the agenda closed. Whether
+  an assembly may stay empty for a term is not decided.
+- **The causes stay unmeasured.**
+  - Whether ADR-027 or ADR-028 drives the self-interested reasons needs the single-switch arms above.
+  - Whether the party jumps follow the founding-ratio cuts needs the seeds with the ratio frozen.
+
+The decision is recorded here and in ADR-029.
+
+*Status: decided.*
