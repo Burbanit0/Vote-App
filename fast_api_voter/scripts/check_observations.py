@@ -447,6 +447,8 @@ def recalls(roots: list[Path]) -> None:
     at_recall = [t.series[-1] for t, _ in recalled]
     print(f"presidential elections {len(terms)}, recalled {len(recalled)}, full terms "
           f"{sum(not t.snap and t.how == 'next election' for t, _ in kept)}")
+    if not recalled:  # ADR-025's runs (phase12 on): nothing to describe or replay
+        return
     print(f"recalled, at the recall: approval {min(p['approval'] for p in at_recall):.2f} to {max(p['approval'] for p in at_recall):.2f} "
           f"(median {med(p['approval'] for p in at_recall):.2f}), mandate {min(p['mandate_strength'] for p in at_recall):.2f} to "
           f"{max(p['mandate_strength'] for p in at_recall):.2f} (median {med(p['mandate_strength'] for p in at_recall):.2f}); "

@@ -43,3 +43,12 @@ def test_recalls_reads_presidencies_pressure_and_replays_the_legitimacy_rules(tm
     assert rules["shipped: 0.9 L + 0.1 m - e"] == "1 of 1"
     assert rules["pressure on support's scale: 0.9 L + 0.1 (m - e)"] == "0 of 1"
     assert rules["the floor recalls only a president a majority disapproves"] == "0 of 1"
+
+
+def test_runs_without_a_recall_report_their_presidencies_and_stop(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "events.jsonl").write_text(_event(0, "elected", {"office": "president", "attempt": 0}, 1), encoding="utf-8")
+    out = subprocess.run([sys.executable, str(SCRIPT), "recalls", str(tmp_path)], capture_output=True, text=True,
+                         check=True).stdout
+    assert out.strip() == "presidential elections 1, recalled 0, full terms 0"
