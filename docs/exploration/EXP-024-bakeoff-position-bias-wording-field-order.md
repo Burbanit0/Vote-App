@@ -37,6 +37,10 @@ après chaque session. Les sessions sont dans `scripts/bakeoff_runs/` (hors git)
   (elle trie la première) ou `zmotif` (la dernière), puis la remettent à `motif` avant le décodage. Le premier
   essai, qui réordonnait seulement les propriétés du schéma, n'a rien changé : 81 sorties identiques au
   contrôle, à l'octet.
+- **Une réserve sur les sessions d'ordre des champs** : elles ont tourné avant que ces bras cessent de lire les
+  logprobs et gardent le texte du modèle pour les hashes. Leur `gates.json` dit encore `logprobs_available:
+  true` et leurs hashes portent sur le texte restauré ; une session refaite avec le code actuel dirait `false`.
+  Les réponses et les exactitudes ne dépendent pas de cela.
 - **Familles lues** : `vote_first_choice`, `candidacy_p500`, `pressure_act`, `nomination_permutation`, avec
   leurs vérités ; contrôle et bras sur les mêmes cas, comparés par paires (McNemar, Holm).
 

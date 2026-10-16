@@ -2542,13 +2542,14 @@ the declared order is inert; `rationale` leads on the wire in none of the seven 
   moves it justifies" (ADR-014, `LeaderTurn`). It does not, except by luck of the alphabet: `rationale` still
   precedes `vote` and `speech`, but follows `amendment`, `bill`, `campaign`, `extra_legal` and `positions` in
   every turn that has them.
-- **How much it matters depends on thinking, which the call log shows.** In that same run (`phase15`, seed 5)
-  every agent turn thinks (`president_turn` 35 calls, `nominee_turn` 35, `forum_post` 510, `amendment_vote` 15,
-  `coalition_turn` 39: `think` true on all) and so reasons first in its `<think>` block, whatever order the
-  object is written in afterwards. The decisions that do not think are the batch ones (`candidacy_considered`,
-  `party_nomination_choice`, `pressure_action`, `reaction_to_event`), and they carry a code (`motif`), not a
-  rationale. So the agents' declared order is wrong but probably cheap; the batch order is where a change would
-  show, and EXP-024 finds no clear effect from where `motif` sits, bar one unexplained one (see below).
+- **How much it matters depends on thinking, which the call log shows.** In `phase15` seed 1 every agent turn
+  thinks (`president_turn` 35 decision calls, `nominee_turn` 35, `forum_post` 510, `amendment_vote` 15,
+  `coalition_turn` 39: `think` true on all, and on all five seeds) and so reasons first in its `<think>` block,
+  whatever order the object is written in afterwards, as do `vote_cast` and `chamber_deliberation`. Four batch
+  decisions do not think (`candidacy_considered`, `party_nomination_choice`, `pressure_action`,
+  `reaction_to_event`), and they carry a code (`motif`), not a rationale. So the agents' declared order is
+  wrong but probably cheap; among the batch decisions, those four are where a change would show, and EXP-024
+  finds no clear effect from where `motif` sits, bar one unexplained one (see below).
 
 *What the field-order test found once the key was renamed to sort first or last* (EXP-024, 81 cases per
 arm, control = the production order; the arm moves the field and also renames it, so the two are not
