@@ -62,9 +62,12 @@ institutions:
                               #      enjeux du président) : il ne peut plus gagner, et un électeur sans
                               #      candidat acceptable classe quand même les candidats. PAS retiré : le
                               #      prompt du modèle (un bulletin « blanc » ne compte alors pour personne,
-                              #      déclaré en abstention), la saillance, et le législatif (`choose_party`
-                              #      renvoie encore blanc). `mandate_strength` et l'approbation lisent
-                              #      toujours le blanc comme la ligne d'acceptabilité de l'électeur.
+                              #      déclaré en abstention), la saillance, la règle d'abstention par
+                              #      indifférence, le lecteur `run_macro` du blanc, et le législatif
+                              #      (`choose_party` renvoie encore blanc). `mandate_strength` et
+                              #      l'approbation lisent toujours le blanc comme la ligne d'acceptabilité
+                              #      de l'électeur : un vote forcé pour un candidat inacceptable compte
+                              #      pour le gagnant au dépouillement, pas dans son mandat.
   blank_vote_competitive: false   # [v4] le blanc peut-il invalider le scrutin ?
                                   #      (requiert blank_vote_enabled: true)
   blank_invalidation_threshold: 0.5   # [v4] part des exprimés déclenchant

@@ -927,7 +927,8 @@ def _referendum_ballots(state: TickState, config: PolityConfig) -> list[list[str
     """ADR-029: today's ballots, with every candidate the term limit bars struck from them."""
     today = ballots_today(state, next(iter(current_office_holders(state.citizens, Office.PRESIDENT)), None), config) or []
     barred = {candidate_label(c) for c in state.citizens if is_term_limited(c, config.institutions.president_term_limit)}
-    return [[label for label in ballot if label not in barred] for ballot in today]
+    kept = [[label for label in ballot if label not in barred] for ballot in today]
+    return kept if config.institutions.blank_vote_enabled else [ballot for ballot in kept if ballot]
 
 
 def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
@@ -2138,6 +2139,11 @@ def _judged_incumbent(
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
+def _counted(ballots: list[list[str]], config: PolityConfig) -> list[list[str]]:
+    """The ballots as a tally reads them: the Blank is on them only while it is a choice."""
+    return ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
+
+
 def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:
     """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
     the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
@@ -2152,7 +2158,7 @@ def ballots_today(state: TickState, president: Citizen | None, config: PolityCon
     )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
     ballots = [ballot for ballot in cast if ballot is not None]
-    return (ballots if config.institutions.blank_vote_enabled else without_blank(ballots)) or None
+    return _counted(ballots, config) or None
 
 
 def _last_candidates(state: TickState, keep_record: bool) -> list[Citizen]:
@@ -2282,7 +2288,8 @@ def _hold_presidential_election(
     ballots_out: list[list[str]] | None = None,
     campaign_rng: np.random.Generator | None = None,
 ) -> PendingRerun | None:
-    # `ballots_out` (ADR-020): when given, receives the ballots this election counted.
+    # `ballots_out` (ADR-020): when given, receives the ballots this election cast (as cast: the Blank
+    # still on them when `blank_vote_enabled` is false, which only the tally drops).
     # `staggered` (S4.4): this election's campaign already declared, nominated and
     # positioned (_run_staggered_campaign), so its field is every citizen holding
     # Role.CANDIDATE and nothing is decided again here.
@@ -2357,7 +2364,7 @@ def _hold_presidential_election(
                 invalidated = True
 
         if not invalidated:
-            counted = ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
+            counted = _counted(ballots, config)
             abstained += len(ballots) - len(counted)  # a ballot that held only the Blank counts for no one
             winner_label = get_presidential_winner(counted, config.institutions.presidential_method)
             if winner_label is not None and winner_label != BLANK_LABEL:
@@ -2378,7 +2385,13 @@ def _hold_presidential_election(
                     # new journal event here -- this same tick's
                     # legitimacy_updated (in _run_accountability_phase) records
                     # it, including mandate_strength in its own payload.
-                    winner.mandate_strength = mandate_strength(ballots, winner_label)
+                    # Over the ballots that voted for someone: with the Blank not a choice, a Blank-only
+                    # ballot stayed home (it is in `abstained`), not a ballot cast against the winner.
+                    winner.mandate_strength = mandate_strength(
+                        ballots if config.institutions.blank_vote_enabled
+                        else [ballot for ballot in ballots if any(label != BLANK_LABEL for label in ballot)],
+                        winner_label,
+                    )
                     winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
                 if config.street_pressure.enabled:
                     # A re-elected incumbent must not carry over a previous

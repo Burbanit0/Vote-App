@@ -8,6 +8,7 @@ Contracts (dev-plan-v0-worktree.md §3-4, Lot 8):
 """
 import dataclasses
 import json
+import types
 
 import numpy as np
 import pytest
@@ -5352,7 +5353,10 @@ def test_each_legislative_election_draws_its_seat_ties_from_its_own_seeded_lot(t
 
 def test_a_blank_only_ballot_counts_for_no_one_and_is_reported_as_an_abstention(tmp_path, monkeypatch):
     config = load_config()
-    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=False))
+    config = dataclasses.replace(
+        config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=False),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+    )
     candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
     electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 4)]
     # What the model's blank=1 gives, for every elector: a ballot with nothing but the Blank on it.
@@ -5362,3 +5366,16 @@ def test_a_blank_only_ballot_counts_for_no_one_and_is_reported_as_an_abstention(
         _hold_presidential_election([candidate, *electors], [Party(party_id=0, platform=(0.5,))], config, journal, tick=0, llm_client=None)
     event = next(e for e in _events(tmp_path / "run.jsonl") if e["event_type"] == "elected")
     assert event["payload"]["abstained"] == 3
+    assert candidate.mandate_strength == 1.0  # the one ballot that voted for someone ranks the winner above the Blank
+
+
+def test_a_barred_candidate_leaves_no_empty_ballot_in_the_referendum_when_the_blank_is_not_a_choice(monkeypatch):
+    config = load_config()
+    monkeypatch.setattr(run_polity_simulation_module, "ballots_today", lambda *args: [["citizen_1", "Blank"], ["citizen_1", "Blank"]])
+    monkeypatch.setattr(run_polity_simulation_module, "is_term_limited", lambda citizen, limit: citizen.citizen_id == 1)
+    monkeypatch.setattr(run_polity_simulation_module, "current_office_holders", lambda *args: [])
+    state = types.SimpleNamespace(citizens=[_blank_leaning_citizen(1, 0.5)])
+    assert run_polity_simulation_module._referendum_ballots(state, config) == [["Blank"], ["Blank"]]  # the Blank holds them up
+    no_blank = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=False))
+    monkeypatch.setattr(run_polity_simulation_module, "ballots_today", lambda *args: [["citizen_1"], ["citizen_1"]])
+    assert run_polity_simulation_module._referendum_ballots(state, no_blank) == []  # nobody left to vote for

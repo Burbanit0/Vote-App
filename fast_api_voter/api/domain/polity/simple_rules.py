@@ -235,7 +235,7 @@ def first_choices(
     for citizen in citizens:
         ballot = utility_ballot(citizen, candidates, vote)
         if ballot is not None and not blank_enabled:
-            ballot = next(iter(without_blank([ballot])), None)  # no candidate to vote for: stays home
+            ballot = [label for label in ballot if label != BLANK_LABEL] or None  # an empty field: nobody to vote for
         tally[ABSTAIN if ballot is None else ballot[0]] += 1
     total = len(citizens)
     return FirstChoices(
