@@ -24,8 +24,6 @@ Usage (from fast_api_voter/): python scripts/check_nomination_position_bias.py <
 from __future__ import annotations
 
 import json
-import math
-import random
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,24 +31,20 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.bakeoff_bank import read_bank  # noqa: E402
-
-TRIALS = 200_000
-
-
-def wilson(hits: int, total: int, z: float = 1.96) -> tuple[float, float]:
-    """The Wilson score interval for a share."""
-    p = hits / total
-    spread = 1 + z * z / total
-    centre = p + z * z / (2 * total)
-    half = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total))
-    return (centre - half) / spread, (centre + half) / spread
+from api.domain.polity.bakeoff_statistics import wilson_interval  # noqa: E402
 
 
 def upper_tail(sizes: list[int], hits: int) -> tuple[float, float]:
-    """The hits a uniform pick over each list would give, and P(at least `hits`)."""
-    rng = random.Random(0)
-    reached = sum(sum(rng.random() < 1 / size for size in sizes) >= hits for _ in range(TRIALS))
-    return sum(1 / size for size in sizes), reached / TRIALS
+    """The hits a uniform pick over each list would give, and P(at least `hits`), exactly: the picks are
+    independent Bernoulli(1/size) draws under that null, so the count follows a Poisson binomial."""
+    distribution = [1.0]
+    for size in sizes:
+        p = 1 / size
+        distribution = [
+            (distribution[k] * (1 - p) if k < len(distribution) else 0.0) + (distribution[k - 1] * p if k > 0 else 0.0)
+            for k in range(len(distribution) + 1)
+        ]
+    return sum(1 / size for size in sizes), sum(distribution[hits:])
 
 
 def read_units(bank_path: Path, session: Path) -> list[dict[str, Any]]:
@@ -89,7 +83,8 @@ def report(label: str, units: list[dict[str, Any]]) -> None:
     _, p_first = upper_tail(sizes, first)
     same = sum(u["same"] for u in units)
     position = sum(u["pick"][0] == u["pick"][1] for u in units)
-    (same_lo, same_hi), (pos_lo, pos_hi) = wilson(same, len(units)), wilson(position, len(units))
+    same_lo, same_hi = wilson_interval(same, len(units)) or (0.0, 1.0)
+    pos_lo, pos_hi = wilson_interval(position, len(units)) or (0.0, 1.0)
     print(f"{label}: {len(units)} units, {min(u['size'] for u in units)}-{max(u['size'] for u in units)} contenders "
           f"(mean {sum(u['size'] for u in units) / len(units):.1f})")
     print(f"  last listed:  {last}/{len(sizes)} picks, {expected:.1f} expected, P(at least that many | uniform) = {p_last:.4f}")

@@ -280,5 +280,5 @@ def test_an_arms_renamed_motif_is_restored_before_decoding(arm) -> None:
     renamed = original.replace('"motif"', json.dumps(br._MOTIF_KEYS[arm]))
     restore = br.ARMS[arm].restore
     assert restore is not None and '"motif"' not in renamed
-    assert restore(case, renamed) == original
-    assert br.decode_answers(case, restore(case, renamed)) == br.decode_answers(case, original)
+    assert restore(renamed) == original
+    assert br.decode_answers(case, restore(renamed)) == br.decode_answers(case, original)

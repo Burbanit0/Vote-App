@@ -1,6 +1,7 @@
 """The bake-off runner (S2.2). See api/domain/polity/bakeoff_runner.py."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -141,3 +142,6 @@ def test_a_field_order_arm_decodes_what_the_model_returned_under_the_renamed_key
     assert main and all(r["valid"] and r["error"] is None for r in main)  # restored before decoding
     returned = [r["content"] for r in read_calls(tmp_path / "arm" / CALL_LOG_FILENAME) if r["kind"] == "decision"]
     assert returned and all('"0motif"' in c and '"motif"' not in c for c in returned)  # the log keeps what came back
+    hashed = {hashlib.sha256(c.encode("utf-8")).hexdigest() for c in returned}
+    assert {r["content_sha256"] for r in main} <= hashed  # and so does the result: its hash is the log's
+    assert json.loads((tmp_path / "arm" / br.GATES_FILENAME).read_text())["logprobs_available"] is False  # renamed text has no aligned tokens

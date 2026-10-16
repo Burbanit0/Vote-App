@@ -153,14 +153,10 @@ def _motif_arm_schema(arm: str) -> Callable[[Case, dict[str, Any]], dict[str, An
     return lambda case, schema: _rename_motif(schema, _MOTIF_KEYS[arm])
 
 
-def _restore_motif(arm: str) -> Callable[[Case, str], str]:
+def _restore_motif(arm: str) -> Callable[[str], str]:
     """What the model returned under `arm`, with `motif` named as the decoders expect it."""
     key = _MOTIF_KEYS[arm]
-
-    def restore(case: Case, content: str) -> str:
-        return content.replace(f'"{key}"', '"motif"')
-
-    return restore
+    return lambda content: content.replace(f'"{key}"', '"motif"')
 
 
 @dataclass(frozen=True)
@@ -172,8 +168,9 @@ class BakeoffArm:
 
     schema: Callable[[Case, dict[str, Any]], dict[str, Any]] | None = None
     request: Callable[[Case], dict[str, Any]] | None = None
-    restore: Callable[[Case, str], str] | None = None
-    """What the model returned, put back into the bank's field names before it is decoded."""
+    restore: Callable[[str], str] | None = None
+    """What the model returned, put back into the bank's field names before it is decoded. An arm
+    that renames fields reads no logprobs: the tokens are the model's, not the restored text's."""
 
 
 ARMS: dict[str, BakeoffArm] = {
@@ -281,9 +278,8 @@ def run_case(
 ) -> dict[str, Any]:
     """Ask one case and record what came back. A response the engine would reject is a
     result (invalid), not an error; a request a replayed log does not hold is recorded too.
-    `restore` puts an arm's renamed fields back before the answer is decoded; the call log keeps
-    what the model returned. Probabilities are read off the restored text, so they stay aligned
-    only for arms that rename nothing."""
+    `restore` puts an arm's renamed fields back before the answer is decoded; the call log, the
+    content hash and any probabilities keep what the model returned."""
     result: dict[str, Any] = {"case_id": case.case_id, "family": case.family, "decision_type": case.decision_type,
                               "pass": pass_name, "valid": False, "error": None, "answers": {}, "probabilities": None}
     content: str | None = None
@@ -291,9 +287,7 @@ def run_case(
     try:
         with call_context(kind="decision", decision_type=case.decision_type, unit_ids=case.unit_ids, attempt=0):
             content, tokens = _ask(client, case, config, schema, use_logprobs, request_overrides or {})
-            if restore is not None:
-                content = restore(content)
-        result["answers"] = decode_answers(case, content)
+        result["answers"] = decode_answers(case, content if restore is None else restore(content))
         result["valid"] = True
         if tokens is not None and case.labels.get("value") is not None:
             result["probabilities"] = read_probabilities(case, content, tokens)
@@ -350,10 +344,15 @@ def schema_resolver(bank: CaseBank, arm: str | None) -> Callable[[Case], dict[st
     return lambda case: schema_arm(case, bank.schemas[case.decision_type])
 
 
-def restorer_for(arm: str | None) -> Callable[[Case], Callable[[str], str] | None]:
-    """Per case, what puts the arm's renamed fields back before the answer is decoded: none, or the arm's."""
-    restore = ARMS[arm].restore if arm is not None else None
-    return lambda case: None if restore is None else (lambda content: restore(case, content))
+def restorer_for(arm: str | None) -> Callable[[str], str] | None:
+    """What puts the arm's renamed fields back before an answer is decoded: none, or the arm's."""
+    return ARMS[arm].restore if arm is not None else None
+
+
+def reads_logprobs(client: Any, restore: Callable[[str], str] | None) -> bool:
+    """Whether a session reads logprobs: the client offers them, and the arm leaves the model's text as it
+    wrote it (restored text has no aligned tokens)."""
+    return callable(getattr(client, "complete_json_with_logprobs", None)) and restore is None
 
 
 def request_resolver(arm: str | None) -> Callable[[Case], dict[str, Any]]:
@@ -382,11 +381,11 @@ def run_session(
     )
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
-    restorer = restorer_for(arm)
+    restore = restorer_for(arm)
 
     results_path = session_dir / RESULTS_FILENAME
     done = {(r["case_id"], r["pass"]) for r in read_results(results_path)}
-    logprobs = callable(getattr(client, "complete_json_with_logprobs", None))
+    logprobs = reads_logprobs(client, restore)
     selected = set(bank.families() if families is None else families) | {LOGPROB_GATE_FAMILY}
     gate_cases = [c for c in bank.cases if c.family == LOGPROB_GATE_FAMILY]
     cases = [c for c in bank.cases if c.family in selected and c.family != LOGPROB_GATE_FAMILY]
@@ -404,7 +403,7 @@ def run_session(
                 if (case.case_id, pass_name) in done:
                     continue
                 result = run_case(case, logged, writer, config, schema_for(case), pass_name=pass_name, use_logprobs=use_logprobs,
-                                  request_overrides=request_for(case), restore=restorer(case))
+                                  request_overrides=request_for(case), restore=restore)
                 _append(results_path, result)
                 answered.append(result)
             return answered

@@ -1,11 +1,11 @@
 # EXP-024 — Bake-off : le modèle suit-il la position ou le candidat, et que changent le vocabulaire et l'ordre des champs
 
 - **Date** : 2026-10-16 · **Statut** : suspendu (l'ordre des candidats et l'ordre des champs sont des décisions
-  du propriétaire ; OBS-013 et OBS-049) · **Coût réel** : environ trois heures en une séance, sur le GPU
-  partagé, une requête à la fois (quatre sessions de 81 requêtes, une de 138) · **Coût en tokens** : non
-  mesuré
-- **Verdict en une phrase** : à partir de cinq candidats dans une liste, le modèle penche vers le dernier
-  listé (54 choix sur 198 pour 34 attendus au hasard) ; retirer le mot « simulation » des prompts ne change
+  du propriétaire ; OBS-013 et OBS-049) · **Coût réel** : une séance, sur le GPU
+  partagé, une requête à la fois ; sept sessions de 1 à 5 minutes chacune (une de 17 cas, cinq de 81 dont le
+  premier essai sans effet, une de 138) · **Coût en tokens** : non mesuré
+- **Verdict en une phrase** : le choix dépend de la position, et à partir de cinq candidats dans une liste le
+  modèle penche vers le dernier listé (54 choix sur 198 pour 34 attendus au hasard) ; retirer le mot « simulation » des prompts ne change
   rien ; et le test de l'ordre des champs a révélé que le client trie les clés du schéma, de sorte que l'ordre
   déclaré n'est jamais celui que le modèle écrit.
 
@@ -30,7 +30,7 @@ après chaque session. Les sessions sont dans `scripts/bakeoff_runs/` (hors git)
 - **Position ou candidat** : un bank à part de 60 populations (graines 101 à 160), chacune rendue deux fois
   (ordre de production, puis liste inversée), 254 unités parti. `NOMINATION_SEEDS` est devenue une constante
   pour le générer ; le bank gelé de 174 cas est inchangé. Lecture : `scripts/check_nomination_position_bias.py`
-  (probabilité exacte contre un choix uniforme, par simulation, et intervalle de Wilson).
+  (probabilité exacte d'un choix uniforme, loi de Poisson-binomiale, et intervalle de Wilson).
 - **Vocabulaire** : le bras `neutral_wording` remplace « Tu es un moteur de simulation » par « Tu es un moteur
   de decision » et « dans cette simulation » par « ici », dans le prompt système, et rien d'autre.
 - **Ordre des champs** : les bras `reason_first` et `answer_first` envoient la clé `motif` sous le nom `0motif`
@@ -51,12 +51,15 @@ après chaque session. Les sessions sont dans `scripts/bakeoff_runs/` (hors git)
 | 5 ou plus | 99 | 54 sur 198, 34,0 attendus, **P = 0,0003** | 26 | 53,5 % [43,8 ; 63,0] |
 
 Le premier rang n'est jamais favorisé. Inverser la liste change le choix dans 37 % des unités (46 % à partir de
-cinq). Les listes du p500 (24 à 41 candidats) sont bien au-delà de ce qui est mesuré ici.
+cinq). Deux réserves : les deux strates ont été tracées après le test d'ensemble (P = 0,0003 est un test sur
+six ; sur six il vaut encore 0,002), et ce plan ne sépare pas « attiré vers le dernier rang » de « recopie
+`candidate_count` ». Les listes du p500 (24 à 41 candidats) sont bien au-delà de ce qui est mesuré ici.
 
 **2. Le vocabulaire ne change rien** (`neutral_wording` contre contrôle) : `candidacy_p500` 62,6 % contre 63,6 %
 (McNemar p = 0,51), `pressure_act` 66,7 % contre 62,5 %, `vote_first_choice` 92,5 % contre 90,0 %, validité
-inchangée partout. Le bras fait échouer la porte des logprobs (13 sur 16 alignés) : ses probabilités ne sont
-pas lisibles, ses décisions le sont.
+inchangée sur les familles lues (un `vote_cast` invalide dans le contrôle comme dans le bras, pas le même). La
+porte des logprobs du bras échoue (13 sur 16 alignés) parce qu'une de ses six réponses est invalide (`blank=1` avec
+un classement non vide), pas parce que les probabilités seraient illisibles.
 
 **3. L'ordre des champs : une anomalie plus qu'un résultat** (OBS-049). Le client envoie le corps de la requête
 avec ses clés triées (`sort_keys=True`, « octets canoniques pour une clé de cache future »), schéma compris :
@@ -71,11 +74,14 @@ Avec la clé renommée pour trier la première ou la dernière :
 | bras | `candidacy_p500` (500) | `vote_first_choice` (40) | `pressure_act` (24) |
 |---|---:|---:|---:|
 | contrôle (ordre alphabétique) | 63,6 % | 90,0 % | 62,5 % |
-| `motif` dernier | 66,8 % (Holm p = 0,85) | 90,0 % | 62,5 % |
+| `motif` dernier | 66,8 % (Holm p = 0,85, sur les quatre sessions comparées) | 90,0 % | 62,5 % |
 | `motif` premier | **76,0 %** (98 contre 36 changements, Holm p = 2e-6) | 97,5 % (3 contre 0, p = 0,25) | 58,3 % (3 contre 4) |
 
 `motif` après la décision ne change rien de significatif. `motif` en tête, avant l'id de l'unité, accorde 12
-points de plus à `candidacy_p500` (accord avec la règle de seuil), et rien d'autre de significatif. Dans le
+points de plus à `candidacy_p500` (accord avec la règle de seuil), et rien d'autre de significatif, sauf une
+distribution de `pressure_act` qui change (cinq réponses « 3 » sur 24, aucune dans le contrôle). Le bras déplace
+la clé et la renomme : l'effet est celui des deux ensemble, que le bras `motif` dernier (renommé aussi, sans
+effet) rend peu probable comme cause mais n'écarte pas. Dans le
 contrôle, `motif` précède déjà la décision pour la candidature (`cid, motif, outcome`) et la proposition de
 parti, et précède `ranking` mais suit `blank` pour le vote ; seul `pressure_action` met `act` avant lui. Le
 contraste « raison avant décision » n'est donc pas ce qui a bougé pour la candidature, et un code est une
@@ -83,8 +89,8 @@ contraste « raison avant décision » n'est donc pas ce qui a bougé pour la ca
 
 ## Ce que ça a coûté
 
-- Des sessions courtes sur le GPU partagé : 81 requêtes en 4 à 5 minutes par bras, 138 pour le bank de 60
-  graines, aucun redémarrage du serveur.
+- Des sessions courtes sur le GPU partagé : 81 cas en 4 à 5 minutes par bras, 138 pour le bank de 60 graines
+  (2,4 minutes), aucun redémarrage du serveur.
 - Un faux départ : le premier bras d'ordre de champs, sans effet par construction (clés triées), a coûté une
   session et révélé l'anomalie du point 3. Une assertion de test qui ne pouvait pas échouer a été retirée avant.
 - Deux fonctions passées rang C au ratchet radon, scindées avant le push.
@@ -100,7 +106,11 @@ avec un coût de régénération :
 - **Ordre des champs** (OBS-049) : envoyer le schéma dans l'ordre déclaré change chaque hash de requête (golden,
   journaux de relecture) et demande une autre canonicalisation pour la clé de cache.
 
-Le vocabulaire est **rejeté** : aucun effet mesuré.
+Le vocabulaire est **rejeté** : aucun effet mesuré. Le seuil de l'étape 5 (« adopter un bras seulement s'il
+dépasse le bruit à graine égale ») a été lu comme un test de McNemar contre un seul contrôle, plus une passe
+de re-exécution sur un dixième des cas (identique à 100 % dans chaque session) : il n'y a pas de série de bruit
+à part. `reason_first` dépasse ce seuil sur une famille et n'est pas adopté pour une autre raison, le coût et le
+mécanisme inconnu.
 
 ## Ce que j'en retiens (transférable à un autre projet)
 
@@ -109,6 +119,6 @@ Le vocabulaire est **rejeté** : aucun effet mesuré.
   d'importance » sur un test sans effet.
 - **Un ordre de champs déclaré n'est un ordre de génération que si le client le conserve.** Toute
   canonicalisation faite pour un cache (clés triées) change ce que le modèle voit.
-- **Deux écarts qui se ressemblent ne se lisent pas pareil** : la longueur de liste a un effet net et dose-dépendant
-  (cinq candidats et plus), l'ordre des champs un effet isolé sur une famille, sans mécanisme : le premier se
-  corrige, le second se réplique d'abord.
+- **Deux écarts qui se ressemblent ne se lisent pas pareil** : la position a un effet net à partir de cinq
+  candidats (deux strates seulement, tracées après coup), l'ordre des champs un effet isolé sur une famille,
+  sans mécanisme : le premier justifie un changement, le second se réplique d'abord.

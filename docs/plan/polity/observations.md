@@ -507,7 +507,7 @@ from S0.5 on, but nomination runs with `think=False`, so there is none to read. 
 bank in S2.2 (shuffle candidate order and cids, and check whether the pick follows the position or
 the candidate) would answer it.
 
-*Update 2026-10-16, 60 more populations, and the cause is not what this entry suspected.* The nomination
+*Update 2026-10-16, 60 more populations: the pick depends on the position.* The nomination
 permutation of S2.2 on 60 new seeds (101 to 160), Qwen3-8B-AWQ on vLLM 0.31.0, 254 party units, each
 rendered in its production order and reversed (`scripts/check_nomination_position_bias.py`, the session
 `nomination-60-seeds`; the frozen bank's five seeds gave 20 of 46 last-listed picks):
@@ -518,13 +518,15 @@ rendered in its production order and reversed (`scripts/check_nomination_positio
 | 2 to 4 | 155 | 113 of 310; 108.3 expected, P = 0.30 | 103; 108.3 expected | 69.7% [62.0, 76.4] |
 | 5 or more | 99 | 54 of 198; 34.0 expected, **P = 0.0003** | 26; 34.0 expected | 53.5% [43.8, 63.0] |
 
-- **The lean to the end of the list is real, and it is a lean to a position.** It is absent in short lists and
-  clear from five contenders on (1.6 times the chance rate); the first position is never favoured. Reversing
-  the list changed the pick in 37% of units overall, in 46% of the lists of five or more.
-- **This is the part the entry's "suspected cause" left open:** the model does not copy `candidate_count` or
-  the position it sees; it is pulled toward the last one it reads, more as the list grows. The p500 lists (24
-  to 41 contenders) are far past the range measured here, which fits the 15 against 8.3 expected of the first
-  measurement.
+- **The pick depends on the position, not only on the candidate.** Reversing the list changed the pick in 37% of
+  units overall, in 46% of the lists of five or more. The lean is to the end of the list: absent in lists of two to
+  four, 1.6 times the chance rate from five contenders on, and the first position is never favoured. (The two
+  strata were drawn after the overall test, and P = 0.0003 is one of six tail tests; over six it is still 0.002.)
+- **The cause stays open.** This design cannot tell "pulled toward the last position it reads" from "copies
+  `candidate_count` into `winner_position`", which names the last position too. A plain copy would also show in
+  the short lists, where it does not, so it is not the whole story; it is not excluded either.
+- **No run measured the long lists.** The p500 lists (24 to 41 contenders) are far longer than anything here; the
+  15 against 8.3 expected above is the ten p100 runs, and the p500 evidence is one seed-1 call.
 - **What it costs.** `sorted_candidates` lists contenders by citizen id, so the last position is always the
   newest citizen. A try at listing them in a hash order instead (kept unpushed: branch
   `fix/polity-candidate-order`, commit `fa78d71a`) broke the bake-off's reversal control, which reverses the
@@ -2540,13 +2542,18 @@ the declared order is inert; `rationale` leads on the wire in none of the seven 
   moves it justifies" (ADR-014, `LeaderTurn`). It does not, except by luck of the alphabet: `rationale` still
   precedes `vote` and `speech`, but follows `amendment`, `bill`, `campaign`, `extra_legal` and `positions` in
   every turn that has them.
-- **Whether it matters is not measured.** A model that thinks reasons first in its `<think>` block, whatever
-  the object's order afterwards; which agent calls think was not checked here. The batch decisions carry a
-  code (`motif`), not a rationale, and EXP-024 finds no clear effect from where it sits, bar one unexplained
-  one (see below).
+- **How much it matters depends on thinking, which the call log shows.** In that same run (`phase15`, seed 5)
+  every agent turn thinks (`president_turn` 35 calls, `nominee_turn` 35, `forum_post` 510, `amendment_vote` 15,
+  `coalition_turn` 39: `think` true on all) and so reasons first in its `<think>` block, whatever order the
+  object is written in afterwards. The decisions that do not think are the batch ones (`candidacy_considered`,
+  `party_nomination_choice`, `pressure_action`, `reaction_to_event`), and they carry a code (`motif`), not a
+  rationale. So the agents' declared order is wrong but probably cheap; the batch order is where a change would
+  show, and EXP-024 finds no clear effect from where `motif` sits, bar one unexplained one (see below).
 
-*What the field-order test found once the key was renamed to sort first or last* (EXP-024, 81 requests per
-arm, control = the production order): `motif` last changed nothing significant on any family. `motif` first,
+*What the field-order test found once the key was renamed to sort first or last* (EXP-024, 81 cases per
+arm, control = the production order; the arm moves the field and also renames it, so the two are not
+separated, though the `zmotif` arm renames it too and changed nothing): `motif` last changed nothing
+significant on any family. `motif` first,
 before the unit's id, raised `candidacy_p500`'s agreement with the threshold rule from 63.6% to 76.0% (500
 units, McNemar Holm p = 2e-6) and nothing else significantly (`vote_first_choice` 90.0% to 97.5%, 3 changed
 answers; `pressure_act` 62.5% to 58.3%). A reason code is a label, not a rationale, and the gain appears only
@@ -2556,7 +2563,8 @@ when it comes before the id: read it as an unexplained effect to replicate, not 
 - **A bake-off family for the agent turns** (`president_turn`, `nominee_turn`): the same case with `rationale`
   sorting first and last. The bank has batch decisions only, and the rename trick of `reason_first` /
   `answer_first` needs a response translator per turn schema.
-- **Which agent calls think**, from the call logs' `think` field, to size how much the order can matter.
+- **The candidacy effect:** `motif` renamed but kept after the id (for example `cid_motif`) would separate the
+  position from the rename, and a second model or population would say whether it replicates.
 
 *What a fix costs.* Sending the schema in declared order changes every request hash: the golden prompts and
 journals, and every replay log, are regenerated, and the cache key the sort was written for needs another way
