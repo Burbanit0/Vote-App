@@ -2030,6 +2030,7 @@ chantier, non publié dans ce dépôt.
 - **Geanakoplos, J.** (2005). "Three Brief Proofs of Arrow's Impossibility Theorem". *Economic Theory*, 26(1), 211–215.
 - **Gibbard, A.** (1973). "Manipulation of Voting Schemes". *Econometrica*, 41(4), 587–601.
 - **Gibbard, A.** (1977). "Manipulation of Schemes that Mix Voting with Chance". *Econometrica*, 45(3), 665–681.
+- **Holliday, W.H. & Pacuit, E.** (2020). "Split Cycle: A New Condorcet Consistent Voting Method Independent of Clones and Immune to Spoilers". arXiv:2004.02350 (publié dans *Public Choice*, 2023).
 - **Hotelling, H.** (1929). "Stability in Competition". *The Economic Journal*, 39(153), 41–57.
 - **Kemeny, J.G.** (1959). "Mathematics Without Numbers". *Daedalus*, 88(4), 571–591.
 - **List, C. & Pettit, P.** (2002). "Aggregating Sets of Judgments". *Economics and Philosophy*, 18(1), 89–110.
