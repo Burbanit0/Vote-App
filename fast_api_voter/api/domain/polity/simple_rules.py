@@ -263,6 +263,16 @@ def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = B
     return ballot.index(label) < ballot.index(blank_label)
 
 
+def without_blank(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> list[list[str]]:
+    """`ballots` as counted when the Blank is not a choice (`institutions.blank_vote_enabled:
+    false`): the blank dropped from every ranking, so a voter who finds no candidate acceptable
+    still ranks them, and the Blank cannot win. A ballot that held only the blank (an LLM
+    `blank=1`) counts for no one. The ballots themselves stay as cast: `mandate_strength` and
+    `approval` still read the blank as the voter's own acceptability line."""
+    stripped = [[label for label in ballot if label != blank_label] for ballot in ballots]
+    return [ballot for ballot in stripped if ballot]
+
+
 def blank_share(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> float:
     """v4 Lot 9 (§6bis.2): blank_share(t), the fraction of cast ballots whose
     TOP preference is blank -- ballot[0] == blank_label. Uniform across both

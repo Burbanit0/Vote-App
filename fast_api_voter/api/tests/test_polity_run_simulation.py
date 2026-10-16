@@ -784,6 +784,28 @@ def test_election_invalidated_when_blank_share_exceeds_threshold(tmp_path):
     assert not [e for e in events if e["event_type"] in ("elected", "election_no_winner")]
 
 
+def _election_events_with_blank_vote(tmp_path, *, enabled: bool) -> list[str]:
+    config = load_config()
+    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=enabled))
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    # blank_threshold=0.0, positioned far from the candidate: every elector finds the
+    # candidate unacceptable, so the Blank is their first choice (7 of 8 ballots).
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([candidate] + electors, [party], config, journal, tick=0, llm_client=None)
+    return [e["event_type"] for e in _events(tmp_path / "run.jsonl") if e["event_type"] in ("elected", "election_no_winner")]
+
+
+def test_the_blank_wins_the_presidency_while_it_is_a_choice(tmp_path):
+    assert _election_events_with_blank_vote(tmp_path, enabled=True) == ["election_no_winner"]
+
+
+def test_a_candidate_wins_when_the_blank_is_not_a_choice(tmp_path):
+    # Same electorate: the blank is not on the ballot, so the one candidate takes every vote.
+    assert _election_events_with_blank_vote(tmp_path, enabled=False) == ["elected"]
+
+
 def test_election_not_invalidated_when_blank_share_is_below_threshold(tmp_path):
     config = _blank_config()
     candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)

@@ -32,6 +32,7 @@ from api.domain.polity.simple_rules import (
     select_party_nominee_from_declared,
     sympathizer_ratio,
     vacate_office,
+    without_blank,
 )
 
 
@@ -725,3 +726,9 @@ def test_deterministic_reaction_to_event_economic_shock_uses_absolute_magnitude(
     positive = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.5)
     negative = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=-0.5)
     assert positive == pytest.approx(negative)
+
+
+def test_without_blank_drops_the_blank_from_every_ranking_and_discards_a_ballot_left_empty():
+    ballots = [["c1", BLANK_LABEL, "c2"], [BLANK_LABEL, "c2", "c1"], [BLANK_LABEL], ["c2", "c1", BLANK_LABEL]]
+    assert without_blank(ballots) == [["c1", "c2"], ["c2", "c1"], ["c2", "c1"]]
+    assert ballots[0] == ["c1", BLANK_LABEL, "c2"]  # the cast ballots are left as cast

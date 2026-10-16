@@ -57,7 +57,10 @@ institutions:
   # v4 Lot 9: ce mécanisme est désormais VIVANT (présidentielle uniquement --
   # voir _hold_presidential_election). blank_share(t) = part des bulletins
   # dont le PREMIER choix est Blanc (simple_rules.blank_share).
-  blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ?
+  blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ? false : le blanc est retiré du
+                              #      dépouillement présidentiel (il ne peut plus gagner ; un électeur sans
+                              #      candidat acceptable classe quand même les candidats). Le prompt du
+                              #      modèle l'offre encore : un bulletin « blanc » ne compte pour personne.
   blank_vote_competitive: false   # [v4] le blanc peut-il invalider le scrutin ?
                                   #      (requiert blank_vote_enabled: true)
   blank_invalidation_threshold: 0.5   # [v4] part des exprimés déclenchant

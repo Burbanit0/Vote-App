@@ -479,8 +479,7 @@ The loader refuses incoherent combinations rather than running a silently dead e
 ### 6.3 Knobs that do nothing
 
 Worth knowing before tuning them: `assembly_term_limit`, `assembly_mode`, `coalition_initiator`,
-`max_candidates_hard_cap`, `memory_window_terms`, `blank_vote_enabled` (blank is always available
-regardless), `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
+`max_candidates_hard_cap`, `memory_window_terms`, `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
 `metrics.compute_every_ticks`, `sortition_chamber.veto_power` / `veto_delay_ticks`,
 `llm.cache_backend` / `cache_url` / `personas_count`, `parties.birth_enabled` / `death_enabled`,
 and the 4 score-based `presidential_method` values (accepted by config, refused at run start).

@@ -278,6 +278,7 @@ from api.domain.polity.simple_rules import (
     strategic_choices,
     utility_ballot,
     vacate_office,
+    without_blank,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
 from api.domain.polity.tick_state import PendingRerun, TickState
@@ -2355,7 +2356,8 @@ def _hold_presidential_election(
                 invalidated = True
 
         if not invalidated:
-            winner_label = get_presidential_winner(ballots, config.institutions.presidential_method)
+            counted = ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
+            winner_label = get_presidential_winner(counted, config.institutions.presidential_method) if counted else None
             if winner_label is not None and winner_label != BLANK_LABEL:
                 winner_id = citizen_id_from_label(winner_label)
                 winner = next(c for c in nominees if c.citizen_id == winner_id)
