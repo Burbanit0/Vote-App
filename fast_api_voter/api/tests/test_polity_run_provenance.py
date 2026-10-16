@@ -175,7 +175,7 @@ def test_a_remote_server_is_asked_over_http_only(monkeypatch: pytest.MonkeyPatch
     provenance = run_provenance.vllm_server_provenance("http://gpu-box:8000/v1")
     assert commands == []  # the local docker daemon does not run gpu-box's container
     assert provenance["vllm_version"] == "0.31.0"
-    assert provenance["served_model_revision"] is None
+    assert (provenance["served_model_revision"], provenance["vllm_command"]) == (None, None)
 
 
 @pytest.mark.parametrize(
@@ -197,6 +197,23 @@ def test_container_fields_stay_null_when_the_container_cannot_be_identified(
     provenance = run_provenance.vllm_server_provenance("http://localhost:8000/v1")
     assert provenance["served_model_repo"] == "Qwen/Qwen3-8B-AWQ"  # still known from /v1/models
     assert (provenance["vllm_image"], provenance["vllm_image_id"], provenance["served_model_revision"]) == (None, None, None)
+    assert provenance["vllm_command"] is None
+
+
+def test_the_launch_command_is_the_process_that_ran_with_secret_values_masked(monkeypatch: pytest.MonkeyPatch) -> None:
+    process = {
+        "Image": "sha256:4f3c", "Path": "vllm",
+        "Args": ["serve", "--model", "Qwen/Qwen3-8B-AWQ", "--api-key", "sk-live", "--hf-token=hf_live", "--tokenizer", "Qwen/Qwen3-8B-AWQ"],
+        "Config": {"Image": "vllm/vllm-openai:v0.31.0", "Cmd": ["--model", "Qwen/Qwen3-8B-AWQ"]},
+    }
+    _fake_server(monkeypatch, [])
+    monkeypatch.setattr(
+        run_provenance, "_run_command",
+        lambda args, cwd=None: "c0ffee\n" if args[:2] == ["docker", "ps"] else json.dumps(process),
+    )
+    assert run_provenance.vllm_server_provenance("http://localhost:8000/v1")["vllm_command"] == [
+        "vllm", "serve", "--model", "Qwen/Qwen3-8B-AWQ", "--api-key", "***", "--hf-token=***", "--tokenizer", "Qwen/Qwen3-8B-AWQ",
+    ]
 
 
 def test_a_server_launched_without_a_pinned_revision_records_the_revision_as_null(monkeypatch: pytest.MonkeyPatch) -> None:
