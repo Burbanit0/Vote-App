@@ -44,6 +44,7 @@ _LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 SERVER_FIELDS = (
     "vllm_version", "vllm_image", "vllm_image_id", "served_model_name", "served_model_repo", "served_model_revision",
+    "vllm_command",
 )
 
 
@@ -117,6 +118,8 @@ def _container_provenance(port: int) -> dict[str, Any]:
         "vllm_image_id": inspected.get("Image"),
         "served_model_repo": _flag_value(command, "--model"),
         "served_model_revision": _flag_value(command, "--revision"),
+        # Every launch flag (quantization, max length, speculative config...), as run.
+        "vllm_command": command or None,
     }
 
 

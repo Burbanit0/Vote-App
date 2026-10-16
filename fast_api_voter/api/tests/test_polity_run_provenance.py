@@ -161,6 +161,7 @@ def test_vllm_server_provenance_reads_the_server_and_the_container_serving_it(mo
         "served_model_name": "qwen3:8b",
         "served_model_repo": "Qwen/Qwen3-8B-AWQ",
         "served_model_revision": "4da05a8edb55c6046cce958586c33b61da07bb79",
+        "vllm_command": _VLLM_CONTAINER_CMD,
     }
     assert ["docker", "ps", "--filter", "publish=8000", "--format", "{{.ID}}"] in commands
 
