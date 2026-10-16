@@ -943,6 +943,18 @@ est invalidée. Vote Lab simule trois règles :
 - **Runoff** : NOTA qualifié = nouvelle élection sans les mêmes candidats
 - **Winner-take-all** : NOTA élu → siège vacant (Nevada, USA)
 
+**Effet sur les candidats** : Ambrus, Greiner et Zednik (2025) trouvent, par
+enquête et en laboratoire, que l'option NOTA retire des voix aux candidats
+perçus comme protestataires, souvent aux extrêmes, ce qui réduit leurs
+chances de gagner. En contrepartie, les candidats établis, qui l'anticipent,
+se soucient moins de l'électorat. Pour Polity, c'est une hypothèse à tester,
+pas un résultat. Seul le bras `blank_vote_competitive` (le Blanc peut
+invalider le scrutin, présidentielle uniquement) existe : la réactivité du
+président devrait y rester plus haute qu'avec un Blanc non compétitif. C'est
+une extrapolation, l'article ne la teste pas. Le bras « sans NOTA » n'existe
+pas encore : `blank_vote_enabled` est lu et validé par la config, mais aucun
+scrutin ne le consulte, et le Blanc est toujours sur le bulletin.
+
 ---
 
 ## 7. Systèmes alternatifs de gouvernance
@@ -966,15 +978,26 @@ Pour n=150 et p=0.5 : σ ≈ 4%.
 **Principe** : chaque électeur peut voter directement ou déléguer son vote
 à un mandataire (délégation transitive).
 
-**Graphe de délégation** : un DAG orienté G = (V, E) où (v, w) ∈ E signifie
-que v délègue à w. Le poids de vote de w est :
+**Graphe de délégation** : un graphe orienté G = (V, E) où (v, w) ∈ E signifie
+que v délègue à w ; chaque électeur a au plus une délégation sortante. Le poids de vote de w est :
 ```
 weight(w) = 1 + Σ_{v: délègue à w, directement ou transitivement} 1
 ```
 
 **Problème des cycles** : si A→B→C→A, aucun ne peut voter.
-Vote Lab détecte les cycles (algorithme DFS) et les résout en forçant
-le vote sincère pour les membres du cycle.
+Vote Lab détecte les cycles en suivant la délégation unique de chaque
+électeur, et les résout en forçant le vote sincère pour les membres du cycle.
+
+Ce choix ne perd aucune voix, et la pratique va dans le même sens. Sur
+LiquidFeedback, une délégation est *par défaut* : elle ne s'applique que si
+le délégant ne vote pas lui-même, et un cycle ne perd ses voix que si aucun
+de ses membres ne vote. Brill et al. (2026) modélisent ces délégations par
+défaut sous participation incertaine. Quand chaque électeur accepte les
+autres comme délégués et qu'aucun ne vote à coup sûr, chaque composante non
+triviale d'un équilibre de Nash contient exactement un cycle (un équilibre
+peut aussi ne pas exister, et lever une hypothèse casse le résultat). Les
+cycles y sont donc un comportement stratégique attendu, pas une anomalie. Vote Lab ne modélise pas la
+participation incertaine : chaque membre d'un cycle vote.
 
 **Indice de Gini du poids** : mesure la concentration du pouvoir de vote.
 Augmente avec la probabilité de délégation.
@@ -2029,8 +2052,10 @@ chantier, non publié dans ce dépôt.
 
 ### Articles clés
 
+- **Ambrus, A., Greiner, B. & Zednik, A.** (2025). "The effect of a 'None of the above' ballot paper option on voting behavior and election outcomes". *Journal of Public Economics*, 242, 105305. doi:10.1016/j.jpubeco.2025.105305
 - **Bikhchandani, S., Hirshleifer, D. & Welch, I.** (1992). "A Theory of Fads, Fashion, Custom, and Cultural Change as Informational Cascades". *Journal of Political Economy*, 100(5), 992–1026.
 - **Brams, S.J. & Fishburn, P.C.** (1978). "Approval Voting". *American Political Science Review*, 72(3), 831–847.
+- **Brill, M., Colley, R., George, A.-M., Lisowski, G., Papasotiropoulos, G. & Schmidt-Kraepelin, U.** (2026). "Cycles in Liquid Democracy: A Game-Theoretic Justification". arXiv:2607.12610.
 - **Buterin, V., Hitzig, Z. & Weyl, E.G.** (2019). "A Flexible Design for Funding Public Goods". *Management Science*, 65(11), 5171–5187.
 - **Fiorina, M.** (1981). *Retrospective Voting in American National Elections*. Yale University Press.
 - **Fishburn, P.C. & Brams, S.J.** (1983). "Paradoxes of Preferential Voting". *Mathematics Magazine*, 56(4), 207–214.
