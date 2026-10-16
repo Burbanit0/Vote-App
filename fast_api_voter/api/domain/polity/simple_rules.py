@@ -225,7 +225,7 @@ class FirstChoices:
 
 
 def first_choices(
-    citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig, *, blank_enabled: bool = True,
+    citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig, *, blank_enabled: bool,
 ) -> FirstChoices:
     """The poll a campaign sees: every citizen's utility ballot over the field, on the
     platforms as they stand. The sitting president's record is left out -- the poll is taken

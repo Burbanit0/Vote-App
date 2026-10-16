@@ -741,5 +741,5 @@ def test_the_poll_reads_a_voters_first_candidate_when_the_blank_is_not_a_choice(
     candidate = _citizen(10, (0.9,), blank_threshold=0.5)
     declare_candidacy(candidate)
     vote = load_config().vote
-    assert first_choices(voters, [candidate], vote).blank == 1.0
+    assert first_choices(voters, [candidate], vote, blank_enabled=True).blank == 1.0
     assert first_choices(voters, [candidate], vote, blank_enabled=False) == FirstChoices(shares={10: 1.0}, blank=0.0, abstain=0.0)

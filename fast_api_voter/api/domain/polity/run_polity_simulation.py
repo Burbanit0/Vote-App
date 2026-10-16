@@ -2385,8 +2385,9 @@ def _hold_presidential_election(
                     # new journal event here -- this same tick's
                     # legitimacy_updated (in _run_accountability_phase) records
                     # it, including mandate_strength in its own payload.
-                    # Over the ballots that voted for someone: with the Blank not a choice, a Blank-only
-                    # ballot stayed home (it is in `abstained`), not a ballot cast against the winner.
+                    # Over the ballots that name a candidate: with the Blank not a choice, a Blank-only
+                    # ballot stayed home (it is in `abstained`), not a ballot cast against the winner. A
+                    # forced ballot ([Blank, c1, c2]) did vote, and still counts against c1's mandate.
                     winner.mandate_strength = mandate_strength(
                         ballots if config.institutions.blank_vote_enabled
                         else [ballot for ballot in ballots if any(label != BLANK_LABEL for label in ballot)],
