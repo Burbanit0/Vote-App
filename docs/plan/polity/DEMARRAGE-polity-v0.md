@@ -190,7 +190,7 @@ horodatages dans le journal, tri instable.
       taux de cohabitation, durée de vie des coalitions)
 - [ ] CI locale verte (Ruff, mypy strict, Bandit, Semgrep)
 - [ ] Le protocole §5 est exécuté et son résultat consigné
-- [ ] `THEORY.md` / `traceability.md` mis à jour via `/sync-theory`
+- [ ] `THEORY.md` / `traceability.md` mis à jour à la main
 
 **Critère de passage à la v1** : pouvoir répondre à « sur ces 30 ans,
 combien de cohabitations, et combien de partis effectifs en fin de

@@ -948,10 +948,12 @@ enquête et en laboratoire, que l'option NOTA retire des voix aux candidats
 perçus comme protestataires, souvent aux extrêmes, ce qui réduit leurs
 chances de gagner. En contrepartie, les candidats établis, qui l'anticipent,
 se soucient moins de l'électorat. Pour Polity, c'est une hypothèse à tester,
-pas un résultat : avec `blank_vote_enabled: true` et
-`blank_vote_competitive: false`, la réactivité des élus devrait baisser ; un
-vote blanc compétitif (qui peut invalider l'élection) devrait limiter cet
-effet. Cette seconde moitié est une extrapolation, l'article ne la teste pas.
+pas un résultat. Seul le bras `blank_vote_competitive` (le Blanc peut
+invalider le scrutin, présidentielle uniquement) existe : la réactivité du
+président devrait y rester plus haute qu'avec un Blanc non compétitif. C'est
+une extrapolation, l'article ne la teste pas. Le bras « sans NOTA » n'existe
+pas encore : `blank_vote_enabled` est lu et validé par la config, mais aucun
+scrutin ne le consulte, et le Blanc est toujours sur le bulletin.
 
 ---
 
@@ -976,24 +978,25 @@ Pour n=150 et p=0.5 : σ ≈ 4%.
 **Principe** : chaque électeur peut voter directement ou déléguer son vote
 à un mandataire (délégation transitive).
 
-**Graphe de délégation** : un DAG orienté G = (V, E) où (v, w) ∈ E signifie
-que v délègue à w. Le poids de vote de w est :
+**Graphe de délégation** : un graphe orienté G = (V, E) où (v, w) ∈ E signifie
+que v délègue à w ; chaque électeur a au plus une délégation sortante. Le poids de vote de w est :
 ```
 weight(w) = 1 + Σ_{v: délègue à w, directement ou transitivement} 1
 ```
 
 **Problème des cycles** : si A→B→C→A, aucun ne peut voter.
-Vote Lab détecte les cycles (algorithme DFS) et les résout en forçant
-le vote sincère pour les membres du cycle.
+Vote Lab détecte les cycles en suivant la délégation unique de chaque
+électeur, et les résout en forçant le vote sincère pour les membres du cycle.
 
 Ce choix ne perd aucune voix, et la pratique va dans le même sens. Sur
 LiquidFeedback, une délégation est *par défaut* : elle ne s'applique que si
 le délégant ne vote pas lui-même, et un cycle ne perd ses voix que si aucun
 de ses membres ne vote. Brill et al. (2026) modélisent ces délégations par
-défaut sous participation incertaine : à l'équilibre de Nash, sous des
-hypothèses faibles, chaque composante non triviale du graphe de délégation
-contient exactement un cycle. Les cycles y sont donc un comportement
-stratégique attendu, pas une anomalie. Vote Lab ne modélise pas la
+défaut sous participation incertaine. Quand chaque électeur accepte les
+autres comme délégués et qu'aucun ne vote à coup sûr, chaque composante non
+triviale d'un équilibre de Nash contient exactement un cycle (un équilibre
+peut aussi ne pas exister, et lever une hypothèse casse le résultat). Les
+cycles y sont donc un comportement stratégique attendu, pas une anomalie. Vote Lab ne modélise pas la
 participation incertaine : chaque membre d'un cycle vote.
 
 **Indice de Gini du poids** : mesure la concentration du pouvoir de vote.

@@ -21,7 +21,8 @@ et `docs/research/bibliography.bib` pour le cadrage théorique attendu.
   autre électeur (délégation transitive : A délègue à B qui délègue à C).
 - Détection et gestion des cycles de délégation (A→B→A) : un cycle doit être
   cassé explicitement, pas ignoré silencieusement. Le worker existant
-  (`_ld_resolve`) fait voter chaque membre du cycle pour lui-même, ce qui ne
+  (`_liquid_democracy_worker` : `_ld_detect_cycles` trouve les cycles,
+  `_ld_resolve` les résout) fait voter chaque membre du cycle pour lui-même, ce qui ne
   perd aucune voix : garder cette règle (voir `THEORY.md` §7.2 et
   Brill et al. 2026), pas l'abstention collective.
 - Le poids d'un délégataire final = 1 (son propre poids) + somme des poids
