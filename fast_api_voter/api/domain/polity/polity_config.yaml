@@ -57,7 +57,21 @@ institutions:
   # v4 Lot 9: ce mécanisme est désormais VIVANT (présidentielle uniquement --
   # voir _hold_presidential_election). blank_share(t) = part des bulletins
   # dont le PREMIER choix est Blanc (simple_rules.blank_share).
-  blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ?
+  blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ? false : retiré du dépouillement
+                              #      présidentiel, du sondage de campagne et des scrutins simulés (référendum,
+                              #      enjeux du président) : il ne peut plus gagner, et un électeur sans
+                              #      candidat acceptable classe quand même les candidats. PAS retiré : le
+                              #      prompt du modèle (un bulletin « blanc » ne compte alors pour personne,
+                              #      déclaré en abstention), la saillance, la règle d'abstention par
+                              #      indifférence, le lecteur `run_macro` du blanc, et le législatif
+                              #      (`choose_party` renvoie encore blanc). `mandate_strength` et
+                              #      l'approbation lisent toujours le blanc comme la ligne d'acceptabilité
+                              #      de l'électeur : un vote forcé pour un candidat inacceptable compte
+                              #      pour le gagnant au dépouillement, pas dans son mandat ; seul un bulletin
+                              #      « blanc » seul (abstention déclarée) sort du dénominateur du mandat.
+                              #      Sous `presidential_method: approval` (les deux premiers du classement),
+                              #      sans le blanc un électeur approuve deux candidats, dont un qu'il juge
+                              #      inacceptable : les résultats d'approbation changent avec le drapeau.
   blank_vote_competitive: false   # [v4] le blanc peut-il invalider le scrutin ?
                                   #      (requiert blank_vote_enabled: true)
   blank_invalidation_threshold: 0.5   # [v4] part des exprimés déclenchant
