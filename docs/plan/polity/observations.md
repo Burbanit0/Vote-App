@@ -78,6 +78,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 | [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
+| [OBS-049](#obs-049) | A president changed the voting method to stay; the referendum found nothing to refer, and a party founded since the last election won: the forecast sees only that election's candidates | 2026-10-16 | cause found |
 
 ---
 
@@ -2463,6 +2464,29 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
 - **The owner's call:** is a president who lowers entry barriers, or extends their own term, behaviour to
   keep, as the third-term attempts were (ADR-026)?
 
+*Phase15 (2026-10-16): the "one president" reading does not hold.* Phase15 (`~/Documents/Dev/polity-runs/phase15/`,
+f8c31727) has phase14's settings. It adds only ADR-029, which changes the referendum's count, not what a president
+is shown or asked. Its proposals are a second sample of the same arm.
+
+| | phase14 | phase15 |
+|---|---:|---:|
+| reasons naming the president's own interest (same regex) | 18 of 34 | 29 of 41 |
+| by seed (1-5) | 0/3, 3/9, 2/6, 3/6, 10/10 | 0/1, 7/7, 7/11, 11/12, 4/10 |
+| founding-ratio proposals / cuts ratified | 4 / 2 | 0 / 0 |
+| peak live parties, by seed | 21-48 | 24-29 |
+| seat-based effective number of parties, median | 10.20 | 6.20 |
+| assemblies where no party won a seat | 1 of 10 | 0 of 10 |
+
+- **The same presidents swing between runs.**
+  - Citizen 88, seed 5's president in both phases, gave 10 such reasons of 10 in phase14 and 4 of 10 in phase15.
+  - Citizen 11 (seed 4, ambition 0.62) went from 3 of 6 to 11 of 12.
+  - Pooled, the arm gives 47 of 75 (63%) against phase13's 10 of 31 (32%). The rise spreads across seeds; the
+    phase14-only reading above was one run's draw.
+- **Without founding-ratio cuts, no jump.** Phase15 proposed none, and its party counts and effective number sit
+  at phase13's level (23-28, 7.02). That is two runs with cuts and jumps against one without either: consistent
+  with the cuts driving the jumps, still not a test.
+- **Recalls:** none, with 10 full terms (`check_observations.py recalls`, as for phase14).
+
 *Decided (2026-10-13, owner), point by point:*
 
 - **Lowering the bars.** "We can keep presidents who lower the bars." A president who proposes lowering the
@@ -2480,3 +2504,49 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
 The decision is recorded here and in ADR-029.
 
 *Status: decided.*
+
+### OBS-049
+
+**A president changed the voting method to stay; the referendum found nothing to refer, and a party founded since
+the last election won: the forecast sees only that election's candidates.**
+
+*Seen.* Phase15, seed 4 (`~/Documents/Dev/polity-runs/phase15/runs/sweep-8y-p100-seed4/`).
+- **The proposals.** Citizen 11, elected at tick 0 under two-round (ambition 0.62), proposed approval voting 8
+  times between ticks 1 and 12, each time "to secure re-election ... approval voting, which favors centrist
+  candidates like me". The chamber voted 8, 6, 5, 4, 4, 9, 8, then 10 of 15, and ratified the eighth at tick 13.
+  It is the second method change in phases 13-15, after phase14's Borda.
+- **No referendum.** The profile's `petition` mode holds one when enough citizens would vote no. None was held,
+  and nothing in the journal says why: a referendum that is not held writes no event (ADR-029, "Not settled").
+- **The election.** At tick 16 citizen 11 stood again and lost under approval, to citizen 54. Citizen 54 had
+  founded party 24 at tick 4 and was not among the tick-0 candidates (11, 12, 86, 89, 92). In phase14, under
+  two-round, citizen 11 had also lost at tick 16, to citizen 74.
+
+*Cause.* A replay of the run from its call log, with a hook on `_referendum`, reproduces the run exactly: 2700
+recorded calls served, none missing. At tick 13 it shows 83 ballots cast today, and two-round and approval both
+elect citizen 11. The change altered nothing for the candidates the forecast knows, so there was nothing to refer.
+- **The candidates.** `ballots_today` ranks only the last election's candidates, a choice ADR-027 and ADR-029
+  record under "Not settled". Founders and nominees since then are not in it.
+- **What the president saw.** The president's stakes are built from those same ballots, so they would also have
+  shown citizen 11 winning under either method. The call log does not keep prompts, so what the briefing said is
+  not recoverable. The reasoning cites a belief, approval "favors centrist candidates like themselves", not a
+  figure.
+
+*Evidence.* From `fast_api_voter/` of a checkout at f8c31727, with a script that wraps
+`run_polity_simulation._referendum` to print `_referendum_ballots` and `referendum_count`, then calls
+`run_polity_flagship.main`:
+```
+--engine llm --profile exploration --years 8 --population 100 --seats 15 --seed 4 --max-batch-replays 2 \
+  --output-dir <scratch> --replay-calls-from ~/Documents/Dev/polity-runs/phase15/runs/sweep-8y-p100-seed4/run/sweep-8y-p100-seed4
+```
+It prints `two_round->approval: 83 ballots, winners citizen_11 / citizen_11, counted None`. The proposals and
+votes are `amendment_proposed` and `amendment_resolved`, the candidacies `candidacy_declared`, and the founding
+`party_founded`, all in `events.jsonl`.
+
+*What would settle it.*
+- **The owner's call: should the forecast know the new contenders?** The forecast feeds both the president's
+  stakes and the referendum. Adding them, for example the leaders of parties founded since the last election,
+  would be a guess at who will be nominated, which ADR-027 chose not to make.
+- **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would
+  have answered this from the journal, without a replay.
+
+*Status: cause found.*
