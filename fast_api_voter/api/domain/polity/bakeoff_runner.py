@@ -109,6 +109,51 @@ def _thinking_sampling(case: Case) -> dict[str, Any]:
             "extra_body": {"top_p": QWEN3_THINKING_SAMPLING["top_p"], "top_k": QWEN3_THINKING_SAMPLING["top_k"]}}
 
 
+_NEUTRAL_WORDING = (("Tu es un moteur de simulation", "Tu es un moteur de decision"), ("dans cette simulation", "ici"))
+"""Every mention of a simulation in the frozen bank's system prompts: the opening sentence of all of
+them, and two sentences of the representative_response prompt."""
+
+
+def _neutral_wording(case: Case) -> dict[str, Any]:
+    """The research radar's "Unawareness" check (PIMMUR, 2026-10-03): the case's system prompt with
+    the word simulation taken out, and nothing else changed."""
+    prompt = case.system_prompt
+    for old, new in _NEUTRAL_WORDING:
+        prompt = prompt.replace(old, new)
+    return {"system_prompt": prompt}
+
+
+_UNIT_FIELDS = ("cid", "party_id")
+"""The field naming whom a decision is for: it stays first, so the model knows before it gives a reason."""
+
+
+def _motif_after_unit(properties: dict[str, Any]) -> dict[str, Any]:
+    """`properties` with the unit's id first, then `motif`, then the decision fields."""
+    ids = [key for key in _UNIT_FIELDS if key in properties]
+    rest = [key for key in properties if key not in ids and key != "motif"]
+    return {key: properties[key] for key in (*ids, "motif", *rest)}
+
+
+def _motif_first(node: Any) -> Any:
+    """`node` with `motif` listed right after the unit's id, ahead of the decision fields, wherever an
+    object has one. The grammar emits fields in schema order, so the model gives its reason code
+    before the decision it grounds."""
+    if isinstance(node, list):
+        return [_motif_first(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out = {key: _motif_first(value) for key, value in node.items()}
+    if isinstance(out.get("properties"), dict) and "motif" in out["properties"]:
+        out["properties"] = _motif_after_unit(out["properties"])
+    return out
+
+
+def _reason_first_schema(case: Case, schema: dict[str, Any]) -> dict[str, Any]:
+    """The research radar's "reasoning first" check (Structure Tax, 2026-10-10), with the one reason
+    batch decisions carry: the `motif` code. A free-text rationale is not built (`rationale_mode`)."""
+    return _motif_first(schema)  # type: ignore[no-any-return]
+
+
 @dataclass(frozen=True)
 class BakeoffArm:
     """An A/B arm on the same frozen cases: what a session run with it sends each case in
@@ -125,6 +170,8 @@ ARMS: dict[str, BakeoffArm] = {
     "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
     "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
     "thinking_sampling": BakeoffArm(request=_thinking_sampling),
+    "neutral_wording": BakeoffArm(request=_neutral_wording),
+    "reason_first": BakeoffArm(schema=_reason_first_schema),
 }
 
 

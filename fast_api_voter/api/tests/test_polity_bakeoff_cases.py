@@ -227,3 +227,41 @@ def test_the_anger_sweep_asks_the_same_citizens_at_each_level() -> None:
     assert all(len(units) == 4 for units in units_by_level.values())
     assert all(c.labels["kind"] == "contrast" and c.labels["field"] == "act" for c in sweep)
 
+
+
+def test_the_neutral_wording_arm_rewords_every_system_prompt_and_nothing_else() -> None:
+    reword = br.ARMS["neutral_wording"].request
+    assert reword is not None
+    for case in reference_bank().cases:
+        prompt = reword(case)["system_prompt"]
+        assert "simul" not in prompt.lower(), case.decision_type
+        assert prompt.count("\n") == case.system_prompt.count("\n")  # the same lines, only reworded
+    assert reword(reference_bank().cases[0])["system_prompt"].startswith("Tu es un moteur de decision")
+
+
+def test_the_reason_first_arm_lists_motif_after_the_unit_id_and_changes_nothing_else() -> None:
+    reorder = br.ARMS["reason_first"].schema
+    assert reorder is not None
+    reordered = 0
+    for case in reference_bank().cases:
+        schema = bb.SCHEMAS[case.decision_type]
+        after = reorder(case, schema)
+
+        def objects(node):  # every object schema, with its field order
+            if isinstance(node, dict):
+                if isinstance(node.get("properties"), dict):
+                    yield list(node["properties"])
+                for value in node.values():
+                    yield from objects(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from objects(item)
+
+        for before_fields, after_fields in zip(objects(schema), objects(after), strict=True):
+            assert sorted(before_fields) == sorted(after_fields)
+            if "motif" in after_fields:
+                ids = [f for f in after_fields if f in ("cid", "party_id")]
+                assert after_fields[: len(ids) + 1] == [*ids, "motif"]  # who it is for, then the reason, then the rest
+                reordered += 1
+        assert after == schema  # dict equality ignores key order: nothing lost or changed besides it
+    assert reordered  # the bank carries decisions with a motif

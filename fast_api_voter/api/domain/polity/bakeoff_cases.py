@@ -491,13 +491,18 @@ def _nomination_labels(pair: str, rendering: str, request: CapturedRequest, iden
     return {"kind": "permutation", "pair": pair, "rendering": rendering, "units": list(request.unit_ids), "listed": listed}
 
 
+NOMINATION_SEEDS = (1, 2, 3, 4, 42)
+"""The populations the frozen bank renders. A larger set is a bank of its own (a session on it
+compares with nothing in the frozen one), generated with this set replaced."""
+
+
 def nomination_permutation(config: PolityConfig) -> list[Case]:
     """observations.md OBS-013: party nominations over the ambition-threshold declarers of
     five p100 populations, each rendered twice -- original ids, and ids reversed so every
     candidate list is listed backwards. A pick that follows the candidate names the same
     citizen both times; one that follows the listed position does not."""
     cases = []
-    for seed in (1, 2, 3, 4, 42):
+    for seed in NOMINATION_SEEDS:
         citizens = _population(config, 100, seed)
         parties = _with_parties(config, citizens, seed)
         declared = {c.citizen_id for c in citizens if decide_candidacy(c, config.candidacy)}
