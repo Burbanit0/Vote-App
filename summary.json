@@ -212,7 +212,6 @@
     "feat/polity-biography-compact",
     "feat/polity-constitution-reporting",
     "feat/polity-timeline-phase5-glyphs",
-    "feat/restore-arrow-theorem-fiche",
     "feat/static-pages",
     "feat/winner-strip",
     "fix/playground-first-contact",
@@ -220,7 +219,7 @@
     "refactor/winner-from-utilities"
    ],
    "category": "code",
-   "count": 17,
+   "count": 16,
    "example": {
     "job": "Frontend: Tests + Coverage + Security",
     "lines": [
@@ -433,14 +432,13 @@
    "branches": [
     "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
     "feat/polity-president-agent",
-    "feat/restore-arrow-theorem-fiche",
     "fix/methods-catalogue-drift",
     "fix/restore-simulate-cache",
     "refactor/enable-exhaustive-deps-lint",
     "refactor/tailwind-animations"
    ],
    "category": "code",
-   "count": 7,
+   "count": 6,
    "example": {
     "job": "Code Quality (dead code, duplication & complexity)",
     "lines": [
@@ -492,34 +490,6 @@
    "signature": "code: -------------",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "chore/sync-develop-into-polity-20260927",
-    "docs/plan-surface-2l-small-accuracies",
-    "feat/restore-arrow-theorem-fiche",
-    "fix/teaching-content-errors",
-    "refactor/enable-exhaustive-deps-lint"
-   ],
-   "category": "code",
-   "count": 5,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "c7f2bcced018f247048d91c12decaeec8bb39fe6",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37862459550"
-   },
-   "last_seen": "2026-10-08T23:59:57Z",
-   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -792,6 +762,32 @@
    },
    "last_seen": "2026-09-25T06:57:09Z",
    "signature": "code: Error: expect(locator).toBeVisible() failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "chore/sync-develop-into-polity-20260927",
+    "fix/teaching-content-errors",
+    "refactor/enable-exhaustive-deps-lint"
+   ],
+   "category": "code",
+   "count": 3,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "c7f2bcced018f247048d91c12decaeec8bb39fe6",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37862459550"
+   },
+   "last_seen": "2026-10-08T23:59:57Z",
+   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
    "workflows": [
     "E2E Tests"
    ]
@@ -1650,17 +1646,17 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 187,
+  "code": 183,
   "infra": 14,
   "test-flaky": 33,
   "unknown": 2
  },
- "generated_at": "2026-10-16T08:23:01Z",
+ "generated_at": "2026-10-16T11:20:50Z",
  "grid": {
   "Backend CI": {
    "2026-09-16": {
     "cancelled": 1,
-    "success": 27
+    "success": 25
    },
    "2026-09-17": {
     "success": 24
@@ -1754,7 +1750,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-16": {
-    "success": 2
+    "success": 1
    },
    "2026-09-17": {
     "success": 9
@@ -1895,12 +1891,12 @@
     "success": 13
    },
    "2026-10-16": {
-    "success": 13
+    "success": 14
    }
   },
   "CI Health Watchdog": {
    "2026-09-16": {
-    "success": 15
+    "success": 14
    },
    "2026-09-17": {
     "success": 21
@@ -2168,7 +2164,7 @@
   "E2E Tests": {
    "2026-09-16": {
     "cancelled": 6,
-    "success": 22
+    "success": 20
    },
    "2026-09-17": {
     "cancelled": 5,
@@ -2274,7 +2270,7 @@
   "Frontend CI": {
    "2026-09-16": {
     "cancelled": 1,
-    "success": 27
+    "success": 25
    },
    "2026-09-17": {
     "cancelled": 1,
@@ -2371,7 +2367,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-16": {
-    "success": 28
+    "success": 26
    },
    "2026-09-17": {
     "success": 24
@@ -2562,7 +2558,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-16": {
-    "success": 14
+    "success": 13
    },
    "2026-09-17": {
     "failure": 1,
@@ -2706,7 +2702,7 @@
   },
   "Security Audit": {
    "2026-09-16": {
-    "success": 28
+    "success": 26
    },
    "2026-09-17": {
     "success": 24
@@ -2935,9 +2931,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-16T07:39:15Z",
+   "created_at": "2026-10-16T08:22:51Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38868582375"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38873294514"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3045,11 +3041,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38484942503"
   }
  },
- "runs": 14921,
+ "runs": 14854,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-16": 201.5,
+    "2026-09-16": 204,
     "2026-09-17": 89.0,
     "2026-09-18": 125,
     "2026-09-19": 180,
@@ -3078,14 +3074,14 @@
     "2026-10-15": 476.0,
     "2026-10-16": 388.5
    },
-   "p50_s": 189,
+   "p50_s": 190,
    "p95_s": 498,
    "queue_p50_s": 0,
-   "runs": 1044
+   "runs": 1035
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-16": 253.0,
+    "2026-09-16": 313,
     "2026-09-17": 262,
     "2026-09-18": 244,
     "2026-09-19": 271.0,
@@ -3117,14 +3113,14 @@
     "2026-10-15": 1105.0,
     "2026-10-16": 1093.5
    },
-   "p50_s": 614,
+   "p50_s": 642,
    "p95_s": 1110,
    "queue_p50_s": 0,
-   "runs": 153
+   "runs": 152
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-16": 7,
+    "2026-09-16": 7.0,
     "2026-09-17": 6.5,
     "2026-09-18": 7.0,
     "2026-09-19": 6.0,
@@ -3154,9 +3150,9 @@
     "2026-10-16": 9
    },
    "p50_s": 9,
-   "p95_s": 36,
+   "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 797
+   "runs": 790
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3171,16 +3167,16 @@
     "2026-10-13": 443,
     "2026-10-14": 430.5,
     "2026-10-15": 383,
-    "2026-10-16": 398
+    "2026-10-16": 392.5
    },
    "p50_s": 398,
    "p95_s": 588,
    "queue_p50_s": 0,
-   "runs": 445
+   "runs": 446
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-16": 10.5,
+    "2026-09-16": 11,
     "2026-09-17": 10.0,
     "2026-09-18": 10,
     "2026-09-19": 10.0,
@@ -3211,7 +3207,7 @@
    "p50_s": 11,
    "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 726
+   "runs": 719
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3276,7 +3272,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-16": 11.0,
+    "2026-09-16": 10,
     "2026-09-17": 11,
     "2026-09-18": 11,
     "2026-09-19": 10,
@@ -3308,7 +3304,7 @@
    "p50_s": 11,
    "p95_s": 32,
    "queue_p50_s": 0,
-   "runs": 740
+   "runs": 733
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3350,7 +3346,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-16": 660,
+    "2026-09-16": 674.5,
     "2026-09-17": 762,
     "2026-09-18": 783.0,
     "2026-09-19": 765,
@@ -3379,14 +3375,14 @@
     "2026-10-15": 318.0,
     "2026-10-16": 552
    },
-   "p50_s": 600,
+   "p50_s": 601,
    "p95_s": 834,
    "queue_p50_s": 0,
-   "runs": 990
+   "runs": 983
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-16": 217,
+    "2026-09-16": 227,
     "2026-09-17": 195.5,
     "2026-09-18": 161.0,
     "2026-09-19": 175.0,
@@ -3418,11 +3414,11 @@
    "p50_s": 84,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 1061
+   "runs": 1053
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-16": 11.5,
+    "2026-09-16": 16,
     "2026-09-17": 11.5,
     "2026-09-18": 24,
     "2026-09-19": 90,
@@ -3454,7 +3450,7 @@
    "p50_s": 78,
    "p95_s": 132,
    "queue_p50_s": 0,
-   "runs": 1108
+   "runs": 1099
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3502,7 +3498,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-16": 46.0,
+    "2026-09-16": 46,
     "2026-09-17": 45,
     "2026-09-18": 41.0,
     "2026-09-19": 42.0,
@@ -3527,7 +3523,7 @@
    "p50_s": 45,
    "p95_s": 63,
    "queue_p50_s": 0,
-   "runs": 140
+   "runs": 139
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3582,7 +3578,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-16": 121.5,
+    "2026-09-16": 120.5,
     "2026-09-17": 121,
     "2026-09-18": 114.5,
     "2026-09-19": 110,
@@ -3611,10 +3607,10 @@
     "2026-10-15": 170.5,
     "2026-10-16": 164
    },
-   "p50_s": 139,
+   "p50_s": 140,
    "p95_s": 220,
    "queue_p50_s": 0,
-   "runs": 1071
+   "runs": 1063
   },
   "Workflow Lint": {
    "daily_p50_s": {
