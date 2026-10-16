@@ -2016,7 +2016,7 @@ def _campaign_turns(
     """ADR-014: every nominee campaigns in one turn, in parallel, on the same vote-intention
     poll (journaled first). The kernel steps each platform toward the positions the nominee
     names; a turn whose every attempt failed leaves its platform where it was."""
-    poll = first_choices(citizens, nominees, config.vote)
+    poll = first_choices(citizens, nominees, config.vote, blank_enabled=config.institutions.blank_vote_enabled)
     journal.write_event(tick=tick, citizen_id=None, event=VoteIntentionPoll(
         shares=[{"citizen_id": cid, "share": share} for cid, share in poll.shares.items()], blank=poll.blank, abstain=poll.abstain,
     ))
@@ -2151,7 +2151,8 @@ def ballots_today(state: TickState, president: Citizen | None, config: PolityCon
         state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
     )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
-    return [ballot for ballot in cast if ballot is not None] or None
+    ballots = [ballot for ballot in cast if ballot is not None]
+    return (ballots if config.institutions.blank_vote_enabled else without_blank(ballots)) or None
 
 
 def _last_candidates(state: TickState, keep_record: bool) -> list[Citizen]:
@@ -2357,7 +2358,8 @@ def _hold_presidential_election(
 
         if not invalidated:
             counted = ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
-            winner_label = get_presidential_winner(counted, config.institutions.presidential_method) if counted else None
+            abstained += len(ballots) - len(counted)  # a ballot that held only the Blank counts for no one
+            winner_label = get_presidential_winner(counted, config.institutions.presidential_method)
             if winner_label is not None and winner_label != BLANK_LABEL:
                 winner_id = citizen_id_from_label(winner_label)
                 winner = next(c for c in nominees if c.citizen_id == winner_id)

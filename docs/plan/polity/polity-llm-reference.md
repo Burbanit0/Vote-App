@@ -478,6 +478,11 @@ The loader refuses incoherent combinations rather than running a silently dead e
 
 ### 6.3 Knobs that do nothing
 
+(`institutions.blank_vote_enabled: false` now works, in part: the Blank leaves the presidential tally, the
+campaign poll and the simulated referendum and stakes ballots. It stays in the model's vote prompt, in
+salience and in the legislative vote; see the comment in `polity_config.yaml`.)
+
+
 Worth knowing before tuning them: `assembly_term_limit`, `assembly_mode`, `coalition_initiator`,
 `max_candidates_hard_cap`, `memory_window_terms`, `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
 `metrics.compute_every_ticks`, `sortition_chamber.veto_power` / `veto_delay_ticks`,

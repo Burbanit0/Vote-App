@@ -5348,3 +5348,17 @@ def test_each_legislative_election_draws_its_seat_ties_from_its_own_seeded_lot(t
     assert ticks and len(draws) == len(ticks)
     expected = [random.Random(f"legislative-seats:{config.run.seed}:{t}").random() for t in ticks]
     assert draws == expected
+
+
+def test_a_blank_only_ballot_counts_for_no_one_and_is_reported_as_an_abstention(tmp_path, monkeypatch):
+    config = load_config()
+    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=False))
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 4)]
+    # What the model's blank=1 gives, for every elector: a ballot with nothing but the Blank on it.
+    cast = [["citizen_0", "Blank"], ["Blank"], ["Blank"], ["Blank"]]
+    monkeypatch.setattr(run_polity_simulation_module, "_presidential_ballots", lambda *args: (cast, 0))
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([candidate, *electors], [Party(party_id=0, platform=(0.5,))], config, journal, tick=0, llm_client=None)
+    event = next(e for e in _events(tmp_path / "run.jsonl") if e["event_type"] == "elected")
+    assert event["payload"]["abstained"] == 3

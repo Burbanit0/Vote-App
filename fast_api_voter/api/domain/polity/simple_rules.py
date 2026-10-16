@@ -224,13 +224,18 @@ class FirstChoices:
     abstain: float
 
 
-def first_choices(citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig) -> FirstChoices:
+def first_choices(
+    citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig, *, blank_enabled: bool = True,
+) -> FirstChoices:
     """The poll a campaign sees: every citizen's utility ballot over the field, on the
     platforms as they stand. The sitting president's record is left out -- the poll is taken
-    before the election decides whose record is judged."""
+    before the election decides whose record is judged. With the blank not a choice
+    (`blank_enabled` false) a citizen's first choice is their first candidate."""
     tally: Counter[str] = Counter()
     for citizen in citizens:
         ballot = utility_ballot(citizen, candidates, vote)
+        if ballot is not None and not blank_enabled:
+            ballot = next(iter(without_blank([ballot])), None)  # no candidate to vote for: stays home
         tally[ABSTAIN if ballot is None else ballot[0]] += 1
     total = len(citizens)
     return FirstChoices(
