@@ -124,6 +124,13 @@ def _masked(command: list[str]) -> list[str]:
     return masked
 
 
+def _launch_command(inspected: dict[str, Any]) -> list[str]:
+    """`docker inspect`'s Path + Args -- the process that actually ran, entrypoint
+    then Cmd -- or Config.Cmd when Path is absent, secrets masked."""
+    process = [str(token) for token in [inspected.get("Path"), *(inspected.get("Args") or [])] if token]
+    return _masked(process or [str(token) for token in (inspected.get("Config") or {}).get("Cmd") or []])
+
+
 def _container_provenance(port: int) -> dict[str, Any]:
     """The image, weights and launch command of the one running container
     publishing `port`."""
@@ -136,15 +143,13 @@ def _container_provenance(port: int) -> dict[str, Any]:
     except ValueError:
         return {}
     command = [str(token) for token in (inspected.get("Config") or {}).get("Cmd") or []]
-    # Path + Args is the process that actually ran: the entrypoint, then Cmd.
-    process = [str(token) for token in [inspected.get("Path"), *(inspected.get("Args") or [])] if token]
     return {
         "vllm_image": (inspected.get("Config") or {}).get("Image"),
         "vllm_image_id": inspected.get("Image"),
         "served_model_repo": _flag_value(command, "--model"),
         "served_model_revision": _flag_value(command, "--revision"),
         # Every launch flag (quantization, max length, speculative config...), as run.
-        "vllm_command": _masked(process or command) or None,
+        "vllm_command": _launch_command(inspected) or None,
     }
 
 
