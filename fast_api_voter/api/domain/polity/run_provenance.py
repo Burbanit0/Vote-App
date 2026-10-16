@@ -9,8 +9,9 @@ and a field that does not apply to this run (anything LLM-side on a deterministi
 run) is null rather than absent, so a reader never has to guess which it is.
 
 Server fields describe the server the run actually talked to (vLLM's own `/version`
-and `/v1/models`, the running container's own command line), not the compose file's
-pin -- a pin only says what should be running.
+and `/v1/models`, the running container's own command line, kept whole with any
+secret-looking flag value masked), not the compose file's pin -- a pin only says
+what should be running.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ import dataclasses
 import functools
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -44,6 +46,7 @@ _LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 SERVER_FIELDS = (
     "vllm_version", "vllm_image", "vllm_image_id", "served_model_name", "served_model_repo", "served_model_revision",
+    "vllm_command",
 )
 
 
@@ -101,8 +104,36 @@ def _flag_value(command: list[str], flag: str) -> str | None:
     return None
 
 
+# A flag whose name has one of these as a dash-separated word: --api-key, --hf-token...
+# but not --tokenizer or --max-num-batched-tokens.
+_SECRET_FLAG = re.compile(r"(?:^|-)(?:key|token|secret|password)(?:$|-)")
+
+
+def _masked(command: list[str]) -> list[str]:
+    """`command` with the value of every secret-looking flag replaced by `***`:
+    run_metadata.json files get committed, and this repo is public."""
+    masked: list[str] = []
+    for index, token in enumerate(command):
+        name, equals, _ = token.partition("=")
+        if token.startswith("--") and equals and _SECRET_FLAG.search(name.lstrip("-")):
+            masked.append(f"{name}=***")
+        elif index and command[index - 1].startswith("--") and _SECRET_FLAG.search(command[index - 1].lstrip("-")):
+            masked.append("***")
+        else:
+            masked.append(token)
+    return masked
+
+
+def _launch_command(inspected: dict[str, Any]) -> list[str]:
+    """`docker inspect`'s Path + Args -- the process that actually ran, entrypoint
+    then Cmd -- or Config.Cmd when Path is absent, secrets masked."""
+    process = [str(token) for token in [inspected.get("Path"), *(inspected.get("Args") or [])] if token]
+    return _masked(process or [str(token) for token in (inspected.get("Config") or {}).get("Cmd") or []])
+
+
 def _container_provenance(port: int) -> dict[str, Any]:
-    """The image and weights of the one running container publishing `port`."""
+    """The image, weights and launch command of the one running container
+    publishing `port`."""
     ids = (_run_command(["docker", "ps", "--filter", f"publish={port}", "--format", "{{.ID}}"]) or "").split()
     if len(ids) != 1:
         return {}
@@ -117,6 +148,8 @@ def _container_provenance(port: int) -> dict[str, Any]:
         "vllm_image_id": inspected.get("Image"),
         "served_model_repo": _flag_value(command, "--model"),
         "served_model_revision": _flag_value(command, "--revision"),
+        # Every launch flag (quantization, max length, speculative config...), as run.
+        "vllm_command": _launch_command(inspected) or None,
     }
 
 

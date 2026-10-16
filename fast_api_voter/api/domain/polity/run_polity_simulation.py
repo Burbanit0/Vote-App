@@ -445,8 +445,8 @@ def _write_run_metadata(
     wired up anywhere in this codebase).
 
     S0.4 (plan-polity-build-order.md) completes the record: commit and dirty
-    paths, prompt-source hash, the vLLM server's own version, image and weights
-    revision, the run's shape, and its overrides against the shipped YAML -- see
+    paths, prompt-source hash, the vLLM server's own version, image, weights
+    revision and launch command, the run's shape, and its overrides against the shipped YAML -- see
     run_provenance.py. `started_at` makes this file differ between otherwise
     identical runs; the reproducibility contract is over events.jsonl, which is
     why this is a sibling file. `config.json` beside it is the full resolved
