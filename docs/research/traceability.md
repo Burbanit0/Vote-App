@@ -10,7 +10,7 @@ empirique dédié) · `prévu` (mentionné en théorie, pas encore codé).
 
 > Ce tableau est un point de départ généré à partir d'une exploration du
 > repo au 2026-07-29. Les correspondances marquées `(à confirmer)` doivent
-> être vérifiées par l'agent `theory-curator` ou par toi — je n'ai pas
+> être vérifiées à la main — je n'ai pas
 > tracé chaque fonction ligne à ligne.
 
 ## Méthodes de vote
@@ -76,4 +76,4 @@ empirique dédié) · `prévu` (mentionné en théorie, pas encore codé).
 
 ---
 
-*À maintenir via la commande `/sync-theory` (voir `.claude/commands/sync-theory.md`).*
+*À maintenir à la main quand `THEORY.md`, le code ou `bibliography.bib` changent.*

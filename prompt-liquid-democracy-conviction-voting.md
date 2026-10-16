@@ -20,8 +20,10 @@ et `docs/research/bibliography.bib` pour le cadrage théorique attendu.
 - N électeurs, chacun a soit un vote direct, soit une délégation vers un
   autre électeur (délégation transitive : A délègue à B qui délègue à C).
 - Détection et gestion des cycles de délégation (A→B→A) : un cycle doit être
-  cassé et traité comme une abstention collective de ses membres, pas comme
-  une erreur silencieuse.
+  cassé explicitement, pas ignoré silencieusement. Le worker existant
+  (`_ld_resolve`) fait voter chaque membre du cycle pour lui-même, ce qui ne
+  perd aucune voix : garder cette règle (voir `THEORY.md` §7.2 et
+  Brill et al. 2026), pas l'abstention collective.
 - Le poids d'un délégataire final = 1 (son propre poids) + somme des poids
   de tous ceux qui lui délèguent, transitivement.
 
@@ -95,8 +97,8 @@ d'une proposition dont le seuil dépasse le max_ratio quel que soit le stake.
   retourne une structure sérialisable (dict/dataclass) prête pour le
   front-end (séries temporelles de poids/conviction) — cohérent avec le
   reste de `engine/utils`.
-- Une fois l'implémentation stable, lance `/sync-theory` pour vérifier la
+- Une fois l'implémentation stable, vérifie à la main la
   cohérence avec `THEORY.md`, `traceability.md` et `bibliography.bib`, et
-  passer les entrées `prévu` → `implémenté`.
+  passe les entrées `prévu` → `implémenté`.
 - N'ajoute aucune référence académique qui ne soit pas déjà dans
   `bibliography.bib` ou explicitement validée par moi.
