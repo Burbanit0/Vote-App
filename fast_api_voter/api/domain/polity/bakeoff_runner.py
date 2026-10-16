@@ -130,10 +130,8 @@ schema lists them in: a declared order changes nothing. A key that sorts before 
 on the wire, one that sorts after them is last."""
 
 
-def _rename_motif_in(properties: dict[str, Any], required: Any, key: str) -> tuple[dict[str, Any], Any]:
-    """An object's `properties` and `required` with `motif` sent as `key`."""
-    renamed = {(key if name == "motif" else name): value for name, value in properties.items()}
-    return renamed, [key if name == "motif" else name for name in required] if isinstance(required, list) else required
+def _renamed(names: Iterable[str], key: str) -> list[str]:
+    return [key if name == "motif" else name for name in names]
 
 
 def _rename_motif(node: Any, key: str) -> Any:
@@ -144,9 +142,8 @@ def _rename_motif(node: Any, key: str) -> Any:
         return node
     out = {k: _rename_motif(v, key) for k, v in node.items()}
     if isinstance(out.get("properties"), dict) and "motif" in out["properties"]:
-        out["properties"], required = _rename_motif_in(out["properties"], out.get("required"), key)
-        if required is not None:
-            out["required"] = required
+        out["properties"] = {name: out["properties"][old] for old, name in zip(out["properties"], _renamed(out["properties"], key))}
+        out["required"] = _renamed(out.get("required", ()), key)
     return out
 
 
