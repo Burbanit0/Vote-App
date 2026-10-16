@@ -239,29 +239,46 @@ def test_the_neutral_wording_arm_rewords_every_system_prompt_and_nothing_else() 
     assert reword(reference_bank().cases[0])["system_prompt"].startswith("Tu es un moteur de decision")
 
 
-def test_the_reason_first_arm_lists_motif_after_the_unit_id_and_changes_nothing_else() -> None:
-    reorder = br.ARMS["reason_first"].schema
-    assert reorder is not None
-    reordered = 0
+def _wire_field_orders(schema):
+    """Each object's fields in the order they go out: the client sends the request body with its keys sorted."""
+    sent = json.loads(json.dumps(schema, sort_keys=True))
+
+    def objects(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("properties"), dict):
+                yield list(node["properties"])
+            for value in node.values():
+                yield from objects(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from objects(item)
+
+    return list(objects(sent))
+
+
+@pytest.mark.parametrize(("arm", "key", "position"), [("reason_first", "0motif", 0), ("answer_first", "zmotif", -1)])
+def test_the_field_order_arms_put_motif_first_or_last_on_the_wire(arm, key, position) -> None:
+    arm_schema = br.ARMS[arm].schema
+    assert arm_schema is not None
+    found = 0
     for case in reference_bank().cases:
         schema = bb.SCHEMAS[case.decision_type]
-        after = reorder(case, schema)
+        for before, after in zip(_wire_field_orders(schema), _wire_field_orders(arm_schema(case, schema)), strict=True):
+            if "motif" not in before:
+                assert after == before
+                continue
+            assert sorted(after) == sorted(key if f == "motif" else f for f in before)  # only the one key renamed
+            assert after[position] == key  # first or last, once sorted: where the model writes it
+            found += 1
+    assert found  # the bank carries decisions with a motif
 
-        def objects(node):  # every object schema, with its field order
-            if isinstance(node, dict):
-                if isinstance(node.get("properties"), dict):
-                    yield list(node["properties"])
-                for value in node.values():
-                    yield from objects(value)
-            elif isinstance(node, list):
-                for item in node:
-                    yield from objects(item)
 
-        for before_fields, after_fields in zip(objects(schema), objects(after), strict=True):
-            assert sorted(before_fields) == sorted(after_fields)
-            if "motif" in after_fields:
-                ids = [f for f in after_fields if f in ("cid", "party_id")]
-                assert after_fields[: len(ids) + 1] == [*ids, "motif"]  # who it is for, then the reason, then the rest
-                reordered += 1
-        assert after == schema  # dict equality ignores key order: nothing lost or changed besides it
-    assert reordered  # the bank carries decisions with a motif
+@pytest.mark.parametrize("arm", ["reason_first", "answer_first"])
+def test_an_arms_renamed_motif_is_restored_before_decoding(arm) -> None:
+    case = next(c for c in reference_bank().cases if c.decision_type == "vote_cast" and c.family != bb.LOGPROB_GATE_FAMILY)
+    original = json.dumps({"decisions": [{"cid": cid, "blank": 0, "ranking": [1], "motif": 101} for cid in case.unit_ids]})
+    renamed = original.replace('"motif"', json.dumps(br._MOTIF_KEYS[arm]))
+    restore = br.ARMS[arm].restore
+    assert restore is not None and '"motif"' not in renamed
+    assert restore(case, renamed) == original
+    assert br.decode_answers(case, restore(case, renamed)) == br.decode_answers(case, original)
