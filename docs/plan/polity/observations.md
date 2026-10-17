@@ -79,6 +79,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 | [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
+| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | cause found |
 
 ---
 
@@ -506,6 +507,33 @@ exactly the last-position answers. OBS-006's out-of-range 26 may be a relative o
 from S0.5 on, but nomination runs with `think=False`, so there is none to read. A nomination case
 bank in S2.2 (shuffle candidate order and cids, and check whether the pick follows the position or
 the candidate) would answer it.
+
+*Update 2026-10-16, 60 more populations: the pick depends on the position.* The nomination
+permutation of S2.2 on 60 new seeds (101 to 160), Qwen3-8B-AWQ on vLLM 0.31.0, 254 party units, each
+rendered in its production order and reversed (`scripts/check_nomination_position_bias.py`, the session
+`nomination-60-seeds`; the frozen bank's five seeds gave 20 of 46 last-listed picks):
+
+| contenders in the list | units | last listed | first listed | same citizen in both orders |
+|---|---:|---:|---:|---:|
+| all (2 to 11) | 254 | 167 of 508 picks; 142.4 expected, P = 0.007 | 129; 142.4 expected | 63.4% [57.3, 69.1] |
+| 2 to 4 | 155 | 113 of 310; 108.3 expected, P = 0.30 | 103; 108.3 expected | 69.7% [62.0, 76.4] |
+| 5 or more | 99 | 54 of 198; 34.0 expected, **P = 0.0003** | 26; 34.0 expected | 53.5% [43.8, 63.0] |
+
+- **The pick depends on the position, not only on the candidate.** Reversing the list changed the pick in 37% of
+  units overall, in 46% of the lists of five or more. The lean is to the end of the list: absent in lists of two to
+  four, 1.6 times the chance rate from five contenders on, and the first position is never favoured. (The two
+  strata were drawn after the overall test, and P = 0.0003 is one of six tail tests; over six it is still 0.002.)
+- **The cause stays open.** This design cannot tell "pulled toward the last position it reads" from "copies
+  `candidate_count` into `winner_position`", which names the last position too. A plain copy would also show in
+  the short lists, where it does not, so it is not the whole story; it is not excluded either.
+- **No run measured the long lists.** The p500 lists (24 to 41 contenders) are far longer than anything here; the
+  15 against 8.3 expected above is the ten p100 runs, and the p500 evidence is one seed-1 call.
+- **What it costs.** `sorted_candidates` lists contenders by citizen id, so the last position is always the
+  newest citizen. A try at listing them in a hash order instead (kept unpushed: branch
+  `fix/polity-candidate-order`, commit `fa78d71a`) broke the bake-off's reversal control, which reverses the
+  order by renumbering ids, three scenario tests whose fake clients pick by position, and the golden
+  references. A change of order is the owner's call and is not made here.
+
 
 ### OBS-014
 
@@ -2572,5 +2600,69 @@ refer, and a candidate the forecast did not know won.**
   leaders of parties founded since? That is a guess at who will be nominated, which ADR-027 chose not to make.
 - **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would have
   answered this from the journal, without a replay.
+
+*Status: cause found.*
+
+### OBS-050
+
+**The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede.**
+
+*Seen.* A field-order arm of the bake-off (S2.2) changed nothing, to the byte: all 81 outputs of the arm
+`reason_first` equalled the control's. The call log showed why. `llm_calls.jsonl` of the control session, one
+output per decision type, against the order `llm_schemas.py` declares:
+
+| decision | declared | written by the model |
+|---|---|---|
+| `vote_cast` | cid, blank, ranking, motif | blank, cid, motif, ranking |
+| `pressure_action` | cid, target, act, motif | act, cid, motif, target |
+| `party_nomination_choice` | party_id, winner_position, motif | motif, party_id, winner_position |
+
+The agents' turns are the same, in a real run (`phase15/runs/sweep-8y-p100-seed5/.../llm_calls.jsonl`):
+
+| turn | written, in order |
+|---|---|
+| `president_turn` | amendment, bill, extra_legal, note_to_self, other_initiative, positions, **rationale**, speech |
+| `nominee_turn` | bill, campaign, note_to_self, other_initiative, positions, **rationale**, speech |
+| `forum_post` | note_to_self, party_id, party_move, post, **rationale**, shift_direction, shift_issue |
+| `amendment_vote` | note_to_self, **rationale**, statement, vote |
+
+*Cause.* `llm_client.py` builds every request body with `json.dumps(body, sort_keys=True)`: "canonical bytes
+so a cache key can be added later" (the module docstring). The sort reaches the schema inside the body, and
+the grammar emits an object's fields in the order it receives them. Every schema is therefore sent, and
+generated, in alphabetical order. For the nine batch decisions and the seven agent turns of `llm_schemas.py`,
+the declared order is inert; `rationale` leads on the wire in none of the seven agent turns.
+
+- **`llm_schemas.py` says the opposite**: "Field order is generation order, so the reasoning comes before the
+  moves it justifies" (ADR-014, `LeaderTurn`). It does not, except by luck of the alphabet: `rationale` still
+  precedes `vote` and `speech`, but follows `amendment`, `bill`, `campaign`, `extra_legal` and `positions` in
+  every turn that has them.
+- **How much it matters depends on thinking, which the call log shows.** In `phase15` seed 1 every agent turn
+  thinks (`president_turn` 35 decision calls, `nominee_turn` 35, `forum_post` 510, `amendment_vote` 15,
+  `coalition_turn` 39: `think` true on all, and on all five seeds) and so reasons first in its `<think>` block,
+  whatever order the object is written in afterwards, as do `vote_cast` and `chamber_deliberation`. Four batch
+  decisions do not think (`candidacy_considered`, `party_nomination_choice`, `pressure_action`,
+  `reaction_to_event`), and they carry a code (`motif`), not a rationale. So the agents' declared order is
+  wrong but probably cheap; among the batch decisions, those four are where a change would show, and EXP-024
+  finds no clear effect from where `motif` sits, bar one unexplained one (see below).
+
+*What the field-order test found once the key was renamed to sort first or last* (EXP-024, 81 cases per
+arm, control = the production order; the arm moves the field and also renames it, so the two are not
+separated, though the `zmotif` arm renames it too and changed nothing): `motif` last changed nothing
+significant on any family. `motif` first,
+before the unit's id, raised `candidacy_p500`'s agreement with the threshold rule from 63.6% to 76.0% (500
+units, McNemar Holm p = 2e-6) and nothing else significantly (`vote_first_choice` 90.0% to 97.5%, 3 changed
+answers; `pressure_act` 62.5% to 58.3%). A reason code is a label, not a rationale, and the gain appears only
+when it comes before the id: read it as an unexplained effect to replicate, not as "reasoning first helps".
+
+*What would settle it.*
+- **A bake-off family for the agent turns** (`president_turn`, `nominee_turn`): the same case with `rationale`
+  sorting first and last. The bank has batch decisions only, and the rename trick of `reason_first` /
+  `answer_first` needs a response translator per turn schema.
+- **The candidacy effect:** `motif` renamed but kept after the id (for example `cid_motif`) would separate the
+  position from the rename, and a second model or population would say whether it replicates.
+
+*What a fix costs.* Sending the schema in declared order changes every request hash: the golden prompts and
+journals, and every replay log, are regenerated, and the cache key the sort was written for needs another way
+to be canonical (sort the body's top level, not the schema). The owner's call; nothing is changed here.
 
 *Status: cause found.*
