@@ -2618,7 +2618,7 @@ each, with and without the stakes, at temperature 0.6. The log is
 - **Without the stakes:** 2 voting-method proposals in 60 turns, both "nothing".
 - **With the stakes:** 7 in 60 turns, from 5 presidents (5 plurality, 2 approval).
   - 6 change nothing.
-  - 1 shifts the win to another candidate (phase11 seed 8, a president who loses under every method).
+  - 1 shifts the win to another candidate (phase11 seed 8: neither method elects that president).
   - None is a gain.
 - **The reasons:** 6 of the 7 name the president's re-election or party, from 4 of the 5 presidents ("Switch to
   plurality to simplify re-election prospects", "favor my party's strengths").
