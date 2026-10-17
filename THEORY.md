@@ -948,12 +948,16 @@ enquête et en laboratoire, que l'option NOTA retire des voix aux candidats
 perçus comme protestataires, souvent aux extrêmes, ce qui réduit leurs
 chances de gagner. En contrepartie, les candidats établis, qui l'anticipent,
 se soucient moins de l'électorat. Pour Polity, c'est une hypothèse à tester,
-pas un résultat. Seul le bras `blank_vote_competitive` (le Blanc peut
-invalider le scrutin, présidentielle uniquement) existe : la réactivité du
-président devrait y rester plus haute qu'avec un Blanc non compétitif. C'est
-une extrapolation, l'article ne la teste pas. Le bras « sans NOTA » n'existe
-pas encore : `blank_vote_enabled` est lu et validé par la config, mais aucun
-scrutin ne le consulte, et le Blanc est toujours sur le bulletin.
+pas un résultat. Trois bras existent pour la présidentielle : le Blanc est
+retiré (`blank_vote_enabled: false`), il est un choix qui ne peut pas
+invalider le scrutin (le défaut), ou il le peut (`blank_vote_competitive`).
+La réactivité du président devrait être la plus haute sans Blanc, la plus
+basse avec le Blanc du défaut, et intermédiaire avec le Blanc compétitif.
+Seul le contraste avec et sans NOTA vient de l'article ; le bras compétitif est
+une extrapolation. Le premier bras est partiel : il retire le Blanc du dépouillement
+présidentiel, du sondage de campagne et des scrutins simulés, mais le prompt du
+modèle l'offre encore (un bulletin « blanc » compte alors comme une
+abstention) et le vote législatif le garde ; voir `polity_config.yaml`.
 
 ---
 

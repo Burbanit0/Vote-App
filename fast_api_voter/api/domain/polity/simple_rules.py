@@ -224,13 +224,18 @@ class FirstChoices:
     abstain: float
 
 
-def first_choices(citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig) -> FirstChoices:
+def first_choices(
+    citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig, *, blank_enabled: bool,
+) -> FirstChoices:
     """The poll a campaign sees: every citizen's utility ballot over the field, on the
     platforms as they stand. The sitting president's record is left out -- the poll is taken
-    before the election decides whose record is judged."""
+    before the election decides whose record is judged. With the blank not a choice
+    (`blank_enabled` false) a citizen's first choice is their first candidate."""
     tally: Counter[str] = Counter()
     for citizen in citizens:
         ballot = utility_ballot(citizen, candidates, vote)
+        if ballot is not None and not blank_enabled:
+            ballot = [label for label in ballot if label != BLANK_LABEL] or None  # an empty field: nobody to vote for
         tally[ABSTAIN if ballot is None else ballot[0]] += 1
     total = len(citizens)
     return FirstChoices(
@@ -261,6 +266,16 @@ def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = B
     if label not in ballot:
         return False
     return ballot.index(label) < ballot.index(blank_label)
+
+
+def without_blank(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> list[list[str]]:
+    """`ballots` as counted when the Blank is not a choice (`institutions.blank_vote_enabled:
+    false`): the blank dropped from every ranking, so a voter who finds no candidate acceptable
+    still ranks them, and the Blank cannot win. A ballot that held only the blank (an LLM
+    `blank=1`) counts for no one. The ballots themselves stay as cast: `mandate_strength` and
+    `approval` still read the blank as the voter's own acceptability line."""
+    stripped = [[label for label in ballot if label != blank_label] for ballot in ballots]
+    return [ballot for ballot in stripped if ballot]
 
 
 def blank_share(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> float:

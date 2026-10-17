@@ -1,7 +1,7 @@
 # EXP-024 — Bake-off : le modèle suit-il la position ou le candidat, et que changent le vocabulaire et l'ordre des champs
 
 - **Date** : 2026-10-16 · **Statut** : suspendu (l'ordre des candidats et l'ordre des champs sont des décisions
-  du propriétaire ; OBS-013 et OBS-049) · **Coût réel** : une séance, sur le GPU
+  du propriétaire ; OBS-013 et OBS-050) · **Coût réel** : une séance, sur le GPU
   partagé, une requête à la fois ; sept sessions de 1 à 5 minutes chacune (une de 17 cas, cinq de 81 dont le
   premier essai sans effet, une de 138) · **Coût en tokens** : non mesuré
 - **Verdict en une phrase** : le choix dépend de la position, et à partir de cinq candidats dans une liste le
@@ -65,7 +65,7 @@ inchangée sur les familles lues (un `vote_cast` invalide dans le contrôle comm
 porte des logprobs du bras échoue (13 sur 16 alignés) parce qu'une de ses six réponses est invalide (`blank=1` avec
 un classement non vide), pas parce que les probabilités seraient illisibles.
 
-**3. L'ordre des champs : une anomalie plus qu'un résultat** (OBS-049). Le client envoie le corps de la requête
+**3. L'ordre des champs : une anomalie plus qu'un résultat** (OBS-050). Le client envoie le corps de la requête
 avec ses clés triées (`sort_keys=True`, « octets canoniques pour une clé de cache future »), schéma compris :
 tout objet sort en ordre alphabétique. Les sorties du contrôle : `blank, cid, motif, ranking` (déclaré :
 `cid, blank, ranking, motif`), `act, cid, motif, target`, `motif, party_id, winner_position`. Les tours
@@ -107,7 +107,7 @@ avec un coût de régénération :
 - **Ordre des candidats** (OBS-013) : la preuve est là, à partir de cinq candidats. Une tentative d'ordre par
   hachage (`fix/polity-candidate-order`, `fa78d71a`, non poussée) casse le contrôle d'inversion du bake-off, trois
   tests de scénario et les références golden.
-- **Ordre des champs** (OBS-049) : envoyer le schéma dans l'ordre déclaré change chaque hash de requête (golden,
+- **Ordre des champs** (OBS-050) : envoyer le schéma dans l'ordre déclaré change chaque hash de requête (golden,
   journaux de relecture) et demande une autre canonicalisation pour la clé de cache.
 
 Le vocabulaire est **rejeté** : aucun effet mesuré. Le seuil de l'étape 5 (« adopter un bras seulement s'il
