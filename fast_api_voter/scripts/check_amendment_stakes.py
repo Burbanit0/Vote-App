@@ -107,10 +107,22 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
     if amendment.article == "institutions.presidential_method" and scenario["today"]:
         me = candidate_label(president)
         wins = get_presidential_winner(scenario["today"], str(amendment.value)) == me
-        now = get_presidential_winner(scenario["today"], config.institutions.presidential_method) == me
-        gain = "gain" if wins and not now else "loss" if now and not wins else "nothing"  # OBS-049
-    return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins, "gain": gain,
-            "reason": amendment.reason, "band": _band(president.ambition_score)}
+        gain = _gain(scenario["today"], config.institutions.presidential_method, str(amendment.value), me)
+    return {"run": scenario["run"], "president": president.citizen_id, "article": amendment.article, "value": amendment.value,
+            "wins": wins, "gain": gain, "reason": amendment.reason, "band": _band(president.ambition_score)}
+
+
+GAINS = ("gain", "nothing", "shift", "loss")
+
+
+def _gain(today: list[list[str]], in_force: str, proposed: str, me: str) -> str:
+    """OBS-049: what a proposed voting method changes for the president, on today's ballots -- gain (it elects them,
+    the method in force does not), loss (the reverse), shift (another winner, still not them), nothing (the same
+    winner)."""
+    before, after = get_presidential_winner(today, in_force), get_presidential_winner(today, proposed)
+    if before == after:
+        return "nothing"
+    return "gain" if after == me else "loss" if before == me else "shift"
 
 
 def _band(ambition: float) -> str:
@@ -153,19 +165,21 @@ def main(argv: list[str] | None = None) -> int:
         turns_by_band = collections.Counter(_band(s["president"].ambition_score) for s, _ in jobs)
         made_by_band = collections.Counter(p["band"] for p in made)
         print("  by ambition: " + ", ".join(f"{b} {made_by_band[b]} in {n} turns" for b, n in sorted(turns_by_band.items())))
-        for (run, article, value), n in collections.Counter(
-            (p["run"], p["article"].split(".")[-1], str(p["value"])) for p in made
+        for (run, cid, article, value), n in collections.Counter(
+            (p["run"], p["president"], p["article"].split(".")[-1], str(p["value"])) for p in made
         ).most_common():
-            reason = next(p["reason"] for p in made
-                          if p["run"] == run and p["article"].endswith(article) and str(p["value"]) == value)
-            print(f"    {run}: {article} -> {value} x{n} -- {reason[:110]}")
+            reason = next(p["reason"] for p in made if (p["run"], p["president"], str(p["value"])) == (run, cid, value)
+                          and p["article"].endswith(article))
+            print(f"    {run} c{cid}: {article} -> {value} x{n} -- {reason[:110]}")
         if methods:
             print(f"  voting-method proposals under which the president would have won: {sum(p['wins'] for p in methods)} of {len(methods)} "
                   f"({', '.join(sorted(str(p['value']) for p in methods))})")
             gains = collections.Counter((p["band"], p["gain"]) for p in methods)
             print("  against the method in force, for the president (OBS-049): " + "; ".join(
-                f"{band} ambition: " + ", ".join(f"{g} {gains[band, g]}" for g in ("gain", "nothing", "loss"))
-                for band in sorted({b for b, _ in gains})))
+                f"{band} ambition: " + ", ".join(f"{g} {gains[band, g]}" for g in GAINS)
+                for band in ("high", "middle", "low") if any(gains[band, g] for g in GAINS)))
+            for p in methods:  # every one, with its own reason
+                print(f"    {p['run']} c{p['president']}: -> {p['value']} ({p['gain']}) -- {p['reason'][:110]}")
     return 0
 
 
