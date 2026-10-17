@@ -199,6 +199,12 @@ def test_todays_ballots_are_the_last_candidates_ranked_on_todays_opinions() -> N
     assert sum(ballot[0] == "citizen_2" for ballot in ballots) > len(ballots) / 2  # today's opinions, not the last count
     assert ballots_today(dataclasses.replace(state, last_ballots=None), president, load_config()) is None
 
+    config = load_config()
+    no_blank = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, blank_vote_enabled=False))
+    without = ballots_today(state, president, no_blank)
+    assert without is not None and all("Blank" not in ballot for ballot in without)  # the Blank is not a choice
+    assert len(without) == len(ballots)  # a voter with no acceptable candidate still ranks them
+
 
 
 def test_a_presidents_goal_follows_their_ambition_and_ambition_has_a_scale() -> None:

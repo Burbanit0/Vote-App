@@ -172,7 +172,7 @@ immédiatement toute fuite de non-déterminisme quand le LLM arrivera en v2.
 - [ ] `ballot_and_aggregation.py` est en parité avec le harness existant
 - [ ] Les 3 métriques v0 sont calculées et exportées
 - [ ] CI locale verte (Ruff, mypy strict, Bandit, Semgrep)
-- [ ] `THEORY.md` / `traceability.md` mis à jour via `/sync-theory`
+- [ ] `THEORY.md` / `traceability.md` mis à jour à la main
 
 **Critère de passage à la v1** : pouvoir répondre à la question « sur ces
 30 ans, combien de cohabitations, et combien de partis effectifs en fin de

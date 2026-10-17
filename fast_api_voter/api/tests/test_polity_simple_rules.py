@@ -9,7 +9,7 @@ import pytest
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import EventType, PressureAct
-from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig, load_config
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -27,11 +27,14 @@ from api.domain.polity.simple_rules import (
     declare_candidacy,
     deterministic_pressure_action,
     deterministic_reaction_to_event,
+    FirstChoices,
+    first_choices,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
     sympathizer_ratio,
     vacate_office,
+    without_blank,
 )
 
 
@@ -725,3 +728,18 @@ def test_deterministic_reaction_to_event_economic_shock_uses_absolute_magnitude(
     positive = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.5)
     negative = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=-0.5)
     assert positive == pytest.approx(negative)
+
+
+def test_without_blank_drops_the_blank_from_every_ranking_and_discards_a_ballot_left_empty():
+    ballots = [["c1", BLANK_LABEL, "c2"], [BLANK_LABEL, "c2", "c1"], [BLANK_LABEL], ["c2", "c1", BLANK_LABEL]]
+    assert without_blank(ballots) == [["c1", "c2"], ["c2", "c1"], ["c2", "c1"]]
+    assert ballots[0] == ["c1", BLANK_LABEL, "c2"]  # the cast ballots are left as cast
+
+
+def test_the_poll_reads_a_voters_first_candidate_when_the_blank_is_not_a_choice():
+    voters = [_citizen(i, (0.0,), blank_threshold=0.0) for i in range(4)]  # every candidate is beyond their tolerance
+    candidate = _citizen(10, (0.9,), blank_threshold=0.5)
+    declare_candidacy(candidate)
+    vote = load_config().vote
+    assert first_choices(voters, [candidate], vote, blank_enabled=True).blank == 1.0
+    assert first_choices(voters, [candidate], vote, blank_enabled=False) == FirstChoices(shares={10: 1.0}, blank=0.0, abstain=0.0)
