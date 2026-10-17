@@ -225,7 +225,7 @@ Effort minime, bénéfice immédiat, débloque le confort de tous les lots suiva
 | **Groupes Dependabot** (`groups:`) | `dependabot.yml` n'a aucun groupe → les 13 PR en cascade du 06/09 auraient été 2-3 PR. Cause racine identifiée, correctif de 20 min. | S | ⭐⭐⭐ | 📝📝 | ✅ PR #321 |
 | **Merge queue** | Résout structurellement l'invalidation en cascade (« doit être à jour avec develop ») : la queue rebase et teste en série toute seule. | S | ⭐⭐⭐ | 📝📝 | ✅ **fait et vérifié en direct** (PR #338, mergée par `app/mergify` en 15s, 0 intervention manuelle). Native GitHub bloquée (réservée aux repos publics *organisation* — 422 confirmé) ; pivot Mergify (gratuit OSS). Effet de bord utile : drift réel trouvé et corrigé — `develop` n'avait que 5 checks requis sur les 12 documentés (`scripts/setup-branch-protection.sh`), restauré en direct. `strict` (« up to date ») désactivé sur `develop` — Mergify l'a lui-même signalé bloquant en direct (« Configuration not compatible with a branch protection setting ») avant de fonctionner ; `required_status_checks` reste injecté automatiquement, pas dupliqué dans `.mergify.yml` |
 | **Ruff** (remplace flake8) | ~100× plus rapide, couvre flake8 + isort + pyupgrade + bugbear + une partie de bandit. Le meilleur ratio du plan. | S | ⭐⭐⭐ | 📝📝 | ✅ swap fidèle fait ; isort/pyupgrade/bugbear pas activés (scope creep — voir note du `[tool.ruff]`) |
-| **`uv`** (remplace pip en CI) | Installation Python drastiquement plus rapide + lockfile reproductible (aujourd'hui `requirements.txt` épinglé à la main). | M | ⭐⭐ | 📝📝 | ✅ swap fidèle fait (5 workflows + 4 Dockerfiles, vérifié par build Docker réel de chacun) ; `requirements.txt` reste la source de vérité, pas de migration `uv.lock`/`pyproject` — la reproductibilité de lockfile reste à faire, scope creep écarté comme pour Ruff |
+| **`uv`** (remplace pip en CI) | Installation Python drastiquement plus rapide + lockfile reproductible (aujourd'hui `requirements.txt` épinglé à la main). | M | ⭐⭐ | 📝📝 | ✅ swap fidèle fait (5 workflows + 4 Dockerfiles, vérifié par build Docker réel de chacun) ; `requirements.txt` reste la source de vérité, pas de migration `uv.lock`/`pyproject`, mais la reproductibilité de lockfile est faite autrement : `requirements.lock.txt` et `requirements-dev.lock.txt` (`uv pip compile`), installés par la CI, avec `scripts/check_python_lockfile_freshness.sh`, scope creep écarté comme pour Ruff |
 | **Cache CI** (npm / pip / couches Docker) | Boucle de feedback plus courte sur tous les lots suivants. | S | ⭐⭐ | 📝 | ✅ npm/pip déjà en place partout (vérifié) ; couches Docker ajoutées pour `image-scan` |
 | **`diff-cover`** | Exiger 100 % de couverture *sur les lignes modifiées d'une PR* — bien plus mordant qu'un seuil global à 90 % qu'on atteint en diluant. | S | ⭐⭐⭐ | 📝📝 | ✅ Backend CI + Frontend CI, gate PR uniquement ; depuis 2026-10-07 aussi sur les branches (`--branch-coverage`, Cobertura des deux côtés : `branch = true` côté backend, reporter `cobertura` de vitest côté frontend) — testé en local dans les deux sens (ligne couverte/non couverte) avant push ; pas de mirroir `ci-local/` (pas de branche de base dans une image Docker) |
 | **Codecov** | Commentaire de couverture par PR (pas sur les PR de forks : pas de token OIDC) + tendance visible dans le temps. | S | ⭐ | 📝 | ✅ compte créé par l'utilisateur ; upload backend+frontend câblé par OIDC (`use_oidc`, aucun token stocké, #827), `codecov.yml` (informational: true des deux côtés — diff-cover reste le seul gate réel), validé via `codecov.io/validate` |
@@ -247,7 +247,7 @@ avec un chiffre réel à la clé.
 | **`dependency-cruiser`** ou `eslint-plugin-boundaries` | Équivalent front : règles d'architecture sur les imports + cycles. | M | ⭐⭐ | 📝📝 | ✅ règle `lib-is-pure` bloquante dans `.dependency-cruiser.json` (`src/lib` ne doit pas importer `src/components`/`src/pages`, cf. CLAUDE.md — Playground), gate CI + `ci-local/`, imports type-only exemptés. Baseline propre (287 modules, 1558 deps, 0 violation), règle vérifiée en direct sur une violation synthétique injectée puis retirée. Épinglé `17.4.3` : `18.x` exige Node ≥22, ce repo est encore sur Node 20 |
 | **`deptry`** | Équivalent de knip pour Python (deps déclarées inutilisées / utilisées non déclarées). Détection présente côté front, absente côté back. | S | ⭐⭐ | 📝📝 | ✅ scope `api/` (exclut `scripts/` polity + `api/tests/`, par design de l'outil), baseline 0, `[tool.deptry]` dans `pyproject.toml`, câblé dans le cliquet qualité. Effet de bord : `ruff`/`pytest*` dupliqués dans `requirements.txt` retirés, `Dockerfile` dev installe désormais `requirements-dev.txt` aussi |
 | **Hooks Claude** (`settings.json`) | `PreToolUse` **bloquant** sur `engineParity.json` → rend impossible l'édition manuelle que `CLAUDE.md` interdit par écrit ; `PostToolUse` sur le moteur → rappel de régénérer la parité. ~~Le `.claude/` n'a aucun hook aujourd'hui~~ *(faux — les garde-fous graphify existaient déjà, corrigé)*. | M | ⭐⭐⭐ | 📝📝📝 | ✅ les deux hooks ajoutés (`.claude/hooks/*.py`), **testés en direct** : une vraie tentative d'`Edit` sur `engineParity.json` a été rejetée par le hook (pas juste simulée), checksum du fichier inchangé après |
-| **`madge`** | Cycles d'imports front + visualisation du graphe. | S | ⭐ | 📝 | ✅ `npm run madge:circular` + `scripts/audit.sh --quality`, informationnel (pas dans le cliquet, vu son ⭐ bas). 1 cycle trouvé (`useSimulationWorker.ts` ↔ `IdeologyHeatmap.tsx`), bénin — `import type` uniquement, éliminé à la compilation. Visualisation du graphe documentée mais pas générée (nécessite `graphviz`/`dot`, indisponible sans sudo) |
+| **`madge`** | Cycles d'imports front + visualisation du graphe. | S | ⭐ | 📝 | ✅ adopté puis retiré (`647a4f8d`, PR 4 : outillage mort) — `npm run madge:circular` + `scripts/audit.sh --quality`, informationnel (pas dans le cliquet, vu son ⭐ bas). 1 cycle trouvé (`useSimulationWorker.ts` ↔ `IdeologyHeatmap.tsx`), bénin — `import type` uniquement, éliminé à la compilation. Visualisation du graphe documentée mais pas générée (nécessite `graphviz`/`dot`, indisponible sans sudo) |
 
 ---
 
@@ -3460,24 +3460,3 @@ Lot 14 (dette du Lot 6)         ← HORS FLUX : après Lot 6, sinon jamais —
   branche invalide les PR entre elles (leçon du 06/09).
 - Chiffrer avant/après quand c'est possible — un plan d'exploration sans mesure
   ne produit pas de récit crédible.
-
----
-
-> ## ⚠️ CETTE COPIE EST PÉRIMÉE — ne pas s'y fier (constaté 2026-09-11)
->
-> Le fichier faisant autorité est sur **`develop`** : **1597 lignes** contre **611 ici**,
-> soit ~1000 lignes de Lots et de verdicts absents de cette copie. Le plan a été tenu à
-> jour PR par PR sur `develop` pendant que le worktree polity suivait son propre chantier.
->
-> Pour le lire :
-> ```
-> git show origin/develop:PLAN_SOLIDITE_TECHNIQUE.md | less
-> ```
->
-> État réel constaté sur `develop` le 2026-09-11 : **Lots 0 à 8 livrés** (sauf Webkit e2e,
-> bloqué sur `sudo`, et l'étage 3 du Lot 0.5), **Lots 9 à 14 non commencés** — sécurité
-> approfondie, observabilité, outillage Claude, économie de tokens, synthèse, dette du Lot 6.
->
-> Piège de lecture à connaître : le Lot 0.1 affiche encore `❌ à créer` pour
-> `docs/exploration/EXP-*.md` et `docs/journal/commits.jsonl`. **Les deux existent et
-> tournent** depuis le 8 septembre. Une case non cochée n'est pas une preuve d'inaction.

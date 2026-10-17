@@ -49,7 +49,7 @@ gates it — see "Why no top-level `paths:` filter" below). In order:
 |---|---|---|---|
 | Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | blocking | see the script's own header |
 | Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
-| Ruff | `ruff check fast_api_voter` | blocking, pyflakes (`F`) only | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
+| Ruff | `ruff check fast_api_voter` | blocking, `F` + `NPY002` (test-integrity rules on tests only) | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |
 | pip-audit | `pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip` | blocking (CVEs), on the exact pins the production image installs | — |
@@ -80,7 +80,7 @@ Called on every PR (paths-gated the same way: `voter-app/**`, or backend files o
 `fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
 `polity` and `polity-ui`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
-as a fixture, then runs the suite (chromium + firefox + webkit + mobile) in two
+as a fixture, then runs the suite (chromium + firefox + webkit + mobile + the Pyodide `static` build) in two
 shards (`Playwright E2E (shard 1/2)`, `(shard 2/2)`, `--shard=N/2 --reporter=blob`).
 The required "Playwright E2E" is the job after them: it checks both shards left a
 blob report, merges them (`playwright merge-reports --config playwright.config.ts`),
