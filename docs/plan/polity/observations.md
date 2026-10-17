@@ -2539,6 +2539,46 @@ second, near sample of the same arm.
   - Consistent with the cuts driving the jumps, still not a test.
 - **Recalls:** none, with 10 full terms (`check_observations.py recalls`, as for phase14).
 
+*Phase16 (2026-10-17): the arms separate the two causes.* Phase16 (`~/Documents/Dev/polity-runs/phase16/`, 5b5b8be8, #960)
+has phase15's settings with one mechanism switched off per arm. It ran 5 seeds per arm.
+- `forward-only`: `--without ambition-goal`, so D8's goal and a bare ambition number.
+- `ambition-only`: `--without forward-stakes`, so ADR-026's stakes, recounting the last election.
+
+| | both off (phase13) | forward-only | ambition-only | both on (phase14-15) |
+|---|---:|---:|---:|---:|
+| runs | 5 | 5 | 5 | 10 |
+| amendments proposed | 31 | 19 | 33 | 75 |
+| proposals extending the president's own hold | 9 (29%) | 6 (32%) | 22 (67%) | 30 (40%) |
+| ... in how many runs | 5 | 2 | 5 | 7 |
+| voting-method proposals (runs) | 0 (0) | 4 (3) | 0 (0) | 15 (6) |
+| reasons naming the president's own interest (regex above) | 10 (32%) | 5 (26%) | 4 (12%) | 47 (63%) |
+| seat-based effective number of parties, median | 7.02 | 8.55 | 4.76 | 6.68 |
+| peak live parties, by seed | 23-28 | 25-31 | 22-26 | 21-48 |
+| founding-ratio cuts ratified | 0 | 0 | 0 | 2 |
+
+"Extending the president's own hold" counts proposals that raise the term limit (or abolish it), raise the petition
+threshold, or lower the recall floor.
+
+- **The ambition goal drives the self-serving acts.**
+  - Without the forward stakes, two proposals in three extend the president's hold, in every run.
+  - 21 of the 33 raise the term limit. 24 of the 33 come from presidents of high ambition.
+  - They are worded as stability: "Secure indefinite leadership for policy continuity", "Extend my tenure to ensure
+    long-term stability and policy continuity". That is why the regex, which looks for "re-election", "my party"
+    and the like, finds only 12%.
+- **The forward stakes drive the voting-method proposals.** There are 4 in 3 runs with the stakes alone, and none with
+  the goal alone or with neither.
+- **Self-interest said outright needs both.**
+  - The regex's 63% appears only with both on.
+  - The goal gives the motive; the stakes give the words: "you" winning under a method, "my party's" seats.
+  - The reasons measure how the motive is put, not whether it is there.
+- **No founding-ratio cut, no jump.** Neither arm cut the ratio, and neither peaked above 31 parties. That makes 23
+  seeds without a cut and none above 31, against the 2 seeds with a cut at 43 and 48. Consistent with the cuts
+  driving the jumps; run 3, with the ratio frozen, is still the test.
+- **Recalls:** none in either arm.
+
+*Evidence:* `~/Documents/Dev/polity-runs/probes/arms.py` prints every row above from the runs' `events.jsonl` and
+`checkpoint.json`. The quotes are `amendment_proposed` reasons in `phase16/ambition-only`.
+
 *Status: decided.*
 
 ### OBS-049
