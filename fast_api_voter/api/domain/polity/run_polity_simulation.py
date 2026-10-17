@@ -1393,8 +1393,8 @@ def _president_briefing(
         pledge=pledge, stated=stated,
         constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
         stakes=stakes_text(
-            config, president, ballots_today(state, president, config), legislature,
-            barred=is_term_limited(president, config.institutions.president_term_limit),
+            config, president, stakes_ballots(state, president, config), legislature,
+            barred=is_term_limited(president, config.institutions.president_term_limit), forward=config.agents.forward_stakes,
         ) if stakes_open else None,
     )
 
@@ -2142,6 +2142,12 @@ def _judged_incumbent(
 def _counted(ballots: list[list[str]], config: PolityConfig) -> list[list[str]]:
     """The ballots as a tally reads them: the Blank is on them only while it is a choice."""
     return ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
+
+
+def stakes_ballots(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+    """The ballots the president's voting-method stakes count: today's (ADR-027), or with `agents.forward_stakes`
+    off the last election's as cast (ADR-026, OBS-048's arm)."""
+    return ballots_today(state, president, config) if config.agents.forward_stakes else state.last_ballots
 
 
 def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:

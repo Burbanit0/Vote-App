@@ -720,6 +720,12 @@ class AgentsConfig:
     """ADR-026: the president's briefing shows what the last elections would have given under other rules --
     the last presidential ballots counted under each voting method, the last legislative votes re-seated
     under each seat rule and threshold. Facts, no advice (C3/C4)."""
+    forward_stakes: bool = True
+    """ADR-027: the stakes count the ballots the citizens would cast today. False counts the last election's as cast
+    (ADR-026's stakes) -- an arm that separates ADR-027 from ADR-028 (OBS-048)."""
+    ambition_goal: bool = True
+    """ADR-028: the president's goal follows their ambition, and every persona puts its ambition on a scale. False
+    undoes both -- D8's single goal, the bare number -- the other arm of OBS-048."""
     forum: bool = False
     """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
     launched a petition post, or stay silent, in a turn of their own, and read what their
@@ -1526,6 +1532,8 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             turn_temperature=_get_nonneg_float(_section(raw, "agents"), "agents", "turn_temperature"),
             amendments=_get(_section(raw, "agents"), "agents", "amendments", bool),
             amendment_stakes=_get(_section(raw, "agents"), "agents", "amendment_stakes", bool),
+            forward_stakes=_get(_section(raw, "agents"), "agents", "forward_stakes", bool),
+            ambition_goal=_get(_section(raw, "agents"), "agents", "ambition_goal", bool),
             forum=_get(_section(raw, "agents"), "agents", "forum", bool),
             forum_size=_get_positive_int(_section(raw, "agents"), "agents", "forum_size"),
             stance_step=_get_nonneg_float(_section(raw, "agents"), "agents", "stance_step"),

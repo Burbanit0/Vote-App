@@ -91,6 +91,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -137,6 +138,7 @@ def _flagship_config(
     base_url: str | None = None,
     threshold: float | None = None,
     freeze_amendments: bool = False,
+    without: Sequence[str] = (),
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -248,10 +250,16 @@ def _flagship_config(
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
     config = _exploration_config(config) if profile == "exploration" else config
-    return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments)
+    return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments, without=without)
 
 
-def _experiment_overrides(config: PolityConfig, *, threshold: float | None, freeze_amendments: bool) -> PolityConfig:
+WITHOUT = {"forward-stakes": "forward_stakes", "ambition-goal": "ambition_goal"}
+"""OBS-048's arms: a mechanism `--without` turns off, and the agents switch that does it."""
+
+
+def _experiment_overrides(
+    config: PolityConfig, *, threshold: float | None, freeze_amendments: bool, without: Sequence[str] = (),
+) -> PolityConfig:
     """PLAN_BEYOND_CI W2.1's two knobs, applied after the profile, which sets amendments and
     regime from llm.enabled and would otherwise overwrite them. `threshold` is the seat bar
     under test. `freeze_amendments` keeps it there: the chamber can no longer amend the
@@ -274,6 +282,13 @@ def _experiment_overrides(config: PolityConfig, *, threshold: float | None, free
             regime=dataclasses.replace(config.regime, enabled=False),
             constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
         )
+    for name in without:  # OBS-048's arms; checked after the freeze, which would leave them nothing to turn off
+        if name not in WITHOUT:
+            raise ValueError(f"--without {name!r}: one of {sorted(WITHOUT)}")
+        if not (config.agents.amendment_stakes if name == "forward-stakes" else config.agents.president):
+            raise ValueError(f"--without {name}: nothing to turn off -- it needs the "
+                             f"{'amendment stakes' if name == 'forward-stakes' else 'president agent'} (the exploration profile, unfrozen)")
+        config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[name]: False}))
     return config
 
 
@@ -533,6 +548,7 @@ def run_flagship(
     base_url: str | None = None,
     threshold: float | None = None,
     freeze_amendments: bool = False,
+    without: Sequence[str] = (),
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -552,6 +568,7 @@ def run_flagship(
         base_url=base_url,
         threshold=threshold,
         freeze_amendments=freeze_amendments,
+        without=without,
     )
     validate_config(config)
 
@@ -772,6 +789,10 @@ def main(argv: list[str] | None = None) -> int:
         "--freeze-amendments", action="store_true",
         help="no amendment, regime act or method referendum, so the run keeps the rules it starts with (W2.1)",
     )
+    parser.add_argument(
+        "--without", action="append", choices=sorted(WITHOUT), default=[],
+        help="turn one mechanism off, for an arm that isolates the other (OBS-048); repeatable",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
     parser.add_argument(
@@ -823,6 +844,7 @@ def main(argv: list[str] | None = None) -> int:
         base_url=args.base_url,
         threshold=args.threshold,
         freeze_amendments=args.freeze_amendments,
+        without=args.without,
     )
     return 0
 

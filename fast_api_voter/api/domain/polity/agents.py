@@ -158,6 +158,10 @@ def _ambition_scale(ambition: float) -> str:
     return "moderate: more than most citizens" if ambition >= LOW_AMBITION else "low, like most citizens'"
 
 
+D8_GOAL = "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+"""Decision D8's goal, every president's before ADR-028; the middle band's still."""
+
+
 def president_goal(president: Citizen) -> str:
     """ADR-028: what the president wants, from their ambition -- like anyone, a president may put their own interest
     before the country's, the more so the more they want office. A motive (C1), never an act to take (C4)."""
@@ -165,11 +169,11 @@ def president_goal(president: Citizen) -> str:
         return ("Keeping office matters more to you than your convictions or the country's interest, and you watch where "
                 "opinion is heading so as not to be caught out by it.")
     if president.ambition_score >= LOW_AMBITION:
-        return "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+        return D8_GOAL
     return "Your convictions and the country's interest matter more to you than keeping office."
 
 
-def persona(citizen: Citizen) -> str:
+def persona(citizen: Citizen, scale: bool = True) -> str:
     """Who the agent is, from their numbers alone -- stable across ticks, so it sits in the
     system prompt and is served from the prefix cache. The numbers stay the kernel's truth."""
     top = sorted(range(len(ISSUES)), key=lambda d: (-citizen.issue_priorities[d], d))[:3]
@@ -180,7 +184,8 @@ def persona(citizen: Citizen) -> str:
     return (
         f"You are {agent_name(citizen)} (citizen {citizen.citizen_id}), a member of {party}. "
         f"The issues you care most about: {', '.join(ISSUES[d].name for d in top)}. "
-        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f} -- {_ambition_scale(citizen.ambition_score)}.\n"
+        f"Your ambition, from 0 to 1: {citizen.ambition_score:.2f}"
+        f"{f' -- {_ambition_scale(citizen.ambition_score)}' if scale else ''}.\n"  # no scale: before ADR-028
         f"Your own convictions on each issue (0 = the first pole, 1 = the second):\n{views}"
     )
 
@@ -370,8 +375,9 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
         rules.append(_regime_rules(config))
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
-        f"{persona(president)}\n\n"
-        f"You are now its president. {president_goal(president)}\n\nThe rules you act under:\n"
+        f"{persona(president, config.agents.ambition_goal)}\n\n"
+        f"You are now its president. {president_goal(president) if config.agents.ambition_goal else D8_GOAL}\n\n"
+        "The rules you act under:\n"
         + "\n".join(f"- {rule}" for rule in rules)
         + f"\n\n{_ANSWER_FORMAT}"
     )
@@ -467,7 +473,7 @@ def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:
         rules.append(_campaign_rules())
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
-        f"{persona(nominee)}\n\n"
+        f"{persona(nominee, config.agents.ambition_goal)}\n\n"
         "You are your party's nominee for president. You want to win and to govern by your convictions; how you "
         "weigh the two is yours to decide.\n\nThe rules of the campaign:\n"
         + "\n".join(f"- {rule}" for rule in rules)
@@ -672,7 +678,7 @@ def ballot_system_prompt(member: Citizen, config: PolityConfig) -> str:
     chamber = config.sortition_chamber
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
-        f"{persona(member)}\n\n"
+        f"{persona(member, config.agents.ambition_goal)}\n\n"
         f"You sit in the citizens' chamber: {chamber.seats} citizens drawn by lot, for {chamber.term_years} "
         "year(s). When the president proposes an amendment to the constitution, each member votes yes or no, "
         "for themselves: how you weigh your own convictions, your party and the public good is yours to decide. "
@@ -787,7 +793,7 @@ def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
     """A forum participant's rules and who they are -- stable between amendments, so a prefix."""
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
-        f"{persona(citizen)}\n\n"
+        f"{persona(citizen, config.agents.ambition_goal)}\n\n"
         "Each tick you may say one thing on the public forum, or keep silent. You read what your neighbours, "
         "the president and, if you sit in the citizens' chamber, the other members posted. What you say and "
         "whether you say anything is yours to decide.\n\n"
@@ -850,7 +856,7 @@ def coalition_system_prompt(leader: Citizen, party_id: int, config: PolityConfig
     """The talks' rules and who the leader is -- stable for the run, so a prefix."""
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
-        f"{persona(leader)}\n\n"
+        f"{persona(leader, config.agents.ambition_goal)}\n\n"
         f"You lead party {party_id}, which won seats in the new assembly. The leader of the largest party, the "
         f"formateur, is trying to form a government: a coalition holding more than {config.parties.coalition_majority_ratio:.0%} "
         "of the seats. Each round you answer the formateur, join the coalition or not, and tell the other leaders what you "

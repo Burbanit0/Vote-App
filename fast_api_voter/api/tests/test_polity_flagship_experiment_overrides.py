@@ -52,18 +52,28 @@ def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) 
     assert frozen.constitution.scripted == () and frozen.institutions.electoral_threshold == 0.03
     kept = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=False)
     assert len(kept.constitution.scripted) == 1  # without the freeze, a scripted amendment is the run's own
+    assert (kept.agents.forward_stakes, kept.agents.ambition_goal) == (True, True)
+    arm = flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward-stakes"])
+    assert (arm.agents.forward_stakes, arm.agents.ambition_goal) == (False, True)  # OBS-048: one mechanism off
+    with pytest.raises(ValueError, match="nothing to turn off"):  # frozen, there are no stakes to recount
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=True, without=["forward-stakes"])
+    with pytest.raises(ValueError, match="one of"):
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward_stakes"])
 
 
 def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sweep: Any, tmp_path: Path) -> None:
     import argparse
 
     sweep = seed_sweep
-    args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True)
+    args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True, without=[])
     flags = sweep._run_flags(args)
     assert flags == ["--engine", "llm", "--profile", "exploration", "--threshold", "0.03", "--freeze-amendments"]
+    arm = sweep._run_flags(argparse.Namespace(engine="llm", profile="exploration", threshold=None, freeze_amendments=False,
+                                              without=["ambition-goal"]))
+    assert arm == ["--engine", "llm", "--profile", "exploration", "--without", "ambition-goal"]
     sweep._claim_output_dir(tmp_path, flags)
     sweep._claim_output_dir(tmp_path, flags)  # the same arm resumes
     with pytest.raises(SystemExit, match="use another --output-dir"):
         sweep._claim_output_dir(tmp_path, sweep._run_flags(argparse.Namespace(
-            engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True)))
+            engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True, without=[])))
 

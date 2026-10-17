@@ -101,14 +101,17 @@ _BARS = tuple(float(bar) for bar in (_THRESHOLD.low, 0.03, 0.05, 0.08, _THRESHOL
 
 def stakes_text(
     config: PolityConfig, president: Citizen, ballots: list[list[str]] | None, legislature: Legislature | None,
-    *, barred: bool = False,
+    *, barred: bool = False, forward: bool = True,
 ) -> str | None:
     """ADR-026: what the rules would give the president -- `ballots`, the citizens' ballots today over the last
     election's candidates (ADR-027: the next election, not the last), counted under each voting method; and the
     last legislative votes re-seated under each seat rule and threshold. Facts the kernel computes, so a
     self-interested proposal can be weighed (C3), with nothing said about which to propose (C4). None when there
-    is nothing to count yet."""
-    lines = [_method_stakes(president, ballots, config.institutions.presidential_method, barred) if ballots else None,
+    is nothing to count yet. `forward` False (OBS-048's arm): `ballots` are the last election's as cast, worded as
+    ADR-026 worded them."""
+    method = (_method_stakes(president, ballots, config.institutions.presidential_method, barred) if forward
+              else _method_stakes_as_cast(president, ballots)) if ballots else None
+    lines = [method,
              _seat_stakes(config, president, legislature) if legislature is not None and legislature.votes else None]
     return "\n".join(line for line in lines if line) or None
 
@@ -125,6 +128,15 @@ def _method_stakes(president: Citizen, ballots: list[list[str]], in_force: str, 
     limit = " -- but under the term limit in force you cannot stand again" if barred else ""
     return (f"If the last election's candidates stood again today, the citizens' ballots would elect you under: {yours}"
             f"{limit}." + (f" They would elect {others}." if others else ""))
+
+
+def _method_stakes_as_cast(president: Citizen, ballots: list[list[str]]) -> str:
+    """ADR-026's method line, before ADR-027: the last election recounted."""
+    elected: dict[str, list[str]] = {}
+    for method in ARTICLES["institutions.presidential_method"].choices:
+        elected.setdefault(_elected(get_presidential_winner(ballots, str(method)), president), []).append(str(method))
+    return ("Counted under each voting method, the last presidential election's ballots elect: "
+            + "; ".join(f"{who} under {', '.join(methods)}" for who, methods in elected.items()) + ".")
 
 
 def _seat_stakes(config: PolityConfig, president: Citizen, legislature: Legislature) -> str | None:
