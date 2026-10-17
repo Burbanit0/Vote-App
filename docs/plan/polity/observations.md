@@ -2601,17 +2601,26 @@ refer, and a candidate the forecast did not know won.**
 - **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would have
   answered this from the journal, without a replay.
 
-*Probe (2026-10-17): a pattern, not one president.* `check_amendment_stakes.py` now also compares a proposed method
-with the one in force, from the president's side: gain, loss, or nothing. It was run on the sitting presidents of
-the 30 finished exploration runs (phases 11-15, final states, 2 turns each, temperature 0.6).
+*Probe (2026-10-17): a pattern, not one president.* `check_amendment_stakes.py` now also judges a proposed
+method from the president's side, on today's ballots:
+- gain: it elects them, the method in force does not;
+- nothing: the same winner;
+- shift: another winner, still not them;
+- loss: they lose what the method in force gives them.
+
+It was run on the sitting presidents of the 30 finished exploration runs: phases 11-15, final states, 2 turns
+each, at temperature 0.6. 38 answers rejected by the kernel were replayed at 0.3, and 4 turns exhausted their
+retries. The log is `~/Documents/Dev/polity-runs/probes/method-gain-20261017.log`.
+
 - **Who could gain:** today's ballots elect 27 of the 30 under the method in force. No president loses under it
   and wins under another.
-- **Without the stakes:** no voting-method proposal in 60 turns.
-- **With the stakes:** 8 in 60 turns, from 5 presidents (7 plurality, 1 approval). All 8 would elect the
-  president, and all 8 change nothing for them, since the method in force already does. That holds in every
-  ambition band (high 2, middle 4, low 2).
-- **The reasons:** 3 of the 5 presidents cite re-election ("Switch to plurality to simplify re-election
-  prospects"), 2 cite procedure ("a more inclusive electoral process").
+- **Without the stakes:** 1 voting-method proposal in 60 turns (nothing).
+- **With the stakes:** 8 in 60 turns, from 5 presidents (5 plurality, 3 approval), all 8 "nothing".
+  - 7 would elect the president, as the method in force does.
+  - Middle ambition 5, low 3.
+- **The reasons:** 4 of the 8 cite re-election ("Switch to plurality to ensure re-election"), from 2 of the 5
+  presidents. The other 4 cite fairness or representation ("To ensure fairer elections by adopting a more inclusive voting
+  method").
 
 Showing a president every method that elects them reads as an invitation to switch to one, even when the method
 in force elects them too. Final states leave little room for a real gain (27 of 30 already win), so the probe
