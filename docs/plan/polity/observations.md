@@ -2601,6 +2601,37 @@ refer, and a candidate the forecast did not know won.**
 - **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would have
   answered this from the journal, without a replay.
 
+*Probe (2026-10-17): a pattern, not one president.* `check_amendment_stakes.py` now also judges a proposed
+method from the president's side, on today's ballots:
+- gain: it elects them, the method in force does not;
+- nothing: the same winner;
+- shift: another winner, still not them;
+- loss: they lose what the method in force gives them;
+- barred: the term limit stops them standing at all.
+
+It was run on the sitting presidents of the 30 finished exploration runs (phases 11-15, final states), 2 turns
+each, with and without the stakes, at temperature 0.6. The log is
+`~/Documents/Dev/polity-runs/probes/method-gain-20261017b.log`.
+
+- **Who could gain:** 6 of the 30 are barred by the term limit. Of the other 24, today's ballots elect 21 under
+  the method in force, none loses under it and wins under another, and 3 lose under every method.
+- **Without the stakes:** 2 voting-method proposals in 60 turns, both "nothing".
+- **With the stakes:** 7 in 60 turns, from 5 presidents (5 plurality, 2 approval).
+  - 6 change nothing.
+  - 1 shifts the win to another candidate (phase11 seed 8: neither method elects that president).
+  - None is a gain.
+- **The reasons:** 6 of the 7 name the president's re-election or party, from 4 of the 5 presidents ("Switch to
+  plurality to simplify re-election prospects", "favor my party's strengths").
+- **Answers rejected by the kernel:** 29 of the probe's answers were rejected and replayed at temperature 0.3.
+  - 23 tried to abolish the term limit, which the kernel refuses while `regime.enabled` needs a finite one.
+  - 4 turns exhausted their retries, all without the stakes; they are counted apart, not as "no proposal".
+- **A run before the count was fixed** (`method-gain-20261017.log`) went the same way: 1 proposal without the
+  stakes, 8 with, none a gain.
+
+Showing a president every method that elects them reads as an invitation to switch to one, even when the method
+in force elects them too. Final states leave little room for a real gain (21 of 24 eligible presidents already
+win), so the probe cannot say whether presidents who could gain choose the method that gives it.
+
 *Status: cause found.*
 
 ### OBS-050
