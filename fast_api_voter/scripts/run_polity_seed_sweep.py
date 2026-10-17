@@ -92,6 +92,7 @@ def _run_flags(args: argparse.Namespace) -> list[str]:
         "--engine", args.engine, "--profile", args.profile,
         *(["--threshold", repr(args.threshold)] if args.threshold is not None else []),
         *(["--freeze-amendments"] if args.freeze_amendments else []),
+        *(flag for w in args.without for flag in ("--without", w)),
     ]
 
 
@@ -404,6 +405,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=("flagship", "exploration"), default="flagship")
     parser.add_argument("--threshold", type=float, default=None, help="passed to run_polity_flagship.py --threshold")
     parser.add_argument("--freeze-amendments", action="store_true", help="passed to run_polity_flagship.py")
+    parser.add_argument("--without", action="append", choices=("ambition-goal", "forward-stakes"), default=[],
+                        help="passed to run_polity_flagship.py (OBS-048's arms); repeatable")
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/seed_sweep_runs"))
     parser.add_argument(
         "--resume-sweep", action="store_true",

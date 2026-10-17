@@ -100,6 +100,10 @@ def test_the_system_prompt_states_the_rules_in_force_and_no_others() -> None:
     assert "propose one bill" not in president_system_prompt(_president(), _CONFIG)
     unlimited = dataclasses.replace(_CONFIG, institutions=dataclasses.replace(_CONFIG.institutions, president_term_limit=None))
     assert "no limit on terms" in president_system_prompt(_president(), unlimited)
+    driven = dataclasses.replace(_president(), ambition_score=0.6)
+    assert "Keeping office matters more to you" in president_system_prompt(driven, _CONFIG)  # ADR-028
+    d8 = dataclasses.replace(_CONFIG, agents=dataclasses.replace(_CONFIG.agents, ambition_goal=False))
+    assert "You want to govern by your convictions and to keep office" in president_system_prompt(driven, d8)  # D8, OBS-048's arm
 
 
 def _briefing(**kwargs: Any) -> PresidentBriefing:

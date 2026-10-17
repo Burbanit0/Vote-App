@@ -134,7 +134,9 @@ def test_the_amendment_is_a_required_field_a_president_may_set_to_null() -> None
         AmendingLeaderTurn(**base)
 
 
-def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_proposal_is_open(tmp_path: Any) -> None:
+def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_proposal_is_open(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import numpy as np
 
     from api.domain.polity import run_polity_simulation as engine
@@ -149,15 +151,16 @@ def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_pr
     member = Citizen(citizen_id=7, issue_positions=(0.4, 0.4), issue_priorities=(0.5, 0.5), blank_threshold=0.5,
                      ambition_score=0.5, sortition_seat_until_tick=20)
 
-    def briefing(*, stakes: bool, members: list[Citizen]) -> PresidentBriefing:
+    def briefing(*, stakes: bool, members: list[Citizen], forward: bool = True) -> PresidentBriefing:
         config = load_config()
-        config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, amendments=True, amendment_stakes=stakes))
+        config = dataclasses.replace(config, agents=dataclasses.replace(
+            config.agents, amendments=True, amendment_stakes=stakes, forward_stakes=forward))
         state = TickState(citizens=[president, *members], parties=[Party(2, (0.5, 0.5)), Party(0, (0.1, 0.1))],
                           rupture_rng=np.random.default_rng(0), events_rng=np.random.default_rng(0),
                           sortition_rng=np.random.default_rng(0), last_ballots=BALLOTS,
                           legislature=Legislature(policy=(0.5, 0.5), votes=VOTES, votes_tick=8))
         clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-        with Journal(tmp_path / f"e-{stakes}-{len(members)}.jsonl", "run") as journal:
+        with Journal(tmp_path / f"e-{stakes}-{len(members)}-{forward}.jsonl", "run") as journal:
             context = engine.TickContext(tick=9, config=config, journal=journal, client=None, clock=clock, graph=None,
                                          snapshots_path=tmp_path / "s.jsonl", election=None)
             return engine._president_briefing(context, state, president, (0.5, 0.5), (0.5, 0.5), None)
@@ -166,6 +169,9 @@ def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_pr
     assert shown is not None and shown.startswith("If the last election's candidates stood again today")
     assert briefing(stakes=False, members=[member]).stakes is None
     assert briefing(stakes=True, members=[]).stakes is None  # no chamber drawn: no amendment can be proposed
+    # OBS-048's arm: without ADR-027 the stakes count the last election's ballots as cast, not today's.
+    monkeypatch.setattr(engine, "ballots_today", lambda *_: pytest.fail("ADR-026's stakes count the ballots as cast"))
+    assert briefing(stakes=True, members=[member], forward=False).stakes is not None
 
 
 def test_the_method_in_force_is_named_among_the_others() -> None:

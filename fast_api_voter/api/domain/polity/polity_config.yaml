@@ -716,6 +716,9 @@ agents:
                               #   Exige agents.president et sortition_chamber.enabled.
   amendment_stakes: false     # ADR-026 : le président voit ce que les dernières élections auraient donné
                               #   sous d'autres règles (chaque mode de scrutin, chaque répartition des sièges)
+  forward_stakes: true        # ADR-027 : ces enjeux comptent les bulletins d'aujourd'hui (false : ceux de la
+                              #   dernière élection, tels qu'exprimés -- un bras d'OBS-048)
+  ambition_goal: true         # ADR-028 : le but du président suit son ambition (false : le but unique de D8)
   forum: false                # true = la chambre tirée au sort et les citoyens qui viennent de lancer
                               #   une pétition (8 ticks) postent ou se taisent, chacun dans un tour,
                               #   et lisent leurs voisins, le président et (pour la chambre) leurs

@@ -1393,7 +1393,8 @@ def _president_briefing(
         pledge=pledge, stated=stated,
         constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
         stakes=stakes_text(
-            config, president, ballots_today(state, president, config), legislature,
+            config, president, ballots_today(state, president, config) if config.agents.forward_stakes else state.last_ballots,
+            legislature,
             barred=is_term_limited(president, config.institutions.president_term_limit),
         ) if stakes_open else None,
     )

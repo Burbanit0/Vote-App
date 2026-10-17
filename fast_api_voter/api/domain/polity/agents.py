@@ -158,6 +158,10 @@ def _ambition_scale(ambition: float) -> str:
     return "moderate: more than most citizens" if ambition >= LOW_AMBITION else "low, like most citizens'"
 
 
+D8_GOAL = "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+"""Decision D8's goal, every president's before ADR-028; the middle band's still."""
+
+
 def president_goal(president: Citizen) -> str:
     """ADR-028: what the president wants, from their ambition -- like anyone, a president may put their own interest
     before the country's, the more so the more they want office. A motive (C1), never an act to take (C4)."""
@@ -165,7 +169,7 @@ def president_goal(president: Citizen) -> str:
         return ("Keeping office matters more to you than your convictions or the country's interest, and you watch where "
                 "opinion is heading so as not to be caught out by it.")
     if president.ambition_score >= LOW_AMBITION:
-        return "You want to govern by your convictions and to keep office; how you weigh the two is yours to decide."
+        return D8_GOAL
     return "Your convictions and the country's interest matter more to you than keeping office."
 
 
@@ -371,7 +375,8 @@ def president_system_prompt(president: Citizen, config: PolityConfig) -> str:
     return (
         "You are playing a citizen of a simulated democracy, in the first person.\n\n"
         f"{persona(president)}\n\n"
-        f"You are now its president. {president_goal(president)}\n\nThe rules you act under:\n"
+        f"You are now its president. {president_goal(president) if config.agents.ambition_goal else D8_GOAL}\n\n"
+        "The rules you act under:\n"
         + "\n".join(f"- {rule}" for rule in rules)
         + f"\n\n{_ANSWER_FORMAT}"
     )

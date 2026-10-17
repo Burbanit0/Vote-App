@@ -1,10 +1,12 @@
 {
   "agents": {
+    "ambition_goal": true,
     "amendment_stakes": false,
     "amendments": false,
     "coalition": false,
     "forum": false,
     "forum_size": 30,
+    "forward_stakes": true,
     "nominees": false,
     "party_moves": false,
     "president": false,
