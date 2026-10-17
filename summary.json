@@ -1590,7 +1590,7 @@
   "test-flaky": 32,
   "unknown": 2
  },
- "generated_at": "2026-10-17T07:57:39Z",
+ "generated_at": "2026-10-17T11:36:24Z",
  "grid": {
   "Backend CI": {
    "2026-09-17": {
@@ -1688,7 +1688,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-17": {
-    "success": 5
+    "success": 4
    },
    "2026-09-18": {
     "success": 13
@@ -1832,7 +1832,7 @@
     "success": 24
    },
    "2026-10-17": {
-    "success": 17
+    "success": 18
    }
   },
   "CI Health Watchdog": {
@@ -1930,7 +1930,7 @@
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "2026-09-17": {
-    "success": 3
+    "success": 2
    },
    "2026-09-18": {
     "success": 3
@@ -1976,7 +1976,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-17": {
-    "success": 7
+    "success": 6
    },
    "2026-09-18": {
     "success": 26
@@ -2881,9 +2881,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-17T07:13:43Z",
+   "created_at": "2026-10-17T07:57:30Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39012847745"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39015559025"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2991,7 +2991,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38998322965"
   }
  },
- "runs": 14374,
+ "runs": 14372,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3031,7 +3031,7 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-17": 238,
+    "2026-09-17": 238.0,
     "2026-09-18": 244,
     "2026-09-19": 271.0,
     "2026-09-20": 240.0,
@@ -3066,7 +3066,7 @@
    "p50_s": 680,
    "p95_s": 1116,
    "queue_p50_s": 0,
-   "runs": 152
+   "runs": 151
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3118,12 +3118,12 @@
     "2026-10-14": 430.5,
     "2026-10-15": 383,
     "2026-10-16": 389.5,
-    "2026-10-17": 328
+    "2026-10-17": 329.0
    },
-   "p50_s": 396,
+   "p50_s": 395,
    "p95_s": 582,
    "queue_p50_s": 0,
-   "runs": 473
+   "runs": 474
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3162,7 +3162,7 @@
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-09-17": 1840,
+    "2026-09-17": 1838.0,
     "2026-09-18": 1833,
     "2026-09-19": 1833,
     "2026-09-24": 1837,
@@ -3177,14 +3177,14 @@
     "2026-10-15": 1850,
     "2026-10-17": 1844.5
    },
-   "p50_s": 1838,
+   "p50_s": 1837,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 27
+   "runs": 26
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-17": 169,
+    "2026-09-17": 169.5,
     "2026-09-18": 170.0,
     "2026-09-19": 169.0,
     "2026-09-20": 175.5,
@@ -3219,7 +3219,7 @@
    "p50_s": 174,
    "p95_s": 201,
    "queue_p50_s": 0,
-   "runs": 224
+   "runs": 223
   },
   "Dependency Review": {
    "daily_p50_s": {
