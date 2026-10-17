@@ -115,14 +115,14 @@ no pre-existing hosted instance to link to (see the note at the top of this file
 ```bash
 python -m pytest api/tests -o addopts="" -q   # unit tests (-o addopts="" skips the coverage gate)
 mypy api/                                      # strict, must stay clean
-ruff check .                                   # pyflakes (F) errors are gating
+ruff check .                                   # F (pyflakes) + NPY002, plus test-integrity rules on tests
 ```
 
 ### Frontend (`voter-app/`)
 
 ```bash
 npm test                 # Vitest unit tests
-npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile)
+npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile + static; the static build needs Python)
 npm run test:a11y        # axe-core WCAG 2.1 AA audit
 npm run build            # tsc --noEmit && vite build (PWA manifest + service worker)
 npm run lint             # eslint (0 errors is gating)
@@ -141,7 +141,7 @@ and privacy posture: [`analytics/README.md`](analytics/README.md).
 
 ## Routes
 
-The app is anonymous (no accounts), with five real destinations:
+The app is anonymous (no accounts), with six real destinations:
 
 | Route | Description |
 |---|---|
@@ -150,6 +150,7 @@ The app is anonymous (no accounts), with five real destinations:
 | `/playground` | **The instrument** — 5-moment rail, ideological map + lenses, Dirigeant/Assemblée |
 | `/laboratoire` | Everything deeper — theory, paradoxes, mechanisms, systems, behavioural realism (reads the same electorate state as the Playground) |
 | `/a-vous-de-jouer` | Vote yourself in a real election under 5 ballot languages |
+| `/polity` | Polity: a simulated democracy replayed run by run (population map, elections, events) |
 
 All retired routes (`/theory`, `/what-if`, `/quiz`, `/quadratic-funding`,
 `/tech-democracy`, `/regimes-internationaux`, `/election-lab`, `/campagne`,
@@ -238,13 +239,14 @@ and — visible directly in this repo — a real hardening effort on how the
 project itself is built and tested. Both are treated as things that need
 evidence, not just a claim.
 
-- **[Four narrative write-ups](docs/stories/README.md)** — a green coverage
+- **[Five narrative write-ups](docs/stories/README.md)** — a green coverage
   badge that turns out to measure execution, not reachability; a table of
   quality tools that tracks the rejects with the same rigor as the adoptions;
   voting theory's own axioms (Condorcet, monotonicity, independence of
   clones…) turned into fuzzed executable tests; four documented-but-unenforced
   conventions turned into blocking gates, two of which caught real, unfixed
-  debt.
+  debt; and, from Polity, an LLM-decision audit whose answer did not depend on the
+  question.
 - **[22 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
   — adopt, reject, or suspend, backed by real findings and real cost rather
   than "we added X."

@@ -16,8 +16,9 @@ acceptance criterion written *before* the step runs.
 ## 0. How this plan is run
 
 **Reference branch: `polity`.** It is the integration branch for the whole polity
-feature. `develop` is merged into `polity` periodically (last sync: `c26e3af4`,
-2026-09-13); `polity` goes to `develop` only once the debt ledger below is settled.
+feature. Since 2026-09-27 `polity` is the working branch and `develop` only receives
+release syncs from it (see `CLAUDE.md`, "Workflow", and the `release` skill); the
+debt ledger below was settled (S3.5) before the first one.
 
 **One branch per step.** `feat/polity-<step>` (or `fix/`, `docs/`) cut from `polity`,
 merged back with `--no-ff`, pushed. Never commit a step directly on `polity`.

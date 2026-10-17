@@ -21,8 +21,9 @@ skill; this skill is about *this app's* structure and its non-obvious traps.
   New in-place visualisation (a sparkline, a band, an overlay) → **native SVG**, like the
   campaign "value of the result" trajectory. Do NOT reach for Recharts here.
 - **Recharts only inside `Collapsible`-gated exploration panels**, never in the always-mounted
-  central canvases. It is heavy and isolated as its **own manual chunk**
-  (`vite.config.ts` `manualChunks`) — idle-prefetched once on the playground
+  central canvases. It is heavy and deliberately has **no manual chunk**
+  (under Rolldown one swallowed React and preloaded all of recharts on every page;
+  see the comment in `vite.config.ts`, where only d3 is split out) — idle-prefetched once on the playground
   (`PlaygroundController.tsx`), and per-fiche hover/focus-prefetched on the Laboratoire (see
   the form-lock invariant below for the difference).
 - **Canvas 2D only for dense point clouds** (ADR-013): the Polity page's population map, one
@@ -45,8 +46,8 @@ opening a real-compute lens costs measurably more than a trivial toggle — see
   anything at first paint or add a network fetch there.
 - Playground moment panels themselves are plain, eagerly-bundled components — there is no
   per-panel code-splitting inside the Playground (that pattern was retired along with the old
-  `Leaf` component). Recharts is still isolated as its **own manual chunk**
-  (`vite.config.ts` `manualChunks`), warmed once via an idle-callback prefetch
+  `Leaf` component). Recharts still has **no manual chunk** (left to the default
+  split, see `vite.config.ts`), warmed once via an idle-callback prefetch
   (`requestIdleCallback` → `import('recharts')`) in `PlaygroundController.tsx` rather than a
   per-panel hover trigger.
 - **Lazy + hover-prefetch** is the Laboratoire's pattern, not the Playground's: each fiche in
