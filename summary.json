@@ -790,33 +790,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "API contract fuzzing (Schemathesis)",
-    "lines": [
-     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
-     "  | E           Reproduce with:",
-     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
-     "    | Traceback (most recent call last):",
-     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
-    "step": "Run contract fuzzing",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
-   },
-   "last_seen": "2026-09-26T23:58:34Z",
-   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
-   "workflows": [
-    "Schemathesis Contract Fuzzing"
-   ]
-  },
-  {
-   "branches": [
     "fix/election-method-names",
     "fix/no-best-method-from-a-tie"
    ],
@@ -941,6 +914,33 @@
    "workflows": [
     "E2E Tests",
     "Generated Artifacts Contract"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "API contract fuzzing (Schemathesis)",
+    "lines": [
+     "  | E           requests.exceptions.ReadTimeout: http://testserver:80: Read timed out. (read timeout=10)",
+     "  | E           Reproduce with:",
+     "  | E               curl -X POST -H 'Content-Type: application/json' -d '{\"candidates\": [{\"z\": 0.975103607491818, \"x\": 9.111400773539139e-14, \"valence\": 0.3757116005362511, \"name\": \"\\u00abp\", \"y\": 1.1414058043732673e-26}, {\"valence\": -5.2300863321729365e-169, \"y\": 0.008, \"name\": \"\\u00a6\\udbdd\\udc36\"}, {\"y\": -2.225073858507203e-309, \"valence\": 0.48, \"x\": 7.590250232385875e-165, \"name\": \"\\u5be6\\udb91\\udf4d\\u0007\\u00e6\\ud9fd\\udc3f\\u009b\", \"z\": -0.08640398425333928}, {\"name\": \"\\u00ab\\u00fd\\u00d4\\u000f\\u00bc\\u00b3\\ud9e0\\udf98d\\u00c2M\"}, {\"name\": \"\\ud9e1\\udc40\\udb2e\\udf69\"}, {\"name\": \"\\u008c\", \"z\": 0.375}, {\"valence\": -0.08365081534765006, \"name\": \"\\u00a9_\\udacd\\udf34qF\\u00b4\\ud9a9\\udfa4q\\u00c1\", \"y\": -0.933230474773854}], \"electorate\": null, \"behavior\": \"strategic\", \"source_params\": {\"\": 4.760311569222859e+16, \"\\u00e9\\udb8d\\udd7d\": -3.2803624433764984e+16}, \"compute_strategic\": false, \"dims\": 2.0, \"source\": \"impartial\"}' http://testserver/api/v2/election/profile-simulate",
+     "    | Traceback (most recent call last):",
+     "FAILED api/tests/test_schema_contract.py::test_contract[POST /api/v2/election/profile-simulate] - ReadTimeout(ReadTimeoutError('http://testserver:80: Read timed out. (read timeout=10)')) [single exception in FlakyFailure]",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "aafa9017f2cbfccfdb45456e5e85e216460a3d01",
+    "step": "Run contract fuzzing",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36281075400"
+   },
+   "last_seen": "2026-09-26T23:58:34Z",
+   "signature": "code: | E           requests.exceptions.ReadTimeout: http://testserver:#: Read timed out. (read timeout=#)",
+   "workflows": [
+    "Schemathesis Contract Fuzzing"
    ]
   },
   {
@@ -1585,16 +1585,16 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 177,
+  "code": 176,
   "infra": 14,
   "test-flaky": 32,
   "unknown": 2
  },
- "generated_at": "2026-10-17T13:00:26Z",
+ "generated_at": "2026-10-17T13:05:44Z",
  "grid": {
   "Backend CI": {
    "2026-09-17": {
-    "success": 10
+    "success": 9
    },
    "2026-09-18": {
     "success": 26
@@ -1688,7 +1688,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-17": {
-    "success": 4
+    "success": 3
    },
    "2026-09-18": {
     "success": 13
@@ -1832,12 +1832,12 @@
     "success": 24
    },
    "2026-10-17": {
-    "success": 25
+    "success": 26
    }
   },
   "CI Health Watchdog": {
    "2026-09-17": {
-    "success": 8
+    "success": 7
    },
    "2026-09-18": {
     "success": 27
@@ -1933,7 +1933,7 @@
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "2026-09-17": {
-    "success": 2
+    "success": 1
    },
    "2026-09-18": {
     "success": 3
@@ -1979,7 +1979,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-17": {
-    "success": 6
+    "success": 5
    },
    "2026-09-18": {
     "success": 26
@@ -2111,7 +2111,7 @@
    "2026-09-17": {
     "cancelled": 1,
     "failure": 1,
-    "success": 8
+    "success": 7
    },
    "2026-09-18": {
     "cancelled": 7,
@@ -2215,7 +2215,7 @@
   },
   "Frontend CI": {
    "2026-09-17": {
-    "success": 10
+    "success": 9
    },
    "2026-09-18": {
     "success": 26
@@ -2311,7 +2311,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-17": {
-    "success": 10
+    "success": 9
    },
    "2026-09-18": {
     "success": 26
@@ -2452,7 +2452,7 @@
     "success": 2
    },
    "2026-10-17": {
-    "skipped": 15,
+    "skipped": 17,
     "success": 5
    }
   },
@@ -2506,7 +2506,7 @@
   "OpenSSF Scorecard": {
    "2026-09-17": {
     "failure": 1,
-    "success": 6
+    "success": 5
    },
    "2026-09-18": {
     "success": 26
@@ -2573,7 +2573,6 @@
   },
   "Schemathesis Contract Fuzzing": {
    "2026-09-17": {
-    "failure": 1,
     "success": 3
    },
    "2026-09-18": {
@@ -2648,7 +2647,7 @@
   },
   "Security Audit": {
    "2026-09-17": {
-    "success": 10
+    "success": 9
    },
    "2026-09-18": {
     "success": 26
@@ -2842,7 +2841,7 @@
    },
    "2026-10-17": {
     "cancelled": 13,
-    "skipped": 59,
+    "skipped": 60,
     "success": 58
    }
   },
@@ -2888,9 +2887,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-17T12:53:57Z",
+   "created_at": "2026-10-17T12:58:35Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39034357532"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39034661902"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2944,9 +2943,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-17T12:54:54Z",
+   "created_at": "2026-10-17T13:08:12Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39034421285"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39035319769"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2985,10 +2984,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-17T13:02:09Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-17T13:07:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39034908355"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39035286568"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2998,11 +2997,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39033677366"
   }
  },
- "runs": 14522,
+ "runs": 14515,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-17": 162,
+    "2026-09-17": 139.0,
     "2026-09-18": 125,
     "2026-09-19": 180,
     "2026-09-20": 180.0,
@@ -3029,7 +3028,7 @@
     "2026-10-14": 10.0,
     "2026-10-15": 476.0,
     "2026-10-16": 373,
-    "2026-10-17": 338
+    "2026-10-17": 342.5
    },
    "p50_s": 191,
    "p95_s": 500,
@@ -3038,7 +3037,7 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-17": 238.0,
+    "2026-09-17": 238,
     "2026-09-18": 244,
     "2026-09-19": 271.0,
     "2026-09-20": 240.0,
@@ -3073,11 +3072,11 @@
    "p50_s": 686,
    "p95_s": 1116,
    "queue_p50_s": 0,
-   "runs": 152
+   "runs": 151
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-17": 6,
+    "2026-09-17": 6.0,
     "2026-09-18": 7.0,
     "2026-09-19": 6.0,
     "2026-09-20": 7,
@@ -3109,7 +3108,7 @@
    "p50_s": 10,
    "p95_s": 38,
    "queue_p50_s": 0,
-   "runs": 731
+   "runs": 730
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3125,16 +3124,16 @@
     "2026-10-14": 430.5,
     "2026-10-15": 383,
     "2026-10-16": 389.5,
-    "2026-10-17": 330
+    "2026-10-17": 333.0
    },
    "p50_s": 395,
    "p95_s": 582,
    "queue_p50_s": 0,
-   "runs": 481
+   "runs": 482
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-17": 10.5,
+    "2026-09-17": 11,
     "2026-09-18": 10,
     "2026-09-19": 10.0,
     "2026-09-20": 9.5,
@@ -3165,11 +3164,11 @@
    "p50_s": 11,
    "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 660
+   "runs": 659
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-09-17": 1838.0,
+    "2026-09-17": 1840,
     "2026-09-18": 1833,
     "2026-09-19": 1833,
     "2026-09-24": 1837,
@@ -3184,14 +3183,14 @@
     "2026-10-15": 1850,
     "2026-10-17": 1844.5
    },
-   "p50_s": 1837,
+   "p50_s": 1838,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 26
+   "runs": 25
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-17": 169.5,
+    "2026-09-17": 169,
     "2026-09-18": 170.0,
     "2026-09-19": 169.0,
     "2026-09-20": 175.5,
@@ -3226,7 +3225,7 @@
    "p50_s": 174,
    "p95_s": 201,
    "queue_p50_s": 0,
-   "runs": 225
+   "runs": 224
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3306,7 +3305,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-17": 769.0,
+    "2026-09-17": 761,
     "2026-09-18": 783.0,
     "2026-09-19": 765,
     "2026-09-20": 763.0,
@@ -3335,14 +3334,14 @@
     "2026-10-16": 535.0,
     "2026-10-17": 531
    },
-   "p50_s": 591,
+   "p50_s": 589,
    "p95_s": 826,
    "queue_p50_s": 0,
-   "runs": 904
+   "runs": 903
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-17": 194,
+    "2026-09-17": 190.0,
     "2026-09-18": 161.0,
     "2026-09-19": 175.0,
     "2026-09-20": 226.5,
@@ -3371,14 +3370,14 @@
     "2026-10-16": 12,
     "2026-10-17": 108.0
    },
-   "p50_s": 44,
+   "p50_s": 43,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 968
+   "runs": 967
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-17": 11,
+    "2026-09-17": 12.0,
     "2026-09-18": 24,
     "2026-09-19": 90,
     "2026-09-20": 93.5,
@@ -3410,7 +3409,7 @@
    "p50_s": 81,
    "p95_s": 135,
    "queue_p50_s": 0,
-   "runs": 1011
+   "runs": 1010
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3458,7 +3457,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-17": 47.0,
+    "2026-09-17": 46,
     "2026-09-18": 41.0,
     "2026-09-19": 42.0,
     "2026-09-20": 41,
@@ -3483,7 +3482,7 @@
    "p50_s": 45,
    "p95_s": 59,
    "queue_p50_s": 0,
-   "runs": 115
+   "runs": 114
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3539,7 +3538,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-17": 111.5,
+    "2026-09-17": 109,
     "2026-09-18": 114.5,
     "2026-09-19": 110,
     "2026-09-20": 108,
@@ -3571,7 +3570,7 @@
    "p50_s": 146,
    "p95_s": 219,
    "queue_p50_s": 0,
-   "runs": 980
+   "runs": 979
   },
   "Workflow Lint": {
    "daily_p50_s": {
