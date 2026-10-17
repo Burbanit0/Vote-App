@@ -71,7 +71,7 @@ def _scenarios(root: Path) -> list[dict[str, Any]]:
         state.legislature.votes = {int(p): v for p, v in results[-1]["payload"]["votes"].items()} if results else None
         constitution = dataclasses.replace(state.constitution, pending=None) if state.constitution else None
         config = in_force(founding, constitution)
-        found.append(dict(run=f"{root.name}/{checkpoint_path.parent.name}", tick=tick, state=state, president=president,
+        found.append(dict(run=f"{root.parent.name if root.name == 'runs' else root.name}/{checkpoint_path.parent.name}", tick=tick, state=state, president=president,
                           constitution=constitution, config=config, today=(today := ballots_today(state, president, config)),
                           stakes=stakes_text(config, president, today, state.legislature,
                                              barred=is_term_limited(president, config.institutions.president_term_limit))))
@@ -103,10 +103,13 @@ def _turn(scenario: dict[str, Any], with_stakes: bool, sample: int) -> dict[str,
     amendment = getattr(outcome.turn, "amendment", None) if outcome.turn is not None else None
     if amendment is None:
         return None
-    wins = None
+    wins = gain = None
     if amendment.article == "institutions.presidential_method" and scenario["today"]:
-        wins = get_presidential_winner(scenario["today"], str(amendment.value)) == candidate_label(president)
-    return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins,
+        me = candidate_label(president)
+        wins = get_presidential_winner(scenario["today"], str(amendment.value)) == me
+        now = get_presidential_winner(scenario["today"], config.institutions.presidential_method) == me
+        gain = "gain" if wins and not now else "loss" if now and not wins else "nothing"  # OBS-049
+    return {"run": scenario["run"], "article": amendment.article, "value": amendment.value, "wins": wins, "gain": gain,
             "reason": amendment.reason, "band": _band(president.ambition_score)}
 
 
@@ -159,6 +162,10 @@ def main(argv: list[str] | None = None) -> int:
         if methods:
             print(f"  voting-method proposals under which the president would have won: {sum(p['wins'] for p in methods)} of {len(methods)} "
                   f"({', '.join(sorted(str(p['value']) for p in methods))})")
+            gains = collections.Counter((p["band"], p["gain"]) for p in methods)
+            print("  against the method in force, for the president (OBS-049): " + "; ".join(
+                f"{band} ambition: " + ", ".join(f"{g} {gains[band, g]}" for g in ("gain", "nothing", "loss"))
+                for band in sorted({b for b, _ in gains})))
     return 0
 
 
