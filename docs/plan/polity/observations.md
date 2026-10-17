@@ -2610,8 +2610,8 @@ the 30 finished exploration runs (phases 11-15, final states, 2 turns each, temp
 - **With the stakes:** 8 in 60 turns, from 5 presidents (7 plurality, 1 approval). All 8 would elect the
   president, and all 8 change nothing for them, since the method in force already does. That holds in every
   ambition band (high 2, middle 4, low 2).
-- **The reasons** cite re-election ("Switch to plurality to simplify re-election prospects") as often as
-  procedure ("a more inclusive electoral process").
+- **The reasons:** 3 of the 5 presidents cite re-election ("Switch to plurality to simplify re-election
+  prospects"), 2 cite procedure ("a more inclusive electoral process").
 
 Showing a president every method that elects them reads as an invitation to switch to one, even when the method
 in force elects them too. Final states leave little room for a real gain (27 of 30 already win), so the probe
