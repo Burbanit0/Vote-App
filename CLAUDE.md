@@ -21,7 +21,7 @@ npx vitest run             # unit tests
 npm run lint               # eslint . --ext .js,.jsx,.ts,.tsx  (0 errors is gating)
 npx prettier --config .prettierrc --write <files>
 npm run build              # tsc --noEmit && vite build && size-limit (1 MB brotli budget)
-npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile
+npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile + static (needs Python)
 ```
 
 **The e2e suite is a required gate** (`.github/workflows/e2e.yml`), not just at release.

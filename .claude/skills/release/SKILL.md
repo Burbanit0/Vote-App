@@ -88,6 +88,10 @@ made it fail. It also can't pass the exact-commit check once `main` has moved.
    dispatch, which then creates the release.
 3. A GitHub Release is created from that tag (`generate_release_notes: true`,
    `make_latest: true`).
+4. The `static-site` job builds the app with the engine in Pyodide
+   (`npm run build:static`), attaches it to the release as `static-site.zip`, then
+   dispatches `ci-dashboard.yml`, which deploys the one GitHub Pages site (the
+   newest release's app at the root, the CI dashboard under `ci/`).
 
 `concurrency` is `cancel-in-progress: false`, so a second dispatch queues
 behind the first instead of racing it. The queued one then fails in its
@@ -98,6 +102,7 @@ behind the first instead of racing it. The queued one then fails in its
 - **Confirm it landed:** `gh release list` and `git ls-remote --tags origin`.
 - **The backend has no version file or tag.** The release version is
   frontend-only.
-- **No deployment step exists.** The tag and GitHub Release are the whole
-  release.
+- **The only deployment is the static site** (step 4): the Pages site at
+  `https://burbanit0.github.io/Vote-App/`. There is no server to deploy; the tag,
+  the GitHub Release and that site are the whole release.
 - **Then run the polity → develop sync you held back** (see Before dispatching).
