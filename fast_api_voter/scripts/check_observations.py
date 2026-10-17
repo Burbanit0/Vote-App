@@ -510,7 +510,8 @@ def amendments(arms: list[str]) -> None:
     for arm in arms:
         label, _, roots = arm.partition("=")
         runs = _run_dirs([Path(root).expanduser() for root in roots.split(",")])
-        repeated, distinct, hold_runs, method_runs = 0, [], 0, 0
+        repeated, hold_runs, method_runs = 0, 0, 0
+        distinct: list[dict[str, Any]] = []
         for run_dir in runs:
             mine: dict[tuple[Any, ...], dict[str, Any]] = {}
             for event in _jsonl(run_dir / "events.jsonl"):

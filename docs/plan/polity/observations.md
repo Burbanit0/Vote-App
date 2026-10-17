@@ -2570,7 +2570,8 @@ lowering the recall floor.
   - A first count with repeats gave ambition-only 67%. 18 of its 22 were two presidents (citizen 29 in seed 2,
     citizen 88 in seed 5) re-proposing a third term nine times each, worded as "Secure long-term stability and
     policy continuity".
-  - Citizen 29 makes the same moves in forward-only, where the goal is off, worded the same way.
+  - Citizen 29 makes the same kind of moves in forward-only, where the goal is off: a third term twice and a higher
+    petition bar twice, worded likewise ("ensures continuity of policy", "to protect stability").
 - **Suspected: the ambition goal makes presidents persist.** Repeats are highest with the goal on: ambition-only 33
   proposals for 17 distinct, both on 75 for 47. Without it, forward-only has 19 for 17 and both off 31 for 21. This
   is not tested.
