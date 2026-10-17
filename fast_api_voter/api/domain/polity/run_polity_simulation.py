@@ -278,6 +278,7 @@ from api.domain.polity.simple_rules import (
     strategic_choices,
     utility_ballot,
     vacate_office,
+    without_blank,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
 from api.domain.polity.tick_state import PendingRerun, TickState
@@ -445,8 +446,8 @@ def _write_run_metadata(
     wired up anywhere in this codebase).
 
     S0.4 (plan-polity-build-order.md) completes the record: commit and dirty
-    paths, prompt-source hash, the vLLM server's own version, image and weights
-    revision, the run's shape, and its overrides against the shipped YAML -- see
+    paths, prompt-source hash, the vLLM server's own version, image, weights
+    revision and launch command, the run's shape, and its overrides against the shipped YAML -- see
     run_provenance.py. `started_at` makes this file differ between otherwise
     identical runs; the reproducibility contract is over events.jsonl, which is
     why this is a sibling file. `config.json` beside it is the full resolved
@@ -891,17 +892,22 @@ def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposa
 
 
 def _keep_ballots(state: TickState, config: PolityConfig, counted: list[list[str]]) -> None:
-    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens."""
+    """ADR-020: the last election's ballots, kept only where a voting-method change may be referred to the citizens:
+    their candidates are the ones a referendum (ADR-029) and the president's stakes (ADR-027) rank today."""
     if config.agents.amendments and counted:
         state.last_ballots = counted
 
 
 def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:
     """ADR-020: whether the citizens let a ratified change of voting method stand. They vote when
-    the constitution asks for it, or when the share who would have preferred the old method's winner
-    reaches the petition threshold; the vote counts the last election's ballots under both methods."""
-    config, ballots = context.config, state.last_ballots
-    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never" or not ballots:
+    the constitution asks for it, or when the share who would prefer the old method's winner reaches
+    the petition threshold. It is a new vote (ADR-029): the citizens who would vote today rank the last
+    election's candidates who may stand again, and each votes for the method whose winner they prefer."""
+    config = context.config
+    if proposal.article != "institutions.presidential_method" or config.constitution.referendum == "never":
+        return True
+    ballots = _referendum_ballots(state, config)
+    if not ballots:
         return True
     counted = referendum_count(ballots, config.institutions.presidential_method, proposal.value)
     if counted is None:
@@ -915,6 +921,14 @@ def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> b
         yes=yes, no=no, passed=int(yes > no),
     ))
     return yes > no
+
+
+def _referendum_ballots(state: TickState, config: PolityConfig) -> list[list[str]]:
+    """ADR-029: today's ballots, with every candidate the term limit bars struck from them."""
+    today = ballots_today(state, next(iter(current_office_holders(state.citizens, Office.PRESIDENT)), None), config) or []
+    barred = {candidate_label(c) for c in state.citizens if is_term_limited(c, config.institutions.president_term_limit)}
+    kept = [[label for label in ballot if label not in barred] for ballot in today]
+    return kept if config.institutions.blank_vote_enabled else [ballot for ballot in kept if ballot]
 
 
 def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn | None) -> tuple[int, float]:
@@ -1407,6 +1421,8 @@ def _agenda_closed(context: TickContext, state: TickState, president: Citizen) -
         return "legislation is not in force"
     if legislature.seats is None:
         return "no assembly has been elected yet"
+    if not any(legislature.seats.values()):
+        return "no party won a seat in the assembly"  # every party under the threshold: no bill could pass
     if legislature.suspended is not None:
         return "a bill the chamber suspended comes back first"
     if context.tick % legislation.bill_interval_ticks:
@@ -2001,7 +2017,7 @@ def _campaign_turns(
     """ADR-014: every nominee campaigns in one turn, in parallel, on the same vote-intention
     poll (journaled first). The kernel steps each platform toward the positions the nominee
     names; a turn whose every attempt failed leaves its platform where it was."""
-    poll = first_choices(citizens, nominees, config.vote)
+    poll = first_choices(citizens, nominees, config.vote, blank_enabled=config.institutions.blank_vote_enabled)
     journal.write_event(tick=tick, citizen_id=None, event=VoteIntentionPoll(
         shares=[{"citizen_id": cid, "share": share} for cid, share in poll.shares.items()], blank=poll.blank, abstain=poll.abstain,
     ))
@@ -2123,17 +2139,26 @@ def _judged_incumbent(
     return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
-def ballots_today(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+def _counted(ballots: list[list[str]], config: PolityConfig) -> list[list[str]]:
+    """The ballots as a tally reads them: the Blank is on them only while it is a choice."""
+    return ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
+
+
+def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:
     """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
     the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
     profile's; an LLM-cast electorate is not forecast), the president judged on their record, on today's
-    opinions. What a president who means to stay needs to weigh a change of voting method: the next election."""
+    opinions. What a president who means to stay needs to weigh a change of voting method: the next election; and,
+    ADR-029, the referendum's vote on one (no president to judge: none weighed)."""
     candidates = _last_candidates(state, config.candidacy.incumbent_keeps_record)
     if not candidates:
         return None
-    incumbent = _judged_incumbent(state.citizens, president.citizen_id, config, _term_policy_record(state.legislature))
+    incumbent = _judged_incumbent(
+        state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
+    )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
-    return [ballot for ballot in cast if ballot is not None] or None
+    ballots = [ballot for ballot in cast if ballot is not None]
+    return _counted(ballots, config) or None
 
 
 def _last_candidates(state: TickState, keep_record: bool) -> list[Citizen]:
@@ -2263,7 +2288,8 @@ def _hold_presidential_election(
     ballots_out: list[list[str]] | None = None,
     campaign_rng: np.random.Generator | None = None,
 ) -> PendingRerun | None:
-    # `ballots_out` (ADR-020): when given, receives the ballots this election counted.
+    # `ballots_out` (ADR-020): when given, receives the ballots this election cast (as cast: the Blank
+    # still on them when `blank_vote_enabled` is false, which only the tally drops).
     # `staggered` (S4.4): this election's campaign already declared, nominated and
     # positioned (_run_staggered_campaign), so its field is every citizen holding
     # Role.CANDIDATE and nothing is decided again here.
@@ -2338,7 +2364,9 @@ def _hold_presidential_election(
                 invalidated = True
 
         if not invalidated:
-            winner_label = get_presidential_winner(ballots, config.institutions.presidential_method)
+            counted = _counted(ballots, config)
+            abstained += len(ballots) - len(counted)  # a ballot that held only the Blank counts for no one
+            winner_label = get_presidential_winner(counted, config.institutions.presidential_method)
             if winner_label is not None and winner_label != BLANK_LABEL:
                 winner_id = citizen_id_from_label(winner_label)
                 winner = next(c for c in nominees if c.citizen_id == winner_id)
@@ -2357,7 +2385,14 @@ def _hold_presidential_election(
                     # new journal event here -- this same tick's
                     # legitimacy_updated (in _run_accountability_phase) records
                     # it, including mandate_strength in its own payload.
-                    winner.mandate_strength = mandate_strength(ballots, winner_label)
+                    # Over the ballots that name a candidate: with the Blank not a choice, a Blank-only
+                    # ballot stayed home (it is in `abstained`), not a ballot cast against the winner. A
+                    # forced ballot ([Blank, c1, c2]) did vote, and still counts against c1's mandate.
+                    winner.mandate_strength = mandate_strength(
+                        ballots if config.institutions.blank_vote_enabled
+                        else [ballot for ballot in ballots if any(label != BLANK_LABEL for label in ballot)],
+                        winner_label,
+                    )
                     winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
                 if config.street_pressure.enabled:
                     # A re-elected incumbent must not carry over a previous

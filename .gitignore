@@ -333,6 +333,11 @@ graphify-out/
 # reason, a text meant for readers outside the repository. Its build output is ignored
 # by its own .gitignore.
 !/docs/preprint/
+# The project overview (architecture, glossary) and the run stories: written for readers
+# outside the repository, like stories/ and preprint/ above.
+!/docs/overview/
+!/docs/HISTORY.md
+!/docs/runs/
 # docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
 # aussi les fichiers directement sous docs/, pas seulement les
 # sous-dossiers, d'où cette ligne séparée des `!/docs/<dir>/` ci-dessus.

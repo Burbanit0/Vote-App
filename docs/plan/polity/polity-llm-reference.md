@@ -57,7 +57,8 @@ agreement rather than a flat constant.
 
 ## 1. Lexicon
 
-Design docs are French; identifiers are English. This table is the bridge.
+Design docs are French; identifiers are English. This table is the bridge. The project-wide
+glossary, Polity included, is [`docs/overview/glossary.md`](../../overview/glossary.md).
 
 | French (design) | Code identifier | What it is |
 |---|---|---|
@@ -126,21 +127,66 @@ per-tick work. Measured on a real 500-citizen run: an election tick took ~50 min
 
 ### 2.3 The per-tick sequence
 
-```
-snapshot (yearly)
-  → rupture candidacies          [off by default]
-  → exogenous events             [off by default]
-  → presidential election        [on election ticks]
-  → legislative election + coalition
-  → sortition rotation           [off by default]
-  → chamber deliberation         [off by default]
-  → accountability phase         [off by default]
-  → checkpoint + progress
-```
+<!-- [[[cog
+import cog
+from api.domain.polity.run_polity_simulation import TICK_PHASES
+WHAT = {
+    "_phase_constitution": "Amendments due this tick take effect first, so the whole tick runs under them (ADR-015)",
+    "_phase_snapshot": "Yearly census, written **before** the tick's decisions",
+    "_phase_rupture_candidacies": "Rare path: a citizen runs against their own party",
+    "_phase_exogenous_events": "Scandals, economic shock (AR(1)), event salience",
+    "_phase_presidential_election": "Candidacy, nomination, campaign, ballot, blank-vote rerun; a declared refusal to leave is rolled first (ADR-022)",
+    "_phase_legislative_election": "Party-list vote, seat allocation, then coalition (crowd, or leaders negotiating: ADR-019)",
+    "_phase_sortition_chamber": "Rotation of the randomly drawn chamber, then its deliberation",
+    "_phase_leaders": "The president agent's turn: agenda, amendment proposal, refusal to leave (ADR-014)",
+    "_phase_forum": "Chamber members and recent petitioners post; a post can move its speaker or their party (ADR-016/017/018)",
+    "_phase_legislation": "One bill reading: assembly vote, cohabitation block, chamber's suspensive veto (ADR-009)",
+    "_phase_emotions": "Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021)",
+    "_phase_accountability": "Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025)",
+    "_phase_snap_election": "Schedules an election when the presidency is vacant (after a recall)",
+    "_phase_opinion_dynamics": "Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012)",
+}
+missing = [f.__name__ for f in TICK_PHASES if f.__name__ not in WHAT]
+assert not missing, f"describe the new tick phase(s) here: {missing}"
+cog.outl(f"The {len(TICK_PHASES)} phases of one tick, in order -- generated from `TICK_PHASES` in")
+cog.outl("`api/domain/polity/run_polity_simulation.py`, checked by `scripts/check_generated_docs.sh`;")
+cog.outl("a phase added without a line here fails the check. After the last phase, the tick is")
+cog.outl("checkpointed and `progress.json` is updated.")
+cog.outl("")
+cog.outl("| # | phase | what it does |")
+cog.outl("|---|---|---|")
+for i, f in enumerate(TICK_PHASES, 1):
+    cog.outl(f"| {i} | `{f.__name__}` | {WHAT[f.__name__]} |")
+]]] -->
+The 14 phases of one tick, in order -- generated from `TICK_PHASES` in
+`api/domain/polity/run_polity_simulation.py`, checked by `scripts/check_generated_docs.sh`;
+a phase added without a line here fails the check. After the last phase, the tick is
+checkpointed and `progress.json` is updated.
 
-Ordering is load-bearing: sortition runs after the elections so a same-tick new president is
-excluded from the draw; accountability runs last so a new winner's pledge and initial legitimacy are
-already on record.
+| # | phase | what it does |
+|---|---|---|
+| 1 | `_phase_constitution` | Amendments due this tick take effect first, so the whole tick runs under them (ADR-015) |
+| 2 | `_phase_snapshot` | Yearly census, written **before** the tick's decisions |
+| 3 | `_phase_rupture_candidacies` | Rare path: a citizen runs against their own party |
+| 4 | `_phase_exogenous_events` | Scandals, economic shock (AR(1)), event salience |
+| 5 | `_phase_presidential_election` | Candidacy, nomination, campaign, ballot, blank-vote rerun; a declared refusal to leave is rolled first (ADR-022) |
+| 6 | `_phase_legislative_election` | Party-list vote, seat allocation, then coalition (crowd, or leaders negotiating: ADR-019) |
+| 7 | `_phase_sortition_chamber` | Rotation of the randomly drawn chamber, then its deliberation |
+| 8 | `_phase_leaders` | The president agent's turn: agenda, amendment proposal, refusal to leave (ADR-014) |
+| 9 | `_phase_forum` | Chamber members and recent petitioners post; a post can move its speaker or their party (ADR-016/017/018) |
+| 10 | `_phase_legislation` | One bill reading: assembly vote, cohabitation block, chamber's suspensive veto (ADR-009) |
+| 11 | `_phase_emotions` | Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021) |
+| 12 | `_phase_accountability` | Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025) |
+| 13 | `_phase_snap_election` | Schedules an election when the presidency is vacant (after a recall) |
+| 14 | `_phase_opinion_dynamics` | Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012) |
+<!-- [[[end]]] -->
+
+Ordering is load-bearing (the `TICK_PHASES` docstring says why): exogenous events before
+accountability, which reads them; elections before the chamber (so a president elected this tick is
+excluded from the sortition draw) and accountability, so a new winner's pledge and legitimacy are on
+record; legislation after
+the chamber, so a bill meets this tick's assembly, president and chamber; emotions just before
+accountability; opinion dynamics last.
 
 ---
 
@@ -262,8 +308,11 @@ Three things are worth knowing about this pipeline:
 
 1. **The model never mutates state.** It returns a decision; the engine resolves it. A returned
    `winner_position` becomes a cid here, not there; shifts become a clamped position here.
-2. **`validate_*` deliberately sits outside the retry loop.** A schema failure may be resampled; a
-   judgment failure is not, because an identical retry at temperature 0 reproduces it.
+2. **`validate_*` runs inside the retry loop** (since 2026-09-27, `_complete_and_decode_with_replay`'s
+   docstring). An answer the engine rejects (an out-of-bounds shift, an out-of-menu act) is resampled
+   like a malformed one before any fallback. It used to sit outside, because an identical retry at
+   temperature 0 reproduces a judgment failure; retries now vary their sampling (§4.4), and 361 of 362
+   failed chamber calls had been a shift bound, each costing its batch unretried (OBS-021).
 3. **Motifs are closed enums, never free text**, banded by decision family (1xx vote, 2xx candidacy,
    3xx pressure/response, 4xx reaction, 5xx coalition, 6xx campaign, 7xx chamber). This is what lets
    "why did this happen" be queried rather than re-read.
@@ -429,9 +478,13 @@ The loader refuses incoherent combinations rather than running a silently dead e
 
 ### 6.3 Knobs that do nothing
 
+(`institutions.blank_vote_enabled: false` is not one any more, but works in part: the Blank leaves the
+presidential tally, the campaign poll and the simulated referendum and stakes ballots, and stays in the
+model's vote prompt, in salience, in the indifference-abstention rule and in the legislative vote. The
+comment in `polity_config.yaml` lists them.)
+
 Worth knowing before tuning them: `assembly_term_limit`, `assembly_mode`, `coalition_initiator`,
-`max_candidates_hard_cap`, `memory_window_terms`, `blank_vote_enabled` (blank is always available
-regardless), `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
+`max_candidates_hard_cap`, `memory_window_terms`, `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
 `metrics.compute_every_ticks`, `sortition_chamber.veto_power` / `veto_delay_ticks`,
 `llm.cache_backend` / `cache_url` / `personas_count`, `parties.birth_enabled` / `death_enabled`,
 and the 4 score-based `presidential_method` values (accepted by config, refused at run start).

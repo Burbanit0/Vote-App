@@ -5,7 +5,7 @@ choice of voting method changes the winner**, and exploring what happens when
 campaign dynamics, blank votes, information asymmetry, and social contagion all act
 on the same electorate.
 
-> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md) · Project status: [docs/STATUS.md](docs/STATUS.md)
+> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md) · Project status: [docs/STATUS.md](docs/STATUS.md) · Architecture, diagrams and glossary: [docs/overview/](docs/overview/README.md)
 
 > **No hosted instance.** This is a personal, public-source research project, not a
 > deployed product — there's no live demo URL. See **Quick Start** below to run it

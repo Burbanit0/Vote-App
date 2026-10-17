@@ -227,3 +227,58 @@ def test_the_anger_sweep_asks_the_same_citizens_at_each_level() -> None:
     assert all(len(units) == 4 for units in units_by_level.values())
     assert all(c.labels["kind"] == "contrast" and c.labels["field"] == "act" for c in sweep)
 
+
+
+def test_the_neutral_wording_arm_rewords_every_system_prompt_and_nothing_else() -> None:
+    reword = br.ARMS["neutral_wording"].request
+    assert reword is not None
+    for case in reference_bank().cases:
+        prompt = reword(case)["system_prompt"]
+        assert "simul" not in prompt.lower(), case.decision_type
+        assert prompt.count("\n") == case.system_prompt.count("\n")  # the same lines, only reworded
+    assert reword(reference_bank().cases[0])["system_prompt"].startswith("Tu es un moteur de decision")
+
+
+def _wire_field_orders(schema):
+    """Each object's fields in the order they go out: the client sends the request body with its keys sorted."""
+    sent = json.loads(json.dumps(schema, sort_keys=True))
+
+    def objects(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("properties"), dict):
+                yield list(node["properties"])
+            for value in node.values():
+                yield from objects(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from objects(item)
+
+    return list(objects(sent))
+
+
+@pytest.mark.parametrize(("arm", "key", "position"), [("reason_first", "0motif", 0), ("answer_first", "zmotif", -1)])
+def test_the_field_order_arms_put_motif_first_or_last_on_the_wire(arm, key, position) -> None:
+    arm_schema = br.ARMS[arm].schema
+    assert arm_schema is not None
+    found = 0
+    for case in reference_bank().cases:
+        schema = bb.SCHEMAS[case.decision_type]
+        for before, after in zip(_wire_field_orders(schema), _wire_field_orders(arm_schema(case, schema)), strict=True):
+            if "motif" not in before:
+                assert after == before
+                continue
+            assert sorted(after) == sorted(key if f == "motif" else f for f in before)  # only the one key renamed
+            assert after[position] == key  # first or last, once sorted: where the model writes it
+            found += 1
+    assert found  # the bank carries decisions with a motif
+
+
+@pytest.mark.parametrize("arm", ["reason_first", "answer_first"])
+def test_an_arms_renamed_motif_is_restored_before_decoding(arm) -> None:
+    case = next(c for c in reference_bank().cases if c.decision_type == "vote_cast" and c.family != bb.LOGPROB_GATE_FAMILY)
+    original = json.dumps({"decisions": [{"cid": cid, "blank": 0, "ranking": [1], "motif": 101} for cid in case.unit_ids]})
+    renamed = original.replace('"motif"', json.dumps(br._MOTIF_KEYS[arm]))
+    restore = br.ARMS[arm].restore
+    assert restore is not None and '"motif"' not in renamed
+    assert restore(renamed) == original
+    assert br.decode_answers(case, restore(renamed)) == br.decode_answers(case, original)

@@ -264,14 +264,12 @@ def top_k(
 def get_largest_remainder_winners(
     party_votes: Dict[str, float],
     num_seats: int,
-    quota: str = "hare",
     *,
     rng: Optional[random.Random] = None,
 ) -> Dict[str, int]:
     """
-    Largest remainder method.
-    - Hare quota  = total_votes / num_seats       (used in Israel, Ukraine)
-    - Droop quota = floor(total / (seats+1)) + 1  (used in some countries)
+    Largest remainder method (Hamilton), Hare quota = total_votes / num_seats
+    (used in Israel, Ukraine).
 
     Each party gets floor(votes / quota) automatic seats; remaining seats go
     to parties with the largest fractional remainders (see `top_k`
@@ -282,7 +280,7 @@ def get_largest_remainder_winners(
     if total == 0 or num_seats <= 0:
         return {p: 0 for p in pv}
 
-    q = total / num_seats if quota == "hare" else (total // (num_seats + 1) + 1)
+    q = total / num_seats
 
     auto: Dict[str, int] = {p: int(pv[p] / q) for p in pv}
     remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
