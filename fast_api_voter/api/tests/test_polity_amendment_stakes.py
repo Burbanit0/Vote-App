@@ -171,7 +171,8 @@ def test_the_presidents_briefing_shows_the_stakes_only_when_switched_on_and_a_pr
     assert briefing(stakes=True, members=[]).stakes is None  # no chamber drawn: no amendment can be proposed
     # OBS-048's arm: without ADR-027 the stakes count the last election's ballots as cast, not today's.
     monkeypatch.setattr(engine, "ballots_today", lambda *_: pytest.fail("ADR-026's stakes count the ballots as cast"))
-    assert briefing(stakes=True, members=[member], forward=False).stakes is not None
+    as_cast = briefing(stakes=True, members=[member], forward=False).stakes
+    assert as_cast is not None and as_cast.startswith("Counted under each voting method, the last presidential election's ballots elect")
 
 
 def test_the_method_in_force_is_named_among_the_others() -> None:

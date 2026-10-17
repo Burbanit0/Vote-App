@@ -724,8 +724,8 @@ class AgentsConfig:
     """ADR-027: the stakes count the ballots the citizens would cast today. False counts the last election's as cast
     (ADR-026's stakes) -- an arm that separates ADR-027 from ADR-028 (OBS-048)."""
     ambition_goal: bool = True
-    """ADR-028: the president's goal follows their ambition. False gives every president D8's single goal -- the other
-    arm of OBS-048."""
+    """ADR-028: the president's goal follows their ambition, and every persona puts its ambition on a scale. False
+    undoes both -- D8's single goal, the bare number -- the other arm of OBS-048."""
     forum: bool = False
     """The forum (ADR-016): each tick the sortition chamber's members and the citizens who recently
     launched a petition post, or stay silent, in a turn of their own, and read what their

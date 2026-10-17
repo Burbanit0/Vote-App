@@ -92,7 +92,7 @@ def _run_flags(args: argparse.Namespace) -> list[str]:
         "--engine", args.engine, "--profile", args.profile,
         *(["--threshold", repr(args.threshold)] if args.threshold is not None else []),
         *(["--freeze-amendments"] if args.freeze_amendments else []),
-        *(flag for w in args.without for flag in ("--without", w)),
+        *(flag for w in sorted(set(args.without)) for flag in ("--without", w)),
     ]
 
 

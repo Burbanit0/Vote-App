@@ -55,6 +55,10 @@ def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) 
     assert (kept.agents.forward_stakes, kept.agents.ambition_goal) == (True, True)
     arm = flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward-stakes"])
     assert (arm.agents.forward_stakes, arm.agents.ambition_goal) == (False, True)  # OBS-048: one mechanism off
+    with pytest.raises(ValueError, match="nothing to turn off"):  # frozen, there are no stakes to recount
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=True, without=["forward-stakes"])
+    with pytest.raises(ValueError, match="one of"):
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward_stakes"])
 
 
 def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sweep: Any, tmp_path: Path) -> None:

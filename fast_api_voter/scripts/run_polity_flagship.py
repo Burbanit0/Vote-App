@@ -275,8 +275,6 @@ def _experiment_overrides(
         config = dataclasses.replace(
             config, institutions=dataclasses.replace(config.institutions, electoral_threshold=threshold),
         )
-    if without:
-        config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[w]: False for w in without}))
     if freeze_amendments:
         config = dataclasses.replace(
             config,
@@ -284,6 +282,13 @@ def _experiment_overrides(
             regime=dataclasses.replace(config.regime, enabled=False),
             constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
         )
+    for name in without:  # OBS-048's arms; checked after the freeze, which would leave them nothing to turn off
+        if name not in WITHOUT:
+            raise ValueError(f"--without {name!r}: one of {sorted(WITHOUT)}")
+        if not (config.agents.amendment_stakes if name == "forward-stakes" else config.agents.president):
+            raise ValueError(f"--without {name}: nothing to turn off -- it needs the "
+                             f"{'amendment stakes' if name == 'forward-stakes' else 'president agent'} (the exploration profile, unfrozen)")
+        config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[name]: False}))
     return config
 
 
