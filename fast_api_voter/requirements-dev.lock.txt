@@ -51,7 +51,9 @@ certifi==2026.7.22
 chardet==7.6.0
     # via diff-cover
 charset-normalizer==3.5.2
-    # via requests
+    # via
+    #   -c requirements.lock.txt
+    #   requests
 click==8.5.0
     # via
     #   -c requirements.lock.txt
@@ -153,7 +155,7 @@ jedi==0.20.0
     # via marimo
 jinja2==3.1.6
     # via diff-cover
-jsonschema-rs==0.57.1
+jsonschema-rs==0.58.6
     # via schemathesis
 libcst==1.9.0
     # via mutmut
@@ -227,11 +229,11 @@ opentelemetry-api==1.45.1
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-http-transport==0.66b0
+opentelemetry-exporter-http-transport==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-common==0.66b0
+opentelemetry-exporter-otlp-common==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
@@ -243,16 +245,16 @@ opentelemetry-exporter-otlp-proto-http==1.45.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-opentelemetry-instrumentation==0.66b0
+opentelemetry-instrumentation==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-asgi==0.66b0
+opentelemetry-instrumentation-asgi==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-fastapi==0.66b0
+opentelemetry-instrumentation-fastapi==0.66b1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -267,14 +269,14 @@ opentelemetry-sdk==1.45.1
     #   -r requirements.txt
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b0
+opentelemetry-semantic-conventions==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.66b0
+opentelemetry-util-http==0.66b1
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
@@ -343,7 +345,7 @@ pydantic==2.14.0
     #   -r requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.46.5
+pydantic-core==2.50.0
     # via
     #   -c requirements.lock.txt
     #   pydantic
@@ -424,7 +426,10 @@ redis==8.1.0
     #   -r requirements.txt
 requests==2.34.2
     # via
+    #   -c requirements.lock.txt
     #   cachecontrol
+    #   opentelemetry-exporter-http-transport
+    #   opentelemetry-exporter-otlp-proto-http
     #   pip-audit
     #   schemathesis
     #   xenon
@@ -517,7 +522,6 @@ typing-inspection==0.4.4
 urllib3==2.8.0
     # via
     #   -c requirements.lock.txt
-    #   opentelemetry-exporter-http-transport
     #   requests
     #   sentry-sdk
 uvicorn==0.54.0
