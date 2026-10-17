@@ -1,6 +1,7 @@
 """The bake-off runner (S2.2). See api/domain/polity/bakeoff_runner.py."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -122,3 +123,25 @@ def test_the_rerun_tenth_is_fixed_by_case_id() -> None:
     assert chosen == sorted(cases, key=lambda c: c.case_id)[::10]
     assert br.rerun_selection(cases, 0.0) == [] and br.rerun_selection([], 0.1) == []
     assert br.gate_aligned([], cases) is None
+
+
+class _RenamedMotifClient(BankFakeClient):
+    """Answers as the server does under a field-order arm: `motif` comes back under the arm's key."""
+
+    def complete_json(self, **kwargs: Any) -> str:
+        content = super().complete_json(**kwargs)
+        key = next((k for k in br._MOTIF_KEYS.values() if k in json.dumps(kwargs["json_schema"])), None)
+        return content if key is None else content.replace('"motif"', json.dumps(key))
+
+
+def test_a_field_order_arm_decodes_what_the_model_returned_under_the_renamed_key(tmp_path: Path) -> None:
+    bank = _small_bank("candidacy_p500")
+    results = _run(bank, _RenamedMotifClient(), tmp_path / "arm", arm="reason_first")
+
+    main = [r for r in results if r["pass"] == "main" and r["family"] == "candidacy_p500"]
+    assert main and all(r["valid"] and r["error"] is None for r in main)  # restored before decoding
+    returned = [r["content"] for r in read_calls(tmp_path / "arm" / CALL_LOG_FILENAME) if r["kind"] == "decision"]
+    assert returned and all('"0motif"' in c and '"motif"' not in c for c in returned)  # the log keeps what came back
+    hashed = {hashlib.sha256(c.encode("utf-8")).hexdigest() for c in returned}
+    assert {r["content_sha256"] for r in main} <= hashed  # and so does the result: its hash is the log's
+    assert json.loads((tmp_path / "arm" / br.GATES_FILENAME).read_text())["logprobs_available"] is False  # renamed text has no aligned tokens

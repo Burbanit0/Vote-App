@@ -78,6 +78,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-046](#obs-046) | Disengaged and exited citizens still voted at legislative elections (17 of 100 on average in phase11) and in confidence votes | 2026-10-10 | fixed |
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 | [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
+| [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
+| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | cause found |
 
 ---
 
@@ -505,6 +507,33 @@ exactly the last-position answers. OBS-006's out-of-range 26 may be a relative o
 from S0.5 on, but nomination runs with `think=False`, so there is none to read. A nomination case
 bank in S2.2 (shuffle candidate order and cids, and check whether the pick follows the position or
 the candidate) would answer it.
+
+*Update 2026-10-16, 60 more populations: the pick depends on the position.* The nomination
+permutation of S2.2 on 60 new seeds (101 to 160), Qwen3-8B-AWQ on vLLM 0.31.0, 254 party units, each
+rendered in its production order and reversed (`scripts/check_nomination_position_bias.py`, the session
+`nomination-60-seeds`; the frozen bank's five seeds gave 20 of 46 last-listed picks):
+
+| contenders in the list | units | last listed | first listed | same citizen in both orders |
+|---|---:|---:|---:|---:|
+| all (2 to 11) | 254 | 167 of 508 picks; 142.4 expected, P = 0.007 | 129; 142.4 expected | 63.4% [57.3, 69.1] |
+| 2 to 4 | 155 | 113 of 310; 108.3 expected, P = 0.30 | 103; 108.3 expected | 69.7% [62.0, 76.4] |
+| 5 or more | 99 | 54 of 198; 34.0 expected, **P = 0.0003** | 26; 34.0 expected | 53.5% [43.8, 63.0] |
+
+- **The pick depends on the position, not only on the candidate.** Reversing the list changed the pick in 37% of
+  units overall, in 46% of the lists of five or more. The lean is to the end of the list: absent in lists of two to
+  four, 1.6 times the chance rate from five contenders on, and the first position is never favoured. (The two
+  strata were drawn after the overall test, and P = 0.0003 is one of six tail tests; over six it is still 0.002.)
+- **The cause stays open.** This design cannot tell "pulled toward the last position it reads" from "copies
+  `candidate_count` into `winner_position`", which names the last position too. A plain copy would also show in
+  the short lists, where it does not, so it is not the whole story; it is not excluded either.
+- **No run measured the long lists.** The p500 lists (24 to 41 contenders) are far longer than anything here; the
+  15 against 8.3 expected above is the ten p100 runs, and the p500 evidence is one seed-1 call.
+- **What it costs.** `sorted_candidates` lists contenders by citizen id, so the last position is always the
+  newest citizen. A try at listing them in a hash order instead (kept unpushed: branch
+  `fix/polity-candidate-order`, commit `fa78d71a`) broke the bake-off's reversal control, which reverses the
+  order by renumbering ids, three scenario tests whose fake clients pick by position, and the golden
+  references. A change of order is the owner's call and is not made here.
+
 
 ### OBS-014
 
@@ -2479,4 +2508,161 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
 
 The decision is recorded here and in ADR-029.
 
+*Phase15 (2026-10-16): the "one president" reading does not hold; the decision above stands.* Phase15
+(`~/Documents/Dev/polity-runs/phase15/`, f8c31727) has phase14's settings. Its simulation code differs in four
+commits:
+- ADR-029's referendum count (f7f4a9f3, 4259b96c);
+- the empty-assembly fixes (cd08e7fb, 88af0ac2), one of which closes the president's agenda when no party sits;
+- a tie under a score rule, approval included, is now drawn with the request's seed (4c5c6859).
+
+None changes what a president is shown about an amendment, or the goal they are given, so its proposals are a
+second, near sample of the same arm.
+
+| | phase14 | phase15 |
+|---|---:|---:|
+| reasons naming the president's own interest (same regex) | 18 of 34 | 29 of 41 |
+| by seed (1-5) | 0/3, 3/9, 2/6, 3/6, 10/10 | 0/1, 7/7, 7/11, 11/12, 4/10 |
+| founding-ratio proposals / cuts ratified | 4 / 2 | 0 / 0 |
+| peak live parties, by seed | 21-48 | 24-29 |
+| seat-based effective number of parties, median | 10.20 | 6.20 |
+| assemblies where no party won a seat | 1 of 10 | 0 of 10 |
+
+- **The same presidents swing between runs.**
+  - Citizen 88, president of seed 5 from tick 0 in phase14, gave 10 such reasons of 10. In phase15 they took
+    office only at tick 16 and gave 0 of 4.
+  - Citizen 11 (seed 4, ambition 0.62) gave 3 of 4 in phase14 and 8 of 8 in phase15.
+  - Pooled, the arm gives 47 of 75 (63%) against phase13's 10 of 31 (32%). The rise spreads across seeds; the
+    phase14-only reading above was one run's draw.
+- **Without a founding-ratio cut, no jump.**
+  - The two seeds that cut the ratio (phase14, seeds 2 and 4) peaked at 43 and 48 parties.
+  - None of the 13 seeds without a cut peaked above 30: phase13's five, phase15's five, phase14's other three.
+  - Consistent with the cuts driving the jumps, still not a test.
+- **Recalls:** none, with 10 full terms (`check_observations.py recalls`, as for phase14).
+
 *Status: decided.*
+
+### OBS-049
+
+**A president pushed a voting method the stakes said would gain them nothing, the referendum found nothing to
+refer, and a candidate the forecast did not know won.**
+
+*Seen.* Phase15, seed 4 (`~/Documents/Dev/polity-runs/phase15/runs/sweep-8y-p100-seed4/`).
+- **The proposals.** Citizen 11 (ambition 0.62) was elected at tick 0 under two-round. They proposed approval
+  voting 8 times, at ticks 1, 3, 4, 5, 6, 9, 11 and 12, each time "to secure re-election ... approval voting, which
+  favors centrist candidates like me".
+  - The chamber voted 8, 6, 5, 4, 4, 9, 8, then 10 of 15, and ratified the eighth at tick 13.
+  - It is the second method change in phases 13-15, after phase14's Borda.
+- **The stakes said it gained nothing.** A replay of the run shows the stakes in citizen 11's briefing at every
+  tick:
+  - tick 1: two-round and approval both elect them;
+  - tick 3: two-round elects them, approval elects citizen 89;
+  - ticks 4-12: all 13 methods elect them.
+
+  The president's reasoning sometimes cites the stakes. At tick 3 it reads: "the last election's candidates would
+  be elected under two_round ... So maybe changing to approval would help me get re-elected". It also cites a
+  belief: approval "favors centrist candidates like themselves".
+- **No referendum.** At tick 13 the replay shows 83 ballots cast today, with citizen 11 winning under both methods.
+  A change that alters no winner is not referred (ADR-020, kept by ADR-029). Like any referendum not held, it
+  leaves no event.
+- **The election.** At tick 16 citizen 11 stood again and lost under approval, to citizen 54.
+  - Citizen 54 had founded party 24 at tick 4 and was not among the tick-0 candidates (11, 12, 86, 89, 92), the
+    only ones the stakes and the referendum rank.
+  - In phase14, under two-round, citizen 11 had also lost at tick 16, to citizen 74.
+
+*Cause, in two parts.*
+- **The proposals.** The stakes were shown and were plain. At no tick did they put approval above two-round for
+  the president, and at tick 3 they put it below. The president proposed it anyway, on a belief about approval
+  voting.
+- **The surprise.** `ballots_today` ranks only the last election's candidates, a choice ADR-027 and ADR-029
+  record under "Not settled". A party founded since then fielded the winner.
+
+*Evidence.*
+- **The replay.** From `fast_api_voter/` of a checkout at f8c31727, run `run_polity_flagship.main` with:
+  ```
+  --engine llm --profile exploration --years 8 --population 100 --seats 15 --seed 4 --max-batch-replays 2 \
+    --output-dir <scratch> --replay-calls-from ~/Documents/Dev/polity-runs/phase15/runs/sweep-8y-p100-seed4/run/sweep-8y-p100-seed4
+  ```
+  - It reports `2700 recorded calls served, 0 never asked for`.
+  - Its `events.jsonl` matches the run's event for event: 3031 events, `run_id` aside.
+- **The hooks.** A script wraps two functions before running it:
+  - `stakes_text`, to print citizen 11's method lines with the tick;
+  - `_referendum`, to print `_referendum_ballots` and `referendum_count`. It prints
+    `REFERENDUM t13 two_round->approval: 83 ballots, winners citizen_11 / citizen_11, counted None, petition bar 20.8`.
+- **The journal.** The reasoning is the `president_turn` entries of `llm_calls.jsonl`. The proposals and votes,
+  candidacies and founding are `amendment_proposed`, `amendment_resolved`, `candidacy_declared` and
+  `party_founded` in `events.jsonl`.
+
+*What would settle it.*
+- **The belief.** The president is a case of one. A probe would show whether presidents propose a method their
+  stakes show gains them nothing, and how often: `check_amendment_stakes.py` already sets the turn, so it needs
+  only a count of proposed methods whose winner equals the one in force.
+- **The forecast, the owner's call:** should it know the contenders since the last election, for example the
+  leaders of parties founded since? That is a guess at who will be nominated, which ADR-027 chose not to make.
+- **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would have
+  answered this from the journal, without a replay.
+
+*Status: cause found.*
+
+### OBS-050
+
+**The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede.**
+
+*Seen.* A field-order arm of the bake-off (S2.2) changed nothing, to the byte: all 81 outputs of the arm
+`reason_first` equalled the control's. The call log showed why. `llm_calls.jsonl` of the control session, one
+output per decision type, against the order `llm_schemas.py` declares:
+
+| decision | declared | written by the model |
+|---|---|---|
+| `vote_cast` | cid, blank, ranking, motif | blank, cid, motif, ranking |
+| `pressure_action` | cid, target, act, motif | act, cid, motif, target |
+| `party_nomination_choice` | party_id, winner_position, motif | motif, party_id, winner_position |
+
+The agents' turns are the same, in a real run (`phase15/runs/sweep-8y-p100-seed5/.../llm_calls.jsonl`):
+
+| turn | written, in order |
+|---|---|
+| `president_turn` | amendment, bill, extra_legal, note_to_self, other_initiative, positions, **rationale**, speech |
+| `nominee_turn` | bill, campaign, note_to_self, other_initiative, positions, **rationale**, speech |
+| `forum_post` | note_to_self, party_id, party_move, post, **rationale**, shift_direction, shift_issue |
+| `amendment_vote` | note_to_self, **rationale**, statement, vote |
+
+*Cause.* `llm_client.py` builds every request body with `json.dumps(body, sort_keys=True)`: "canonical bytes
+so a cache key can be added later" (the module docstring). The sort reaches the schema inside the body, and
+the grammar emits an object's fields in the order it receives them. Every schema is therefore sent, and
+generated, in alphabetical order. For the nine batch decisions and the seven agent turns of `llm_schemas.py`,
+the declared order is inert; `rationale` leads on the wire in none of the seven agent turns.
+
+- **`llm_schemas.py` says the opposite**: "Field order is generation order, so the reasoning comes before the
+  moves it justifies" (ADR-014, `LeaderTurn`). It does not, except by luck of the alphabet: `rationale` still
+  precedes `vote` and `speech`, but follows `amendment`, `bill`, `campaign`, `extra_legal` and `positions` in
+  every turn that has them.
+- **How much it matters depends on thinking, which the call log shows.** In `phase15` seed 1 every agent turn
+  thinks (`president_turn` 35 decision calls, `nominee_turn` 35, `forum_post` 510, `amendment_vote` 15,
+  `coalition_turn` 39: `think` true on all, and on all five seeds) and so reasons first in its `<think>` block,
+  whatever order the object is written in afterwards, as do `vote_cast` and `chamber_deliberation`. Four batch
+  decisions do not think (`candidacy_considered`, `party_nomination_choice`, `pressure_action`,
+  `reaction_to_event`), and they carry a code (`motif`), not a rationale. So the agents' declared order is
+  wrong but probably cheap; among the batch decisions, those four are where a change would show, and EXP-024
+  finds no clear effect from where `motif` sits, bar one unexplained one (see below).
+
+*What the field-order test found once the key was renamed to sort first or last* (EXP-024, 81 cases per
+arm, control = the production order; the arm moves the field and also renames it, so the two are not
+separated, though the `zmotif` arm renames it too and changed nothing): `motif` last changed nothing
+significant on any family. `motif` first,
+before the unit's id, raised `candidacy_p500`'s agreement with the threshold rule from 63.6% to 76.0% (500
+units, McNemar Holm p = 2e-6) and nothing else significantly (`vote_first_choice` 90.0% to 97.5%, 3 changed
+answers; `pressure_act` 62.5% to 58.3%). A reason code is a label, not a rationale, and the gain appears only
+when it comes before the id: read it as an unexplained effect to replicate, not as "reasoning first helps".
+
+*What would settle it.*
+- **A bake-off family for the agent turns** (`president_turn`, `nominee_turn`): the same case with `rationale`
+  sorting first and last. The bank has batch decisions only, and the rename trick of `reason_first` /
+  `answer_first` needs a response translator per turn schema.
+- **The candidacy effect:** `motif` renamed but kept after the id (for example `cid_motif`) would separate the
+  position from the rename, and a second model or population would say whether it replicates.
+
+*What a fix costs.* Sending the schema in declared order changes every request hash: the golden prompts and
+journals, and every replay log, are regenerated, and the cache key the sort was written for needs another way
+to be canonical (sort the body's top level, not the schema). The owner's call; nothing is changed here.
+
+*Status: cause found.*

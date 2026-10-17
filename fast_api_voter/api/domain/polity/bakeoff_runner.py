@@ -109,6 +109,56 @@ def _thinking_sampling(case: Case) -> dict[str, Any]:
             "extra_body": {"top_p": QWEN3_THINKING_SAMPLING["top_p"], "top_k": QWEN3_THINKING_SAMPLING["top_k"]}}
 
 
+_NEUTRAL_WORDING = (("Tu es un moteur de simulation", "Tu es un moteur de decision"), ("dans cette simulation", "ici"))
+"""Every mention of a simulation in the frozen bank's system prompts: the opening sentence of all of
+them, and two sentences of the representative_response prompt."""
+
+
+def _neutral_wording(case: Case) -> dict[str, Any]:
+    """The research radar's "Unawareness" check (PIMMUR, 2026-10-03): the case's system prompt with
+    the word simulation taken out, and nothing else changed."""
+    prompt = case.system_prompt
+    for old, new in _NEUTRAL_WORDING:
+        prompt = prompt.replace(old, new)
+    return {"system_prompt": prompt}
+
+
+_MOTIF_KEYS = {"reason_first": "0motif", "answer_first": "zmotif"}
+"""The key `motif` is sent under in each field-order arm. The client sends the schema with its keys
+sorted (a canonical request body), so every field comes out in alphabetical order whatever order the
+schema lists them in: a declared order changes nothing. A key that sorts before the others is first
+on the wire, one that sorts after them is last."""
+
+
+def _renamed(names: Iterable[str], key: str) -> list[str]:
+    return [key if name == "motif" else name for name in names]
+
+
+def _rename_motif(node: Any, key: str) -> Any:
+    """`node` with every `motif` property (and its `required` entry) sent as `key`."""
+    if isinstance(node, list):
+        return [_rename_motif(item, key) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _rename_motif(v, key) for k, v in node.items()}
+    if isinstance(out.get("properties"), dict) and "motif" in out["properties"]:
+        out["properties"] = {name: out["properties"][old] for old, name in zip(out["properties"], _renamed(out["properties"], key))}
+        out["required"] = _renamed(out.get("required", ()), key)
+    return out
+
+
+def _motif_arm_schema(arm: str) -> Callable[[Case, dict[str, Any]], dict[str, Any]]:
+    """The research radars' field-order check (Structure Tax, 2026-10-10), with the one reason batch
+    decisions carry: the `motif` code (a free-text rationale is not built: `rationale_mode`)."""
+    return lambda case, schema: _rename_motif(schema, _MOTIF_KEYS[arm])
+
+
+def _restore_motif(arm: str) -> Callable[[str], str]:
+    """What the model returned under `arm`, with `motif` named as the decoders expect it."""
+    key = _MOTIF_KEYS[arm]
+    return lambda content: content.replace(f'"{key}"', '"motif"')
+
+
 @dataclass(frozen=True)
 class BakeoffArm:
     """An A/B arm on the same frozen cases: what a session run with it sends each case in
@@ -118,6 +168,9 @@ class BakeoffArm:
 
     schema: Callable[[Case, dict[str, Any]], dict[str, Any]] | None = None
     request: Callable[[Case], dict[str, Any]] | None = None
+    restore: Callable[[str], str] | None = None
+    """What the model returned, put back into the bank's field names before it is decoded. An arm
+    that renames fields reads no logprobs: the tokens are the model's, not the restored text's."""
 
 
 ARMS: dict[str, BakeoffArm] = {
@@ -125,6 +178,9 @@ ARMS: dict[str, BakeoffArm] = {
     "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
     "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
     "thinking_sampling": BakeoffArm(request=_thinking_sampling),
+    "neutral_wording": BakeoffArm(request=_neutral_wording),
+    "reason_first": BakeoffArm(schema=_motif_arm_schema("reason_first"), restore=_restore_motif("reason_first")),
+    "answer_first": BakeoffArm(schema=_motif_arm_schema("answer_first"), restore=_restore_motif("answer_first")),
 }
 
 
@@ -218,9 +274,12 @@ def _content_sha256(content: str | None) -> str | None:
 def run_case(
     case: Case, client: Any, writer: RecordingWriter, config: PolityConfig, schema: dict[str, Any],
     *, pass_name: str, use_logprobs: bool, request_overrides: Mapping[str, Any] | None = None,
+    restore: Callable[[str], str] | None = None,
 ) -> dict[str, Any]:
     """Ask one case and record what came back. A response the engine would reject is a
-    result (invalid), not an error; a request a replayed log does not hold is recorded too."""
+    result (invalid), not an error; a request a replayed log does not hold is recorded too.
+    `restore` puts an arm's renamed fields back before the answer is decoded; the call log, the
+    content hash and any probabilities keep what the model returned."""
     result: dict[str, Any] = {"case_id": case.case_id, "family": case.family, "decision_type": case.decision_type,
                               "pass": pass_name, "valid": False, "error": None, "answers": {}, "probabilities": None}
     content: str | None = None
@@ -228,7 +287,7 @@ def run_case(
     try:
         with call_context(kind="decision", decision_type=case.decision_type, unit_ids=case.unit_ids, attempt=0):
             content, tokens = _ask(client, case, config, schema, use_logprobs, request_overrides or {})
-        result["answers"] = decode_answers(case, content)
+        result["answers"] = decode_answers(case, content if restore is None else restore(content))
         result["valid"] = True
         if tokens is not None and case.labels.get("value") is not None:
             result["probabilities"] = read_probabilities(case, content, tokens)
@@ -285,6 +344,17 @@ def schema_resolver(bank: CaseBank, arm: str | None) -> Callable[[Case], dict[st
     return lambda case: schema_arm(case, bank.schemas[case.decision_type])
 
 
+def restorer_for(arm: str | None) -> Callable[[str], str] | None:
+    """What puts the arm's renamed fields back before an answer is decoded: none, or the arm's."""
+    return ARMS[arm].restore if arm is not None else None
+
+
+def reads_logprobs(client: Any, restore: Callable[[str], str] | None) -> bool:
+    """Whether a session reads logprobs: the client offers them, and the arm leaves the model's text as it
+    wrote it (restored text has no aligned tokens)."""
+    return callable(getattr(client, "complete_json_with_logprobs", None)) and restore is None
+
+
 def request_resolver(arm: str | None) -> Callable[[Case], dict[str, Any]]:
     """The request fields each case is sent with besides the bank's: none, or the arm's."""
     request_arm = ARMS[arm].request if arm is not None else None
@@ -311,10 +381,11 @@ def run_session(
     )
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
+    restore = restorer_for(arm)
 
     results_path = session_dir / RESULTS_FILENAME
     done = {(r["case_id"], r["pass"]) for r in read_results(results_path)}
-    logprobs = callable(getattr(client, "complete_json_with_logprobs", None))
+    logprobs = reads_logprobs(client, restore)
     selected = set(bank.families() if families is None else families) | {LOGPROB_GATE_FAMILY}
     gate_cases = [c for c in bank.cases if c.family == LOGPROB_GATE_FAMILY]
     cases = [c for c in bank.cases if c.family in selected and c.family != LOGPROB_GATE_FAMILY]
@@ -332,7 +403,7 @@ def run_session(
                 if (case.case_id, pass_name) in done:
                     continue
                 result = run_case(case, logged, writer, config, schema_for(case), pass_name=pass_name, use_logprobs=use_logprobs,
-                                  request_overrides=request_for(case))
+                                  request_overrides=request_for(case), restore=restore)
                 _append(results_path, result)
                 answered.append(result)
             return answered
