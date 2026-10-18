@@ -7,15 +7,14 @@ Usage (on the pod, started by pod_start.sh): python telemetry.py [--every 60] [-
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import subprocess
 import time
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-METRICS_URL = "http://127.0.0.1:8000/metrics"
 # vLLM's Prometheus names vary across versions; any metric whose name contains one of these is kept -- a counter summed
 # over its labels (engines), a *_perc gauge as its largest value; histogram parts (_bucket, _sum, _count) are skipped.
 WANTED = ("requests_running", "requests_waiting", "cache_usage", "prompt_tokens_total", "generation_tokens_total",
@@ -69,11 +68,15 @@ def progress(runs: Path) -> dict[str, Any]:
 
 
 def sample(runs: Path) -> dict[str, Any]:
+    # Plain HTTP to the pod's own vLLM on the loopback: http.client has no URL schemes to abuse, unlike urllib (file://).
+    server = http.client.HTTPConnection("127.0.0.1", 8000, timeout=10)
     try:
-        with urllib.request.urlopen(METRICS_URL, timeout=10) as response:
-            metrics: dict[str, float] | None = vllm_metrics(response.read().decode(errors="replace"))
+        server.request("GET", "/metrics")
+        metrics: dict[str, float] | None = vllm_metrics(server.getresponse().read().decode(errors="replace"))
     except Exception:  # noqa: BLE001 -- a sample must never kill the sampler
         metrics = None
+    finally:
+        server.close()
     return {"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "gpu": gpu(), "vllm": metrics,
             "progress": progress(runs)}
 
