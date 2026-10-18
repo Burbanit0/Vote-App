@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -145,3 +146,29 @@ def test_a_field_order_arm_decodes_what_the_model_returned_under_the_renamed_key
     hashed = {hashlib.sha256(c.encode("utf-8")).hexdigest() for c in returned}
     assert {r["content_sha256"] for r in main} <= hashed  # and so does the result: its hash is the log's
     assert json.loads((tmp_path / "arm" / br.GATES_FILENAME).read_text())["logprobs_available"] is False  # renamed text has no aligned tokens
+
+
+def _decision_fields(arm: str, decision_type: str) -> list[str]:  # the arms that rebuild the schema
+    bank = reference_bank()
+    case = next(c for c in bank.cases if c.decision_type == decision_type)
+    schema = br.ARMS[arm].schema(case, bank.schemas[decision_type])  # type: ignore[misc]
+    return next(list(d["properties"]) for d in schema["$defs"].values() if "motif" in d["properties"])
+
+
+def test_the_order_arms_send_the_declared_order_and_the_one_that_decides_before_what_hangs_on_it() -> None:
+    # Production used to sort the keys, so the model wrote `shifts` before `stance` (OBS-050). `declared` is the
+    # classes' own order; `effective` puts the reason code and the decision ahead of their dependents.
+    assert _decision_fields("declared_order", "representative_response") == ["cid", "shifts", "stance", "motif"]
+    assert _decision_fields("declared_order", "vote_cast") == ["cid", "blank", "ranking", "motif"]
+    # the effective arm is the client's own rule on the bank's (sorted) schemas: no schema transform of its own
+    assert br.ARMS["effective_order"].schema is None
+    assert [br.ARMS[a].wire for a in ("declared_order", "effective_order", "alphabetical_order")] == ["declared", "effective", "sorted"]
+
+
+def test_an_arm_that_names_a_wire_order_sets_it_on_the_client_and_the_others_leave_it() -> None:
+    sorted_client, plain_client = BankFakeClient(), BankFakeClient()
+    for client, arm in ((sorted_client, "alphabetical_order"), (plain_client, None)):
+        with tempfile.TemporaryDirectory() as tmp:
+            _run(_small_bank("candidacy_p500"), client, Path(tmp), arm=arm)
+    assert getattr(sorted_client, "schema_wire", None) == "sorted"  # the control arm sends the old bytes
+    assert getattr(plain_client, "schema_wire", None) == "effective"  # no arm: states the default, so a reused client is reset

@@ -44,6 +44,7 @@ from api.domain.polity.llm_logprob_instrumentation import (
 )
 from api.domain.polity.llm_behavior_engine import truncation_limit
 from api.domain.polity.llm_replay import UnrecordedRequestError
+from api.domain.polity import llm_schemas
 from api.domain.polity.llm_schemas import vote_cast_json_schema
 from api.domain.polity.run_polity_simulation import _warm_up_llm_client
 
@@ -159,6 +160,23 @@ def _restore_motif(arm: str) -> Callable[[str], str]:
     return lambda content: content.replace(f'"{key}"', '"motif"')
 
 
+def _declared(node: Any) -> Any:
+    """`node` with every decision class in `$defs` (the ones carrying `motif`) listing its fields in the order
+    the Pydantic class declares them: the bank stores its schemas sorted, so the declared order is rebuilt."""
+    if isinstance(node, list):
+        return [_declared(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _declared(v) for k, v in node.items()}
+    for name, spec in out.get("$defs", {}).items():
+        props = spec.get("properties", {})
+        if "motif" in props:
+            names = [f for f in getattr(llm_schemas, name).model_fields if f in props]
+            spec["properties"] = {n: props[n] for n in names}
+            spec["required"] = [n for n in names if n in spec.get("required", ())]
+    return out
+
+
 @dataclass(frozen=True)
 class BakeoffArm:
     """An A/B arm on the same frozen cases: what a session run with it sends each case in
@@ -168,6 +186,8 @@ class BakeoffArm:
 
     schema: Callable[[Case, dict[str, Any]], dict[str, Any]] | None = None
     request: Callable[[Case], dict[str, Any]] | None = None
+    wire: str | None = None
+    """`VllmJsonClient.schema_wire` for this arm: None leaves the client's default (effective order)."""
     restore: Callable[[str], str] | None = None
     """What the model returned, put back into the bank's field names before it is decoded. An arm
     that renames fields reads no logprobs: the tokens are the model's, not the restored text's."""
@@ -178,6 +198,9 @@ ARMS: dict[str, BakeoffArm] = {
     "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
     "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
     "thinking_sampling": BakeoffArm(request=_thinking_sampling),
+    "declared_order": BakeoffArm(schema=lambda case, schema: _declared(schema), wire="declared"),
+    "effective_order": BakeoffArm(wire="effective"),  # the client's own rule, on the bank's stored schemas
+    "alphabetical_order": BakeoffArm(wire="sorted"),
     "neutral_wording": BakeoffArm(request=_neutral_wording),
     "reason_first": BakeoffArm(schema=_motif_arm_schema("reason_first"), restore=_restore_motif("reason_first")),
     "answer_first": BakeoffArm(schema=_motif_arm_schema("answer_first"), restore=_restore_motif("answer_first")),
@@ -379,6 +402,8 @@ def run_session(
     (session_dir / SESSION_FILENAME).write_text(
         json.dumps({**metadata, "bank_sha256": bank.content_sha256, "arm": arm}, indent=2, sort_keys=True)
     )
+    # Every session states its wire order, so a client reused after an `alphabetical_order` session is not left on it.
+    client.schema_wire = (ARMS[arm].wire if arm is not None else None) or "effective"  # type: ignore[attr-defined]
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
     restore = restorer_for(arm)

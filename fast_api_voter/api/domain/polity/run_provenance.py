@@ -34,11 +34,12 @@ _POLITY_DIR = Path(__file__).resolve().parent
 _BACKEND_DIR = _POLITY_DIR.parents[2]
 
 # Every module whose source can change a prompt's bytes or the schema sent with it.
+# llm_client.py: the order the schema's fields are sent in (effective_field_order) is the order the model writes them.
 # events.py: its registry decides which events reach an agent's public memory (agents._PUBLIC_EVENT_TYPES),
 # so registering an event changes the prompts -- as registering party_founded/party_dissolved did.
 PROMPT_SOURCE_FILES = (
     "llm_behavior_engine.py", "agents.py", "amendments.py", "codebook.py", "events.py", "llm_schemas.py",
-    "llm_toon_encoding.py",
+    "llm_toon_encoding.py", "llm_client.py",
 )
 
 _PROBE_TIMEOUT_SECONDS = 5.0
