@@ -2502,9 +2502,10 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
   referendum a new vote on today's opinions.
 - **The empty assembly.** Handled, not ruled on. Since #931 the polity runs on with the agenda closed. Whether
   an assembly may stay empty for a term is not decided.
-- **The causes stay unmeasured.**
-  - Whether ADR-027 or ADR-028 drives the self-interested reasons needs the single-switch arms above.
-  - Whether the party jumps follow the founding-ratio cuts needs the seeds with the ratio frozen.
+- **The causes:** measured in part by phase16 (below).
+  - The voting-method proposals follow the forward stakes.
+  - The self-serving acts do not separate.
+  - Whether the party jumps follow the founding-ratio cuts still needs the seeds with the ratio frozen.
 
 The decision is recorded here and in ADR-029.
 
@@ -2538,6 +2539,62 @@ second, near sample of the same arm.
   - None of the 13 seeds without a cut peaked above 30: phase13's five, phase15's five, phase14's other three.
   - Consistent with the cuts driving the jumps, still not a test.
 - **Recalls:** none, with 10 full terms (`check_observations.py recalls`, as for phase14).
+
+*Phase16 (2026-10-17): one cause separates, the other does not.* Phase16
+(`~/Documents/Dev/polity-runs/phase16/`, 5b5b8be8, #960) has phase15's settings with one mechanism switched off per
+arm, 5 seeds each.
+- `forward-only` (`--without ambition-goal`): every president gets D8's goal, and every agent's persona shows its
+  ambition as a bare number. That covers nominees, chamber members, forum posters and coalition leaders, not only the
+  president.
+- `ambition-only` (`--without forward-stakes`): the president's method stakes recount the last election, in ADR-026's
+  wording.
+
+Each distinct proposal (run, proposer, article, old, new) is counted once. A president re-proposing a rejected change
+nine times is one proposal:
+
+| | both off (phase13) | forward-only | ambition-only | both on (phase14-15) |
+|---|---:|---:|---:|---:|
+| runs | 5 | 5 | 5 | 10 |
+| distinct proposals (with repeats) | 21 (31) | 17 (19) | 17 (33) | 47 (75) |
+| extending the president's own hold | 5 (24%) | 4 (24%) | 6 (35%) | 11 (23%) |
+| runs with a voting-method proposal | 0 | 3 | 0 | 6 |
+| a reason naming the president's own interest (regex above) | 5 (24%) | 4 (24%) | 4 (24%) | 19 (40%) |
+
+"Extending the president's own hold" means raising or abolishing the term limit, raising the petition threshold, or
+lowering the recall floor.
+
+- **The voting-method proposals follow the forward stakes.** They appear in 9 of the 15 runs with them and in none of
+  the 10 without. That is the one result the arms separate.
+- **The self-serving acts do not separate.** Counted once each, 23-35% of proposals extend the president's hold in
+  every arm.
+  - A first count with repeats gave ambition-only 67%. 18 of its 22 were two presidents (citizen 29 in seed 2,
+    citizen 88 in seed 5) re-proposing a third term nine times each, worded as "Secure long-term stability and
+    policy continuity".
+  - Citizen 29 makes the same kind of moves in forward-only, where the goal is off: a third term twice and a higher
+    petition bar twice, worded likewise ("ensures continuity of policy", "to protect stability").
+- **Suspected: the ambition goal makes presidents persist.** Repeats are highest with the goal on: ambition-only 33
+  proposals for 17 distinct, both on 75 for 47. Without it, forward-only has 19 for 17 and both off 31 for 21. This
+  is not tested.
+- **Self-interest said outright rises only with both on** (40%, against 24% in each other arm), in the pooled arm
+  whose seed-to-seed swing the phase15 paragraph documented.
+- **Not a clean 2x2.**
+  - The columns ran on four commits. Between phase15 (f8c31727) and phase16 (5b5b8be8), #947 changed how a
+    blank-only ballot counts toward a mandate, and the prompt stamp changed.
+  - Both off is also pre-ADR-029.
+  - Seat-based effective numbers (7.02, 8.55, 4.76, 6.68) are reported in `probes/arms.py` but not read as arm
+    effects.
+- **No founding-ratio cut, no jump.** Neither arm cut the ratio, and neither peaked above 31 parties. That makes 23
+  seeds without a cut and none above 31, against the 2 seeds with a cut at 43 and 48. The seeds with the ratio frozen
+  would test it; they have not been run.
+- **Recalls:** none in either arm.
+
+*Evidence:* run from `fast_api_voter/`, with `R=~/Documents/Dev/polity-runs`:
+```
+python scripts/check_observations.py amendments both-off=$R/phase13/runs forward-only=$R/phase16/forward-only \
+  ambition-only=$R/phase16/ambition-only both-on=$R/phase14/runs,$R/phase15/runs
+```
+It prints every row of the table. The quotes are `amendment_proposed` reasons in `phase16/ambition-only` and
+`phase16/forward-only`.
 
 *Status: decided.*
 

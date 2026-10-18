@@ -14,6 +14,7 @@ Usage (from fast_api_voter/):
     python scripts/check_observations.py indifference                              # OBS-042
     python scripts/check_observations.py founders scripts/check_agent_prompt_neutrality_d2_answers/*.jsonl  # OBS-045
     python scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase11                # OBS-047
+    python scripts/check_observations.py amendments both-off=~/Documents/Dev/polity-runs/phase13/runs  # OBS-048
 
 <run_dir> is the directory holding events.jsonl (and llm_calls.jsonl, for calls logged
 since S0.5). A run still in progress can be read; a torn final line is skipped.
@@ -486,6 +487,50 @@ def recalls(roots: list[Path]) -> None:
           f"{sum(p['approval'] < 0.5 for p in at_recall):>2} of {len(recalled)}")
 
 
+# ── amendments: OBS-048 ───────────────────────────────────────────────────
+
+_OWN_INTEREST = re.compile(r"\bre-?elect|\bmy (?:party|term|base)\b|\bmine\b|\b(?:petition|recall) risk", re.IGNORECASE)
+
+
+def _extends_hold(article: str, old: Any, new: Any) -> bool:
+    """A proposal extending the president's own hold: the term limit up or gone, the petition bar up, the recall
+    floor down."""
+    if article == "institutions.president_term_limit":
+        return new is None or (old is not None and new > old)
+    if article == "petition.signature_threshold":
+        return bool(new > old)
+    return article == "legitimacy.recall_floor" and bool(new < old)
+
+
+def amendments(arms: list[str]) -> None:
+    """OBS-048: for each arm (`label=root[,root...]`), the amendments proposed, each distinct one (run, proposer,
+    article, old, new) counted once -- a president re-proposing a rejected change nine times is one proposal: how many
+    extend the president's own hold, how many change the voting method, and how many give a reason naming the
+    president's own interest."""
+    for arm in arms:
+        label, _, roots = arm.partition("=")
+        runs = _run_dirs([Path(root).expanduser() for root in roots.split(",")])
+        repeated, hold_runs, method_runs = 0, 0, 0
+        distinct: list[dict[str, Any]] = []
+        for run_dir in runs:
+            mine: dict[tuple[Any, ...], dict[str, Any]] = {}
+            for event in _jsonl(run_dir / "events.jsonl"):
+                if event["event_type"] == "amendment_proposed":
+                    repeated += 1
+                    p = event["payload"]
+                    mine.setdefault((event["citizen_id"], p["article"], json.dumps(p.get("old")), json.dumps(p.get("value"))), p)
+            hold_runs += any(_extends_hold(p["article"], p.get("old"), p.get("value")) for p in mine.values())
+            method_runs += any(p["article"] == "institutions.presidential_method" for p in mine.values())
+            distinct += mine.values()
+        n = max(len(distinct), 1)
+        hold = sum(_extends_hold(p["article"], p.get("old"), p.get("value")) for p in distinct)
+        method = sum(p["article"] == "institutions.presidential_method" for p in distinct)
+        own = sum(bool(_OWN_INTEREST.search(p.get("reason") or "")) for p in distinct)
+        print(f"{label}: {len(runs)} runs, {len(distinct)} distinct proposals ({repeated} with repeats); extending the "
+              f"president's hold {hold} ({hold / n:.0%}) in {hold_runs} runs; voting method {method} in {method_runs} runs; "
+              f"a reason naming their own interest {own} ({own / n:.0%})")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -500,6 +545,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("indifference")
     sub.add_parser("founders").add_argument("logs", nargs="+", type=Path)
     sub.add_parser("recalls").add_argument("roots", nargs="+", type=Path)
+    sub.add_parser("amendments").add_argument("arms", nargs="+", help="label=root[,root...]: the runs of one arm")
     kernel_run = sub.add_parser("_kernel-run")
     kernel_run.add_argument("seed", type=int)
     kernel_run.add_argument("population", type=int)
@@ -524,6 +570,8 @@ def main(argv: list[str] | None = None) -> int:
         founders(args.logs)
     elif args.command == "recalls":
         recalls(args.roots)
+    elif args.command == "amendments":
+        amendments(args.arms)
     else:
         print(json.dumps(_kernel_run(args.seed, args.population, args.engine)))
     return 0
