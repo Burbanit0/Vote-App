@@ -1,6 +1,6 @@
 # Rented-GPU runs: runbook and the first Qwen3.8-27B probes
 
-> **status:** live — first findings, 2026-10-17; the architecture for a full rented-GPU test is still to design. (Set 2026-10-17; `docs/README.md` lists every plan.)
+> **status:** live — first findings, 2026-10-17; the architecture for a full rented-GPU test is prepared (§10), not yet run. (Set 2026-10-17; `docs/README.md` lists every plan.)
 
 This is the first record of running polity against a rented GPU with a model larger than the
 shipped Qwen3-8B. It has two jobs: to let the next person repeat the setup in minutes, and to say
@@ -310,3 +310,104 @@ The per-type table in §4.3 is computed from `llm_calls.jsonl` (`kind == "decisi
 `decision_type`, `latency_ms`, `reasoning_tokens`, `finish_reason`); the headline figures are in
 `metrics.json` (`_meta`) and `progress.json`. The explorer (`polity-run-explorer.md`) can serve the
 run folder as a root.
+
+## 10. Architecture for a full test (prepared, not run)
+
+The rented pod runs everything: vLLM, the simulation and the telemetry, side by side on `127.0.0.1`. The laptop only
+creates the pod, watches it, fetches the results and terminates it. Nothing in this section has run on a pod yet.
+
+### 10.1 What covers which gap
+
+| Gap | How |
+|---|---|
+| G1, G4 | The runs execute on the pod, detached from any terminal. A closed laptop, a dropped tunnel or a reboot here does not touch them. The pod's start command restarts the chain, and the chain resumes every unfinished seed from its checkpoint, so a pod restart costs only the ticks since the last checkpoint. |
+| G2 | The pod's start command does the whole set-up: lock-down, repo checkout at a pinned commit, Python environment, telemetry, runs, vLLM. Creating and terminating the pod stay manual (Runpod MCP or console), each with its price stated first. |
+| G3 | `telemetry.py` writes one JSON line a minute for the whole session, beside the runs, so it is fetched with them. Each line holds the GPU, vLLM's queue, KV-cache and token counters, and every seed's progress. |
+| G7 | `SEEDS` runs several seeds in parallel against the one server. |
+| G5, G6 | Not covered here: see §10.5. |
+
+### 10.2 Files (`fast_api_voter/scripts/rented/`)
+
+| File | Where it runs | What it does |
+|---|---|---|
+| `pod_start.sh` | pod, as the container's entry point | Sets up ssh: key only, optional `ALLOW_FROM`. Builds a Python 3.14 environment with `requirements.lock.txt` on the persistent disk (once per lock file). Starts `telemetry.py` and `chain.sh` detached, then `exec`s vLLM on `127.0.0.1:8000`. |
+| `chain.sh` | pod, or this machine | Every seed of `SEEDS` in parallel, each retried with `--resume` until its digest says completed. Writes `CHAIN_DONE`. Also runs locally against a local server, for the baseline (§10.5). |
+| `telemetry.py` | pod | The per-minute sample, written to `/workspace/runs/telemetry.jsonl`. |
+| `fetch.sh` | this machine | `rsync` of `/workspace/runs/` back here. Repeatable, and run once more before terminating. |
+
+### 10.3 Creating the pod
+
+As in §3.2 (same image, GPU, disk and ports, `startSsh`), with these environment variables and this start command.
+`POLITY_SHA` must be a pushed commit that contains `scripts/rented/`.
+
+```json
+"env": {
+  "HF_HOME": "/workspace/hf",
+  "POLITY_SHA": "<a pushed polity commit>",
+  "MODEL_REPO": "Qwen/Qwen3.8-27B-FP8", "MODEL_REVISION": "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a",
+  "SERVED_NAME": "qwen3.8:27b",
+  "RUN_LABEL": "<label>", "SEEDS": "1 2 3", "YEARS": "30", "POPULATION": "500", "SEATS": "75", "WORKERS": "24",
+  "ALLOW_FROM": "<your public IP, or leave out>"
+}
+```
+
+```bash
+apt-get update -qq && apt-get install -y -qq git openssh-server rsync >/dev/null \
+&& { [ -d /workspace/Vote-App ] || git clone -q https://github.com/Burbanit0/Vote-App /workspace/Vote-App; } \
+&& git -C /workspace/Vote-App fetch -q origin && git -C /workspace/Vote-App checkout -q --detach "$POLITY_SHA" \
+&& exec bash /workspace/Vote-App/fast_api_voter/scripts/rented/pod_start.sh
+```
+
+Leaving `RUN_LABEL` out starts the server and telemetry only. That is useful for the tunnelled way of §3.3, which
+still works unchanged.
+
+### 10.4 A session
+
+1. **Create** the pod (§10.3) and note the hourly price. Read its `ssh.direct` address.
+2. **Wait.** `ssh … 'tail -3 /workspace/runs/<label>.chain.log'` shows `seed N attempt 1` once vLLM answers. The first
+   start downloads the weights and builds the environment; §3.2 saw `/health` within about 6 minutes, and the
+   environment adds a few more.
+3. **Watch.** `ssh … 'tail -1 /workspace/runs/telemetry.jsonl'` gives the GPU, vLLM and every seed's tick.
+   `seed<N>.log` beside it has each run's own output.
+4. **Fetch** whenever wanted: `scripts/rented/fetch.sh <ip> <port> <key>`. It writes to
+   `~/Documents/Dev/polity-runs/rented/` by default.
+5. **Terminate.** Once `/workspace/runs/<label>/CHAIN_DONE` exists, fetch once more, then terminate the pod. A
+   stopped pod still pays for its disk.
+
+### 10.5 Run plan, cheapest first
+
+| Step | Where | Settings | Why |
+|---|---|---|---|
+| 1. 8B baseline (G6) | the local GPU, `chain.sh` with `BASE_URL=http://localhost:8000/v1` | The 8-year probe's own config: seed 42, 8 years, 100 citizens, 15 seats, exploration, 24 workers, relaxed | The like-for-like comparison §5 lacks. Free. |
+| 2. Sizing probe | pod | 8 years, 500 citizens, 75 seats, `SEEDS="1 2 3"` | Narrows §6's 8-25 h. Measures whether three parallel seeds cost wall time. |
+| 3. Full test | pod | 30 years, 500 citizens, 75 seats, `SEEDS` as decided | The full run |
+
+The owner's decisions (§7) as this preparation leaves them:
+- **O1:** the simulation runs on the pod. The tunnelled way stays available.
+- **O2:** the model is three environment variables. The default is the probed 27B.
+- **O3:** open. No tuning probe for the 27B's thinking budgets is built.
+- **O4:** `SEEDS`; three are suggested.
+- **O5:** scripts for everything but creating and terminating the pod.
+
+### 10.6 Tested so far, and not
+
+**Tested on this machine:**
+- **`chain.sh`, deterministic engine:**
+  - two seeds ran in parallel and finished;
+  - a second start skipped them;
+  - a seed whose process was killed mid-run came back with `--resume` and completed.
+- **`telemetry.py`:** one sample against the local vLLM 0.31.0 read the GPU and vLLM's counters.
+- **`pod_start.sh`, in the real `vllm/vllm-openai:v0.31.0` image, without a GPU and with a stub in place of `vllm`:**
+  - sshd came up key-only;
+  - `uv` built Python 3.14 with the locked dependencies;
+  - telemetry wrote samples;
+  - the chain ran a deterministic seed to `CHAIN_DONE`;
+  - `vllm serve` was called with the arguments above.
+
+**Not tested:**
+- on a real pod;
+- with the real vLLM serving while the simulation runs beside it;
+- the clone at `POLITY_SHA`, which needs this branch merged;
+- the 30-minute wait for a first weight download;
+- restarting a pod mid-run.
+
