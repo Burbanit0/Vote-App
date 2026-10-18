@@ -54,6 +54,7 @@ Every plan's first lines say its status: **live** (being executed or maintained)
 | [`vote-app/PLAN_SOLIDITE_TECHNIQUE.md`](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) | [`polity/observations.md`](plan/polity/observations.md), the OBS log |
 | [`vote-app/PLAN_SURFACE_EXTERIEURE.md`](plan/vote-app/PLAN_SURFACE_EXTERIEURE.md) | [`polity/fit-for-inference.md`](plan/polity/fit-for-inference.md) |
 | [`vote-app/LISTING_ORDER_TIES.md`](plan/vote-app/LISTING_ORDER_TIES.md) | [`polity/polity-run-explorer.md`](plan/polity/polity-run-explorer.md), [`polity/tech-radar.md`](plan/polity/tech-radar.md) |
+| [`polity/plan-rented-gpu-runs.md`](plan/polity/plan-rented-gpu-runs.md), the rented-GPU runbook and first 27B probes | |
 
 - **Done (16):** `vote-app/` PLAN, PLAN_A_VOUS_DE_JOUER, PLAN_CI_STRUCTURAL_GAPS,
   PLAN_METHODES_HISTOIRES_ATLAS, PLAN_REMEDIATION_CI_CD, PLAN_UX_ACCESSIBILITE,
