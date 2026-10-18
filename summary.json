@@ -153,7 +153,7 @@
     "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
    ],
    "category": "code",
-   "count": 23,
+   "count": 22,
    "example": {
     "job": "Playwright E2E (shard 2/2)",
     "lines": [
@@ -427,37 +427,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "feat/polity-president-agent",
-    "fix/methods-catalogue-drift",
-    "fix/restore-simulate-cache",
-    "refactor/tailwind-animations"
-   ],
-   "category": "code",
-   "count": 5,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
-   },
-   "last_seen": "2026-09-28T12:43:56Z",
-   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "develop",
     "polity"
    ],
@@ -536,6 +505,36 @@
    "signature": "advisory: Fix: `npm audit fix --package-lock-only` with npm >= # (so .npmrc's min-release-age is honoured). If no fixed version is usable yet, add an ",
    "workflows": [
     "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "feat/polity-president-agent",
+    "fix/methods-catalogue-drift",
+    "fix/restore-simulate-cache"
+   ],
+   "category": "code",
+   "count": 4,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
+   },
+   "last_seen": "2026-09-28T12:43:56Z",
+   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -711,31 +710,6 @@
   },
   {
    "branches": [
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "develop"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toBeVisible() failed",
-     "    Error: element(s) not found",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "33628f76b37e3b266435ae8e25491063970a6dd9",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105225136"
-   },
-   "last_seen": "2026-09-25T06:57:09Z",
-   "signature": "code: Error: expect(locator).toBeVisible() failed",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "feat/claims-registry",
     "fix/score-ties-lot"
    ],
@@ -834,6 +808,31 @@
    },
    "last_seen": "2026-10-16T17:13:48Z",
    "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "develop"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(locator).toBeVisible() failed",
+     "    Error: element(s) not found",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "33628f76b37e3b266435ae8e25491063970a6dd9",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105225136"
+   },
+   "last_seen": "2026-09-25T06:57:09Z",
+   "signature": "code: Error: expect(locator).toBeVisible() failed",
    "workflows": [
     "E2E Tests"
    ]
@@ -1562,17 +1561,14 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 175,
+  "code": 172,
   "infra": 13,
   "test-flaky": 32,
   "unknown": 2
  },
- "generated_at": "2026-10-17T21:26:59Z",
+ "generated_at": "2026-10-18T00:01:40Z",
  "grid": {
   "Backend CI": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -1664,9 +1660,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-09-17": {
-    "success": 3
-   },
    "2026-09-18": {
     "success": 13
    },
@@ -1810,13 +1803,10 @@
     "success": 24
    },
    "2026-10-17": {
-    "success": 36
+    "success": 37
    }
   },
   "CI Health Watchdog": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 27
    },
@@ -1910,9 +1900,6 @@
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "2026-09-17": {
-    "success": 1
-   },
    "2026-09-18": {
     "success": 3
    },
@@ -1956,9 +1943,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -2082,14 +2066,10 @@
     "success": 18
    },
    "2026-10-17": {
-    "success": 10
+    "success": 11
    }
   },
   "E2E Tests": {
-   "2026-09-17": {
-    "failure": 1,
-    "success": 3
-   },
    "2026-09-18": {
     "cancelled": 7,
     "failure": 1,
@@ -2191,9 +2171,6 @@
    }
   },
   "Frontend CI": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -2287,9 +2264,6 @@
    }
   },
   "Generated Artifacts Contract": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -2429,14 +2403,11 @@
     "success": 2
    },
    "2026-10-17": {
-    "skipped": 21,
+    "skipped": 23,
     "success": 5
    }
   },
   "Mutation Testing": {
-   "2026-09-17": {
-    "success": 1
-   },
    "2026-09-18": {
     "cancelled": 1,
     "success": 2
@@ -2481,9 +2452,6 @@
    }
   },
   "OpenSSF Scorecard": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -2548,9 +2516,6 @@
    }
   },
   "Schemathesis Contract Fuzzing": {
-   "2026-09-17": {
-    "success": 3
-   },
    "2026-09-18": {
     "cancelled": 2,
     "failure": 2,
@@ -2622,9 +2587,6 @@
    }
   },
   "Security Audit": {
-   "2026-09-17": {
-    "success": 4
-   },
    "2026-09-18": {
     "success": 26
    },
@@ -2817,7 +2779,7 @@
    },
    "2026-10-17": {
     "cancelled": 18,
-    "skipped": 72,
+    "skipped": 78,
     "success": 72
    }
   },
@@ -2863,9 +2825,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-17T18:29:10Z",
+   "created_at": "2026-10-17T21:26:52Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39058294170"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39070976359"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2891,9 +2853,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-17T13:44:51Z",
+   "created_at": "2026-10-17T22:13:26Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39037829310"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39074177404"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2919,9 +2881,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-17T13:44:20Z",
+   "created_at": "2026-10-17T22:24:29Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39037795081"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39074941927"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2960,10 +2922,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-17T14:13:59Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-17T22:20:19Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39039861428"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39074656271"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2973,11 +2935,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39033677366"
   }
  },
- "runs": 14527,
+ "runs": 14403,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-17": 87.5,
     "2026-09-18": 125,
     "2026-09-19": 180,
     "2026-09-20": 180.0,
@@ -3004,16 +2965,15 @@
     "2026-10-14": 10.0,
     "2026-10-15": 476.0,
     "2026-10-16": 373,
-    "2026-10-17": 409.0
+    "2026-10-17": 415
    },
-   "p50_s": 192,
-   "p95_s": 501,
+   "p50_s": 195,
+   "p95_s": 502,
    "queue_p50_s": 0,
-   "runs": 945
+   "runs": 930
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-17": 238,
     "2026-09-18": 244,
     "2026-09-19": 271.0,
     "2026-09-20": 240.0,
@@ -3045,14 +3005,13 @@
     "2026-10-16": 1071,
     "2026-10-17": 1111.5
    },
-   "p50_s": 711,
-   "p95_s": 1117,
+   "p50_s": 719,
+   "p95_s": 1119,
    "queue_p50_s": 0,
-   "runs": 152
+   "runs": 149
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-17": 6,
     "2026-09-18": 7.0,
     "2026-09-19": 6.0,
     "2026-09-20": 7,
@@ -3079,12 +3038,12 @@
     "2026-10-14": 11.0,
     "2026-10-15": 9.5,
     "2026-10-16": 10.0,
-    "2026-10-17": 11
+    "2026-10-17": 11.0
    },
    "p50_s": 10,
-   "p95_s": 38,
+   "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 725
+   "runs": 711
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3100,16 +3059,15 @@
     "2026-10-14": 430.5,
     "2026-10-15": 383,
     "2026-10-16": 389.5,
-    "2026-10-17": 336.5
+    "2026-10-17": 336
    },
-   "p50_s": 395,
+   "p50_s": 394,
    "p95_s": 581,
    "queue_p50_s": 0,
-   "runs": 492
+   "runs": 493
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-17": 10,
     "2026-09-18": 10,
     "2026-09-19": 10.0,
     "2026-09-20": 9.5,
@@ -3135,16 +3093,15 @@
     "2026-10-14": 21.5,
     "2026-10-15": 19.0,
     "2026-10-16": 10,
-    "2026-10-17": 11
+    "2026-10-17": 11.0
    },
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 655
+   "runs": 639
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-09-17": 1840,
     "2026-09-18": 1833,
     "2026-09-19": 1833,
     "2026-09-24": 1837,
@@ -3162,11 +3119,10 @@
    "p50_s": 1838,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 26
+   "runs": 25
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-17": 165.5,
     "2026-09-18": 170.0,
     "2026-09-19": 169.0,
     "2026-09-20": 175.5,
@@ -3201,11 +3157,10 @@
    "p50_s": 174,
    "p95_s": 201,
    "queue_p50_s": 0,
-   "runs": 225
+   "runs": 221
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-17": 10,
     "2026-09-18": 11,
     "2026-09-19": 10,
     "2026-09-20": 10,
@@ -3232,12 +3187,12 @@
     "2026-10-14": 14.5,
     "2026-10-15": 11.0,
     "2026-10-16": 12,
-    "2026-10-17": 12
+    "2026-10-17": 12.0
    },
    "p50_s": 11,
    "p95_s": 32,
    "queue_p50_s": 0,
-   "runs": 670
+   "runs": 658
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3253,12 +3208,12 @@
     "2026-10-14": 8,
     "2026-10-15": 8,
     "2026-10-16": 10.0,
-    "2026-10-17": 10.0
+    "2026-10-17": 10
    },
    "p50_s": 11,
    "p95_s": 196,
    "queue_p50_s": 0,
-   "runs": 285
+   "runs": 286
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3272,16 +3227,15 @@
     "2026-10-14": 11,
     "2026-10-15": 12,
     "2026-10-16": 11.0,
-    "2026-10-17": 12.5
+    "2026-10-17": 11
    },
    "p50_s": 13,
    "p95_s": 55,
    "queue_p50_s": 0,
-   "runs": 223
+   "runs": 224
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-17": 779,
     "2026-09-18": 783.0,
     "2026-09-19": 765,
     "2026-09-20": 763.0,
@@ -3308,16 +3262,15 @@
     "2026-10-14": 11.5,
     "2026-10-15": 318.0,
     "2026-10-16": 535.0,
-    "2026-10-17": 531
+    "2026-10-17": 521.5
    },
-   "p50_s": 589,
-   "p95_s": 826,
+   "p50_s": 586,
+   "p95_s": 823,
    "queue_p50_s": 0,
-   "runs": 897
+   "runs": 883
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-17": 197,
     "2026-09-18": 161.0,
     "2026-09-19": 175.0,
     "2026-09-20": 226.5,
@@ -3344,16 +3297,15 @@
     "2026-10-14": 11.0,
     "2026-10-15": 137.5,
     "2026-10-16": 12,
-    "2026-10-17": 14.0
+    "2026-10-17": 13
    },
-   "p50_s": 43,
+   "p50_s": 38,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 960
+   "runs": 944
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-17": 24,
     "2026-09-18": 24,
     "2026-09-19": 90,
     "2026-09-20": 93.5,
@@ -3380,12 +3332,12 @@
     "2026-10-14": 9.0,
     "2026-10-15": 77.5,
     "2026-10-16": 93.5,
-    "2026-10-17": 92.5
+    "2026-10-17": 95
    },
-   "p50_s": 83,
+   "p50_s": 84,
    "p95_s": 135,
    "queue_p50_s": 0,
-   "runs": 1003
+   "runs": 987
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3404,16 +3356,15 @@
     "2026-10-14": 17.5,
     "2026-10-15": 14.5,
     "2026-10-16": 17.0,
-    "2026-10-17": 18
+    "2026-10-17": 17.0
    },
    "p50_s": 16,
    "p95_s": 48,
    "queue_p50_s": 0,
-   "runs": 576
+   "runs": 577
   },
   "Mutation Testing": {
    "daily_p50_s": {
-    "2026-09-17": 10797,
     "2026-09-18": 10674.5,
     "2026-09-19": 10476,
     "2026-09-21": 10407,
@@ -3426,14 +3377,13 @@
     "2026-10-08": 10428,
     "2026-10-10": 10665
    },
-   "p50_s": 10278,
-   "p95_s": 10797,
+   "p50_s": 10203,
+   "p95_s": 10680,
    "queue_p50_s": 0,
-   "runs": 20
+   "runs": 19
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-17": 45.5,
     "2026-09-18": 41.0,
     "2026-09-19": 42.0,
     "2026-09-20": 41,
@@ -3456,9 +3406,9 @@
     "2026-10-17": 49.0
    },
    "p50_s": 45,
-   "p95_s": 59,
+   "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 113
+   "runs": 109
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3474,16 +3424,15 @@
     "2026-10-14": 23.5,
     "2026-10-15": 39.0,
     "2026-10-16": 37,
-    "2026-10-17": 30
+    "2026-10-17": 29.5
    },
    "p50_s": 40,
    "p95_s": 152,
    "queue_p50_s": 0,
-   "runs": 305
+   "runs": 306
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-09-17": 1842,
     "2026-09-18": 1152.5,
     "2026-09-19": 76,
     "2026-09-20": 72,
@@ -3508,13 +3457,12 @@
     "2026-10-17": 64.5
    },
    "p50_s": 75,
-   "p95_s": 991,
+   "p95_s": 128,
    "queue_p50_s": 0,
-   "runs": 130
+   "runs": 127
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-17": 113.5,
     "2026-09-18": 114.5,
     "2026-09-19": 110,
     "2026-09-20": 108,
@@ -3541,12 +3489,12 @@
     "2026-10-14": 130.5,
     "2026-10-15": 170.5,
     "2026-10-16": 171,
-    "2026-10-17": 163.0
+    "2026-10-17": 161
    },
-   "p50_s": 146,
-   "p95_s": 219,
+   "p50_s": 147,
+   "p95_s": 220,
    "queue_p50_s": 0,
-   "runs": 972
+   "runs": 957
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3561,12 +3509,12 @@
     "2026-10-14": 10.0,
     "2026-10-15": 21.5,
     "2026-10-16": 10,
-    "2026-10-17": 12.5
+    "2026-10-17": 12
    },
    "p50_s": 13,
    "p95_s": 67,
    "queue_p50_s": 0,
-   "runs": 437
+   "runs": 438
   },
   "polity red alert": {
    "daily_p50_s": {
