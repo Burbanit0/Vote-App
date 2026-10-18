@@ -331,9 +331,9 @@ creates the pod, watches it, fetches the results and terminates it. Nothing in t
 | File | Where it runs | What it does |
 |---|---|---|
 | `pod_start.sh` | pod, as the container's entry point | Sets up ssh: key only, optional `ALLOW_FROM`. Builds a Python 3.14 environment with `requirements.lock.txt` on the persistent disk (once per lock file). Starts `telemetry.py` and `chain.sh` detached, then `exec`s vLLM on `127.0.0.1:8000`. |
-| `chain.sh` | pod, or this machine | Every seed of `SEEDS` in parallel, each retried with `--resume` until its digest says completed. Writes `CHAIN_DONE`. Also runs locally against a local server, for the baseline (§10.5). |
+| `chain.sh` | pod, or this machine | Every seed of `SEEDS` in parallel, retried until its digest says completed. A seed with a checkpoint resumes; one that died before its first checkpoint starts over. It waits for vLLM as long as it takes and writes `CHAIN_DONE`. On this machine, set `PY`, `REPO` and `OUT` (they default to `/workspace` paths) and `SERVED_NAME`. |
 | `telemetry.py` | pod | The per-minute sample, written to `/workspace/runs/telemetry.jsonl`. |
-| `fetch.sh` | this machine | `rsync` of `/workspace/runs/` back here. Repeatable, and run once more before terminating. |
+| `fetch.sh` | this machine | `rsync` of `/workspace/runs/` back here. Repeatable, and run once more before terminating. It pins the pod's host keys in `~/.ssh/known_hosts_polity_rented`; the pod keeps those keys across restarts, so delete that file only for a new pod. |
 
 ### 10.3 Creating the pod
 
@@ -378,7 +378,7 @@ still works unchanged.
 
 | Step | Where | Settings | Why |
 |---|---|---|---|
-| 1. 8B baseline (G6) | the local GPU, `chain.sh` with `BASE_URL=http://localhost:8000/v1` | The 8-year probe's own config: seed 42, 8 years, 100 citizens, 15 seats, exploration, 24 workers, relaxed | The like-for-like comparison §5 lacks. Free. |
+| 1. 8B baseline (G6) | the local GPU, `chain.sh` with `BASE_URL=http://localhost:8000/v1`, `SERVED_NAME` the local model's, and `PY`, `REPO`, `OUT` set for this machine | The 8-year probe's own config: seed 42, 8 years, 100 citizens, 15 seats, exploration, 24 workers, relaxed | The like-for-like comparison §5 lacks. Free. |
 | 2. Sizing probe | pod | 8 years, 500 citizens, 75 seats, `SEEDS="1 2 3"` | Narrows §6's 8-25 h. Measures whether three parallel seeds cost wall time. |
 | 3. Full test | pod | 30 years, 500 citizens, 75 seats, `SEEDS` as decided | The full run |
 
@@ -393,21 +393,28 @@ The owner's decisions (§7) as this preparation leaves them:
 
 **Tested on this machine:**
 - **`chain.sh`, deterministic engine:**
-  - two seeds ran in parallel and finished;
-  - a second start skipped them;
-  - a seed whose process was killed mid-run came back with `--resume` and completed.
-- **`telemetry.py`:** one sample against the local vLLM 0.31.0 read the GPU and vLLM's counters.
-- **`pod_start.sh`, in the real `vllm/vllm-openai:v0.31.0` image, without a GPU and with a stub in place of `vllm`:**
-  - sshd came up key-only;
-  - `uv` built Python 3.14 with the locked dependencies;
+  - seeds ran in parallel and finished, and a second start skipped them;
+  - a seed whose process was killed mid-run came back with `--resume`;
+  - a seed whose run directory had no checkpoint started over with `--force`.
+
+  `api/tests/test_rented_chain.py` keeps the last three cases.
+- **`telemetry.py`:**
+  - one sample against the local vLLM 0.31.0 read the GPU and vLLM's counters;
+  - `api/tests/test_rented_telemetry.py` covers the parsing: counters summed over engines, a share as its
+    largest, histogram parts skipped, and a GPU field the driver does not report.
+- **`pod_start.sh`, in the real `vllm/vllm-openai:v0.31.0` image, without a GPU and with a stub in place of `vllm`,
+  started twice on the same `/workspace` to stand in for a pod restart:**
+  - sshd came up key-only, with both keys of a two-key `PUBLIC_KEY`;
+  - `uv` built Python 3.14 with the locked dependencies on the persistent disk, and rebuilt the environment when
+    its interpreter was missing;
+  - the host key was the same on both starts;
   - telemetry wrote samples;
-  - the chain ran a deterministic seed to `CHAIN_DONE`;
+  - the chain ran a deterministic seed to `CHAIN_DONE`, and skipped it on the second start;
   - `vllm serve` was called with the arguments above.
 
 **Not tested:**
 - on a real pod;
 - with the real vLLM serving while the simulation runs beside it;
 - the clone at `POLITY_SHA`, which needs this branch merged;
-- the 30-minute wait for a first weight download;
-- restarting a pod mid-run.
-
+- a first weight download;
+- the GPU-hours a full run takes.
