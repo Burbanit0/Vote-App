@@ -757,32 +757,6 @@
   },
   {
    "branches": [
-    "fix/election-method-names",
-    "fix/no-best-method-from-a-tie"
-   ],
-   "category": "test-flaky",
-   "count": 3,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "  error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
-     "npm error audit endpoint returned an error",
-     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-19T17_18_37_922Z-debug-0.log",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "1be4044d98f0a0ac637815984953be59ed1bfe92",
-    "step": "Security \u2014 npm audit (high CVEs block)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35457625984"
-   },
-   "last_seen": "2026-09-19T17:17:27Z",
-   "signature": "test-flaky: error: 'We are currently performing maintenance. For more info go to https://status.npmjs.org'",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743"
    ],
    "category": "code",
@@ -1282,33 +1256,6 @@
   },
   {
    "branches": [
-    "fix/no-best-method-from-a-tie"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:193:12: url",
-     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:193:17: init",
-     "/home/runner/work/Vote-App/Vote-App/voter-app/src/components/shared/theory/__tests__/PowerIndicesPanel.test.tsx:194:12: url",
-     "(136335 / 136663) 99.75%",
-     "The type coverage rate(99.75%) is lower than the target(99.76%).",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "9123ab15f8f1f324901b8a52f1c1f610418ae718",
-    "step": "Type coverage \u2014 no regression (blocking)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/35454509853"
-   },
-   "last_seen": "2026-09-19T16:18:05Z",
-   "signature": "code: The type coverage rate(#%) is lower than the target(#%).",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "feat/winner-strip"
    ],
    "category": "code",
@@ -1507,16 +1454,16 @@
  ],
  "failures_by_category": {
   "advisory": 17,
-  "code": 165,
+  "code": 164,
   "infra": 13,
-  "test-flaky": 32,
+  "test-flaky": 29,
   "unknown": 2
  },
- "generated_at": "2026-10-19T15:57:35Z",
+ "generated_at": "2026-10-19T19:21:49Z",
  "grid": {
   "Backend CI": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 9
@@ -1608,7 +1555,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 8
@@ -1759,12 +1706,12 @@
     "success": 19
    },
    "2026-10-19": {
-    "success": 9
+    "success": 10
    }
   },
   "CI Health Watchdog": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 8
@@ -1900,7 +1847,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 8
@@ -2034,7 +1981,7 @@
   "E2E Tests": {
    "2026-09-19": {
     "cancelled": 1,
-    "success": 12
+    "success": 8
    },
    "2026-09-20": {
     "failure": 1,
@@ -2133,7 +2080,7 @@
   },
   "Frontend CI": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 9
@@ -2226,7 +2173,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 9
@@ -2416,7 +2363,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 7
@@ -2477,7 +2424,7 @@
   },
   "Schemathesis Contract Fuzzing": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 7
@@ -2549,7 +2496,7 @@
   },
   "Security Audit": {
    "2026-09-19": {
-    "success": 13
+    "success": 9
    },
    "2026-09-20": {
     "success": 9
@@ -2755,7 +2702,8 @@
     "success": 24
    },
    "2026-10-19": {
-    "success": 5
+    "skipped": 6,
+    "success": 6
    }
   },
   "zizmor online": {
@@ -2800,9 +2748,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-19T13:58:55Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39264835655"
+   "created_at": "2026-10-19T15:57:26Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39281797677"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2898,9 +2846,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-19T12:38:39Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39253660096"
+   "created_at": "2026-10-19T16:32:20Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39286233998"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2910,11 +2858,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39033677366"
   }
  },
- "runs": 13930,
+ "runs": 13841,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-19": 180.0,
+    "2026-09-19": 183,
     "2026-09-20": 180.0,
     "2026-09-21": 324.5,
     "2026-09-25": 194,
@@ -2943,14 +2891,14 @@
     "2026-10-18": 363,
     "2026-10-19": 944
    },
-   "p50_s": 266,
+   "p50_s": 278,
    "p95_s": 503,
    "queue_p50_s": 0,
-   "runs": 864
+   "runs": 853
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-19": 275,
+    "2026-09-19": 285,
     "2026-09-20": 240.0,
     "2026-09-21": 164,
     "2026-09-22": 301,
@@ -2982,14 +2930,14 @@
     "2026-10-18": 1114,
     "2026-10-19": 1010
    },
-   "p50_s": 823,
+   "p50_s": 830,
    "p95_s": 1121,
    "queue_p50_s": 0,
-   "runs": 137
+   "runs": 133
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-19": 6.0,
+    "2026-09-19": 6,
     "2026-09-20": 7,
     "2026-09-21": 6,
     "2026-09-25": 8.0,
@@ -3020,7 +2968,7 @@
    "p50_s": 10,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 664
+   "runs": 657
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3038,16 +2986,16 @@
     "2026-10-16": 389.5,
     "2026-10-17": 336,
     "2026-10-18": 327,
-    "2026-10-19": 344
+    "2026-10-19": 351.5
    },
    "p50_s": 392,
-   "p95_s": 577,
+   "p95_s": 581,
    "queue_p50_s": 0,
-   "runs": 521
+   "runs": 522
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-19": 10.0,
+    "2026-09-19": 10,
     "2026-09-20": 9.5,
     "2026-09-25": 11.0,
     "2026-09-26": 9,
@@ -3077,7 +3025,7 @@
    "p50_s": 11,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 565
+   "runs": 554
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3136,11 +3084,11 @@
    "p50_s": 175,
    "p95_s": 201,
    "queue_p50_s": 0,
-   "runs": 196
+   "runs": 192
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-19": 10,
+    "2026-09-19": 10.0,
     "2026-09-20": 10,
     "2026-09-21": 11,
     "2026-09-25": 11.5,
@@ -3172,7 +3120,7 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 615
+   "runs": 608
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3218,7 +3166,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-19": 768.5,
+    "2026-09-19": 767,
     "2026-09-20": 763.0,
     "2026-09-21": 775.5,
     "2026-09-25": 774.0,
@@ -3247,10 +3195,10 @@
     "2026-10-18": 11,
     "2026-10-19": 666
    },
-   "p50_s": 577,
-   "p95_s": 803,
+   "p50_s": 574,
+   "p95_s": 802,
    "queue_p50_s": 0,
-   "runs": 824
+   "runs": 813
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3283,14 +3231,14 @@
     "2026-10-18": 9.5,
     "2026-10-19": 638
    },
-   "p50_s": 28,
-   "p95_s": 279,
+   "p50_s": 27,
+   "p95_s": 281,
    "queue_p50_s": 0,
-   "runs": 876
+   "runs": 866
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-19": 89.5,
+    "2026-09-19": 90,
     "2026-09-20": 93.5,
     "2026-09-21": 75.5,
     "2026-09-25": 79.0,
@@ -3319,10 +3267,10 @@
     "2026-10-18": 64.5,
     "2026-10-19": 1374
    },
-   "p50_s": 87,
+   "p50_s": 86,
    "p95_s": 138,
    "queue_p50_s": 0,
-   "runs": 918
+   "runs": 907
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3370,7 +3318,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-19": 43,
+    "2026-09-19": 41,
     "2026-09-20": 41,
     "2026-09-22": 50,
     "2026-09-25": 48.0,
@@ -3390,10 +3338,10 @@
     "2026-10-13": 45,
     "2026-10-17": 49.0
    },
-   "p50_s": 45,
+   "p50_s": 46,
    "p95_s": 63,
    "queue_p50_s": 0,
-   "runs": 80
+   "runs": 76
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3420,7 +3368,7 @@
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-09-19": 76,
+    "2026-09-19": 78,
     "2026-09-20": 72,
     "2026-09-21": 75,
     "2026-09-25": 74,
@@ -3447,11 +3395,11 @@
    "p50_s": 75,
    "p95_s": 87,
    "queue_p50_s": 0,
-   "runs": 120
+   "runs": 116
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-19": 108.5,
+    "2026-09-19": 110,
     "2026-09-20": 108,
     "2026-09-21": 112,
     "2026-09-25": 109.0,
@@ -3477,12 +3425,13 @@
     "2026-10-15": 170.5,
     "2026-10-16": 171,
     "2026-10-17": 161,
-    "2026-10-18": 163
+    "2026-10-18": 163,
+    "2026-10-19": 2194
    },
    "p50_s": 151,
    "p95_s": 222,
    "queue_p50_s": 0,
-   "runs": 887
+   "runs": 877
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3523,12 +3472,12 @@
     "2026-10-16": 30,
     "2026-10-17": 27.0,
     "2026-10-18": 27.5,
-    "2026-10-19": 28
+    "2026-10-19": 29.0
    },
    "p50_s": 28,
    "p95_s": 56,
    "queue_p50_s": 0,
-   "runs": 1320
+   "runs": 1321
   },
   "zizmor online": {
    "daily_p50_s": {
