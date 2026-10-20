@@ -373,7 +373,8 @@ def commit() -> str:
 
 
 def _embed(data: Any) -> str:
-    """JSON safe inside a <script> element: no `<` (so no `</script>`, `<!--` or `<script>`), `>` or `&` as such."""
+    """JSON written into the page's script as a JS value (JSON is a subset of JS), safe inside a
+    <script> element: no `<` (so no `</script>`, `<!--` or `<script>`), `>` or `&` as such."""
     text = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
     return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
@@ -385,9 +386,13 @@ def build(run_dir: Path, out: Path) -> Path:
         "institutional": sorted(INSTITUTIONAL_EVENT_TYPES),
     }
     page = TEMPLATE.read_text(encoding="utf-8")
-    page = page.replace("/*ATLAS_DATA*/", _embed(content)).replace(
-        "/*REPLAY_DATA*/", _embed(compact_run(run_dir))
-    )
+    for slot, data in (
+        ("/*ATLAS_DATA*/{}", content),
+        ("/*REPLAY_DATA*/{}", compact_run(run_dir)),
+    ):
+        if page.count(slot) != 1:
+            raise ValueError(f"{slot} must appear exactly once in {TEMPLATE.name}")
+        page = page.replace(slot, _embed(data))
     out.write_text(page, encoding="utf-8")
     return out
 

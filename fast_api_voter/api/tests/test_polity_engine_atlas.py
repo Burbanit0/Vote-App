@@ -104,15 +104,9 @@ def test_relocate_follows_code_that_only_moved_and_reports_code_that_changed() -
 def test_the_atlas_builds_for_the_committed_fixture_run(tmp_path: Path) -> None:
     page = atlas.build(FIXTURE_RUN, tmp_path / "atlas.html").read_text()
     assert "/*ATLAS_DATA*/" not in page and "/*REPLAY_DATA*/" not in page
-    blocks = dict(
-        re.findall(
-            r'<script type="application/json" id="([a-z-]+)">(.*?)</script>', page, re.S
-        )
-    )
-    content, replay = (
-        json.loads(blocks["atlas-data"]),
-        json.loads(blocks["replay-data"]),
-    )
+    # Each data block is one line of compact JSON, written in as the value of `const A` / `const R`.
+    blocks = dict(re.findall(r"^const ([AR]) = (.*);$", page, re.M))
+    content, replay = json.loads(blocks["A"]), json.loads(blocks["R"])
     events = [
         json.loads(line)
         for line in (FIXTURE_RUN / "events.jsonl").read_text().splitlines()

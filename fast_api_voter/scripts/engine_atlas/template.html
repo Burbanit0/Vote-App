@@ -241,8 +241,6 @@ svg .mut { fill: var(--muted) }
 </section>
 </main>
 
-<script type="application/json" id="atlas-data">/*ATLAS_DATA*/</script>
-<script type="application/json" id="replay-data">/*REPLAY_DATA*/</script>
 <script>
 let SHA, GH, ADRS;  // set from the content below
 const P = "api/domain/polity/";
@@ -253,7 +251,9 @@ function ref(file, line, label) {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 /* ───────────── content (scripts/engine_atlas/content.json, injected by scripts/build_engine_atlas.py) ───────────── */
-const A = JSON.parse(document.getElementById("atlas-data").textContent);
+// The builder writes both data blocks in as JS values (escaped by _embed: no `<`, `>` or `&`),
+// so nothing is read back out of the DOM.
+const A = /*ATLAS_DATA*/{};
 const SETUP = A.setup, LOOP = A.loop, AFTER = A.after, GROUPS = A.groups, PHASES = A.phases, FAMS = A.families, KIND = A.kinds, M = A.mechanics, LANES = A.lanes;
 const INSTITUTIONAL = new Set(A.institutional);  // events.INSTITUTIONAL_EVENT_TYPES, read from the code by the builder
 SHA = A.sha; document.getElementById("shortsha").textContent = SHA.slice(0, 7); GH = `https://github.com/Burbanit0/Vote-App/blob/${SHA}/fast_api_voter/`; ADRS = `https://github.com/Burbanit0/Vote-App/tree/${SHA}/docs/adr`;
@@ -383,7 +383,7 @@ renderList(); openMech(current, false);
 })();
 
 /* ───────────── replay ───────────── */
-const R = JSON.parse(document.getElementById("replay-data").textContent);
+const R = /*REPLAY_DATA*/{};
 const meta = R.meta, T = meta.ticks;
 const laneOf = e => { const key = e.ty === "agent_turn" ? `agent_turn:${e.r}` : e.ty; return LANES.find(l => l.types.includes(key)) };
 const byLaneTick = {}; R.events.forEach(e => { const l = laneOf(e); if (!l) return; const k = l.id + "@" + e.t; (byLaneTick[k] = byLaneTick[k] || []).push(e) });
