@@ -1464,7 +1464,12 @@ def test_wire_order_is_pinned_and_names_each_class_fields_exactly():
     from api.domain.polity.llm_client import WIRE_ORDER
 
     message = "a field order is part of the prompt (ADR-030): change WIRE_ORDER only from scripts/check_schema_order.py's verdict"
-    assert dict(WIRE_ORDER) == {}, message  # the pin: update it together with check_schema_order_results.md
+    assert dict(WIRE_ORDER) == {  # the pin: update it together with check_schema_order_results.md
+        "PressureDecision": ("cid", "target", "act", "motif"),
+        "CandidacyDecision": ("cid", "outcome", "motif"),
+        "VoteCastDecision": ("cid", "blank", "motif", "ranking"),
+        "ResponseDecision": ("cid", "stance", "shifts", "motif"),
+    }, message
     for title, order in WIRE_ORDER.items():
         assert sorted(order) == sorted(getattr(llm_schemas, title).model_fields), (title, message)
 

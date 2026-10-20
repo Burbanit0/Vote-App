@@ -138,9 +138,17 @@ scripts and logs) are outside git, in `~/Documents/Dev/polity-runs/vllm032/` (ba
 `~/Documents/Dev/polity-runs/order-ab/` (the 4-year live A/B). The tables above are read off
 them; the bake-off arms in `bakeoff_runner.py` reproduce the order sessions.
 
+## The first sweep (2026-10-20)
+`check_schema_order.py` on vLLM 0.31.0: noise 0% on every decision type; no order passes the rule; the three
+orders with `motif` before `act` are significantly worse on pressure (70-72/144 against 97, Holm p
+0.003-0.009). The owner set `WIRE_ORDER` to the best-scoring orders of four decisions (ADR-030, "The first
+table"): pressure `cid, target, act, motif`, candidacy `cid, outcome, motif`, vote `cid, blank, motif,
+ranking`, response `cid, stance, shifts, motif`. Only those four schemas' bytes change; every agent turn and
+nested object is sent as before. A rule fix came with it: arms sending a class the same order count once in
+Holm (candidacy went from p 0.178 to 0.0595; no verdict changed).
+
 ## Not settled
-- The order bank sweep itself (`check_schema_order.py run`): not run yet. The declared order is the
-  favourite on today's evidence, for the batch decisions only.
+- Whether the four orders are a real gain: none is significant alone; the live check and the next sweep say.
 - The agents' turns and nested objects: no ground truth, so they stay alphabetical; a forum opinion-change
   family would let the sweep cover them.
 - 0.32.0: stays parked. Re-test it with whatever `WIRE_ORDER` the sweep picks: under compact JSON the

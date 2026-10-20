@@ -219,11 +219,18 @@ def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
     return dict(resolve(schema))
 
 
-WIRE_ORDER: Mapping[str, tuple[str, ...]] = {}
+WIRE_ORDER: Mapping[str, tuple[str, ...]] = {
+    "PressureDecision": ("cid", "target", "act", "motif"),
+    "CandidacyDecision": ("cid", "outcome", "motif"),
+    "VoteCastDecision": ("cid", "blank", "motif", "ranking"),
+    "ResponseDecision": ("cid", "stance", "shifts", "motif"),
+}
 """The order each object's fields are sent in, by the object's `title` (its Pydantic class name). The model
 writes an object's fields in the order it receives them, so this order is part of the prompt (ADR-030,
 EXP-025). An object not listed goes out alphabetically, as every object did until 2026-10 (OBS-050).
-Filled by scripts/check_schema_order.py's verdict, never by hand."""
+These four are the best-scoring orders of the first sweep (check_schema_order_results.md, 2026-10-20), set
+by the owner although none passed the rule alone; the five other decisions showed no difference and stay
+alphabetical. Change it only from a check_schema_order.py run."""
 
 
 def _wire_names(properties: Mapping[str, Any], listed: Sequence[str]) -> list[str]:

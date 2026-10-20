@@ -1,6 +1,6 @@
 # ADR-030: the order of a schema's fields is part of the prompt, chosen by measurement
 
-**Status**: Accepted (owner, 2026-10-19).
+**Status**: Accepted (owner, 2026-10-19); first table set by the owner, 2026-10-20 (below).
 **Date**: 2026-10-19
 **Context**: Under constrained decoding the model writes an object's fields in the order the schema sends
 them. The vLLM client sorted the request body's keys for a future cache key, so every object reached the
@@ -51,3 +51,22 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
 - Not covered yet: the agents' turns and nested objects (`PositionShift`) have no ground truth, and their
   declared order was where last night's forum and chamber regressions came from; they stay alphabetical until
   a bank family can measure them. `campaign_positioning` is not in the order bank (too noisy to measure).
+
+## The first table (owner, 2026-10-20)
+
+The first sweep (`check_schema_order_results.md`, vLLM 0.31.0) found no order that passes the rule alone:
+the reason code before the act is significantly worse on pressure (70-72/144 against 97), and the best orders
+lead without reaching significance. The owner set `WIRE_ORDER` to those best orders anyway ("the best looking
+order is not always the alphabetic one ... modify it to the optimum for each kind of decision"):
+
+| decision | order | first sweep | alphabetical |
+| --- | --- | --- | --- |
+| pressure_action | cid, target, act, motif | 107/144 (19 better / 9 worse) | 97 |
+| candidacy_considered | cid, outcome, motif | 332/500 (31 / 17, p 0.06) | 318 |
+| vote_cast | cid, blank, motif, ranking | 152/160 (3 / 0), logprob gate 16/16 | 149, gate 13/16 |
+| representative_response | cid, stance, shifts, motif | 18/18 valid | 17/18 |
+
+Ties were broken on validity and the logprob gate, then on the two findings above: the decision before the
+reason code, and `stance` before `shifts` (what decided vLLM 0.32). The five other decisions showed no
+difference and stay alphabetical, as do the agents' turns and nested objects. The table ships only after the
+live check passes; the next sweep compares candidates against it, with alphabetical as one of them.
