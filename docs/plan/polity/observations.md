@@ -2756,7 +2756,8 @@ to be canonical (sort the body's top level, not the schema). The owner's call; n
 
 *Status: mechanism fixed 2026-10-19 (ADR-030, EXP-025).* `llm_client.WIRE_ORDER` decides the order a decision
 class's fields are sent in, and `scripts/check_schema_order.py` decides `WIRE_ORDER` on ground truth; it is
-empty for now, so every object still goes out alphabetically, byte for byte as before. Applied on the wire
+set for four decisions since 2026-10-20 (ADR-030, "The first table"); every other object still goes out
+alphabetically, byte for byte as before. Applied on the wire
 after the request hash is taken: the "what a fix costs" paragraph above overstated it. Trying the order
 first (`motif` first) is OBS-051.
 

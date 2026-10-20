@@ -15,8 +15,8 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
 
 - **One table decides the order.** `llm_client.WIRE_ORDER` maps a decision class's name to the order its
   fields are sent in. A class it does not list, and every nested object and agent turn, goes out
-  alphabetically, byte for byte as before. The table starts empty: production's bytes do not change until a
-  measurement says so.
+  alphabetically, byte for byte as before. The table started empty; its first entries are the owner's
+  (below). Each session records the order it sent, so a verdict is always against what its controls sent.
 - **The table is filled by a test, not by reasoning.** `scripts/check_schema_order.py`:
   - `isolation` (no GPU): every candidate changes key order and nothing else;
   - `run`: two control sessions (production's table, the same bytes twice, on either side of a server restart:
@@ -32,13 +32,17 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
   - also beats the second control;
   - does not lower validity significantly;
   - does not put 95% of units on one answer where the control gives no answer to 80%.
+  The noise floor comes from the two controls only; a candidate is assumed to be as noisy as they are (the
+  plan's second session per candidate was not built).
   A measure whose two controls disagree on more than 10% of units cannot decide: the class keeps its order
   (on the first run every measure had 0% noise; `positioning_poles`, 9 of 10 answers changing on identical
   bytes, is left out of the order bank). Without a winner, nothing changes.
 - **Then live.** `scripts/schema_order_live_ab.sh` runs the candidate table against production twice
   (exploration profile, p100, 4 years, 3 seeds) and `schema_order_live_report.py` passes it only if every
   measure (elections, recalls, occupancy, pressure inaction, forum mind-shift, fallbacks, retries) stays within
-  the two controls' range; fallbacks and retries are failures, so only an excess fails them. Against two
+  the two controls' range; fallbacks and retries are failures, so only an excess fails them. That one-sided
+  rule was added after the first table's first report failed it for having fewer retries than both controls:
+  a change to a pre-registered gate, made after seeing a result, stated here so it is not mistaken for one. Against two
   control runs it rejects the motif-first order (pressure inaction 0%, forum mind-shift 0.6%) and passes the
   first table (2026-10-20).
 - **When to re-run, and only then:** a vLLM or xgrammar version, a model or quantisation, a decision class
@@ -50,7 +54,9 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
 - Request hashes, goldens and replay logs are unchanged: the order is applied on the wire, after the hash.
 - A change of `WIRE_ORDER` changes behaviour like a prompt change: runs before and after are not comparable
   decision by decision, and its PR carries the results doc and the live report.
-- Not covered yet: the agents' turns and nested objects (`PositionShift`) have no ground truth, and their
+- Not covered yet: `reaction_to_event`, `chamber_deliberation`, `coalition_decision` and
+  `party_nomination_choice` are measured on validity over 4 to 10 cases, which cannot show a 10-point change;
+  the agents' turns and nested objects (`PositionShift`) have no ground truth, and their
   declared order was where last night's forum and chamber regressions came from; they stay alphabetical until
   a bank family can measure them. `campaign_positioning` is not in the order bank (too noisy to measure).
 

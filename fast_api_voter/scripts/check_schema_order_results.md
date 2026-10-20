@@ -1,5 +1,7 @@
 # Field order per decision: the latest verdict (ADR-030)
 
+The controls sent WIRE_ORDER empty (all alphabetical). Production's WIRE_ORDER today: CandidacyDecision: cid, outcome, motif; PressureDecision: cid, target, act, motif; ResponseDecision: cid, stance, shifts, motif; VoteCastDecision: cid, blank, motif, ranking. They differ: this verdict is against the controls' order, not today's (ADR-030, "The first table").
+
 Written by `scripts/check_schema_order.py decide` on the order bank (`case_bank_order.jsonl`, sha `0b190ae7842f7c9c`). The rule, written before any run: a candidate replaces the current order only if it beats the first control on the type's primary measure (paired McNemar, Holm across that type's distinct candidate orders, p < 0.05), also beats the second control, does not lower validity significantly and does not collapse onto one answer; a measure whose two controls disagree on more than 10% of units keeps the current order.
 
 | decision | primary measure | noise | current order | verdict | reason |

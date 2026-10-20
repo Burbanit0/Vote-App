@@ -4,8 +4,10 @@
 # Usage (from anywhere; needs the vLLM server's GPU and nothing else on it -- check docker ps / nvidia-smi first):
 #   scripts/schema_order_live_ab.sh <control worktree> <candidate worktree> <out dir> [years] [seeds]
 #   e.g. scripts/schema_order_live_ab.sh ~/Dev/Vote-App-ctl ~/Dev/Vote-App-order ~/polity-runs/order-live 4 "1 2 3"
-# The control worktree is origin/polity; the candidate is the branch with the new WIRE_ORDER. Three arms run at
-# once on one server: ctl-a and ctl-b (the same control twice, which measures live noise) and new. Then:
+# The control worktree is origin/polity; the candidate is the branch with the new WIRE_ORDER. Three arms -- ctl-a
+# and ctl-b (the same control twice, which measures live noise) and new -- and every seed run at once on one
+# server (9 sweeps for 3 seeds), so every arm sees the same load. A seed already complete in an arm's out dir is
+# skipped, so an earlier control run can stand in for ctl-a (link it). Then:
 #   python scripts/schema_order_live_report.py <out dir>
 # The server is left as it was found (stopped if it was stopped). Run it detached (setsid nohup ... &): it takes
 # about two hours at 4 years and 3 seeds.

@@ -1,8 +1,8 @@
 # EXP-025 — vLLM 0.32.0, and the order the schema's fields are sent in
 
 - **Date**: 2026-10-18/19 · **Status**: 0.32.0 rejected (stay on 0.31.0); the "effective" order
-  (`motif` first) rejected; the order is now a measured table (ADR-030), empty until
-  `check_schema_order.py` says otherwise (owner, 2026-10-19) · **Real cost**: about nine hours of GPU over two
+  (`motif` first) rejected; the order is now a measured table (ADR-030), whose first
+  four entries the owner set from the first sweep (2026-10-20) · **Real cost**: about nine hours of GPU over two
   days, one server at a time (the bump protocol, bank sessions for the cause and the order, a production-path
   chain, a 4-year live A/B) · **Token cost**: not measured
 - **Verdict in one sentence**: 0.32.0 changed what `disable_any_whitespace` means (compact JSON), which
@@ -109,8 +109,9 @@ the same in both arms). Elections, recalls, occupancy and retries did not move.
 
 ## What production does now (ADR-030)
 `llm_client.WIRE_ORDER` maps a decision class to the order its fields are sent in; anything it does not list
-goes out alphabetically. It is empty: production's bytes are what they were before this experiment (checked
-byte for byte on all 16 schemas). `scripts/check_schema_order.py` fills it: `isolation` (no GPU), `run` (two
+goes out alphabetically. It was empty until the first sweep (production's bytes equal to origin/polity's on all
+16 schemas, checked); since 2026-10-20 it lists four decisions (below), and only those four schemas' bytes
+differ. `scripts/check_schema_order.py` fills it: `isolation` (no GPU), `run` (two
 control sessions and one per candidate on `case_bank_order.jsonl`: 144 pressure units, 160 vote units, 500
 candidacy), `decide` (the pre-registered rule in `bakeoff_order.py`, written to
 `check_schema_order_results.md`). `scripts/schema_order_live_ab.sh` and `schema_order_live_report.py` are the

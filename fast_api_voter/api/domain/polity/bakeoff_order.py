@@ -12,9 +12,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from api.domain.polity.bakeoff_bank import LOGPROB_GATE_FAMILY, Case, CaseBank
+from api.domain.polity.bakeoff_runner import request_resolver, schema_resolver
 from api.domain.polity.bakeoff_scorecard import Session, truth_outcomes
 from api.domain.polity.bakeoff_statistics import holm_adjust, mcnemar_exact
-from api.domain.polity.llm_client import _canonical, _inline_refs
+from api.domain.polity.llm_client import _inline_refs, _wire_names
 from api.domain.polity.schema_order import DECISION_SLOTS, DECISION_TYPES
 
 NOISE_LIMIT = 0.10
@@ -30,8 +31,7 @@ MIXED_SHARE = 0.80
 def table_order(table: Mapping[str, Sequence[str]], title: str) -> tuple[str, ...]:
     """The order `table` sends `title`'s fields in: as listed, or alphabetically when it is not listed."""
     fields = [f for slot in DECISION_SLOTS[title] for f in slot] + ["motif"]
-    listed = tuple(table.get(title, ()))
-    return tuple(f for f in listed if f in fields) + tuple(sorted(f for f in fields if f not in listed))
+    return tuple(_wire_names(dict.fromkeys(fields), table.get(title, ())))
 
 
 @dataclass(frozen=True)
@@ -75,17 +75,18 @@ def _units(cases: Sequence[Case], session: Session, primary: str) -> dict[Any, A
 
 
 def _answers(cases: Sequence[Case], session: Session, primary: str) -> dict[Any, Any]:
+    """Each unit's answer in a ground-truth family (`primary`), as JSON ("null" when unanswered)."""
     main = session.by_case()
-    if primary == "validity":
-        return {c.case_id: json.dumps(main[c.case_id]["answers"], sort_keys=True) for c in cases if c.case_id in main}
     return {(c.case_id, unit): json.dumps((main.get(c.case_id) or {}).get("answers", {}).get(unit))
             for c in cases if c.family == primary for unit in c.labels["truth"]}
 
 
 def noise(cases: Sequence[Case], a: Session, b: Session, primary: str) -> float | None:
-    """The share of units answered differently by two sessions sent the same bytes."""
-    first, second = _answers(cases, a, primary), _answers(cases, b, primary)
-    common = set(first) & set(second)
+    """The share of units two sessions sent the same bytes disagree on, read on the primary measure itself
+    (validity, or the answer); a unit neither session answered says nothing and is left out."""
+    measure = _units if primary == "validity" else _answers
+    first, second = measure(cases, a, primary), measure(cases, b, primary)
+    common = [k for k in set(first) & set(second) if not first[k] == second[k] == "null"]
     return sum(first[k] != second[k] for k in common) / len(common) if common else None
 
 
@@ -103,8 +104,8 @@ def primary_measure(cases: Sequence[Case]) -> str:
 
 def _candidate(rule: str, order: tuple[str, ...], cases: Sequence[Case], session: Session,
                controls: tuple[Session, Session], primary: str) -> Candidate:
-    mine, control = _units(cases, session, primary), _units(cases, controls[0], primary)
-    common = sorted(set(mine) & set(control), key=str)
+    mine, control, control_b = (_units(cases, s, primary) for s in (session, *controls))
+    common = sorted(set(mine) & set(control) & set(control_b), key=str)  # one set of units for all three
     test = mcnemar_exact([mine[k] for k in common], [control[k] for k in common])
     failures = []
     if primary != "validity":
@@ -118,18 +119,26 @@ def _candidate(rule: str, order: tuple[str, ...], cases: Sequence[Case], session
     return Candidate(
         rule=rule, order=order, score=sum(mine[k] for k in common), trials=len(common),
         control_score=sum(control[k] for k in common),
-        control_b_score=sum(v for k, v in _units(cases, controls[1], primary).items() if k in mine),
+        control_b_score=sum(control_b[k] for k in common),
         first_only=test.first_only, second_only=test.second_only, p_value=test.p_value, failures=tuple(failures),
     )
 
 
+def recorded_order(session: Session) -> dict[str, tuple[str, ...]]:
+    """The wire order a session sent. Sessions from before it was recorded all ran with an empty WIRE_ORDER."""
+    return {title: tuple(order) for title, order in session.metadata.get("wire_order", {}).items()}
+
+
 def decide(bank: CaseBank, controls: tuple[Session, Session],
-           candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]],
-           current: Mapping[str, Sequence[str]]) -> list[Verdict]:
+           candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]]) -> list[Verdict]:
     """One verdict per decision class: the candidate order that beats the control on the type's primary
     measure (paired McNemar, Holm across that type's distinct candidate orders, p < 0.05), and again against the second
     control session, without a validity drop or a collapse onto one answer. When none does, or the primary
-    measure is too noisy to tell, the current order stays: no change without evidence."""
+    measure is too noisy to tell, the controls' order stays: no change without evidence. The first control is
+    the one the candidates ran right after, on the same server instance."""
+    current = recorded_order(controls[0])
+    if recorded_order(controls[1]) != current:
+        raise ValueError("the two controls sent different wire orders: they are not the same control")
     verdicts = []
     scored = [c for c in bank.cases if c.family != LOGPROB_GATE_FAMILY]
     for title, decision_type in DECISION_TYPES.items():
@@ -164,15 +173,18 @@ def proposed_table(verdicts: Sequence[Verdict]) -> dict[str, tuple[str, ...]]:
     return {v.title: v.chosen for v in verdicts if v.chosen != tuple(sorted(v.chosen))}
 
 
-def _content(schema: dict[str, Any], table: Mapping[str, Sequence[str]]) -> Any:
-    def norm(node: Any) -> Any:
-        if isinstance(node, dict):
-            return {k: sorted(v) if k == "required" else norm(v) for k, v in sorted(node.items())}
-        return [norm(item) for item in node] if isinstance(node, list) else node
-    return norm(json.loads(json.dumps(_canonical(_inline_refs(schema), table))))
+def _content(schema: dict[str, Any], request: Mapping[str, Any]) -> str:
+    return json.dumps({"schema": _inline_refs(schema), "request": request}, sort_keys=True, default=str)
 
 
-def isolation_violations(bank: CaseBank, tables: Mapping[str, Mapping[str, Sequence[str]]]) -> list[str]:
-    """Each (arm, decision type) whose request differs from the alphabetical one in anything but key order."""
-    return [f"{name}: {decision_type}" for name, table in sorted(tables.items())
-            for decision_type, schema in sorted(bank.schemas.items()) if _content(schema, table) != _content(schema, {})]
+def isolation_violations(bank: CaseBank, arms: Sequence[str]) -> list[str]:
+    """Each (arm, decision type) where the arm sends a case anything but the control's content in another key
+    order: a schema or request change through the arm's own resolvers, not only its wire order."""
+    base_schema, base_request = schema_resolver(bank, None), request_resolver(None)
+    violations = []
+    for arm in arms:
+        schema_for, request_for = schema_resolver(bank, arm), request_resolver(arm)
+        differs = {c.decision_type for c in bank.cases
+                   if _content(schema_for(c), request_for(c)) != _content(base_schema(c), base_request(c))}
+        violations += [f"{arm}: {decision_type}" for decision_type in sorted(differs)]
+    return violations

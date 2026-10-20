@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import itertools
 
+from api.domain.polity.bakeoff_bank import SCHEMAS
+
 DECISION_SLOTS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = {
     # class title: (who it is about, the decision, what hangs on the decision); `motif` is the fourth slot
     "VoteCastDecision": (("cid",), ("blank",), ("ranking",)),
@@ -25,12 +27,10 @@ DECISION_SLOTS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...
 exactly, so a field added to a decision fails there instead of landing at the tail unmeasured."""
 
 DECISION_TYPES: dict[str, str] = {
-    "VoteCastDecision": "vote_cast", "CandidacyDecision": "candidacy_considered",
-    "PartyNominationDecision": "party_nomination_choice", "PositioningDecision": "campaign_positioning",
-    "ResponseDecision": "representative_response", "PressureDecision": "pressure_action",
-    "ReactionDecision": "reaction_to_event", "ChamberDecision": "chamber_deliberation",
-    "CoalitionDecision": "coalition_decision",
+    next(name for name, spec in schema["$defs"].items() if "motif" in spec.get("properties", {})): decision_type
+    for decision_type, schema in SCHEMAS.items()
 }
+"""Decision class -> decision type, read off the bank's own schemas (`bakeoff_bank.SCHEMAS`)."""
 
 _SLOTS = {"d": 1, "x": 2}  # decision, dependents; "m" is motif
 RULES = tuple("".join(p) for p in itertools.permutations("dxm"))

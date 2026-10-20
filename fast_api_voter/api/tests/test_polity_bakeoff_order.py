@@ -24,12 +24,13 @@ def _bank() -> CaseBank:
     ))
 
 
-def _session(label: str, act: Callable[[int], int]) -> Session:
+def _session(label: str, act: Callable[[int], int], sent: dict[str, Any] | None = None) -> Session:
     def result(case: Case) -> dict[str, Any]:
         unit = case.unit_ids[0]
         return {"case_id": case.case_id, "pass": "main", "answers": {str(unit): act(unit)}, "valid": True,
                 "content_sha256": f"{label}-{act(unit)}", "error": None}
-    return Session(label=label, metadata={}, gates={}, results=[result(c) for c in _bank().cases])
+    metadata = {} if sent is None else {"wire_order": {title: list(order) for title, order in sent.items()}}
+    return Session(label=label, metadata=metadata, gates={}, results=[result(c) for c in _bank().cases])
 
 
 def _pressure(verdicts: list[Any]) -> Any:
@@ -44,7 +45,7 @@ def _half_right(unit: int) -> int:
 def test_a_candidate_that_beats_both_controls_replaces_the_current_order() -> None:
     controls = (_session("control-a", _half_right), _session("control-b", _half_right))
     right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)  # right on all 40
-    verdicts = decide(_bank(), controls, {"order_mdx": (CHOSEN, right), "same": (DECLARED, controls[0])}, {})
+    verdicts = decide(_bank(), controls, {"order_mdx": (CHOSEN, right), "same": (DECLARED, controls[0])})
     pressure = _pressure(verdicts)
     assert pressure.primary == "pressure_act_wide" and pressure.noise == 0.0
     assert pressure.chosen == CHOSEN["PressureDecision"] and pressure.reason == "order_mdx beats the control"
@@ -54,9 +55,9 @@ def test_a_candidate_that_beats_both_controls_replaces_the_current_order() -> No
 
 
 def test_without_a_significant_gain_the_current_order_stays() -> None:
-    controls = (_session("control-a", _half_right), _session("control-b", _half_right))
+    controls = (_session("control-a", _half_right, DECLARED), _session("control-b", _half_right, DECLARED))
     slightly = _session("slightly", lambda unit: 3 if unit < N // 2 or unit in (20, 22) else 0)  # 22 of 40
-    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, slightly)}, DECLARED))
+    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, slightly)}))
     assert pressure.chosen == pressure.current == DECLARED["PressureDecision"]
     assert pressure.reason == "no candidate beats the control"
 
@@ -65,7 +66,7 @@ def test_a_gain_that_comes_from_collapsing_onto_one_answer_is_refused() -> None:
     wrong = (lambda unit: 0 if unit % 2 == 0 else 3)  # wrong on all 40, with a mix of answers
     controls = (_session("control-a", wrong), _session("control-b", wrong))
     always = _session("always", lambda unit: 3)  # right on the 20 who should act, by acting for everyone
-    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, always)}, {}))
+    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, always)}))
     assert pressure.candidates[0].failures == ("collapsed onto one answer",)
     assert pressure.chosen == table_order({}, "PressureDecision") == ("act", "cid", "motif", "target")
 
@@ -73,14 +74,14 @@ def test_a_gain_that_comes_from_collapsing_onto_one_answer_is_refused() -> None:
 def test_a_measure_the_two_controls_disagree_on_is_too_noisy_to_decide() -> None:
     controls = (_session("control-a", _half_right), _session("control-b", lambda unit: 3 if unit < 30 else 0))
     right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)
-    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, right)}, {}))
+    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, right)}))
     assert pressure.noise == 0.25 and pressure.reason == "too noisy to tell" and pressure.candidates == ()
     assert pressure.chosen == ("act", "cid", "motif", "target")
 
 
 def test_a_candidate_sending_the_current_order_is_not_a_candidate() -> None:
-    controls = (_session("control-a", _half_right), _session("control-b", _half_right))
-    pressure = _pressure(decide(_bank(), controls, {"same": (DECLARED, controls[0])}, DECLARED))
+    controls = (_session("control-a", _half_right, DECLARED), _session("control-b", _half_right, DECLARED))
+    pressure = _pressure(decide(_bank(), controls, {"same": (DECLARED, controls[0])}))
     assert pressure.candidates == () and pressure.chosen == DECLARED["PressureDecision"]
 
 
@@ -103,7 +104,7 @@ def test_without_ground_truth_validity_decides_and_a_clear_gain_in_it_wins() -> 
     half = (lambda unit: unit < N // 2)
     controls = (_validity_session("control-a", half), _validity_session("control-b", half))
     table = {"ChamberDecision": ("cid", "shifts", "motif")}  # alphabetical is cid, motif, shifts
-    chamber = next(v for v in decide(_chamber_bank(), controls, {"order_mdx": (table, _validity_session("all", lambda u: True))}, {})
+    chamber = next(v for v in decide(_chamber_bank(), controls, {"order_mdx": (table, _validity_session("all", lambda u: True))})
                    if v.title == "ChamberDecision")
     assert chamber.primary == "validity" and chamber.noise == 0.0
     assert chamber.chosen == ("cid", "shifts", "motif") and chamber.candidates[0].wins
@@ -114,13 +115,32 @@ def test_a_gain_in_accuracy_that_costs_validity_is_refused() -> None:
     right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)
     invalid = Session(label="invalid", metadata={}, gates={},
                       results=[{**r, "valid": int(r["case_id"], 16) % 4 != 0} for r in right.results])
-    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, invalid)}, {}))
+    pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, invalid)}))
     assert "validity significantly worse" in pressure.candidates[0].failures and not pressure.candidates[0].wins
 
 
 def test_arms_sending_a_class_the_same_order_are_one_candidate_so_holm_counts_it_once() -> None:
     controls = (_session("control-a", _half_right), _session("control-b", _half_right))
     right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)
-    pressure = _pressure(decide(_bank(), controls, {"order_a": (CHOSEN, right), "order_b": (CHOSEN, right)}, {}))
+    pressure = _pressure(decide(_bank(), controls, {"order_a": (CHOSEN, right), "order_b": (CHOSEN, right)}))
     assert [c.rule for c in pressure.candidates] == ["order_a = order_b"]
     assert pressure.candidates[0].p_holm == pressure.candidates[0].p_value
+
+
+def test_the_current_order_is_what_the_controls_recorded_sending_and_they_must_agree() -> None:
+    import pytest
+
+    right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)
+    same = (_session("control-a", _half_right, DECLARED), _session("control-b", _half_right, DECLARED))
+    assert _pressure(decide(_bank(), same, {"order_mdx": (CHOSEN, right)})).current == DECLARED["PressureDecision"]
+    mixed = (_session("control-a", _half_right, DECLARED), _session("control-b", _half_right))
+    with pytest.raises(ValueError, match="different wire orders"):
+        decide(_bank(), mixed, {"order_mdx": (CHOSEN, right)})
+
+
+def test_a_unit_neither_control_answered_says_nothing_about_noise() -> None:
+    from api.domain.polity.bakeoff_order import noise
+
+    silent = (lambda unit: None if unit < 20 else 0)  # half the units unanswered by both: not 50% agreement for free
+    a, b = _session("a", silent), _session("b", lambda unit: None if unit < 20 else (3 if unit < 24 else 0))
+    assert noise(list(_bank().cases), a, b, "pressure_act_wide") == 4 / 20

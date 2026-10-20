@@ -19,6 +19,7 @@ can be re-run after a crash. Then apply the proposed WIRE_ORDER by hand, re-run 
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping, Sequence
 import subprocess
 import sys
 import time
@@ -30,9 +31,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.bakeoff_bank import read_bank  # noqa: E402
 from api.domain.polity.bakeoff_order import (  # noqa: E402
-    ALPHA, NOISE_LIMIT, Verdict, decide, isolation_violations, proposed_table,
+    ALPHA, NOISE_LIMIT, Verdict, decide, isolation_violations, proposed_table, recorded_order,
 )
-from api.domain.polity.bakeoff_runner import ARMS, RESULTS_FILENAME  # noqa: E402
+from api.domain.polity.bakeoff_runner import ARMS, GATES_FILENAME, RESULTS_FILENAME  # noqa: E402
 from api.domain.polity.bakeoff_scorecard import load_session  # noqa: E402
 from api.domain.polity.llm_client import WIRE_ORDER  # noqa: E402
 from api.domain.polity.schema_order import RULES  # noqa: E402
@@ -44,10 +45,12 @@ CONTROLS = ("control-a", "control-b")
 RESULTS_DOC = Path(__file__).resolve().parent / "check_schema_order_results.md"
 
 
-def candidate_arms() -> list[str]:
-    """Every candidate whose table is not production's own."""
+def candidate_arms(control: Mapping[str, Sequence[str]]) -> list[str]:
+    """Every candidate whose table is not the control's: today's WIRE_ORDER for `run`, and for `decide` whatever
+    the control sessions recorded sending."""
     arms = ["alphabetical_order", *(f"order_{rule}" for rule in RULES)]
-    return [arm for arm in arms if dict(ARMS[arm].wire_order or {}) != dict(WIRE_ORDER)]
+    wanted = {k: tuple(v) for k, v in control.items()}
+    return [arm for arm in arms if {k: tuple(v) for k, v in (ARMS[arm].wire_order or {}).items()} != wanted]
 
 
 def _healthy(base_url: str | None, timeout_s: float = 480.0) -> bool:
@@ -66,13 +69,13 @@ def _healthy(base_url: str | None, timeout_s: float = 480.0) -> bool:
 
 def _run(out: Path, base_url: str | None, restart: str | None) -> int:
     extra = ["--base-url", base_url] if base_url else []
-    for label, arm in [*((c, None) for c in CONTROLS), *((a, a) for a in candidate_arms())]:
-        if label == CONTROLS[1] and restart:
+    for label, arm in [*((c, None) for c in CONTROLS), *((a, a) for a in candidate_arms(WIRE_ORDER))]:
+        if label == CONTROLS[1] and restart and not (out / label / GATES_FILENAME).is_file():
             # The two controls straddle a restart, so their difference covers what a new server instance changes:
-            # on 2026-10-20 one thinking vote_cast case ran away after a restart, on identical bytes.
+            # on 2026-10-20 one thinking vote_cast case ran away after a restart, on identical bytes. Not again on a
+            # resume once control-b is complete: other worktrees may be using the server.
             print(f"== restarting the server: {restart}", flush=True)
-            subprocess.run(restart, shell=True, check=True)
-            if not _healthy(base_url):
+            if subprocess.run(restart, shell=True, check=False).returncode or not _healthy(base_url):
                 print("the server did not come back")
                 return 1
         print(f"== {label}", flush=True)
@@ -87,9 +90,16 @@ def _fmt(order: tuple[str, ...]) -> str:
     return ", ".join(order)
 
 
-def report(verdicts: list[Verdict], bank_sha: str) -> str:
+def _table(order: Mapping[str, Sequence[str]]) -> str:
+    return "; ".join(f"{title}: {', '.join(fields)}" for title, fields in sorted(order.items())) or "empty (all alphabetical)"
+
+
+def report(verdicts: list[Verdict], bank_sha: str, sent: Mapping[str, Sequence[str]]) -> str:
     lines = [
         "# Field order per decision: the latest verdict (ADR-030)", "",
+        f"The controls sent WIRE_ORDER {_table(sent)}. Production's WIRE_ORDER today: {_table(WIRE_ORDER)}."
+        + ("" if {k: tuple(v) for k, v in sent.items()} == {k: tuple(v) for k, v in WIRE_ORDER.items()} else
+           " They differ: this verdict is against the controls' order, not today's (ADR-030, \"The first table\")."), "",
         f"Written by `scripts/check_schema_order.py decide` on the order bank (`case_bank_order.jsonl`, sha "
         f"`{bank_sha[:16]}`). The rule, written before any run: a candidate replaces the current order only if it "
         f"beats the first control on the type's primary measure (paired McNemar, Holm across that type's "
@@ -115,16 +125,24 @@ def report(verdicts: list[Verdict], bank_sha: str) -> str:
 def _decide(out: Path) -> int:
     bank = read_bank(ORDER_BANK)
     sessions = {d.name: load_session(d) for d in sorted(out.iterdir()) if (d / RESULTS_FILENAME).is_file()}
-    missing = [label for label in (*CONTROLS, *candidate_arms()) if label not in sessions]
+    if any(c not in sessions for c in CONTROLS):
+        print(f"missing control sessions in {out} -- run `run` first")
+        return 1
+    arms = candidate_arms(recorded_order(sessions[CONTROLS[1]]))
+    missing = [arm for arm in arms if arm not in sessions]
     if missing:
         print(f"missing sessions in {out}: {', '.join(missing)} -- run `run` first")
         return 1
-    candidates = {arm: (dict(ARMS[arm].wire_order or {}), sessions[arm]) for arm in candidate_arms()}
-    verdicts = decide(bank, (sessions[CONTROLS[0]], sessions[CONTROLS[1]]), candidates, WIRE_ORDER)
-    RESULTS_DOC.write_text(report(verdicts, bank.content_sha256), encoding="utf-8")
+    candidates = {arm: (dict(ARMS[arm].wire_order or {}), sessions[arm]) for arm in arms}
+    # control-b first: the candidates ran right after it, on its server instance; control-a replicates across the restart
+    verdicts = decide(bank, (sessions[CONTROLS[1]], sessions[CONTROLS[0]]), candidates)
+    sent = recorded_order(sessions[CONTROLS[1]])
+    RESULTS_DOC.write_text(report(verdicts, bank.content_sha256, sent), encoding="utf-8")
     proposed = proposed_table(verdicts)
     print(f"wrote {RESULTS_DOC}")
-    print("WIRE_ORDER unchanged" if proposed == {k: tuple(v) for k, v in WIRE_ORDER.items()} else f"proposed WIRE_ORDER = {proposed!r}")
+    print("the controls' order stands" if proposed == sent else f"proposed WIRE_ORDER = {proposed!r}")
+    if sent != {k: tuple(v) for k, v in WIRE_ORDER.items()}:
+        print(f"note: these controls sent {sent!r}, not today's WIRE_ORDER; `run` into a new --out to measure against it")
     return 0
 
 
@@ -138,8 +156,7 @@ def main(argv: list[str] | None = None) -> int:
                              '"docker compose -f docker-compose.llm.yml restart vllm")')
     args = parser.parse_args(argv)
     if args.command == "isolation":
-        tables = {arm: ARMS[arm].wire_order or {} for arm in candidate_arms()}
-        violations = isolation_violations(read_bank(ORDER_BANK), tables)
+        violations = isolation_violations(read_bank(ORDER_BANK), candidate_arms({}) + ["alphabetical_order"])
         print("every arm changes key order only" if not violations else "CONTENT DIFFERS: " + "; ".join(violations))
         return 1 if violations else 0
     return _run(args.out, args.base_url, args.restart_between_controls) if args.command == "run" else _decide(args.out)

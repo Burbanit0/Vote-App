@@ -382,12 +382,14 @@ def run_session(
     """One model's session. `client` is the model's own (or a replay); `config.llm`
     names the model, so token budgets follow its profile. `arm` names an entry of ARMS."""
     session_dir.mkdir(parents=True, exist_ok=True)
-    (session_dir / SESSION_FILENAME).write_text(
-        json.dumps({**metadata, "bank_sha256": bank.content_sha256, "arm": arm}, indent=2, sort_keys=True)
-    )
-    # Every session states its wire order, so a client reused after another arm's session is not left on it.
+    # Every session states its wire order, so a client reused after another arm's session is not left on it, and
+    # records it, so bakeoff_order.decide knows what a control sent even after WIRE_ORDER changes.
     chosen = ARMS[arm].wire_order if arm is not None else None
-    client.wire_order = WIRE_ORDER if chosen is None else chosen  # type: ignore[attr-defined]
+    wire_order = WIRE_ORDER if chosen is None else chosen
+    client.wire_order = wire_order  # type: ignore[attr-defined]
+    (session_dir / SESSION_FILENAME).write_text(json.dumps(
+        {**metadata, "bank_sha256": bank.content_sha256, "arm": arm,
+         "wire_order": {title: list(order) for title, order in wire_order.items()}}, indent=2, sort_keys=True))
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
     restore = restorer_for(arm)
