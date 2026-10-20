@@ -19,6 +19,7 @@ of discipline, is what made them drift.
 | `…/run/<run>/digest.json` + `digest.jsonl` | Machine trace of a simulation run: outcome (finished, crashed or interrupted), ticks reached, counts of every event type per year, population impact. Generated, never written by hand. | At **every** run end, crashes and interruptions included (`api/domain/polity/run_digest.py`) |
 | `…/run/<run>/progress.json` | Live state of a running run: the completed tick **and the one in progress**, decisions by type, fallbacks, and an **LLM heartbeat** (`last_llm_response_at`). The only surface that answers "is this run alive?"; read it with `fast_api_voter/scripts/check_run_liveness.py`. | Per tick **and** on every LLM response (throttled to 5 s) |
 | `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. Stories meant for outside readers are copied to [`docs/runs/`](runs/README.md). | Per finished run (`/log-run` → `run-narrator` sub-agent) |
+| `…/run/<run>/engine_atlas.html` | The polity engine, explained on one page: the modules and the order of a tick, every mechanic (what it reads, decides and writes, its knobs, its code), and that run replayed tick by tick. Built by `fast_api_voter/scripts/build_engine_atlas.py --run <run dir>` from `scripts/engine_atlas/content.json`; a test keeps its code references true. | When you build it, for any recorded run |
 | `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
 | `docs/plan/vote-app/CODE_AUDIT.md` | Dated health check of the code (2026-08-20 to 2026-09-13), with the commands to replay it. Kept as history. | — |
 | [`docs/journal/JOURNAL_DE_BORD.md`](journal/JOURNAL_DE_BORD.md) | A narrative log per work session, in French: what moved, what blocked, what was decided and why, what comes next (older and reconstructed history in `docs/journal/archive/`). Retired 2026-10-08, reopened 2026-10-12 (PLAN_BEYOND_CI D7). | Per work session (`/log-session` → `journal-writer` sub-agent) |
@@ -36,6 +37,9 @@ of discipline, is what made them drift.
 - **A simulation run just finished (or died) and I want to know what
   happened** → `/log-run` → `TIMELINE.md` next to the run's `events.jsonl`,
   written from its `digest.json`.
+- **How does the simulation engine work, mechanic by mechanic?** → build the
+  engine atlas for any run: `python scripts/build_engine_atlas.py --run <run dir>`
+  (from `fast_api_voter/`), then open `<run dir>/engine_atlas.html`.
 - **How healthy is the code overall?** → today's numbers are the CI ratchets
   (`.github/quality-baseline.json`); `docs/plan/vote-app/CODE_AUDIT.md` is the dated
   baseline they started from.
