@@ -2,9 +2,10 @@
 
 - **Date**: 2026-10-18/19 · **Status**: 0.32.0 rejected (stay on 0.31.0); the "effective" order
   (`motif` first) rejected; the order is now a measured table (ADR-030), whose first
-  four entries the owner set from the first sweep (2026-10-20) · **Real cost**: about nine hours of GPU over two
+  four entries the owner set from the first sweep (2026-10-20), kept after an 8-year A/B failed the first live
+  gate, a gate found flawed and replaced (2026-10-20) · **Real cost**: about sixteen hours of GPU over three
   days, one server at a time (the bump protocol, bank sessions for the cause and the order, a production-path
-  chain, a 4-year live A/B) · **Token cost**: not measured
+  chain, a 4-year and an 8-year live A/B) · **Token cost**: not measured
 - **Verdict in one sentence**: 0.32.0 changed what `disable_any_whitespace` means (compact JSON), which
   made the model write `"shifts":[]` after a concession in 41 of 45 cases; chasing it showed that the order
   a schema's fields reach the model in (OBS-050) changes its answers a lot, that the order that looked
@@ -175,8 +176,37 @@ is wide (pressure inaction 55% to 69% on the same code) and that 15 chamber fall
 code too: OBS-051's fallbacks were noise. Judged against both controls, the motif-first order still fails, on
 pressure inaction (0%) and forum mind-shift (0.6%).
 
+**The table at 8 years (2026-10-20).** The same three arms at 8 years, seeds 1-3, with the table on polity
+since #967 (control 54b7c6da, candidate 21599708, 6 h 51 min, `~/Documents/Dev/polity-runs/order-8y`):
+
+| measure | ctl-a | ctl-b | new | first gate |
+|---|---:|---:|---:|---|
+| elections / recalls per run | 3 / 0 | 3 / 0 | 3 / 0 | pass |
+| office occupancy | 0.97 | 0.97 | 0.97 | pass |
+| pressure "nothing" share | 48.1% | 50.3% | 43.5% | fail |
+| forum mind-shift rate | 4.7% | 4.8% | 5.3% | fail |
+| fallbacks | 5 | 11 | 30 | fail |
+| retry rate | 1.35% | 1.40% | 1.35% | pass |
+
+By seed (ctl-a / ctl-b / new): pressure inaction 64 / 60 / 59%, 68 / 70 / **45%**, 31 / 34 / 35%; forum
+mind-shift 4.7 / 4.5 / 4.4%, 3.9 / 2.9 / 3.8%, 5.7 / 7.1 / 7.7%; fallbacks 5 / 6 / 0, 0 / 0 / 5, 0 / 5 / **25**.
+Seed 2's inaction is the one clear gap. The fallbacks are failed chamber sessions (the model answers for 1 of
+its 5 members, every attempt; no truncation): 6 sessions against 1 and 2, 5 of them in new's seed 3. The
+chamber's schema is not in the table, so its bytes are the same in every arm.
+
+**The first gate could not tell.** A candidate with no effect lands inside the range of two pooled controls
+one time in three per measure (simulated, 33%); seven measures make a FAIL close to certain whatever the
+order does. The owner keeps the table (ADR-030, "The 8-year A/B and the second gate"), a second override of a
+pre-registered gate, stated as such. The two controls were not independent either: with the same seed and the
+same bytes, ctl-a and ctl-b replayed their first 146, 151 and 115 events, the table parted from both after 14,
+1 and 7. The second gate (ADR-030) therefore keeps one control: an exact sign-flip test on the per-seed
+difference, Holm across the measures it can test, 10 seeds by default (with four measures varying, the
+behaviour measures have almost no power below that). It is written down before any run uses it; the 8-year
+runs are not re-judged under it (on them it says "no verdict").
+
 ## Not settled
-- Whether the four orders are a real gain: none is significant alone; the live check and the next sweep say.
+- Whether the four orders are a real gain: none is significant alone, and neither live gate could say; the
+  next live check (10 seeds, the second gate, alphabetical as the control) and the next sweep say.
   Vote's accuracy lead was noise; its gate gain reproduces.
 - The agents' turns and nested objects: no ground truth, so they stay alphabetical; a forum opinion-change
   family would let the sweep cover them.

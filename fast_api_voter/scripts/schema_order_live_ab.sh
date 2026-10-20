@@ -3,20 +3,25 @@
 #
 # Usage (from anywhere; needs the vLLM server's GPU and nothing else on it -- check docker ps / nvidia-smi first):
 #   scripts/schema_order_live_ab.sh <control worktree> <candidate worktree> <out dir> [years] [seeds]
-#   e.g. scripts/schema_order_live_ab.sh ~/Dev/Vote-App-ctl ~/Dev/Vote-App-order ~/polity-runs/order-live 4 "1 2 3"
-# The control worktree is origin/polity; the candidate is the branch with the new WIRE_ORDER. Three arms -- ctl-a
-# and ctl-b (the same control twice, which measures live noise) and new -- and every seed run at once on one
-# server (9 sweeps for 3 seeds), so every arm sees the same load. A seed already complete in an arm's out dir is
-# skipped, so an earlier control run can stand in for ctl-a (link it). Then:
+#   e.g. scripts/schema_order_live_ab.sh ~/Dev/Vote-App-ctl ~/Dev/Vote-App-order ~/polity-runs/order-live 8 "$(seq -s ' ' 1 10)"
+# The two worktrees must differ only in WIRE_ORDER (the control is origin/polity, or a branch of it with the table to
+# compare against). Two arms, ctl and new, and every seed of both run at once on one server (20 sweeps for the
+# default 10 seeds), so each seed's two runs see the same load and are exchangeable if the order changes nothing.
+# The report's sign-flip test needs that: never let an older run stand in for an arm; odd seeds start ctl first,
+# even seeds new first. With too few seeds the report cannot test some measures and says which
+# (schema_order_live_report.testable); 10 seeds detect a shift of 1.5 standard deviations of the per-seed
+# difference about 9 times in 10. A seed already complete in an arm is skipped on a resume.
+# Then:
 #   python scripts/schema_order_live_report.py <out dir>
-# The server is left as it was found (stopped if it was stopped). Run it detached (setsid nohup ... &): it takes
-# about two hours at 4 years and 3 seeds.
+# The server is left as it was found (stopped if it was stopped). Run it detached (setsid nohup ... &). For scale:
+# 9 sweeps took about two hours at 4 years and 6 h 51 min at 8 years (2026-10-20); 20 sweeps on the same server
+# take longer.
 set -u
 CTL=${1:?control worktree}/fast_api_voter
 NEW=${2:?candidate worktree}/fast_api_voter
 OUT=${3:?out dir}
 YEARS=${4:-4}
-SEEDS=${5:-"1 2 3"}
+SEEDS=${5:-"1 2 3 4 5 6 7 8 9 10"}
 PY=${PYTHON:-$CTL/.venv/bin/python}
 [ -x "$PY" ] || PY=$(command -v python3)
 COMPOSE=$CTL/docker-compose.llm.yml
@@ -47,9 +52,14 @@ echo "START $(date -u +%FT%TZ) ctl=$(git -C "$CTL" rev-parse --short HEAD) new=$
 [ -n "$was_running" ] || { docker compose -f "$COMPOSE" up -d 2>&1 | tail -1; healthy || exit 1; }
 echo "vllm: $(docker inspect vllm-polity --format '{{.Config.Image}}')"
 for s in $SEEDS; do
-  run_seed ctl-a "$CTL" "$s" & sleep 5
-  run_seed ctl-b "$CTL" "$s" & sleep 5
-  run_seed new "$NEW" "$s" & sleep 5
+  # Alternate which arm starts first, so start order cannot push new - ctl the same way in every seed.
+  if [ $((s % 2)) -eq 1 ]; then
+    run_seed ctl "$CTL" "$s" & sleep 5
+    run_seed new "$NEW" "$s" & sleep 5
+  else
+    run_seed new "$NEW" "$s" & sleep 5
+    run_seed ctl "$CTL" "$s" & sleep 5
+  fi
 done
 wait
 echo "RUNS_DONE $(date -u +%FT%TZ)"
