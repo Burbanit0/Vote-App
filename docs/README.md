@@ -39,7 +39,9 @@ of discipline, is what made them drift.
   written from its `digest.json`.
 - **How does the simulation engine work, mechanic by mechanic?** → build the
   engine atlas for any run: `python scripts/build_engine_atlas.py --run <run dir>`
-  (from `fast_api_voter/`), then open `<run dir>/engine_atlas.html`.
+  (from `fast_api_voter/`), then open `<run dir>/engine_atlas.html`. To follow
+  runs live and compare two: `python scripts/build_engine_atlas.py --serve <runs root>`
+  (a picker over every run under the root, re-read as it is written, A against B).
 - **How healthy is the code overall?** → today's numbers are the CI ratchets
   (`.github/quality-baseline.json`); `docs/plan/vote-app/CODE_AUDIT.md` is the dated
   baseline they started from.
