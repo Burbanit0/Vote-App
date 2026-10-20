@@ -2773,18 +2773,19 @@ same server:
 |---|---|---|---|
 | pressure "nothing" share | 55% (41-72% per seed) | 0% (0 of 1143) | 61% |
 | forum mind-shift rate | 3.8-4.1% per seed | 0.0-1.1% per seed | 6% |
-| fallbacks | 0 | 5 per seed, all `chamber_deliberation` | 0-5 |
+| fallbacks | 0 (a second control run: 15) | 5 per seed, all `chamber_deliberation` | 0-5 |
 | elections / recalls per run | 2 / 0 | 2 / 0 | 2 / 0 |
 
 *Why.* The pressure change is the only one `PressureDecision` received (`act, cid, motif, target` to `cid,
 motif, act, target`). On the bank's 24 ground-truth citizens the model then acted for 23, including all 12 far
 below their tolerance: the code it wrote first anchored the act, and it stopped reading the citizen's
-situation (45.8% correct, against 62.5% alphabetical and 79.2% in the declared order). The forum and chamber
-changes come from the objects without a `motif`: `ForumTurn` (`shift_issue` now after `rationale`, `post`,
-`note_to_self`) and `PositionShift` (`dimension, delta`); the chamber decision itself was sent the same way.
+situation (45.8% correct, against 62.5% alphabetical and 79.2% in the declared order). The forum change comes
+from the objects without a `motif`: `ForumTurn` (`shift_issue` now after `rationale`, `post`, `note_to_self`).
+The chamber fallbacks are not an effect: a second run of the unchanged control code (2026-10-20) had 15 too.
 Two sessions sent identical bytes answer pressure the same way every time, so this is not noise.
 
-*Outcome.* Not shipped. ADR-030 makes the order a measured table, empty until the order bank sweep picks one
-per decision on ground truth, with a live check that rejects exactly these three regressions.
+*Outcome.* Not shipped. ADR-030 makes the order a measured table; the live check, judged against two runs of
+the control code, rejects this order for its pressure and forum changes. The table that did ship (ADR-030,
+"The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
 
 *Status: explained, not shipped.*

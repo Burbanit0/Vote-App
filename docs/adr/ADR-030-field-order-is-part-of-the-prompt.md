@@ -38,8 +38,9 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
 - **Then live.** `scripts/schema_order_live_ab.sh` runs the candidate table against production twice
   (exploration profile, p100, 4 years, 3 seeds) and `schema_order_live_report.py` passes it only if every
   measure (elections, recalls, occupancy, pressure inaction, forum mind-shift, fallbacks, retries) stays within
-  the two controls' range. On last night's runs it rejects the motif-first order for the three regressions
-  found by hand.
+  the two controls' range; fallbacks and retries are failures, so only an excess fails them. Against two
+  control runs it rejects the motif-first order (pressure inaction 0%, forum mind-shift 0.6%) and passes the
+  first table (2026-10-20).
 - **When to re-run, and only then:** a vLLM or xgrammar version, a model or quantisation, a decision class
   gaining, losing or renaming a field, a rewrite of a decision's system prompt. A test pins `WIRE_ORDER`
   and names each class's fields; `llm_client.py` is in `PROMPT_SOURCE_FILES`, so a run records it.

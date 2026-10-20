@@ -5,6 +5,7 @@ Usage (from fast_api_voter/): python scripts/schema_order_live_report.py <out di
 Each measure is pooled per arm over its seeds. The candidate passes a measure when it lies within the range of
 the two controls (ctl-a, ctl-b: the same code twice, so their difference is live noise), widened to half and
 twice the controls when they agree exactly, and to an absolute floor for measures the controls put at zero.
+Fallbacks and retries are failures, so only an excess fails them.
 The candidate WIRE_ORDER ships only if every measure passes.
 """
 from __future__ import annotations
@@ -19,6 +20,9 @@ from typing import Any
 ARMS = ("ctl-a", "ctl-b", "new")
 FLOOR = {"recalls per run": 1.0, "fallbacks": 5.0, "retry rate": 0.02, "forum mind-shift rate": 0.02}
 """How far above zero a measure may go when both controls put it at zero."""
+LOWER_IS_BETTER = {"fallbacks", "retry rate"}
+"""Failures, not behaviour: only an excess fails them (2026-10-20: the first table had fewer retries than both
+controls, and a two-sided range called that a failure)."""
 
 
 def _jsonl(path: str) -> list[dict[str, Any]]:
@@ -69,6 +73,8 @@ def verdict(name: str, controls: list[float], candidate: float) -> tuple[float, 
     if low == high:
         low, high = low / 2, high * 2
     high = max(high, FLOOR.get(name, 0.0))
+    if name in LOWER_IS_BETTER:
+        low = 0.0
     return low, high, low <= candidate <= high
 
 

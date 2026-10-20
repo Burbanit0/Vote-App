@@ -154,6 +154,26 @@ restart (14,156 reasoning tokens against 2,183, no answer). So vote's +3 was one
 noise, which the two controls (same server instance) could not show; `check_schema_order.py run` now takes
 `--restart-between-controls` so the next noise floor includes a restart.
 
+**The table, live (2026-10-20).** `schema_order_live_ab.sh`: the 2026-10-18 control runs as `ctl-a`, a second
+run of the same control code (`ctl-b`) and the table (`new`), seeds 1-3, 4 years
+(`~/Documents/Dev/polity-runs/order-live`):
+
+| measure | ctl-a | ctl-b | new |
+|---|---:|---:|---:|
+| elections / recalls per run | 2 / 0 | 2 / 0 | 2 / 0 |
+| office occupancy | 0.941 | 0.941 | 0.941 |
+| pressure "nothing" share | 54.6% | 69.3% | 55.3% |
+| forum mind-shift rate | 3.9% | 5.0% | 4.8% |
+| fallbacks | 0 | 15 | 5 |
+| retry rate | 1.37% | 1.60% | 1.27% |
+
+The table lies inside the two controls on every behaviour measure. The report first said FAIL, on retries,
+because it held every measure to a two-sided range and the table had fewer retries than both controls:
+fallbacks and retries are now one-sided (only an excess fails). The second control also shows that live noise
+is wide (pressure inaction 55% to 69% on the same code) and that 15 chamber fallbacks happen on the control
+code too: OBS-051's fallbacks were noise. Judged against both controls, the motif-first order still fails, on
+pressure inaction (0%) and forum mind-shift (0.6%).
+
 ## Not settled
 - Whether the four orders are a real gain: none is significant alone; the live check and the next sweep say.
   Vote's accuracy lead was noise; its gate gain reproduces.
