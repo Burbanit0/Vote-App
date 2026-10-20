@@ -1,14 +1,15 @@
 # EXP-025 — vLLM 0.32.0, and the order the schema's fields are sent in
 
-- **Date**: 2026-10-18 · **Status**: 0.32.0 rejected (stay on 0.31.0); effective field order adopted in
-  production (the owner, 2026-10-18) · **Real cost**: about six hours elapsed on the shared GPU, one
-  server at a time (the 1h15 bump protocol, bank sessions for the cause, four for the order, a
-  production-path chain of 45 minutes) · **Token cost**: not measured
+- **Date**: 2026-10-18/19 · **Status**: 0.32.0 rejected (stay on 0.31.0); the "effective" order
+  (`motif` first) rejected; the order is now a measured table (ADR-030), empty until
+  `check_schema_order.py` says otherwise (owner, 2026-10-19) · **Real cost**: about nine hours of GPU over two
+  days, one server at a time (the bump protocol, bank sessions for the cause and the order, a production-path
+  chain, a 4-year live A/B) · **Token cost**: not measured
 - **Verdict in one sentence**: 0.32.0 changed what `disable_any_whitespace` means (compact JSON), which
-  made the model write `"shifts":[]` after a concession in 41 of 45 cases; the bump is not worth it, but the
-  investigation showed that the order the schema's fields reach the model in (OBS-050) decides what it
-  writes, so production now sends them in an effective order, and that changes how the simulated society
-  behaves.
+  made the model write `"shifts":[]` after a concession in 41 of 45 cases; chasing it showed that the order
+  a schema's fields reach the model in (OBS-050) changes its answers a lot, that the order that looked
+  logical made `pressure_action` blind, and that no order should be chosen without a ground-truth test, which
+  ADR-030 now runs.
 
 ## Starting hypothesis
 vLLM 0.32.0 (pushed 2026-10-18) lists no change that touches this stack. The bump protocol of
@@ -67,33 +68,54 @@ before); the logprob gate passed 16/16 on all four arms; accuracy moved nowhere 
 (`candidacy_p500`, `pressure_act`, `vote_first_choice`, Holm). `chamber_deliberation` and
 `campaign_positioning` lose one case each in some sessions; they flip between runs.
 
-## What production does now
-`llm_client.effective_field_order` orders every object that carries a `motif`; `VllmJsonClient` sends the
-schema in that order and keeps the rest of the body canonical (sorted). Objects without a `motif` (the
-agents' turns) now go out in the order their class declares, which is what ADR-014 always said (`rationale`
-first). The order is applied on the wire only, after the request hash is taken, so no request hash, golden or
-replay log changed: the polity/LLM suite (`-k "polity or bakeoff or provenance or llm"`) gives 2175 passed, 45 skipped. `schema_wire` selects `"effective"`
-(default), `"declared"` or `"sorted"` (the old bytes); the bake-off has the arms `declared_order`,
-`effective_order` and `alphabetical_order`. `llm_client.py` joined `PROMPT_SOURCE_FILES`.
+## The motif-first order on trial (2026-10-18/19)
+It was put in production on the branch (commit `ddabeaf8`, never pushed): every decision as id, `motif`,
+decision, dependents, and every other object (agents' turns, `PositionShift`) in its class's declared order.
+Request hashes did not move (the order is applied after the hash), and on stock 0.31.0 the bank, the live
+suite (11 passed, 1 xfailed) and the 2-year runs passed. Then:
 
-On stock 0.31.0 with the production path: the bank equals the earlier effective-order session on 178 of 191
-answers (the 13 others are the long-thinking nondeterminism of OBS-020), 189 of 191 valid (both misses in
-`chamber_deliberation`), and the live suite gives 11 passed, 1 xfailed, as before.
+**Ground truth said no.** On the frozen bank's truth families, 0.31.0 (better / worse units against
+alphabetical, McNemar):
 
-## The society behaves differently (OBS-051)
-The bank cannot see it, and it is the largest effect. `pressure_action` decisions in the 2-year, 100-citizen
-runs (act 0 nothing, 1 sign, 3 mobilise, 4 wait for the election):
+| | alphabetical | declared | motif first |
+|---|---:|---:|---:|
+| `pressure_act` (24) | 62.5% | **79.2%** (5 / 1, p 0.22) | 45.8% (4 / 8) |
+| `vote_first_choice` (40) | 90.0% | **97.5%** (3 / 0, p 0.25) | 97.5% (3 / 0) |
+| `candidacy_p500` (500) | 63.6% | **66.4%** (31 / 17, p 0.06) | 62.8% (0 / 4) |
 
-| runs | decisions | 0 | 1 | 3 | 4 | elections / recalls |
-|---|---:|---:|---:|---:|---:|---|
-| alphabetical, 0.31.0 (six runs) | 115-222 each | 100% | 0 | 0 | 0 | 1 / 0 |
-| effective order, 0.31.0 (three runs) | 114-217 each | 0-6% | 22-32% | 44-67% | 11-21% | 2-3 / 1-2 |
-| earlier long runs (`phase10`, `phase11`, alphabetical) | 367-1671 each | 33-72% | ~14% | ~28% | ~2% | n/a |
+With `motif` first, the model acted for 23 of the 24 pressure citizens, whatever their situation: 11 of the
+12 who should act, and all 12 who should not. The declared order did nothing for all 12 who should not.
+None of these differences survives Holm alone, but the declared order moves the same way on all three.
 
-On 40 identical chamber requests, 13 answers differ (`shifts` and `motif`). Every run recorded before
-2026-10-18 was made with alphabetical bytes; the run provenance stamp changes with `llm_client.py`, so the
-two are told apart, but they are not comparable decision by decision. The new order overshoots the old
-long-run proportions: whether that is a better society or an over-active one is open.
+**The noise is not the explanation.** Two sessions sent the same bytes, on two server instances, give 0
+different answers on pressure, candidacy, coalition, nomination, response and vote: every difference there
+is the order. `positioning_poles` (9 of 10 differ), `chamber_poles` (2) and `reaction_scandal` (1) are too
+noisy to say anything. The arms change key order only (same fields, types, bounds and required set), and
+`prompt_source_sha256` only feeds `sweep_statistics.py`.
+
+**Live, the society changed for the worse in three ways (OBS-051).** Exploration profile, p100, 15 seats,
+4 years, seeds 1-3, both arms at once on one server (`~/Documents/Dev/polity-runs/order-ab`):
+
+| measure | alphabetical | motif first + declared others | phase15 (older code), first 4 years |
+|---|---|---|---|
+| elections / recalls per run | 2 / 0 | 2 / 0 | 2 / 0 |
+| pressure "nothing" share | 55% (41-72% per seed) | **0%** (0 of 1143) | 61% |
+| forum mind-shift rate | 3.8-4.1% per seed | **0.0-1.1%** per seed | 6% |
+| fallbacks | 0, 0, 0 | **5, 5, 5** (`chamber_deliberation`) | 0-5 |
+
+The first comes from `motif` first on `PressureDecision` (its only change). The forum and chamber ones come
+from the other half: `ForumTurn` and `PositionShift` in declared order (the chamber decision itself was sent
+the same in both arms). Elections, recalls, occupancy and retries did not move.
+
+## What production does now (ADR-030)
+`llm_client.WIRE_ORDER` maps a decision class to the order its fields are sent in; anything it does not list
+goes out alphabetically. It is empty: production's bytes are what they were before this experiment (checked
+byte for byte on all 16 schemas). `scripts/check_schema_order.py` fills it: `isolation` (no GPU), `run` (two
+control sessions and one per candidate on `case_bank_order.jsonl`: 144 pressure units, 160 vote units, 500
+candidacy), `decide` (the pre-registered rule in `bakeoff_order.py`, written to
+`check_schema_order_results.md`). `scripts/schema_order_live_ab.sh` and `schema_order_live_report.py` are the
+live check: on the runs above, the report rejects the motif-first order for exactly the three regressions
+found by hand.
 
 ## What it cost, and what to keep
 - The 0.31.0 control was re-measured with today's flags (EAGLE-3), as for 0.31.0: the old results doc
@@ -101,6 +123,10 @@ long-run proportions: whether that is a better society or an over-active one is 
 - A shell `tail -15` in the chain cut the failing test's name; the full pytest output is now logged.
 - **A declared order is a generation order only if the client keeps it.** That was the lesson of EXP-024;
   here the same fact moved a version bump from "parked" to "possible" and changed the society.
+- **An order that reads as logical can be the worst one.** A reason code is a label, not reasoning: written
+  first, it anchored the answer. The literature's "reasoning first" result is about free-text reasoning.
+- **Look at the confusion matrix, not the distribution.** "Everyone acts" looked like a livelier society
+  until the 24 ground-truth citizens showed the model had stopped reading their situation.
 - **A version bump can change a flag's meaning without breaking anything.** The only thing that caught it
   was the frozen bank, family by family; the server-level checks all passed.
 - A 45-case probe (the bank's `representative_response` through `_inline_refs`, temperature 0, count
@@ -108,14 +134,14 @@ long-run proportions: whether that is a better society or an over-active one is 
 
 ## Where the evidence is
 The raw sessions (bank sessions, the 2-year runs with their call logs and events, the scorecard, the chain
-scripts and logs) are outside git, in `~/Documents/Dev/polity-runs/vllm032/`. The tables above are read off
+scripts and logs) are outside git, in `~/Documents/Dev/polity-runs/vllm032/` (bank sessions, 2-year runs) and
+`~/Documents/Dev/polity-runs/order-ab/` (the 4-year live A/B). The tables above are read off
 them; the bake-off arms in `bakeoff_runner.py` reproduce the order sessions.
 
 ## Not settled
-- Whether the new society is better: a phase-sized run (500 citizens, years) against `phase10`/`phase11` is
-  the test, about two hours of GPU.
-- The order effect is on one model, one seed, three 2-year runs. `motif` first may anchor the choice (a
-  position effect); that mechanism is a guess.
-- The agents' turns changed from alphabetical to declared order; none of their families is in the bank.
-- 0.32.0 itself: stays parked. With the effective order it matches 0.31.0 on the bank without a patch, which
-  re-opens it for the next release.
+- The order bank sweep itself (`check_schema_order.py run`): not run yet. The declared order is the
+  favourite on today's evidence, for the batch decisions only.
+- The agents' turns and nested objects: no ground truth, so they stay alphabetical; a forum opinion-change
+  family would let the sweep cover them.
+- 0.32.0: stays parked. Re-test it with whatever `WIRE_ORDER` the sweep picks: under compact JSON the
+  `ResponseDecision` order is the one that matters (`stance` before `shifts` gave 43/45, declared 13/45).

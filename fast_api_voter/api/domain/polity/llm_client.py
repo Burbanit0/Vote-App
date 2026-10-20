@@ -52,10 +52,10 @@ rather than having to remember to do it themselves.
 No caching here (§4.2 deferred to a later increment, per the approved
 plan). The request body is still built as canonical (sorted keys, compact
 separators) bytes so a cache key can be added later without touching
-prompt construction -- except, for the vLLM client, the schema's own field
-order, which is sent as chosen (`VllmJsonClient.schema_wire`, EXP-025): a
-cache key must hash the schema's content, not these bytes. The Ollama client
-still sorts everything, so the same decision is written alphabetically there.
+prompt construction -- except, for the vLLM client, the fields of an object
+`WIRE_ORDER` lists, which go out in that order because the model writes them
+in it (ADR-030): a cache key must hash the schema's content, not these bytes.
+The Ollama client sorts everything.
 """
 from __future__ import annotations
 
@@ -219,45 +219,28 @@ def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
     return dict(resolve(schema))
 
 
-_SCHEMA_WIRES = ("effective", "declared", "sorted")
-_ID_KEYS = ("cid", "party_id")
-_DECIDES = ("blank", "outcome", "stance", "act", "action", "winner_position", "salience_delta")
+WIRE_ORDER: Mapping[str, tuple[str, ...]] = {}
+"""The order each object's fields are sent in, by the object's `title` (its Pydantic class name). The model
+writes an object's fields in the order it receives them, so this order is part of the prompt (ADR-030,
+EXP-025). An object not listed goes out alphabetically, as every object did until 2026-10 (OBS-050).
+Filled by scripts/check_schema_order.py's verdict, never by hand."""
 
 
-def effective_field_order(names: list[str]) -> list[str]:
-    """A decision's fields in the order the model should write them: who it is about, why (the `motif`
-    code constrains the decision: stance 3 needs motif 303/308, salience_delta 0 iff motif 403), the
-    decision, then what hangs on it (shifts, ranking, target). Measured against alphabetical on the
-    bake-off bank (EXP-025): `shifts` written before `stance` made vLLM 0.32 emit an empty list every time."""
-    ids, deciders = [n for n in names if n in _ID_KEYS], [n for n in names if n in _DECIDES]
-    motif = ["motif"] if "motif" in names else []
-    return [*ids, *motif, *deciders, *(n for n in names if n not in ids and n not in deciders and n != "motif")]
+def _wire_names(properties: Mapping[str, Any], listed: Sequence[str]) -> list[str]:
+    """`listed`'s fields first, in its order, then any field it does not name, alphabetically."""
+    return [n for n in listed if n in properties] + sorted(n for n in properties if n not in listed)
 
 
-def _effective_order(node: Any) -> Any:
-    """`node` with every object that carries a `motif` field listing its fields in effective order."""
-    if isinstance(node, list):
-        return [_effective_order(item) for item in node]
-    if not isinstance(node, dict):
-        return node
-    out = {key: _effective_order(value) for key, value in node.items()}
-    props = out.get("properties")
-    if isinstance(props, dict) and "motif" in props:
-        names = effective_field_order(list(props))
-        out["properties"] = {n: props[n] for n in names}
-        if "required" in out:
-            out["required"] = [n for n in names if n in out["required"]]
-    return out
-
-
-def _canonical(node: Any, keep: Any = None) -> Any:
-    """`node` with every dict's keys sorted, except inside `keep` (the schema, whose field order is the point)."""
-    if keep is not None and node is keep:
-        return node
+def _canonical(node: Any, order: Mapping[str, Sequence[str]]) -> Any:
+    """`node` with every dict's keys sorted, except the fields of an object whose title `order` lists."""
     if isinstance(node, dict):
-        return {key: _canonical(node[key], keep) for key in sorted(node)}
+        out = {key: _canonical(node[key], order) for key in sorted(node)}
+        listed = order.get(node["title"]) if isinstance(node.get("title"), str) else None
+        if listed and isinstance(out.get("properties"), dict):
+            out["properties"] = {n: out["properties"][n] for n in _wire_names(out["properties"], listed)}
+        return out
     if isinstance(node, (list, tuple)):
-        return [_canonical(item, keep) for item in node]
+        return [_canonical(item, order) for item in node]
     return node
 
 
@@ -917,7 +900,7 @@ class VllmJsonClient:
         if json_schema is not None:
             body["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": self._wire_schema(json_schema)},
+                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
             }
         if top_logprobs is not None:
             body["logprobs"] = True
@@ -926,20 +909,11 @@ class VllmJsonClient:
             body.update(extra_body)
         return body
 
-    schema_wire = "effective"
-    """The order the schema's fields are sent in, hence the order the model writes them: "effective"
-    (`effective_field_order`), "declared" (as the schema lists them), or "sorted" (canonical bytes, every
-    object alphabetical: what production sent until EXP-025, OBS-050). Only the bake-off sets the others."""
-
-    def _wire_schema(self, json_schema: dict[str, Any]) -> dict[str, Any]:
-        if self.schema_wire not in _SCHEMA_WIRES:
-            raise ValueError(f"schema_wire must be one of {_SCHEMA_WIRES}, got {self.schema_wire!r}")
-        schema = _inline_refs(json_schema)
-        return _effective_order(schema) if self.schema_wire == "effective" else schema
+    wire_order: Mapping[str, Sequence[str]] = WIRE_ORDER
+    """`WIRE_ORDER`, or a bake-off arm's own table (an empty one sends every object alphabetically)."""
 
     def _post_chat(self, body: dict[str, Any]) -> httpx.Response:
-        schema = None if self.schema_wire == "sorted" else body.get("response_format", {}).get("json_schema", {}).get("schema")
-        payload = json.dumps(_canonical(body, schema), separators=(",", ":"))
+        payload = json.dumps(_canonical(body, self.wire_order), separators=(",", ":"))
         return _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
 
     def close(self) -> None:

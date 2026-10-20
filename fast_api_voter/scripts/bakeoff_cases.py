@@ -8,6 +8,7 @@ Usage (from fast_api_voter/):
     python scripts/bakeoff_cases.py generate    # writes scripts/bakeoff/case_bank.jsonl
     python scripts/bakeoff_cases.py check       # the frozen hash holds, and what production renders differently today
     python scripts/bakeoff_cases.py generate --set emotions   # ADR-012's prerequisite bank, case_bank_emotions.jsonl
+    python scripts/bakeoff_cases.py generate --set order      # ADR-030's field-order bank, case_bank_order.jsonl
 
 A bank is frozen once sessions have answered it: regenerate only on purpose, and say why
 in the commit, since sessions on different banks do not compare.
@@ -22,13 +23,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.bakeoff_bank import BankIntegrityError, read_bank, write_bank  # noqa: E402
-from api.domain.polity.bakeoff_cases import drift, generate_bank, generate_emotions_bank  # noqa: E402
+from api.domain.polity.bakeoff_cases import drift, generate_bank, generate_emotions_bank, generate_order_bank  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
 DEFAULT_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank.jsonl"
 EMOTIONS_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank_emotions.jsonl"
 """ADR-012's prerequisite: a bank of its own, so the frozen bank earlier sessions answered is unchanged."""
+ORDER_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank_order.jsonl"
+"""ADR-030's bank, for scripts/check_schema_order.py: a bank of its own, for the same reason."""
 REFERENCE_SEED = 42
 
 
@@ -52,11 +55,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("generate", "check"))
     parser.add_argument("--bank", type=Path, default=None)
-    parser.add_argument("--set", choices=("reference", "emotions"), default="reference",
-                        help="reference: the frozen bank; emotions: ADR-012's prerequisite bank")
+    parser.add_argument("--set", choices=("reference", "emotions", "order"), default="reference",
+                        help="reference: the frozen bank; emotions: ADR-012's prerequisite bank; order: ADR-030's bank")
     args = parser.parse_args(argv)
-    generate = generate_emotions_bank if args.set == "emotions" else generate_bank
-    args.bank = args.bank or (EMOTIONS_BANK if args.set == "emotions" else DEFAULT_BANK)
+    generate, default_bank = {"reference": (generate_bank, DEFAULT_BANK), "emotions": (generate_emotions_bank, EMOTIONS_BANK),
+                              "order": (generate_order_bank, ORDER_BANK)}[args.set]
+    args.bank = args.bank or default_bank
 
     if args.command == "generate":
         write_bank(generate(reference_config()), args.bank)

@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="an A/B arm on the same cases: another schema (vote_grammar, S1.2) or request fields "
                              "(thinking_budget_4096/2048, S1.3; thinking_sampling, S1.4)")
     args = parser.parse_args(argv)
-    if args.arm is not None and ARMS[args.arm].wire is not None and args.provider != "vllm":
+    if args.arm is not None and ARMS[args.arm].wire_order is not None and args.provider != "vllm":
         parser.error(f"--arm {args.arm} sets the order the schema is sent in, which only the vllm client honours")
 
     bank = read_bank(args.bank)

@@ -575,29 +575,12 @@ def test_vllm_payload_is_canonical_sorted_and_compact():
         return _ok_response('{"decisions": []}')
 
     client = _vllm_client(handler)
-    client.schema_wire = "sorted"
     client.complete_json(system_prompt="s", user_prompt="u", json_schema={"b": 1, "a": 2}, max_tokens=64)
 
     raw = captured["raw"]
     assert b", " not in raw and b": " not in raw  # compact separators
     reparsed = json.loads(raw)
     assert json.dumps(reparsed, sort_keys=True, separators=(",", ":")).encode() == raw  # already sorted
-
-
-def test_vllm_payload_is_canonical_everywhere_but_the_schemas_field_order():
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["raw"] = request.content
-        return _ok_response('{"decisions": []}')
-
-    client = _vllm_client(handler)
-    client.complete_json(system_prompt="s", user_prompt="u", json_schema={"b": 1, "a": 2}, max_tokens=64)
-
-    body = json.loads(captured["raw"])
-    assert list(body["response_format"]["json_schema"]["schema"]) == ["b", "a"]  # the schema keeps its order
-    assert list(body) == sorted(body)  # the rest of the body stays canonical
-    assert list(body["response_format"]["json_schema"]) == ["name", "schema", "strict"]
 
 
 def test_vllm_successful_response_returns_content():
@@ -1448,99 +1431,69 @@ def test_decode_coalition_batch_strips_think_tags():
     assert decisions[0].party_id == 0
 
 
-def _wire_fields(schema_wire: str, schema: dict) -> list[str]:
-    """The `motif`-carrying decision object's field names, in the order they appear in the bytes sent."""
+def _decision_fields(schema: dict, table: dict | None = None) -> list[str]:
+    """The decision object's field names, in the order they appear in the bytes sent."""
     sent: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)  # json.loads keeps the order of the bytes
-        decision = body["response_format"]["json_schema"]["schema"]["properties"]["decisions"]["items"]
-        sent.extend(decision["properties"])
-        if schema_wire != "sorted":
-            assert list(decision["required"]) == sent
+        sent.extend(body["response_format"]["json_schema"]["schema"]["properties"]["decisions"]["items"]["properties"])
         return _ok_response("{}")
 
     client = _vllm_client(handler)
-    client.schema_wire = schema_wire
+    if table is not None:
+        client.wire_order = table
     client.complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=8)
     return sent
 
 
-def test_vllm_sends_the_decision_fields_in_effective_order_not_alphabetical():
-    # OBS-050 / EXP-025: production used to send every object's fields alphabetically, so the model wrote
-    # `shifts` before `stance` (vLLM 0.32: an empty list every time) and `blank` before `ranking`.
+def test_vllm_sends_a_decision_in_the_order_its_wire_order_lists_and_every_other_object_alphabetically():
+    # ADR-030 / EXP-025: the model writes an object's fields in the order they are sent, and that order changes
+    # its answers, so it is a table chosen by scripts/check_schema_order.py; an unlisted object goes out A-Z.
     from api.domain.polity import llm_schemas as S
 
-    assert _wire_fields("effective", S.RESPONSE_JSON_SCHEMA) == ["cid", "motif", "stance", "shifts"]
-    assert _wire_fields("effective", S.VOTE_CAST_JSON_SCHEMA) == ["cid", "motif", "blank", "ranking"]
-    assert _wire_fields("effective", S.PRESSURE_JSON_SCHEMA) == ["cid", "motif", "act", "target"]
-    assert _wire_fields("effective", S.PARTY_NOMINATION_JSON_SCHEMA) == ["party_id", "motif", "winner_position"]
-    assert _wire_fields("sorted", S.RESPONSE_JSON_SCHEMA) == ["cid", "motif", "shifts", "stance"]  # the old bytes
-    assert _wire_fields("declared", S.RESPONSE_JSON_SCHEMA) == ["cid", "shifts", "stance", "motif"]
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, {}) == ["act", "cid", "motif", "target"]  # the bytes before ADR-030
+    declared = {"PressureDecision": ("cid", "target", "act", "motif")}
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, declared) == ["cid", "target", "act", "motif"]
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, {"PressureDecision": ("target", "gone")}) == ["target", "act", "cid", "motif"]
+    assert _decision_fields(S.VOTE_CAST_JSON_SCHEMA, declared) == ["blank", "cid", "motif", "ranking"]  # not listed
 
 
-def test_every_batch_decision_is_pinned_to_its_effective_order():
-    # `_DECIDES` is a hardcoded list: a decision field it does not name would silently land at the tail.
+def test_wire_order_is_pinned_and_names_each_class_fields_exactly():
+    from api.domain.polity import llm_schemas
+    from api.domain.polity.llm_client import WIRE_ORDER
+
+    message = "a field order is part of the prompt (ADR-030): change WIRE_ORDER only from scripts/check_schema_order.py's verdict"
+    assert dict(WIRE_ORDER) == {}, message  # the pin: update it together with check_schema_order_results.md
+    for title, order in WIRE_ORDER.items():
+        assert sorted(order) == sorted(getattr(llm_schemas, title).model_fields), (title, message)
+
+
+def test_an_object_wire_order_does_not_list_goes_out_alphabetically_nested_or_not():
     from api.domain.polity import llm_schemas as S
 
-    expected = {
-        "VOTE_CAST_JSON_SCHEMA": ["cid", "motif", "blank", "ranking"],
-        "CANDIDACY_JSON_SCHEMA": ["cid", "motif", "outcome"],
-        "PARTY_NOMINATION_JSON_SCHEMA": ["party_id", "motif", "winner_position"],
-        "POSITIONING_JSON_SCHEMA": ["cid", "motif", "shifts"],
-        "RESPONSE_JSON_SCHEMA": ["cid", "motif", "stance", "shifts"],
-        "PRESSURE_JSON_SCHEMA": ["cid", "motif", "act", "target"],
-        "REACTION_JSON_SCHEMA": ["cid", "motif", "salience_delta"],
-        "CHAMBER_JSON_SCHEMA": ["cid", "motif", "shifts"],
-        "COALITION_JSON_SCHEMA": ["party_id", "motif", "action"],
-    }
-    for name, fields in expected.items():
-        assert _wire_fields("effective", getattr(S, name)) == fields, name
+    sent: list[dict] = []
+    client = _vllm_client(lambda request: (sent.append(json.loads(request.content)), _ok_response("{}"))[1])
+    client.wire_order = {"ResponseDecision": ("cid", "motif", "stance", "shifts")}
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=S.RESPONSE_JSON_SCHEMA, max_tokens=8)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=S.LEADER_TURN_JSON_SCHEMA, max_tokens=8)
+    decision = sent[0]["response_format"]["json_schema"]["schema"]["properties"]["decisions"]["items"]
+    assert list(decision["properties"]) == ["cid", "motif", "stance", "shifts"]
+    assert list(decision["properties"]["shifts"]["items"]["properties"]) == ["delta", "dimension"]  # PositionShift: A-Z
+    turn = list(sent[1]["response_format"]["json_schema"]["schema"]["properties"])
+    assert turn == sorted(turn)  # the agents' turns: A-Z, as before ADR-030
 
 
-def _root_fields(schema: dict) -> list[str]:
-    """The schema's own top-level field names, in the order they appear in the bytes sent."""
-    sent: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        sent.extend(json.loads(request.content)["response_format"]["json_schema"]["schema"]["properties"])
-        return _ok_response("{}")
-
-    _vllm_client(handler).complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=8)
-    return sent
-
-
-def test_the_agents_turns_go_out_in_the_order_their_class_declares_rationale_first():
-    # ADR-014: "field order is generation order, so the reasoning comes before the moves it justifies".
-    # Production sorted the keys, which put `rationale` after `amendment`, `bill`, `positions`... (OBS-050).
-    from api.domain.polity import llm_schemas as S
-
-    for schema in (S.LEADER_TURN_JSON_SCHEMA, S.AMENDING_LEADER_TURN_JSON_SCHEMA, S.AMENDMENT_BALLOT_JSON_SCHEMA,
-                   S.FORUM_TURN_JSON_SCHEMA, S.LEADER_COALITION_TURN_JSON_SCHEMA):
-        sent = _root_fields(schema)
-        assert sent[0] == "rationale", (schema["title"], sent)
-
-
-def test_canonical_sorts_everything_but_the_kept_schema_including_inside_lists_and_tuples():
+def test_canonical_sorts_every_dict_but_the_fields_of_a_listed_object_including_inside_lists_and_tuples():
     from api.domain.polity.llm_client import _canonical
 
-    schema = {"z": 1, "a": {"y": 1, "b": 2}}
-    body = {"messages": [{"role": "r", "content": "c"}], "b": ({"y": 1, "a": 2},), "schema": schema, "a": 1}
-    out = _canonical(body, schema)
+    listed = {"title": "Listed", "type": "object", "properties": {"z": {"title": "Z", "b": 1, "a": 2}, "a": {}}}
+    body = {"messages": [{"role": "r", "content": "c"}], "b": ({"y": 1, "a": 2},), "schema": listed, "a": 1}
+    out = _canonical(body, {"Listed": ("z", "a")})
     assert list(out) == ["a", "b", "messages", "schema"]
     assert list(out["messages"][0]) == ["content", "role"]  # nested in a list
     assert list(out["b"][0]) == ["a", "y"]  # nested in a tuple, which json.dumps writes as a list
-    assert list(out["schema"]) == ["z", "a"] and list(out["schema"]["a"]) == ["y", "b"]  # the kept subtree is untouched
-
-
-def test_an_unknown_schema_wire_is_refused_not_treated_as_declared():
-    from api.domain.polity.llm_client import effective_field_order
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise AssertionError("nothing may be sent")
-
-    client = _vllm_client(handler)
-    client.schema_wire = "sorte"
-    with pytest.raises(ValueError, match="schema_wire"):
-        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=8)
-    assert effective_field_order(["b", "a"]) == ["b", "a"]  # no `motif` to place: none is invented
+    assert list(out["schema"]) == ["properties", "title", "type"]  # the listed object's own keys stay sorted
+    assert list(out["schema"]["properties"]) == ["z", "a"]  # its fields follow the table
+    assert list(out["schema"]["properties"]["z"]) == ["a", "b", "title"]  # and each field's schema stays sorted
+    assert list(_canonical(listed, {})["properties"]) == ["a", "z"]
