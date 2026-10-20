@@ -4,6 +4,7 @@ every journaled event type has a place in the replay, and it builds for a record
 from __future__ import annotations
 
 import copy
+import http.client
 import importlib.util
 import json
 import re
@@ -11,9 +12,7 @@ import shutil
 import sys
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
@@ -322,21 +321,29 @@ def test_the_server_serves_the_page_the_listing_and_a_run(tmp_path: Path) -> Non
     index = atlas.RunIndex([_root_with_the_fixture(tmp_path)])
     server = ThreadingHTTPServer(("127.0.0.1", 0), atlas.make_handler(index))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def get(path: str) -> tuple[int, bytes]:
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1])
+        try:
+            connection.request("GET", path)
+            response = connection.getresponse()
+            return response.status, response.read()
+        finally:
+            connection.close()
+
     try:
-        page = urllib.request.urlopen(base + "/").read().decode()
-        assert re.search(r"^let R = null;$", page, re.M)  # the page fetches its runs
-        [run] = json.loads(urllib.request.urlopen(base + "/runs").read())
-        replay = json.loads(
-            urllib.request.urlopen(
-                base + "/run?k=" + urllib.parse.quote(run["key"])
-            ).read()
-        )
-        assert replay["meta"]["run_id"] == run["run_id"]
-        for missing in ("/run?k=nope", "/elsewhere"):
-            with pytest.raises(urllib.error.HTTPError) as error:
-                urllib.request.urlopen(base + missing)
-            assert error.value.code == 404
+        status, page = get("/")
+        assert status == 200
+        assert re.search(
+            r"^let R = null;$", page.decode(), re.M
+        )  # the page fetches its runs
+        [run] = json.loads(get("/runs")[1])
+        status, body = get("/run?k=" + urllib.parse.quote(run["key"]))
+        assert status == 200 and json.loads(body)["meta"]["run_id"] == run["run_id"]
+        assert (
+            json.loads(body)["config"]["run"]["seed"] is not None
+        )  # what the comparison diffs
+        assert get("/run?k=nope")[0] == 404 and get("/elsewhere")[0] == 404
     finally:
         server.shutdown()
         server.server_close()
