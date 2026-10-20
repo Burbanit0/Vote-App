@@ -6,7 +6,6 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
-import os
 import re
 import shutil
 import sys
@@ -264,11 +263,14 @@ def test_a_run_still_being_written_reads_without_its_half_written_last_line(
     assert [e["event_id"] for e in atlas.read_events(journal)] == [
         json.loads(line)["event_id"] for line in whole
     ]
-    journal.write_text(
-        whole[0] + '\n{"torn"\n' + whole[1]
-    )  # broken in the middle: a broken journal
-    with pytest.raises(json.JSONDecodeError):
-        atlas.read_events(journal)
+    for broken in (
+        whole[0] + '\n{"torn"\n' + whole[1],  # in the middle
+        "\n".join(whole)
+        + '\n{"torn"\n',  # last, but newline-ended: written whole, and wrong
+    ):
+        journal.write_text(broken)
+        with pytest.raises(json.JSONDecodeError):
+            atlas.read_events(journal)
 
 
 def _root_with_the_fixture(tmp_path: Path) -> Path:
@@ -283,12 +285,13 @@ def test_the_index_lists_runs_by_key_and_rereads_one_only_when_it_changes(
     root = _root_with_the_fixture(tmp_path)
     index = atlas.RunIndex([root])
     [run] = index.listing()
-    assert (
-        run["key"] == "0:sweep/explorer-fixture" and run["status"] == "live"
-    )  # just written, no digest
+    assert run["key"] == "0:sweep/explorer-fixture"
+    assert run["status"] == "completed"  # no digest, but every planned tick journaled
     first = index.replay(run["key"])
     assert first is not None and json.loads(first)["config"]["run"]["seed"] is not None
     assert index.replay(run["key"]) is first  # unchanged files: the cached bytes
+    (root / "sweep" / "explorer-fixture" / "progress.json").touch()  # a heartbeat
+    assert index.replay(run["key"]) is first  # is no new event
     journal = root / "sweep" / "explorer-fixture" / "events.jsonl"
     journal.write_text("\n".join(journal.read_text().splitlines()[:5]) + "\n")
     assert len(json.loads(index.replay(run["key"]) or b"")["events"]) == 5
@@ -296,10 +299,23 @@ def test_the_index_lists_runs_by_key_and_rereads_one_only_when_it_changes(
         index.replay("0:../../etc") is None
         and index.replay("1:sweep/explorer-fixture") is None
     )
-    old = time.time() - atlas.LIVE_SECONDS - 60
-    for name in ("events.jsonl", "progress.json"):
-        os.utime(root / "sweep" / "explorer-fixture" / name, (old, old))
-    assert index.listing()[0]["status"] in ("completed", "stopped")
+
+
+def test_a_run_s_status_comes_from_its_digest_else_from_how_far_and_how_lately_it_wrote() -> (
+    None
+):
+    now, old = time.time(), time.time() - atlas.LIVE_SECONDS - 60
+    midway = {"outcome": None, "ticks_reached": 7, "ticks_planned": 12}
+    assert atlas.run_status(midway, {"tick_in_progress": 8}, now) == "live"
+    assert atlas.run_status(midway, {"tick_in_progress": 8}, old) == "stopped"
+    last = {**midway, "ticks_reached": 12}
+    assert atlas.run_status(last, {"tick_in_progress": None}, now) == "completed"
+    assert (
+        atlas.run_status(last, {"tick_in_progress": 12}, now) == "live"
+    )  # writing its last tick
+    assert (
+        atlas.run_status({**midway, "outcome": "interrupted"}, {}, now) == "interrupted"
+    )
 
 
 def test_the_server_serves_the_page_the_listing_and_a_run(tmp_path: Path) -> None:

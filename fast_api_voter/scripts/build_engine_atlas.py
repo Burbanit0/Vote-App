@@ -308,24 +308,25 @@ def _series(
 
 
 def read_events(journal: Path) -> list[dict[str, Any]]:
-    """Every journaled event. A run still being written can end on a half-written line: that one is
-    skipped (the next read has it whole); a broken line anywhere else is a broken journal and raises."""
-    lines = [
-        line
-        for line in journal.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    events = [json.loads(line) for line in lines[:-1]]
-    if lines:
-        try:
-            events.append(json.loads(lines[-1]))
-        except ValueError:
-            pass
-    return events
+    """Every journaled event. A run still being written can end on a half-written line (no newline yet):
+    that one is skipped, the next read has it whole. Any other broken line is a broken journal and raises."""
+    text = journal.read_text(encoding="utf-8")
+    lines = [line for line in text.splitlines() if line.strip()]
+    torn = bool(lines) and not text.endswith("\n")
+    return [json.loads(line) for line in (lines[:-1] if torn else lines)] + (
+        _whole_or_nothing(lines[-1]) if torn else []
+    )
+
+
+def _whole_or_nothing(line: str) -> list[dict[str, Any]]:
+    try:
+        return [json.loads(line)]
+    except ValueError:
+        return []
 
 
 def compact_run(run_dir: Path) -> dict[str, Any]:
-    """The replay: every event with a one-line summary, the per-tick series, and the config (for a comparison)."""
+    """The replay: every event with a one-line summary, and the per-tick series."""
     events = read_events(run_dir / "events.jsonl")
     config = _json(run_dir / "config.json") or {}
     digest, progress, metadata = (
@@ -363,7 +364,6 @@ def compact_run(run_dir: Path) -> dict[str, Any]:
     }
     return {
         "meta": meta,
-        "config": config,
         "series": _series(events, ticks, initial_parties),
         "events": [
             {
@@ -435,28 +435,49 @@ LIVE_SECONDS = 600
 """A run with no digest whose journal or progress changed this recently is still running. progress.json is
 rewritten at least every few seconds while LLM calls come back (progress._HEARTBEAT_MIN_WRITE_INTERVAL_SECONDS)
 and at every tick, so ten quiet minutes means it stopped without a digest (killed, host down)."""
-_WATCHED = ("events.jsonl", "progress.json", "digest.json")
 
 
-def _stamp(run_dir: Path) -> tuple[str, float]:
-    """A token that changes whenever a file the replay or the listing reads changes, and the latest mtime."""
-    parts, latest = [], 0.0
-    for name in _WATCHED:
-        try:
-            st = (run_dir / name).stat()
-        except OSError:
-            parts.append("-")
-            continue
-        parts.append(f"{st.st_mtime_ns}:{st.st_size}")
-        latest = max(latest, st.st_mtime) if name != "digest.json" else latest
-    return "/".join(parts), latest
+def _stat(path: Path) -> os.stat_result | None:
+    try:
+        return path.stat()
+    except OSError:
+        return None
+
+
+def _stamp(run_dir: Path) -> str:
+    """Changes whenever a file the replay reads changes. Not progress.json: its heartbeat rewrites it every
+    few seconds with no new event, and the replay only takes two counters from it."""
+    stats = (_stat(run_dir / name) for name in ("events.jsonl", "digest.json"))
+    return "/".join(f"{st.st_mtime_ns}:{st.st_size}" if st else "-" for st in stats)
+
+
+def _written(run_dir: Path) -> float:
+    """When the run last wrote its journal or its progress (the heartbeat counts: the run is alive)."""
+    stats = [_stat(run_dir / name) for name in ("events.jsonl", "progress.json")]
+    return max((st.st_mtime for st in stats if st), default=0.0)
+
+
+def run_status(record: dict[str, Any], progress: dict[str, Any], written: float) -> str:
+    """The digest's outcome; without one, live while the run is still writing and not done, else completed
+    (every planned tick journaled, none under way) or stopped."""
+    reached, planned = record.get("ticks_reached"), record.get("ticks_planned")
+    done = (
+        reached is not None
+        and reached == planned
+        and progress.get("tick_in_progress") is None
+    )
+    if record.get("outcome"):
+        return str(record["outcome"])
+    if done:
+        return "completed"
+    return "live" if time.time() - written < LIVE_SECONDS else "stopped"
 
 
 def default_roots() -> list[Path]:
     configured = [
         root.path for root in parse_roots(os.environ.get("POLITY_RUN_ROOTS", ""))
     ]
-    return configured or [DEFAULT_RUN_ROOT, BACKEND / "scripts"]
+    return configured or [DEFAULT_RUN_ROOT, *sorted(BACKEND.glob("scripts/*_runs"))]
 
 
 class RunIndex:
@@ -470,23 +491,16 @@ class RunIndex:
         self.cache: dict[str, tuple[str, bytes]] = {}
 
     def listing(self) -> list[dict[str, Any]]:
-        now, runs, dirs = time.time(), [], {}
+        runs, dirs = [], {}
         for i, root in enumerate(self.roots):
             for run_dir in discover_runs([root]):
                 key = f"{i}:{run_dir.relative_to(root).as_posix()}"
                 dirs[key] = run_dir
-                record, (stamp, mtime) = run_record(run_dir), _stamp(run_dir)
+                record, written = run_record(run_dir), _written(run_dir)
                 progress = _json(run_dir / "progress.json") or {}
                 reached, planned = (
                     record.get("ticks_reached"),
                     record.get("ticks_planned"),
-                )
-                status = record.get("outcome") or (
-                    "live"
-                    if now - mtime < LIVE_SECONDS
-                    else "completed"
-                    if reached is not None and reached == planned
-                    else "stopped"
                 )
                 runs.append(
                     {
@@ -494,7 +508,7 @@ class RunIndex:
                         "root": str(root),
                         "path": key.split(":", 1)[1],
                         "run_id": record["run_id"],
-                        "status": status,
+                        "status": run_status(record, progress, written),
                         "ticks_reached": reached,
                         "ticks_planned": planned,
                         "engine": record.get("engine"),
@@ -502,8 +516,8 @@ class RunIndex:
                         "population": record.get("population"),
                         "years": record.get("years"),
                         "seed": record.get("seed"),
-                        "mtime": mtime,
-                        "stamp": stamp,
+                        "mtime": written,
+                        "stamp": _stamp(run_dir),
                         "eta": progress.get("eta_timestamp"),
                         "tick_in_progress": progress.get("tick_in_progress"),
                     }
@@ -517,15 +531,18 @@ class RunIndex:
         run_dir = self.dirs.get(key)
         if run_dir is None:
             return None
-        stamp, _ = _stamp(run_dir)
+        stamp = _stamp(run_dir)
         cached = self.cache.get(key)
         if cached is None or cached[0] != stamp:
             # ponytail: one whole re-read per change (0.4 s for the largest p500 journal); tail the file if runs grow far past that
+            # The config rides only here, for the comparison: a static page is shared, and a config can hold URLs.
+            replay = {
+                **compact_run(run_dir),
+                "config": _json(run_dir / "config.json") or {},
+            }
             cached = (
                 stamp,
-                json.dumps(
-                    compact_run(run_dir), separators=(",", ":"), ensure_ascii=False
-                ).encode(),
+                json.dumps(replay, separators=(",", ":"), ensure_ascii=False).encode(),
             )
             self.cache[key] = cached
         return cached[1]
@@ -534,34 +551,41 @@ class RunIndex:
 def make_handler(index: RunIndex) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 (http.server's name)
-            path, _, query = self.path.partition("?")
             try:
-                if path == "/":
-                    self._send(200, "text/html", render_page(None).encode())
-                elif path == "/runs":
-                    self._send(
-                        200, "application/json", json.dumps(index.listing()).encode()
-                    )
-                elif path == "/run":
-                    body = index.replay(parse_qs(query).get("k", [""])[0])
-                    if body is None:
-                        self._send(404, "text/plain", b"no such run")
-                    else:
-                        self._send(200, "application/json", body)
-                else:
-                    self._send(404, "text/plain", b"not found")
+                code, kind, body = self._answer()
             except Exception as error:  # a broken run answers 500 with its reason; the server keeps serving
-                self._send(
-                    500, "text/plain", f"{type(error).__name__}: {error}".encode()
+                code, kind, body = (
+                    500,
+                    "text/plain",
+                    f"{type(error).__name__}: {error}".encode(),
                 )
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", f"{kind}; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except (
+                BrokenPipeError,
+                ConnectionResetError,
+            ):  # the viewer left mid-download
+                pass
 
-        def _send(self, code: int, kind: str, body: bytes) -> None:
-            self.send_response(code)
-            self.send_header("Content-Type", f"{kind}; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+        def _answer(self) -> tuple[int, str, bytes]:
+            path, _, query = self.path.partition("?")
+            if path == "/":
+                return 200, "text/html", render_page(None).encode()
+            if path == "/runs":
+                return 200, "application/json", json.dumps(index.listing()).encode()
+            if path == "/run":
+                body = index.replay(parse_qs(query).get("k", [""])[0])
+                return (
+                    (404, "text/plain", b"no such run")
+                    if body is None
+                    else (200, "application/json", body)
+                )
+            return 404, "text/plain", b"not found"
 
         def log_message(
             self, format: str, *args: Any

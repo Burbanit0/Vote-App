@@ -137,6 +137,7 @@ svg .mut { fill: var(--muted) }
 .heat th.lane { text-align: left; font: 500 12.5px/1.2 var(--body); color: var(--ink); white-space: nowrap; padding-right: 8px }
 .heat td { width: 30px; height: 22px; border-radius: 3px; cursor: pointer; text-align: center; font: 500 10.5px/22px var(--mono); color: transparent; background: var(--sunk) }
 .heat td.on { font-weight: 600 }
+.heat td.off { background: repeating-linear-gradient(135deg, transparent 0 3px, var(--rule) 3px 4px) }
 .heat td.sel { outline: 2px solid var(--ink); outline-offset: -1px }
 .heat tr.col-sel td.cur, .heat td.cur { box-shadow: inset 0 0 0 1px var(--ink) }
 .evlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 520px; overflow: auto }
@@ -438,27 +439,27 @@ function statsOf(X) {
     [X.events.length.toLocaleString(), "events journaled"], [decisions.toLocaleString(), "LLM decisions"], [m.llm_retries ?? "–", "retries"],
     [m.llm_fallbacks ?? "–", "fallbacks"], [m.office_occupancy != null ? `${(m.office_occupancy * 100).toFixed(0)}%` : "–", "office occupancy"],
     [`${m.initial_parties} → ${X.series[m.ticks].parties}`, "parties, start → end"],
-    [m.effective_parties && m.effective_parties[0] ? m.effective_parties[0].by_seats.toFixed(1) : "–", "effective parties (seats)"],
+    [m.effective_parties?.[0]?.by_seats != null ? m.effective_parties[0].by_seats.toFixed(1) : "–", "effective parties (seats)"],
   ];
 }
 function setReplay(a, b) {
-  const follow = T != null && tick >= T && document.getElementById("follow").checked;
+  const follow = T != null && tick === T && document.getElementById("follow").checked;
   R = a; B = b; meta = R.meta; T = meta.ticks; TX = Math.max(T, B ? B.meta.ticks : 0);
   byLaneTick = laneTicks(R); byTick = ticksOf(R); bLaneTick = B ? laneTicks(B) : {}; bByTick = B ? ticksOf(B) : [];
   const present = new Set([...Object.keys(byLaneTick), ...Object.keys(bLaneTick)].map(k => k.split("@")[0]));
   lanes = LANES.filter(l => present.has(l.id));
   maxCount = Math.max(1, ...Object.values(byLaneTick).map(v => v.length));
   maxDiff = 1;
-  if (B) for (const l of lanes) for (let i = 0; i <= T; i++) maxDiff = Math.max(maxDiff, Math.abs(count(bLaneTick, l.id + "@" + i) - count(byLaneTick, l.id + "@" + i)));
+  if (B) for (const l of lanes) for (let i = 0; i <= Math.min(T, B.meta.ticks); i++) maxDiff = Math.max(maxDiff, Math.abs(count(bLaneTick, l.id + "@" + i) - count(byLaneTick, l.id + "@" + i)));
   if (!B) heatMode = "a";
   document.querySelectorAll("[data-h]").forEach(x => x.setAttribute("aria-pressed", x.dataset.h === heatMode));
-  tick = follow ? T : Math.min(tick, T);
+  tick = follow ? T : Math.min(tick, TX);
   document.getElementById("rtitle").textContent = `${meta.run_id}: a society, replayed`;  // textContent: never markup
   document.getElementById("rlede").innerHTML = `${esc(meta.population)} citizens, ${esc(meta.years)} years (${T + 1} ticks${meta.ticks_per_year === 4 ? " of a quarter" : ""}), on the ${meta.engine === "llm" ? `LLM engine (${esc(meta.model)} on ${esc(meta.provider)})` : "deterministic engine"}${meta.elapsed_hours != null ? `; it took ${meta.elapsed_hours} hours` : ""}. ${presidentLine()} Built from <code>${esc(meta.source)}</code>.`;
   const sa = statsOf(R), sb = B && statsOf(B);
   document.getElementById("rstats").innerHTML = sa.map(([v, k], i) => `<div class="stat"><div class="v">${esc(v)}</div><div class="k">${k}</div>${sb ? `<div class="vs">B: ${esc(sb[i][0])}</div>` : ""}</div>`).join("");
   document.getElementById("courselede").textContent = `Per tick, from the run's own journal. The dashed vertical line marks the selected tick.${B ? " Solid lines are run A, dashed lines run B." : ""}`;
-  document.getElementById("tick").max = T;
+  document.getElementById("tick").max = TX;
   renderCompare(); renderHeat(); renderTick();
 }
 
@@ -486,7 +487,8 @@ function actsChart() {
     kinds.forEach(([k, c]) => { const n = d.acts[k] || 0; if (!n) return; const h = n / max * (H - t - b); y -= h; s += `<rect x="${l + i * bw + 1}" y="${y}" width="${bw - 2}" height="${h}" fill="${c}"/>` });
     if (i % 4 === 0) s += `<text x="${l + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" class="mut">${i}</text>`;
   });
-  s += `<rect x="${l + tick * bw}" y="${t}" width="${bw}" height="${H - t - b}" fill="none" stroke="var(--ink)" stroke-dasharray="3 3"/></svg>`;
+  if (tick <= T) s += `<rect x="${l + tick * bw}" y="${t}" width="${bw}" height="${H - t - b}" fill="none" stroke="var(--ink)" stroke-dasharray="3 3"/>`;
+  s += "</svg>";
   return `<div class="panel chart"><h3>Pressure acts per tick (consulted citizens${B ? ", run A" : ""})</h3>${s}<div class="legend">${kinds.map(([k, c]) => `<span><i style="background:${c};height:8px"></i>${k}</span>`).join("")}</div></div>`;
 }
 const ceilTo = v => Math.max(0.1, Math.ceil(v * 10) / 10);
@@ -513,13 +515,17 @@ function diffShade(d) {  // B wrote more: warm; A wrote more: the accent
 }
 function renderHeat() {
   const diff = heatMode === "diff" && B;
-  let h = `<thead><tr><th class="lane">mechanic \\ tick</th>${Array.from({ length: T + 1 }, (_, i) => `<th>${i}</th>`).join("")}</tr></thead><tbody>`;
+  const TB = B ? B.meta.ticks : -1;
+  let h = `<thead><tr><th class="lane">mechanic \\ tick</th>${Array.from({ length: TX + 1 }, (_, i) => `<th>${i}</th>`).join("")}</tr></thead><tbody>`;
   lanes.forEach(l => {
     const fam = l.mech ? M[l.mech].fam : "sys";
     h += `<tr class="fam-${fam}"><th class="lane">${l.mech ? `<button class="chip fam-${fam}" data-m="${l.mech}" style="padding:3px 7px"><span class="dot"></span>${l.name}</button>` : `<span class="chip fam-sys" style="padding:3px 7px;cursor:default"><span class="dot"></span>${l.name}</span>`}</th>`;
-    for (let i = 0; i <= T; i++) {
+    for (let i = 0; i <= TX; i++) {
       const n = count(byLaneTick, l.id + "@" + i), nb = count(bLaneTick, l.id + "@" + i), d = nb - n;
-      h += diff
+      const missing = i > T ? "A" : diff && i > TB ? "B" : null;
+      h += missing
+        ? `<td class="off" data-lane="${l.id}" data-t="${i}" title="Run ${missing}'s journal ends before tick ${i}"></td>`
+        : diff
         ? `<td class="${d ? "on" : ""}" style="${diffShade(d)}" data-lane="${l.id}" data-t="${i}" title="${l.name}, tick ${i}: A ${n}, B ${nb}">${d ? (d > 0 ? "+" : "") + d : ""}</td>`
         : `<td class="${n ? "on" : ""}" style="${shade(n)}" data-lane="${l.id}" data-t="${i}" title="${l.name}, tick ${i}: ${n} event${n === 1 ? "" : "s"}${B ? ` (B ${nb})` : ""}">${n || ""}</td>`;
     }
@@ -533,7 +539,7 @@ function evRow(e) {
   return `<li class="${INSTITUTIONAL.has(e.ty) ? "inst" : ""} ${m ? "fam-" + M[m].fam : ""}"><span class="tt">t${esc(e.t)}</span><span style="min-width:0">${esc(e.s)}<br><span class="ty">${esc(e.ty)}${e.m ? " · motif " + esc(e.m) : ""}</span>${m ? ` · <button data-m="${m}">${M[m].name}</button>` : ""}</span></li>`;
 }
 function tickTags(t) {
-  const here = byTick[t], has = ty => here.some(e => e.ty === ty), tags = [];
+  const here = byTick[t] || [], has = ty => here.some(e => e.ty === ty), tags = [];
   if (here.some(e => e.ty === "elected" && /president/.test(e.s))) tags.push("presidential election");
   if (has("legislative_result")) tags.push("legislative election");
   if (has("recalled")) tags.push("recall");
@@ -550,11 +556,11 @@ function renderTick(full = true) {
   document.getElementById("ticklabel").textContent = `Tick ${tick}`;
   const tpy = meta.ticks_per_year || 4, y = Math.floor(tick / tpy), q = tick % tpy + 1, tags = tickTags(tick);
   document.getElementById("tickwhen").textContent = `year ${y}, ${tpy === 4 ? "quarter" : "step"} ${q}${tpy === 4 ? "" : " of " + tpy}${tags.length ? " · " + tags.join(" · ") : ""}`;
-  const inst = byTick[tick].filter(e => INSTITUTIONAL.has(e.ty)), instB = B ? (bByTick[tick] || []).filter(e => INSTITUTIONAL.has(e.ty)) : null;
+  const inst = (byTick[tick] || []).filter(e => INSTITUTIONAL.has(e.ty)), instB = B ? (bByTick[tick] || []).filter(e => INSTITUTIONAL.has(e.ty)) : null;
   const none = `<li><span></span><span class="note">No institutional event this tick: citizens acted, the institutions held.</span></li>`;
   document.getElementById("nartitle").textContent = `What changed at tick ${tick} (${inst.length}${B ? " in A, " + instB.length + " in B" : ""} institutional event${inst.length === 1 && !B ? "" : "s"})`;
   document.getElementById("narr").innerHTML = B
-    ? `<li class="sub">Run A</li>${inst.map(evRow).join("") || none}<li class="sub">Run B</li>${tick > B.meta.ticks ? `<li><span></span><span class="note">Run B's journal ends at tick ${B.meta.ticks}.</span></li>` : instB.map(evRow).join("") || none}`
+    ? `<li class="sub">Run A</li>${tick > T ? `<li><span></span><span class="note">Run A's journal ends at tick ${T}.</span></li>` : inst.map(evRow).join("") || none}<li class="sub">Run B</li>${tick > B.meta.ticks ? `<li><span></span><span class="note">Run B's journal ends at tick ${B.meta.ticks}.</span></li>` : instB.map(evRow).join("") || none}`
     : inst.length ? inst.map(evRow).join("") : none;
   renderEvents(); markHeat();
   if (full && !document.getElementById("replay").hidden) drawCharts();
@@ -562,7 +568,7 @@ function renderTick(full = true) {
 function renderEvents() {
   if (!R) return;
   const q = document.getElementById("evsearch").value.trim().toLowerCase();
-  let list = lane ? (byLaneTick[lane + "@" + tick] || []) : byTick[tick];
+  let list = lane ? (byLaneTick[lane + "@" + tick] || []) : byTick[tick] || [];
   if (q) list = list.filter(e => (e.s + " " + e.ty).toLowerCase().includes(q));
   const ln = lanes.find(l => l.id === lane);
   document.getElementById("evtitle").textContent = `${B ? "Run A · " : ""}${ln ? ln.name : "Every event"} at tick ${tick} · ${list.length}`;
@@ -597,18 +603,19 @@ document.getElementById("heat").addEventListener("click", e => { const c = e.tar
 document.getElementById("tick").addEventListener("input", e => { tick = +e.target.value; renderTick(false) });  // charts on release
 document.getElementById("tick").addEventListener("change", () => drawCharts());
 document.getElementById("prev").addEventListener("click", () => { tick = Math.max(0, tick - 1); renderTick() });
-document.getElementById("next").addEventListener("click", () => { if (R) { tick = Math.min(T, tick + 1); renderTick() } });
+document.getElementById("next").addEventListener("click", () => { if (R) { tick = Math.min(TX, tick + 1); renderTick() } });
 document.getElementById("evsearch").addEventListener("input", renderEvents);
 document.getElementById("evall").addEventListener("click", () => { lane = null; renderTick() });
 document.getElementById("heatmode").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (!b) return; heatMode = b.dataset.h; document.querySelectorAll("[data-h]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderHeat() });
 
 /* ───────────── served: every run under the roots, followed live ───────────── */
-let RUNS = [], keyA = null, keyB = null, loadedA = null, stampA = null, stampB = null, picked = "", busy = false;
+let RUNS = [], keyA = null, keyB = null, loadedA = null, loadedB = null, stampA = null, stampB = null, picked = "", busy = false, again = false;
 async function getJSON(url) { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`); return r.json() }
 const runLabel = r => `${r.status === "live" ? "● " : ""}${r.path} · ${r.ticks_reached ?? "?"}/${r.ticks_planned ?? "?"} · ${r.status}`;
 function fillPickers() {
   const sig = [keyA, keyB, ...RUNS.map(r => r.key + runLabel(r))].join("|");
-  if (sig === picked) return;  // re-filling a select the viewer has open would close it
+  const open = ["runA", "runB"].includes(document.activeElement && document.activeElement.id);
+  if (sig === picked || open) return;  // re-filling a select the viewer has open would close it; done after blur
   picked = sig;
   const groups = new Map([["live now", []]]);
   RUNS.forEach(r => { const g = r.status === "live" ? "live now" : `${r.root.split("/").pop()}/${r.path.split("/")[0]}`; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r) });
@@ -624,8 +631,8 @@ function stateOf(name, r) {
     + (r.status === "live" && r.eta ? `, ETA ${esc(new Date(r.eta).toLocaleString())}` : "");
 }
 function remember() { const p = new URLSearchParams(); if (keyA) p.set("a", keyA); if (keyB) p.set("b", keyB); try { history.replaceState(null, "", "?" + p + location.hash) } catch (e) {} }
-async function poll(force = false) {
-  if (busy) return;
+async function poll() {
+  if (busy) { again = true; return }  // a pick made mid-fetch: run once more when this one lands
   busy = true;
   const state = document.getElementById("livestate");
   try {
@@ -635,26 +642,30 @@ async function poll(force = false) {
     fillPickers(); remember();
     const ra = RUNS.find(r => r.key === keyA), rb = RUNS.find(r => r.key === keyB) || null;
     if (!ra) { state.textContent = "No run under the roots: pass the directory that holds them, e.g. --serve ~/polity-runs"; return }
-    const sb = rb ? rb.stamp : null;
-    if (force || ra.stamp !== stampA || sb !== stampB) {
-      const [a, b] = await Promise.all([getJSON("run?k=" + encodeURIComponent(keyA)), rb ? getJSON("run?k=" + encodeURIComponent(keyB)) : null]);
-      if (keyA !== loadedA && ra.status === "live") tick = Infinity;  // a live run opens on its newest tick
-      stampA = ra.stamp; stampB = sb; loadedA = keyA;
+    const ka = keyA, kb = rb ? keyB : null, sb = rb ? rb.stamp : null;
+    const needA = !R || ka !== loadedA || ra.stamp !== stampA, needB = kb !== null && (kb !== loadedB || sb !== stampB);
+    if (needA || needB || kb !== loadedB) {
+      const [a, b] = await Promise.all([needA ? getJSON("run?k=" + encodeURIComponent(ka)) : R, needB ? getJSON("run?k=" + encodeURIComponent(kb)) : kb ? B : null]);
+      if (ka !== loadedA && ra.status === "live") tick = Infinity;  // a live run opens on its newest tick
       setReplay(a, b);
+      stampA = ra.stamp; stampB = sb; loadedA = ka; loadedB = kb;  // after: a run that fails to draw is retried, and its error stays up
     }
     state.innerHTML = [stateOf("A", ra), stateOf("B", rb)].filter(Boolean).join(" · ") + ` · checked ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     state.innerHTML = `<span class="bad">${esc(e.message)}</span>`;
-  } finally { busy = false }
+  } finally {
+    busy = false;
+    if (again) { again = false; poll() }
+  }
 }
 if (SERVED) {
   const q = new URLSearchParams(location.search);
   keyA = q.get("a"); keyB = q.get("b");
   document.getElementById("runpick").hidden = false;
-  document.getElementById("runA").addEventListener("change", e => { keyA = e.target.value; poll(true) });
-  document.getElementById("runB").addEventListener("change", e => { keyB = e.target.value || null; poll(true) });
-  document.getElementById("swap").addEventListener("click", () => { if (keyB) { [keyA, keyB] = [keyB, keyA]; poll(true) } });
-  poll(true);
+  document.getElementById("runA").addEventListener("change", e => { keyA = e.target.value; poll() });
+  document.getElementById("runB").addEventListener("change", e => { keyB = e.target.value || null; poll() });
+  document.getElementById("swap").addEventListener("click", () => { if (keyB) { [keyA, keyB] = [keyB, keyA]; poll() } });
+  poll();
   setInterval(() => { if (!document.hidden) poll() }, 5000);
 } else setReplay(R, null);
 
