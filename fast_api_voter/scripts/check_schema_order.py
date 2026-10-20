@@ -83,8 +83,8 @@ def _run(out: Path, base_url: str | None, restart: str | None) -> int:
                 print("the server did not come back")
                 return 1
         print(f"== {label}", flush=True)
-        code = run_bakeoff.main(["--label", label, "--bank", str(ORDER_BANK), "--out", str(out), *extra,
-                                 *(["--arm", arm] if arm else [])])
+        code: int = run_bakeoff.main(["--label", label, "--bank", str(ORDER_BANK), "--out", str(out), *extra,
+                                      *(["--arm", arm] if arm else [])])
         if code:
             return code
     return 0

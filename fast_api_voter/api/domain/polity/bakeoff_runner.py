@@ -367,6 +367,12 @@ def request_resolver(arm: str | None) -> Callable[[Case], dict[str, Any]]:
     return request_arm if request_arm is not None else (lambda case: {})
 
 
+def wire_order_for(arm: str | None) -> Mapping[str, Sequence[str]]:
+    """The wire order a session with `arm` sends: the arm's own table, or production's WIRE_ORDER."""
+    chosen = ARMS[arm].wire_order if arm is not None else None
+    return WIRE_ORDER if chosen is None else chosen
+
+
 def run_session(
     bank: CaseBank,
     client: LlmClientProtocol,
@@ -384,12 +390,11 @@ def run_session(
     session_dir.mkdir(parents=True, exist_ok=True)
     # Every session states its wire order, so a client reused after another arm's session is not left on it, and
     # records it, so bakeoff_order.decide knows what a control sent even after WIRE_ORDER changes.
-    chosen = ARMS[arm].wire_order if arm is not None else None
-    wire_order = WIRE_ORDER if chosen is None else chosen
+    wire_order = wire_order_for(arm)
     client.wire_order = wire_order  # type: ignore[attr-defined]
     (session_dir / SESSION_FILENAME).write_text(json.dumps(
         {**metadata, "bank_sha256": bank.content_sha256, "arm": arm,
-         "wire_order": {title: list(order) for title, order in wire_order.items()}}, indent=2, sort_keys=True))
+         "wire_order": dict(wire_order)}, indent=2, sort_keys=True))  # each order a JSON list
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
     restore = restorer_for(arm)

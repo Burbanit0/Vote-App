@@ -102,31 +102,74 @@ def primary_measure(cases: Sequence[Case]) -> str:
     return truth.most_common(1)[0][0] if truth else "validity"
 
 
+def _guard_failures(cases: Sequence[Case], session: Session, control: Session, primary: str) -> tuple[str, ...]:
+    """Why a candidate may not win whatever its score: a significant validity drop, or a collapse onto one answer
+    where the control gives a mix. Validity as the primary measure is the score itself, not a guard."""
+    if primary == "validity":
+        return ()
+    failures = []
+    valid, control_valid = _units(cases, session, "validity"), _units(cases, control, "validity")
+    both = sorted(set(valid) & set(control_valid))
+    check = mcnemar_exact([valid[k] for k in both], [control_valid[k] for k in both])
+    if check.second_only > check.first_only and check.p_value < ALPHA:
+        failures.append("validity significantly worse")
+    if _max_share(cases, session, primary) >= DEGENERATE_SHARE and _max_share(cases, control, primary) < MIXED_SHARE:
+        failures.append("collapsed onto one answer")
+    return tuple(failures)
+
+
 def _candidate(rule: str, order: tuple[str, ...], cases: Sequence[Case], session: Session,
                controls: tuple[Session, Session], primary: str) -> Candidate:
     mine, control, control_b = (_units(cases, s, primary) for s in (session, *controls))
     common = sorted(set(mine) & set(control) & set(control_b), key=str)  # one set of units for all three
     test = mcnemar_exact([mine[k] for k in common], [control[k] for k in common])
-    failures = []
-    if primary != "validity":
-        valid, control_valid = _units(cases, session, "validity"), _units(cases, controls[0], "validity")
-        both = sorted(set(valid) & set(control_valid))
-        check = mcnemar_exact([valid[k] for k in both], [control_valid[k] for k in both])
-        if check.second_only > check.first_only and check.p_value < ALPHA:
-            failures.append("validity significantly worse")
-        if _max_share(cases, session, primary) >= DEGENERATE_SHARE and _max_share(cases, controls[0], primary) < MIXED_SHARE:
-            failures.append("collapsed onto one answer")
     return Candidate(
         rule=rule, order=order, score=sum(mine[k] for k in common), trials=len(common),
         control_score=sum(control[k] for k in common),
         control_b_score=sum(control_b[k] for k in common),
-        first_only=test.first_only, second_only=test.second_only, p_value=test.p_value, failures=tuple(failures),
+        first_only=test.first_only, second_only=test.second_only, p_value=test.p_value,
+        failures=_guard_failures(cases, session, controls[0], primary),
     )
 
 
 def recorded_order(session: Session) -> dict[str, tuple[str, ...]]:
     """The wire order a session sent. Sessions from before it was recorded all ran with an empty WIRE_ORDER."""
     return {title: tuple(order) for title, order in session.metadata.get("wire_order", {}).items()}
+
+
+def _distinct_orders(title: str, keep: tuple[str, ...],
+                     candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]]) -> dict[tuple[str, ...], list[tuple[str, Session]]]:
+    """The candidates that send `title` something other than `keep`, grouped by the order they send: arms
+    sending the same order are one hypothesis, not several, so Holm counts it once."""
+    by_order: dict[tuple[str, ...], list[tuple[str, Session]]] = {}
+    for name, (table, session) in sorted(candidates.items()):
+        if table_order(table, title) != keep:
+            by_order.setdefault(table_order(table, title), []).append((name, session))
+    return by_order
+
+
+def _tested(title: str, keep: tuple[str, ...], cases: Sequence[Case], controls: tuple[Session, Session],
+            candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]], primary: str) -> list[Candidate]:
+    """Every distinct candidate order for `title`, scored against the controls, with its Holm-adjusted p."""
+    found = [_candidate(" = ".join(name for name, _ in group), order, cases, group[0][1], controls, primary)
+             for order, group in _distinct_orders(title, keep, candidates).items()]
+    adjusted = holm_adjust({c.rule: c.p_value for c in found}) if found else {}
+    return [dataclasses.replace(c, p_holm=adjusted[c.rule]) for c in found]
+
+
+def _verdict(title: str, decision_type: str, cases: Sequence[Case], controls: tuple[Session, Session],
+             candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]], keep: tuple[str, ...]) -> Verdict:
+    if not cases:
+        return Verdict(title, decision_type, "-", None, keep, keep, "not in the bank")
+    primary = primary_measure(cases)
+    floor = noise(cases, *controls, primary)
+    if floor is None or floor > NOISE_LIMIT:
+        return Verdict(title, decision_type, primary, floor, keep, keep, "too noisy to tell")
+    found = _tested(title, keep, cases, controls, candidates, primary)
+    winners = sorted((c for c in found if c.wins), key=lambda c: (-c.score, c.rule))
+    if not winners:
+        return Verdict(title, decision_type, primary, floor, keep, keep, "no candidate beats the control", tuple(found))
+    return Verdict(title, decision_type, primary, floor, keep, winners[0].order, f"{winners[0].rule} beats the control", tuple(found))
 
 
 def decide(bank: CaseBank, controls: tuple[Session, Session],
@@ -139,33 +182,10 @@ def decide(bank: CaseBank, controls: tuple[Session, Session],
     current = recorded_order(controls[0])
     if recorded_order(controls[1]) != current:
         raise ValueError("the two controls sent different wire orders: they are not the same control")
-    verdicts = []
     scored = [c for c in bank.cases if c.family != LOGPROB_GATE_FAMILY]
-    for title, decision_type in DECISION_TYPES.items():
-        cases = [c for c in scored if c.decision_type == decision_type]
-        keep = table_order(current, title)
-        if not cases:
-            verdicts.append(Verdict(title, decision_type, "-", None, keep, keep, "not in the bank"))
-            continue
-        primary = primary_measure(cases)
-        floor = noise(cases, *controls, primary)
-        if floor is None or floor > NOISE_LIMIT:
-            verdicts.append(Verdict(title, decision_type, primary, floor, keep, keep, "too noisy to tell"))
-            continue
-        by_order: dict[tuple[str, ...], list[tuple[str, Session]]] = {}
-        for name, (table, session) in sorted(candidates.items()):
-            if table_order(table, title) != keep:
-                by_order.setdefault(table_order(table, title), []).append((name, session))
-        # Arms that send this class the same order are one hypothesis, not several: Holm counts it once.
-        found = [_candidate(" = ".join(name for name, _ in group), order, cases, group[0][1], controls, primary)
-                 for order, group in by_order.items()]
-        adjusted = holm_adjust({c.rule: c.p_value for c in found}) if found else {}
-        found = [dataclasses.replace(c, p_holm=adjusted[c.rule]) for c in found]
-        winners = sorted((c for c in found if c.wins), key=lambda c: (-c.score, c.rule))
-        chosen = winners[0].order if winners else keep
-        reason = f"{winners[0].rule} beats the control" if winners else "no candidate beats the control"
-        verdicts.append(Verdict(title, decision_type, primary, floor, keep, chosen, reason, tuple(found)))
-    return verdicts
+    return [_verdict(title, decision_type, [c for c in scored if c.decision_type == decision_type], controls,
+                     candidates, table_order(current, title))
+            for title, decision_type in DECISION_TYPES.items()]
 
 
 def proposed_table(verdicts: Sequence[Verdict]) -> dict[str, tuple[str, ...]]:
