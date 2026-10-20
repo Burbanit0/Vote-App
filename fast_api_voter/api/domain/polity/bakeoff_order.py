@@ -127,7 +127,7 @@ def decide(bank: CaseBank, controls: tuple[Session, Session],
            candidates: Mapping[str, tuple[Mapping[str, Sequence[str]], Session]],
            current: Mapping[str, Sequence[str]]) -> list[Verdict]:
     """One verdict per decision class: the candidate order that beats the control on the type's primary
-    measure (paired McNemar, Holm across that type's candidates, p < 0.05), and again against the second
+    measure (paired McNemar, Holm across that type's distinct candidate orders, p < 0.05), and again against the second
     control session, without a validity drop or a collapse onto one answer. When none does, or the primary
     measure is too noisy to tell, the current order stays: no change without evidence."""
     verdicts = []
@@ -143,8 +143,13 @@ def decide(bank: CaseBank, controls: tuple[Session, Session],
         if floor is None or floor > NOISE_LIMIT:
             verdicts.append(Verdict(title, decision_type, primary, floor, keep, keep, "too noisy to tell"))
             continue
-        found = [_candidate(name, table_order(table, title), cases, s, controls, primary)
-                 for name, (table, s) in sorted(candidates.items()) if table_order(table, title) != keep]
+        by_order: dict[tuple[str, ...], list[tuple[str, Session]]] = {}
+        for name, (table, session) in sorted(candidates.items()):
+            if table_order(table, title) != keep:
+                by_order.setdefault(table_order(table, title), []).append((name, session))
+        # Arms that send this class the same order are one hypothesis, not several: Holm counts it once.
+        found = [_candidate(" = ".join(name for name, _ in group), order, cases, group[0][1], controls, primary)
+                 for order, group in by_order.items()]
         adjusted = holm_adjust({c.rule: c.p_value for c in found}) if found else {}
         found = [dataclasses.replace(c, p_holm=adjusted[c.rule]) for c in found]
         winners = sorted((c for c in found if c.wins), key=lambda c: (-c.score, c.rule))

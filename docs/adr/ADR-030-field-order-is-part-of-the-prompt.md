@@ -26,12 +26,14 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
   `motif` code (`schema_order.RULES`), plus alphabetical.
 - **The rule.** A candidate replaces a class's current order only if, on that class's primary measure (its
   largest ground-truth family, else its validity), it:
-  - beats the first control (paired McNemar, Holm across that class's candidates, p < 0.05);
+  - beats the first control (paired McNemar, Holm across that class's distinct candidate orders, p < 0.05:
+    arms that send it the same order are one candidate);
   - also beats the second control;
   - does not lower validity significantly;
   - does not put 95% of units on one answer where the control gives no answer to 80%.
-  A measure whose two controls disagree on more than 10% of units cannot decide (today `positioning_poles`
-  and `chamber_poles`): the class keeps its order. Without a winner, nothing changes.
+  A measure whose two controls disagree on more than 10% of units cannot decide: the class keeps its order
+  (on the first run every measure had 0% noise; `positioning_poles`, 9 of 10 answers changing on identical
+  bytes, is left out of the order bank). Without a winner, nothing changes.
 - **Then live.** `scripts/schema_order_live_ab.sh` runs the candidate table against production twice
   (exploration profile, p100, 4 years, 3 seeds) and `schema_order_live_report.py` passes it only if every
   measure (elections, recalls, occupancy, pressure inaction, forum mind-shift, fallbacks, retries) stays within

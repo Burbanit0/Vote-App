@@ -116,3 +116,11 @@ def test_a_gain_in_accuracy_that_costs_validity_is_refused() -> None:
                       results=[{**r, "valid": int(r["case_id"], 16) % 4 != 0} for r in right.results])
     pressure = _pressure(decide(_bank(), controls, {"order_mdx": (CHOSEN, invalid)}, {}))
     assert "validity significantly worse" in pressure.candidates[0].failures and not pressure.candidates[0].wins
+
+
+def test_arms_sending_a_class_the_same_order_are_one_candidate_so_holm_counts_it_once() -> None:
+    controls = (_session("control-a", _half_right), _session("control-b", _half_right))
+    right = _session("right", lambda unit: 3 if unit % 2 == 0 else 0)
+    pressure = _pressure(decide(_bank(), controls, {"order_a": (CHOSEN, right), "order_b": (CHOSEN, right)}, {}))
+    assert [c.rule for c in pressure.candidates] == ["order_a = order_b"]
+    assert pressure.candidates[0].p_holm == pressure.candidates[0].p_value

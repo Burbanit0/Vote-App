@@ -66,7 +66,7 @@ def report(verdicts: list[Verdict], bank_sha: str) -> str:
         f"Written by `scripts/check_schema_order.py decide` on the order bank (`case_bank_order.jsonl`, sha "
         f"`{bank_sha[:16]}`). The rule, written before any run: a candidate replaces the current order only if it "
         f"beats the first control on the type's primary measure (paired McNemar, Holm across that type's "
-        f"candidates, p < {ALPHA}), also beats the second control, does not lower validity significantly and does "
+        f"distinct candidate orders, p < {ALPHA}), also beats the second control, does not lower validity significantly and does "
         f"not collapse onto one answer; a measure whose two controls disagree on more than {NOISE_LIMIT:.0%} of "
         "units keeps the current order.", "",
         "| decision | primary measure | noise | current order | verdict | reason |", "| --- | --- | ---: | --- | --- | --- |",
