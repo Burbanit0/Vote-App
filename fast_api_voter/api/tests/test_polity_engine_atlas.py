@@ -6,11 +6,20 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 import re
+import shutil
 import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
 
+import pytest
 import yaml
 
 from api.domain.polity.events import EVENT_TYPES, INSTITUTIONAL_EVENT_TYPES
@@ -104,8 +113,8 @@ def test_relocate_follows_code_that_only_moved_and_reports_code_that_changed() -
 def test_the_atlas_builds_for_the_committed_fixture_run(tmp_path: Path) -> None:
     page = atlas.build(FIXTURE_RUN, tmp_path / "atlas.html").read_text()
     assert "/*ATLAS_DATA*/" not in page and "/*REPLAY_DATA*/" not in page
-    # Each data block is one line of compact JSON, written in as the value of `const A` / `const R`.
-    blocks = dict(re.findall(r"^const ([AR]) = (.*);$", page, re.M))
+    # Each data block is one line of compact JSON, written in as the value of `const A` / `let R`.
+    blocks = dict(re.findall(r"^(?:const|let) ([AR]) = (.*);$", page, re.M))
     content, replay = json.loads(blocks["A"]), json.loads(blocks["R"])
     events = [
         json.loads(line)
@@ -244,3 +253,74 @@ def test_institutional_summaries_name_who_did_what() -> None:
         )
         == "coalition of parties 0, 1"
     )
+
+
+def test_a_run_still_being_written_reads_without_its_half_written_last_line(
+    tmp_path: Path,
+) -> None:
+    journal = tmp_path / "events.jsonl"
+    whole = (FIXTURE_RUN / "events.jsonl").read_text().splitlines()[:3]
+    journal.write_text("\n".join(whole) + '\n{"event_id": "torn", "ti')
+    assert [e["event_id"] for e in atlas.read_events(journal)] == [
+        json.loads(line)["event_id"] for line in whole
+    ]
+    journal.write_text(
+        whole[0] + '\n{"torn"\n' + whole[1]
+    )  # broken in the middle: a broken journal
+    with pytest.raises(json.JSONDecodeError):
+        atlas.read_events(journal)
+
+
+def _root_with_the_fixture(tmp_path: Path) -> Path:
+    root = tmp_path / "runs"
+    shutil.copytree(FIXTURE_RUN, root / "sweep" / "explorer-fixture")
+    return root
+
+
+def test_the_index_lists_runs_by_key_and_rereads_one_only_when_it_changes(
+    tmp_path: Path,
+) -> None:
+    root = _root_with_the_fixture(tmp_path)
+    index = atlas.RunIndex([root])
+    [run] = index.listing()
+    assert (
+        run["key"] == "0:sweep/explorer-fixture" and run["status"] == "live"
+    )  # just written, no digest
+    first = index.replay(run["key"])
+    assert first is not None and json.loads(first)["config"]["run"]["seed"] is not None
+    assert index.replay(run["key"]) is first  # unchanged files: the cached bytes
+    journal = root / "sweep" / "explorer-fixture" / "events.jsonl"
+    journal.write_text("\n".join(journal.read_text().splitlines()[:5]) + "\n")
+    assert len(json.loads(index.replay(run["key"]) or b"")["events"]) == 5
+    assert (
+        index.replay("0:../../etc") is None
+        and index.replay("1:sweep/explorer-fixture") is None
+    )
+    old = time.time() - atlas.LIVE_SECONDS - 60
+    for name in ("events.jsonl", "progress.json"):
+        os.utime(root / "sweep" / "explorer-fixture" / name, (old, old))
+    assert index.listing()[0]["status"] in ("completed", "stopped")
+
+
+def test_the_server_serves_the_page_the_listing_and_a_run(tmp_path: Path) -> None:
+    index = atlas.RunIndex([_root_with_the_fixture(tmp_path)])
+    server = ThreadingHTTPServer(("127.0.0.1", 0), atlas.make_handler(index))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        page = urllib.request.urlopen(base + "/").read().decode()
+        assert re.search(r"^let R = null;$", page, re.M)  # the page fetches its runs
+        [run] = json.loads(urllib.request.urlopen(base + "/runs").read())
+        replay = json.loads(
+            urllib.request.urlopen(
+                base + "/run?k=" + urllib.parse.quote(run["key"])
+            ).read()
+        )
+        assert replay["meta"]["run_id"] == run["run_id"]
+        for missing in ("/run?k=nope", "/elsewhere"):
+            with pytest.raises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(base + missing)
+            assert error.value.code == 404
+    finally:
+        server.shutdown()
+        server.server_close()

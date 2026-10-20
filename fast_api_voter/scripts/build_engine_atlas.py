@@ -10,9 +10,15 @@ Usage (from fast_api_voter/):
     python scripts/build_engine_atlas.py --run <run dir> --out atlas.html
     python scripts/build_engine_atlas.py --check                    # every reference still points at its line
     python scripts/build_engine_atlas.py --relocate                 # code only moved: update the line numbers
+    python scripts/build_engine_atlas.py --serve [root ...]          # every run under the roots, live, A against B
 
 A run dir is the one holding events.jsonl and config.json (e.g. polity_fixtures/runs/explorer-fixture, or a
 sweep's <run>/run/<run>). digest.json, progress.json and run_metadata.json are used when present.
+
+--serve opens the atlas on http://127.0.0.1:<port>/ (127.0.0.1 only) with a picker over every run found under the
+roots (default: POLITY_RUN_ROOTS's paths, else the committed fixture and scripts/*_runs). A run still being
+written is re-read whenever its files change, and the page follows it; a second run sets the comparison: its
+series drawn dashed over the first, config differences, events per mechanic, and a B - A heatmap.
 """
 
 from __future__ import annotations
@@ -20,15 +26,22 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import subprocess
 import sys
+import time
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES  # noqa: E402
+from api.domain.polity.run_catalog import DEFAULT_RUN_ROOT, parse_roots  # noqa: E402
+from api.domain.polity.run_registry import discover_runs, run_record  # noqa: E402
 
 ATLAS_DIR = Path(__file__).resolve().parent / "engine_atlas"
 CONTENT = ATLAS_DIR / "content.json"
@@ -294,13 +307,26 @@ def _series(
     return out
 
 
-def compact_run(run_dir: Path) -> dict[str, Any]:
-    """The replay: every event with a one-line summary, and the per-tick series."""
-    events = [
-        json.loads(line)
-        for line in (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+def read_events(journal: Path) -> list[dict[str, Any]]:
+    """Every journaled event. A run still being written can end on a half-written line: that one is
+    skipped (the next read has it whole); a broken line anywhere else is a broken journal and raises."""
+    lines = [
+        line
+        for line in journal.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+    events = [json.loads(line) for line in lines[:-1]]
+    if lines:
+        try:
+            events.append(json.loads(lines[-1]))
+        except ValueError:
+            pass
+    return events
+
+
+def compact_run(run_dir: Path) -> dict[str, Any]:
+    """The replay: every event with a one-line summary, the per-tick series, and the config (for a comparison)."""
+    events = read_events(run_dir / "events.jsonl")
     config = _json(run_dir / "config.json") or {}
     digest, progress, metadata = (
         _json(run_dir / name) or {}
@@ -337,6 +363,7 @@ def compact_run(run_dir: Path) -> dict[str, Any]:
     }
     return {
         "meta": meta,
+        "config": config,
         "series": _series(events, ticks, initial_parties),
         "events": [
             {
@@ -379,7 +406,8 @@ def _embed(data: Any) -> str:
     return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
-def build(run_dir: Path, out: Path) -> Path:
+def render_page(replay: dict[str, Any] | None) -> str:
+    """The page, with the run embedded; None leaves the replay to the server (--serve), which the page fetches."""
     content = {
         **load_content(),
         "sha": commit(),
@@ -388,13 +416,177 @@ def build(run_dir: Path, out: Path) -> Path:
     page = TEMPLATE.read_text(encoding="utf-8")
     for slot, data in (
         ("/*ATLAS_DATA*/{}", content),
-        ("/*REPLAY_DATA*/{}", compact_run(run_dir)),
+        ("/*REPLAY_DATA*/{}", replay),
     ):
         if page.count(slot) != 1:
             raise ValueError(f"{slot} must appear exactly once in {TEMPLATE.name}")
         page = page.replace(slot, _embed(data))
-    out.write_text(page, encoding="utf-8")
+    return page
+
+
+def build(run_dir: Path, out: Path) -> Path:
+    out.write_text(render_page(compact_run(run_dir)), encoding="utf-8")
     return out
+
+
+# ── serving: every run, live ──────────────────────────────────────────────
+
+LIVE_SECONDS = 600
+"""A run with no digest whose journal or progress changed this recently is still running. progress.json is
+rewritten at least every few seconds while LLM calls come back (progress._HEARTBEAT_MIN_WRITE_INTERVAL_SECONDS)
+and at every tick, so ten quiet minutes means it stopped without a digest (killed, host down)."""
+_WATCHED = ("events.jsonl", "progress.json", "digest.json")
+
+
+def _stamp(run_dir: Path) -> tuple[str, float]:
+    """A token that changes whenever a file the replay or the listing reads changes, and the latest mtime."""
+    parts, latest = [], 0.0
+    for name in _WATCHED:
+        try:
+            st = (run_dir / name).stat()
+        except OSError:
+            parts.append("-")
+            continue
+        parts.append(f"{st.st_mtime_ns}:{st.st_size}")
+        latest = max(latest, st.st_mtime) if name != "digest.json" else latest
+    return "/".join(parts), latest
+
+
+def default_roots() -> list[Path]:
+    configured = [
+        root.path for root in parse_roots(os.environ.get("POLITY_RUN_ROOTS", ""))
+    ]
+    return configured or [DEFAULT_RUN_ROOT, BACKEND / "scripts"]
+
+
+class RunIndex:
+    """The runs under the roots, listed afresh on every call; a run is addressed by `<root index>:<relative
+    path>` so a request never names a path the listing did not find. Each replay is rebuilt only when its
+    files change."""
+
+    def __init__(self, roots: list[Path]) -> None:
+        self.roots = roots
+        self.dirs: dict[str, Path] = {}
+        self.cache: dict[str, tuple[str, bytes]] = {}
+
+    def listing(self) -> list[dict[str, Any]]:
+        now, runs, dirs = time.time(), [], {}
+        for i, root in enumerate(self.roots):
+            for run_dir in discover_runs([root]):
+                key = f"{i}:{run_dir.relative_to(root).as_posix()}"
+                dirs[key] = run_dir
+                record, (stamp, mtime) = run_record(run_dir), _stamp(run_dir)
+                progress = _json(run_dir / "progress.json") or {}
+                reached, planned = (
+                    record.get("ticks_reached"),
+                    record.get("ticks_planned"),
+                )
+                status = record.get("outcome") or (
+                    "live"
+                    if now - mtime < LIVE_SECONDS
+                    else "completed"
+                    if reached is not None and reached == planned
+                    else "stopped"
+                )
+                runs.append(
+                    {
+                        "key": key,
+                        "root": str(root),
+                        "path": key.split(":", 1)[1],
+                        "run_id": record["run_id"],
+                        "status": status,
+                        "ticks_reached": reached,
+                        "ticks_planned": planned,
+                        "engine": record.get("engine"),
+                        "model": record.get("model"),
+                        "population": record.get("population"),
+                        "years": record.get("years"),
+                        "seed": record.get("seed"),
+                        "mtime": mtime,
+                        "stamp": stamp,
+                        "eta": progress.get("eta_timestamp"),
+                        "tick_in_progress": progress.get("tick_in_progress"),
+                    }
+                )
+        self.dirs = dirs
+        return sorted(runs, key=lambda r: -r["mtime"])
+
+    def replay(self, key: str) -> bytes | None:
+        if key not in self.dirs:
+            self.listing()
+        run_dir = self.dirs.get(key)
+        if run_dir is None:
+            return None
+        stamp, _ = _stamp(run_dir)
+        cached = self.cache.get(key)
+        if cached is None or cached[0] != stamp:
+            # ponytail: one whole re-read per change (0.4 s for the largest p500 journal); tail the file if runs grow far past that
+            cached = (
+                stamp,
+                json.dumps(
+                    compact_run(run_dir), separators=(",", ":"), ensure_ascii=False
+                ).encode(),
+            )
+            self.cache[key] = cached
+        return cached[1]
+
+
+def make_handler(index: RunIndex) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 (http.server's name)
+            path, _, query = self.path.partition("?")
+            try:
+                if path == "/":
+                    self._send(200, "text/html", render_page(None).encode())
+                elif path == "/runs":
+                    self._send(
+                        200, "application/json", json.dumps(index.listing()).encode()
+                    )
+                elif path == "/run":
+                    body = index.replay(parse_qs(query).get("k", [""])[0])
+                    if body is None:
+                        self._send(404, "text/plain", b"no such run")
+                    else:
+                        self._send(200, "application/json", body)
+                else:
+                    self._send(404, "text/plain", b"not found")
+            except Exception as error:  # a broken run answers 500 with its reason; the server keeps serving
+                self._send(
+                    500, "text/plain", f"{type(error).__name__}: {error}".encode()
+                )
+
+        def _send(self, code: int, kind: str, body: bytes) -> None:
+            self.send_response(code)
+            self.send_header("Content-Type", f"{kind}; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(
+            self, format: str, *args: Any
+        ) -> None:  # the page polls every few seconds
+            pass
+
+    return Handler
+
+
+def serve(roots: list[Path], port: int, open_browser: bool) -> None:
+    index = RunIndex(roots)
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(index))
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
+    print(
+        f"engine atlas on {url} ({len(index.listing())} runs under {', '.join(map(str, roots))}); Ctrl-C stops it",
+        flush=True,
+    )
+    if open_browser:
+        webbrowser.open(url + "#replay")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -420,6 +612,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="update the line numbers of references whose code only moved",
     )
+    parser.add_argument(
+        "--serve",
+        nargs="*",
+        type=Path,
+        metavar="ROOT",
+        help="serve every run under these roots, live, with a comparison (default roots: see above)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="--serve's port (default 8765, 0 picks one)",
+    )
+    parser.add_argument(
+        "--no-open", action="store_true", help="--serve without opening a browser"
+    )
     args = parser.parse_args(argv)
     if args.relocate:
         content = load_content()
@@ -430,13 +638,28 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(unresolved) or "every reference points at its line")
         return 1 if unresolved else 0
     stale = stale_refs(load_content())
-    if args.check or stale:
+    if (
+        stale and args.serve is not None and not args.check
+    ):  # debugging mid-edit: say so, keep serving
+        print(
+            "\n".join(stale)
+            + "\nsome code links point at moved lines: run --relocate once the code settles",
+            flush=True,
+        )
+    elif args.check or stale:
         print("\n".join(stale) or "every reference points at its line")
         if stale:
             print("run with --relocate if the code only moved")
         return 1 if stale else 0
+    if args.serve is not None:
+        serve(
+            [root.expanduser().resolve() for root in args.serve] or default_roots(),
+            args.port,
+            not args.no_open,
+        )
+        return 0
     if args.run is None:
-        parser.error("--run is required to build the page")
+        parser.error("--run or --serve is required")
     if not (args.run / "events.jsonl").is_file():
         parser.error(f"{args.run} holds no events.jsonl: pass the run's own directory")
     print(build(args.run, args.out or args.run / "engine_atlas.html"))
