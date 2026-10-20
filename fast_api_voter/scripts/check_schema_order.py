@@ -19,12 +19,14 @@ can be re-run after a crash. Then apply the proposed WIRE_ORDER by hand, re-run 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping, Sequence
+import shlex
 import subprocess
 import sys
 import time
-import urllib.request
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -54,14 +56,15 @@ def candidate_arms(control: Mapping[str, Sequence[str]]) -> list[str]:
 
 
 def _healthy(base_url: str | None, timeout_s: float = 480.0) -> bool:
+    """Whether the vLLM server answers /health. httpx speaks HTTP(S) only, so a `--base-url` cannot point it at
+    a local file (urllib would follow file://)."""
     url = (base_url or "http://localhost:8000/v1").removesuffix("/v1") + "/health"
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=5) as response:
-                if response.status == 200:
-                    return True
-        except OSError:
+            if httpx.get(url, timeout=5).status_code == 200:
+                return True
+        except httpx.HTTPError:
             pass
         time.sleep(2)
     return False
@@ -75,7 +78,8 @@ def _run(out: Path, base_url: str | None, restart: str | None) -> int:
             # on 2026-10-20 one thinking vote_cast case ran away after a restart, on identical bytes. Not again on a
             # resume once control-b is complete: other worktrees may be using the server.
             print(f"== restarting the server: {restart}", flush=True)
-            if subprocess.run(restart, shell=True, check=False).returncode or not _healthy(base_url):
+            # an argument list, no shell: the command is run as written, never interpreted
+            if subprocess.run(shlex.split(restart), check=False).returncode or not _healthy(base_url):
                 print("the server did not come back")
                 return 1
         print(f"== {label}", flush=True)
