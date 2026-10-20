@@ -37,14 +37,14 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
   A measure whose two controls disagree on more than 10% of units cannot decide: the class keeps its order
   (on the first run every measure had 0% noise; `positioning_poles`, 9 of 10 answers changing on identical
   bytes, is left out of the order bank). Without a winner, nothing changes.
-- **Then live.** `scripts/schema_order_live_ab.sh` runs the candidate table against production twice
-  (exploration profile, p100, 4 years, 3 seeds) and `schema_order_live_report.py` passes it only if every
-  measure (elections, recalls, occupancy, pressure inaction, forum mind-shift, fallbacks, retries) stays within
-  the two controls' range; fallbacks and retries are failures, so only an excess fails them. That one-sided
-  rule was added after the first table's first report failed it for having fewer retries than both controls:
-  a change to a pre-registered gate, made after seeing a result, stated here so it is not mistaken for one. Against two
-  control runs it rejects the motif-first order (pressure inaction 0%, forum mind-shift 0.6%) and passes the
-  first table (2026-10-20).
+- **Then live.** `scripts/schema_order_live_ab.sh` runs the candidate table against a control that differs
+  only in `WIRE_ORDER` (exploration profile, p100, 10 seeds by default, both arms at once on one server) and
+  `schema_order_live_report.py` applies the second gate (below, "The 8-year A/B and the second gate"): an
+  exact sign-flip test by seed, Holm across the measures it can test (elections, recalls, occupancy,
+  pressure inaction, forum mind-shift, fallbacks, retries). It replaced the first gate, "every measure within
+  the two controls' range", which a candidate with no effect passes only one time in three per measure. The first gate rejected the motif-first order (pressure inaction
+  0%, forum mind-shift 0.6%), passed the first table at 4 years once fallbacks and retries were made
+  one-sided after a failed first report (a change made after seeing a result), and failed it at 8 years.
 - **When to re-run, and only then:** a vLLM or xgrammar version, a model or quantisation, a decision class
   gaining, losing or renaming a field, a rewrite of a decision's system prompt. A test pins `WIRE_ORDER`
   and names each class's fields; `llm_client.py` is in `PROMPT_SOURCE_FILES`, so a run records it.
@@ -78,3 +78,55 @@ Ties were broken on validity and the logprob gate, then on the two findings abov
 reason code, and `stance` before `shifts` (what decided vLLM 0.32). The five other decisions showed no
 difference and stay alphabetical, as do the agents' turns and nested objects. The table ships only after the
 live check passes; the next sweep compares candidates against it, with alphabetical as one of them.
+
+## The 8-year A/B and the second gate (2026-10-20)
+
+The table shipped with #967 after the 4-year live check. An 8-year A/B followed (`schema_order_live_ab.sh`,
+control 54b7c6da = alphabetical, candidate 21599708 = the table, seeds 1-3, vLLM 0.31.0, 6 h 51 min; EXP-025).
+The first gate said **FAIL** on three measures: pressure inaction 43.5% (controls 48.1%, 50.3%), forum
+mind-shift 5.3% (4.7%, 4.8%), fallbacks 30 (5, 11). Elections, recalls and occupancy were identical; the retry
+rate passed (1.35% against 1.35% and 1.40%).
+
+**The gate, not the table, was the weak point.** "Inside the range of two pooled controls" holds for a
+candidate with no effect only one time in three per measure (simulated: 33%), so with seven measures it fails
+almost every candidate. By seed, most of the gap is seed-to-seed noise: pressure inaction runs from 31% to 70%
+across the control runs, and the table is within 1.5 points of its seed's controls on seeds 1 and 3 (below
+both on seed 1, above both on seed 3); only seed 2 is clearly lower (45% against 68% and 70%). The fallbacks
+are failed chamber sessions (the model answers for 1 of 5 members): 6 sessions against 1 and 2, 5 of them in
+one run, on a decision whose bytes the table does not change.
+
+**Decision (owner, 2026-10-20): keep the table.** This overrides a pre-registered gate a second time, and is
+stated as such. The 8-year runs are not re-judged under the second gate: a rule chosen after seeing the data
+it judges is not a test.
+
+**The second gate**, fixed before any run that uses it (`schema_order_live_report.py`):
+- **One control, not two.** Two runs of the same code with the same seed send the same bytes and replay the
+  same events until batching noise parts them: in the 8-year runs ctl-a and ctl-b shared their first 146,
+  151 and 115 events (seeds 1-3), the table parted from both after 14, 1 and 7. Two controls are therefore
+  closer to each other than to any candidate, and a test treating the three runs of a seed as exchangeable
+  raises false alarms: with no effect, one measure comes out below 0.05 in 10% to 15% of simulated runs
+  (controls correlated 0.5 to 0.8, 6 seeds), not 5%. One control run and one candidate run per seed, started
+  together on one server, are exchangeable if the order changes nothing.
+- **The test**: per seed, the difference new - ctl; the statistic is its mean; the exact p-value is the share
+  of the 2^k sign flips that reach it (two-sided for behaviour, one-sided for fallbacks and retries). A seed
+  where the two runs agree, or where either has no such decision, cannot vote. Holm at 0.05 across the
+  measures that can be tested: a measure equal in every run is "same"; the family is the largest set of the
+  measures with the smallest reachable p-values (2^-k over the seeds that differ, twice that two-sided) that
+  Holm could reject in full, and the rest are "cannot tell". Both depend only on which seeds differ, never on
+  the signs, so the test stays exact. Simulated with no effect (1,500 trials each, ±1 point): family-wise
+  false alarms 1.6% to 4.9% for 6 to 10 seeds.
+- **FAIL**: a share (pressure inaction, forum mind-shift) at 0 or 1, or gone (no such decision at all),
+  where the control shows a mix, whatever the number of seeds (the motif-first collapse needs no test); or
+  fallbacks or retries significantly higher. **CHANGED**: a behaviour measure significantly different either
+  way; not a rejection (the order is chosen to change decisions), the owner reads it before shipping. **No
+  verdict**: a behaviour measure that varies could not be tested. **PASS**: none of these; the report names
+  the failure measures it could not tell.
+- **Seeds**: how many are needed depends on how many measures vary. With the four that varied at 8 years
+  (pressure inaction, forum mind-shift, fallbacks, retries), the behaviour measures become testable at 7 seeds
+  but with almost no power; a shift of 1 standard deviation of the per-seed difference is caught 24% of the
+  time at 8 seeds and 51% at 10, a shift of 1.5 56% and 91%. The default is 10 (20 sweeps). Fallbacks are
+  sparse (0 in 4 of the 9 runs at 8 years), so they will often be "cannot tell"; the report says so rather
+  than passing them.
+- **Start order** alternates by seed (odd seeds start ctl first, even seeds new first), so it cannot push
+  every seed's difference the same way.
+- The next live check re-tests the table this way, alphabetical (`WIRE_ORDER = {}`) as the control.

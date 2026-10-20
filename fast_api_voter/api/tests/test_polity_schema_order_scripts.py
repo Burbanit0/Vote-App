@@ -29,30 +29,53 @@ check = _load("check_schema_order")
 
 # ── schema_order_live_report.py ────────────────────────────────────────────
 
-def test_a_behaviour_measure_must_stay_inside_the_two_controls() -> None:
-    assert live.verdict("pressure 'nothing' share", [0.546, 0.693], 0.553) == (0.546, 0.693, True)
-    assert live.verdict("pressure 'nothing' share", [0.546, 0.693], 0.0)[2] is False  # the motif-first collapse
-    assert live.verdict("forum mind-shift rate", [0.039, 0.050], 0.006)[2] is False
+def test_the_p_value_is_exact_one_flip_in_two_to_the_k() -> None:
+    # new above ctl by the same amount in all 5 seeds: only "all plus" (and, two-sided, "all minus") reach it
+    effect, p = live.sign_flip_p([1.0] * 5, one_sided=False)
+    assert effect == 1.0 and p == pytest.approx(2 / 2**5)
+    assert live.sign_flip_p([1.0] * 5, one_sided=True)[1] == pytest.approx(1 / 2**5)
+    assert live.smallest_p([1.0] * 5, one_sided=False) == pytest.approx(2 / 2**5)
 
 
-def test_controls_that_agree_exactly_widen_to_half_and_twice_and_a_zero_gets_its_floor() -> None:
-    assert live.verdict("elections per run", [2.0, 2.0], 3.9) == (1.0, 4.0, True)
-    assert live.verdict("elections per run", [2.0, 2.0], 4.1)[2] is False
-    assert live.verdict("recalls per run", [0.0, 0.0], 1.0) == (0.0, 1.0, True)  # FLOOR
-    assert live.verdict("recalls per run", [0.0, 0.0], 1.5)[2] is False
+def test_a_seed_where_both_runs_agree_cannot_vote() -> None:
+    assert live.sign_flip_p([1.0, 1.0, 0.0], one_sided=True) == (pytest.approx(2 / 3), 0.25)
+    assert live.smallest_p([1.0, 1.0, 0.0, 0.0], one_sided=True) == 0.25
+    assert live.sign_flip_p([0.0] * 6, one_sided=False) == (0.0, 1.0)
 
 
 def test_failures_are_one_sided_so_fewer_retries_or_fallbacks_never_fail() -> None:
     # 2026-10-20: the first table had fewer retries than both controls, and a two-sided range failed it
-    assert live.verdict("retry rate", [0.0137, 0.0160], 0.0127)[2] is True
-    assert live.verdict("retry rate", [0.0137, 0.0160], 0.03)[2] is False
-    assert live.verdict("fallbacks", [0.0, 15.0], 0.0)[2] is True
-    assert live.verdict("fallbacks", [0.0, 15.0], 16.0)[2] is False
+    assert live.sign_flip_p([-5.0] * 6, one_sided=True)[1] == 1.0
+    assert live.sign_flip_p([-5.0] * 6, one_sided=False)[1] == pytest.approx(2 / 2**6)
+
+
+def test_holm_steps_down_and_stops_at_the_first_p_that_holds() -> None:
+    assert live.holm({"a": 0.001, "b": 0.02, "c": 0.06}) == {"a", "b"}  # 0.001 < .05/3, 0.02 < .05/2, 0.06 >= .05
+    assert live.holm({"a": 0.03, "b": 0.001, "c": 0.9}) == {"b"}  # 0.03 >= .05/2 stops it
+    assert live.holm({"a": 0.5}) == set()
+
+
+def test_a_measure_too_sparse_to_test_leaves_the_family_and_frees_the_others() -> None:
+    six = [0.1, -0.1, 0.1, -0.1, 0.1, -0.1]  # every seed differs: smallest two-sided p 2/64 = 0.031
+    diffs = {"pressure 'nothing' share": six, "fallbacks": [5.0, 0, 0, 0, 0, 5.0], "elections per run": [0.0] * 6}
+    # with fallbacks in, the bar is 0.05/2 = 0.025 and both fail it; fallbacks (1/4) leaves first, then 0.031 < 0.05
+    assert live.testable(diffs) == ({"pressure 'nothing' share"}, {"fallbacks"})
+    assert live.testable({"pressure 'nothing' share": six[:3]}) == (set(), {"pressure 'nothing' share"})
+
+
+def test_the_family_does_not_depend_on_the_order_of_ties_or_on_a_hopeless_measure() -> None:
+    # 8 seeds and all seven measures differing in every seed: all seven can be tested (1/256 and 2/256 pass Holm)
+    every = {name: [1.0] * 8 for name in live.MEASURES}
+    assert live.testable(every) == (set(live.MEASURES), set())
+    # a hopeless measure (fallbacks in 2 seeds) does not block the ones that could pass without it
+    # (7 seeds: 2/128 passes 0.05/2; at 6, 2/64 = 0.031 would not)
+    mixed = {"pressure 'nothing' share": [1.0] * 7, "forum mind-shift rate": [1.0] * 7, "fallbacks": [5.0, 5.0, 0, 0, 0, 0, 0]}
+    assert live.testable(mixed) == ({"pressure 'nothing' share", "forum mind-shift rate"}, {"fallbacks"})
 
 
 def _run_dir(root: Path, arm: str, seed: int, *, acts: list[int], shifts: list[int], fallbacks: int,
-             retried: int, outcome: str = "completed") -> None:
-    run = root / arm / f"sweep-4y-p100-seed{seed}" / "run" / f"sweep-4y-p100-seed{seed}"
+             retried: int, outcome: str = "completed", years: int = 4) -> None:
+    run = root / arm / f"sweep-{years}y-p100-seed{seed}" / "run" / f"sweep-{years}y-p100-seed{seed}"
     run.mkdir(parents=True)
     (run / "digest.json").write_text(json.dumps({"outcome": outcome, "office_occupancy": 0.9, "llm_fallbacks": fallbacks}))
     events = [{"event_type": "elected"}] * 2 + [{"event_type": "pressure_action", "payload": {"act": a}} for a in acts]
@@ -64,21 +87,84 @@ def _run_dir(root: Path, arm: str, seed: int, *, acts: list[int], shifts: list[i
 
 
 def test_measures_read_acts_from_the_payload_forum_shifts_from_the_content_and_retries_from_attempts(tmp_path: Path) -> None:
-    _run_dir(tmp_path, "ctl-a", 1, acts=[0, 0, 3, 1], shifts=[-1, 4, -1, -1], fallbacks=2, retried=4)
-    m = live.measures(live.runs(str(tmp_path), "ctl-a"))
+    _run_dir(tmp_path, "ctl", 1, acts=[0, 0, 3, 1], shifts=[-1, 4, -1, -1], fallbacks=2, retried=4)
+    m = live.measures(list(live.runs(str(tmp_path), "ctl").values()))
     assert m["elections per run"] == 2 and m["recalls per run"] == 0 and m["office occupancy"] == 0.9
     assert m["pressure 'nothing' share"] == 0.5 and m["forum mind-shift rate"] == 0.25
     assert m["fallbacks"] == 2 and m["retry rate"] == 0.5  # 4 retried decisions of 8
+    empty = live.measures([{"digest": {}, "events": [], "calls": []}])
+    assert empty["pressure 'nothing' share"] is None and empty["forum mind-shift rate"] is None
 
 
-def test_the_report_passes_a_candidate_inside_the_controls_and_refuses_an_incomplete_arm(tmp_path: Path, capsys: Any) -> None:
-    for arm, acts in (("ctl-a", [0, 0, 3, 1]), ("ctl-b", [0, 0, 0, 3]), ("new", [0, 0, 3, 3])):
-        _run_dir(tmp_path, arm, 1, acts=acts, shifts=[-1, 4], fallbacks=0, retried=0)
-    assert live.main(str(tmp_path)) == 0 and "PASS" in capsys.readouterr().out
-    _run_dir(tmp_path, "new", 2, acts=[3, 3, 3, 3], shifts=[-1, 4], fallbacks=0, retried=0)  # inaction falls to 25%
-    assert live.main(str(tmp_path)) == 1 and "FAIL" in capsys.readouterr().out
-    _run_dir(tmp_path, "ctl-b", 2, acts=[0], shifts=[], fallbacks=0, retried=0, outcome="crashed")
-    assert live.main(str(tmp_path)) == 1 and "incomplete arms: ctl-b" in capsys.readouterr().out
+def test_runs_are_paired_by_sweep_and_seed_number_and_one_sweep_size_per_out_dir(tmp_path: Path, capsys: Any) -> None:
+    for seed in (1, 2, 10):
+        _run_dir(tmp_path, "new", seed, acts=[0] * seed, shifts=[], fallbacks=0, retried=0)
+    paired = live.runs(str(tmp_path), "new")
+    assert sorted(paired) == [("sweep-4y-p100", 1), ("sweep-4y-p100", 2), ("sweep-4y-p100", 10)]
+    assert len(paired[("sweep-4y-p100", 10)]["events"]) == 2 + 10
+    for seed in (1, 2, 10):
+        _run_dir(tmp_path, "ctl", seed, acts=[0], shifts=[], fallbacks=0, retried=0)
+    _run_dir(tmp_path, "ctl", 1, acts=[0], shifts=[], fallbacks=0, retried=0, years=8)  # a linked older sweep
+    assert live.main(str(tmp_path)) == 1 and "more than one sweep" in capsys.readouterr().out
+
+
+def _arms(root: Path, seeds: int, new: Any) -> None:
+    """ctl: inaction 4/8 in every seed; new: what `new(seed)` returns over the same base."""
+    base = {"acts": [0, 0, 0, 0, 3, 3, 3, 1], "shifts": [-1, 4], "fallbacks": 0, "retried": 0}
+    for seed in range(1, seeds + 1):
+        _run_dir(root, "ctl", seed, **base)
+        _run_dir(root, "new", seed, **{**base, **new(seed)})
+
+
+def test_the_report_passes_a_candidate_that_moves_both_ways(tmp_path: Path, capsys: Any) -> None:
+    _arms(tmp_path, 8, lambda seed: {"acts": [0, 0, 0, 0 if seed % 2 else 3, 0 if seed % 2 else 3, 3, 3, 1]})  # 5/8, 3/8, ...
+    assert live.main(str(tmp_path)) == 0
+    out = capsys.readouterr().out
+    assert "PASS" in out and "Cannot tell" not in out and "| no difference |" in out
+
+
+def test_a_behaviour_that_moves_in_every_seed_is_changed_not_failed(tmp_path: Path, capsys: Any) -> None:
+    _arms(tmp_path, 6, lambda seed: {"acts": [0, 3, 3, 3, 1, 3, 3, 1]})  # inaction 1/8 against 4/8
+    assert live.main(str(tmp_path)) == 2
+    out = capsys.readouterr().out
+    assert "CHANGED" in out and "**changed**" in out and "Holm across the 1 measures" in out
+
+
+def test_more_fallbacks_fail_and_a_collapse_fails_even_with_too_few_seeds(tmp_path: Path, capsys: Any) -> None:
+    _arms(tmp_path / "worse", 6, lambda seed: {"fallbacks": 5})
+    assert live.main(str(tmp_path / "worse")) == 1 and "**worse**" in capsys.readouterr().out
+    _arms(tmp_path / "collapse", 3, lambda seed: {"acts": [3] * 8})  # the motif-first order: inaction 0%
+    out = live.main(str(tmp_path / "collapse")), capsys.readouterr().out
+    assert out[0] == 1 and "**collapsed**" in out[1] and "FAIL" in out[1]
+
+
+def test_too_few_seeds_give_no_verdict_and_an_incomplete_arm_none_either(tmp_path: Path, capsys: Any) -> None:
+    _arms(tmp_path, 3, lambda seed: {"acts": [0, 3, 3, 3, 1, 3, 3, 1]})  # 2/8 at most: the smallest p is 2/8
+    assert live.main(str(tmp_path)) == 1
+    out = capsys.readouterr().out
+    assert "no verdict: 3 paired seeds" in out and "Cannot tell: pressure 'nothing' share." in out
+    _run_dir(tmp_path, "ctl", 4, acts=[0], shifts=[], fallbacks=0, retried=0, outcome="crashed")
+    assert live.main(str(tmp_path)) == 1 and "incomplete arms: ctl" in capsys.readouterr().out
+
+
+def test_no_verdict_while_a_behaviour_measure_is_untested_even_if_the_failures_were(tmp_path: Path, capsys: Any) -> None:
+    base = {"acts": [0, 0, 0, 0, 3, 3, 3, 1], "shifts": [-1, 4], "fallbacks": 0}
+    for seed in range(1, 7):
+        odd = seed % 2 == 1
+        _run_dir(tmp_path, "ctl", seed, **base, retried=1 if odd else 0)
+        # retries: one more or one fewer in turn, testable (1/64) and not higher; inaction moves in 4 seeds only
+        acts = [0, 0, 0, 0 if odd else 3, 0 if odd else 3, 3, 3, 1] if seed <= 4 else base["acts"]
+        _run_dir(tmp_path, "new", seed, **{**base, "acts": acts}, retried=0 if odd else 1)
+    assert live.main(str(tmp_path)) == 1
+    out = capsys.readouterr().out
+    assert "| retry rate |" in out and "(one-sided) | no difference |" in out
+    assert "no verdict: 6 paired seeds are too few to test every behaviour measure" in out and "PASS" not in out
+
+
+def test_a_decision_that_vanishes_under_the_candidate_is_a_collapse(tmp_path: Path, capsys: Any) -> None:
+    _arms(tmp_path, 2, lambda seed: {"acts": []})  # no pressure action at all
+    assert live.main(str(tmp_path)) == 1 and "**collapsed**" in capsys.readouterr().out
+    assert live._diff(None, 0.5) == 0.0 and live._diff(0.25, 0.5) == 0.25
 
 
 # ── check_schema_order.py ──────────────────────────────────────────────────
