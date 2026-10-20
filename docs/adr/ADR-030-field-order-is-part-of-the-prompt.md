@@ -19,7 +19,8 @@ Not Format", 2026). The owner: "I already had the reflection and don't want to h
   measurement says so.
 - **The table is filled by a test, not by reasoning.** `scripts/check_schema_order.py`:
   - `isolation` (no GPU): every candidate changes key order and nothing else;
-  - `run`: two control sessions (production's table, the same bytes twice) and one session per candidate on
+  - `run`: two control sessions (production's table, the same bytes twice, on either side of a server restart:
+    `--restart-between-controls`) and one session per candidate on
     the order bank (`case_bank_order.jsonl`: 144 pressure and 160 vote units of ground truth, 500 candidacy);
   - `decide`: the rule below, written before any run, and `check_schema_order_results.md`.
 - **The candidates** are the id first, then the six orders of the decision, what depends on it, and the

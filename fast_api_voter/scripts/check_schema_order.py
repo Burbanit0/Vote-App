@@ -6,7 +6,9 @@ gaining, losing or renaming a field, or a rewrite of a decision's system prompt.
 
 Usage (from fast_api_voter/; `run` needs the vLLM server, the GPU and nothing else on it):
     python scripts/check_schema_order.py isolation              # no GPU: every arm changes key order only
-    python scripts/check_schema_order.py run --out DIR          # two control sessions, then one per candidate
+    python scripts/check_schema_order.py run --out DIR \\
+        --restart-between-controls "docker compose -f docker-compose.llm.yml restart vllm"
+                                                                # two controls across a restart, one per candidate
     python scripts/check_schema_order.py decide --out DIR       # verdicts, results doc, proposed WIRE_ORDER
 
 The controls send production's WIRE_ORDER; the candidates are the six orders of decision, dependents and
@@ -17,7 +19,10 @@ can be re-run after a crash. Then apply the proposed WIRE_ORDER by hand, re-run 
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
+import time
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -45,9 +50,31 @@ def candidate_arms() -> list[str]:
     return [arm for arm in arms if dict(ARMS[arm].wire_order or {}) != dict(WIRE_ORDER)]
 
 
-def _run(out: Path, base_url: str | None) -> int:
+def _healthy(base_url: str | None, timeout_s: float = 480.0) -> bool:
+    url = (base_url or "http://localhost:8000/v1").removesuffix("/v1") + "/health"
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                if response.status == 200:
+                    return True
+        except OSError:
+            pass
+        time.sleep(2)
+    return False
+
+
+def _run(out: Path, base_url: str | None, restart: str | None) -> int:
     extra = ["--base-url", base_url] if base_url else []
     for label, arm in [*((c, None) for c in CONTROLS), *((a, a) for a in candidate_arms())]:
+        if label == CONTROLS[1] and restart:
+            # The two controls straddle a restart, so their difference covers what a new server instance changes:
+            # on 2026-10-20 one thinking vote_cast case ran away after a restart, on identical bytes.
+            print(f"== restarting the server: {restart}", flush=True)
+            subprocess.run(restart, shell=True, check=True)
+            if not _healthy(base_url):
+                print("the server did not come back")
+                return 1
         print(f"== {label}", flush=True)
         code = run_bakeoff.main(["--label", label, "--bank", str(ORDER_BANK), "--out", str(out), *extra,
                                  *(["--arm", arm] if arm else [])])
@@ -106,13 +133,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=("isolation", "run", "decide"))
     parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "bakeoff_runs" / "schema_order")
     parser.add_argument("--base-url", default=None)
+    parser.add_argument("--restart-between-controls", metavar="CMD", default=None,
+                        help='restart the server between the two controls (recommended: '
+                             '"docker compose -f docker-compose.llm.yml restart vllm")')
     args = parser.parse_args(argv)
     if args.command == "isolation":
         tables = {arm: ARMS[arm].wire_order or {} for arm in candidate_arms()}
         violations = isolation_violations(read_bank(ORDER_BANK), tables)
         print("every arm changes key order only" if not violations else "CONTENT DIFFERS: " + "; ".join(violations))
         return 1 if violations else 0
-    return _run(args.out, args.base_url) if args.command == "run" else _decide(args.out)
+    return _run(args.out, args.base_url, args.restart_between_controls) if args.command == "run" else _decide(args.out)
 
 
 if __name__ == "__main__":

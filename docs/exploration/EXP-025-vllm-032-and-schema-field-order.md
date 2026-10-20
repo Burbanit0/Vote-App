@@ -147,8 +147,16 @@ ranking`, response `cid, stance, shifts, motif`. Only those four schemas' bytes 
 nested object is sent as before. A rule fix came with it: arms sending a class the same order count once in
 Holm (candidacy went from p 0.178 to 0.0595; no verdict changed).
 
+**The table, re-run on a fresh server (2026-10-20).** Its requests are byte-identical to the sweep arms', and
+it reproduces candidacy (332/500) and pressure (107/144) exactly, and the vote logprob gate (16/16 again,
+both controls 13/16). Vote accuracy came out at 149/160, not 152: one thinking case ran away after the
+restart (14,156 reasoning tokens against 2,183, no answer). So vote's +3 was one case of cross-instance
+noise, which the two controls (same server instance) could not show; `check_schema_order.py run` now takes
+`--restart-between-controls` so the next noise floor includes a restart.
+
 ## Not settled
 - Whether the four orders are a real gain: none is significant alone; the live check and the next sweep say.
+  Vote's accuracy lead was noise; its gate gain reproduces.
 - The agents' turns and nested objects: no ground truth, so they stay alphabetical; a forum opinion-change
   family would let the sweep cover them.
 - 0.32.0: stays parked. Re-test it with whatever `WIRE_ORDER` the sweep picks: under compact JSON the
