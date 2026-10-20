@@ -1,0 +1,3004 @@
+{
+ "_about": "Content of the polity engine atlas (scripts/build_engine_atlas.py). Every {file, line, expect} is a code reference: api/tests/test_polity_engine_atlas.py checks that the line still reads `expect`; when code has only moved, `python scripts/build_engine_atlas.py --relocate` updates the line numbers.",
+ "families": [
+  {
+   "id": "cit",
+   "name": "Citizens"
+  },
+  {
+   "id": "elec",
+   "name": "Elections & parties"
+  },
+  {
+   "id": "acct",
+   "name": "Accountability"
+  },
+  {
+   "id": "gov",
+   "name": "Government & law"
+  },
+  {
+   "id": "const",
+   "name": "Constitution & regime"
+  }
+ ],
+ "kinds": {
+  "llm": "LLM decision",
+  "agent": "LLM agent turn",
+  "rule": "Rule",
+  "mixed": "Rule or LLM"
+ },
+ "setup": [
+  {
+   "text": "Validate the config; refuse an LLM client when <code>llm.enabled</code> is off, and non-ranked presidential methods",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 614,
+    "label": null,
+    "expect": "validate_config(config)"
+   }
+  },
+  {
+   "text": "Set up the run directory; refuse a fresh start over a checkpoint, or a resume without one",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 626,
+    "label": null,
+    "expect": "run_id = run_id or config.run.run_label"
+   }
+  },
+  {
+   "text": "Write <code>run_metadata.json</code> and <code>config.json</code>",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 640,
+    "label": null,
+    "expect": "_write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)"
+   }
+  },
+  {
+   "text": "Build the institutional clock",
+   "ref": {
+    "file": "institutional_clock.py",
+    "line": 73,
+    "label": null,
+    "expect": "def from_config("
+   }
+  },
+  {
+   "text": "Social graph (Watts-Strogatz) and latent opinion structure, when enabled",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 648,
+    "label": null,
+    "expect": "graph: SocialGraph | None = None"
+   }
+  },
+  {
+   "text": "Agent memory, a view over the journal, when any agent is on",
+   "ref": {
+    "file": "agents.py",
+    "line": 199,
+    "label": null,
+    "expect": "class AgentMemory:"
+   }
+  },
+  {
+   "text": "Fresh state: population, k-means parties, affiliations, six random streams; or resume from the checkpoint and truncate the journal",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 750,
+    "label": null,
+    "expect": "def _fresh_tick_state(config: PolityConfig) -> TickState:"
+   }
+  },
+  {
+   "text": "Open the journal; build and warm up the LLM client (one call with thinking, one without), wrapped in the call log",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1550,
+    "label": null,
+    "expect": "@contextmanager"
+   }
+  }
+ ],
+ "loop": [
+  {
+   "text": "Build the tick's context: the config <i>in force</i> (founding rules plus ratified amendments) and which election falls today",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 716,
+    "label": null,
+    "expect": "context = TickContext("
+   }
+  },
+  {
+   "text": "Run the 14 phases in order (below)",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1524,
+    "label": null,
+    "expect": "TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = ("
+   }
+  },
+  {
+   "text": "Save the checkpoint (whole <code>TickState</code>) and record progress; never mid-tick",
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 729,
+    "label": null,
+    "expect": "save_checkpoint("
+   }
+  }
+ ],
+ "after": [
+  {
+   "text": "Compact the journal into <code>events.duckdb</code>",
+   "ref": {
+    "file": "compaction.py",
+    "line": 97,
+    "label": null,
+    "expect": "_CREATE_CITIZEN_EVENTS = \"\"\""
+   }
+  },
+  {
+   "text": "Write <code>digest.json</code>: outcome, terms, occupancy, timeline, LLM quality",
+   "ref": {
+    "file": "run_digest.py",
+    "line": 375,
+    "label": null,
+    "expect": "def build_digest("
+   }
+  },
+  {
+   "text": "Index the run into <code>metrics.json</code>",
+   "ref": {
+    "file": "scripts/run_polity_flagship.py",
+    "line": 679,
+    "label": null,
+    "expect": "metrics = index_run(journal_path, config)"
+   }
+  },
+  {
+   "text": "Export <code>viz_export.json</code> for the UI",
+   "ref": {
+    "file": "viz_export.py",
+    "line": 177,
+    "label": null,
+    "expect": "def export_run(journal_path: Path, config: PolityConfig, *, output_path: Path | None = Non"
+   }
+  }
+ ],
+ "groups": [
+  {
+   "name": "Config & setup",
+   "blurb": "Every rule of the game, typed and cross-checked.",
+   "modules": [
+    {
+     "name": "polity_config.yaml",
+     "role": "The rules: 25 sections, from <code>run</code> to <code>regime</code>. Nearly every mechanic ships off.",
+     "calls": [],
+     "ref": {
+      "file": "polity_config.yaml",
+      "line": 16,
+      "label": null,
+      "expect": "run:"
+     }
+    },
+    {
+     "name": "config.py",
+     "role": "Typed loader, <code>PolityConfig</code>, and the cross-setting rules (<code>_CONFIG_RULES</code>) that refuse impossible combinations.",
+     "calls": [
+      "polity_config.yaml"
+     ],
+     "ref": {
+      "file": "config.py",
+      "line": 1280,
+      "label": null,
+      "expect": "# must hold for a config built in code with dataclasses.replace, which never passes"
+     }
+    },
+    {
+     "name": "model_profiles.py",
+     "role": "Per model: chunk sizes, thinking budgets, context limit (vLLM AWQ: vote chunk 3, chamber chunk 5).",
+     "calls": [],
+     "ref": {
+      "file": "model_profiles.py",
+      "line": 77,
+      "label": null,
+      "expect": "QWEN3_8B_AWQ_VLLM = ModelProfile("
+     }
+    },
+    {
+     "name": "institutional_clock.py",
+     "role": "The calendar: which election, rotation or campaign step falls on a tick.",
+     "calls": [],
+     "ref": {
+      "file": "institutional_clock.py",
+      "line": 86,
+      "label": null,
+      "expect": "def is_presidential_election(self, tick: int) -> bool:"
+     }
+    },
+    {
+     "name": "run_provenance.py",
+     "role": "Records the commit, server and run shape in <code>run_metadata.json</code>; hashes the prompt sources.",
+     "calls": [],
+     "ref": {
+      "file": "run_provenance.py",
+      "line": 40,
+      "label": null,
+      "expect": "PROMPT_SOURCE_FILES = ("
+     }
+    }
+   ]
+  },
+  {
+   "name": "Population & parties",
+   "blurb": "Who lives here, and the parties they start in.",
+   "modules": [
+    {
+     "name": "citizen.py",
+     "role": "The one entity: 20 issue positions, priorities, tolerance (blank threshold), ambition, role, office, emotions, engagement.",
+     "calls": [],
+     "ref": {
+      "file": "citizen.py",
+      "line": 47,
+      "label": null,
+      "expect": "class Citizen:"
+     }
+    },
+    {
+     "name": "parties.py",
+     "role": "Deterministic k-means over citizens' positions: the initial parties' platforms.",
+     "calls": [],
+     "ref": {
+      "file": "parties.py",
+      "line": 63,
+      "label": null,
+      "expect": "def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -> list[Par"
+     }
+    },
+    {
+     "name": "social_graph.py",
+     "role": "Watts-Strogatz neighbour graph, rebuilt from the config, never checkpointed.",
+     "calls": [],
+     "ref": {
+      "file": "social_graph.py",
+      "line": 47,
+      "label": null,
+      "expect": "def generate_social_graph(config: SocialGraphConfig, population_size: int, seed: int) -> S"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Tick loop",
+   "blurb": "Pure sequencing: it calls the mechanics, holds no rules.",
+   "modules": [
+    {
+     "name": "run_polity_simulation.py",
+     "role": "<code>run_simulation</code>, the 14 phases, and the glue between mechanics, journal and checkpoint.",
+     "calls": [
+      "simple_rules.py",
+      "llm_behavior_engine.py",
+      "agents.py",
+      "accountability.py",
+      "legitimacy.py",
+      "legislation.py",
+      "constitution.py",
+      "journal.py",
+      "checkpoint.py"
+     ],
+     "ref": {
+      "file": "run_polity_simulation.py",
+      "line": 545,
+      "label": null,
+      "expect": "def run_simulation("
+     }
+    },
+    {
+     "name": "tick_state.py",
+     "role": "Everything carried across ticks: citizens, parties, random streams, pending rerun, legislature, constitution, last ballots.",
+     "calls": [],
+     "ref": {
+      "file": "tick_state.py",
+      "line": 69,
+      "label": null,
+      "expect": "class TickState:"
+     }
+    }
+   ]
+  },
+  {
+   "name": "LLM layer",
+   "blurb": "Where a decision becomes a prompt, a schema-constrained answer, and a decoded choice.",
+   "modules": [
+    {
+     "name": "llm_behavior_engine.py",
+     "role": "The nine batched decisions (<code>decide_*</code>, <code>cast_votes</code>), chunking, validation inside decode, retries, and the per-chunk fallback.",
+     "calls": [
+      "llm_client.py",
+      "llm_schemas.py",
+      "codebook.py",
+      "llm_toon_encoding.py",
+      "simple_rules.py"
+     ],
+     "ref": {
+      "file": "llm_behavior_engine.py",
+      "line": 1047,
+      "label": null,
+      "expect": "class DecisionSpec(Generic[_CitizenDecisionT]):"
+     }
+    },
+    {
+     "name": "agents.py",
+     "role": "First-person agents (ADR-014): president, nominees, chamber ballots, forum posts, coalition leaders; their memory and personas.",
+     "calls": [
+      "llm_behavior_engine.py",
+      "journal.py"
+     ],
+     "ref": {
+      "file": "agents.py",
+      "line": 586,
+      "label": null,
+      "expect": "def decide[T: BaseModel]("
+     }
+    },
+    {
+     "name": "llm_client.py",
+     "role": "HTTP to vLLM or Ollama; transport retries; <code>WIRE_ORDER</code>, the order a decision's fields are sent in (ADR-030).",
+     "calls": [],
+     "ref": {
+      "file": "llm_client.py",
+      "line": 222,
+      "label": null,
+      "expect": "WIRE_ORDER: Mapping[str, tuple[str, ...]] = {"
+     }
+    },
+    {
+     "name": "llm_schemas.py",
+     "role": "Pydantic wire schemas per decision type, with the coherence rules the grammar cannot enforce.",
+     "calls": [],
+     "ref": {
+      "file": "llm_schemas.py",
+      "line": 1,
+      "label": null,
+      "expect": "\"\"\""
+     }
+    },
+    {
+     "name": "codebook.py",
+     "role": "The integer codes: decision types, motif codes (101&hellip;709), pressure acts 0&ndash;4.",
+     "calls": [],
+     "ref": {
+      "file": "codebook.py",
+      "line": 74,
+      "label": null,
+      "expect": "class DecisionType(IntEnum):"
+     }
+    },
+    {
+     "name": "llm_toon_encoding.py",
+     "role": "A compact, input-only encoding used for the candidacy prompt.",
+     "calls": [],
+     "ref": {
+      "file": "llm_toon_encoding.py",
+      "line": 1,
+      "label": null,
+      "expect": "\"\"\""
+     }
+    },
+    {
+     "name": "llm_call_log.py",
+     "role": "<code>llm_calls.jsonl</code>: one line per request; each decision event points to its call by id.",
+     "calls": [],
+     "ref": {
+      "file": "llm_call_log.py",
+      "line": 350,
+      "label": null,
+      "expect": "class CallLoggingClient:"
+     }
+    },
+    {
+     "name": "llm_replay.py",
+     "role": "Re-runs a whole run from a recorded call log, with no GPU.",
+     "calls": [],
+     "ref": {
+      "file": "llm_replay.py",
+      "line": 1,
+      "label": null,
+      "expect": "\"\"\"Replay client (S0.6): answers a run's LLM requests from its llm_calls.jsonl."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Mechanics (rules)",
+   "blurb": "The deterministic arithmetic, and every LLM decision's fallback.",
+   "modules": [
+    {
+     "name": "simple_rules.py",
+     "role": "Ballots, candidacy, nomination, party vote, strategic vote, coalition, pressure and reaction rules, party moves.",
+     "calls": [],
+     "ref": {
+      "file": "simple_rules.py",
+      "line": 193,
+      "label": null,
+      "expect": "def utility_ballot("
+     }
+    },
+    {
+     "name": "accountability.py",
+     "role": "Mandate deviation, term limits, the awakening gate, street pressure, salience, the petition state machine.",
+     "calls": [],
+     "ref": {
+      "file": "accountability.py",
+      "line": 328,
+      "label": null,
+      "expect": "def select_consulted("
+     }
+    },
+    {
+     "name": "legitimacy.py",
+     "role": "L(t) = decay&middot;L + support &minus; &eacute;cart; the recall floor.",
+     "calls": [],
+     "ref": {
+      "file": "legitimacy.py",
+      "line": 115,
+      "label": null,
+      "expect": "def update_legitimacy(previous: float, strength: float, ecart: float, config: LegitimacyCo"
+     }
+    },
+    {
+     "name": "ballot_and_aggregation.py",
+     "role": "Adapter to the voting engine: presidential winner (13 ranked methods), seat allocation, confidence votes.",
+     "calls": [
+      "api/engine/utils"
+     ],
+     "ref": {
+      "file": "ballot_and_aggregation.py",
+      "line": 90,
+      "label": null,
+      "expect": "def get_presidential_winner(ballots: list[Any], method: str) -> Optional[str]:"
+     }
+    },
+    {
+     "name": "legislation.py",
+     "role": "The legislature, bill drafting, assembly vote, chamber review, congruence.",
+     "calls": [],
+     "ref": {
+      "file": "legislation.py",
+      "line": 41,
+      "label": null,
+      "expect": "class Legislature:"
+     }
+    },
+    {
+     "name": "sortition_chamber.py",
+     "role": "The draw by lot of the citizen chamber.",
+     "calls": [],
+     "ref": {
+      "file": "sortition_chamber.py",
+      "line": 46,
+      "label": null,
+      "expect": "def select_sortition_chamber("
+     }
+    },
+    {
+     "name": "shock.py",
+     "role": "Scandal arrivals (Bernoulli) and the AR(1) economy.",
+     "calls": [],
+     "ref": {
+      "file": "shock.py",
+      "line": 38,
+      "label": null,
+      "expect": "def scandal_arrival(rng: np.random.Generator, config: EventsConfig) -> bool:"
+     }
+    },
+    {
+     "name": "emotions.py",
+     "role": "Anger, anxiety, enthusiasm; engagement with hysteresis.",
+     "calls": [],
+     "ref": {
+      "file": "emotions.py",
+      "line": 38,
+      "label": null,
+      "expect": "def appraise(gap: float | None, blank_threshold: float, economy_x: float, shock_threshold:"
+     }
+    },
+    {
+     "name": "opinion_dynamics.py",
+     "role": "Friedkin-Johnsen updates on latent factors; forum stance shifts.",
+     "calls": [],
+     "ref": {
+      "file": "opinion_dynamics.py",
+      "line": 58,
+      "label": null,
+      "expect": "def update_latent_factors("
+     }
+    },
+    {
+     "name": "salience.py",
+     "role": "Campaign salience: who a campaign reaches and how their priorities move.",
+     "calls": [],
+     "ref": {
+      "file": "salience.py",
+      "line": 29,
+      "label": null,
+      "expect": "def raise_salience(priorities: Sequence[float], issue: int, step: float) -> tuple[float, ."
+     }
+    },
+    {
+     "name": "regime.py",
+     "role": "The roll when a president refuses to leave (ADR-022).",
+     "calls": [],
+     "ref": {
+      "file": "regime.py",
+      "line": 12,
+      "label": null,
+      "expect": "def refusal_probability(approval: float, config: RegimeConfig) -> float:"
+     }
+    },
+    {
+     "name": "constitution.py / amendments.py",
+     "role": "The constitution in force each tick; amendment tallies, referendum count, the stakes shown to the president.",
+     "calls": [],
+     "ref": {
+      "file": "constitution.py",
+      "line": 41,
+      "label": null,
+      "expect": "def in_force(founding: PolityConfig, constitution: Constitution | None) -> PolityConfig:"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Persistence",
+   "blurb": "What a run leaves on disk, and how it resumes.",
+   "modules": [
+    {
+     "name": "journal.py",
+     "role": "<code>events.jsonl</code>: append-only, sequential event ids, flushed per write. The reproducibility contract.",
+     "calls": [],
+     "ref": {
+      "file": "journal.py",
+      "line": 37,
+      "label": null,
+      "expect": "class Journal:"
+     }
+    },
+    {
+     "name": "events.py",
+     "role": "52 typed event classes; which are institutional, which are LLM decisions.",
+     "calls": [],
+     "ref": {
+      "file": "events.py",
+      "line": 696,
+      "label": null,
+      "expect": "EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}"
+     }
+    },
+    {
+     "name": "checkpoint.py",
+     "role": "<code>checkpoint.json</code> after every tick, written atomically; resume checks run id and config hash.",
+     "calls": [],
+     "ref": {
+      "file": "checkpoint.py",
+      "line": 49,
+      "label": null,
+      "expect": "class Checkpoint:"
+     }
+    },
+    {
+     "name": "snapshots.py",
+     "role": "<code>snapshots.jsonl</code>: every citizen, once a simulated year.",
+     "calls": [],
+     "ref": {
+      "file": "snapshots.py",
+      "line": 1,
+      "label": null,
+      "expect": "\"\"\""
+     }
+    },
+    {
+     "name": "progress.py",
+     "role": "<code>progress.json</code> every tick and on every LLM answer: decisions, retries, fallbacks, ETA.",
+     "calls": [],
+     "ref": {
+      "file": "progress.py",
+      "line": 69,
+      "label": null,
+      "expect": "def write_progress("
+     }
+    },
+    {
+     "name": "compaction.py",
+     "role": "After the run: <code>events.duckdb</code> with a decoded-motif view.",
+     "calls": [],
+     "ref": {
+      "file": "compaction.py",
+      "line": 97,
+      "label": null,
+      "expect": "_CREATE_CITIZEN_EVENTS = \"\"\""
+     }
+    }
+   ]
+  },
+  {
+   "name": "Reporting",
+   "blurb": "Read after the run, never during it.",
+   "modules": [
+    {
+     "name": "run_digest.py",
+     "role": "<code>digest.json</code>: outcome, terms, office occupancy, institutional timeline, per-year impact, LLM quality.",
+     "calls": [],
+     "ref": {
+      "file": "run_digest.py",
+      "line": 375,
+      "label": null,
+      "expect": "def build_digest("
+     }
+    },
+    {
+     "name": "indexer.py / metrics.py",
+     "role": "One pass over the journal; the formulas behind the run's metrics.",
+     "calls": [],
+     "ref": {
+      "file": "indexer.py",
+      "line": 519,
+      "label": null,
+      "expect": "def index_run(path: Path, config: PolityConfig) -> RunMetrics:"
+     }
+    },
+    {
+     "name": "viz_export.py",
+     "role": "<code>viz_export.json</code> for the /polity pages.",
+     "calls": [],
+     "ref": {
+      "file": "viz_export.py",
+      "line": 66,
+      "label": null,
+      "expect": "DEFAULT_EXPORT_FILENAME = \"viz_export.json\""
+     }
+    },
+    {
+     "name": "run_registry.py",
+     "role": "A DuckDB table of every run on disk (used by the catalog, not by a run).",
+     "calls": [],
+     "ref": {
+      "file": "run_registry.py",
+      "line": 1,
+      "label": null,
+      "expect": "\"\"\"Run registry (S5.1): every simulation run on disk as one row of a DuckDB table, so"
+     }
+    }
+   ]
+  }
+ ],
+ "phases": [
+  {
+   "n": 1,
+   "name": "Constitution",
+   "cadence": "every tick",
+   "does": "Apply scripted amendments due today. If a proposal is pending from yesterday, every chamber member casts an amendment ballot, then a referendum may follow.",
+   "sub": [],
+   "mechanics": [
+    "amendments",
+    "referendum"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 831,
+    "label": "_phase_constitution",
+    "expect": "def _phase_constitution(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 2,
+   "name": "Snapshot",
+   "cadence": "yearly, tick % 4 == 0",
+   "does": "Write one row per citizen to snapshots.jsonl, before anything moves.",
+   "sub": [],
+   "mechanics": [],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1008,
+    "label": "_phase_snapshot",
+    "expect": "def _phase_snapshot(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 3,
+   "name": "Rupture candidacies",
+   "cadence": "every tick, every elector",
+   "does": "A small random draw lets a citizen far from their party stand as a protest candidate.",
+   "sub": [],
+   "mechanics": [
+    "rupture"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1020,
+    "label": "_phase_rupture_candidacies",
+    "expect": "def _phase_rupture_candidacies(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 4,
+   "name": "Exogenous events",
+   "cadence": "every tick",
+   "does": "Draw a scandal against the president, and step the AR(1) economy; a shock when |x| crosses the threshold.",
+   "sub": [],
+   "mechanics": [
+    "events"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1028,
+    "label": "_phase_exogenous_events",
+    "expect": "def _phase_exogenous_events(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 5,
+   "name": "Presidential election",
+   "cadence": "tick % 16 == 0, or a pending rerun",
+   "does": "Resolve a refusal to leave first; then candidacy, party nomination, campaign, ballots, count, term.",
+   "sub": [],
+   "mechanics": [
+    "regime",
+    "candidacy",
+    "campaign",
+    "presidential",
+    "calendar"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1062,
+    "label": "_phase_presidential_election",
+    "expect": "def _phase_presidential_election(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 6,
+   "name": "Legislative election",
+   "cadence": "(tick − 8) % 16 == 0",
+   "does": "Party-list vote (sincere, then one strategic round), seats by D'Hondt, then coalition formation.",
+   "sub": [],
+   "mechanics": [
+    "legislative",
+    "coalition"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1117,
+    "label": "_phase_legislative_election",
+    "expect": "def _phase_legislative_election(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 7,
+   "name": "Sortition chamber",
+   "cadence": "rotation every 4 ticks; deliberation every tick (LLM only)",
+   "does": "Reseat the chamber by lot; members deliberate and may shift their chamber position.",
+   "sub": [],
+   "mechanics": [
+    "chamber"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1157,
+    "label": "_phase_sortition_chamber",
+    "expect": "def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 8,
+   "name": "Leaders",
+   "cadence": "every tick, with the president agent",
+   "does": "The president's turn: restate positions, draft a bill, propose an amendment, or act extra-legally.",
+   "sub": [],
+   "mechanics": [
+    "president_turn",
+    "stakes",
+    "ambition"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1289,
+    "label": "_phase_leaders",
+    "expect": "def _phase_leaders(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 9,
+   "name": "Forum",
+   "cadence": "every tick, with the forum agents",
+   "does": "Recent petition launchers and chamber members post; a post can change a mind or move a party membership.",
+   "sub": [],
+   "mechanics": [
+    "forum"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 946,
+    "label": "_phase_forum",
+    "expect": "def _phase_forum(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 10,
+   "name": "Legislation",
+   "cadence": "a bill every 2 ticks; a suspended bill's second reading when due",
+   "does": "Draft, then assembly vote, cohabitation block, chamber review, enactment.",
+   "sub": [],
+   "mechanics": [
+    "legislation"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1166,
+    "label": "_phase_legislation",
+    "expect": "def _phase_legislation(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 11,
+   "name": "Emotions",
+   "cadence": "every tick, when enabled",
+   "does": "Appraise anger, anxiety and enthusiasm against the president and the economy; update engagement.",
+   "sub": [],
+   "mechanics": [
+    "emotions",
+    "engagement"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1435,
+    "label": "_phase_emotions",
+    "expect": "def _phase_emotions(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 12,
+   "name": "Accountability",
+   "cadence": "every tick, when mandate, legitimacy or awakening is on",
+   "does": "The citizens' side of the loop (<code>_run_accountability_phase</code>), in this order:",
+   "sub": [
+    "Reaction to today's events, the whole population, scandal first",
+    "Representative response (formula president only)",
+    "Mandate deviation recorded",
+    "Awakening gate, then one pressure action per consulted citizen; petitions launched and signed",
+    "Street pressure updated",
+    "Legitimacy updated",
+    "Petition reaches its threshold (confidence vote) or expires",
+    "Below the legitimacy floor: a confidence vote (ADR-025)",
+    "Recall"
+   ],
+   "mechanics": [
+    "events",
+    "response",
+    "awakening",
+    "pressure",
+    "petitions",
+    "legitimacy"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1471,
+    "label": "_phase_accountability",
+    "expect": "def _phase_accountability("
+   }
+  },
+  {
+   "n": 13,
+   "name": "Snap election",
+   "cadence": "when the office is vacant and nothing is scheduled",
+   "does": "Schedule a rerun for next tick (with snap_election_on_recall).",
+   "sub": [],
+   "mechanics": [
+    "petitions"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1481,
+    "label": "_phase_snap_election",
+    "expect": "def _phase_snap_election(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 14,
+   "name": "Opinion dynamics",
+   "cadence": "every tick, when enabled; deliberately last",
+   "does": "Friedkin-Johnsen: citizens move toward neighbours within the confidence bound, pulled back to their anchor.",
+   "sub": [],
+   "mechanics": [
+    "opinion"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1458,
+    "label": "_phase_opinion_dynamics",
+    "expect": "def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:"
+   }
+  }
+ ],
+ "mechanics": {
+  "calendar": {
+   "name": "Calendar & terms",
+   "fam": "elec",
+   "kind": "rule",
+   "phase": 5,
+   "when": "Pure arithmetic on the tick, consulted by every election phase.",
+   "who": "The office holders.",
+   "inputs": "The tick; the holder's mandates served and short terms.",
+   "decision": "Presidential election when <code>tick % 16 == 0</code>; legislative when <code>(tick − 8) % 16 == 0</code>. A winner's term ends at the <b>next calendar election</b>, so a snap winner only serves the rest of the term. A term won with less than half of it left is a short term and does not count toward the limit: <code>counted = mandates − short_terms</code>, term-limited when <code>counted ≥ limit</code> (also the lame-duck flag).",
+   "knobs": [
+    [
+     "institutions.president_term_years",
+     "4",
+     "",
+     ""
+    ],
+    [
+     "institutions.assembly_offset_years",
+     "2",
+     "",
+     ""
+    ],
+    [
+     "institutions.president_term_limit",
+     "2",
+     "",
+     ""
+    ],
+    [
+     "institutions.staggered_election",
+     "false",
+     "",
+     ""
+    ]
+   ],
+   "events": [],
+   "fallback": "-",
+   "feeds": [
+    "presidential",
+    "legislative",
+    "regime",
+    "amendments"
+   ],
+   "fedBy": [],
+   "refs": [
+    {
+     "file": "institutional_clock.py",
+     "line": 86,
+     "label": "presidential tick",
+     "expect": "def is_presidential_election(self, tick: int) -> bool:"
+    },
+    {
+     "file": "institutional_clock.py",
+     "line": 118,
+     "label": "term end",
+     "expect": "def next_presidential_election(self, tick: int) -> int:"
+    },
+    {
+     "file": "accountability.py",
+     "line": 204,
+     "label": "counted terms",
+     "expect": "def counted_terms(citizen: Citizen) -> int:"
+    },
+    {
+     "file": "accountability.py",
+     "line": 209,
+     "label": "term limit",
+     "expect": "def is_term_limited(citizen: Citizen, term_limit: int | None) -> bool:"
+    }
+   ],
+   "adr": []
+  },
+  "parties_init": {
+   "name": "Initial parties",
+   "fam": "elec",
+   "kind": "rule",
+   "phase": 0,
+   "when": "Once, at tick 0.",
+   "who": "All citizens.",
+   "inputs": "Citizens' 20 issue positions.",
+   "decision": "Deterministic Lloyd k-means into <code>parties.initial_count</code> clusters; platforms are the centroids. Each citizen joins the nearest platform (unweighted Euclidean, ties to the lowest id). Platforms never move afterwards; parties change only by birth and death on the forum.",
+   "knobs": [
+    [
+     "parties.initial_count",
+     "5",
+     "",
+     ""
+    ],
+    [
+     "parties.init_strategy",
+     "kmeans_on_citizens",
+     "",
+     ""
+    ]
+   ],
+   "events": [],
+   "fallback": "-",
+   "feeds": [
+    "candidacy",
+    "legislative",
+    "coalition",
+    "forum"
+   ],
+   "fedBy": [],
+   "refs": [
+    {
+     "file": "parties.py",
+     "line": 63,
+     "label": "initialize_parties",
+     "expect": "def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -> list[Par"
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 312,
+     "label": "assign_party_affiliation",
+     "expect": "def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:"
+    }
+   ],
+   "adr": []
+  },
+  "rupture": {
+   "name": "Rupture candidacy",
+   "fam": "elec",
+   "kind": "rule",
+   "phase": 3,
+   "when": "Every tick, before events and elections.",
+   "who": "Every elector (a random number is drawn for each, even the gated ones, to keep the stream stable).",
+   "inputs": "Distance to the citizen's own party platform; the share of others who find them acceptable.",
+   "decision": "<code>p = 0.001 × (1 + 2.0 × d)</code>; draw <code>u &lt; p</code>, then require ballot access: at least 0.5% of other citizens within their own tolerance of this one. Term-limited and barred citizens are skipped after the draw. Never asks the LLM.",
+   "knobs": [
+    [
+     "candidacy.rupture_path_enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "candidacy.rupture_base_probability",
+     "0.001",
+     "",
+     ""
+    ],
+    [
+     "candidacy.rupture_distance_multiplier",
+     "2.0",
+     "",
+     ""
+    ],
+    [
+     "candidacy.rupture_signature_ratio",
+     "0.005",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "candidacy_declared (path rupture)"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential"
+   ],
+   "fedBy": [
+    "parties_init"
+   ],
+   "refs": [
+    {
+     "file": "simple_rules.py",
+     "line": 538,
+     "label": "attempt_rupture_candidacy",
+     "expect": "def attempt_rupture_candidacy("
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1618,
+     "label": "_attempt_rupture_candidacies",
+     "expect": "def _attempt_rupture_candidacies("
+    }
+   ],
+   "adr": [
+    "ADR-003"
+   ]
+  },
+  "candidacy": {
+   "name": "Candidacy & nomination",
+   "fam": "elec",
+   "kind": "mixed",
+   "phase": 5,
+   "when": "On a presidential election tick (or 4 and 1 ticks before, with a staggered election).",
+   "who": "On the LLM engine, the whole population is asked whether to run; then each party with two or more declared members chooses its nominee.",
+   "inputs": "Candidacy: ambition and perceived support (the share of citizens who find you acceptable), TOON-encoded. Nomination: each declared member's position, ambition, support, distance to the platform.",
+   "decision": "<b>Candidacy</b> (<code>candidacy_considered</code>, batches of 25, no thinking): <code>outcome</code> 0/1 and a motif (201, 203, 204, 205). Rule: ambition ≥ 0.30. <b>Nomination</b> (<code>party_nomination_choice</code>, no thinking): <code>winner_position</code> 1..N and a motif (206&ndash;209); parties with 0 or 1 declared use the highest-ambition tiebreak. Term-limited and barred citizens are filtered after the answer. Independents are never nominated.",
+   "schema": "CandidacyDecision: cid, outcome, motif · PartyNominationDecision: party_id, winner_position, motif",
+   "knobs": [
+    [
+     "candidacy.ambition_threshold",
+     "0.30",
+     "",
+     ""
+    ],
+    [
+     "llm.max_batch_size",
+     "25",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "candidacy_considered",
+    "party_nomination_choice",
+    "nomination_lost",
+    "candidacy_declared"
+   ],
+   "fallback": "Per chunk: the ambition threshold. Nomination: whole batch, then each party alone, then the highest-ambition member.",
+   "feeds": [
+    "campaign",
+    "presidential"
+   ],
+   "fedBy": [
+    "parties_init",
+    "calendar"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1799,
+     "label": "_consider_candidacies_llm",
+     "expect": "def _consider_candidacies_llm("
+    },
+    {
+     "file": "llm_behavior_engine.py",
+     "line": 2018,
+     "label": "decide_candidacies",
+     "expect": "def decide_candidacies("
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1874,
+     "label": "_nominate_llm",
+     "expect": "def _nominate_llm("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 484,
+     "label": "decide_candidacy",
+     "expect": "def decide_candidacy(citizen: Citizen, config: CandidacyConfig) -> bool:"
+    }
+   ],
+   "adr": [
+    "ADR-002"
+   ],
+   "note": "Measured: the LLM over-declares (about 40% of citizens); a calibrated prompt was tried and not shipped."
+  },
+  "campaign": {
+   "name": "Campaign: positioning & salience",
+   "fam": "elec",
+   "kind": "agent",
+   "phase": 5,
+   "when": "At nomination, LLM engine only.",
+   "who": "Each party nominee.",
+   "inputs": "A vote-intention poll (first choices, blank and abstain shares), the field, the nominee's platform against the public median.",
+   "decision": "Without agents, <code>campaign_positioning</code> (one batch, thinking): up to 3 shifts of ≤ 0.3. With <code>agents.nominees</code>, a <code>nominee_turn</code> per nominee: position targets, plus a <b>campaign plan</b> (an issue and an audience: the party base, or the undecided). Reached citizens (capped at <code>max_reached</code>) get that issue's priority raised: <code>p += step·(1 − p)</code>, the others scaled down, so priorities still sum to 1.",
+   "schema": "PositioningDecision: cid, shifts, motif · CampaigningNomineeTurn: rationale, positions, speech, campaign{issue, audience}",
+   "knobs": [
+    [
+     "campaign.max_positioning_delta",
+     "0.3",
+     "",
+     ""
+    ],
+    [
+     "campaign.salience_step",
+     "0",
+     "",
+     "0.15"
+    ],
+    [
+     "campaign.max_reached",
+     "0 (everyone)",
+     "",
+     "12"
+    ],
+    [
+     "agents.nominees",
+     "false",
+     "",
+     "true (LLM)"
+    ]
+   ],
+   "events": [
+    "vote_intention_poll",
+    "campaign_run",
+    "agent_turn (nominee)",
+    "campaign_positioning"
+   ],
+   "fallback": "No shift, motif 601; a failed nominee turn keeps the platform where it was.",
+   "feeds": [
+    "presidential"
+   ],
+   "fedBy": [
+    "candidacy"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1965,
+     "label": "_position_nominees_llm",
+     "expect": "def _position_nominees_llm("
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2013,
+     "label": "_campaign_turns",
+     "expect": "def _campaign_turns("
+    },
+    {
+     "file": "salience.py",
+     "line": 29,
+     "label": "raise_salience",
+     "expect": "def raise_salience(priorities: Sequence[float], issue: int, step: float) -> tuple[float, ."
+    },
+    {
+     "file": "agents.py",
+     "line": 453,
+     "label": "nominee prompt",
+     "expect": "def nominee_system_prompt(nominee: Citizen, config: PolityConfig) -> str:"
+    }
+   ],
+   "adr": [
+    "ADR-014",
+    "ADR-023"
+   ]
+  },
+  "presidential": {
+   "name": "Presidential election",
+   "fam": "elec",
+   "kind": "mixed",
+   "phase": 5,
+   "when": "Presidential ticks, or a pending rerun or snap election.",
+   "who": "Every engaged citizen votes; the field is the nominees plus standing rupture candidates.",
+   "inputs": "Each candidate's pledged platform; the voter's positions, priorities and tolerance; optionally the incumbent's record.",
+   "decision": "<b>Counted ballots are utility ballots</b> (<code>vote.mode = utility</code>): utility = −weighted distance + partisanship + approval × record (2L − 1) + policy retrospection + valence; candidates within tolerance rank above <b>Blank</b>. A voter abstains when their best candidate is worth about a blank (<code>turnout_cost</code>). The LLM casts <code>vote_cast</code> only on a 10% <b>audit</b> sample that is never counted, unless <code>vote.mode = llm</code>. Count: two-round by default (13 ranked methods available); Blank is an ordinary label and can win.",
+   "schema": "VoteCastDecision: cid, blank, ranking (positions 1..N), motif 101–105",
+   "knobs": [
+    [
+     "vote.mode",
+     "utility",
+     "",
+     ""
+    ],
+    [
+     "vote.audit_fraction",
+     "0.1",
+     "",
+     ""
+    ],
+    [
+     "vote.turnout_cost",
+     "0",
+     "0.04 (LLM)",
+     "0.04 (LLM)"
+    ],
+    [
+     "institutions.presidential_method",
+     "two_round",
+     "",
+     ""
+    ],
+    [
+     "institutions.blank_vote_competitive",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "vote.approval",
+     "0",
+     "",
+     "0.1"
+    ],
+    [
+     "vote.policy_retrospection",
+     "0",
+     "",
+     "2.0"
+    ]
+   ],
+   "events": [
+    "vote_cast (audit)",
+    "elected",
+    "election_no_winner",
+    "election_invalidated",
+    "mandate_pledge_declared"
+   ],
+   "fallback": "An LLM ballot falls back to the distance ranking (motif 101/105).",
+   "feeds": [
+    "legitimacy",
+    "president_turn",
+    "response",
+    "awakening",
+    "emotions",
+    "referendum"
+   ],
+   "fedBy": [
+    "candidacy",
+    "campaign",
+    "rupture",
+    "petitions",
+    "calendar"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2283,
+     "label": "_hold_presidential_election",
+     "expect": "def _hold_presidential_election("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 193,
+     "label": "utility_ballot",
+     "expect": "def utility_ballot("
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2185,
+     "label": "audit_sample",
+     "expect": "def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen"
+    },
+    {
+     "file": "ballot_and_aggregation.py",
+     "line": 90,
+     "label": "get_presidential_winner",
+     "expect": "def get_presidential_winner(ballots: list[Any], method: str) -> Optional[str]:"
+    }
+   ],
+   "adr": [
+    "ADR-011"
+   ],
+   "note": "If more than half of ballots put Blank first and blank_vote_competitive is on, the election is invalidated and rerun next tick with the field barred; the third attempt is forced."
+  },
+  "legislative": {
+   "name": "Legislative election",
+   "fam": "elec",
+   "kind": "rule",
+   "phase": 6,
+   "when": "Legislative ticks (every 4 years, offset 2).",
+   "who": "Engaged citizens.",
+   "inputs": "Party platforms; governing parties' policy record.",
+   "decision": "Sincere vote for the nearest party (or blank beyond tolerance). Then one strategic round (ADR-024): the sincere vote is the poll; a voter whose party is under the 5% threshold moves to the best viable party if it costs ≤ <code>strategic_margin</code>. Seats by D'Hondt over 100 seats, threshold measured on the party vote. No LLM.",
+   "knobs": [
+    [
+     "institutions.seat_allocation",
+     "dhondt",
+     "",
+     ""
+    ],
+    [
+     "institutions.assembly_seats",
+     "100",
+     "",
+     ""
+    ],
+    [
+     "institutions.electoral_threshold",
+     "0.05",
+     "",
+     ""
+    ],
+    [
+     "vote.strategic_margin",
+     "0",
+     "",
+     "0.07"
+    ]
+   ],
+   "events": [
+    "legislative_result"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "coalition",
+    "legislation",
+    "stakes"
+   ],
+   "fedBy": [
+    "parties_init",
+    "forum"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2511,
+     "label": "_hold_legislative_election",
+     "expect": "def _hold_legislative_election("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 415,
+     "label": "choose_party",
+     "expect": "def choose_party("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 470,
+     "label": "strategic_choices",
+     "expect": "def strategic_choices("
+    },
+    {
+     "file": "ballot_and_aggregation.py",
+     "line": 111,
+     "label": "allocate_seats",
+     "expect": "def allocate_seats("
+    }
+   ],
+   "adr": [
+    "ADR-024"
+   ]
+  },
+  "coalition": {
+   "name": "Coalition formation",
+   "fam": "elec",
+   "kind": "mixed",
+   "phase": 6,
+   "when": "Right after the legislative count.",
+   "who": "The formateur (largest party) and every other seated party, or their leaders.",
+   "inputs": "Seats, the majority threshold, the provisional total, what the others said last round.",
+   "decision": "Rule: add seated parties in ascending distance from the formateur until seats exceed half. LLM: each party says join or leave (<code>coalition_decision</code>), up to 3 rounds, stopping at a fixed point. With <code>agents.coalition</code> each party's most ambitious member takes a <code>coalition_turn</code> (rationale, join yes/no, statement).",
+   "schema": "CoalitionDecision: party_id, action (1 join, 2 leave), motif · LeaderCoalitionTurn: rationale, join, statement",
+   "knobs": [
+    [
+     "parties.coalition_majority_ratio",
+     "0.5",
+     "",
+     ""
+    ],
+    [
+     "parties.coalition_max_negotiation_rounds",
+     "3",
+     "",
+     ""
+    ],
+    [
+     "agents.coalition",
+     "false",
+     "",
+     "true (LLM)"
+    ]
+   ],
+   "events": [
+    "coalition_decision",
+    "coalition_formed",
+    "coalition_failed"
+   ],
+   "fallback": "<b>None on the batch path:</b> a failed round means coalition_failed and no government. A leader with no answer keeps their previous one, or declines in round 1.",
+   "feeds": [
+    "legislation"
+   ],
+   "fedBy": [
+    "legislative"
+   ],
+   "refs": [
+    {
+     "file": "simple_rules.py",
+     "line": 656,
+     "label": "form_coalition",
+     "expect": "def form_coalition("
+    },
+    {
+     "file": "llm_behavior_engine.py",
+     "line": 5209,
+     "label": "decide_coalition",
+     "expect": "def decide_coalition("
+    },
+    {
+     "file": "agents.py",
+     "line": 947,
+     "label": "negotiate_leaders",
+     "expect": "def negotiate_leaders("
+    }
+   ],
+   "adr": [
+    "ADR-019"
+   ],
+   "note": "Measured: the batch path tends to answer join whatever the content."
+  },
+  "chamber": {
+   "name": "Sortition chamber",
+   "fam": "gov",
+   "kind": "llm",
+   "phase": 7,
+   "when": "Rotation every 4 ticks; deliberation every tick on the LLM engine.",
+   "who": "Citizens drawn uniformly by lot from those who never served and hold no office.",
+   "inputs": "Deliberation sees only <code>ticks_left</code>: the chamber is insulated from every pressure channel.",
+   "decision": "<code>chamber_deliberation</code> (chunks of 5, thinking): up to 3 shifts of ≤ 0.3 to the member's chamber position, motif 701 (no shift) or 702. Shifts accumulate over the term. The chamber reviews bills and votes on amendments.",
+   "schema": "ChamberDecision: cid, shifts[{dimension, delta}], motif 701/702",
+   "knobs": [
+    [
+     "sortition_chamber.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "sortition_chamber.seats",
+     "30",
+     "75 (CLI)",
+     "--seats"
+    ],
+    [
+     "sortition_chamber.term_years",
+     "1",
+     "",
+     ""
+    ],
+    [
+     "sortition_chamber.max_deliberation_shifts",
+     "3",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "sortition_rotation",
+    "chamber_deliberation",
+    "clamped_at_bound"
+   ],
+   "fallback": "Per chunk: motif 701, no shift. A 702 with no shift is relabelled 701.",
+   "feeds": [
+    "legislation",
+    "amendments",
+    "forum"
+   ],
+   "fedBy": [],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2942,
+     "label": "_run_sortition_rotation",
+     "expect": "def _run_sortition_rotation("
+    },
+    {
+     "file": "sortition_chamber.py",
+     "line": 46,
+     "label": "select_sortition_chamber",
+     "expect": "def select_sortition_chamber("
+    },
+    {
+     "file": "llm_behavior_engine.py",
+     "line": 4715,
+     "label": "decide_chamber_deliberation",
+     "expect": "def decide_chamber_deliberation("
+    }
+   ],
+   "adr": []
+  },
+  "president_turn": {
+   "name": "President's turn",
+   "fam": "gov",
+   "kind": "agent",
+   "phase": 8,
+   "when": "Every tick, with the president agent.",
+   "who": "The seated president.",
+   "inputs": "A stable persona (party, top issues, ambition, views on all 20 issues) and goal; each tick: approval, legitimacy, street pressure, gap from the pledge, a per-issue table (policy, stated position, pledge, public and assembly medians), the constitution, the stakes, and memory (last 16 public events, own last 8 turns).",
+   "decision": "<code>president_turn</code> (thinking): restate positions (each step ≤ 0.3), draft a bill (if the agenda is open), propose an amendment, or declare <i>refuse_to_leave</i>. Free text is kept: speech, rationale, note to self.",
+   "schema": "LeaderTurn: rationale, positions, bill, speech, note_to_self, other_initiative (+ amendment, + extra_legal)",
+   "knobs": [
+    [
+     "agents.president",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "mandate.max_response_delta",
+     "0.3",
+     "",
+     ""
+    ],
+    [
+     "agents.turn_temperature",
+     "0",
+     "",
+     "0.6"
+    ]
+   ],
+   "events": [
+    "agent_turn (president)",
+    "amendment_proposed",
+    "clamped_at_bound"
+   ],
+   "fallback": "Every attempt failed: no move, the formula drafts the bill, silence.",
+   "feeds": [
+    "legislation",
+    "amendments",
+    "regime",
+    "awakening",
+    "forum"
+   ],
+   "fedBy": [
+    "presidential",
+    "stakes",
+    "ambition"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1289,
+     "label": "_phase_leaders",
+     "expect": "def _phase_leaders(context: TickContext, state: TickState) -> None:"
+    },
+    {
+     "file": "agents.py",
+     "line": 339,
+     "label": "president system prompt",
+     "expect": "def president_system_prompt(president: Citizen, config: PolityConfig) -> str:"
+    },
+    {
+     "file": "agents.py",
+     "line": 387,
+     "label": "PresidentBriefing",
+     "expect": "class PresidentBriefing:"
+    },
+    {
+     "file": "agents.py",
+     "line": 538,
+     "label": "validate_turn",
+     "expect": "def validate_turn(turn: LeaderTurn, config: PolityConfig, *, max_positions: int, agenda_op"
+    }
+   ],
+   "adr": [
+    "ADR-014",
+    "ADR-015",
+    "ADR-022",
+    "ADR-026",
+    "ADR-027",
+    "ADR-028"
+   ]
+  },
+  "response": {
+   "name": "Representative response",
+   "fam": "acct",
+   "kind": "llm",
+   "phase": 12,
+   "when": "Every tick, step 1 of accountability; only for a formula president (not with the president agent).",
+   "who": "Office holders.",
+   "inputs": "Legitimacy, mandate deviation, last tick's street pressure (a structural one-tick lag), lame-duck, ticks left.",
+   "decision": "<code>representative_response</code> (no thinking): a stance (1 concession, 2 defiance, 3 silence, 4 counter-mobilisation) and up to 3 shifts of the revealed position; the pledge never moves.",
+   "schema": "ResponseDecision: cid, stance, shifts, motif (301–309)",
+   "knobs": [
+    [
+     "mandate.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "mandate.max_response_shifts",
+     "3",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "representative_response",
+    "mandate_deviation_recorded"
+   ],
+   "fallback": "Silence, motif 308, no shift.",
+   "feeds": [
+    "awakening",
+    "legitimacy"
+   ],
+   "fedBy": [
+    "pressure",
+    "presidential"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2853,
+     "label": "_run_representative_responses",
+     "expect": "def _run_representative_responses("
+    },
+    {
+     "file": "accountability.py",
+     "line": 141,
+     "label": "mandate_deviation",
+     "expect": "def mandate_deviation(officeholder: Citizen, config: MandateConfig) -> float:"
+    }
+   ],
+   "adr": [],
+   "note": "Field order matters here (ADR-030): stance is sent before shifts, which decided vLLM 0.32's results."
+  },
+  "events": {
+   "name": "Exogenous events & reactions",
+   "fam": "cit",
+   "kind": "mixed",
+   "phase": 4,
+   "when": "Events drawn every tick (phase 4); reactions at the start of accountability, scandal first.",
+   "who": "The whole population, every citizen, no gate.",
+   "inputs": "Each citizen's current event salience; the event type, target and magnitude.",
+   "decision": "Scandal: Bernoulli(0.05) per tick against the president. Economy: <code>x = 0.8·x + 0.1·ε</code>, a shock when |x| ≥ 0.5. Reaction (<code>reaction_to_event</code>, batches of 25): a salience increase in [0, 0.3] and a motif (401, 402, or 403 = irrelevant, iff 0). Salience then decays: <code>E = 0.85·E + delta</code>.",
+   "schema": "ReactionDecision: cid, salience_delta, motif 401–403",
+   "knobs": [
+    [
+     "events.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "events.scandal_rate_per_tick",
+     "0.05",
+     "",
+     ""
+    ],
+    [
+     "events.max_reaction_delta",
+     "0.3",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "scandal_occurred",
+    "economic_shock_tick",
+    "reaction_to_event"
+   ],
+   "fallback": "A flat delta for everyone (scandal 0.3; shock 0.3 × min(1, |x|)).",
+   "feeds": [
+    "awakening",
+    "emotions"
+   ],
+   "fedBy": [],
+   "refs": [
+    {
+     "file": "shock.py",
+     "line": 38,
+     "label": "scandal_arrival",
+     "expect": "def scandal_arrival(rng: np.random.Generator, config: EventsConfig) -> bool:"
+    },
+    {
+     "file": "shock.py",
+     "line": 49,
+     "label": "economy",
+     "expect": "def economic_shock_step(previous_x: float, rng: np.random.Generator, config: EventsConfig)"
+    },
+    {
+     "file": "llm_behavior_engine.py",
+     "line": 4356,
+     "label": "decide_reaction_to_event",
+     "expect": "def decide_reaction_to_event("
+    },
+    {
+     "file": "accountability.py",
+     "line": 382,
+     "label": "salience update",
+     "expect": "def update_event_salience(previous: float, delta: float, config: EventsConfig) -> float:"
+    }
+   ],
+   "adr": []
+  },
+  "emotions": {
+   "name": "Emotions",
+   "fam": "cit",
+   "kind": "rule",
+   "phase": 11,
+   "when": "Every tick, just before accountability.",
+   "who": "Every citizen.",
+   "inputs": "The citizen's gap to the president, and the economy.",
+   "decision": "Appraisal: anger = clamp(gap/tolerance − 1), enthusiasm = clamp(1 − gap/tolerance), anxiety = clamp(|x| / 0.5). Then smoothed: <code>e = 0.7·e + 0.3·target</code>. No LLM.",
+   "knobs": [
+    [
+     "emotions.enabled",
+     "false",
+     "",
+     "true"
+    ],
+    [
+     "emotions.decay",
+     "0.7",
+     "",
+     ""
+    ],
+    [
+     "emotions.awakening_anger",
+     "0",
+     "",
+     "0"
+    ],
+    [
+     "emotions.mobilization_anger",
+     "0",
+     "",
+     "0"
+    ]
+   ],
+   "events": [
+    "emotions_updated (population means)"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "engagement",
+    "awakening",
+    "pressure"
+   ],
+   "fedBy": [
+    "presidential",
+    "president_turn",
+    "events"
+   ],
+   "refs": [
+    {
+     "file": "emotions.py",
+     "line": 38,
+     "label": "appraise",
+     "expect": "def appraise(gap: float | None, blank_threshold: float, economy_x: float, shock_threshold:"
+    },
+    {
+     "file": "emotions.py",
+     "line": 49,
+     "label": "feel",
+     "expect": "def feel(citizen: Citizen, appraisal: Appraisal, decay: float) -> None:"
+    }
+   ],
+   "adr": [],
+   "note": "In the exploration profile every awakening and mobilisation weight is 0, so emotions act only through engagement and as signals in the pressure prompt."
+  },
+  "engagement": {
+   "name": "Engagement & exit",
+   "fam": "cit",
+   "kind": "rule",
+   "phase": 11,
+   "when": "Right after emotions.",
+   "who": "Every citizen.",
+   "inputs": "Anger.",
+   "decision": "With hysteresis: anger ≥ exit level exits for good; ≥ disengage level disengages; a disengaged citizen returns once anger ≤ the return level. A disengaged or exited citizen does not vote, sign or join a confidence vote, but is still consulted, can still launch and mobilise, reacts, posts and can be drawn for the chamber.",
+   "knobs": [
+    [
+     "emotions.disengage_anger",
+     "0",
+     "",
+     "0.4"
+    ],
+    [
+     "emotions.return_anger",
+     "0",
+     "",
+     "0.2"
+    ],
+    [
+     "emotions.exit_anger",
+     "0",
+     "",
+     "0.85"
+    ]
+   ],
+   "events": [
+    "engagement_updated (counts)"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential",
+    "legislative",
+    "petitions"
+   ],
+   "fedBy": [
+    "emotions"
+   ],
+   "refs": [
+    {
+     "file": "emotions.py",
+     "line": 69,
+     "label": "engagement_after",
+     "expect": "def engagement_after(state: str | None, anger: float, config: EmotionsConfig) -> str:"
+    }
+   ],
+   "adr": [
+    "ADR-021"
+   ]
+  },
+  "awakening": {
+   "name": "Awakening gate",
+   "fam": "cit",
+   "kind": "rule",
+   "phase": 12,
+   "when": "Accountability, for a seated president with a revealed position.",
+   "who": "Decides which citizens are consulted at all.",
+   "inputs": "Self gap (distance to the president's revealed position), base threshold, mandate deviation, election proximity, event salience, neighbours who mobilised last tick, emotion pull.",
+   "decision": "<code>threshold = base × f</code>, with <code>f = 1 − a·deviation + a·proximity − a·salience − a·neighbours − a·emotion</code> clamped to [1 − a, 1 + a], a = 0.5 (each term only when its flag is on). Consulted iff <code>self_gap &gt; threshold</code>. No cap, ordered by id; engagement is not checked.",
+   "knobs": [
+    [
+     "awakening.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "awakening.modulation_amplitude",
+     "0.5",
+     "",
+     ""
+    ],
+    [
+     "awakening.context_modulation.event_salience",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "awakening.context_modulation.neighbors_acting",
+     "false",
+     "true",
+     "true"
+    ]
+   ],
+   "events": [
+    "(none: shows up as which pressure_action events exist)"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "pressure"
+   ],
+   "fedBy": [
+    "presidential",
+    "president_turn",
+    "response",
+    "events",
+    "emotions",
+    "pressure"
+   ],
+   "refs": [
+    {
+     "file": "accountability.py",
+     "line": 328,
+     "label": "select_consulted",
+     "expect": "def select_consulted("
+    },
+    {
+     "file": "accountability.py",
+     "line": 241,
+     "label": "awakening_threshold",
+     "expect": "def awakening_threshold("
+    },
+    {
+     "file": "accountability.py",
+     "line": 290,
+     "label": "neighbors_acting",
+     "expect": "def neighbors_acting("
+    }
+   ],
+   "adr": []
+  },
+  "pressure": {
+   "name": "Pressure action",
+   "fam": "cit",
+   "kind": "llm",
+   "phase": 12,
+   "when": "Accountability step 2, right after the gate.",
+   "who": "The consulted cohort, all of it, one citizen per call.",
+   "inputs": "Frozen for the whole cohort before any act applies: self gap, mandate deviation, neighbours acting, ticks to election, the acts available to this citizen, the open petition, the tolerance signal, and emotions when enabled.",
+   "decision": "<code>pressure_action</code> (no thinking, chunk of 1): an act (0 nothing, 1 sign, 2 launch a petition, 3 mobilise, 4 wait for the election) and a motif (301, 304, 305, 306). Acts are applied in id order against the live petition: a launch becomes a sign if a petition opened earlier in the loop. Mobilising adds to street pressure and to the neighbours' gate next tick.",
+   "schema": "PressureDecision: cid, target, act 0–4, motif",
+   "knobs": [
+    [
+     "pressure_menu.electoral_only",
+     "true (menu {0, 4})",
+     "false (all five)",
+     "false"
+    ],
+    [
+     "petition.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "street_pressure.enabled",
+     "false",
+     "true",
+     "true"
+    ]
+   ],
+   "events": [
+    "pressure_action",
+    "petition_launched",
+    "petition_signed"
+   ],
+   "fallback": "Rule: nothing when the gap is under tolerance; otherwise sign, else launch, else mobilise, else wait.",
+   "feeds": [
+    "petitions",
+    "legitimacy",
+    "response",
+    "awakening",
+    "forum"
+   ],
+   "fedBy": [
+    "awakening",
+    "emotions"
+   ],
+   "refs": [
+    {
+     "file": "llm_behavior_engine.py",
+     "line": 3978,
+     "label": "decide_pressure_actions",
+     "expect": "def decide_pressure_actions("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 710,
+     "label": "deterministic_pressure_action",
+     "expect": "def deterministic_pressure_action("
+    },
+    {
+     "file": "accountability.py",
+     "line": 492,
+     "label": "applicable_pressure_act",
+     "expect": "def applicable_pressure_act(act: PressureAct, *, can_sign: bool, can_launch: bool) -> Pres"
+    },
+    {
+     "file": "accountability.py",
+     "line": 373,
+     "label": "street pressure",
+     "expect": "def update_street_pressure(previous: float, rate: float, config: StreetPressureConfig) -> "
+    }
+   ],
+   "adr": [
+    "ADR-030"
+   ],
+   "note": "The field order is decisive here: with motif written before act the model acted for 23 of 24 ground-truth citizens (EXP-025). Production sends cid, target, act, motif."
+  },
+  "petitions": {
+   "name": "Petitions, confidence votes & recall",
+   "fam": "acct",
+   "kind": "rule",
+   "phase": 12,
+   "when": "Accountability steps 3–6, per holder, after the pressure loop; the snap election in phase 13.",
+   "who": "Signers; then every engaged citizen in a confidence vote.",
+   "inputs": "Signature count against the population; each voter's tolerance of the president's revealed position.",
+   "decision": "A petition collects for 4 ticks; at 25% of the population a <b>confidence vote</b> is held: each engaged citizen keeps the president iff their revealed position is within tolerance; retained iff keep &gt; 50% (a tie removes), and a kept president's mandate becomes the keep ratio. Below the legitimacy floor, ADR-025 calls a confidence vote instead of recalling outright. A recall vacates the office; with snap elections on, a rerun is scheduled for next tick.",
+   "knobs": [
+    [
+     "petition.signature_threshold",
+     "0.25",
+     "",
+     ""
+    ],
+    [
+     "petition.petition_lifespan_ticks",
+     "4",
+     "",
+     ""
+    ],
+    [
+     "legitimacy.floor_calls_vote",
+     "false",
+     "",
+     "true"
+    ],
+    [
+     "institutions.snap_election_on_recall",
+     "false",
+     "true",
+     "true"
+    ]
+   ],
+   "events": [
+    "confidence_vote_triggered",
+    "confidence_vote_result",
+    "petition_expired",
+    "recalled",
+    "snap_election_triggered"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential",
+    "legitimacy",
+    "forum"
+   ],
+   "fedBy": [
+    "pressure",
+    "legitimacy",
+    "engagement"
+   ],
+   "refs": [
+    {
+     "file": "accountability.py",
+     "line": 402,
+     "label": "petition state machine",
+     "expect": "def petition_pressure(holder: Citizen, population_size: int) -> float:"
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2218,
+     "label": "_confidence_vote",
+     "expect": "def _confidence_vote("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 772,
+     "label": "build_confidence_ballot",
+     "expect": "def build_confidence_ballot(voter: Citizen, holder: Citizen) -> bool:"
+    },
+    {
+     "file": "ballot_and_aggregation.py",
+     "line": 161,
+     "label": "resolve_confidence_vote",
+     "expect": "def resolve_confidence_vote(ballots: list[bool], ballot_format: str = \"binary\") -> bool:"
+    }
+   ],
+   "adr": [
+    "ADR-025"
+   ]
+  },
+  "legitimacy": {
+   "name": "Legitimacy",
+   "fam": "acct",
+   "kind": "rule",
+   "phase": 12,
+   "when": "Every tick, for each holder.",
+   "who": "The president.",
+   "inputs": "Mandate strength m (share of ballots that ranked them above Blank), approval, petition pressure, street pressure.",
+   "decision": "<code>écart = 0.5·petition + 0.5·street (+ erosion·deviation)</code>; support blends m with approval; <code>L = 0.9·L + 0.1·support − écart</code>, clamped to [0, 1] (with <code>pressure_like_support</code>, écart is also damped by 0.1). Below the 0.2 floor: recall, or a confidence vote under ADR-025.",
+   "knobs": [
+    [
+     "legitimacy.enabled",
+     "false",
+     "true",
+     "true"
+    ],
+    [
+     "legitimacy.decay",
+     "0.9",
+     "",
+     ""
+    ],
+    [
+     "legitimacy.recall_floor",
+     "0.2",
+     "",
+     ""
+    ],
+    [
+     "legitimacy.approval_weight",
+     "0",
+     "",
+     "0.5"
+    ],
+    [
+     "legitimacy.pressure_like_support",
+     "false",
+     "",
+     "true"
+    ]
+   ],
+   "events": [
+    "legitimacy_updated"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "petitions",
+    "president_turn",
+    "response",
+    "presidential"
+   ],
+   "fedBy": [
+    "pressure",
+    "presidential",
+    "petitions"
+   ],
+   "refs": [
+    {
+     "file": "legitimacy.py",
+     "line": 86,
+     "label": "compose_ecart",
+     "expect": "def compose_ecart("
+    },
+    {
+     "file": "legitimacy.py",
+     "line": 115,
+     "label": "update_legitimacy",
+     "expect": "def update_legitimacy(previous: float, strength: float, ecart: float, config: LegitimacyCo"
+    },
+    {
+     "file": "legitimacy.py",
+     "line": 123,
+     "label": "crosses_floor",
+     "expect": "def crosses_floor(legitimacy: float, config: LegitimacyConfig) -> bool:"
+    }
+   ],
+   "adr": [
+    "ADR-025"
+   ]
+  },
+  "forum": {
+   "name": "Forum, minds & parties",
+   "fam": "cit",
+   "kind": "agent",
+   "phase": 9,
+   "when": "Every tick, with the forum agents.",
+   "who": "Recent petition launchers (last 8 ticks), then chamber members; at most 30, in parallel, blind to each other's same-tick posts.",
+   "inputs": "A persona; the party roll; whether a founding would reach enough co-founders; the last 8 visible posts (neighbours, the president's and nominees' speeches, chamber peers, never one's own); memory.",
+   "decision": "<code>forum_post</code> (thinking): a post, a change of mind (an issue and a direction: a fixed 0.25-logit step along that issue's latent loading), and a party move: join, leave, or <b>found</b> (needs co-founders ≥ 5% of citizens). After any move, parties under half that size dissolve (seated parties and the last party are kept), and their members move to the nearest platform.",
+   "schema": "ForumTurn: rationale, post, note_to_self, shift_issue, shift_direction, party_move, party_id",
+   "knobs": [
+    [
+     "agents.forum",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "agents.forum_size",
+     "30",
+     "",
+     ""
+    ],
+    [
+     "agents.stance_step",
+     "0",
+     "",
+     "0.25"
+    ],
+    [
+     "parties.birth_enabled / parties.death_enabled",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "parties.founding_ratio",
+     "0.05",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "forum_post",
+    "party_founded",
+    "party_dissolved"
+   ],
+   "fallback": "Silence, journaled as a fallback.",
+   "feeds": [
+    "legislative",
+    "candidacy",
+    "opinion",
+    "presidential"
+   ],
+   "fedBy": [
+    "pressure",
+    "chamber",
+    "president_turn"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 946,
+     "label": "_phase_forum",
+     "expect": "def _phase_forum(context: TickContext, state: TickState) -> None:"
+    },
+    {
+     "file": "agents.py",
+     "line": 831,
+     "label": "decide_forum",
+     "expect": "def decide_forum("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 354,
+     "label": "apply_party_move",
+     "expect": "def apply_party_move("
+    },
+    {
+     "file": "simple_rules.py",
+     "line": 376,
+     "label": "dissolve_small_parties",
+     "expect": "def dissolve_small_parties("
+    }
+   ],
+   "adr": [
+    "ADR-016",
+    "ADR-017",
+    "ADR-018"
+   ]
+  },
+  "opinion": {
+   "name": "Opinion dynamics",
+   "fam": "cit",
+   "kind": "rule",
+   "phase": 14,
+   "when": "Last phase of every tick.",
+   "who": "Every citizen.",
+   "inputs": "Two latent factors per citizen, their anchor, graph neighbours within the confidence bound.",
+   "decision": "Friedkin-Johnsen with bounded confidence: <code>f' = (1 − s)·anchor + s·(f + step·pull) + drift</code>; positions are recomputed as sigmoid(f·loadings + residual). Spreads forum stance shifts through the graph and pulls citizens back toward their anchors.",
+   "knobs": [
+    [
+     "dynamics.enabled",
+     "false",
+     "",
+     "true"
+    ],
+    [
+     "dynamics.susceptibility",
+     "1.0",
+     "",
+     "0.9"
+    ],
+    [
+     "dynamics.influence_step",
+     "0",
+     "",
+     "0.1"
+    ],
+    [
+     "dynamics.confidence_bound",
+     "1.0",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "opinion_dynamics_step"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential",
+    "legislative",
+    "awakening",
+    "emotions"
+   ],
+   "fedBy": [
+    "forum"
+   ],
+   "refs": [
+    {
+     "file": "opinion_dynamics.py",
+     "line": 58,
+     "label": "update_latent_factors",
+     "expect": "def update_latent_factors("
+    },
+    {
+     "file": "opinion_dynamics.py",
+     "line": 87,
+     "label": "shift_stance",
+     "expect": "def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float) -"
+    }
+   ],
+   "adr": [
+    "ADR-012"
+   ]
+  },
+  "legislation": {
+   "name": "Legislation",
+   "fam": "gov",
+   "kind": "rule",
+   "phase": 10,
+   "when": "A bill every 2 ticks; a suspended bill's second reading when due.",
+   "who": "The agenda setter (the government under cohabitation, otherwise the president), the assembly, the chamber.",
+   "inputs": "Platforms, the president's position, seats, members' chamber positions.",
+   "decision": "Draft: the top 2 priority-weighted gaps, each moved ≤ 0.1 (or the president agent's own bill). Assembly: each seated party votes yes iff the bill brings policy closer to its platform; passes above half the seats. Under cohabitation the president can block a bill that moves policy away from them. First reading only: the chamber reviews, and a majority against suspends the bill for 2 ticks. Then enacted.",
+   "knobs": [
+    [
+     "legislation.enabled",
+     "false",
+     "",
+     "true"
+    ],
+    [
+     "legislation.bill_interval_ticks",
+     "2",
+     "",
+     ""
+    ],
+    [
+     "legislation.max_bill_dimensions",
+     "2",
+     "",
+     ""
+    ],
+    [
+     "legislation.max_bill_step",
+     "0.1",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "bill_proposed",
+    "bill_voted",
+    "bill_blocked",
+    "bill_reviewed",
+    "bill_enacted",
+    "policy_status"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "legitimacy",
+    "presidential",
+    "legislative"
+   ],
+   "fedBy": [
+    "coalition",
+    "chamber",
+    "president_turn"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1166,
+     "label": "_phase_legislation",
+     "expect": "def _phase_legislation(context: TickContext, state: TickState) -> None:"
+    },
+    {
+     "file": "legislation.py",
+     "line": 73,
+     "label": "draft_bill",
+     "expect": "def draft_bill("
+    },
+    {
+     "file": "legislation.py",
+     "line": 100,
+     "label": "assembly_vote",
+     "expect": "def assembly_vote("
+    },
+    {
+     "file": "legislation.py",
+     "line": 130,
+     "label": "chamber_review",
+     "expect": "def chamber_review(members: Sequence[Citizen], policy: Sequence[float], bill: Bill) -> Cha"
+    }
+   ],
+   "adr": [
+    "ADR-009"
+   ]
+  },
+  "amendments": {
+   "name": "Amendments & the constitution",
+   "fam": "const",
+   "kind": "agent",
+   "phase": 1,
+   "when": "Proposed on the president's turn; voted on the next tick, first phase.",
+   "who": "The president proposes; every chamber member votes, blind, in parallel.",
+   "inputs": "The article, old and new values, the reason, the threshold, the proposer's standing, and what the change would loosen for them.",
+   "decision": "A proposal must name an amendable article (method, term limit, seats, thresholds, recall floor, petition threshold&hellip;) and a legal new value. Threshold: max(0.5, the article's entrenchment: method 0.6, term limit and amendment threshold 0.75). <code>amendment_vote</code>: yes/no; ratified iff yes &gt; threshold × members (and a referendum passes, if any). The constitution in force is rebuilt every tick.",
+   "schema": "AmendmentBallot: rationale, vote yes/no, statement, note_to_self",
+   "knobs": [
+    [
+     "agents.amendments",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "constitution.amendment_threshold",
+     "0.5",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "amendment_proposed",
+    "amendment_vote",
+    "amendment_resolved",
+    "constitution_amended"
+   ],
+   "fallback": "A member with no answer votes 'none', which counts against.",
+   "feeds": [
+    "calendar",
+    "presidential",
+    "legislative",
+    "petitions",
+    "legitimacy"
+   ],
+   "fedBy": [
+    "president_turn",
+    "chamber",
+    "stakes"
+   ],
+   "refs": [
+    {
+     "file": "amendments.py",
+     "line": 66,
+     "label": "validate_amendment",
+     "expect": "def validate_amendment(proposal: AmendmentProposal, config: PolityConfig) -> None:"
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 848,
+     "label": "_resolve_amendment",
+     "expect": "def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposal) -> None"
+    },
+    {
+     "file": "constitution.py",
+     "line": 41,
+     "label": "in_force",
+     "expect": "def in_force(founding: PolityConfig, constitution: Constitution | None) -> PolityConfig:"
+    },
+    {
+     "file": "agents.py",
+     "line": 698,
+     "label": "amendment_consequence",
+     "expect": "def amendment_consequence(proposal: Proposal, president: Citizen, old: Any) -> str:"
+    }
+   ],
+   "adr": [
+    "ADR-015"
+   ]
+  },
+  "stakes": {
+   "name": "Amendment stakes",
+   "fam": "const",
+   "kind": "rule",
+   "phase": 8,
+   "when": "In the president's briefing, when a proposal can be made.",
+   "who": "The president.",
+   "inputs": "Today's ballots (last election's candidates on today's opinions) and the last legislative votes.",
+   "decision": "Facts only, no advice: who would win under each of the 13 methods (forward stakes, ADR-027), and the president's party's seats under each seat rule and threshold.",
+   "knobs": [
+    [
+     "agents.amendment_stakes",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "agents.forward_stakes",
+     "true",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "(none: only in the prompt, via the call log)"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "president_turn",
+    "amendments"
+   ],
+   "fedBy": [
+    "presidential",
+    "legislative"
+   ],
+   "refs": [
+    {
+     "file": "amendments.py",
+     "line": 102,
+     "label": "stakes_text",
+     "expect": "def stakes_text("
+    },
+    {
+     "file": "amendments.py",
+     "line": 119,
+     "label": "_method_stakes",
+     "expect": "def _method_stakes(president: Citizen, ballots: list[list[str]], in_force: str, barred: bo"
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 2153,
+     "label": "ballots_today",
+     "expect": "def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> li"
+    }
+   ],
+   "adr": [
+    "ADR-026",
+    "ADR-027"
+   ]
+  },
+  "referendum": {
+   "name": "Referendum on the voting method",
+   "fam": "const",
+   "kind": "rule",
+   "phase": 1,
+   "when": "After the chamber ratifies a change of presidential method.",
+   "who": "Every engaged citizen, as at an election.",
+   "inputs": "Today's ballots, with term-limited candidates struck.",
+   "decision": "A new vote (ADR-029): yes = ballots ranking the new method's winner above the old one's. Held always, or (by petition) when the no side reaches the petition threshold; not held when both methods elect the same person. Passes iff yes &gt; no; otherwise the ratification is undone.",
+   "knobs": [
+    [
+     "constitution.referendum",
+     "never",
+     "",
+     "petition"
+    ]
+   ],
+   "events": [
+    "referendum_held"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential"
+   ],
+   "fedBy": [
+    "amendments"
+   ],
+   "refs": [
+    {
+     "file": "run_polity_simulation.py",
+     "line": 901,
+     "label": "_referendum",
+     "expect": "def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:"
+    },
+    {
+     "file": "amendments.py",
+     "line": 86,
+     "label": "referendum_count",
+     "expect": "def referendum_count(ballots: list[list[str]], old: str, new: str) -> tuple[int, int] | No"
+    }
+   ],
+   "adr": [
+    "ADR-020",
+    "ADR-029"
+   ]
+  },
+  "regime": {
+   "name": "Refusing to leave",
+   "fam": "const",
+   "kind": "rule",
+   "phase": 5,
+   "when": "Declared on the president's turn; resolved at the next election tick, before the election.",
+   "who": "A term-limited president, one tick before the election.",
+   "inputs": "Approval, the loyalty of the forces, the severity of the act.",
+   "decision": "<code>p = logistic(6·(approval − 0.5) + 3·(1 − 2·loyalty) − 2·severity)</code>. Success: another term, no election, and the president can no longer be recalled. Failure: the office is vacated and the election goes ahead.",
+   "knobs": [
+    [
+     "regime.enabled",
+     "false",
+     "",
+     "true (LLM)"
+    ],
+    [
+     "regime.loyalty",
+     "0.8",
+     "",
+     ""
+    ],
+    [
+     "regime.severity",
+     "0.5",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "extra_legal_act"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "presidential",
+    "petitions"
+   ],
+   "fedBy": [
+    "president_turn",
+    "calendar"
+   ],
+   "refs": [
+    {
+     "file": "regime.py",
+     "line": 12,
+     "label": "refusal_succeeds",
+     "expect": "def refusal_probability(approval: float, config: RegimeConfig) -> float:"
+    },
+    {
+     "file": "run_polity_simulation.py",
+     "line": 1035,
+     "label": "_resolve_refusal",
+     "expect": "def _resolve_refusal(context: TickContext, state: TickState) -> bool:"
+    }
+   ],
+   "adr": [
+    "ADR-022"
+   ]
+  },
+  "ambition": {
+   "name": "Ambition sets the goal",
+   "fam": "const",
+   "kind": "rule",
+   "phase": 8,
+   "when": "In every agent's persona; the president's goal.",
+   "who": "All agents.",
+   "inputs": "The agent's ambition score.",
+   "decision": "Ambition ≥ 0.4: keeping office comes first. 0.2–0.4: govern by convictions and keep office, weighing both. Below 0.2: convictions and the country's interest first. Every persona states high / moderate / low.",
+   "knobs": [
+    [
+     "agents.ambition_goal",
+     "true",
+     "",
+     ""
+    ]
+   ],
+   "events": [],
+   "fallback": "-",
+   "feeds": [
+    "president_turn",
+    "amendments"
+   ],
+   "fedBy": [],
+   "refs": [
+    {
+     "file": "agents.py",
+     "line": 165,
+     "label": "president_goal",
+     "expect": "def president_goal(president: Citizen) -> str:"
+    },
+    {
+     "file": "agents.py",
+     "line": 150,
+     "label": "bands",
+     "expect": "HIGH_AMBITION, LOW_AMBITION = 0.4, 0.2"
+    }
+   ],
+   "adr": [
+    "ADR-028"
+   ]
+  }
+ },
+ "lanes": [
+  {
+   "id": "candidacy",
+   "mech": "candidacy",
+   "name": "Candidacy & nomination",
+   "types": [
+    "candidacy_considered",
+    "candidacy_declared",
+    "party_nomination_choice",
+    "nomination_lost"
+   ]
+  },
+  {
+   "id": "campaign",
+   "mech": "campaign",
+   "name": "Campaign",
+   "types": [
+    "vote_intention_poll",
+    "campaign_run",
+    "campaign_positioning",
+    "agent_turn:nominee"
+   ]
+  },
+  {
+   "id": "regime",
+   "mech": "regime",
+   "name": "Refusing to leave",
+   "types": [
+    "extra_legal_act"
+   ]
+  },
+  {
+   "id": "presidential",
+   "mech": "presidential",
+   "name": "Presidential election",
+   "types": [
+    "vote_cast",
+    "elected",
+    "election_no_winner",
+    "election_invalidated",
+    "mandate_pledge_declared",
+    "snap_election_triggered"
+   ]
+  },
+  {
+   "id": "legislative",
+   "mech": "legislative",
+   "name": "Legislative election",
+   "types": [
+    "legislative_result"
+   ]
+  },
+  {
+   "id": "coalition",
+   "mech": "coalition",
+   "name": "Coalition",
+   "types": [
+    "coalition_decision",
+    "coalition_formed",
+    "coalition_failed"
+   ]
+  },
+  {
+   "id": "chamber",
+   "mech": "chamber",
+   "name": "Sortition chamber",
+   "types": [
+    "sortition_rotation",
+    "chamber_deliberation"
+   ]
+  },
+  {
+   "id": "president_turn",
+   "mech": "president_turn",
+   "name": "President's turn",
+   "types": [
+    "agent_turn:president"
+   ]
+  },
+  {
+   "id": "forum",
+   "mech": "forum",
+   "name": "Forum posts",
+   "types": [
+    "forum_post"
+   ]
+  },
+  {
+   "id": "parties",
+   "mech": "forum",
+   "name": "Party births & deaths",
+   "types": [
+    "party_founded",
+    "party_dissolved"
+   ]
+  },
+  {
+   "id": "legislation",
+   "mech": "legislation",
+   "name": "Legislation",
+   "types": [
+    "bill_proposed",
+    "bill_voted",
+    "bill_blocked",
+    "bill_reviewed",
+    "bill_enacted",
+    "policy_status"
+   ]
+  },
+  {
+   "id": "emotions",
+   "mech": "emotions",
+   "name": "Emotions & engagement",
+   "types": [
+    "emotions_updated",
+    "engagement_updated"
+   ]
+  },
+  {
+   "id": "events",
+   "mech": "events",
+   "name": "Events & reactions",
+   "types": [
+    "scandal_occurred",
+    "economic_shock_tick",
+    "reaction_to_event"
+   ]
+  },
+  {
+   "id": "pressure",
+   "mech": "pressure",
+   "name": "Pressure actions",
+   "types": [
+    "pressure_action"
+   ]
+  },
+  {
+   "id": "response",
+   "mech": "response",
+   "name": "Representative response",
+   "types": [
+    "representative_response",
+    "mandate_deviation_recorded"
+   ]
+  },
+  {
+   "id": "petitions",
+   "mech": "petitions",
+   "name": "Petitions & confidence",
+   "types": [
+    "petition_launched",
+    "petition_signed",
+    "petition_expired",
+    "confidence_vote_triggered",
+    "confidence_vote_result",
+    "recalled"
+   ]
+  },
+  {
+   "id": "legitimacy",
+   "mech": "legitimacy",
+   "name": "Legitimacy",
+   "types": [
+    "legitimacy_updated"
+   ]
+  },
+  {
+   "id": "amendments",
+   "mech": "amendments",
+   "name": "Amendments",
+   "types": [
+    "amendment_proposed",
+    "amendment_vote",
+    "amendment_resolved",
+    "constitution_amended",
+    "referendum_held"
+   ]
+  },
+  {
+   "id": "opinion",
+   "mech": "opinion",
+   "name": "Opinion dynamics",
+   "types": [
+    "opinion_dynamics_step"
+   ]
+  },
+  {
+   "id": "bounds",
+   "mech": null,
+   "name": "A shift hit a bound",
+   "types": [
+    "clamped_at_bound"
+   ]
+  }
+ ],
+ "misc_refs": {
+  "tick_order": {
+   "file": "run_polity_simulation.py",
+   "line": 1540,
+   "label": null,
+   "expect": "\"\"\"One tick, in order (S3.4). Each phase reads and updates TickState and may leave a"
+  },
+  "clock": {
+   "file": "institutional_clock.py",
+   "line": 86,
+   "label": null,
+   "expect": "def is_presidential_election(self, tick: int) -> bool:"
+  },
+  "flagship": {
+   "file": "scripts/run_polity_flagship.py",
+   "line": 122,
+   "label": "flagship",
+   "expect": "def _flagship_config("
+  },
+  "exploration": {
+   "file": "scripts/run_polity_flagship.py",
+   "line": 295,
+   "label": "exploration",
+   "expect": "def _exploration_config(config: PolityConfig) -> PolityConfig:"
+  }
+ },
+ "loop_nodes": [
+  [
+   "presidential",
+   "Election",
+   "seats a president, mandate m"
+  ],
+  [
+   "president_turn",
+   "President acts",
+   "positions drift from the pledge"
+  ],
+  [
+   "emotions",
+   "Citizens feel",
+   "gap → anger, enthusiasm"
+  ],
+  [
+   "awakening",
+   "Who wakes up",
+   "gap above a moving threshold"
+  ],
+  [
+   "pressure",
+   "Pressure",
+   "sign, launch, mobilise, wait"
+  ],
+  [
+   "legitimacy",
+   "Legitimacy erodes",
+   "écart from petitions and the street"
+  ],
+  [
+   "petitions",
+   "Confidence vote",
+   "keep or recall; snap election"
+  ]
+ ],
+ "start_mechanic": "pressure",
+ "start_module": "run_polity_simulation.py"
+}
