@@ -79,7 +79,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 | [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
-| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | cause found |
+| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
+| [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
 
 ---
 
@@ -2753,4 +2754,39 @@ when it comes before the id: read it as an unexplained effect to replicate, not 
 journals, and every replay log, are regenerated, and the cache key the sort was written for needs another way
 to be canonical (sort the body's top level, not the schema). The owner's call; nothing is changed here.
 
-*Status: cause found.*
+*Status: mechanism fixed 2026-10-19 (ADR-030, EXP-025).* `llm_client.WIRE_ORDER` decides the order a decision
+class's fields are sent in, and `scripts/check_schema_order.py` decides `WIRE_ORDER` on ground truth; it is
+set for four decisions since 2026-10-20 (ADR-030, "The first table"); every other object still goes out
+alphabetically, byte for byte as before. Applied on the wire
+after the request hash is taken: the "what a fix costs" paragraph above overstated it. Trying the order
+first (`motif` first) is OBS-051.
+
+### OBS-051
+
+**Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change.**
+
+*Seen.* The order tried on 2026-10-18 (EXP-025, commit `ddabeaf8`, never pushed): every decision as id,
+`motif`, decision, dependents, and every other object in its class's declared order. On stock vLLM 0.31.0,
+exploration profile, p100, 4 years, seeds 1-3, against the alphabetical control run at the same time on the
+same server:
+
+| measure | alphabetical | tried order | phase15 (older code), first 4 years |
+|---|---|---|---|
+| pressure "nothing" share | 55% (41-72% per seed) | 0% (0 of 1143) | 61% |
+| forum mind-shift rate | 3.8-4.1% per seed | 0.0-1.1% per seed | 6% |
+| fallbacks | 0 (a second control run: 15) | 5 per seed, all `chamber_deliberation` | 0-5 |
+| elections / recalls per run | 2 / 0 | 2 / 0 | 2 / 0 |
+
+*Why.* The pressure change is the only one `PressureDecision` received (`act, cid, motif, target` to `cid,
+motif, act, target`). On the bank's 24 ground-truth citizens the model then acted for 23, including all 12 far
+below their tolerance: the code it wrote first anchored the act, and it stopped reading the citizen's
+situation (45.8% correct, against 62.5% alphabetical and 79.2% in the declared order). The forum change comes
+from the objects without a `motif`: `ForumTurn` (`shift_issue` now after `rationale`, `post`, `note_to_self`).
+The chamber fallbacks are not an effect: a second run of the unchanged control code (2026-10-20) had 15 too.
+Two sessions sent identical bytes answer pressure the same way every time, so this is not noise.
+
+*Outcome.* Not shipped. ADR-030 makes the order a measured table; the live check, judged against two runs of
+the control code, rejects this order for its pressure and forum changes. The table that did ship (ADR-030,
+"The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
+
+*Status: explained, not shipped.*

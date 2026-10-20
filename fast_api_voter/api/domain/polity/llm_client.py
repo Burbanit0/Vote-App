@@ -50,9 +50,12 @@ schema before sending it, so every caller is protected automatically
 rather than having to remember to do it themselves.
 
 No caching here (§4.2 deferred to a later increment, per the approved
-plan). The request body is still built as canonical (sort_keys, compact
+plan). The request body is still built as canonical (sorted keys, compact
 separators) bytes so a cache key can be added later without touching
-prompt construction.
+prompt construction -- except, for the vLLM client, the fields of an object
+`WIRE_ORDER` lists, which go out in that order because the model writes them
+in it (ADR-030): a cache key must hash the schema's content, not these bytes.
+The Ollama client sorts everything.
 """
 from __future__ import annotations
 
@@ -214,6 +217,38 @@ def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
         return node
 
     return dict(resolve(schema))
+
+
+WIRE_ORDER: Mapping[str, tuple[str, ...]] = {
+    "PressureDecision": ("cid", "target", "act", "motif"),
+    "CandidacyDecision": ("cid", "outcome", "motif"),
+    "VoteCastDecision": ("cid", "blank", "motif", "ranking"),
+    "ResponseDecision": ("cid", "stance", "shifts", "motif"),
+}
+"""The order each object's fields are sent in, by the object's `title` (its Pydantic class name). The model
+writes an object's fields in the order it receives them, so this order is part of the prompt (ADR-030,
+EXP-025). An object not listed goes out alphabetically, as every object did until 2026-10 (OBS-050).
+These four are the best-scoring orders of the first sweep (check_schema_order_results.md, 2026-10-20), set
+by the owner although none passed the rule alone; the five other decisions showed no difference and stay
+alphabetical. Change it only from a check_schema_order.py run."""
+
+
+def _wire_names(properties: Mapping[str, Any], listed: Sequence[str]) -> list[str]:
+    """`listed`'s fields first, in its order, then any field it does not name, alphabetically."""
+    return [n for n in listed if n in properties] + sorted(n for n in properties if n not in listed)
+
+
+def _canonical(node: Any, order: Mapping[str, Sequence[str]]) -> Any:
+    """`node` with every dict's keys sorted, except the fields of an object whose title `order` lists."""
+    if isinstance(node, dict):
+        out = {key: _canonical(node[key], order) for key in sorted(node)}
+        listed = order.get(node["title"]) if isinstance(node.get("title"), str) else None
+        if listed and isinstance(out.get("properties"), dict):
+            out["properties"] = {n: out["properties"][n] for n in _wire_names(out["properties"], listed)}
+        return out
+    if isinstance(node, (list, tuple)):
+        return [_canonical(item, order) for item in node]
+    return node
 
 
 def _post_with_transport_retry(client: httpx.Client, url: str, payload: str) -> httpx.Response:
@@ -881,8 +916,11 @@ class VllmJsonClient:
             body.update(extra_body)
         return body
 
+    wire_order: Mapping[str, Sequence[str]] = WIRE_ORDER
+    """`WIRE_ORDER`, or a bake-off arm's own table (an empty one sends every object alphabetically)."""
+
     def _post_chat(self, body: dict[str, Any]) -> httpx.Response:
-        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        payload = json.dumps(_canonical(body, self.wire_order), separators=(",", ":"))
         return _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
 
     def close(self) -> None:
