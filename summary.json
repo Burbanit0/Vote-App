@@ -1441,7 +1441,7 @@
   "test-flaky": 29,
   "unknown": 2
  },
- "generated_at": "2026-10-20T16:04:04Z",
+ "generated_at": "2026-10-20T16:14:08Z",
  "grid": {
   "Backend CI": {
    "2026-09-20": {
@@ -1691,7 +1691,7 @@
     "success": 12
    },
    "2026-10-20": {
-    "success": 9
+    "success": 10
    }
   },
   "CI Health Watchdog": {
@@ -1825,6 +1825,9 @@
    },
    "2026-10-17": {
     "success": 3
+   },
+   "2026-10-20": {
+    "success": 1
    }
   },
   "DAST \u2014 ZAP Baseline": {
@@ -2694,7 +2697,7 @@
    "2026-10-20": {
     "cancelled": 1,
     "skipped": 24,
-    "success": 12
+    "success": 13
    }
   },
   "zizmor online": {
@@ -2742,9 +2745,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-20T15:53:41Z",
+   "created_at": "2026-10-20T16:03:56Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39452577320"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39454115600"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2754,11 +2757,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39431053847"
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-17T12:43:45Z",
+   "created_at": "2026-10-20T15:43:01Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39033677397"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39450984793"
   },
   "DAST \u2014 ZAP Baseline": {
    "branch": "polity",
@@ -2840,9 +2843,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-20T16:03:56Z",
+   "created_at": "2026-10-20T16:13:58Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39454115735"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39455603458"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2852,7 +2855,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 13621,
+ "runs": 13624,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2981,12 +2984,12 @@
     "2026-10-17": 336,
     "2026-10-18": 327,
     "2026-10-19": 346.0,
-    "2026-10-20": 371
+    "2026-10-20": 360.0
    },
    "p50_s": 391,
    "p95_s": 577,
    "queue_p50_s": 0,
-   "runs": 533
+   "runs": 534
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3034,12 +3037,13 @@
     "2026-10-10": 1836,
     "2026-10-12": 1843.5,
     "2026-10-15": 1850,
-    "2026-10-17": 1847
+    "2026-10-17": 1847,
+    "2026-10-20": 1852
    },
-   "p50_s": 1839,
+   "p50_s": 1841,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 19
+   "runs": 20
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
@@ -3471,12 +3475,12 @@
     "2026-10-17": 27.0,
     "2026-10-18": 27.5,
     "2026-10-19": 29.0,
-    "2026-10-20": 31.0
+    "2026-10-20": 31
    },
    "p50_s": 28,
    "p95_s": 56,
    "queue_p50_s": 0,
-   "runs": 1333
+   "runs": 1334
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3658,9 +3662,9 @@
     },
     "Coverage-Guided Fuzzing (atheris)": {
      "conclusion": "success",
-     "created_at": "2026-10-17T04:07:06Z",
-     "sha": "a09a2899486c63c02b8e30cf18e05a2ae4fb70ec",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39001353588"
+     "created_at": "2026-10-20T15:43:01Z",
+     "sha": "215997083fa45c1128d267c4c8bdd198075d5d46",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39450984793"
     },
     "DAST \u2014 ZAP Baseline": {
      "conclusion": "success",
