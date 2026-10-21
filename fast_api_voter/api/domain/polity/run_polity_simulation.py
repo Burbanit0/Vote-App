@@ -718,7 +718,7 @@ def run_simulation(
             context = TickContext(
                 tick=tick, config=in_force(config, state.constitution), journal=journal, client=client, clock=clock, graph=graph,
                 snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
-                memory=memory,
+                memory=memory, crowd=client if config.llm.crowd else None,
             )
             for phase in TICK_PHASES:
                 phase(context, state)
@@ -815,6 +815,7 @@ class TickContext:
     config: PolityConfig
     journal: Journal
     client: LlmClientProtocol | None
+    """The model, for the agents' turns (ADR-014); None on the deterministic engine."""
     clock: InstitutionalClock
     graph: SocialGraph | None
     snapshots_path: Path
@@ -828,6 +829,9 @@ class TickContext:
     """ADR-014: what agents remember, a view over the journal kept across ticks."""
     agenda_moves: list[PositionShift] | None = None
     """The president agent's bill this tick (empty: none); None leaves the agenda to the formula."""
+    crowd: LlmClientProtocol | None = None
+    """The model, for the crowd's batch decisions: `client` while llm.crowd, else None, and the
+    rules decide for the crowd (plan-scenarios-v1 step 2)."""
 
 
 def _phase_constitution(context: TickContext, state: TickState) -> None:
@@ -1066,7 +1070,7 @@ def _resolve_refusal(context: TickContext, state: TickState) -> bool:
 
 
 def _phase_presidential_election(context: TickContext, state: TickState) -> None:
-    tick, config, client = context.tick, context.config, context.client
+    tick, config, client = context.tick, context.config, context.crowd  # the crowd's model; the nominees' turns take context.client
     if _resolve_refusal(context, state):
         return
     # While a rerun is pending, the fixed presidential calendar is SUSPENDED, not
@@ -1102,6 +1106,7 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
             policy=_term_policy_record(legislature), ballots_out=counted, campaign_rng=state.campaign_rng,
+            agent_client=context.client,
         )
         _keep_ballots(state, config, counted)
         state.staggered_declared_cids = None
@@ -1133,7 +1138,9 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
             assert context.memory is not None  # agents.coalition builds the memory
             talks = partial(negotiate_leaders, citizens=state.citizens, memory=context.memory, tick=context.tick, answers=answers)
         coalition = _form_and_journal_coalition(
-            state.parties, seats, votes, context.config, context.journal, context.tick, context.client, talks, answers,
+            state.parties, seats, votes, context.config, context.journal, context.tick,
+            context.client if context.config.agents.coalition else context.crowd,  # the leaders' talks are agent turns
+            talks, answers,
         )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
@@ -1166,7 +1173,7 @@ def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
         return
     if context.clock.is_sortition_rotation(context.tick):
         _run_sortition_rotation(state.citizens, config, context.journal, context.tick, state.sortition_rng)
-    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
+    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.crowd)
 
 
 def _phase_legislation(context: TickContext, state: TickState) -> None:
@@ -1478,7 +1485,7 @@ def _phase_accountability(context: TickContext, state: TickState) -> None:
     assert context.exogenous is not None  # _phase_exogenous_events runs earlier in TICK_PHASES
     context.president_before_accountability = current_office_holders(state.citizens, Office.PRESIDENT)
     state.mobilized_last_tick = _run_accountability_phase(
-        state.citizens, context.config, context.journal, context.tick, context.client,
+        state.citizens, context.config, context.journal, context.tick, context.crowd,
         exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
         policy=_term_policy_record(state.legislature),
     )
@@ -1748,7 +1755,11 @@ def _declare_nominees(
     llm_client: LlmClientProtocol | None,
     barred_candidate_ids: frozenset[int] = frozenset(),
     campaign_rng: np.random.Generator | None = None,
+    agent_client: LlmClientProtocol | None = None,
 ) -> list[Citizen]:
+    """`llm_client` is the crowd's model (candidacy, nomination, positioning); `agent_client` the
+    agents' (the nominees' campaign turns, ADR-014). They are the same client unless llm.crowd is
+    off, when the rules declare and nominate and the model only campaigns."""
     if llm_client is not None:
         # The LLM path applies the same two gates to its declared set, just before
         # nomination (_eligible_declared_cids), and keeps `citizens` whole for
@@ -1779,6 +1790,8 @@ def _declare_nominees(
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
+    if config.agents.nominees and agent_client is not None:
+        _campaign_turns(nominees, citizens, config, journal, tick, agent_client, campaign_rng)
     return nominees
 
 
@@ -2299,7 +2312,9 @@ def _hold_presidential_election(
     policy: PolicyRecord | None = None,
     ballots_out: list[list[str]] | None = None,
     campaign_rng: np.random.Generator | None = None,
+    agent_client: LlmClientProtocol | None = None,
 ) -> PendingRerun | None:
+    # `agent_client`: the nominees' campaign turns when the crowd's `llm_client` is off (llm.crowd).
     # `ballots_out` (ADR-020): when given, receives the ballots this election cast (as cast: the Blank
     # still on them when `blank_vote_enabled` is false, which only the tally drops).
     # `staggered` (S4.4): this election's campaign already declared, nominated and
@@ -2343,7 +2358,7 @@ def _hold_presidential_election(
     else:
         nominees = _declare_nominees(
             citizens, parties, config, journal, tick, llm_client,
-            barred_candidate_ids=barred_ids, campaign_rng=campaign_rng,
+            barred_candidate_ids=barred_ids, campaign_rng=campaign_rng, agent_client=agent_client,
         )
         nominee_ids = {c.citizen_id for c in nominees}
         standing_rupture_candidates = sorted(

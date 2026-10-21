@@ -147,6 +147,7 @@
     "cache_backend": "redis",
     "cache_url": "redis://localhost:6379/0",
     "codebook_version": "1.6",
+    "crowd": true,
     "enabled": true,
     "max_batch_replays": 0,
     "max_batch_size": 25,

@@ -92,7 +92,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -227,10 +227,6 @@ def _flagship_config(
     if engine == "llm":
         llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
         config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, turnout_cost=LLM_TURNOUT_COST))
-        if vote_mode is not None:
-            # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of
-            # ballots only; `llm` has it cast every ballot, as every run before S4.1 did.
-            config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
         if provider is not None:
             # Baseline A/B only (plan Phase 0): the shipped default is the
             # single source of truth for which provider production uses --
@@ -250,7 +246,13 @@ def _flagship_config(
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    config = _exploration_config(config) if profile == "exploration" else config
+    config = PROFILES[profile](config)
+    if engine == "llm" and vote_mode is not None:
+        # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of ballots only;
+        # `llm` has it cast every ballot, as every run before S4.1 did. A flag outranks the profile, so a
+        # contradiction (the scenario profile and --vote-mode llm) reaches validate_config and is refused
+        # there instead of being silently rewritten.
+        config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
     return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments, without=without)
 
 
@@ -291,6 +293,23 @@ def _experiment_overrides(
                              f"{'amendment stakes' if name == 'forward-stakes' else 'president agent'} (the exploration profile, unfrozen)")
         config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[name]: False}))
     return config
+
+
+def _scenario_config(config: PolityConfig) -> PolityConfig:
+    """plan-scenarios-v1 step 2: the exploration profile with the crowd by rule and the model playing
+    the agents only (llm.crowd off: the utility ballot, the ambition rule for candidacy, the
+    deterministic pressure rule, form_coalition unless the leaders negotiate, no chamber shifts),
+    the forum capped at 10 speakers a tick (it was 60% of an exploration run's model time), and
+    views that keep moving (dynamics.drift_std 0.02, ADR-032's random-walk arm, the smallest value
+    of ADR-012's grid). On the deterministic engine it is the exploration profile plus the drift."""
+    explored = _exploration_config(config)
+    return dataclasses.replace(
+        explored,
+        llm=dataclasses.replace(explored.llm, crowd=False),
+        vote=dataclasses.replace(explored.vote, mode="utility"),
+        agents=dataclasses.replace(explored.agents, forum_size=10),
+        dynamics=dataclasses.replace(explored.dynamics, drift_std=0.02),
+    )
 
 
 def _exploration_config(config: PolityConfig) -> PolityConfig:
@@ -341,6 +360,14 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
             config.campaign, salience_step=0.15 if config.llm.enabled else 0.0, max_reached=12 if config.llm.enabled else 0,
         ),
     )
+
+
+PROFILES: dict[str, Callable[[PolityConfig], PolityConfig]] = {
+    "flagship": lambda config: config,
+    "exploration": _exploration_config,
+    "scenario": _scenario_config,
+}
+"""--profile: what each profile does to the flagship config. run_polity_seed_sweep.py reads the keys."""
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -777,10 +804,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--profile",
-        choices=("flagship", "exploration"),
+        choices=tuple(PROFILES),
         default="flagship",
         help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
-             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
+             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate; "
+             "scenario: exploration with the crowd by rule, the model for the agents only, the forum "
+             "capped at 10 and drifting views (plan-scenarios-v1 step 2)",
     )
     parser.add_argument(
         "--threshold", type=float, default=None,

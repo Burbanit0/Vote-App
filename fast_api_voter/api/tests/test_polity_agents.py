@@ -405,3 +405,60 @@ def test_a_president_agent_s_run_resumes_with_the_memory_it_had(tmp_path: Path, 
     monkeypatch.undo()
     resumed = run_simulation(_agent_run_config(tmp_path / "b"), run_id="run", resume=True, llm_client=_AgentFakeClient())
     assert resumed.read_bytes() == uninterrupted.read_bytes()
+
+
+CROWD_DECISIONS = ("candidacy_considered", "party_nomination_choice", "campaign_positioning", "vote_cast",
+                   "pressure_action", "reaction_to_event", "chamber_deliberation", "coalition_decision", "representative_response")
+
+
+def test_with_the_crowd_off_the_model_plays_only_the_agents(tmp_path: Path) -> None:
+    """plan-scenarios-v1 step 2 (llm.crowd off): the rules decide for the crowd and journal no model call; the
+    president and the nominees still take their turns, the nominees on the poll the kernel takes."""
+    config = _agent_run_config(tmp_path)
+    agents_only = dataclasses.replace(config, llm=dataclasses.replace(config.llm, crowd=False))
+    journal = run_simulation(agents_only, run_id="agents-only", llm_client=_AgentFakeClient())
+    events = [json.loads(line) for line in journal.read_text().splitlines()]
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for e in events:
+        by_type.setdefault(e["event_type"], []).append(e)
+    for kind in CROWD_DECISIONS:  # a decision the model made carries the call that made it; a rule's carries none
+        assert all(e["payload"].get("llm_call_id") is None for e in by_type.get(kind, [])), kind
+    assert not by_type.get("candidacy_considered") and not by_type.get("vote_cast") and not by_type.get("chamber_deliberation")
+    assert by_type["candidacy_declared"] and by_type["pressure_action"]  # the rules declared, consulted and acted
+    turns = by_type["agent_turn"]
+    assert {t["payload"]["role"] for t in turns} == {"president", "nominee"} and all(t["codebook_version"] for t in turns)
+    assert by_type["vote_intention_poll"] and {p["tick"] for p in by_type["vote_intention_poll"]} == {t["tick"] for t in turns if t["payload"]["role"] == "nominee"}
+    with_crowd = [json.loads(line) for line in run_simulation(config, run_id="crowd", llm_client=_AgentFakeClient()).read_text().splitlines()]
+    for kind in ("candidacy_considered", "pressure_action", "reaction_to_event", "chamber_deliberation"):
+        assert any(e["event_type"] == kind and e["payload"].get("llm_call_id") for e in with_crowd), kind
+    assert all(t["payload"].get("llm_call_id") for t in turns)  # the agents' turns are the model's, in both arms
+    assert json.loads((journal.parent / "config.json").read_text())["llm"]["crowd"] is False
+
+
+def test_with_the_crowd_off_each_hand_off_takes_the_right_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The coalition takes the agents' client when the leaders negotiate and the crowd's otherwise; the chamber's
+    deliberation and the accountability phase always take the crowd's, which is None with the crowd off."""
+    seen: dict[str, list[Any]] = {"coalition": [], "chamber": [], "accountability": []}
+    real_accountability = engine._run_accountability_phase
+    monkeypatch.setattr(engine, "_form_and_journal_coalition", lambda parties, seats, votes, config, journal, tick, client, talks, answers: seen["coalition"].append(client))
+    monkeypatch.setattr(engine, "_run_chamber_deliberation", lambda citizens, config, journal, tick, client: seen["chamber"].append(client))
+
+    def accountability(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
+        seen["accountability"].append(llm_client)
+        return real_accountability(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(engine, "_run_accountability_phase", accountability)
+    base = _agent_run_config(tmp_path)
+    for name, crowd, leaders in (("talks", False, True), ("rule", False, False), ("crowd", True, False)):
+        for calls in seen.values():
+            calls.clear()
+        config = dataclasses.replace(base, llm=dataclasses.replace(base.llm, crowd=crowd),
+                                     agents=dataclasses.replace(base.agents, coalition=leaders))
+        client = _AgentFakeClient()
+        run_simulation(config, run_id=name, llm_client=client)
+        assert seen["coalition"] and seen["chamber"] and seen["accountability"], name
+        if crowd:
+            assert all(c is not None for calls in seen.values() for c in calls), name  # the model everywhere
+        else:
+            assert all(c is None for c in seen["chamber"] + seen["accountability"]), name
+            assert all((c is not None) == leaders for c in seen["coalition"]), name

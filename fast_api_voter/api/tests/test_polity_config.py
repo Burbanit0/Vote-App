@@ -824,3 +824,27 @@ def test_a_negative_non_negative_float_is_rejected():
 
     with pytest.raises(PolityConfigError, match="must be non-negative"):
         _get_nonneg_float({"partisanship": -0.5}, "vote", "partisanship")
+
+
+def test_llm_crowd_ships_on_and_off_needs_the_utility_ballot() -> None:
+    """plan-scenarios-v1 step 2: llm.crowd off hands the crowd to the rules; the model must then never vote."""
+    import dataclasses
+
+    from api.domain.polity.config import broken_rule, load_config
+
+    config = load_config()
+    assert config.llm.crowd is True
+    agents_only = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, crowd=False))
+    assert broken_rule(agents_only) is None  # the shipped vote.mode is utility
+    model_votes = dataclasses.replace(agents_only, vote=dataclasses.replace(config.vote, mode="llm"))
+    message = broken_rule(model_votes)
+    assert message is not None and "'llm.crowd: false' needs 'vote.mode: utility'" in message
+    off_engine = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=False, crowd=False))
+    assert broken_rule(dataclasses.replace(off_engine, vote=dataclasses.replace(config.vote, mode="llm"))) is None
+    # The two things the rules cannot do for the crowd are refused, not silently dropped.
+    staggered = dataclasses.replace(agents_only, institutions=dataclasses.replace(config.institutions, staggered_election=True))
+    assert "staggered_election" in (broken_rule(staggered) or "")
+    responses = dataclasses.replace(agents_only, mandate=dataclasses.replace(config.mandate, enabled=True),
+                                    agents=dataclasses.replace(config.agents, president=False))
+    assert "agents.president" in (broken_rule(responses) or "")
+    assert broken_rule(dataclasses.replace(responses, agents=dataclasses.replace(config.agents, president=True))) is None

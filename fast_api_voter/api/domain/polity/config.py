@@ -616,6 +616,17 @@ class LlmConfig:
     only (llm_behavior_engine.THINKING_BUDGET_TYPES). Adopted 2026-09-16 at 2048: it lost no
     agreement and halved chamber_deliberation's time, with no truncation. null sends no
     budget. vLLM only -- Ollama has no such field."""
+    crowd: bool = True
+    """plan-scenarios-v1 step 2: whether the model decides for the crowd. True: the nine batch
+    decisions (candidacy, nomination, positioning, the vote audit, pressure, reactions, chamber
+    deliberation, the crowd's coalition and response answers) go to the model, as every run so far.
+    False: the rules decide them (simple_rules, the deterministic twin's own) and the model plays
+    only the agents (ADR-014: the president, the nominees, the forum, the chamber's amendment votes,
+    the party leaders). A run then costs the agents' turns and nothing else. Two things the rules
+    have no equivalent of: the staggered campaign (the model declares and nominates it) and the
+    president's response to pressure (an agent president answers in their turn): both are refused
+    with the crowd off, below. A checkpoint from before this field hashes differently (config_hash):
+    a run started before it cannot resume after it."""
 
 
 @dataclass(frozen=True)
@@ -1261,6 +1272,7 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
         reproducibility=_get_enum(s, "llm", "reproducibility", _LLM_REPRODUCIBILITY),
         thinking_token_budget=_thinking_token_budget(s),
+        crowd=_get(s, "llm", "crowd", bool),
     )
 
 
@@ -1297,6 +1309,20 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'llm.thinking_token_budget' needs 'llm.provider: vllm' (S1.3): it is a vLLM request field, "
         "which Ollama has no equivalent of -- set it to null for any other provider"
     ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
+    lambda c: (
+        "'llm.crowd: false' needs 'vote.mode: utility' (plan-scenarios-v1 step 2): the model then plays "
+        "only the agents, and every ballot is the kernel's utility ballot (ADR-011)"
+    ) if c.llm.enabled and not c.llm.crowd and c.vote.mode == "llm" else None,
+    lambda c: (
+        "'llm.crowd: false' cannot run 'institutions.staggered_election: true': the staggered campaign "
+        "(declaration and nomination before the vote) is the model's, and the rules have no equivalent; "
+        "the election would silently fall back to one tick"
+    ) if c.llm.enabled and not c.llm.crowd and c.institutions.staggered_election else None,
+    lambda c: (
+        "'llm.crowd: false' with 'mandate.enabled: true' needs 'agents.president: true': the president's "
+        "response to pressure is the model's (representative_response) or the agent's turn; the rules have "
+        "none, and the responses would silently be dropped"
+    ) if c.llm.enabled and not c.llm.crowd and c.mandate.enabled and not c.agents.president else None,
     lambda c: (
         "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
         "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
