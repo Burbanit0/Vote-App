@@ -1568,7 +1568,7 @@
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-21T16:55:21Z",
+ "generated_at": "2026-10-21T17:01:40Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1820,7 +1820,7 @@
     "success": 32
    },
    "2026-10-21": {
-    "success": 16
+    "success": 17
    }
   },
   "CI Health Watchdog": {
@@ -2814,7 +2814,7 @@
    "2026-10-21": {
     "cancelled": 14,
     "skipped": 75,
-    "success": 40
+    "success": 41
    }
   },
   "zizmor online": {
@@ -2862,9 +2862,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-21T16:48:55Z",
+   "created_at": "2026-10-21T16:51:42Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39638144496"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39638566233"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2960,9 +2960,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-21T16:57:28Z",
+   "created_at": "2026-10-21T17:00:40Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39639430028"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39639912270"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2972,7 +2972,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14252,
+ "runs": 14254,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3099,12 +3099,12 @@
     "2026-10-18": 327,
     "2026-10-19": 346.0,
     "2026-10-20": 367.0,
-    "2026-10-21": 395.0
+    "2026-10-21": 410
    },
    "p50_s": 391,
-   "p95_s": 581,
+   "p95_s": 582,
    "queue_p50_s": 0,
-   "runs": 572
+   "runs": 573
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3587,12 +3587,12 @@
     "2026-10-18": 27.5,
     "2026-10-19": 29.0,
     "2026-10-20": 30,
-    "2026-10-21": 36.0
+    "2026-10-21": 36
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1416
+   "runs": 1417
   },
   "zizmor online": {
    "daily_p50_s": {
