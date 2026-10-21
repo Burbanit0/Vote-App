@@ -277,13 +277,15 @@ class DynamicsConfig:
     """Standard deviation of each factor's idiosyncratic step per update."""
     radical_step: float = 0.0
     """ADR-033: how far a citizen angry at the president steps, per update, along the latent space away from
-    the president's factors, scaled by their anger and by the salience a shock left them (so a crisis
-    moves positions only in the citizens it reached). 0 leaves opinion to the neighbours and the noise.
-    Needs `emotions.enabled` (anger is tracked there)."""
+    the president's factors, scaled by their anger and by the salience events have left them (event_salience
+    is event-driven: it rises with each scandal or shock and does not fade between them, so the push starts
+    at the first event and does not stop). 0 leaves opinion to the neighbours and the noise. Needs
+    `dynamics.enabled`, `emotions.enabled` (anger), `events.enabled` (salience) and `susceptibility` < 1
+    (the anchor is what draws a pushed citizen back)."""
     anger_narrows_bound: float = 0.0
     """ADR-033: at anger 1 a citizen's confidence bound is (1 - this) of `confidence_bound`: an angry citizen
     listens only to the like-minded (Deffuant's extremist pull). 0 leaves every bound as it was. Needs
-    `emotions.enabled`."""
+    `dynamics.enabled` and `emotions.enabled`."""
 
 
 @dataclass(frozen=True)
@@ -1321,9 +1323,18 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "which Ollama has no equivalent of -- set it to null for any other provider"
     ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
     lambda c: (
-        "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'emotions.enabled' (ADR-033): "
-        "they act through a citizen's anger, which only emotions track"
-    ) if (c.dynamics.radical_step > 0 or c.dynamics.anger_narrows_bound > 0) and not c.emotions.enabled else None,
+        "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
+        "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "
+        "emotions track"
+    ) if (c.dynamics.radical_step > 0 or c.dynamics.anger_narrows_bound > 0) and not (c.dynamics.enabled and c.emotions.enabled) else None,
+    lambda c: (
+        "'dynamics.radical_step' > 0 requires 'events.enabled' (ADR-033): the push is scaled by the salience a "
+        "scandal or an economic shock leaves, which stays 0 without events, so the push would never fire"
+    ) if c.dynamics.radical_step > 0 and not c.events.enabled else None,
+    lambda c: (
+        "'dynamics.radical_step' > 0 requires 'dynamics.susceptibility' < 1 (ADR-033): the anchor is the only "
+        "thing that draws a pushed citizen back, and with none they would walk off without limit"
+    ) if c.dynamics.radical_step > 0 and c.dynamics.susceptibility >= 1.0 else None,
     lambda c: (
         "'llm.crowd: false' needs 'vote.mode: utility' (plan-scenarios-v1 step 2): the model then plays "
         "only the agents, and every ballot is the kernel's utility ballot (ADR-011)"

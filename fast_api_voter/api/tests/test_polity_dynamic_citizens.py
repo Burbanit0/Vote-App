@@ -336,16 +336,28 @@ def _mood(anger: list[float], salience: list[float], president: tuple[float, flo
     return Mood(anger=np.array(anger), salience=np.array(salience), president=None if president is None else np.array(president))
 
 
-def test_the_radicalisation_settings_ship_at_zero_and_need_emotions() -> None:
+def test_the_radicalisation_settings_ship_at_zero_and_need_dynamics_emotions_events_and_an_anchor(flagship: Any, tmp_path: Path) -> None:
     config = load_config()
     assert config.dynamics.radical_step == 0.0 and config.dynamics.anger_narrows_bound == 0.0
-    dynamic = dataclasses.replace(config, dynamics=RADICAL)
     with pytest.raises(PolityConfigError, match="emotions.enabled"):
-        validate_config(dynamic)
+        validate_config(dataclasses.replace(config, dynamics=dataclasses.replace(RADICAL, susceptibility=0.9)))  # no emotions
     with pytest.raises(PolityConfigError, match="emotions.enabled"):
         validate_config(dataclasses.replace(config, dynamics=dataclasses.replace(NEUTRAL, anger_narrows_bound=0.5)))
-    awake = dataclasses.replace(dynamic, awakening=dataclasses.replace(config.awakening, enabled=True), emotions=QUIET)
-    validate_config(awake)
+    scenario = flagship._flagship_config(
+        engine="deterministic", years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
+        max_batch_replays=0, provider=None, workers=1, profile="scenario",
+    )
+    validate_config(scenario)  # the profile that sets them satisfies every rule
+    assert scenario.dynamics.radical_step > 0
+    no_events = dataclasses.replace(scenario, events=dataclasses.replace(scenario.events, enabled=False, scandal_enabled=False, economic_shock_enabled=False),
+                                    awakening=dataclasses.replace(scenario.awakening, context_modulation=dataclasses.replace(
+                                        scenario.awakening.context_modulation, event_salience=False)))
+    with pytest.raises(PolityConfigError, match="events.enabled"):
+        validate_config(no_events)  # salience would stay 0: the push would never fire
+    with pytest.raises(PolityConfigError, match="susceptibility"):
+        validate_config(dataclasses.replace(scenario, dynamics=dataclasses.replace(scenario.dynamics, susceptibility=1.0)))  # no anchor
+    narrowing_only = dataclasses.replace(scenario, dynamics=dataclasses.replace(scenario.dynamics, radical_step=0.0, susceptibility=1.0))
+    validate_config(narrowing_only)  # the narrowed bound needs neither events nor an anchor
 
 
 @settings(max_examples=200, deadline=None)
@@ -402,7 +414,7 @@ def test_apply_dynamics_reads_anger_salience_and_the_sitting_president_off_the_c
     edges = NeighbourEdges.from_graph(_graph([], 6))
     for citizen in population:
         citizen.anger, citizen.event_salience = 1.0, 1.0
-    population[0].office = Office.PRESIDENT
+    population[0].office, population[0].revealed_position = Office.PRESIDENT, population[0].issue_positions
     start = current_factors(population, structure)
     step = apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1))
     moved = np.array([c.latent_factors for c in population])
@@ -412,9 +424,69 @@ def test_apply_dynamics_reads_anger_salience_and_the_sitting_president_off_the_c
     assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 0  # no president, no push
 
 
-def test_a_run_with_the_push_on_journals_how_many_it_moved_and_one_without_does_not(tmp_path: Path) -> None:
-    pushing = dataclasses.replace(MOVING, radical_step=0.05, anger_narrows_bound=0.3)
-    with_push = [e for e in _lines(run_simulation(_config(tmp_path / "on", pushing, FELT), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
-    assert with_push and all("radicalised" in e["payload"] and e["payload"]["radicalised"] >= 0 for e in with_push)
-    without = [e for e in _lines(run_simulation(_config(tmp_path / "off", MOVING, FELT), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
+def test_the_push_points_away_from_the_president_the_emotions_phase_appraises_and_counts_only_a_real_push() -> None:
+    citizens_config = load_config().citizens
+    population = generate_population(citizens_config, 6, seed=2)
+    structure = latent_structure(citizens_config, 6, seed=2)
+    edges = NeighbourEdges.from_graph(_graph([], 6))
+    for citizen in population:
+        citizen.anger, citizen.event_salience = 1.0, 1.0
+    population[0].office = Office.PRESIDENT  # in office with no revealed position yet: nobody is angry at them
+    assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 0
+    population[0].revealed_position = population[0].issue_positions
+    assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 5
+    for citizen in population[1:]:
+        citizen.anger = 1e-9  # the tail of an exponential blend: a push of about 1e-10, not a radicalised citizen
+    assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 0
+    for citizen in population[1:]:
+        citizen.anger = None  # untracked emotions exert nothing
+    assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 0
+
+
+def _scenario_twin(flagship: Any, output_dir: Path, **dynamics: float) -> PolityConfig:
+    config = flagship._flagship_config(
+        engine="deterministic", years=3, population=60, seats=9, seed=3, output_dir=output_dir,
+        max_batch_replays=0, provider=None, workers=1, profile="scenario",
+    )
+    return dataclasses.replace(config, dynamics=dataclasses.replace(config.dynamics, **dynamics))
+
+
+def test_in_a_scenario_run_the_push_fires_after_an_event_and_moves_opinion_more_than_the_same_run_without_it(flagship: Any, tmp_path: Path) -> None:
+    on = run_simulation(_scenario_twin(flagship, tmp_path / "on", radical_step=1.0), run_id="run")
+    off = run_simulation(_scenario_twin(flagship, tmp_path / "off", radical_step=0.0), run_id="run")
+    pushed = [e["payload"]["radicalised"] for e in _lines(on) if e["event_type"] == "opinion_dynamics_step"]
+    first_event = min(e["tick"] for e in _lines(on) if e["event_type"] in {"scandal_occurred", "economic_shock_tick"})
+    ticks = [e["tick"] for e in _lines(on) if e["event_type"] == "opinion_dynamics_step"]
+    assert not any(n for t, n in zip(ticks, pushed) if t < first_event)  # no event yet, no salience, no push
+    assert any(pushed)  # and after one, somebody angry is pushed
+
+    def shift(path: Path) -> float:  # mean distance of the final latent factors from where the same run without the push ended
+        factors = lambda run: np.array([c.latent_factors for c in load_checkpoint(run.parent / "checkpoint.json").state.citizens])  # noqa: E731
+        return float(np.linalg.norm(factors(on) - factors(off), axis=1).mean())
+
+    assert shift(on) > 0.0
+
+
+def test_a_run_with_the_push_on_resumed_after_a_crash_matches_an_uninterrupted_one(flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    uninterrupted = run_simulation(_scenario_twin(flagship, tmp_path / "a", radical_step=1.0), run_id="run")
+    real_phase = engine._run_accountability_phase
+
+    def _crash_at_tick_6(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
+        if tick == 6:
+            raise _SimulatedCrash("killed mid-tick")
+        return real_phase(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(engine, "_run_accountability_phase", _crash_at_tick_6)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(_scenario_twin(flagship, tmp_path / "b", radical_step=1.0), run_id="run")
+    monkeypatch.undo()
+    resumed = run_simulation(_scenario_twin(flagship, tmp_path / "b", radical_step=1.0), run_id="run", resume=True)
+    assert resumed.read_bytes() == uninterrupted.read_bytes()
+    assert (resumed.parent / "snapshots.jsonl").read_bytes() == (uninterrupted.parent / "snapshots.jsonl").read_bytes()
+
+
+def test_a_run_with_the_push_on_journals_how_many_it_moved_and_one_without_does_not(flagship: Any, tmp_path: Path) -> None:
+    with_push = [e for e in _lines(run_simulation(_scenario_twin(flagship, tmp_path / "on", radical_step=0.5), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
+    assert with_push and all(isinstance(e["payload"]["radicalised"], int) for e in with_push)
+    without = [e for e in _lines(run_simulation(_scenario_twin(flagship, tmp_path / "off", radical_step=0.0), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
     assert without and not any("radicalised" in e["payload"] for e in without)

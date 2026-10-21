@@ -57,6 +57,11 @@ class DynamicsStep:
     """Citizens ADR-033's push moved this update."""
 
 
+PUSH_COUNTED = 0.01
+"""A citizen counts as pushed (`radicalised`) when anger x salience reaches this share of the step: anger is an
+exponential blend that never reaches exactly 0, and a push of 1e-9 is not a radicalised citizen."""
+
+
 @dataclass(frozen=True)
 class Mood:
     """What ADR-033 reads off the citizens: each one's anger and the salience a shock left them, in citizen
@@ -93,7 +98,7 @@ def update_latent_factors(
         direction = np.divide(away, distance, out=np.zeros_like(away), where=distance > 0)
         push = config.radical_step * (mood.anger * mood.salience)[:, None] * direction
         step = step + push
-        pushed = int((np.linalg.norm(push, axis=1) > 0).sum())
+        pushed = int((np.linalg.norm(push, axis=1) > PUSH_COUNTED * config.radical_step).sum())
     s = config.susceptibility
     moved = (1.0 - s) * anchors + s * (factors + step) + config.drift_std * innovation
     shifts = np.linalg.norm(moved - factors, axis=1)
@@ -122,8 +127,10 @@ def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit
 
 
 def _mood(citizens: Sequence[Citizen], factors: np.ndarray) -> Mood:
-    """Each citizen's anger (0 where untracked) and shock salience, and the sitting president's factors."""
-    president = next((i for i, c in enumerate(citizens) if c.office == Office.PRESIDENT), None)
+    """Each citizen's anger (0 where untracked) and shock salience, and the factors of the president they are
+    angry at: the one the emotions phase appraises (emotions._update_emotions), the sitting president with a
+    revealed position, so the push and the anger agree on who that is."""
+    president = next((i for i, c in enumerate(citizens) if c.office == Office.PRESIDENT and c.revealed_position is not None), None)
     return Mood(
         anger=np.array([c.anger or 0.0 for c in citizens], dtype=float),
         salience=np.array([c.event_salience for c in citizens], dtype=float),
@@ -139,9 +146,10 @@ def apply_dynamics(
     if [c.citizen_id for c in citizens] != list(range(len(citizens))):
         raise ValueError("apply_dynamics needs the whole population, ordered by citizen_id")
     factors = current_factors(citizens, structure)
-    step = update_latent_factors(factors, structure.anchors, edges, config, rng, mood=_mood(citizens, factors))
+    moody = config.radical_step > 0 or config.anger_narrows_bound > 0  # else the mood is never read: do not build it
+    step = update_latent_factors(factors, structure.anchors, edges, config, rng, mood=_mood(citizens, factors) if moody else None)
     positions = structure.positions(step.factors)
-    for citizen, factors, issue_positions in zip(citizens, step.factors, positions):
-        citizen.latent_factors = tuple(float(x) for x in factors)
+    for citizen, moved, issue_positions in zip(citizens, step.factors, positions):
+        citizen.latent_factors = tuple(float(x) for x in moved)
         citizen.issue_positions = tuple(float(x) for x in issue_positions)
     return step

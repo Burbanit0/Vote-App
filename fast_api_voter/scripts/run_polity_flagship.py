@@ -302,7 +302,7 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
     the forum capped at 10 speakers a tick (it was 60% of an exploration run's model time), and
     views that move: drift 0.18 (ADR-032's random-walk arm; 0.02, ADR-012's smallest, left a four-year
     panel correlation of 0.996, citizens who never change their minds; 0.18 puts it at 0.88, inside
-    ADR-012's D1 band of 0.70 to 0.90), and ADR-033's radicalisation (angry citizens a shock reached
+    ADR-012's D1 band of 0.70 to 0.90), and ADR-033's radicalisation (once events have shaken the polity, angry citizens
     step away from the president; anger narrows what they listen to). On the deterministic engine it is
     the exploration profile plus those."""
     explored = _exploration_config(config)

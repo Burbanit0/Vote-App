@@ -193,7 +193,7 @@
      ],
      "ref": {
       "file": "config.py",
-      "line": 1307,
+      "line": 1309,
       "label": null,
       "expect": "# must hold for a config built in code with dataclasses.replace, which never passes"
      }
@@ -513,7 +513,7 @@
      "calls": [],
      "ref": {
       "file": "opinion_dynamics.py",
-      "line": 70,
+      "line": 75,
       "label": null,
       "expect": "def update_latent_factors("
      }
@@ -2367,13 +2367,13 @@
    "refs": [
     {
      "file": "opinion_dynamics.py",
-     "line": 70,
+     "line": 75,
      "label": "update_latent_factors",
      "expect": "def update_latent_factors("
     },
     {
      "file": "opinion_dynamics.py",
-     "line": 115,
+     "line": 120,
      "label": "shift_stance",
      "expect": "def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float) -"
     }
