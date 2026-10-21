@@ -48,7 +48,7 @@ flowchart TB
   end
   subgraph out["Journal and outputs"]
     journal["journal.py, events.py<br/>Journal.write_event"]
-    post["run_digest.py, compaction.py,<br/>metrics.py, viz_export.py"]
+    post["run_digest.py, trajectory.py,<br/>compaction.py, metrics.py, viz_export.py"]
     explorer["run_catalog.py, run_frames.py,<br/>explorer_*.py"]
   end
   rps --> clock & cfg & ts

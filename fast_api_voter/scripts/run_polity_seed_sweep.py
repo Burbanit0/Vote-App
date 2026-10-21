@@ -67,6 +67,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from api.domain.polity.config import ARTICLES  # noqa: E402
 from api.domain.polity.decision_audit import audit_run, render_audit  # noqa: E402
 from api.domain.polity.run_digest import read_journal_tolerant  # noqa: E402
+from api.domain.polity.trajectory import FEATURES, divergence_by_year, divergence_verdict, diversity, pairwise_distances  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
     RedFlag,
     SweepRun,
@@ -199,9 +200,13 @@ def _load_run(output_dir: Path, years: int, population: int, seed: int, repeat: 
     progress = json.loads(progress_path.read_text(encoding="utf-8")) if progress_path.exists() else {}
     metadata_path = digest_path.with_name("run_metadata.json")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
+    trajectory = digest.get("trajectory") or {}  # plan-scenarios-v1 step 1; absent in older digests
     return SweepRun(
         seed=seed, repeat=repeat, run_id=run_id, outcome=str(digest.get("outcome")),
         office_occupancy=digest.get("office_occupancy"),
+        archetype=trajectory.get("archetype"),
+        plausibility_failed=None if "plausibility_failed" not in trajectory else tuple(trajectory["plausibility_failed"]),
+        yearly=trajectory.get("yearly"),
         last_election=(digest.get("effective_parties") or [None])[-1],
         decisions_by_type=dict(progress.get("decisions_by_type") or {}),
         fallback_by_type=dict(progress.get("fallback_by_type") or {}),
@@ -341,6 +346,39 @@ def _fallback_section(firsts: list[SweepRun]) -> list[str]:
     return [*lines, ""]
 
 
+def _diversity_section(firsts: list[SweepRun]) -> list[str]:
+    """plan-scenarios-v1 step 1: how varied the ensemble is and the divergence test, over each seed's first
+    completed run that carries a trajectory. Reported beside refuse-to-average, not in its place: a distance
+    between two runs needs no shared constitution, a pooled mean does."""
+    # A digest from before step 1, or one whose series lack a feature this code expects, is left out and
+    # named, so a mixed directory still gets its summary.
+    runs = [r for r in firsts if r.archetype is not None and r.yearly is not None and set(FEATURES) <= set(r.yearly)]
+    left_out = [_label(r) for r in firsts if r not in runs]
+    lines = ["## Diversity and the divergence test (plan-scenarios-v1; first completed run per seed)\n"]
+    if left_out:
+        lines.append(f"- without a comparable trajectory (digest older than step 1, or another feature set): {', '.join(left_out)}")
+    if not runs:
+        return [*lines, "- no completed run carries a trajectory yet", ""]
+    series = {r.run_id: r.yearly or {} for r in runs}
+    ensemble = diversity({r.run_id: str(r.archetype) for r in runs}, pairwise_distances(series))
+    by_year = divergence_by_year(series)
+    verdict = divergence_verdict(by_year, ensemble, sum(not r.plausibility_failed for r in runs) / len(runs))
+    distance = ensemble["mean_pairwise_distance"]
+    lines += ["| run | archetype | band checks failed |", "|---|---|---|"]
+    lines += [f"| {_label(r)} | {r.archetype} | {', '.join(r.plausibility_failed or ()) or '-'} |" for r in runs]
+    lines += [
+        "",
+        f"- archetypes: {ensemble['archetypes']}; entropy {ensemble['archetype_entropy_bits']:.2f} bits; "
+        f"largest share {ensemble['largest_archetype_share']:.0%}; "
+        f"mean pairwise distance {'needs two runs' if distance is None else f'{distance:.2f}'}",
+        f"- mean pairwise distance by year: {', '.join(f'{d:.2f}' for d in by_year) or 'needs two runs'}",
+        "- verdict: " + "; ".join(
+            f"{name} {'not evaluable' if ok is None else 'yes' if ok else 'no'}" for name, ok in verdict.items()
+        ),
+    ]
+    return [*lines, ""]
+
+
 def _provenance_section(runs: list[SweepRun]) -> list[str]:
     lines = ["## Provenance (S0.4)\n"]
     completed = [r for r in runs if r.completed]
@@ -388,6 +426,7 @@ def _write_sweep_summary(
         *_constitution_section(runs),
         *_occupancy_section(firsts),
         *_fallback_section(firsts),
+        *_diversity_section(firsts),
         *_audit_section(output_dir, firsts),
         "## Pre-registered red flags (S0.7)\n",
         *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in flags],

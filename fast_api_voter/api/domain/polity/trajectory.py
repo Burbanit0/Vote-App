@@ -1,0 +1,413 @@
+"""Trajectory metrics (docs/plan/polity/plan-scenarios-v1.md, step 1): a run's history as numbers, so two
+runs can be told apart and an ensemble's variety measured instead of asserted.
+
+Pure functions over the journal (events), the yearly census (snapshots) and the terms the indexer cut. A
+figure the journal does not hold is absent (None), never estimated: a presidential margin exists only where
+a vote_intention_poll was journaled (the exploration profile), polarization only where snapshots.jsonl sits
+beside the journal.
+
+The archetype rules and their thresholds are a first cut: explicit, applied in ARCHETYPE_RULES order (first
+match wins), and meant to be re-cut once the catalogue (plan-scenarios-v1, step 6) shows what runs do.
+"""
+from __future__ import annotations
+
+import math
+from collections import Counter, defaultdict
+from collections.abc import Callable, Mapping, Sequence
+from itertools import combinations
+from typing import Any
+
+import numpy as np
+
+from api.domain.polity.indexer import Term
+from api.domain.polity.metrics import effective_number_of_parties
+from api.domain.polity.run_macro import build_macro
+
+Series = dict[str, list[float | None]]
+"""One list per feature, indexed by census year."""
+
+FEATURES: tuple[str, ...] = ("legitimacy", "enp_seats", "turnout", "dispersion", "bimodality", "mean_shift", "pressure", "volatility")
+"""The yearly series a trajectory vector is made of, in this order."""
+
+RECALL_ENDINGS = frozenset({"legitimacy_floor", "confidence_vote"})
+
+# Archetype thresholds (first cut; see the module docstring).
+COLLAPSE_OCCUPANCY = 0.5
+ENTRENCHMENT_HOLD = 3
+RECALL_CYCLE_RECALLS = 2
+FRAGMENTATION_ENP = 8.0
+REALIGNMENT_SHIFT = 0.1
+CHURN_VOLATILITY = 0.4
+ALTERNATION_COUNT = 2
+
+
+PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {"enp_seats": (1.5, 8.0), "turnout": (0.5, 0.85), "volatility": (0.05, 0.30)}
+"""Generic European party-system facts, as a band a run should not leave: ENP by seats at the last
+legislative election, mean turnout, mean legislative volatility (Pedersen). A filter against absurd runs,
+not a target."""
+
+DIVERGENCE_ENTROPY_BITS = 1.0
+DIVERGENCE_LARGEST_SHARE = 0.5
+DIVERGENCE_PLAUSIBLE_SHARE = 2 / 3
+
+
+# ── per run ───────────────────────────────────────────────────────────────
+
+
+def pedersen_volatility(before: Mapping[Any, float], after: Mapping[Any, float]) -> float | None:
+    """Half the sum of absolute vote-share changes over every party that stood in either election (Pedersen
+    1979). None when either election counted no votes."""
+    totals = (sum(before.values()), sum(after.values()))
+    if min(totals) <= 0:
+        return None
+    return 0.5 * sum(abs(before.get(p, 0.0) / totals[0] - after.get(p, 0.0) / totals[1]) for p in set(before) | set(after))
+
+
+def _votes(event: Mapping[str, Any]) -> dict[str, float]:
+    return {str(party): float(votes) for party, votes in event["payload"]["votes"].items()}
+
+
+def legislative_points(events: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Per legislative election: ENP by seats (None when no party was seated), whether one party held a
+    majority, whether any party was seated, and the Pedersen volatility against the previous election (None at
+    the first)."""
+    results = [e for e in events if e["event_type"] == "legislative_result"]
+    rows: list[dict[str, Any]] = []
+    for previous, current in zip([None, *results], results):
+        seats = {int(k): float(v) for k, v in current["payload"]["seats"].items()}
+        total = sum(seats.values())
+        rows.append({
+            "tick": int(current["tick"]),
+            "enp_seats": effective_number_of_parties(seats) if total > 0 else None,
+            "majority": any(s > total / 2 for s in seats.values()) if total > 0 else False,
+            "seated": total > 0,
+            "volatility": None if previous is None else pedersen_volatility(_votes(previous), _votes(current)),
+        })
+    return rows
+
+
+def election_points(events: Sequence[Mapping[str, Any]], population: int, last_tick: int) -> list[dict[str, Any]]:
+    """Per presidential vote held: the tick, the winner (None without one) and the turnout, read off the
+    explorer's own election points (run_macro) so the two never disagree on what a held vote is."""
+    return [
+        {"tick": point.tick, "winner": point.winner, "turnout": point.turnout}
+        for point in build_macro(events, population, last_tick).elections if point.turnout is not None
+    ]
+
+
+def presidential_margins(events: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Per vote-intention poll (journaled at each presidential election of the exploration profile): the
+    leader's first-choice share and the margin over the runner-up (the whole share with a single candidate)."""
+    rows = []
+    for e in events:
+        if e["event_type"] == "vote_intention_poll":
+            shares = sorted((float(s["share"]) for s in e["payload"]["shares"]), reverse=True)
+            leader = shares[0] if shares else None
+            rows.append({
+                "tick": int(e["tick"]), "candidates": len(shares), "leader_share": leader,
+                "margin": shares[0] - shares[1] if len(shares) > 1 else leader,
+            })
+    return rows
+
+
+def polarization(positions: np.ndarray) -> dict[str, float | None]:
+    """The population's spread along its own first principal axis: `dispersion` is the standard deviation of
+    the scores, `bimodality` Sarle's coefficient on them, (skewness² + 1) / (excess kurtosis + correction):
+    5/9 for a uniform, higher for two camps, lower for one. None below four citizens (undefined) and for a
+    population with no spread."""
+    n = len(positions)
+    if n < 4:
+        return {"dispersion": None, "bimodality": None}
+    centred = positions - positions.mean(axis=0)
+    _, _, axes = np.linalg.svd(centred, full_matrices=False)
+    scores = centred @ axes[0]
+    sd = float(scores.std(ddof=1))
+    if sd == 0.0:
+        return {"dispersion": 0.0, "bimodality": None}
+    z = (scores - scores.mean()) / sd
+    skewness = float((z**3).mean())
+    kurtosis = float((z**4).mean()) - 3.0
+    correction = 3.0 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+    return {"dispersion": sd, "bimodality": (skewness**2 + 1.0) / (kurtosis + correction)}
+
+
+def polarization_by_year(snapshots: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Per census year: the polarization of the issue positions and how far the population's mean has moved
+    from the first census (`mean_shift`, Euclidean over the issues)."""
+    by_year: dict[int, list[Sequence[float]]] = defaultdict(list)
+    for row in snapshots:
+        by_year[int(row["year"])].append(row["issue_positions"])
+    rows: list[dict[str, Any]] = []
+    first_mean: np.ndarray | None = None
+    for year in sorted(by_year):
+        positions = np.asarray(by_year[year], dtype=float)
+        mean = positions.mean(axis=0)
+        if first_mean is None:
+            first_mean = mean
+        rows.append({"year": year, **polarization(positions), "mean_shift": float(np.linalg.norm(mean - first_mean))})
+    return rows
+
+
+def office_summary(terms: Sequence[Term]) -> dict[str, Any]:
+    """Who held office and how it changed hands: alternations (consecutive terms with another holder),
+    re-elections (the same holder after a term that ended at an election), recalls (terms ended at the floor
+    or by a lost confidence vote), the longest run of terms one holder kept through elections, and the mean
+    term length in ticks."""
+    pairs = list(zip(terms, terms[1:]))
+    return {
+        "terms": len(terms),
+        "distinct_holders": len({t.holder_id for t in terms}),
+        "alternations": sum(a.holder_id != b.holder_id for a, b in pairs),
+        "reelections": sum(_reelected(a, b) for a, b in pairs),
+        "recalls": sum(t.ended_by in RECALL_ENDINGS for t in terms),
+        "longest_hold": _longest_hold(terms),
+        "mean_term_ticks": _mean([float(t.end_tick - t.start_tick) for t in terms]),
+    }
+
+
+def _reelected(before: Term, after: Term) -> bool:
+    return before.holder_id == after.holder_id and before.ended_by == "election"
+
+
+def _longest_hold(terms: Sequence[Term]) -> int:
+    """The most terms one holder kept in a row through elections."""
+    streak = best = 1 if terms else 0
+    for before, after in zip(terms, terms[1:]):
+        streak = streak + 1 if _reelected(before, after) else 1
+        best = max(best, streak)
+    return best
+
+
+Summary = Mapping[str, Any]
+"""trajectory_summary's dict, the input of every rule below."""
+
+
+def _enp_by_seats(summary: Summary) -> list[float]:
+    return [row["enp_seats"] for row in summary["legislative"] if row["enp_seats"] is not None]
+
+
+def _is_collapse(summary: Summary) -> bool:
+    return summary["office_occupancy"] < COLLAPSE_OCCUPANCY or any(not row["seated"] for row in summary["legislative"])
+
+
+def _is_entrenchment(summary: Summary) -> bool:
+    return bool(summary["office"]["longest_hold"] >= ENTRENCHMENT_HOLD or summary["refused_to_leave"])
+
+
+def _is_recall_cycle(summary: Summary) -> bool:
+    return bool(summary["office"]["recalls"] >= RECALL_CYCLE_RECALLS)
+
+
+def _is_fragmentation(summary: Summary) -> bool:
+    enp = _enp_by_seats(summary)
+    return len(enp) >= 2 and enp[-1] >= FRAGMENTATION_ENP and enp[-1] > enp[0]
+
+
+def _is_dominant_party(summary: Summary) -> bool:
+    return len(summary["legislative"]) >= 2 and all(row["majority"] for row in summary["legislative"])
+
+
+def _is_realignment(summary: Summary) -> bool:
+    return max((row["mean_shift"] for row in summary["polarization"]), default=0.0) >= REALIGNMENT_SHIFT
+
+
+def _is_churn(summary: Summary) -> bool:
+    volatilities = (row["volatility"] for row in summary["legislative"] if row["volatility"] is not None)
+    return max(volatilities, default=0.0) >= CHURN_VOLATILITY
+
+
+def _is_alternation(summary: Summary) -> bool:
+    return bool(summary["office"]["alternations"] >= ALTERNATION_COUNT)
+
+
+ARCHETYPE_RULES: tuple[tuple[str, str, Callable[[Summary], bool]], ...] = (
+    ("collapse", f"office occupancy below {COLLAPSE_OCCUPANCY}, or a legislative election that seated no party", _is_collapse),
+    ("entrenchment", f"one holder kept office through {ENTRENCHMENT_HOLD} or more elections, or a refusal to leave succeeded", _is_entrenchment),
+    ("recall_cycle", f"{RECALL_CYCLE_RECALLS} or more recalls", _is_recall_cycle),
+    ("fragmentation", f"ENP by seats at least {FRAGMENTATION_ENP} at the last legislative election, and above the first's", _is_fragmentation),
+    ("dominant_party", "one party held a majority of the seats at every legislative election (at least two)", _is_dominant_party),
+    ("realignment", f"the population's mean moved {REALIGNMENT_SHIFT} or more from the first census", _is_realignment),
+    ("churn", f"a legislative volatility of {CHURN_VOLATILITY} or more (parties come and go; opinion need not move)", _is_churn),
+    ("alternation", f"{ALTERNATION_COUNT} or more alternations in office", _is_alternation),
+    ("stasis", "none of the above", lambda summary: True),
+)
+"""Label, the rule in words, and the predicate that applies it; first match wins."""
+
+
+def archetype(summary: Summary) -> str:
+    """The first ARCHETYPE_RULES row the summary (trajectory_summary's) satisfies."""
+    return next(label for label, _, holds in ARCHETYPE_RULES if holds(summary))
+
+
+def _mean(values: Sequence[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def plausibility(summary: Mapping[str, Any]) -> list[str]:
+    """The PLAUSIBILITY_BAND checks the run fails; a check with nothing to read is skipped, not failed."""
+    legislative = summary["legislative"]
+    enp = [row["enp_seats"] for row in legislative if row["enp_seats"] is not None]
+    readings = {
+        "enp_seats": enp[-1] if enp else None,
+        "turnout": _mean([row["turnout"] for row in summary["elections"]]),
+        "volatility": _mean([row["volatility"] for row in legislative if row["volatility"] is not None]),
+    }
+    failed = []
+    for name, (low, high) in PLAUSIBILITY_BAND.items():
+        value = readings[name]
+        if value is not None and not low <= float(value) <= high:
+            failed.append(name)
+    return failed
+
+
+def _carried(points: Sequence[Mapping[str, Any]], key: str, years: int, ticks_per_year: int) -> list[float | None]:
+    """A per-election figure as a yearly series: the last election's value by the end of each year, None before
+    any election and None again after an election that had none (an assembly that seated no party resets the
+    ENP; it is not carried over as if the election had not happened)."""
+    series: list[float | None] = []
+    last: float | None = None
+    for year in range(years):
+        for point in points:
+            if int(point["tick"]) < (year + 1) * ticks_per_year:
+                last = None if point[key] is None else float(point[key])
+        series.append(last)
+    return series
+
+
+def yearly_series(
+    events: Sequence[Mapping[str, Any]], summary: Mapping[str, Any], *, population: int, ticks_per_year: int, last_tick: int,
+) -> Series:
+    """FEATURES as one list each, indexed by year up to the last tick: the sitting president's mean legitimacy,
+    ENP by seats, turnout and volatility carried from the last election, the census polarization figures, and
+    pressure acts (anything but "nothing") per citizen per tick."""
+    years = last_tick // ticks_per_year + 1
+    return {
+        "legitimacy": _legitimacy_by_year(events, years, ticks_per_year),
+        "enp_seats": _carried(summary["legislative"], "enp_seats", years, ticks_per_year),
+        "turnout": _carried(summary["elections"], "turnout", years, ticks_per_year),
+        "dispersion": _census_series(summary["polarization"], "dispersion", years),
+        "bimodality": _census_series(summary["polarization"], "bimodality", years),
+        "mean_shift": _census_series(summary["polarization"], "mean_shift", years),
+        "pressure": _pressure_by_year(events, years, ticks_per_year, population, last_tick),
+        "volatility": _carried(summary["legislative"], "volatility", years, ticks_per_year),
+    }
+
+
+def _legitimacy_by_year(events: Sequence[Mapping[str, Any]], years: int, ticks_per_year: int) -> list[float | None]:
+    """The sitting president's mean legitimacy per year, None in a year with no reading."""
+    readings: dict[int, list[float]] = defaultdict(list)
+    for e in events:
+        if e["event_type"] == "legitimacy_updated" and e["payload"].get("office") == "president":
+            readings[int(e["tick"]) // ticks_per_year].append(float(e["payload"]["legitimacy"]))
+    return [_mean(readings[year]) for year in range(years)]
+
+
+def _pressure_by_year(
+    events: Sequence[Mapping[str, Any]], years: int, ticks_per_year: int, population: int, last_tick: int,
+) -> list[float | None]:
+    """Pressure acts (anything but "nothing") per citizen per tick, the last year counting only its ticks."""
+    acts: Counter[int] = Counter(
+        int(e["tick"]) // ticks_per_year for e in events
+        if e["event_type"] == "pressure_action" and int(e["payload"]["act"]) != 0
+    )
+    ticks_in = [min(ticks_per_year, last_tick + 1 - year * ticks_per_year) for year in range(years)]
+    return [acts[year] / (population * ticks_in[year]) for year in range(years)]
+
+
+def _census_series(rows: Sequence[Mapping[str, Any]], key: str, years: int) -> list[float | None]:
+    """A census figure per year, None in a year without a census."""
+    by_year = {int(row["year"]): row[key] for row in rows}
+    return [by_year.get(year) for year in range(years)]
+
+
+def trajectory_summary(
+    events: Sequence[Mapping[str, Any]], snapshots: Sequence[Mapping[str, Any]], *,
+    terms: Sequence[Term], population: int, ticks_per_year: int, last_tick: int, office_occupancy: float,
+) -> dict[str, Any]:
+    """Everything above for one run, plus its archetype, the plausibility checks it fails and its yearly
+    series: the digest's `trajectory` entry."""
+    summary: dict[str, Any] = {
+        "office_occupancy": office_occupancy,
+        "office": office_summary(terms),
+        "elections": election_points(events, population, last_tick),
+        "legislative": legislative_points(events),
+        "margins": presidential_margins(events),
+        "polarization": polarization_by_year(snapshots),
+        "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
+    }
+    summary["archetype"] = archetype(summary)
+    summary["plausibility_failed"] = plausibility(summary)
+    summary["yearly"] = yearly_series(events, summary, population=population, ticks_per_year=ticks_per_year, last_tick=last_tick)
+    return summary
+
+
+# ── across runs ───────────────────────────────────────────────────────────
+
+
+def feature_cube(series_by_run: Mapping[str, Series], features: Sequence[str] = FEATURES) -> tuple[list[str], np.ndarray]:
+    """Runs × years × features, cut to the shortest run, each feature standardised over every run and year;
+    an absent value sits at the feature's mean, so it adds nothing to a distance."""
+    runs = sorted(series_by_run)
+    years = min((len(series_by_run[r].get(f, ())) for r in runs for f in features), default=0)
+    cube = np.full((len(runs), years, len(features)), np.nan)
+    for i, run in enumerate(runs):
+        for j, feature in enumerate(features):
+            cube[i, :, j] = [np.nan if v is None else float(v) for v in series_by_run[run].get(feature, ())[:years]]
+    present = ~np.isnan(cube)
+    counts = present.sum(axis=(0, 1))
+    filled = np.where(present, cube, 0.0)
+    mean = np.where(counts > 0, filled.sum(axis=(0, 1)) / np.maximum(counts, 1), 0.0)
+    spread = np.sqrt(np.where(counts > 0, (np.where(present, cube - mean, 0.0) ** 2).sum(axis=(0, 1)) / np.maximum(counts, 1), 0.0))
+    z = np.where(present, (cube - mean) / np.where(spread > 0, spread, 1.0), 0.0)
+    return runs, z
+
+
+def distance_matrix(series_by_run: Mapping[str, Series], features: Sequence[str] = FEATURES) -> tuple[list[tuple[str, str]], np.ndarray]:
+    """Every pair of runs, and their Euclidean distance in the standardised feature space at each year
+    (pairs × years). The one definition of "distance" the two readings below share."""
+    runs, z = feature_cube(series_by_run, features)
+    pairs = list(combinations(range(len(runs)), 2))
+    matrix = np.array([np.linalg.norm(z[i] - z[j], axis=1) for i, j in pairs]).reshape(len(pairs), z.shape[1])
+    return [(runs[i], runs[j]) for i, j in pairs], matrix
+
+
+def divergence_by_year(series_by_run: Mapping[str, Series], features: Sequence[str] = FEATURES) -> list[float]:
+    """The mean distance between every pair of runs, year by year: the series the divergence test reads (it
+    should grow). Empty below two runs."""
+    pairs, matrix = distance_matrix(series_by_run, features)
+    return [float(v) for v in matrix.mean(axis=0)] if pairs else []
+
+
+def pairwise_distances(series_by_run: Mapping[str, Series], features: Sequence[str] = FEATURES) -> dict[tuple[str, str], float]:
+    """The distance between every pair of runs: the per-year distance, averaged over the years both have.
+    Empty when the runs share no year."""
+    pairs, matrix = distance_matrix(series_by_run, features)
+    return {pair: float(v) for pair, v in zip(pairs, matrix.mean(axis=1))} if matrix.shape[1] else {}
+
+
+def diversity(labels: Mapping[str, str], distances: Mapping[tuple[str, str], float]) -> dict[str, Any]:
+    """How varied an ensemble is: the archetype counts, their entropy in bits, the largest archetype's share
+    and the mean pairwise distance."""
+    counts = Counter(labels.values())
+    n = sum(counts.values())
+    return {
+        "runs": n,
+        "archetypes": dict(sorted(counts.items())),
+        "archetype_entropy_bits": -sum(c / n * math.log2(c / n) for c in counts.values()) if n else 0.0,
+        "largest_archetype_share": max(counts.values()) / n if n else None,
+        "mean_pairwise_distance": _mean(list(distances.values())),
+    }
+
+
+def divergence_verdict(by_year: Sequence[float], ensemble: Mapping[str, Any], plausible_share: float | None) -> dict[str, bool | None]:
+    """The divergence test (plan-scenarios-v1, step 2): the runs drift apart over time (the last third of the
+    years is farther apart than the first third), the archetypes are varied enough, no archetype covers more
+    than half the runs, and enough runs stay inside the plausibility band. None where there is too little to
+    judge (under three years, or no runs)."""
+    third = len(by_year) // 3
+    return {
+        "grows": (_mean(by_year[-third:]) or 0.0) > (_mean(by_year[:third]) or 0.0) if third else None,
+        "varied": ensemble["archetype_entropy_bits"] >= DIVERGENCE_ENTROPY_BITS if ensemble["runs"] else None,
+        "no_dominant_story": ensemble["largest_archetype_share"] <= DIVERGENCE_LARGEST_SHARE if ensemble["runs"] else None,
+        "plausible": plausible_share >= DIVERGENCE_PLAUSIBLE_SHARE if plausible_share is not None else None,
+    }
