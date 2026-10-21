@@ -140,6 +140,12 @@ class SweepRun:
     value) -- ADR-015's versions with when each took effect. () is the unamended constitution and None
     an unknown one (no readable journal). Runs whose histories differ were not under one set of rules
     for the whole run, which is what a whole-run metric averages over."""
+    archetype: str | None = None
+    """The digest's trajectory archetype (trajectory.ARCHETYPE_RULES); None before the digest carried one."""
+    plausibility_failed: tuple[str, ...] | None = None
+    """The plausibility-band checks the run failed (trajectory.PLAUSIBILITY_BAND); None when unknown."""
+    yearly: dict[str, list[float | None]] | None = None
+    """The digest's yearly trajectory series (trajectory.FEATURES), the run's position in trajectory space."""
 
     @property
     def completed(self) -> bool:

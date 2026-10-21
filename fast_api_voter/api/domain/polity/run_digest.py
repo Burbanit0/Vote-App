@@ -52,6 +52,7 @@ from api.domain.polity.config import PolityConfig
 from api.domain.polity.indexer import segment_terms
 from api.domain.polity.metrics import effective_number_of_parties, office_occupancy
 from api.domain.polity.events import ALL_EVENT_TYPES as REGISTERED_EVENT_TYPES
+from api.domain.polity.trajectory import trajectory_summary
 from api.domain.polity.viz_export import _INSTITUTIONAL_EVENT_TYPES, export_metadata
 
 DIGEST_FILENAME = "digest.json"
@@ -395,6 +396,8 @@ def build_digest(
     # See "terms"/"office_occupancy" below for why this is computed once,
     # here, rather than inline in each of those two places.
     terms = segment_terms(events, last_tick or 0)
+    occupancy = office_occupancy(sum(term.end_tick - term.start_tick for term in terms), last_tick or 0)
+    snapshots, snapshot_lines_skipped = read_journal_tolerant(journal_path.with_name("snapshots.jsonl"))
 
     return {
         "run_id": run_id,
@@ -434,10 +437,18 @@ def build_digest(
         # just a run with low office_occupancy, a fact this makes visible
         # without reading the journal by hand). Engine-agnostic like the
         # metric itself -- see that function's own docstring.
-        "office_occupancy": office_occupancy(
-            sum(term.end_tick - term.start_tick for term in terms),
-            last_tick or 0,
-        ),
+        "office_occupancy": occupancy,
+        # plan-scenarios-v1 step 1: the run as a trajectory (volatility, polarization, margins, who held
+        # office), its archetype and its yearly series, so runs can be told apart and an ensemble's
+        # variety measured. Snapshots absent: polarization is absent, never estimated.
+        "trajectory": {
+            **trajectory_summary(
+                events, snapshots, terms=terms, population=config.run.population_size,
+                ticks_per_year=config.run.ticks_per_year, last_tick=last_tick or 0, office_occupancy=occupancy,
+            ),
+            # A torn census line is reported like a torn journal line, not folded into the figures.
+            "snapshot_lines_skipped": snapshot_lines_skipped,
+        },
         "institutional_timeline": institutional_timeline(events),
         "effective_parties": effective_parties(events, config),
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
