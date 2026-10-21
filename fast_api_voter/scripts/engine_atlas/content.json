@@ -145,7 +145,7 @@
    "text": "Write <code>digest.json</code>: outcome, terms, occupancy, timeline, LLM quality",
    "ref": {
     "file": "run_digest.py",
-    "line": 375,
+    "line": 376,
     "label": null,
     "expect": "def build_digest("
    }
@@ -635,7 +635,7 @@
      "calls": [],
      "ref": {
       "file": "run_digest.py",
-      "line": 375,
+      "line": 376,
       "label": null,
       "expect": "def build_digest("
      }

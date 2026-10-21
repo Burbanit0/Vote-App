@@ -166,7 +166,7 @@ def _with_legislative(**fields: Any) -> list[dict[str, Any]]:
 )
 def test_archetype_rules_in_order_first_match_wins(label: str, overrides: dict[str, Any]) -> None:
     assert archetype(_summary(**overrides)) == label
-    assert label in dict(ARCHETYPE_RULES)
+    assert label in {rule for rule, _, _ in ARCHETYPE_RULES}
 
 
 def test_a_collapse_outranks_every_later_rule_and_a_stable_majority_is_not_fragmentation() -> None:

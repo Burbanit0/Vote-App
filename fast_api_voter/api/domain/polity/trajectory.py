@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from itertools import combinations
 from typing import Any
 
@@ -40,17 +40,6 @@ REALIGNMENT_SHIFT = 0.1
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
 
-ARCHETYPE_RULES: tuple[tuple[str, str], ...] = (
-    ("collapse", f"office occupancy below {COLLAPSE_OCCUPANCY}, or a legislative election that seated no party"),
-    ("entrenchment", f"one holder kept office through {ENTRENCHMENT_HOLD} or more elections, or a refusal to leave succeeded"),
-    ("recall_cycle", f"{RECALL_CYCLE_RECALLS} or more recalls"),
-    ("fragmentation", f"ENP by seats at least {FRAGMENTATION_ENP} at the last legislative election, and above the first's"),
-    ("dominant_party", "one party held a majority of the seats at every legislative election (at least two)"),
-    ("realignment", f"the population's mean moved {REALIGNMENT_SHIFT} or more from the first census"),
-    ("churn", f"a legislative volatility of {CHURN_VOLATILITY} or more (parties come and go; opinion need not move)"),
-    ("alternation", f"{ALTERNATION_COUNT} or more alternations in office"),
-    ("stasis", "none of the above"),
-)
 
 PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {"enp_seats": (1.5, 8.0), "turnout": (0.5, 0.85), "volatility": (0.05, 0.30)}
 """Generic European party-system facts, as a band a run should not leave: ENP by seats at the last
@@ -165,45 +154,89 @@ def office_summary(terms: Sequence[Term]) -> dict[str, Any]:
     or by a lost confidence vote), the longest run of terms one holder kept through elections, and the mean
     term length in ticks."""
     pairs = list(zip(terms, terms[1:]))
-    streak = best = 1 if terms else 0
-    for a, b in pairs:
-        streak = streak + 1 if a.holder_id == b.holder_id and a.ended_by == "election" else 1
-        best = max(best, streak)
     return {
         "terms": len(terms),
         "distinct_holders": len({t.holder_id for t in terms}),
         "alternations": sum(a.holder_id != b.holder_id for a, b in pairs),
-        "reelections": sum(a.holder_id == b.holder_id and a.ended_by == "election" for a, b in pairs),
+        "reelections": sum(_reelected(a, b) for a, b in pairs),
         "recalls": sum(t.ended_by in RECALL_ENDINGS for t in terms),
-        "longest_hold": best,
-        "mean_term_ticks": sum(t.end_tick - t.start_tick for t in terms) / len(terms) if terms else None,
+        "longest_hold": _longest_hold(terms),
+        "mean_term_ticks": _mean([float(t.end_tick - t.start_tick) for t in terms]),
     }
 
 
-def archetype(summary: Mapping[str, Any]) -> str:
+def _reelected(before: Term, after: Term) -> bool:
+    return before.holder_id == after.holder_id and before.ended_by == "election"
+
+
+def _longest_hold(terms: Sequence[Term]) -> int:
+    """The most terms one holder kept in a row through elections."""
+    streak = best = 1 if terms else 0
+    for before, after in zip(terms, terms[1:]):
+        streak = streak + 1 if _reelected(before, after) else 1
+        best = max(best, streak)
+    return best
+
+
+Summary = Mapping[str, Any]
+"""trajectory_summary's dict, the input of every rule below."""
+
+
+def _enp_by_seats(summary: Summary) -> list[float]:
+    return [row["enp_seats"] for row in summary["legislative"] if row["enp_seats"] is not None]
+
+
+def _is_collapse(summary: Summary) -> bool:
+    return summary["office_occupancy"] < COLLAPSE_OCCUPANCY or any(not row["seated"] for row in summary["legislative"])
+
+
+def _is_entrenchment(summary: Summary) -> bool:
+    return bool(summary["office"]["longest_hold"] >= ENTRENCHMENT_HOLD or summary["refused_to_leave"])
+
+
+def _is_recall_cycle(summary: Summary) -> bool:
+    return bool(summary["office"]["recalls"] >= RECALL_CYCLE_RECALLS)
+
+
+def _is_fragmentation(summary: Summary) -> bool:
+    enp = _enp_by_seats(summary)
+    return len(enp) >= 2 and enp[-1] >= FRAGMENTATION_ENP and enp[-1] > enp[0]
+
+
+def _is_dominant_party(summary: Summary) -> bool:
+    return len(summary["legislative"]) >= 2 and all(row["majority"] for row in summary["legislative"])
+
+
+def _is_realignment(summary: Summary) -> bool:
+    return max((row["mean_shift"] for row in summary["polarization"]), default=0.0) >= REALIGNMENT_SHIFT
+
+
+def _is_churn(summary: Summary) -> bool:
+    volatilities = (row["volatility"] for row in summary["legislative"] if row["volatility"] is not None)
+    return max(volatilities, default=0.0) >= CHURN_VOLATILITY
+
+
+def _is_alternation(summary: Summary) -> bool:
+    return bool(summary["office"]["alternations"] >= ALTERNATION_COUNT)
+
+
+ARCHETYPE_RULES: tuple[tuple[str, str, Callable[[Summary], bool]], ...] = (
+    ("collapse", f"office occupancy below {COLLAPSE_OCCUPANCY}, or a legislative election that seated no party", _is_collapse),
+    ("entrenchment", f"one holder kept office through {ENTRENCHMENT_HOLD} or more elections, or a refusal to leave succeeded", _is_entrenchment),
+    ("recall_cycle", f"{RECALL_CYCLE_RECALLS} or more recalls", _is_recall_cycle),
+    ("fragmentation", f"ENP by seats at least {FRAGMENTATION_ENP} at the last legislative election, and above the first's", _is_fragmentation),
+    ("dominant_party", "one party held a majority of the seats at every legislative election (at least two)", _is_dominant_party),
+    ("realignment", f"the population's mean moved {REALIGNMENT_SHIFT} or more from the first census", _is_realignment),
+    ("churn", f"a legislative volatility of {CHURN_VOLATILITY} or more (parties come and go; opinion need not move)", _is_churn),
+    ("alternation", f"{ALTERNATION_COUNT} or more alternations in office", _is_alternation),
+    ("stasis", "none of the above", lambda summary: True),
+)
+"""Label, the rule in words, and the predicate that applies it; first match wins."""
+
+
+def archetype(summary: Summary) -> str:
     """The first ARCHETYPE_RULES row the summary (trajectory_summary's) satisfies."""
-    office = summary["office"]
-    legislative = summary["legislative"]
-    enp = [row["enp_seats"] for row in legislative if row["enp_seats"] is not None]
-    volatilities = [row["volatility"] for row in legislative if row["volatility"] is not None]
-    shifts = [row["mean_shift"] for row in summary["polarization"]]
-    if summary["office_occupancy"] < COLLAPSE_OCCUPANCY or any(not row["seated"] for row in legislative):
-        return "collapse"
-    if office["longest_hold"] >= ENTRENCHMENT_HOLD or summary["refused_to_leave"]:
-        return "entrenchment"
-    if office["recalls"] >= RECALL_CYCLE_RECALLS:
-        return "recall_cycle"
-    if len(enp) >= 2 and enp[-1] >= FRAGMENTATION_ENP and enp[-1] > enp[0]:
-        return "fragmentation"
-    if len(legislative) >= 2 and all(row["majority"] for row in legislative):
-        return "dominant_party"
-    if max(shifts, default=0.0) >= REALIGNMENT_SHIFT:
-        return "realignment"
-    if max(volatilities, default=0.0) >= CHURN_VOLATILITY:
-        return "churn"
-    if office["alternations"] >= ALTERNATION_COUNT:
-        return "alternation"
-    return "stasis"
+    return next(label for label, _, holds in ARCHETYPE_RULES if holds(summary))
 
 
 def _mean(values: Sequence[float]) -> float | None:
@@ -248,26 +281,43 @@ def yearly_series(
     ENP by seats, turnout and volatility carried from the last election, the census polarization figures, and
     pressure acts (anything but "nothing") per citizen per tick."""
     years = last_tick // ticks_per_year + 1
-    legitimacy: dict[int, list[float]] = defaultdict(list)
-    pressure: Counter[int] = Counter()
-    for e in events:
-        year = int(e["tick"]) // ticks_per_year
-        if e["event_type"] == "legitimacy_updated" and e["payload"].get("office") == "president":
-            legitimacy[year].append(float(e["payload"]["legitimacy"]))
-        elif e["event_type"] == "pressure_action" and int(e["payload"]["act"]) != 0:
-            pressure[year] += 1
-    by_year = {int(row["year"]): row for row in summary["polarization"]}
-    ticks_in = [min(ticks_per_year, last_tick + 1 - year * ticks_per_year) for year in range(years)]
     return {
-        "legitimacy": [_mean(legitimacy[year]) for year in range(years)],
+        "legitimacy": _legitimacy_by_year(events, years, ticks_per_year),
         "enp_seats": _carried(summary["legislative"], "enp_seats", years, ticks_per_year),
         "turnout": _carried(summary["elections"], "turnout", years, ticks_per_year),
-        "dispersion": [by_year[y]["dispersion"] if y in by_year else None for y in range(years)],
-        "bimodality": [by_year[y]["bimodality"] if y in by_year else None for y in range(years)],
-        "mean_shift": [by_year[y]["mean_shift"] if y in by_year else None for y in range(years)],
-        "pressure": [pressure[year] / (population * ticks_in[year]) for year in range(years)],
+        "dispersion": _census_series(summary["polarization"], "dispersion", years),
+        "bimodality": _census_series(summary["polarization"], "bimodality", years),
+        "mean_shift": _census_series(summary["polarization"], "mean_shift", years),
+        "pressure": _pressure_by_year(events, years, ticks_per_year, population, last_tick),
         "volatility": _carried(summary["legislative"], "volatility", years, ticks_per_year),
     }
+
+
+def _legitimacy_by_year(events: Sequence[Mapping[str, Any]], years: int, ticks_per_year: int) -> list[float | None]:
+    """The sitting president's mean legitimacy per year, None in a year with no reading."""
+    readings: dict[int, list[float]] = defaultdict(list)
+    for e in events:
+        if e["event_type"] == "legitimacy_updated" and e["payload"].get("office") == "president":
+            readings[int(e["tick"]) // ticks_per_year].append(float(e["payload"]["legitimacy"]))
+    return [_mean(readings[year]) for year in range(years)]
+
+
+def _pressure_by_year(
+    events: Sequence[Mapping[str, Any]], years: int, ticks_per_year: int, population: int, last_tick: int,
+) -> list[float | None]:
+    """Pressure acts (anything but "nothing") per citizen per tick, the last year counting only its ticks."""
+    acts: Counter[int] = Counter(
+        int(e["tick"]) // ticks_per_year for e in events
+        if e["event_type"] == "pressure_action" and int(e["payload"]["act"]) != 0
+    )
+    ticks_in = [min(ticks_per_year, last_tick + 1 - year * ticks_per_year) for year in range(years)]
+    return [acts[year] / (population * ticks_in[year]) for year in range(years)]
+
+
+def _census_series(rows: Sequence[Mapping[str, Any]], key: str, years: int) -> list[float | None]:
+    """A census figure per year, None in a year without a census."""
+    by_year = {int(row["year"]): row[key] for row in rows}
+    return [by_year.get(year) for year in range(years)]
 
 
 def trajectory_summary(
