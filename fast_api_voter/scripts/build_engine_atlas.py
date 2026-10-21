@@ -19,33 +19,49 @@ sweep's <run>/run/<run>). digest.json, progress.json and run_metadata.json are u
 roots (default: POLITY_RUN_ROOTS's paths, else the committed fixture and scripts/*_runs). A run still being
 written is re-read whenever its files change, and the page follows it; a second run sets the comparison: its
 series drawn dashed over the first, config differences, events per mechanic, and a B - A heatmap.
+
+The crowd panel (plan-scenarios-v1, step 1b) draws every citizen on the population's own first two principal
+axes at the selected tick, coloured by a lens, with the social graph's ties and a trail: frames come from the
+yearly census (snapshots.jsonl) and, while the server watches a live run, from every tick's checkpoint.json,
+which is rewritten each tick (run_polity_simulation) and is the only per-tick record of anger, engagement and
+who mobilised. The panel lives in scripts/engine_atlas/crowd.html, injected at template.html's <!--CROWD-->.
 """
 
 from __future__ import annotations
 
 import argparse
 import collections
+import dataclasses
 import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import webbrowser
+from collections.abc import Mapping, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs
 
+import numpy as np
+
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
+from api.domain.polity.config import SocialGraphConfig  # noqa: E402
 from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES  # noqa: E402
 from api.domain.polity.run_catalog import DEFAULT_RUN_ROOT, parse_roots  # noqa: E402
+from api.domain.polity.run_projection import _pca  # noqa: E402
 from api.domain.polity.run_registry import discover_runs, run_record  # noqa: E402
+from api.domain.polity.social_graph import generate_social_graph  # noqa: E402
 
 ATLAS_DIR = Path(__file__).resolve().parent / "engine_atlas"
 CONTENT = ATLAS_DIR / "content.json"
 TEMPLATE = ATLAS_DIR / "template.html"
+CROWD = ATLAS_DIR / "crowd.html"
+CROWD_SLOT = "<!--CROWD-->"
 ACTS = {0: "nothing", 1: "sign", 2: "launch", 3: "mobilise", 4: "wait for election"}
 
 
@@ -384,6 +400,91 @@ def compact_run(run_dir: Path) -> dict[str, Any]:
     }
 
 
+# ── the crowd (plan-scenarios-v1, step 1b) ────────────────────────────────
+
+CROWD_FIELDS = ("party_affiliation", "office", "anger", "engagement", "event_salience")
+Frame = dict[str, Any]
+CrowdState = dict[str, Any]
+"""Per run: {"frames": {tick: Frame}, "edges": list | None}; the server keeps one for the run's life."""
+
+
+def crowd_frame(citizens: Sequence[Mapping[str, Any]], tick: int, acted: Mapping[Any, Any] | None = None) -> Frame:
+    """One tick of the crowd, citizens in id order: the issue positions and the fields a lens colours by. A
+    field the source lacks is None for the whole frame (the yearly census carries no emotions; a checkpoint
+    writes anger and engagement only once they are tracked). `acted` is the checkpoint's mobilized_last_tick."""
+    ordered = sorted(citizens, key=lambda c: int(c["citizen_id"]))
+    frame: Frame = {
+        "tick": tick,
+        "positions": [[float(x) for x in c["issue_positions"]] for c in ordered],
+        "acted": sorted(int(i) for i in (acted or {})),
+    }
+    for field in CROWD_FIELDS:
+        values = [c.get(field) for c in ordered]
+        frame[field.removeprefix("event_").removesuffix("_affiliation")] = values if any(v is not None for v in values) else None
+    return frame
+
+
+def _checkpoint(run_dir: Path) -> dict[str, Any] | None:
+    """The run's checkpoint. save_checkpoint writes it whole (a temp file, then os.replace), so a torn read is
+    not expected; a run dir edited by hand gets None and the next read, not a dead replay."""
+    try:
+        return _json(run_dir / "checkpoint.json")
+    except ValueError:
+        return None
+
+
+def collect_frames(run_dir: Path, frames: dict[int, Frame], population: int | None) -> None:
+    """Add to `frames` (tick -> frame) every whole census tick it lacks and the checkpoint's tick. The census
+    is appended one citizen at a time, so a tick is taken only once all `population` rows are there (a short
+    read would stay for the server's life). The checkpoint is the richer source for its tick (emotions, who
+    mobilised) and the only one that moves between censuses, so a live run's history is what the server saw
+    while it watched, plus the census for what it missed."""
+    census = run_dir / "snapshots.jsonl"
+    if census.is_file():
+        # ponytail: the whole census is parsed on every change (about 50 ms for 15k rows); tail it if that shows
+        by_tick: dict[int, list[dict[str, Any]]] = collections.defaultdict(list)
+        for row in read_events(census):
+            by_tick[int(row["tick"])].append(row)
+        for tick, rows in by_tick.items():
+            if tick not in frames and (population is None or len(rows) == population):
+                frames[tick] = crowd_frame(rows, tick)
+    checkpoint = _checkpoint(run_dir)
+    if checkpoint and checkpoint.get("citizens"):
+        tick = int(checkpoint["tick"])
+        frames[tick] = crowd_frame(checkpoint["citizens"], tick, checkpoint.get("mobilized_last_tick"))
+
+
+def _edges(config: Mapping[str, Any]) -> list[list[int]]:
+    """The social graph's ties, regenerated from the config (the graph is deterministic in config, population
+    and seed, and is deliberately not checkpointed); none when the graph is off."""
+    graph, run = config.get("social_graph") or {}, config.get("run") or {}
+    fields = [f.name for f in dataclasses.fields(SocialGraphConfig)]
+    if not graph.get("enabled") or not {"population_size", "seed"} <= set(run) or not set(fields) <= set(graph):
+        return []  # the ties are decoration: a config this code cannot read loses them, not the replay
+    ties = generate_social_graph(SocialGraphConfig(**{f: graph[f] for f in fields}), int(run["population_size"]), int(run["seed"]))
+    return sorted([i, j] for i, neighbours in ties.neighbors.items() for j in neighbours if i < j)
+
+
+def crowd_payload(run_dir: Path, state: CrowdState) -> dict[str, Any]:
+    """What the crowd panel draws: the frames projected on the first frame's axes (run_projection's PCA, signed
+    the same way from one run to the next so run B is not run A's mirror), the ties, the ticks. `state` keeps
+    the frames and the ties between calls."""
+    config = _json(run_dir / "config.json") or {}
+    population = (config.get("run") or {}).get("population_size")
+    frames: dict[int, Frame] = state.setdefault("frames", {})
+    collect_frames(run_dir, frames, None if population is None else int(population))
+    if not frames:
+        return {"ticks": [], "frames": {}, "edges": []}
+    if state.get("edges") is None:
+        state["edges"] = _edges(config)
+    mean, axes = _pca(np.array(frames[min(frames)]["positions"], dtype=float))
+    projected = {}
+    for tick, frame in sorted(frames.items()):
+        xy = (np.array(frame["positions"], dtype=float) - mean) @ axes.T
+        projected[str(tick)] = {k: v for k, v in frame.items() if k != "positions"} | {"xy": np.round(xy, 3).tolist()}
+    return {"ticks": sorted(frames), "frames": projected, "edges": state["edges"]}
+
+
 # ── the page ──────────────────────────────────────────────────────────────
 
 
@@ -414,18 +515,19 @@ def render_page(replay: dict[str, Any] | None) -> str:
         "institutional": sorted(INSTITUTIONAL_EVENT_TYPES),
     }
     page = TEMPLATE.read_text(encoding="utf-8")
-    for slot, data in (
-        ("/*ATLAS_DATA*/{}", content),
-        ("/*REPLAY_DATA*/{}", replay),
+    for slot, text in (
+        ("/*ATLAS_DATA*/{}", _embed(content)),
+        ("/*REPLAY_DATA*/{}", _embed(replay)),
+        (CROWD_SLOT, CROWD.read_text(encoding="utf-8")),
     ):
         if page.count(slot) != 1:
             raise ValueError(f"{slot} must appear exactly once in {TEMPLATE.name}")
-        page = page.replace(slot, _embed(data))
+        page = page.replace(slot, text)
     return page
 
 
 def build(run_dir: Path, out: Path) -> Path:
-    out.write_text(render_page(compact_run(run_dir)), encoding="utf-8")
+    out.write_text(render_page({**compact_run(run_dir), "crowd": crowd_payload(run_dir, {})}), encoding="utf-8")
     return out
 
 
@@ -445,9 +547,10 @@ def _stat(path: Path) -> os.stat_result | None:
 
 
 def _stamp(run_dir: Path) -> str:
-    """Changes whenever a file the replay reads changes. Not progress.json: its heartbeat rewrites it every
-    few seconds with no new event, and the replay only takes two counters from it."""
-    stats = (_stat(run_dir / name) for name in ("events.jsonl", "digest.json"))
+    """Changes whenever a file the replay reads changes: the journal, the digest, and the checkpoint the crowd
+    panel reads (rewritten once a tick). Not progress.json: its heartbeat rewrites it every few seconds with
+    no new event, and the replay only takes two counters from it."""
+    stats = (_stat(run_dir / name) for name in ("events.jsonl", "digest.json", "checkpoint.json"))
     return "/".join(f"{st.st_mtime_ns}:{st.st_size}" if st else "-" for st in stats)
 
 
@@ -489,6 +592,10 @@ class RunIndex:
         self.roots = roots
         self.dirs: dict[str, Path] = {}
         self.cache: dict[str, tuple[str, bytes]] = {}
+        self.crowd: dict[str, CrowdState] = {}
+        """Per run, the crowd frames seen so far and its ties (crowd_payload): a live run's per-tick history."""
+        self.lock = threading.Lock()
+        """One rebuild at a time: request threads share the cache and the crowd state."""
 
     def listing(self) -> list[dict[str, Any]]:
         runs, dirs = [], {}
@@ -531,21 +638,23 @@ class RunIndex:
         run_dir = self.dirs.get(key)
         if run_dir is None:
             return None
-        stamp = _stamp(run_dir)
-        cached = self.cache.get(key)
-        if cached is None or cached[0] != stamp:
-            # ponytail: one whole re-read per change (0.4 s for the largest p500 journal); tail the file if runs grow far past that
-            # The config rides only here, for the comparison: a static page is shared, and a config can hold URLs.
-            replay = {
-                **compact_run(run_dir),
-                "config": _json(run_dir / "config.json") or {},
-            }
-            cached = (
-                stamp,
-                json.dumps(replay, separators=(",", ":"), ensure_ascii=False).encode(),
-            )
-            self.cache[key] = cached
-        return cached[1]
+        with self.lock:
+            stamp = _stamp(run_dir)
+            cached = self.cache.get(key)
+            if cached is None or cached[0] != stamp:
+                # ponytail: one whole re-read per change (0.4 s for the largest p500 journal); tail the file if runs grow far past that
+                # The config rides only here, for the comparison: a static page is shared, and a config can hold URLs.
+                replay = {
+                    **compact_run(run_dir),
+                    "config": _json(run_dir / "config.json") or {},
+                    "crowd": crowd_payload(run_dir, self.crowd.setdefault(key, {})),
+                }
+                cached = (
+                    stamp,
+                    json.dumps(replay, separators=(",", ":"), ensure_ascii=False).encode(),
+                )
+                self.cache[key] = cached
+            return cached[1]
 
 
 def make_handler(index: RunIndex) -> type[BaseHTTPRequestHandler]:

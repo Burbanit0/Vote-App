@@ -16,6 +16,7 @@ import urllib.parse
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 import yaml
@@ -347,3 +348,111 @@ def test_the_server_serves_the_page_the_listing_and_a_run(tmp_path: Path) -> Non
     finally:
         server.shutdown()
         server.server_close()
+
+
+# ── the crowd panel (plan-scenarios-v1, step 1b) ──────────────────────────
+
+
+def _crowd_run(tmp_path: Path, *, graph: bool = True) -> Path:
+    """A run dir with a census at ticks 0 and 2, a checkpoint at tick 3, and a config for five citizens."""
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    config = {
+        "run": {"population_size": 5, "seed": 1, "ticks_per_year": 2, "duration_years": 2},
+        "social_graph": {"enabled": graph, "topology": "watts_strogatz", "mean_degree": 2, "rewiring_prob": 0.0, "evolving": False},
+    }
+    (run_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    census = [
+        {"citizen_id": i, "tick": tick, "year": tick // 2, "issue_positions": [i / 5 + tick / 10, 1 - i / 5, 0.5],
+         "party_affiliation": i % 2, "office": "president" if i == 0 and tick else "aucun", "role": "electeur", "event_salience": 0.0}
+        for tick in (0, 2) for i in (4, 3, 2, 1, 0)  # out of id order on purpose
+    ]
+    (run_dir / "snapshots.jsonl").write_text("".join(json.dumps(row) + "\n" for row in census), encoding="utf-8")
+    checkpoint = {
+        "tick": 3,
+        "mobilized_last_tick": {"4": 0, "1": 0},
+        "citizens": [
+            {"citizen_id": i, "issue_positions": [i / 5 + 0.3, 1 - i / 5, 0.5], "party_affiliation": i % 2,
+             "office": "president" if i == 0 else "aucun", "role": "elu" if i == 0 else "electeur",
+             "anger": i / 10, "engagement": "exited" if i == 4 else "active", "event_salience": 0.2}
+            for i in range(5)
+        ],
+    }
+    (run_dir / "checkpoint.json").write_text(json.dumps(checkpoint), encoding="utf-8")
+    (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+    return run_dir
+
+
+def test_the_crowd_payload_joins_the_census_and_the_checkpoint_on_one_set_of_axes(tmp_path: Path) -> None:
+    payload = atlas.crowd_payload(_crowd_run(tmp_path), {})
+    assert payload["ticks"] == [0, 2, 3] and set(payload["frames"]) == {"0", "2", "3"}
+    first, last = payload["frames"]["0"], payload["frames"]["3"]
+    assert len(first["xy"]) == 5 and all(len(p) == 2 for p in first["xy"])
+    assert first["anger"] is None and first["engagement"] is None  # the census has no emotions
+    assert first["party"] == [0, 1, 0, 1, 0] and first["acted"] == []  # in id order, whatever the file's order
+    assert last["anger"] == [0.0, 0.1, 0.2, 0.3, 0.4] and last["engagement"][4] == "exited" and last["acted"] == [1, 4]
+    assert last["office"][0] == "president" and "role" not in last  # nothing on the page reads a role
+    # The same axes for every frame: citizens moved +0.1 on the first issue per census, so the projection
+    # of a citizen moves the same way from frame to frame instead of the cloud being re-centred.
+    moves = [[b - a for a, b in zip(p0, p2)] for p0, p2 in zip(first["xy"], payload["frames"]["2"]["xy"])]
+    assert all(abs(m[0] - moves[0][0]) < 0.002 and abs(m[1] - moves[0][1]) < 0.002 for m in moves)  # 3-decimal rounding
+    assert abs(moves[0][0]) + abs(moves[0][1]) > 0.1
+    assert payload["edges"] and all(i < j for i, j in payload["edges"]) and max(j for _, j in payload["edges"]) < 5
+
+
+def test_the_crowd_has_no_ties_when_the_graph_is_off_and_no_frames_without_a_census(tmp_path: Path) -> None:
+    assert atlas.crowd_payload(_crowd_run(tmp_path, graph=False), {})["edges"] == []
+    assert atlas._edges({"run": {"population_size": 5, "seed": 1}, "social_graph": {"enabled": True}}) == []  # unreadable: no ties, not no replay
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    (bare / "events.jsonl").write_text("", encoding="utf-8")
+    assert atlas.crowd_payload(bare, {}) == {"ticks": [], "frames": {}, "edges": []}
+
+
+def test_a_half_written_checkpoint_waits_for_the_next_read_and_the_frames_seen_stay(tmp_path: Path) -> None:
+    run_dir = _crowd_run(tmp_path)
+    frames: dict[int, dict[str, Any]] = {}
+    assert atlas.crowd_payload(run_dir, frames)["ticks"] == [0, 2, 3]
+    whole = (run_dir / "checkpoint.json").read_text(encoding="utf-8")
+    (run_dir / "checkpoint.json").write_text(whole[: len(whole) // 2], encoding="utf-8")  # mid-rewrite
+    assert atlas.crowd_payload(run_dir, frames)["ticks"] == [0, 2, 3]  # tick 3 kept from the earlier read
+    (run_dir / "checkpoint.json").write_text(whole.replace('"tick": 3', '"tick": 4'), encoding="utf-8")
+    assert atlas.crowd_payload(run_dir, frames)["ticks"] == [0, 2, 3, 4]  # the history accumulates
+
+
+def test_a_census_tick_is_taken_only_once_every_citizen_is_in_it(tmp_path: Path) -> None:
+    run_dir = _crowd_run(tmp_path)
+    state: dict[str, Any] = {}
+    rows = [json.dumps({"citizen_id": i, "tick": 4, "year": 2, "issue_positions": [0.5, 0.5, 0.5], "party_affiliation": 0, "office": "aucun"}) + "\n" for i in range(5)]
+    with (run_dir / "snapshots.jsonl").open("a", encoding="utf-8") as census:
+        census.write("".join(rows[:3]))  # the run is still writing tick 4's census
+    assert atlas.crowd_payload(run_dir, state)["ticks"] == [0, 2, 3]
+    with (run_dir / "snapshots.jsonl").open("a", encoding="utf-8") as census:
+        census.write("".join(rows[3:]))
+    assert atlas.crowd_payload(run_dir, state)["ticks"] == [0, 2, 3, 4]
+
+
+def test_the_ties_are_generated_once_per_run_and_kept_with_the_frames(tmp_path: Path) -> None:
+    run_dir = _crowd_run(tmp_path)
+    state: dict[str, Any] = {}
+    edges = atlas.crowd_payload(run_dir, state)["edges"]
+    (run_dir / "config.json").unlink()  # a second call needs neither the config nor the graph again
+    assert atlas.crowd_payload(run_dir, state)["edges"] == edges and edges
+
+
+def test_the_stamp_follows_the_checkpoint_so_a_new_tick_rebuilds_the_replay(tmp_path: Path) -> None:
+    run_dir = _crowd_run(tmp_path)
+    before = atlas._stamp(run_dir)
+    checkpoint = run_dir / "checkpoint.json"
+    checkpoint.write_text(checkpoint.read_text(encoding="utf-8") + " ", encoding="utf-8")
+    assert atlas._stamp(run_dir) != before
+
+
+def test_the_page_carries_the_crowd_panel_and_the_fixture_s_crowd(tmp_path: Path) -> None:
+    page = atlas.build(FIXTURE_RUN, tmp_path / "atlas.html").read_text()
+    # The fragment builds its block from script (block.id = "crowdblock"), so the page carries the name, not markup.
+    assert atlas.CROWD_SLOT not in page and 'block.id = "crowdblock"' in page and "(function crowd()" in page
+    replay = json.loads(dict(re.findall(r"^(?:const|let) ([AR]) = (.*);$", page, re.M))["R"])
+    crowd = replay["crowd"]
+    assert crowd["ticks"] == [0, 4, 8, 12] and crowd["frames"]["12"]["acted"] == [8, 29]
+    assert len(crowd["frames"]["0"]["xy"]) == 40 and crowd["edges"]
