@@ -52,9 +52,9 @@ minority of citizens ends somewhere else.
 Ten seeds, 8 years, 100 citizens, `--engine deterministic --profile scenario` with the three settings of each
 row, the rule-only twin; D1 is the digest's `trajectory.panel_stability`, D2 the spread of each factor at year
 8 over year 1's (the year-0 census carries no factors), "in band" the seeds with no plausibility check failed.
-Not pre-registered: a reading, from an uncommitted probe that sets the three settings and calls
-`run_simulation` and `build_digest`; the shipped row is what `run_polity_seed_sweep.py --engine deterministic
---profile scenario` reports.
+Not pre-registered: a reading. Every row is reproduced by `python scripts/probe_radicalisation.py --output-dir
+<dir>` (one `--arm drift,push,narrowing` re-runs one row); the shipped row is also what
+`run_polity_seed_sweep.py --engine deterministic --profile scenario` reports in its Diversity section.
 
 | drift | push | narrowing | D1 | D2 | mean opinion shift | pushed per update | archetypes (entropy) | pairwise distance, year 0 to 8 | in band |
 |---:|---:|---:|---:|---:|---:|---:|---|---|---:|
@@ -78,6 +78,16 @@ Not pre-registered: a reading, from an uncommitted probe that sets the three set
   band (none did before). Still failing: no dominant story (realignment, 6 of 10) and turnout below 0.5 in
   five seeds.
 
+- **Polarization at the shipped values** (the digest's `trajectory.polarization`, ten seeds): the spread of
+  views along their first principal axis grows from 0.82 at year 1 to 0.89 at year 8 (range across seeds
+  0.61 to 1.10), and the population stays unimodal (Sarle's coefficient 0.52 to 0.50, under the 5/9 of a
+  uniform): a mild widening, not two camps. The mean shift is 0.093 (0.014 to 0.193), panel stability 0.877
+  (0.853 to 0.900). The plan names polarization "inside the observed range" as a gate; **no observed range
+  is stated here**, because none was sourced: these are the figures, for the owner to judge.
+- **Contagion is tested, its cohort is not measured.** A test (`test_a_pushed_citizen_pulls_the_calm_neighbour…`)
+  shows the push moving only the angry citizen and the neighbour tied to them going with them; nothing measures
+  how large a hardened cohort a run ends with.
+
 ## Not settled
 
 - **The push has no ceiling and a feedback.** Moving away from the president raises the gap, hence anger
@@ -87,6 +97,9 @@ Not pre-registered: a reading, from an uncommitted probe that sets the three set
   for ever. The spread of views at year 8 is 1.3 times year 1's at the shipped values and 2.7 times at a push
   of 2; D2 guards against collapse, not against this. A cap, or a push that weakens with distance, is the
   next thing to try if the spread matters.
+- **Enthusiasm widening the bound was left out.** The plan paired it with anger narrowing it. Narrowing alone
+  measured no effect, so a second knob with the opposite sign has nothing to be measured against; add it when
+  a graph or a bound makes the first one bite.
 - **A shock reaches nobody in particular on the rule path** (above). Making the rule-based reaction judge
   each citizen (who is exposed, who cares) is step 3b's welfare channel; the model's reactions already vary.
 - **The push does not fade with the event**, only with anger: salience stays until the next event. A fading

@@ -407,6 +407,23 @@ def test_anger_narrows_the_confidence_bound_so_an_angry_citizen_listens_only_to_
     assert angry.influenced == 1
 
 
+def test_a_pushed_citizen_pulls_the_calm_neighbour_they_are_tied_to_outward_the_extremist_pull() -> None:
+    """The contagion half of ADR-033: the push moves only the angry, but opinion dynamics carry it along the ties."""
+    factors = np.array([[0.0, 0.0], [1.0, 0.0], [1.2, 0.0]])  # the president, an angry citizen, and their calm neighbour
+    anchors = factors.copy()
+    edges = NeighbourEdges.from_graph(_graph([(1, 2)], 3))
+    mood = _mood(anger=[0.0, 1.0, 0.0], salience=[1.0, 1.0, 1.0])
+    pull = DynamicsConfig(enabled=True, susceptibility=1.0, influence_step=0.5, confidence_bound=1.0, drift_std=0.0, radical_step=0.4)
+    with_push, without = factors.copy(), factors.copy()
+    for _ in range(3):
+        with_push = update_latent_factors(with_push, anchors, edges, pull, np.random.default_rng(0), mood=mood).factors
+        without = update_latent_factors(without, anchors, edges, dataclasses.replace(pull, radical_step=0.0), np.random.default_rng(0), mood=mood).factors
+    assert abs(without[1, 0] - 1.0) < 0.2  # no push: the pair just meets
+    assert with_push[1, 0] > 1.4  # the angry citizen walked away from the president
+    assert with_push[2, 0] > without[2, 0] + 0.2  # and the calm neighbour, never angry, went with them
+    assert with_push[0].tolist() == [0.0, 0.0]  # nobody else moved
+
+
 def test_apply_dynamics_reads_anger_salience_and_the_sitting_president_off_the_citizens() -> None:
     citizens_config = load_config().citizens
     population = generate_population(citizens_config, 6, seed=2)
