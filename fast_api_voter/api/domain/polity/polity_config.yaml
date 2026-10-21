@@ -193,7 +193,8 @@ citizens:
 # CANDIDATURE (§2.3, §2.4 — contradiction C1 résolue ici)
 # =============================================================================
 candidacy:
-  ambition_threshold: 0.30            # [v0] seuil du chemin dominant
+  ambition_threshold: 0.30            # [v0] seuil du chemin dominant — du moteur déterministe SEULEMENT : avec llm.enabled le modèle décide
+                                      #      (ambition_score et soutien perçu, sans seuil) et ce seuil ne sert que de repli par lot si les appels du modèle échouent (ADR-002, amendement 2026-10-21 ; OBS-011)
   # CALIBRÉ le 2026-08-29 (ADR-002 clos). Valeur précédente : 0.7, qui ne
   # rendait éligible que 0,03 citoyen sur 100 — 39 graines sur 40 ne
   # produisaient AUCUN candidat et aucune élection n'était tenue.
