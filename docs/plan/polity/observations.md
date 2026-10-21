@@ -82,6 +82,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
 | [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21) |
+| [OBS-053](#obs-053) | The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind | 2026-10-21 | cause found |
 
 ---
 
@@ -2834,4 +2835,45 @@ founding. Open: 5 founded parties were dissolved at exactly 4 ticks, the first t
 covers (a second wave of foundings at tick 4); the re-run shows whether such waves remain.
 
 *Status: fixed (ADR-018, amendment 2026-10-21); the live re-run is pending.*
+
+### OBS-053
+
+**The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind.**
+
+*Seen.* The rented 27B probe and its 8B baseline (`plan-rented-gpu-runs.md` §11), same code (`e11971af`) and
+config. Thinking calls whose reasoning searches for the answer's format (a regex on "schema", "likely keys",
+"need to output JSON", "what fields"), from `llm_calls.jsonl`:
+
+| decision | 27B | 8B |
+|---|---:|---:|
+| forum_post | 494 / 495 | 2 / 506 |
+| chamber_deliberation | 94 / 99 | 0 / 122 |
+| president_turn | 31 / 33 | 0 / 34 |
+| coalition_turn | 30 / 30 | 0 / 45 |
+| nominee_turn | 18 / 18 | 0 / 36 |
+| amendment_vote | 65 / 75 | 0 / 135 |
+| vote_cast | 15 / 15 | 0 / 20 |
+
+The reasoning reads like "Need JSON schema: rationale, post, note_to_self, party_move, party_id, shift_issue,
+shift_direction? ... shift_issue -1, shift_direction "none"." In the forum, the 27B set `shift_issue` to -1 and
+`shift_direction` to "none" in all 495 turns (the 8B moved in 20 of 506, 4.0%). Both models wrote the fields in
+the same (alphabetical) order, so the order is not the difference.
+
+*Cause.* The prompts point at a schema they never show. The agent turns, the forum and the amendment ballot say
+"Answer with one JSON object in the schema given"; most batch decisions, the vote and the chamber among them, say "Reponds
+UNIQUEMENT avec un objet JSON conforme au schema fourni" (18 such places in `api/domain/polity/`). The schema
+itself goes to vLLM as the structured-output constraint only, never into the prompt text (`llm_prompts.jsonl`
+keeps it apart). The prompts name some fields in prose, not the object's shape. The 27B looks for the schema it
+was told about; the 8B does not. Related history: the "Mode A" vote loop (`llm_behavior_engine.py`, the vote
+system prompt's docstring), where the 8B reasoned in circles on "the format question" until fixed by rewording.
+
+*Suspected effects, not shown.* The search uses reasoning tokens, so it is part of why the 27B reaches the
+2,048-token budget on 62-100% of leader and chamber calls; and it treats the shift fields as boilerplate to
+fill with their "no change" values, which would explain 0 shifts in 495 turns. Neither is measured.
+
+*What would settle it.* Show the fields in the prompt (or drop "in the schema given"), then a bake-off on the
+27B and the 8B: the share of reasoning spent on the format, reasoning tokens, and the forum's shift rate on
+the same cases. A prompt change for every agent decision, so a measured one.
+
+*Status: cause found (the missing schema); its effects are open.*
 
