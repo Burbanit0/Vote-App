@@ -15,7 +15,8 @@
   const LENSES = [["engagement", "Engagement"], ["anger", "Anger"], ["salience", "Salience"], ["party", "Party"], ["acted", "Mobilised this tick"]];
   const block = document.createElement("div");
   block.className = "block crowd"; block.id = "crowdblock"; block.hidden = true;
-  block.innerHTML = `<div class="head"><h2>The crowd</h2><p>Every citizen on the first two principal axes of the population's issue positions at its first census, with the social graph's ties; a trail marks where each one stood over the last frames. Frames are the yearly census and, while the server watched the run, every tick's checkpoint, the only record of anger, engagement and who mobilised. The president wears a ring.</p></div>
+  const lede = axes => `Every citizen on ${axes}, with the social graph's ties; a trail marks where each one stood over the last frames. Frames are the yearly census and, while the server watched the run, every tick's checkpoint, the only record of anger, engagement and who mobilised. The president wears a dark ring, the candidates since the last election a light one.`;
+  block.innerHTML = `<div class="head"><h2>The crowd</h2><p id="crowdlede">${lede("the opinion space")}</p></div>
     <div class="filters" id="crowdlens"><label>Colour</label>${LENSES.map(([k, l], i) => `<button class="chip" data-lens="${k}" aria-pressed="${i === 0}">${l}</button>`).join("")}</div>
     <div class="crowdgrid" id="crowdgrid">
       <div class="panel"><h3 id="crowdtitleA">Run A</h3><canvas id="crowdA" role="img" aria-label="The crowd of run A"></canvas><div class="legend" id="crowdlegend"></div></div>
@@ -53,14 +54,18 @@
     }
     return item(pal["--f-acct"], `mobilised (${F.acted.length})`) + item(pal["--rule"], "did not");
   }
-  // The frame at or before the selected tick, and the frames before it for the trail.
+  const AXES = { latent: "the two latent factors every citizen's views are drawn from (f1, f2), fitted from the issue positions", pca: "the first two principal axes of the issue positions at the first census" };
+  // The frame at or before the selected tick, the frames before it for the trail, and the candidates declared
+  // since the last presidential election up to that tick (the journal's candidacy_declared events).
   function at(X) {
     const C = X && X.crowd;
     if (!C || !C.ticks.length) return null;
     const t = +document.getElementById("tick").value;
     const seen = C.ticks.filter(k => k <= t);
     const ticks = seen.length ? seen : C.ticks.slice(0, 1);
-    return { C, t, tick: ticks[ticks.length - 1], frame: C.frames[ticks[ticks.length - 1]], trail: ticks.slice(-5, -1).map(k => C.frames[k]) };
+    const election = Math.max(-1, ...X.events.filter(e => e.t <= t && (e.ty === "elected" || e.ty === "election_no_winner")).map(e => e.t));
+    const nominees = new Set(X.events.filter(e => e.ty === "candidacy_declared" && e.t >= election && e.t <= t).map(e => e.c));
+    return { C, t, tick: ticks[ticks.length - 1], frame: C.frames[ticks[ticks.length - 1]], trail: ticks.slice(-5, -1).map(k => C.frames[k]), nominees };
   }
   function bounds(C) {
     if (!C._bounds) {
@@ -81,7 +86,7 @@
       title.textContent = `${label}: no crowd frames (no snapshots.jsonl or checkpoint.json beside the journal)`;
       return;
     }
-    const { C, t, tick, frame: F, trail } = cur, [x0, x1, y0, y1] = bounds(C);
+    const { C, t, tick, frame: F, trail, nominees } = cur, [x0, x1, y0, y1] = bounds(C);
     const px = ([x, y]) => [(x - x0) / (x1 - x0) * size, size - (y - y0) / (y1 - y0) * size];
     const n = F.xy.length, r = Math.max(1.6, Math.min(4, size / (Math.sqrt(n) * 9)));
     title.textContent = `${label} · tick ${tick}${tick !== t ? ` (last frame at or before tick ${t})` : ""} · ${n} citizens`;
@@ -96,6 +101,8 @@
     });
     ctx.globalAlpha = 1;
     F.xy.forEach((p, i) => { const [x, y] = px(p); ctx.fillStyle = colour(pal, F, i); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill() });
+    ctx.lineWidth = 1.2; ctx.strokeStyle = pal["--muted"];
+    for (const i of nominees) { if (!F.xy[i]) continue; const [x, y] = px(F.xy[i]); ctx.beginPath(); ctx.arc(x, y, r * 2.0, 0, 7); ctx.stroke() }
     (F.office || []).forEach((o, i) => {
       if (o !== "president") return;
       const [x, y] = px(F.xy[i]); ctx.lineWidth = 2; ctx.strokeStyle = pal["--ink"]; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, 7); ctx.stroke();
@@ -113,6 +120,7 @@
     if (two) draw(document.getElementById("crowdB"), document.getElementById("crowdtitleB"), B, "Run B", pal);
     const cur = at(R) || at(B);
     document.getElementById("crowdlegend").innerHTML = cur ? legend(pal, cur.frame) : "";
+    if (cur) document.getElementById("crowdlede").textContent = lede(AXES[cur.C.axes] || "the opinion space");
   }
   // setReplay ends in renderTick, so wrapping renderTick covers a new run, the slider and the heatmap; the tab
   // switch redraws because a canvas drawn while its tab was hidden has no width.

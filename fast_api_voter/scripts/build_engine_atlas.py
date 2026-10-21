@@ -403,6 +403,9 @@ def compact_run(run_dir: Path) -> dict[str, Any]:
 # ── the crowd (plan-scenarios-v1, step 1b) ────────────────────────────────
 
 CROWD_FIELDS = ("party_affiliation", "office", "anger", "engagement", "event_salience")
+CROWD_FRAMES = 240
+"""The ring: at most this many checkpoint frames per run (60 years of quarters); census frames are kept
+whatever their number, they are the long-run history."""
 Frame = dict[str, Any]
 CrowdState = dict[str, Any]
 """Per run: {"frames": {tick: Frame}, "edges": list | None}; the server keeps one for the run's life."""
@@ -413,9 +416,11 @@ def crowd_frame(citizens: Sequence[Mapping[str, Any]], tick: int, acted: Mapping
     field the source lacks is None for the whole frame (the yearly census carries no emotions; a checkpoint
     writes anger and engagement only once they are tracked). `acted` is the checkpoint's mobilized_last_tick."""
     ordered = sorted(citizens, key=lambda c: int(c["citizen_id"]))
+    factors = [c["latent_factors"] for c in ordered if c.get("latent_factors") is not None]
     frame: Frame = {
         "tick": tick,
         "positions": [[float(x) for x in c["issue_positions"]] for c in ordered],
+        "factors": [[float(x) for x in f[:2]] for f in factors] if factors and len(factors) == len(ordered) else None,
         "acted": sorted(int(i) for i in (acted or {})),
     }
     for field in CROWD_FIELDS:
@@ -433,7 +438,7 @@ def _checkpoint(run_dir: Path) -> dict[str, Any] | None:
         return None
 
 
-def collect_frames(run_dir: Path, frames: dict[int, Frame], population: int | None) -> None:
+def collect_frames(run_dir: Path, frames: dict[int, Frame], population: int | None, ticks_per_year: int) -> None:
     """Add to `frames` (tick -> frame) every whole census tick it lacks and the checkpoint's tick. The census
     is appended one citizen at a time, so a tick is taken only once all `population` rows are there (a short
     read would stay for the server's life). The checkpoint is the richer source for its tick (emotions, who
@@ -452,6 +457,33 @@ def collect_frames(run_dir: Path, frames: dict[int, Frame], population: int | No
     if checkpoint and checkpoint.get("citizens"):
         tick = int(checkpoint["tick"])
         frames[tick] = crowd_frame(checkpoint["citizens"], tick, checkpoint.get("mobilized_last_tick"))
+    between = sorted(t for t in frames if t % ticks_per_year)  # checkpoint frames between censuses: the ring
+    for tick in between[: max(0, len(between) - CROWD_FRAMES)]:
+        del frames[tick]
+
+
+def _axes(frames: Mapping[int, Frame]) -> tuple[str, np.ndarray, np.ndarray]:
+    """How the frames are projected: on the two latent factors (f1, f2) when a frame carries them for every
+    citizen, through the least-squares map from issue positions to factors fitted on the latest such frame
+    and applied to every frame (the year-0 census and a run without dynamics have no factors; the map
+    gives them the same axes), else on the first frame's principal axes (run_projection's PCA, signed the
+    same way from one run to the next, so run B is not run A's mirror)."""
+    with_factors = [t for t in sorted(frames) if frames[t]["factors"] is not None]
+    if with_factors:
+        frame = frames[with_factors[-1]]
+        positions, factors = np.array(frame["positions"], dtype=float), np.array(frame["factors"], dtype=float)
+        mean = positions.mean(axis=0)
+        fit, *_ = np.linalg.lstsq(np.hstack([positions - mean, np.ones((len(positions), 1))]), factors, rcond=None)
+        return "latent", np.append(mean, -1.0), fit.T  # the intercept rides as a constant column
+    mean, components = _pca(np.array(frames[min(frames)]["positions"], dtype=float))
+    return "pca", mean, components
+
+
+def _project(frame: Frame, mean: np.ndarray, axes: np.ndarray) -> list[list[float]]:
+    positions = np.array(frame["positions"], dtype=float)
+    if len(mean) == positions.shape[1] + 1:  # the latent fit: an intercept column
+        positions = np.hstack([positions, np.zeros((len(positions), 1))])
+    return [[float(v) for v in row] for row in np.round((positions - mean) @ axes.T, 3)]
 
 
 def _edges(config: Mapping[str, Any]) -> list[list[int]]:
@@ -470,19 +502,20 @@ def crowd_payload(run_dir: Path, state: CrowdState) -> dict[str, Any]:
     the same way from one run to the next so run B is not run A's mirror), the ties, the ticks. `state` keeps
     the frames and the ties between calls."""
     config = _json(run_dir / "config.json") or {}
-    population = (config.get("run") or {}).get("population_size")
+    run = config.get("run") or {}
+    population = run.get("population_size")
     frames: dict[int, Frame] = state.setdefault("frames", {})
-    collect_frames(run_dir, frames, None if population is None else int(population))
+    collect_frames(run_dir, frames, None if population is None else int(population), int(run.get("ticks_per_year") or 4))
     if not frames:
-        return {"ticks": [], "frames": {}, "edges": []}
+        return {"ticks": [], "frames": {}, "edges": [], "axes": None}
     if state.get("edges") is None:
         state["edges"] = _edges(config)
-    mean, axes = _pca(np.array(frames[min(frames)]["positions"], dtype=float))
-    projected = {}
-    for tick, frame in sorted(frames.items()):
-        xy = (np.array(frame["positions"], dtype=float) - mean) @ axes.T
-        projected[str(tick)] = {k: v for k, v in frame.items() if k != "positions"} | {"xy": np.round(xy, 3).tolist()}
-    return {"ticks": sorted(frames), "frames": projected, "edges": state["edges"]}
+    kind, mean, axes = _axes(frames)
+    projected = {
+        str(tick): {k: v for k, v in frame.items() if k not in ("positions", "factors")} | {"xy": _project(frame, mean, axes)}
+        for tick, frame in sorted(frames.items())
+    }
+    return {"ticks": sorted(frames), "frames": projected, "edges": state["edges"], "axes": kind}
 
 
 # ── the page ──────────────────────────────────────────────────────────────

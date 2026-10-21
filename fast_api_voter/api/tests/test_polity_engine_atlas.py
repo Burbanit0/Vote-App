@@ -391,7 +391,8 @@ def test_the_crowd_payload_joins_the_census_and_the_checkpoint_on_one_set_of_axe
     assert first["anger"] is None and first["engagement"] is None  # the census has no emotions
     assert first["party"] == [0, 1, 0, 1, 0] and first["acted"] == []  # in id order, whatever the file's order
     assert last["anger"] == [0.0, 0.1, 0.2, 0.3, 0.4] and last["engagement"][4] == "exited" and last["acted"] == [1, 4]
-    assert last["office"][0] == "president" and "role" not in last  # nothing on the page reads a role
+    assert last["office"][0] == "president" and "role" not in last and "factors" not in last  # the page reads xy
+    assert payload["axes"] == "pca"  # no frame carries latent factors: the issue positions' own axes
     # The same axes for every frame: citizens moved +0.1 on the first issue per census, so the projection
     # of a citizen moves the same way from frame to frame instead of the cloud being re-centred.
     moves = [[b - a for a, b in zip(p0, p2)] for p0, p2 in zip(first["xy"], payload["frames"]["2"]["xy"])]
@@ -406,7 +407,7 @@ def test_the_crowd_has_no_ties_when_the_graph_is_off_and_no_frames_without_a_cen
     bare = tmp_path / "bare"
     bare.mkdir()
     (bare / "events.jsonl").write_text("", encoding="utf-8")
-    assert atlas.crowd_payload(bare, {}) == {"ticks": [], "frames": {}, "edges": []}
+    assert atlas.crowd_payload(bare, {}) == {"ticks": [], "frames": {}, "edges": [], "axes": None}
 
 
 def test_a_half_written_checkpoint_waits_for_the_next_read_and_the_frames_seen_stay(tmp_path: Path) -> None:
@@ -430,6 +431,31 @@ def test_a_census_tick_is_taken_only_once_every_citizen_is_in_it(tmp_path: Path)
     with (run_dir / "snapshots.jsonl").open("a", encoding="utf-8") as census:
         census.write("".join(rows[3:]))
     assert atlas.crowd_payload(run_dir, state)["ticks"] == [0, 2, 3, 4]
+
+
+def test_frames_with_latent_factors_are_drawn_on_them_and_the_others_mapped_onto_the_same_axes(tmp_path: Path) -> None:
+    run_dir = _crowd_run(tmp_path)
+    checkpoint = json.loads((run_dir / "checkpoint.json").read_text(encoding="utf-8"))
+    for c in checkpoint["citizens"]:  # positions are a linear picture of two factors, as the kernel's sigmoid is near its middle
+        c["latent_factors"] = [c["issue_positions"][0] * 2.0, c["issue_positions"][1] - 1.0]
+    (run_dir / "checkpoint.json").write_text(json.dumps(checkpoint), encoding="utf-8")
+    payload = atlas.crowd_payload(run_dir, {})
+    assert payload["axes"] == "latent"
+    for c, xy in zip(sorted(checkpoint["citizens"], key=lambda c: c["citizen_id"]), payload["frames"]["3"]["xy"]):
+        assert xy == pytest.approx(c["latent_factors"], abs=2e-3)  # f1, f2 themselves where the frame has them
+    census_xy = payload["frames"]["0"]["xy"]  # the year-0 census has no factors: the same map gives it the same axes
+    assert len(census_xy) == 5 and census_xy != payload["frames"]["3"]["xy"]
+
+
+def test_the_ring_keeps_every_census_frame_and_the_latest_checkpoint_frames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_dir = _crowd_run(tmp_path)
+    monkeypatch.setattr(atlas, "CROWD_FRAMES", 2)
+    state: dict[str, Any] = {}
+    whole = (run_dir / "checkpoint.json").read_text(encoding="utf-8")
+    for tick in (3, 5, 7):  # ticks between censuses (ticks_per_year is 2)
+        (run_dir / "checkpoint.json").write_text(whole.replace('"tick": 3', f'"tick": {tick}'), encoding="utf-8")
+        atlas.crowd_payload(run_dir, state)
+    assert atlas.crowd_payload(run_dir, state)["ticks"] == [0, 2, 5, 7]  # tick 3 fell out of the ring; the census stayed
 
 
 def test_the_ties_are_generated_once_per_run_and_kept_with_the_frames(tmp_path: Path) -> None:
