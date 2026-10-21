@@ -1,6 +1,6 @@
 # Scenarios v1: from a world to an instrument
 
-> **status:** live — steps 1 (trajectory metrics, archetypes, the divergence test; #979) and 1b (the crowd, live, in the engine atlas) built; steps 2–7 to do. (Set 2026-10-21; `docs/README.md` lists every plan.)
+> **status:** live — steps 1 (trajectory metrics, archetypes, the divergence test; #979), 1b (the crowd, live, in the engine atlas; #981) and 2 (the scenario profile) built; the model arm of step 2 still to time; steps 3–7 to do. (Set 2026-10-21; `docs/README.md` lists every plan.)
 
 **What this is.** The assessment of 2026-10-21 of why the polity engine, after phases 0–5 of
 `plan-polity-agency-roadmap.md`, still does not hand the researcher *different scenarios of an
@@ -190,7 +190,7 @@ Each step is one PR under the usual gates. Steps 1–3 need no GPU.
 |---|---|---|
 | 1 | **Built.** Trajectory metrics, archetypes, plausibility, the divergence test in the sweep summary. | tests |
 | 1b | **Built.** The crowd, live, in the engine atlas (`scripts/engine_atlas/crowd.html`, `build_engine_atlas.crowd_payload`): every citizen on the first census's two principal axes, frames from the yearly census and from every tick's `checkpoint.json` while the server watches (the only per-tick record of anger, engagement and who mobilised), the regenerated graph's ties, lenses (engagement, anger, salience, party, mobilised), a trail over the last frames, the president ringed, run B beside run A at the same tick. | a live run shows the cloud move |
-| 2 | `--profile scenario`: the rule crowd of §3, LLM leaders only, forum capped at about 10 a tick, dynamics and emotions on (`drift_std > 0`), measured wall time on the phase15 seeds. | divergence test; minutes a seed |
+| 2 | **Built.** `--profile scenario` (`run_polity_flagship.py`, `run_polity_seed_sweep.py`): the exploration profile with `llm.crowd: false` (new; the rules decide the nine batch decisions, the model plays only the agents; `vote.mode: utility` required), the forum capped at 10 speakers a tick, `dynamics.drift_std` 0.02. **Measured:** the rule-only twin (`--engine deterministic`) runs 8 years at population 100 in 1.3 s on one CPU core, both profiles, so the catalogue of step 6 is a matter of minutes; the model arm (`--engine llm`, the agents on vLLM) is not yet timed: no server was up when this was built, and the GPU is shared. The expected saving from the crowd and the forum cap is about 80% of an exploration run's model time (the phase15 call accounting). With `drift_std` 0.02 alone the population's mean moved 0.017 over 8 years against 0.015 without: the anchor still pulls views back, which is step 4's ADR-032 D. | divergence test; minutes a seed |
 | 3 | Open the world: policy and the economy as a felt outcome in `policy_retrospection`; cohort replacement as replace-in-place (ids stay `range(n)`); homophilous rewiring once a year; the radicalisation channel; `events.scripted`. | divergence test, panel band |
 | 4 | ADR-031 option B (approval on conduct and policy gain; C only if recalls stay at zero); ADR-032 option D. | divergence test |
 | 5 | Optional: LLM-distilled stochastic policies for the crowd decisions (a grid of situations × logprobs, stored and sampled; zero inference at run time). | dispersion retention vs the live model |

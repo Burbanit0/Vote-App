@@ -457,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
     # PLAN_BEYOND_CI W2.1. One arm of a two-arm experiment is one sweep with its own --output-dir,
     # so two arms never share a summary; paired_contrast pairs them afterwards.
     parser.add_argument("--engine", choices=("llm", "deterministic"), default="llm")
-    parser.add_argument("--profile", choices=("flagship", "exploration"), default="flagship")
+    parser.add_argument("--profile", choices=("flagship", "exploration", "scenario"), default="flagship")
     parser.add_argument("--threshold", type=float, default=None, help="passed to run_polity_flagship.py --threshold")
     parser.add_argument("--freeze-amendments", action="store_true", help="passed to run_polity_flagship.py")
     parser.add_argument("--without", action="append", choices=("ambition-goal", "forward-stakes"), default=[],

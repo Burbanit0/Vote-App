@@ -61,7 +61,7 @@ flowchart TB
 ```
 
 The runners are in `fast_api_voter/scripts/`: `run_polity_flagship.py` (one run, `--profile
-flagship|exploration`, `--engine llm|deterministic`, `--resume`, `--replay-calls-from`),
+flagship|exploration|scenario`, `--engine llm|deterministic`, `--resume`, `--replay-calls-from`),
 `run_polity_seed_sweep.py` (ensembles), `export_polity_runs.py` (static export),
 `twin_runs.py`, `run_bakeoff.py`.
 
@@ -114,7 +114,8 @@ true of the shipped defaults (dynamics and mutable parties off), not of the expl
 layer off. The flagship profile (`_flagship_config`) turns on the LLM, legitimacy, petitions,
 street pressure, awakening, events, the social graph and the chamber, but leaves emotions, opinion
 dynamics and legislation off. The exploration profile (`_exploration_config`) adds those and the
-agency mechanisms. Results always name their profile; see
+agency mechanisms. The scenario profile (`_scenario_config`, [plan-scenarios-v1](../plan/polity/plan-scenarios-v1.md) step 2) is the exploration profile with `llm.crowd` off, so the rules
+decide the nine batch decisions and the model plays only the agents, the forum capped at 10 and views that drift. Results always name their profile; see
 [`polity-llm-reference.md` §0](../plan/polity/polity-llm-reference.md#0-the-one-thing-to-understand-first).
 
 ## 3. A run, end to end

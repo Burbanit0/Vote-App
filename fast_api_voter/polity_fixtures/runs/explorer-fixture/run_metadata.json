@@ -1,6 +1,6 @@
 {
   "assembly_seats": 100,
-  "config_hash": "d430d16635909805557fcd96c294102be5be015654f14616060c9ab6d1d2e186",
+  "config_hash": "1e454dcc1f8f80db8b8dd4ea5083d7debfcf7aa06153ae453a8b179ab2c5127c",
   "duration_years": 3,
   "engine": "llm",
   "llm_enabled": true,

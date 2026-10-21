@@ -512,6 +512,10 @@ social_graph:
 # =============================================================================
 llm:
   enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
+  crowd: true                 # [plan-scenarios-v1 étape 2] true = le modèle décide pour la foule
+                              #      (les neuf décisions par lots) ; false = les règles décident
+                              #      pour la foule et le modèle ne joue que les agents (ADR-014) ;
+                              #      exige vote.mode: utility
   provider: vllm              # [v2] ollama | vllm | api ("api" épelable,
                               #      non implémenté — hors périmètre §12)
                               #      BASCULE vers vllm dès v4 (§15bis.6) :

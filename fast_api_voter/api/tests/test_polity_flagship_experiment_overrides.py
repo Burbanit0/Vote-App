@@ -77,3 +77,32 @@ def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sw
         sweep._claim_output_dir(tmp_path, sweep._run_flags(argparse.Namespace(
             engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True, without=[])))
 
+
+
+def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(flagship: Any, tmp_path: Path) -> None:
+    """plan-scenarios-v1 step 2."""
+    def profiled(profile: str, engine: str = "llm") -> Any:
+        return flagship._flagship_config(
+            engine=engine, years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
+            max_batch_replays=0, provider=None, workers=1, profile=profile,
+        )
+
+    explored, scenario = profiled("exploration"), profiled("scenario")
+    assert explored.llm.crowd and explored.agents.forum_size == 30 and explored.dynamics.drift_std == 0.0
+    assert not scenario.llm.crowd and scenario.vote.mode == "utility"
+    assert scenario.agents.forum_size == 10 and scenario.dynamics.drift_std == 0.02
+    assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
+    assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
+    validate_config(scenario)
+    twin = profiled("scenario", engine="deterministic")
+    assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.02
+    validate_config(twin)
+    assert tuple(flagship.PROFILES) == ("flagship", "exploration", "scenario")
+
+
+def test_the_scenario_profile_is_a_command_line_choice(flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr(flagship, "run_flagship", lambda **kwargs: seen.append(kwargs["profile"]))
+    monkeypatch.setattr(flagship.signal, "signal", lambda *_: None)
+    flagship.main(["--profile", "scenario", "--output-dir", str(tmp_path), "--years", "1", "--population", "10", "--seats", "3"])
+    assert seen == ["scenario"]

@@ -92,7 +92,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -250,12 +250,20 @@ def _flagship_config(
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    config = _exploration_config(config) if profile == "exploration" else config
+    config = PROFILES[profile](config)
     return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments, without=without)
 
 
 WITHOUT = {"forward-stakes": "forward_stakes", "ambition-goal": "ambition_goal"}
 """OBS-048's arms: a mechanism `--without` turns off, and the agents switch that does it."""
+
+
+PROFILES: dict[str, Callable[[PolityConfig], PolityConfig]] = {
+    "flagship": lambda config: config,
+    "exploration": lambda config: _exploration_config(config),
+    "scenario": lambda config: _scenario_config(config),
+}
+"""--profile: what each profile does to the flagship config (the functions are defined below)."""
 
 
 def _experiment_overrides(
@@ -291,6 +299,23 @@ def _experiment_overrides(
                              f"{'amendment stakes' if name == 'forward-stakes' else 'president agent'} (the exploration profile, unfrozen)")
         config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[name]: False}))
     return config
+
+
+def _scenario_config(config: PolityConfig) -> PolityConfig:
+    """plan-scenarios-v1 step 2: the exploration profile with the crowd by rule and the model playing
+    the agents only (llm.crowd off: the utility ballot, the ambition rule for candidacy, the
+    deterministic pressure rule, form_coalition unless the leaders negotiate, no chamber shifts),
+    the forum capped at 10 speakers a tick (it was 60% of an exploration run's model time), and
+    views that keep moving (dynamics.drift_std 0.02, ADR-032's random-walk arm, the smallest value
+    of ADR-012's grid). On the deterministic engine it is the exploration profile plus the drift."""
+    explored = _exploration_config(config)
+    return dataclasses.replace(
+        explored,
+        llm=dataclasses.replace(explored.llm, crowd=False),
+        vote=dataclasses.replace(explored.vote, mode="utility"),
+        agents=dataclasses.replace(explored.agents, forum_size=10),
+        dynamics=dataclasses.replace(explored.dynamics, drift_std=0.02),
+    )
 
 
 def _exploration_config(config: PolityConfig) -> PolityConfig:
@@ -777,10 +802,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--profile",
-        choices=("flagship", "exploration"),
+        choices=tuple(PROFILES),
         default="flagship",
         help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
-             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
+             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate; "
+             "scenario: exploration with the crowd by rule, the model for the agents only, the forum "
+             "capped at 10 and drifting views (plan-scenarios-v1 step 2)",
     )
     parser.add_argument(
         "--threshold", type=float, default=None,
