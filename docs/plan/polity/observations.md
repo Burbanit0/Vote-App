@@ -81,7 +81,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
-| [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21) |
+| [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21), one live pair agrees |
 | [OBS-053](#obs-053) | The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind | 2026-10-21 | cause found |
 
 ---
@@ -2826,15 +2826,32 @@ found again, and the first party keeps 2 of its 8 members.
 
 *Outcome.* ADR-018, amendment 2026-10-21: for `parties.founding_lock_years` (1 by default) after a party is
 founded, its members can neither found nor be brought into another founding; joining and leaving stay free,
-and the forum turn's stand line tells a member until when. Not yet re-run on a model.
+and the forum turn's stand line tells a member until when.
 
-*What would settle it.* The baseline's config on current polity, the 8B, seed 42, with and without the lock,
-run together: parties founded and dissolved, and how soon after founding. With the lock, a party can still be
-dissolved inside its first year, but only through its own members leaving or joining another, never by a
-founding. Open: 5 founded parties were dissolved at exactly 4 ticks, the first tick a 1-year lock no longer
-covers (a second wave of foundings at tick 4); the re-run shows whether such waves remain.
+*What it did (2026-10-21, one seed pair).* The baseline's config (8B, seed 42, 8 years, p100, exploration profile), current
+polity without the lock (`a95f5d28`, `ctl`) against the branch with it (`36e4078e`, `lock`), run together on one
+server (`~/Documents/Dev/polity-runs/founding-lock-ab`, `chain.sh`; 103 and 100 minutes, 3 elections and 0 recalls in
+both). Founding events and `party_dissolved` ages from `events.jsonl`:
 
-*Status: fixed (ADR-018, amendment 2026-10-21); the live re-run is pending.*
+| | ctl (no lock) | lock |
+|---|---:|---:|
+| forum turns asking to `found` / applied | 83 / 44 | 80 / 32 |
+| parties founded / founded parties dissolved | 44 / 25 | 32 / 11 |
+| founded parties dissolved inside their first year (< 4 ticks) | 8 | 1 |
+| dissolutions journaled right after a founding in the same tick | 7 | 1 |
+| ages at dissolution (ticks) | 0 1 1 1 1 2 3 3 4 5 5 5 5 7 8 9 12 13 19 21 23 23 26 28 29 | 1 4 7 8 9 10 12 16 20 24 24 |
+| effective parties by seats, first / second legislative election | 7.81 / 6.55 | 10.06 / 13.89 |
+| prompt texts carrying the lock sentence | 0 | 152 |
+
+The mechanism behaves as designed: dissolutions inside the lock fall from 8 to 1, and from 7 to 1 right behind a founding.
+The one inside the lock is a dissolution through the party's own members leaving (the lock does not stop joins or
+leaves). Fewer foundings are applied (32 against 44) although the model asks about as often (80 against 83); a
+suspicion, not shown: the kernel refuses more because a locked party's members no longer count as co-founders. The ENP
+by seats is higher with the lock, as fewer parties are dissolved. Not shown: that this holds beyond one seed pair (the
+arms also differ in what the model did: retries 58 against 85, fallbacks 5 against 3, noise of the OBS-020 kind), and
+nothing here tests the effect on the elections.
+
+*Status: fixed (ADR-018, amendment 2026-10-21); one live seed pair agrees, more seeds would say how much.*
 
 ### OBS-053
 
