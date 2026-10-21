@@ -98,6 +98,16 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.02
     validate_config(twin)
     assert tuple(flagship.PROFILES) == ("flagship", "exploration", "scenario")
+    # A flag outranks the profile, and the contradiction is refused rather than rewritten.
+    from api.domain.polity.config import PolityConfigError
+
+    contradiction = flagship._flagship_config(
+        engine="llm", years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
+        max_batch_replays=0, provider=None, workers=1, profile="scenario", vote_mode="llm",
+    )
+    assert contradiction.vote.mode == "llm"
+    with pytest.raises(PolityConfigError, match="llm.crowd"):
+        validate_config(contradiction)
 
 
 def test_the_scenario_profile_is_a_command_line_choice(flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

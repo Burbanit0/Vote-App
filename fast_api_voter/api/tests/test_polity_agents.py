@@ -433,3 +433,32 @@ def test_with_the_crowd_off_the_model_plays_only_the_agents(tmp_path: Path) -> N
         assert any(e["event_type"] == kind and e["payload"].get("llm_call_id") for e in with_crowd), kind
     assert all(t["payload"].get("llm_call_id") for t in turns)  # the agents' turns are the model's, in both arms
     assert json.loads((journal.parent / "config.json").read_text())["llm"]["crowd"] is False
+
+
+def test_with_the_crowd_off_each_hand_off_takes_the_right_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The coalition takes the agents' client when the leaders negotiate and the crowd's otherwise; the chamber's
+    deliberation and the accountability phase always take the crowd's, which is None with the crowd off."""
+    seen: dict[str, list[Any]] = {"coalition": [], "chamber": [], "accountability": []}
+    real_accountability = engine._run_accountability_phase
+    monkeypatch.setattr(engine, "_form_and_journal_coalition", lambda parties, seats, votes, config, journal, tick, client, talks, answers: seen["coalition"].append(client))
+    monkeypatch.setattr(engine, "_run_chamber_deliberation", lambda citizens, config, journal, tick, client: seen["chamber"].append(client))
+
+    def accountability(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
+        seen["accountability"].append(llm_client)
+        return real_accountability(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(engine, "_run_accountability_phase", accountability)
+    base = _agent_run_config(tmp_path)
+    for name, crowd, leaders in (("talks", False, True), ("rule", False, False), ("crowd", True, False)):
+        for calls in seen.values():
+            calls.clear()
+        config = dataclasses.replace(base, llm=dataclasses.replace(base.llm, crowd=crowd),
+                                     agents=dataclasses.replace(base.agents, coalition=leaders))
+        client = _AgentFakeClient()
+        run_simulation(config, run_id=name, llm_client=client)
+        assert seen["coalition"] and seen["chamber"] and seen["accountability"], name
+        if crowd:
+            assert all(c is not None for calls in seen.values() for c in calls), name  # the model everywhere
+        else:
+            assert all(c is None for c in seen["chamber"] + seen["accountability"]), name
+            assert all((c is not None) == leaders for c in seen["coalition"]), name

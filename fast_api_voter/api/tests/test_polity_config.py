@@ -841,3 +841,10 @@ def test_llm_crowd_ships_on_and_off_needs_the_utility_ballot() -> None:
     assert message is not None and "'llm.crowd: false' needs 'vote.mode: utility'" in message
     off_engine = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=False, crowd=False))
     assert broken_rule(dataclasses.replace(off_engine, vote=dataclasses.replace(config.vote, mode="llm"))) is None
+    # The two things the rules cannot do for the crowd are refused, not silently dropped.
+    staggered = dataclasses.replace(agents_only, institutions=dataclasses.replace(config.institutions, staggered_election=True))
+    assert "staggered_election" in (broken_rule(staggered) or "")
+    responses = dataclasses.replace(agents_only, mandate=dataclasses.replace(config.mandate, enabled=True),
+                                    agents=dataclasses.replace(config.agents, president=False))
+    assert "agents.president" in (broken_rule(responses) or "")
+    assert broken_rule(dataclasses.replace(responses, agents=dataclasses.replace(config.agents, president=True))) is None
