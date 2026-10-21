@@ -81,6 +81,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
+| [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | cause found |
 
 ---
 
@@ -257,6 +258,30 @@ petition or election, and its context is `ticks_left` alone.
 *What would settle it.* A design decision on what the chamber is for. With no agenda (S4.2's
 legislation would give it one) and an instruction to hold still, "no change" is the expected
 answer. Removing the sentence alone would likely bring back the loops it cured (OBS-008).
+
+*Update 2026-10-21: no longer true on current code.* The exploration profile turns on opinion dynamics, which
+moves every member's sincere position each tick while `chamber_position` stays where seating pinned it, so from the
+second deliberation on the two differ and the sentence no longer binds. `check_observations.py chamber <run_dir>`:
+8B baseline (8y p100 seed 42) 187 of 495 decisions with motif 702, order-8y ctl-a seed 1 221, phase16 ambition-only
+seed 1 192, phase11 seed 1 212 (38-45%), against 12-18 of 2,475 at p500 in September. Split by the member's
+`ctx.ticks_left` (4 = the first deliberation after seating), the share answering 701:
+
+```bash
+cd fast_api_voter && python3 -c "import json,glob,collections,sys
+c=collections.defaultdict(lambda:[0,0])
+for j in glob.glob(sys.argv[1]):
+    for l in open(j):
+        e=json.loads(l)
+        if e['event_type']=='chamber_deliberation':
+            k='first' if e['payload']['ctx']['ticks_left']==4 else 'later'; c[k][1]+=1; c[k][0]+=e['motif']=='701'
+print(dict(c))" '<run_dir>/events.jsonl'
+```
+
+gives first / later: 128/135 and 180/360 (8B baseline), 124/135 and 150/360 (order-8y ctl-a seed 1), 129/135 and
+174/360 (phase16 ambition-only seed 1): 92-96% on the seating tick, 42-50% after. The shifts still land on
+`chamber_position` only (`llm_behavior_engine.py:4878`), which nothing but the bill votes reads: the chamber never
+writes `issue_positions`, so "the chamber moves" and "deliberation changes anyone's position" are different
+statements.
 
 ### OBS-005
 
@@ -435,6 +460,32 @@ mostly end in `nomination_lost`.
 and the one reference tried argued in the wrong direction.
 
 *What would settle it.* S2.2's candidacy case bank, and S2.4 (is it this model family?).
+
+*Update 2026-10-21: the same on current code, and what it means.* `check_observations.py elections` (it runs on any
+root again once its dissolved-party crash is fixed), pooled: phase11 384 of 1,000 declare, 204 would pass the 0.30
+threshold, 139 of those declare, so 245 of the 384 (64%) are below it; phase16 (10 runs) 193 of 500, 103, 71, so 122 of
+193 (63%); order-8y (9 runs) 299 of 900, 165, 110, so 189 of 299 (63%). Agreement with the threshold stays 69%
+(346 of 500 in phase16). The threshold is not applied on the LLM path at all (ADR-002, amendment 2026-10-21), so this
+is the model arbitrating, not a violated rule (the threshold is only the per-chunk fallback, `_deterministic_candidacy_fallback`).
+What it does to who stands, from the journals and checkpoints (the same command with `candidacy_considered` and five
+ambition bands gives the declared share by band in the amendment: 8-13% under 0.1, 31-32% at 0.1-0.2, 44-52% at 0.2-0.3,
+66% at 0.3-0.4, 77-83% above 0.4):
+
+```bash
+cd fast_api_voter && python3 -c "import json,glob,os,sys
+below=total=n_below=n=0
+for ck in glob.glob(sys.argv[1]+'/**/run/*/checkpoint.json', recursive=True):
+    run=os.path.dirname(ck); c=json.load(open(ck)); amb={x['citizen_id']:x['ambition_score'] for x in (c.get('state') or c)['citizens']}
+    for l in open(run+'/events.jsonl'):
+        e=json.loads(l)
+        if e['event_type']=='elected' and e['payload'].get('office')=='president': total+=1; below+=amb[e['citizen_id']]<0.30
+        if e['event_type']=='candidacy_declared' and e['payload'].get('path')=='dominant': n+=1; n_below+=amb[e['citizen_id']]<0.30
+print('presidents below 0.30:',below,'/',total,' nominees below:',n_below,'/',n)" ~/Documents/Dev/polity-runs/phase16
+```
+
+gives, for phase11 / phase16 / order-8y: presidents elected below 0.30 36 of 70 / 11 of 30 / 13 of 27, nominees below
+496 of 1,042 / 177 of 387 / 160 of 338. About half of the people who stand and of those who govern are below the gate the
+config lists. Enforcing the gate is therefore a large change (ADR-002's amendment lists the options), not a fix.
 
 ### OBS-012
 
@@ -2790,3 +2841,45 @@ the control code, rejects this order for its pressure and forum changes. The tab
 "The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
 
 *Status: explained, not shipped.*
+
+### OBS-054
+
+**The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does.**
+
+*Seen.* The vote prompt states the rule: a candidate whose distance is at most the voter's `blank_threshold` is
+acceptable, and blank is for the voter with none (`build_system_prompt`, `llm_behavior_engine.py`). The prompt carries
+each voter's `distances` and `blank_threshold`, so every logged `vote_cast` answer can be scored against it. From the
+runs that kept `llm_prompts.jsonl` (`python scripts/audit_decisions.py <root>`; units are the voters of the audit batches):
+
+| run | budget state | units | rule says blank | model blank | blank though a candidate was acceptable | first choice = nearest acceptable |
+|---|---|---:|---:|---:|---:|---:|
+| 8B baseline, 8y p100 seed 42 | at the thinking budget | 27 | 0% | 30% | 30% | 11/19 |
+| 8B baseline | under it | 11 | 9% | 36% | 27% | 7/7 |
+| 8B, full 30y p500 seed 1 | at | 327 | 4% | 58% | 54% | 80/135 |
+| | under | 78 | 6% | 19% | 13% | 63/63 |
+| 8B, full 30y p500 seed 2 | at | 383 | 3% | 52% | 50% | 142/182 |
+| | under | 159 | 8% | 21% | 13% | 126/126 |
+| 8B, full 30y p500 seed 42 | at | 469 | 6% | 52% | 47% | 148/220 |
+| | under | 79 | 10% | 20% | 10% | 62/63 |
+| 27B, 8y p100 seed 42 | under (never at) | 41 | 2% | 2% | 0% | 39/40 |
+| 27B, 2y p200 seed 42 | under (never at) | 22 | 9% | 9% | 0% | 20/20 |
+
+("At the budget" = the call's reasoning reached `llm.thinking_token_budget` - 2 tokens, so it was cut, not finished.
+The share of vote calls in that state is 84%, 72% and 86% in the three p500 runs and 80% in the 8y baseline; OBS-023.)
+
+*Cause.* Shown for the budget: under it the 8B ranked the nearest acceptable candidate in 258 of 259 ranked units
+and blanked against the rule in 10-27% of units (13%, 13% and 10% at p500; the 27% is 11 units); cut at the budget
+it blanked against the rule in 47-54% of units at p500 (30% at 27 units) and ranked the nearest acceptable candidate
+in 58-78% of ranked units. The remaining under-budget error is the model's: the rule is in the prompt and the 27B
+follows it (0 of 63 units blank against it, 59 of 60 ranked units right). Not shown: whether a larger budget removes
+the at-budget half, or why the 8B blanks at all (the first experiment of the 2026-10-21 investigation).
+
+*Consequence.* None for who governs: since ADR-011 every counted presidential ballot is the kernel's `utility_ballot`;
+the model votes a 10% audit sample, journaled with `audit` and never counted. It does mean the audit cannot stand as
+the "validated" instrument for the 8B (W2.3's fit-for-inference table says `vote_cast` is validated, on the bank).
+
+*What would settle it.* The bank's `vote_first_choice` and `logprob_gate` at budgets 2048, 4096, 8192 and none on the
+same live prompts, paired by call, scored with `decision_audit.vote_rule`.
+
+*Status: cause found (the budget cut); the rest is the model's.*
+
