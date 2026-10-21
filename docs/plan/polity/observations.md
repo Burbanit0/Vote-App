@@ -81,7 +81,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
-| [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | cause shown, the budget to adopt is open |
+| [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | effect of the budget shown, verdict unresolved, budget to adopt open |
 
 ---
 
@@ -2855,17 +2855,22 @@ the "validated" instrument for the 8B (W2.3's fit-for-inference table says `vote
 *What would settle it.* The bank's `vote_first_choice` and `logprob_gate` at budgets 2048, 4096, 8192 and none on the
 same live prompts, paired by call, scored with `decision_audit.vote_rule`.
 
-*Update 2026-10-21: the budget is the cause (shown).* The logged prompts of the 8B baseline and the three p500 runs (355
-calls, 1,402 voters where the rule says a candidate is acceptable) were sent again under `thinking_token_budget` 2048,
-4096, 8192 and none, same bytes otherwise (`scripts/thinking_budget_live.py`, results in
-`scripts/thinking_budget_live_results.md`, rule committed before the first call). The share of voters whose first choice
-is not the nearest acceptable candidate: 60.4% at 2048, 24.9% at 4096, 12.0% at 8192, 10.2% with no budget; blank against
-the rule 47.3%, 21.7%, 11.1%, 9.8%. Calls that had ended under the budget in the original runs stay at 6-16% in every
-arm. So the 8B follows the rule when it is allowed to finish thinking, as the 27B did. The pre-registered verdict is
-"unresolved" (the guard on the noise floor, 5%, was exceeded: the same bytes flip on 8-14% of units between two repeats of
-an arm, in every arm), so the choice of budget is not made here; without the guard the rule would have picked 8192.
-Cost of 8192: latency p50 22 s to 44 s on a vote call, 22 s to 57 s on a chamber call; no budget is not viable for the
-chamber (29% of its calls hit `max_tokens`).
+*Update 2026-10-21: raising the budget removes most of the error; the registered verdict is unresolved.* The logged
+prompts of the 8B baseline and the three p500 runs (255 vote calls, 1,402 voters where the rule says a candidate is
+acceptable; and 100 chamber calls) were sent again under `thinking_token_budget` 2048, 4096, 8192 and none, same bytes
+otherwise (`scripts/thinking_budget_live.py`, results in `scripts/thinking_budget_live_results.md`, rule committed before
+the first call). The share of voters whose first choice is not the nearest acceptable candidate: 60.4% at 2048, 24.9% at
+4096, 12.0% at 8192, 10.2% with no budget; blank against the rule 47.3%, 21.7%, 11.1%, 9.8%. The cases that had ended
+under the budget originally stay at 6-16% in every arm (spread 9.6 points, inside the 13.8-point noise floor: the
+internal check holds). The pre-registered verdict is "unresolved": the 2048 arm's own two repeats flip on 10.4% of units,
+above the 5% guard (the arms flip on 8-14%). The choice of budget is not made here, and what the decision rule would say
+if applied anyway depends on how rejected calls are scored (the pre-registration was silent): scored wrong, 8192; left
+out (9 vote calls with no budget were rejected), "no tested budget removes the error", because E2 with no budget falls
+to 8.6% against 11.3% at 8192 on the same units. Cost of 8192: latency p50 22 s to 44 s on a vote call, 22 s to 57 s on a
+chamber call; no budget is not viable for the chamber (86 of 300 calls hit `max_tokens`). Two departures from the
+pre-registration: the 8B baseline gave 15 first-attempt vote calls, not 20; and the logged temperature and seed were
+absent, so the replay used the reference config's seed.
 
-*Status: cause shown (the budget cut); the budget to adopt is open.*
+*Status: effect shown (a larger budget cuts the error from about 60% to about 12%); registered verdict unresolved; the
+budget to adopt is open.*
 

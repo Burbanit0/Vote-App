@@ -55,7 +55,8 @@ class FakeModel:
         self.calls.append(kwargs)
         budget = (kwargs.get("extra_body") or {}).get("thinking_token_budget")
         vote = kwargs["user_prompt"] != "{}"
-        content = json.dumps((BLANKED if budget == 2048 else RIGHT) if vote else CHAMBER)
+        cut = budget == 2048 and kwargs["system_prompt"] != "calm"  # a case that ended under the budget is not changed by it
+        content = json.dumps((BLANKED if cut else RIGHT) if vote else CHAMBER)
         reasoning = {2048: 2048, 4096: 3000, 8192: 3200, None: 5000}[budget]
         body = {"choices": [{"finish_reason": "stop", "message": {"content": content, "reasoning": "r"}}],
                 "usage": {"completion_tokens": reasoning + 50, "completion_tokens_details": {"reasoning_tokens": reasoning}}}
@@ -103,18 +104,56 @@ def test_an_arm_resumes_and_repeats_votes_twice_and_chamber_three_times(tmp_path
     assert {(c["unit_ids"][0], c["attempt"]) for c in tb.read_calls(tmp_path / CALL_LOG_FILENAME)} == {(0, 0), (0, 1), (1, 0), (1, 1), (1, 2)}
 
 
-def test_an_answer_the_client_rejects_is_logged_and_scored_wrong(tmp_path: Path) -> None:
-    class Rejecting(FakeModel):
-        def complete_json(self, **kwargs: Any) -> str:
-            raise tb.LlmResponseError("no valid JSON")
+class Rejecting(FakeModel):
+    def complete_json(self, **kwargs: Any) -> str:
+        self.calls.append(kwargs)
+        raise tb.LlmResponseError("no valid JSON")
 
+
+def test_an_answer_the_client_rejects_is_logged_scored_wrong_and_left_out_of_the_sensitivity(tmp_path: Path) -> None:
     cases = [_case(0)]
-    tb.run_arm(Rejecting(), cases, 2048, tmp_path, workers=1)
-    arm = tb.load_arm(tmp_path.parent, None) or {}
-    logged = {(c["unit_ids"][0], c["attempt"]): c for c in tb.read_calls(tmp_path / CALL_LOG_FILENAME)}
-    assert len(logged) == 2 and all(c.get("error") for c in logged.values()) and arm == {}
-    table = tb.unit_table(cases, logged)
+    tb.run_arm(Rejecting(), cases, 2048, tmp_path / "arm-2048", workers=1)
+    arm = tb.load_arm(tmp_path, 2048)
+    assert set(arm) == {(0, 0), (0, 1)} and all(c.get("error") for c in arm.values())
+    table = tb.unit_table(cases, arm)
     assert table and all(outcome == (True, True) for outcome in table.values())
+    assert tb.unit_table(cases, arm, finished_only=True) == {}
+
+
+def test_a_resume_does_not_send_a_failed_call_again_and_survives_a_torn_last_line(tmp_path: Path) -> None:
+    cases = [_case(0)]
+    first = Rejecting()
+    tb.run_arm(first, cases, 2048, tmp_path, workers=1)
+    assert len(first.calls) == 2
+    with (tmp_path / CALL_LOG_FILENAME).open("a", encoding="utf-8") as fh:
+        fh.write('{"kind": "decision", "unit_ids": [')  # killed mid-write
+    assert len(tb.read_log(tmp_path / CALL_LOG_FILENAME)) == 2
+    second = FakeModel()
+    tb.run_arm(second, cases, 2048, tmp_path, workers=1)
+    assert second.calls == []
+
+
+def test_a_bad_answer_shape_scores_the_voters_wrong_without_crashing() -> None:
+    case = _case(0)
+    for content in ("[]", '{"decisions": "x"}', '{"decisions": [{"cid": "a"}, 3]}'):
+        assert all(o == (True, True) for o in tb.vote_outcomes(case, content).values())
+
+
+def test_the_under_budget_check_voids_an_experiment_whose_arms_differ_there(tmp_path: Path) -> None:
+    class Drifting(FakeModel):
+        def complete_json(self, **kwargs: Any) -> str:
+            self.calls.append(kwargs)
+            budget = (kwargs.get("extra_body") or {}).get("thinking_token_budget")
+            content = json.dumps(BLANKED if budget == 8192 else RIGHT)  # differs on every case, under budget or not
+            record_http_response(httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": content}}]}))
+            return content
+
+    cases = [_case(i, original_at_budget=False, original_reasoning_tokens=100) for i in range(3)]
+    (tmp_path / tb.CASES_FILE).write_text("".join(json.dumps(c) + "\n" for c in cases), encoding="utf-8")
+    for budget in tb.ARMS:
+        tb.run_arm(Drifting(), cases, budget, tmp_path / f"arm-{tb.arm_name(budget)}", workers=1)
+    tb.report(tmp_path)
+    assert "the experiment is void" in (tmp_path / "report.md").read_text(encoding="utf-8")
 
 
 def test_mcnemar_pairs_units_and_the_noise_floor_compares_repeats() -> None:
@@ -166,11 +205,11 @@ def test_sampling_draws_the_at_budget_calls_with_their_prompts(tmp_path: Path, m
 
 
 def test_the_whole_experiment_on_a_fake_model_reaches_the_pre_registered_verdict(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    cases = [_case(i) for i in range(6)] + [_case(10, "chamber_deliberation"), _case(11, "vote_cast", original_at_budget=False, original_reasoning_tokens=100)]
+    cases = [_case(i) for i in range(6)] + [_case(10, "chamber_deliberation"), _case(11, "vote_cast", system="calm", original_at_budget=False, original_reasoning_tokens=100)]
     _run_all(tmp_path, cases, FakeModel())
     assert tb.report(tmp_path) == 0
     text = (tmp_path / "report.md").read_text(encoding="utf-8")
-    assert "candidate budget 4096" in text
+    assert "candidate budget 4096" in text and "## Sensitivity" in text and "within it" in text
     assert "| 2048 | " in text and "| none | " in text and "## Chamber" in text and "## Cases that ended under the budget" in text
     assert "rejected" in text  # 2048 blanks every time: the exact test is significant after Holm across the six
     assert capsys.readouterr().out.startswith("# Thinking budget on live prompts")
