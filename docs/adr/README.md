@@ -39,6 +39,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [028](ADR-028-ambition-shapes-the-presidents-goal.md) | A president's goal follows their ambition (supersedes roadmap D8) | polity | 2026-10-12 | Accepted |
 | [029](ADR-029-referendum-is-a-new-vote.md) | A referendum is a new vote, each citizen for their own interest (amends ADR-020) | polity | 2026-10-13 | Accepted |
 | [030](ADR-030-field-order-is-part-of-the-prompt.md) | The order of a schema's fields is part of the prompt, chosen by measurement | polity | 2026-10-19 | Accepted |
+| [033](ADR-033-radicalisation.md) | Radicalisation: angry citizens a shock reached step away from the president (scenario profile) | polity | 2026-10-21 | Accepted (scenario profile) |
 
 Also in this folder, not ADRs:
 

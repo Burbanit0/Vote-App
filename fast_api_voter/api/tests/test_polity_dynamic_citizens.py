@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 import api.domain.polity.run_polity_simulation as engine
 from api.domain.polity.accountability import awakening_threshold, select_consulted
 from api.domain.polity.checkpoint import load_checkpoint
-from api.domain.polity.citizen import Citizen, generate_population, latent_structure
+from api.domain.polity.citizen import Citizen, Office, generate_population, latent_structure
 from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import (
     DynamicsConfig,
@@ -37,7 +37,7 @@ from api.domain.polity.llm_behavior_engine import (
     pressure_shipped_signal_values,
     pressure_signals,
 )
-from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, update_latent_factors
+from api.domain.polity.opinion_dynamics import Mood, NeighbourEdges, apply_dynamics, current_factors, update_latent_factors
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.domain.polity.simple_rules import deterministic_pressure_action
 from api.domain.polity.social_graph import SocialGraph
@@ -324,3 +324,97 @@ def test_a_dynamic_run_resumed_after_a_crash_matches_an_uninterrupted_one(tmp_pa
     resumed = run_simulation(_config(tmp_path / "b", MOVING, FELT), run_id="run", resume=True)
     assert resumed.read_bytes() == uninterrupted.read_bytes()
     assert (resumed.parent / "snapshots.jsonl").read_bytes() == (uninterrupted.parent / "snapshots.jsonl").read_bytes()
+
+
+# ── radicalisation (ADR-033) ──────────────────────────────────────────────
+
+RADICAL = dataclasses.replace(NEUTRAL, radical_step=0.1)
+"""One-step settings with nothing but the push: no neighbours' pull, no noise, no pull back to an anchor."""
+
+
+def _mood(anger: list[float], salience: list[float], president: tuple[float, float] | None = (0.0, 0.0)) -> Mood:
+    return Mood(anger=np.array(anger), salience=np.array(salience), president=None if president is None else np.array(president))
+
+
+def test_the_radicalisation_settings_ship_at_zero_and_need_emotions() -> None:
+    config = load_config()
+    assert config.dynamics.radical_step == 0.0 and config.dynamics.anger_narrows_bound == 0.0
+    dynamic = dataclasses.replace(config, dynamics=RADICAL)
+    with pytest.raises(PolityConfigError, match="emotions.enabled"):
+        validate_config(dynamic)
+    with pytest.raises(PolityConfigError, match="emotions.enabled"):
+        validate_config(dataclasses.replace(config, dynamics=dataclasses.replace(NEUTRAL, anger_narrows_bound=0.5)))
+    awake = dataclasses.replace(dynamic, awakening=dataclasses.replace(config.awakening, enabled=True), emotions=QUIET)
+    validate_config(awake)
+
+
+@settings(max_examples=200, deadline=None)
+@given(_worlds(), st.lists(st.floats(0.0, 1.0), min_size=8, max_size=8), st.lists(st.floats(0.0, 1.0), min_size=8, max_size=8))
+def test_a_mood_changes_nothing_while_the_two_couplings_are_at_zero(world: tuple, anger: list[float], salience: list[float]) -> None:
+    factors, anchors, edges, susceptibility, step_size, bound = world
+    config = DynamicsConfig(enabled=True, susceptibility=susceptibility, influence_step=step_size, confidence_bound=bound, drift_std=0.1)
+    n = len(factors)
+    mood = _mood(anger[:n], salience[:n], president=(float(factors[0][0]), float(factors[0][1])))
+    with_mood = update_latent_factors(factors, anchors, edges, config, np.random.default_rng(3), mood=mood)
+    without = update_latent_factors(factors, anchors, edges, config, np.random.default_rng(3))
+    assert np.array_equal(with_mood.factors, without.factors) and with_mood.radicalised == 0
+
+
+def test_an_angry_citizen_the_shock_reached_steps_away_from_the_president_and_nobody_else_moves() -> None:
+    factors = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 2.0], [-3.0, 0.0], [5.0, 5.0]])
+    edges = NeighbourEdges.from_graph(_graph([], 5))
+    mood = _mood(anger=[0.0, 1.0, 0.5, 0.0, 1.0], salience=[1.0, 1.0, 1.0, 1.0, 0.0], president=(0.0, 0.0))
+    step = update_latent_factors(factors, factors.copy(), edges, RADICAL, np.random.default_rng(0), mood=mood)
+    assert step.factors[0].tolist() == [0.0, 0.0]  # the president themself: no direction, no push
+    assert step.factors[1].tolist() == pytest.approx([1.1, 0.0])  # anger 1, salience 1: radical_step along the direction away
+    assert step.factors[2].tolist() == pytest.approx([0.0, 2.05])  # anger 0.5: half the step
+    assert step.factors[3].tolist() == [-3.0, 0.0]  # calm: untouched
+    assert step.factors[4].tolist() == [5.0, 5.0]  # angry but the shock never reached them (salience 0)
+    assert step.radicalised == 2
+    vacant = update_latent_factors(factors, factors.copy(), edges, RADICAL, np.random.default_rng(0), mood=_mood([1.0] * 5, [1.0] * 5, None))
+    assert np.array_equal(vacant.factors, factors) and vacant.radicalised == 0
+
+
+def test_the_push_survives_the_pull_back_to_the_anchor_only_in_proportion_to_susceptibility() -> None:
+    factors = np.array([[0.0, 0.0], [1.0, 0.0]])
+    mood = _mood([0.0, 1.0], [1.0, 1.0])
+    edges = NeighbourEdges.from_graph(_graph([], 2))
+    held = update_latent_factors(factors, factors.copy(), edges, dataclasses.replace(RADICAL, susceptibility=0.5), np.random.default_rng(0), mood=mood)
+    assert held.factors[1].tolist() == pytest.approx([0.5 * 1.0 + 0.5 * 1.1, 0.0])  # (1 - s) anchor + s (f + push)
+
+
+def test_anger_narrows_the_confidence_bound_so_an_angry_citizen_listens_only_to_the_like_minded() -> None:
+    factors = np.array([[0.0, 0.0], [0.8, 0.0]])
+    edges = NeighbourEdges.from_graph(_graph([(0, 1)], 2))
+    listening = DynamicsConfig(enabled=True, susceptibility=1.0, influence_step=1.0, confidence_bound=1.0, drift_std=0.0, anger_narrows_bound=0.5)
+    calm = update_latent_factors(factors, factors.copy(), edges, listening, np.random.default_rng(0), mood=_mood([0.0, 0.0], [0.0, 0.0], None))
+    assert calm.factors[0].tolist() == pytest.approx([0.8, 0.0]) and calm.influenced == 2  # 0.8 is inside the bound of 1.0
+    angry = update_latent_factors(factors, factors.copy(), edges, listening, np.random.default_rng(0), mood=_mood([1.0, 0.0], [0.0, 0.0], None))
+    assert angry.factors[0].tolist() == [0.0, 0.0]  # citizen 0's bound is 0.5 at anger 1: citizen 1 is out of earshot
+    assert angry.factors[1].tolist() == pytest.approx([0.0, 0.0])  # citizen 1 is calm: their bound is 1.0 and they still hear citizen 0
+    assert angry.influenced == 1
+
+
+def test_apply_dynamics_reads_anger_salience_and_the_sitting_president_off_the_citizens() -> None:
+    citizens_config = load_config().citizens
+    population = generate_population(citizens_config, 6, seed=2)
+    structure = latent_structure(citizens_config, 6, seed=2)
+    edges = NeighbourEdges.from_graph(_graph([], 6))
+    for citizen in population:
+        citizen.anger, citizen.event_salience = 1.0, 1.0
+    population[0].office = Office.PRESIDENT
+    start = current_factors(population, structure)
+    step = apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1))
+    moved = np.array([c.latent_factors for c in population])
+    assert step.radicalised == 5 and np.array_equal(moved[0], start[0])  # everyone but the president steps
+    assert (np.linalg.norm(moved[1:] - start[0], axis=1) > np.linalg.norm(start[1:] - start[0], axis=1)).all()  # all farther from them
+    population[0].office = Office.NONE
+    assert apply_dynamics(population, structure, edges, RADICAL, np.random.default_rng(1)).radicalised == 0  # no president, no push
+
+
+def test_a_run_with_the_push_on_journals_how_many_it_moved_and_one_without_does_not(tmp_path: Path) -> None:
+    pushing = dataclasses.replace(MOVING, radical_step=0.05, anger_narrows_bound=0.3)
+    with_push = [e for e in _lines(run_simulation(_config(tmp_path / "on", pushing, FELT), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
+    assert with_push and all("radicalised" in e["payload"] and e["payload"]["radicalised"] >= 0 for e in with_push)
+    without = [e for e in _lines(run_simulation(_config(tmp_path / "off", MOVING, FELT), run_id="run")) if e["event_type"] == "opinion_dynamics_step"]
+    assert without and not any("radicalised" in e["payload"] for e in without)

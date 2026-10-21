@@ -61,10 +61,12 @@
     "scripted": []
   },
   "dynamics": {
+    "anger_narrows_bound": 0.0,
     "confidence_bound": 1.0,
     "drift_std": 0.0,
     "enabled": false,
     "influence_step": 0.0,
+    "radical_step": 0.0,
     "susceptibility": 1.0
   },
   "emotions": {

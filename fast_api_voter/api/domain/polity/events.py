@@ -488,6 +488,7 @@ class OpinionDynamicsStep(Event):
     mean_shift: float
     max_shift: float
     influenced: int
+    radicalised: int = OMIT  # ADR-033: citizens an angry shock-struck push moved this update, present while radical_step > 0
 
 
 @dataclass(frozen=True, kw_only=True)

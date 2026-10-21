@@ -1476,7 +1476,10 @@ def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
     step = apply_dynamics(state.citizens, context.latent, context.edges, context.config.dynamics, state.dynamics_rng)
     context.journal.write_event(
         tick=context.tick,
-        event=OpinionDynamicsStep(mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced),
+        event=OpinionDynamicsStep(
+            mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced,
+            **({"radicalised": step.radicalised} if context.config.dynamics.radical_step > 0 else {}),
+        ),
         citizen_id=None,
     )
 
