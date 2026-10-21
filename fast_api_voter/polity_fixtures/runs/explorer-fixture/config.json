@@ -196,6 +196,7 @@
       "party_id"
     ],
     "death_enabled": false,
+    "founding_lock_years": 1.0,
     "founding_ratio": 0.05,
     "init_strategy": "kmeans_on_citizens",
     "initial_count": 5,

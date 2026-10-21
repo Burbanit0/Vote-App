@@ -63,6 +63,37 @@ a party with less than X% of the votes cast for parties wins no seat."
   than 0%".
 - **Not changed.** The kernel: seats, founding and dissolution rules are as before.
 
+## Amendment 2026-10-21: a party is locked for a year after its founding
+
+OBS-052: on the 8B, founders re-founded their own party tick after tick (47 parties founded and 30
+dissolved in 8 years for 100 citizens; 11 of the 29 founded parties dissolved went within 2 ticks). The gap between the founding ratio and
+half of it did not stop a party being founded and dissolved in turn, as this ADR expected: a founding takes
+every co-founder at once, so a party loses its members in one move.
+
+- **The lock.** For `parties.founding_lock_years` after a party is founded (1 by default, so 4 ticks: the
+  founding tick and the 3 after it; 0 turns it off), its members can neither found a party nor be brought
+  into another's founding (`simple_rules.locked_parties`, passed to `cofounders` and `apply_party_move`). It is
+  not an article. A party whose founding tick lies after the tick asked about is not locked.
+- **What stays free.** Joining and leaving: a member of a locked party may still join another or become an
+  independent. Dissolution is unchanged, so a locked party that its members leave can still be dissolved.
+- **The lock follows the party, not the citizen.** A founder who leaves their party is free to found again,
+  and so are the members of a locked party that is dissolved. What the lock stops is OBS-052's damage: a
+  founding cannot take a young party's members. Locking the citizen would need state on every citizen; it
+  waits for a run to show founders leaving to found again.
+- **Same tick.** The lock is computed before every move, so a party founded earlier in a tick is locked for
+  the rest of it.
+- **The citizen is told.** The forum turn's stand line counts co-founders the same way and tells a member of
+  a locked party: "Your party P was founded at tick T: until tick U, its members can neither found a party
+  nor be brought into one." Without it the model would propose a move the kernel refuses (C3/C5). The forum's
+  prompts are all written before the tick's first move, so a citizen swept into a party founded earlier in the
+  same tick is refused without having been told; their next tick's stand line says it.
+- **State.** `Party.founded_tick` (None for the parties a run starts with). The checkpoint writes it only for
+  a founded party, so the party list of a run that never founds is written as before, and a party list from
+  before the amendment loads as established. The new setting changes the config hash, though, so a checkpoint
+  taken before this amendment does not resume under it, as with any config change.
+- **Deterministic engine.** Unchanged: party moves come only from the forum turn, which needs the model.
+- **Not changed.** The founding ratio, the dissolution rule, the platform of a new party.
+
 ## What this ADR does not settle
 
 - The party leader's `party_leader_turn`, which would move a platform. A platform is fixed at

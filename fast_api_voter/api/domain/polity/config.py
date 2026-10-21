@@ -178,6 +178,9 @@ class PartiesConfig:
     founding_ratio: float = 0.05
     """ADR-018: the share of the citizens whose co-founding a new party needs (`birth_enabled`);
     a party below half of it is dissolved (`death_enabled`). An article."""
+    founding_lock_years: float = 1.0
+    """ADR-018, amendment 2026-10-21: for this long after a party is founded, its members can
+    neither found another nor be swept into another's founding (OBS-052). 0 turns it off."""
 
 
 @dataclass(frozen=True)
@@ -887,6 +890,7 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
         coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
         founding_ratio=_get_ratio(s, "parties", "founding_ratio"),
+        founding_lock_years=_get_nonneg_float(s, "parties", "founding_lock_years"),
     )
 
 

@@ -81,6 +81,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
+| [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21) |
 
 ---
 
@@ -2790,3 +2791,47 @@ the control code, rejects this order for its pressure and forum changes. The tab
 "The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
 
 *Status: explained, not shipped.*
+
+### OBS-052
+
+**On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens.**
+
+*Seen.* The like-for-like baseline of the rented 27B probe (`plan-rented-gpu-runs.md` G6): the 8B on the
+probe's own code and config (`e11971af`, seed 42, 8 years, p100, 15 seats, exploration, 24 workers, relaxed),
+run `~/Documents/Dev/polity-runs/rtxpro6000-8b-baseline/baseline-8y-p100-qwen3-8b-w24-seed42`:
+
+| | 27B probe | 8B baseline |
+|---|---:|---:|
+| forum turns asking to `found` | 2 of 495 | 96 of 506 |
+| parties founded / dissolved | 2 / 0 | 47 / 30 |
+| founded parties dissolved within 2 ticks of founding | - | 11 of 29 (the 30th dissolution was initial party 2) |
+| effective parties (seats), first → last election | 5.30 → 5.11 | 8.01 → 5.38 |
+
+Nine parties were founded at tick 0. Citizen 8 founded party 6 at tick 0, 14 at tick 1 (party 6 dissolved,
+1 member left), 16 at tick 2 (14 dissolved, 0 left), 18 at tick 3 (16 dissolved); citizen 77 founded 23 at
+tick 4 and 25 at tick 5, dissolving 21 and 23. From `events.jsonl`: the `party_founded` and `party_dissolved`
+events in order, with each `forum_post`'s `party_move`.
+
+*Cause.* `simple_rules.cofounders` brings along everyone who would sign for the founder's positions and stands
+nearer to them than to their own party's platform, including the members of a party founded a tick before.
+Dissolution is checked right after each move, and party 6 went from 6 members at its founding to 1 in the move
+that founded party 14: the new founding took them. Why they followed is inferred, not observed: a founder's
+positions drift between ticks (opinion dynamics, the forum), so the members of their party, whose platform is
+the founder's old positions, can stand nearer the new ones. ADR-018 expected the gap between the founding ratio and half of it to stop "a party being founded
+and dissolved in turn"; it does not, because the members leave all at once. The 8B asks to found readily
+(OBS-045: 59/60 able founders found, whatever the threshold), so it hits this; the 27B rarely does. A unit
+test reproduces it without a model: after a founding, move the founder halfway to their members' centre,
+found again, and the first party keeps 2 of its 8 members.
+
+*Outcome.* ADR-018, amendment 2026-10-21: for `parties.founding_lock_years` (1 by default) after a party is
+founded, its members can neither found nor be brought into another founding; joining and leaving stay free,
+and the forum turn's stand line tells a member until when. Not yet re-run on a model.
+
+*What would settle it.* The baseline's config on current polity, the 8B, seed 42, with and without the lock,
+run together: parties founded and dissolved, and how soon after founding. With the lock, a party can still be
+dissolved inside its first year, but only through its own members leaving or joining another, never by a
+founding. Open: 5 founded parties were dissolved at exactly 4 ticks, the first tick a 1-year lock no longer
+covers (a second wave of foundings at tick 4); the re-run shows whether such waves remain.
+
+*Status: fixed (ADR-018, amendment 2026-10-21); the live re-run is pending.*
+
