@@ -100,11 +100,13 @@ What the decision rule gives when it is applied anyway, to show how much rests o
   units with a shift is 31.6% at 2048, 25.6% at 4096, 20.1% at 8192, 20.7% with no budget: cutting the reasoning
   makes the model shift more, so part of the chamber's motion in the runs we hold (OBS-004's update) is produced by the
   cut. There is no rule-truth for the chamber, so this says the shifts are budget-dependent, not which arm is right.
-- **Votes were not replayed at temperature 0.** The plan said so; the logs carried no temperature, the replay sent none, and
-  the two repeats per arm are sampled (10% of units flip). Whether a fixed temperature would bring the 2048 arm under the
-  5% guard is untested; it is the cheapest follow-up. Shifts per unit were not reported, only units with a shift.
-- **Departures from the pre-registration**: the 8B baseline had 15 first-attempt vote calls, not 20; the logged
-  temperature and seed were absent, so every replay used the reference config's seed; a rejected call is scored wrong
+- **The replay was at temperature 0.** The call log shows `temperature: null` because no per-call override was sent; the
+  client then uses its configured value, which is 0.0 (the reference config; the config rejects anything else for batch
+  decisions) with seed 42. So the 10% of units that flip between two repeats of identical bytes is not sampling
+  temperature: it is the server's non-determinism of thinking calls (8 concurrent calls batched together, EAGLE-3). A
+  serial replay would test that; it is the cheapest follow-up. Shifts per unit were not reported, only units with a shift.
+- **Departures from the pre-registration**: the 8B baseline had 15 first-attempt vote calls, not 20; the log has no
+  per-call temperature or seed, so every replay used the reference config's (0.0, seed 42); a rejected call is scored wrong
   in the primary table and left out in the sensitivity table, which the pre-registration did not say.
 - **What this experiment did not test**: the president, nominee, coalition, forum and amendment turns (the budget binds on
   65-100% of the first four); any simulation; whether the answers at a larger budget change elections (the counted ballots

@@ -2868,8 +2868,8 @@ if applied anyway depends on how rejected calls are scored (the pre-registration
 out (9 vote calls with no budget were rejected), "no tested budget removes the error", because E2 with no budget falls
 to 8.6% against 11.3% at 8192 on the same units. Cost of 8192: latency p50 22 s to 44 s on a vote call, 22 s to 57 s on a
 chamber call; no budget is not viable for the chamber (86 of 300 calls hit `max_tokens`). Two departures from the
-pre-registration: the 8B baseline gave 15 first-attempt vote calls, not 20; and the logged temperature and seed were
-absent, so the replay used the reference config's seed.
+pre-registration: the 8B baseline gave 15 first-attempt vote calls, not 20; and the replay used the reference config's temperature 0.0 and seed 42
+(the log has no per-call override). The 10% flip between repeats is therefore the server's, not sampling.
 
 *Status: effect shown (a larger budget cuts the error from about 60% to about 12%); registered verdict unresolved; the
 budget to adopt is open.*
