@@ -461,6 +461,32 @@ and the one reference tried argued in the wrong direction.
 
 *What would settle it.* S2.2's candidacy case bank, and S2.4 (is it this model family?).
 
+*Update 2026-10-21: the same on current code, and what it means.* `check_observations.py elections` (it runs on any
+root again once its dissolved-party crash is fixed), pooled: phase11 384 of 1,000 declare, 204 would pass the 0.30
+threshold, 139 of those declare, so 245 of the 384 (64%) are below it; phase16 (10 runs) 193 of 500, 103, 71, so 122 of
+193 (63%); order-8y (9 runs) 299 of 900, 165, 110, so 189 of 299 (63%). Agreement with the threshold stays 69%
+(346 of 500 in phase16). The threshold is not applied on the LLM path at all (ADR-002, amendment 2026-10-21), so this
+is the model arbitrating, not a violated rule (the threshold is only the per-chunk fallback, `_deterministic_candidacy_fallback`).
+What it does to who stands, from the journals and checkpoints (the same command with `candidacy_considered` and five
+ambition bands gives the declared share by band in the amendment: 8-13% under 0.1, 31-32% at 0.1-0.2, 44-52% at 0.2-0.3,
+66% at 0.3-0.4, 77-83% above 0.4):
+
+```bash
+cd fast_api_voter && python3 -c "import json,glob,os,sys
+below=total=n_below=n=0
+for ck in glob.glob(sys.argv[1]+'/**/run/*/checkpoint.json', recursive=True):
+    run=os.path.dirname(ck); c=json.load(open(ck)); amb={x['citizen_id']:x['ambition_score'] for x in (c.get('state') or c)['citizens']}
+    for l in open(run+'/events.jsonl'):
+        e=json.loads(l)
+        if e['event_type']=='elected' and e['payload'].get('office')=='president': total+=1; below+=amb[e['citizen_id']]<0.30
+        if e['event_type']=='candidacy_declared' and e['payload'].get('path')=='dominant': n+=1; n_below+=amb[e['citizen_id']]<0.30
+print('presidents below 0.30:',below,'/',total,' nominees below:',n_below,'/',n)" ~/Documents/Dev/polity-runs/phase16
+```
+
+gives, for phase11 / phase16 / order-8y: presidents elected below 0.30 36 of 70 / 11 of 30 / 13 of 27, nominees below
+496 of 1,042 / 177 of 387 / 160 of 338. About half of the people who stand and of those who govern are below the gate the
+config lists. Enforcing the gate is therefore a large change (ADR-002's amendment lists the options), not a fix.
+
 ### OBS-012
 
 **Term limits and the rerun bar do nothing on the LLM engine.**
