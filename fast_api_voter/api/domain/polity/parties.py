@@ -29,6 +29,8 @@ _MAX_KMEANS_ITER = 100
 class Party:
     party_id: int
     platform: tuple[float, ...]
+    founded_tick: int | None = None
+    """The tick a citizen founded it (ADR-018); None for the parties a run starts with."""
 
 
 def kmeans(points: np.ndarray, k: int, seed: int) -> np.ndarray:

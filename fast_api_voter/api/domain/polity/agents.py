@@ -60,7 +60,7 @@ from api.domain.polity.llm_schemas import (
     PositionShift,
 )
 from api.domain.polity.parties import Party
-from api.domain.polity.simple_rules import cofounders
+from api.domain.polity.simple_rules import cofounders, founding_lock_ticks, locked_parties
 
 _logger = logging.getLogger(__name__)
 
@@ -774,19 +774,31 @@ def _party_move_rules(config: PolityConfig) -> str:
     )
 
 
-def stand_line(citizen: Citizen, citizens: Sequence[Citizen], parties: Sequence[Party], config: PolityConfig) -> str:
+def stand_line(
+    citizen: Citizen, citizens: Sequence[Citizen], parties: Sequence[Party], config: PolityConfig, tick: int,
+) -> str:
     """Where the citizen stands against the parties, and how many citizens would co-found with them
     -- the kernel's own count (simple_rules.cofounders), because founding turns on it and a citizen
-    who cannot see it cannot tell a move that would hold from one the kernel will refuse (C3/C5)."""
+    who cannot see it cannot tell a move that would hold from one the kernel will refuse (C3/C5).
+    For the same reason a member of a party still in its founding lock is told so."""
     nearest = min(parties, key=lambda p: (math.dist(citizen.issue_positions, p.platform), p.party_id))
-    backing = len(cofounders(citizen, list(citizens), list(parties)))
+    lock = founding_lock_ticks(config.parties, config.run.ticks_per_year)
+    locked = locked_parties(list(parties), tick, lock)
+    backing = len(cofounders(citizen, list(citizens), list(parties), locked))
     needed = math.ceil(config.parties.founding_ratio * len(citizens))
-    return (
+    line = (
         f"Of the parties, party {nearest.party_id} stands nearest to you; where it differs most from you: "
         f"{_platform_gap(citizen.issue_positions, nearest.platform)}. "
         f"{backing} of the {len(citizens)} citizens stand nearer to your positions than to their own party's platform, "
         f"you included; founding a party needs {needed}."
     )
+    until = locked.get(citizen.party_affiliation) if citizen.party_affiliation is not None else None
+    if until is not None:
+        line += (
+            f" Your party {citizen.party_affiliation} was founded at tick {until - lock}: until tick {until}, "
+            "its members can neither found a party nor be brought into one."
+        )
+    return line
 
 
 def forum_system_prompt(citizen: Citizen, config: PolityConfig) -> str:
