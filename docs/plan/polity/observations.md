@@ -83,7 +83,6 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
 | [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21), one live pair agrees |
 | [OBS-053](#obs-053) | The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind | 2026-10-21 | cause found |
-| [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | cause found |
 | [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | effect of the budget shown, verdict unresolved, budget to adopt open |
 
 ---
