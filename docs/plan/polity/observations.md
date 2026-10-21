@@ -81,6 +81,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
 | [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
 | [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
+| [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21), one live pair agrees |
+| [OBS-053](#obs-053) | The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind | 2026-10-21 | cause found |
 | [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | cause found |
 
 ---
@@ -2841,6 +2843,107 @@ the control code, rejects this order for its pressure and forum changes. The tab
 "The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
 
 *Status: explained, not shipped.*
+
+### OBS-052
+
+**On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens.**
+
+*Seen.* The like-for-like baseline of the rented 27B probe (`plan-rented-gpu-runs.md` G6): the 8B on the
+probe's own code and config (`e11971af`, seed 42, 8 years, p100, 15 seats, exploration, 24 workers, relaxed),
+run `~/Documents/Dev/polity-runs/rtxpro6000-8b-baseline/baseline-8y-p100-qwen3-8b-w24-seed42`:
+
+| | 27B probe | 8B baseline |
+|---|---:|---:|
+| forum turns asking to `found` | 2 of 495 | 96 of 506 |
+| parties founded / dissolved | 2 / 0 | 47 / 30 |
+| founded parties dissolved within 2 ticks of founding | - | 11 of 29 (the 30th dissolution was initial party 2) |
+| effective parties (seats), first → last election | 5.30 → 5.11 | 8.01 → 5.38 |
+
+Nine parties were founded at tick 0. Citizen 8 founded party 6 at tick 0, 14 at tick 1 (party 6 dissolved,
+1 member left), 16 at tick 2 (14 dissolved, 0 left), 18 at tick 3 (16 dissolved); citizen 77 founded 23 at
+tick 4 and 25 at tick 5, dissolving 21 and 23. From `events.jsonl`: the `party_founded` and `party_dissolved`
+events in order, with each `forum_post`'s `party_move`.
+
+*Cause.* `simple_rules.cofounders` brings along everyone who would sign for the founder's positions and stands
+nearer to them than to their own party's platform, including the members of a party founded a tick before.
+Dissolution is checked right after each move, and party 6 went from 6 members at its founding to 1 in the move
+that founded party 14: the new founding took them. Why they followed is inferred, not observed: a founder's
+positions drift between ticks (opinion dynamics, the forum), so the members of their party, whose platform is
+the founder's old positions, can stand nearer the new ones. ADR-018 expected the gap between the founding ratio and half of it to stop "a party being founded
+and dissolved in turn"; it does not, because the members leave all at once. The 8B asks to found readily
+(OBS-045: 59/60 able founders found, whatever the threshold), so it hits this; the 27B rarely does. A unit
+test reproduces it without a model: after a founding, move the founder halfway to their members' centre,
+found again, and the first party keeps 2 of its 8 members.
+
+*Outcome.* ADR-018, amendment 2026-10-21: for `parties.founding_lock_years` (1 by default) after a party is
+founded, its members can neither found nor be brought into another founding; joining and leaving stay free,
+and the forum turn's stand line tells a member until when.
+
+*What it did (2026-10-21, one seed pair).* The baseline's config (8B, seed 42, 8 years, p100, exploration profile), current
+polity without the lock (`a95f5d28`, `ctl`) against the branch with it (`36e4078e`, `lock`), run together on one
+server (`~/Documents/Dev/polity-runs/founding-lock-ab`, `chain.sh`; 103 and 100 minutes, 3 elections and 0 recalls in
+both). Founding events and `party_dissolved` ages from `events.jsonl`:
+
+| | ctl (no lock) | lock |
+|---|---:|---:|
+| forum turns asking to `found` / applied | 83 / 44 | 80 / 32 |
+| parties founded / founded parties dissolved | 44 / 25 | 32 / 11 |
+| founded parties dissolved inside their first year (< 4 ticks) | 8 | 1 |
+| dissolutions journaled right after a founding in the same tick | 7 | 1 |
+| ages at dissolution (ticks) | 0 1 1 1 1 2 3 3 4 5 5 5 5 7 8 9 12 13 19 21 23 23 26 28 29 | 1 4 7 8 9 10 12 16 20 24 24 |
+| effective parties by seats, first / second legislative election | 7.81 / 6.55 | 10.06 / 13.89 |
+| prompt texts carrying the lock sentence | 0 | 152 |
+
+The mechanism behaves as designed: dissolutions inside the lock fall from 8 to 1, and from 7 to 1 right behind a founding.
+The one inside the lock is a dissolution through the party's own members leaving (the lock does not stop joins or
+leaves). Fewer foundings are applied (32 against 44) although the model asks about as often (80 against 83); a
+suspicion, not shown: the kernel refuses more because a locked party's members no longer count as co-founders. The ENP
+by seats is higher with the lock, as fewer parties are dissolved. Not shown: that this holds beyond one seed pair (the
+arms also differ in what the model did: retries 58 against 85, fallbacks 5 against 3, noise of the OBS-020 kind), and
+nothing here tests the effect on the elections.
+
+*Status: fixed (ADR-018, amendment 2026-10-21); one live seed pair agrees, more seeds would say how much.*
+
+### OBS-053
+
+**The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind.**
+
+*Seen.* The rented 27B probe and its 8B baseline (`plan-rented-gpu-runs.md` §11), same code (`e11971af`) and
+config. Thinking calls whose reasoning searches for the answer's format (a regex on "schema", "likely keys",
+"need to output JSON", "what fields"), from `llm_calls.jsonl`:
+
+| decision | 27B | 8B |
+|---|---:|---:|
+| forum_post | 494 / 495 | 2 / 506 |
+| chamber_deliberation | 94 / 99 | 0 / 122 |
+| president_turn | 31 / 33 | 0 / 34 |
+| coalition_turn | 30 / 30 | 0 / 45 |
+| nominee_turn | 18 / 18 | 0 / 36 |
+| amendment_vote | 65 / 75 | 0 / 135 |
+| vote_cast | 15 / 15 | 0 / 20 |
+
+The reasoning reads like "Need JSON schema: rationale, post, note_to_self, party_move, party_id, shift_issue,
+shift_direction? ... shift_issue -1, shift_direction "none"." In the forum, the 27B set `shift_issue` to -1 and
+`shift_direction` to "none" in all 495 turns (the 8B moved in 20 of 506, 4.0%). Both models wrote the fields in
+the same (alphabetical) order, so the order is not the difference.
+
+*Cause.* The prompts point at a schema they never show. The agent turns, the forum and the amendment ballot say
+"Answer with one JSON object in the schema given"; most batch decisions, the vote and the chamber among them, say "Reponds
+UNIQUEMENT avec un objet JSON conforme au schema fourni" (18 such places in `api/domain/polity/`). The schema
+itself goes to vLLM as the structured-output constraint only, never into the prompt text (`llm_prompts.jsonl`
+keeps it apart). The prompts name some fields in prose, not the object's shape. The 27B looks for the schema it
+was told about; the 8B does not. Related history: the "Mode A" vote loop (`llm_behavior_engine.py`, the vote
+system prompt's docstring), where the 8B reasoned in circles on "the format question" until fixed by rewording.
+
+*Suspected effects, not shown.* The search uses reasoning tokens, so it is part of why the 27B reaches the
+2,048-token budget on 62-100% of leader and chamber calls; and it treats the shift fields as boilerplate to
+fill with their "no change" values, which would explain 0 shifts in 495 turns. Neither is measured.
+
+*What would settle it.* Show the fields in the prompt (or drop "in the schema given"), then a bake-off on the
+27B and the 8B: the share of reasoning spent on the format, reasoning tokens, and the forum's shift rate on
+the same cases. A prompt change for every agent decision, so a measured one.
+
+*Status: cause found (the missing schema); its effects are open.*
 
 ### OBS-054
 

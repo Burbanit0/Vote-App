@@ -129,11 +129,14 @@ def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
 
 
 def _party_to_dict(party: Party) -> dict[str, Any]:
-    return {"party_id": party.party_id, "platform": list(party.platform)}
+    data: dict[str, Any] = {"party_id": party.party_id, "platform": list(party.platform)}
+    if party.founded_tick is not None:  # only founded parties carry it: a run that never founds checkpoints as before
+        data["founded_tick"] = party.founded_tick
+    return data
 
 
 def _party_from_dict(data: dict[str, Any]) -> Party:
-    return Party(party_id=data["party_id"], platform=tuple(data["platform"]))
+    return Party(party_id=data["party_id"], platform=tuple(data["platform"]), founded_tick=data.get("founded_tick"))
 
 
 STATE_PAYLOAD_KEYS: dict[str, str] = {

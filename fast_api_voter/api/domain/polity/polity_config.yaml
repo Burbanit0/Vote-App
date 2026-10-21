@@ -129,6 +129,7 @@ parties:
   birth_enabled: false        # [ADR-018] un citoyen-agent peut-il fonder un parti (intention `found`) ?
   death_enabled: false        # [ADR-018] un parti sous la moitié de founding_ratio est-il dissous ?
   founding_ratio: 0.05        # [ADR-018] part des citoyens qui doivent cofonder un parti (article)
+  founding_lock_years: 1.0    # [ADR-018, OBS-052] durée après sa fondation pendant laquelle les membres d'un parti ne peuvent ni fonder ni être entraînés dans une autre fondation (0 : pas de verrou)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes

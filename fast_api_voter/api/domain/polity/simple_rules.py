@@ -315,14 +315,37 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
-def cofounders(founder: Citizen, citizens: list[Citizen], parties: list[Party]) -> list[Citizen]:
+def founding_lock_ticks(config: PartiesConfig, ticks_per_year: int) -> int:
+    """`founding_lock_years` in whole ticks, rounded up (rounded to 9 places first, so 0.7 years
+    of 10 ticks is 7 ticks, not 8)."""
+    return math.ceil(round(config.founding_lock_years * ticks_per_year, 9))
+
+
+def locked_parties(parties: list[Party], tick: int, lock_ticks: int) -> dict[int, int]:
+    """party_id -> the first tick it is no longer locked, for the parties founded at most
+    `lock_ticks - 1` ticks before `tick` (ADR-018, amendment 2026-10-21). Their members can neither
+    found nor be swept into a founding, so the next founding cannot empty a party (OBS-052). The
+    lock follows the party: a member who leaves it is free again."""
+    return {
+        p.party_id: p.founded_tick + lock_ticks
+        for p in parties
+        if p.founded_tick is not None and 0 <= tick - p.founded_tick < lock_ticks
+    }
+
+
+def cofounders(
+    founder: Citizen, citizens: list[Citizen], parties: list[Party], locked: Collection[int] = (),
+) -> list[Citizen]:
     """The founder and everyone who would sign for their positions (the ballot-access signature
-    rule) and stands nearer to them than to their own party's platform. Public because a forum
-    turn is told how many it has (agents.stand_line): founding turns on this count, so a citizen
-    who cannot see it cannot judge the move the kernel is about to refuse."""
+    rule) and stands nearer to them than to their own party's platform, bar the members of a
+    `locked` party. Public because a forum turn is told how many it has (agents.stand_line):
+    founding turns on this count, so a citizen who cannot see it cannot judge the move the
+    kernel is about to refuse."""
     platforms = {p.party_id: p.platform for p in parties}
 
     def defects(other: Citizen) -> bool:
+        if other.party_affiliation in locked:
+            return False
         if weighted_distance(other, founder.issue_positions) > other.blank_threshold:
             return False
         own = platforms.get(other.party_affiliation) if other.party_affiliation is not None else None
@@ -338,14 +361,17 @@ def _join(citizen: Citizen, party_id: int, parties: list[Party]) -> str:
     return f"join {party_id}"
 
 
-def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig) -> str:
-    if not config.birth_enabled:
+def _found(
+    citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int,
+    locked: Collection[int],
+) -> str:
+    if not config.birth_enabled or citizen.party_affiliation in locked:
         return ""
-    founders = cofounders(citizen, citizens, parties)
+    founders = cofounders(citizen, citizens, parties, locked)
     if len(founders) < config.founding_ratio * len(citizens):
         return ""
     new_id = 1 + max(p.party_id for p in parties)
-    parties.append(Party(party_id=new_id, platform=citizen.issue_positions))
+    parties.append(Party(party_id=new_id, platform=citizen.issue_positions, founded_tick=tick))
     for founder in founders:
         founder.party_affiliation = new_id
     return f"found {new_id}"
@@ -353,18 +379,20 @@ def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], conf
 
 def apply_party_move(
     citizen: Citizen, move: Literal["none", "join", "leave", "found"], party_id: int,
-    citizens: list[Citizen], parties: list[Party], config: PartiesConfig,
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int, locked: Collection[int],
 ) -> str:
     """Apply one citizen's membership move to `citizens` and `parties`, and say what happened
     ("join 2", "leave", "found 5") -- "" when the kernel refused it. Founding needs
-    `birth_enabled` and co-founders (the founder counts) for at least `founding_ratio` of the
-    citizens; the new party's platform is the founder's own positions."""
+    `birth_enabled`, a founder outside the `locked` parties (locked_parties) and co-founders
+    (the founder counts, the members of a locked party do not) for at least `founding_ratio` of
+    the citizens; the new party's platform is the founder's own positions, founded at `tick`.
+    Joining and leaving are never locked."""
     if move == "join":
         return _join(citizen, party_id, parties)
     if move == "leave" and citizen.party_affiliation is not None:
         citizen.party_affiliation = None
         return "leave"
-    return _found(citizen, citizens, parties, config) if move == "found" else ""
+    return _found(citizen, citizens, parties, config, tick, locked) if move == "found" else ""
 
 
 def _reassign(citizens: list[Citizen], parties: list[Party], gone: set[int]) -> None:

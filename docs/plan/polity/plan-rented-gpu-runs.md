@@ -1,6 +1,6 @@
 # Rented-GPU runs: runbook and the first Qwen3.8-27B probes
 
-> **status:** live — first findings, 2026-10-17; the architecture for a full rented-GPU test is prepared (§10), not yet run. (Set 2026-10-17; `docs/README.md` lists every plan.)
+> **status:** live — first findings, 2026-10-17; the 8B baseline (G6) ran 2026-10-21 (§11); the architecture for a full rented-GPU test is prepared (§10), not yet run. (Set 2026-10-17; `docs/README.md` lists every plan.)
 
 This is the first record of running polity against a rented GPU with a model larger than the
 shipped Qwen3-8B. It has two jobs: to let the next person repeat the setup in minutes, and to say
@@ -32,6 +32,7 @@ run files named in §9; where a number is an estimate or was read from a partial
   card and not `--workers`.
 - **There is no like-for-like 8B run yet.** Every "difference" with the 8B below is against the
   8B's behaviour as recorded elsewhere, not a paired comparison. That is the first thing to fix (§7).
+  *2026-10-21: done, §11.*
 - **The shipped tooling assumes a local server.** `launch_full_run.sh` and `run_provenance` expect a
   local docker container and `nvidia-smi`; a remote full run needs its own launch and telemetry
   (§7, G1–G3).
@@ -418,3 +419,46 @@ The owner's decisions (§7) as this preparation leaves them:
 - the clone at `POLITY_SHA`, which needs this branch merged;
 - a first weight download;
 - the GPU-hours a full run takes.
+
+## 11. The 8B baseline (G6), 2026-10-21
+
+The 8B on the 8-year probe's own code and config: `e11971af`, seed 42, 8 years, 100 citizens, 15 seats,
+exploration, 24 workers, relaxed, `POLITY_LOG_PROMPTS=1`. Served locally (qwen3:8b with EAGLE-3, vLLM 0.31.0,
+16 GB card). Run: `~/Documents/Dev/polity-runs/rtxpro6000-8b-baseline/baseline-8y-p100-qwen3-8b-w24-seed42`.
+One seed per model, so a small gap is not a difference; the large ones are named below.
+
+| | 27B (rented) | 8B (local) |
+|---|---:|---:|
+| wall time | 102 min | 61 min |
+| presidents | 21 → 32 → 16 | 21 → 23 → 21 |
+| elections / recalls | 3 / 0 | 3 / 0 |
+| parties founded / dissolved | 2 / 0 | 47 / 30 |
+| effective parties (seats), first → last | 5.30 → 5.11 | 8.01 → 5.38 |
+| pressure: share choosing "nothing" | 97.7% of 391 | 87.5% of 289 |
+| petitions launched / signed | 0 / 0 | 3 / 14 |
+| candidacies declared | 23 | 40 |
+| blank votes | 1 of 41 | 15 of 41 |
+| forum mind-shift rate | 0.0% of 495 | 4.0% of 506 |
+| amendments proposed / ratified | 5 / 0 | 9 / 3 |
+| retries / fallbacks | 0 / 0 | 92 / 5 |
+
+| decision | 27B: p50 s, reasoning p50, at the 2,048 budget | 8B: same |
+|---|---|---|
+| president_turn | 49.7, 2,047, 97% | 14.2, 2,048, 65% |
+| nominee_turn | 55.3, 2,047, 100% | 37.7, 2,048, 83% |
+| coalition_turn | 53.1, 2,047, 87% | 17.8, 1,641, 38% |
+| chamber_deliberation | 51.9, 2,047, 62% | 12.8, 2,048, 73% |
+| forum_post | 38.6, 1,190, 18% | 38.8, 1,352, 22% |
+| vote_cast | 22.8, 840, 0% | 16.6, 2,048, 80% |
+
+What it settles:
+- **Engine, both models.** The thinking budget binds on leader and chamber turns on both (62-100% of calls).
+  The 88-98% inaction under pressure and the absence of recalls are not the 27B's alone at this commit.
+- **Engine, the 8B exposes it.** Founders re-found their own party every tick (OBS-052): 47 parties, and the
+  27B founded 2. Fixed by a founding lock (ADR-018, amendment 2026-10-21).
+- **The model, with an engine cause.** The 27B reconstructs the JSON schema in its reasoning on nearly every
+  thinking call, because the prompts say "the schema given" and never show it (OBS-053); the 8B does not.
+  This is part of why the 27B fills its budget, and it leaves the forum's shift at its default.
+- **The model.** The 27B makes no retries or fallbacks, casts far fewer blank votes and declares fewer
+  candidacies; it is 1.7x slower overall and 3-4x slower on leader turns.
+

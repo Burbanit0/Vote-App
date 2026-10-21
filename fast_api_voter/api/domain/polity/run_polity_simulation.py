@@ -256,6 +256,8 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     candidate_label,
     apply_party_move,
+    founding_lock_ticks,
+    locked_parties,
     assign_party_affiliation,
     dissolve_small_parties,
     first_choices,
@@ -965,7 +967,7 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
                 tick=context.tick, member=cid in members, memory=memory.recall(cid),
                 feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
                 roll=roll,
-                stand=stand_line(citizen, state.citizens, state.parties, config) if config.agents.party_moves else "",
+                stand=stand_line(citizen, state.citizens, state.parties, config, context.tick) if config.agents.party_moves else "",
             ),
         )
 
@@ -987,7 +989,11 @@ def _apply_party_move(context: TickContext, state: TickState, citizen: Citizen, 
     config = context.config
     if turn is None or not config.agents.party_moves:
         return ""
-    move = apply_party_move(citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties)
+    # recomputed before every move, so a party founded earlier this tick is locked too
+    locked = locked_parties(state.parties, context.tick, founding_lock_ticks(config.parties, config.run.ticks_per_year))
+    move = apply_party_move(
+        citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties, context.tick, locked,
+    )
     if move:
         _journal_party_changes(context, state, citizen, move)
     return move
