@@ -32,5 +32,7 @@ Reading, after the data (not pre-registered), on a selected subset (cases that e
 - What the rule now calls for: replay the whole four-arm experiment serially (about 9 hours on the 8B) and apply the
   registered decision rule then. Not done here.
 
-**Not verified**: the 4096 and "none" arms, the chamber, whether a serial replay changes the decision rule's outcome; the
+**Wording slip in the pre-registration**: it says the cases come from "the 255 vote cases ... that ended at the budget"; 255 is all vote cases, 212 of them at the budget, and the sampler draws from the 212. The raw `report.md` prints the 2048 reading on the 8192 row too; only the 2048 row is decisive.
+
+**Not verified**: that the server was otherwise idle (the logs show no overlapping calls); the 4096 and "none" arms, the chamber, whether a serial replay changes the decision rule's outcome; the
 cause inside the server (batch size, EAGLE-3 speculation, cache state or call order) is not separated.

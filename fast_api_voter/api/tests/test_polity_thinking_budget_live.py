@@ -281,6 +281,11 @@ def test_serial_run_sends_the_serial_cases_one_arm_after_the_other_and_sampling_
     monkeypatch.setattr(tb, "build_json_client", lambda llm, seed: model)
     assert tb.serial_run(tmp_path) == 0
     assert len(model.calls) == 3 * 2 * len(tb.SERIAL_ARMS)
+    workers: list[int] = []
+    real = tb.run_arm
+    monkeypatch.setattr(tb, "run_arm", lambda *a, **k: workers.append(k["workers"]) or real(*a, **k))
+    tb.serial_run(tmp_path)
+    assert workers == [1, 1]  # one call at a time is the point of the experiment
     with pytest.raises(SystemExit, match="already has arm logs"):
         tb.serial_sample(tmp_path)
 
