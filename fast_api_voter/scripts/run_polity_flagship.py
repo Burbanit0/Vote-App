@@ -84,6 +84,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import logging
 import shutil
 import signal
@@ -821,6 +822,12 @@ def main(argv: list[str] | None = None) -> int:
     # anything, by design of the OS -- that gap is covered by the catch-up scan
     # in .claude/hooks/notify_run_digest.py, not here.
     signal.signal(signal.SIGTERM, _raise_terminated)
+
+    # An LLM run keeps its prompts unless the caller opted out (POLITY_LOG_PROMPTS=0): the sidecar is small
+    # (12-15 MB for a 30-year p500 run, about half its call log), does not touch any request hash, and without
+    # it a decision cannot be re-scored or re-sent (OBS-053, decision_audit.py).
+    if args.engine == "llm":
+        os.environ.setdefault("POLITY_LOG_PROMPTS", "1")
 
     run_flagship(
         engine=args.engine,

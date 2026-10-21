@@ -72,11 +72,15 @@ def _nomination_rows(run_dir: Path, events: list[dict[str, Any]]) -> list[dict[s
     nomination prompt shows (ambition, perceived support, platform distance)."""
     state = load_checkpoint(run_dir / "checkpoint.json").state
     citizens = {c.citizen_id: c for c in state.citizens}
-    platforms = {p.party_id: p.platform for p in state.parties}
+    # A party dissolved before the checkpoint is gone from it: a founded one is still in the journal (its founding
+    # platform; the checkpoint's wins for a party that still exists). An initial party since dissolved has neither,
+    # so its nominations are skipped: the report counts the parties it can place.
+    platforms = {e["payload"]["party_id"]: tuple(e["payload"]["platform"]) for e in events if e["event_type"] == "party_founded"}
+    platforms |= {p.party_id: p.platform for p in state.parties}
     rows = []
     for event in _first_election_nominations(events):
         payload = event["payload"]
-        if payload.get("llm_fallback"):
+        if payload.get("llm_fallback") or payload["party_id"] not in platforms:  # an initial party since dissolved
             continue
         members = sorted(payload["contenders"])
         values = {
