@@ -5,6 +5,8 @@ The rule, outcomes, tests and decision were written down before any call: thinki
     python scripts/thinking_budget_live.py sample --out DIR      # cases.jsonl from the runs' logged calls and prompts
     python scripts/thinking_budget_live.py run --out DIR          # every case under 2048 / 4096 / 8192 / none (the GPU)
     python scripts/thinking_budget_live.py report --out DIR       # the tables and the pre-registered verdict
+    python scripts/thinking_budget_live.py serial-sample|serial-run|serial-report --out DIR
+        # the follow-up (thinking_budget_serial_preregistration.md): 80 of the same cases, one call at a time, 2048 and 8192
 
 `run` needs the local vLLM server (the 8B) and nothing else on it. It resumes: a (case, arm, repeat) already in an arm's
 call log is not sent again. Each arm's calls land in DIR/arm-<budget>/llm_calls.jsonl, like any run's call log
@@ -51,6 +53,7 @@ WORKERS = 8
 NOISE_LIMIT = 0.05
 TOLERANCE = 0.02  # E2(b) - E2(none) at most this, in the decision rule
 CASES_FILE = "cases.jsonl"
+SERIAL_DIR, SERIAL_N, SERIAL_SEED, SERIAL_ARMS = "serial", 80, 20261022, (2048, 8192)
 
 
 def arm_name(budget: int | None) -> str:
@@ -370,12 +373,74 @@ def report(out: Path) -> int:
     return 0
 
 
+# ── serial replay ─────────────────────────────────────────────────────────
+
+def serial_sample(out: Path) -> int:
+    votes = [c for c in read_cases(out) if c["decision_type"] == "vote_cast" and c["original_at_budget"]]
+    picked = random.Random(SERIAL_SEED).sample(votes, min(SERIAL_N, len(votes)))
+    (out / SERIAL_DIR).mkdir(exist_ok=True)
+    (out / SERIAL_DIR / CASES_FILE).write_text("".join(json.dumps(c) + "\n" for c in picked), encoding="utf-8")
+    print(f"{len(picked)} cases -> {out / SERIAL_DIR / CASES_FILE}")
+    return 0
+
+
+def serial_run(out: Path) -> int:
+    from bakeoff_cases import reference_config
+
+    config = reference_config()
+    client = build_json_client(config.llm, seed=config.run.seed)
+    cases = read_cases(out / SERIAL_DIR)
+    for budget in SERIAL_ARMS:
+        print(f"serial arm {arm_name(budget)}: {len(cases) * REPEATS['vote_cast']} calls, one at a time", flush=True)
+        run_arm(client, cases, budget, out / SERIAL_DIR / f"arm-{arm_name(budget)}", workers=1)
+    return 0
+
+
+def serial_verdict(serial: float, concurrent: float) -> str:
+    """The pre-registered reading of the serial noise floor against the concurrent one on the same cases."""
+    if serial <= NOISE_LIMIT:
+        return "the flip is concurrency: the guard is met one call at a time; replay the whole experiment serially"
+    if serial >= concurrent / 2:
+        return "the flip is the model's thinking, not the batching: the guard cannot be met on this server; restating it is the owner's decision"
+    return "partly concurrency: no further run is decided here"
+
+
+def _agreement(cases: Sequence[Mapping[str, Any]], a: Mapping[Any, Mapping[str, Any]], b: Mapping[Any, Mapping[str, Any]]) -> float | None:
+    ta, tb = unit_table(cases, a), unit_table(cases, b)
+    keys = [k for k in ta.keys() & tb.keys() if k[1] == 0]
+    return sum(ta[k][1] == tb[k][1] for k in keys) / len(keys) if keys else None
+
+
+def serial_report(out: Path) -> int:
+    cases = read_cases(out / SERIAL_DIR)
+    lines = ["# Thinking budget, serial replay (thinking_budget_live.py serial-report)\n",
+             f"{len(cases)} vote cases, one call at a time, against the same cases in the concurrent experiment.\n",
+             "| budget | serial units | serial E2 | serial floor | concurrent floor (same cases) | E2 repeat 0 agrees with concurrent repeat 0 | reading |",
+             "|---|---:|---:|---:|---:|---:|---|"]
+    for b in SERIAL_ARMS:
+        serial = load_arm(out / SERIAL_DIR, b)
+        concurrent = load_arm(out, b)
+        table = unit_table(cases, serial)
+        s_floor, c_floor = noise_floor(cases, serial), noise_floor(cases, concurrent)
+        if not table or s_floor is None or c_floor is None:
+            lines.append(f"| {arm_name(b)} | {len(table)} | - | - | - | - | not decidable |")
+            continue
+        agree = _agreement(cases, serial, concurrent)
+        lines.append(f"| {arm_name(b)} | {len(table)} | {sum(v[1] for v in table.values()) / len(table):.1%} | {s_floor:.1%} | {c_floor:.1%} | "
+                     f"{'-' if agree is None else f'{agree:.1%}'} | {serial_verdict(s_floor, c_floor)} |")
+    text = "\n".join(lines) + "\n"
+    (out / SERIAL_DIR / "report.md").write_text(text, encoding="utf-8")
+    print(text)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("sample", "run", "report"))
+    parser.add_argument("command", choices=("sample", "run", "report", "serial-sample", "serial-run", "serial-report"))
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
-    return {"sample": sample, "run": run, "report": report}[args.command](args.out)
+    commands = {"sample": sample, "run": run, "report": report, "serial-sample": serial_sample, "serial-run": serial_run, "serial-report": serial_report}
+    return commands[args.command](args.out)
 
 
 if __name__ == "__main__":

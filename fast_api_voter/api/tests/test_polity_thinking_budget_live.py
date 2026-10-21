@@ -245,3 +245,26 @@ def test_the_cli_dispatches_to_the_three_commands(tmp_path: Path, monkeypatch: p
     for command in ("sample", "run", "report"):
         assert tb.main([command, "--out", str(tmp_path)]) == 0
     assert seen == ["sample", "run", "report"]
+
+
+def test_the_serial_verdict_follows_the_pre_registered_rule() -> None:
+    assert "concurrency: the guard is met" in tb.serial_verdict(0.04, 0.10)
+    assert "the model's thinking" in tb.serial_verdict(0.09, 0.10)
+    assert "the model's thinking" in tb.serial_verdict(0.06, 0.12)  # S >= C / 2
+    assert "partly concurrency" in tb.serial_verdict(0.06, 0.20)
+
+
+def test_the_serial_replay_samples_at_budget_vote_cases_runs_one_call_at_a_time_and_reports(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    cases = [_case(i) for i in range(5)] + [_case(9, "chamber_deliberation"), _case(10, original_at_budget=False)]
+    _run_all(tmp_path, cases, FakeModel())
+    assert tb.serial_sample(tmp_path) == 0
+    picked = tb.read_cases(tmp_path / tb.SERIAL_DIR)
+    assert {c["case_id"] for c in picked} == {0, 1, 2, 3, 4}
+    model = FakeModel()
+    for budget in tb.SERIAL_ARMS:
+        tb.run_arm(model, picked, budget, tmp_path / tb.SERIAL_DIR / f"arm-{tb.arm_name(budget)}", workers=1)
+    assert len(model.calls) == 5 * 2 * 2
+    assert tb.serial_report(tmp_path) == 0
+    text = (tmp_path / tb.SERIAL_DIR / "report.md").read_text(encoding="utf-8")
+    assert "| 2048 | " in text and "| 8192 | " in text and "concurrency: the guard is met" in text
+    assert "# Thinking budget, serial replay" in capsys.readouterr().out
