@@ -591,35 +591,6 @@
   },
   {
    "branches": [
-    "feat/polity-extra-legal",
-    "feat/polity-nvfp4-probe-profile",
-    "feat/polity-s24-first-wave"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Generated artifacts in sync",
-    "lines": [
-     "Resolved 1 package in 67ms",
-     "Installed 1 package in 3ms",
-     " + cogapp==3.6.0",
-     "Check failed",
-     "Checking docs/plan/polity/polity-llm-reference.md  (changed)",
-     "##[error]Process completed with exit code 5."
-    ],
-    "pr": [],
-    "sha": "23b3462d0739c0c736228b5696bdb967af77aeb3",
-    "step": "Generated doc blocks in sync",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36747781108"
-   },
-   "last_seen": "2026-09-30T16:55:53Z",
-   "signature": "code: Checking docs/plan/polity/polity-llm-reference.md  (changed)",
-   "workflows": [
-    "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
     "feat/static-polity",
     "polity"
    ],
@@ -842,6 +813,34 @@
    "signature": "code: -------------",
    "workflows": [
     "Backend CI"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-extra-legal",
+    "feat/polity-s24-first-wave"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [
+     "Resolved 1 package in 67ms",
+     "Installed 1 package in 3ms",
+     " + cogapp==3.6.0",
+     "Check failed",
+     "Checking docs/plan/polity/polity-llm-reference.md  (changed)",
+     "##[error]Process completed with exit code 5."
+    ],
+    "pr": [],
+    "sha": "23b3462d0739c0c736228b5696bdb967af77aeb3",
+    "step": "Generated doc blocks in sync",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36747781108"
+   },
+   "last_seen": "2026-09-30T16:55:53Z",
+   "signature": "code: Checking docs/plan/polity/polity-llm-reference.md  (changed)",
+   "workflows": [
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -1487,16 +1486,16 @@
  ],
  "failures_by_category": {
   "advisory": 19,
-  "code": 166,
+  "code": 165,
   "infra": 13,
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-20T23:57:50Z",
+ "generated_at": "2026-10-21T01:33:50Z",
  "grid": {
   "Backend CI": {
    "2026-09-21": {
-    "success": 2
+    "success": 1
    },
    "2026-09-25": {
     "success": 7
@@ -1739,7 +1738,7 @@
    },
    "2026-10-20": {
     "failure": 1,
-    "success": 31
+    "success": 32
    }
   },
   "CI Health Watchdog": {
@@ -2010,7 +2009,7 @@
   },
   "E2E Tests": {
    "2026-09-21": {
-    "success": 2
+    "success": 1
    },
    "2026-09-25": {
     "success": 7
@@ -2105,7 +2104,7 @@
   },
   "Frontend CI": {
    "2026-09-21": {
-    "success": 2
+    "success": 1
    },
    "2026-09-25": {
     "success": 7
@@ -2195,7 +2194,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-21": {
-    "success": 2
+    "success": 1
    },
    "2026-09-25": {
     "success": 7
@@ -2511,7 +2510,7 @@
   "Security Audit": {
    "2026-09-21": {
     "failure": 1,
-    "success": 2
+    "success": 1
    },
    "2026-09-25": {
     "success": 7
@@ -2770,9 +2769,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-20T23:48:29Z",
+   "created_at": "2026-10-20T23:57:42Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39517381829"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39518335110"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2880,11 +2879,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 13888,
+ "runs": 13863,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-21": 324.5,
+    "2026-09-21": 347,
     "2026-09-25": 194,
     "2026-09-26": 184,
     "2026-09-27": 184,
@@ -2912,10 +2911,10 @@
     "2026-10-19": 944,
     "2026-10-20": 501
    },
-   "p50_s": 310,
+   "p50_s": 308,
    "p95_s": 511,
    "queue_p50_s": 0,
-   "runs": 825
+   "runs": 822
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2957,7 +2956,6 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-21": 6,
     "2026-09-25": 8.0,
     "2026-09-26": 7,
     "2026-09-27": 7.0,
@@ -2987,7 +2985,7 @@
    "p50_s": 11,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 641
+   "runs": 638
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3006,12 +3004,12 @@
     "2026-10-17": 336,
     "2026-10-18": 327,
     "2026-10-19": 346.0,
-    "2026-10-20": 371
+    "2026-10-20": 367.0
    },
    "p50_s": 391,
    "p95_s": 577,
    "queue_p50_s": 0,
-   "runs": 555
+   "runs": 556
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3106,7 +3104,6 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-21": 11,
     "2026-09-25": 11.5,
     "2026-09-26": 10.0,
     "2026-09-27": 11.0,
@@ -3137,7 +3134,7 @@
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 595
+   "runs": 592
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3185,7 +3182,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-21": 775.5,
+    "2026-09-21": 782,
     "2026-09-25": 774.0,
     "2026-09-26": 635,
     "2026-09-27": 504,
@@ -3213,14 +3210,14 @@
     "2026-10-19": 666,
     "2026-10-20": 230.5
    },
-   "p50_s": 566,
+   "p50_s": 564,
    "p95_s": 787,
    "queue_p50_s": 0,
-   "runs": 792
+   "runs": 789
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-21": 10,
+    "2026-09-21": 260,
     "2026-09-25": 12.5,
     "2026-09-26": 11,
     "2026-09-27": 11.5,
@@ -3248,14 +3245,14 @@
     "2026-10-19": 638,
     "2026-10-20": 11.0
    },
-   "p50_s": 19,
+   "p50_s": 20,
    "p95_s": 281,
    "queue_p50_s": 0,
-   "runs": 841
+   "runs": 837
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-21": 75.5,
+    "2026-09-21": 66,
     "2026-09-25": 79.0,
     "2026-09-26": 78.5,
     "2026-09-27": 79,
@@ -3286,7 +3283,7 @@
    "p50_s": 86,
    "p95_s": 140,
    "queue_p50_s": 0,
-   "runs": 882
+   "runs": 879
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3414,7 +3411,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-21": 112,
+    "2026-09-21": 113,
     "2026-09-25": 109.0,
     "2026-09-26": 116,
     "2026-09-27": 120,
@@ -3445,7 +3442,7 @@
    "p50_s": 152,
    "p95_s": 226,
    "queue_p50_s": 0,
-   "runs": 850
+   "runs": 846
   },
   "Workflow Lint": {
    "daily_p50_s": {
