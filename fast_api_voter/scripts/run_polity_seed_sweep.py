@@ -29,6 +29,14 @@ generated "N trials, N ok" report) and writes its own seed-sweep summary,
 generated from each run's own `digest.json` -- never hand-typed -- for the
 variance analysis itself.
 
+**Same-seed repeats measure a noise floor only when run alone.** `--seeds 1,1` runs seed 1 twice (the second as
+`-rep2`). Two runs of one seed and one code version replay the same first ~115-151 events, then a sampled turn forks
+them; how soon depends on what else the server is batching. The 2026-10-20 8-year A/B measured its floor with nine
+runs on one server at once, so that floor is a nine-run-batching floor. For the floor of a code version, run the
+repeat on its own (or with the same load as the arms it will be compared with) and say which in the results doc.
+The summary's decision audit (decision_audit.py) also reports each seed's thinking-budget binding and, when the runs
+kept their prompts (the flagship now does by default), the vote and pressure decisions against the kernel's rules.
+
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
     python fast_api_voter/scripts/run_polity_seed_sweep.py \\
@@ -57,6 +65,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.config import ARTICLES  # noqa: E402
+from api.domain.polity.decision_audit import audit_run, render_audit  # noqa: E402
 from api.domain.polity.run_digest import read_journal_tolerant  # noqa: E402
 from api.domain.polity.sweep_statistics import (  # noqa: E402
     RedFlag,
@@ -352,6 +361,12 @@ def _provenance_section(runs: list[SweepRun]) -> list[str]:
     return [*lines, ""]
 
 
+def _audit_section(output_dir: Path, firsts: list[SweepRun]) -> list[str]:
+    """The decision audit (decision_audit.py) of each seed's first completed run."""
+    audits = {f"seed {r.seed}": audit_run(_digest_path(output_dir, r.run_id).parent) for r in firsts}
+    return render_audit(audits) if any(a.types or a.pressure for a in audits.values()) else []
+
+
 def _write_sweep_summary(
     output_dir: Path, years: int, population: int, seeds: list[int], run_flags: Sequence[str] = (),
 ) -> Path:
@@ -373,6 +388,7 @@ def _write_sweep_summary(
         *_constitution_section(runs),
         *_occupancy_section(firsts),
         *_fallback_section(firsts),
+        *_audit_section(output_dir, firsts),
         "## Pre-registered red flags (S0.7)\n",
         *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in flags],
         *_divergence_note(runs, flags[-1]),
