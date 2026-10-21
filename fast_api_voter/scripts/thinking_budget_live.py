@@ -378,6 +378,8 @@ def report(out: Path) -> int:
 def serial_sample(out: Path) -> int:
     votes = [c for c in read_cases(out) if c["decision_type"] == "vote_cast" and c["original_at_budget"]]
     picked = random.Random(SERIAL_SEED).sample(votes, min(SERIAL_N, len(votes)))
+    if any((out / SERIAL_DIR).glob("arm-*")):
+        raise SystemExit(f"{out / SERIAL_DIR} already has arm logs; sampling again would resume them against other prompts")
     (out / SERIAL_DIR).mkdir(exist_ok=True)
     (out / SERIAL_DIR / CASES_FILE).write_text("".join(json.dumps(c) + "\n" for c in picked), encoding="utf-8")
     print(f"{len(picked)} cases -> {out / SERIAL_DIR / CASES_FILE}")
@@ -415,18 +417,20 @@ def serial_report(out: Path) -> int:
     cases = read_cases(out / SERIAL_DIR)
     lines = ["# Thinking budget, serial replay (thinking_budget_live.py serial-report)\n",
              f"{len(cases)} vote cases, one call at a time, against the same cases in the concurrent experiment.\n",
-             "| budget | serial units | serial E2 | serial floor | concurrent floor (same cases) | E2 repeat 0 agrees with concurrent repeat 0 | reading |",
-             "|---|---:|---:|---:|---:|---:|---|"]
+             "| budget | serial units | serial E2 | concurrent E2 (same cases) | serial floor | concurrent floor (same cases) | E2 repeat 0 agrees with concurrent repeat 0 | reading |",
+             "|---|---:|---:|---:|---:|---:|---:|---|"]
     for b in SERIAL_ARMS:
         serial = load_arm(out / SERIAL_DIR, b)
         concurrent = load_arm(out, b)
         table = unit_table(cases, serial)
         s_floor, c_floor = noise_floor(cases, serial), noise_floor(cases, concurrent)
         if not table or s_floor is None or c_floor is None:
-            lines.append(f"| {arm_name(b)} | {len(table)} | - | - | - | - | not decidable |")
+            lines.append(f"| {arm_name(b)} | {len(table)} | - | - | - | - | - | not decidable ({len(serial)} of {len(cases) * REPEATS['vote_cast']} serial calls logged) |")
             continue
         agree = _agreement(cases, serial, concurrent)
-        lines.append(f"| {arm_name(b)} | {len(table)} | {sum(v[1] for v in table.values()) / len(table):.1%} | {s_floor:.1%} | {c_floor:.1%} | "
+        ctable = unit_table(cases, concurrent)
+        c_e2 = f"{sum(v[1] for v in ctable.values()) / len(ctable):.1%}" if ctable else "-"
+        lines.append(f"| {arm_name(b)} | {len(table)} | {sum(v[1] for v in table.values()) / len(table):.1%} | {c_e2} | {s_floor:.1%} | {c_floor:.1%} | "
                      f"{'-' if agree is None else f'{agree:.1%}'} | {serial_verdict(s_floor, c_floor)} |")
     text = "\n".join(lines) + "\n"
     (out / SERIAL_DIR / "report.md").write_text(text, encoding="utf-8")

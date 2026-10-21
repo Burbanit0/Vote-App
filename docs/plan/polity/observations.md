@@ -2871,12 +2871,13 @@ chamber call; no budget is not viable for the chamber (86 of 300 calls hit `max_
 pre-registration: the 8B baseline gave 15 first-attempt vote calls, not 20; and the replay used the reference config's temperature 0.0 and seed 42
 (the log has no per-call override). The 10% flip between repeats is therefore the server's, not sampling.
 
-*Update 2026-10-21 (serial replay).* The flip between repeats was the server's, not sampling or temperature: the same 80
-cases, one call at a time, flip on 4.6% of units at 2048 (12.0% when 8 ran at once) and 4.2% at 8192 (6.9%), under the 5%
-guard (`scripts/thinking_budget_serial_results.md`, rule committed first). Serial answers are also better at 8192: E2 5.3%
-against 10.0% concurrently on the same bytes. So the concurrent experiment's residual error includes a batching
-component; the registered rule now calls for replaying all four arms serially (about 9 h), not done.
+*Update 2026-10-21 (serial replay).* The flip between repeats is not sampling or temperature (both fixed): the same 80 cases
+(those that ended at the budget originally), one call at a time, flip on 4.6% of units at 2048 (12.0% when 8 ran at once)
+and 4.2% at 8192 (6.9%). The 2048 figure is 0.4 points under the 5% guard, on clustered units, so it is a fragile pass; it
+does not separate batch size from cache state or call order (`scripts/thinking_budget_serial_results.md`, rule committed
+first). At 8192 serial E2 was 5.3% against 10.0% concurrently on the same bytes (one repeat pair; size not settled). The
+registered rule now calls for replaying all four arms serially (about 9 h); not done.
 
-*Status: effect shown (a larger budget cuts the error from about 60% to about 12%, to about 5% when calls run one at a
-time); the concurrent verdict was unresolved because of batching noise; the budget to adopt awaits a serial replay.*
+*Status: effect shown (a larger budget cuts the error from about 60% to about 12%, and to about 5% in the one serial
+check); the concurrent verdict was unresolved because of server noise; the budget to adopt awaits a serial replay.*
 

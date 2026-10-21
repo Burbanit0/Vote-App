@@ -237,14 +237,17 @@ def test_the_report_says_when_it_cannot_decide(tmp_path: Path) -> None:
     assert "not decidable" in (tmp_path / "report.md").read_text(encoding="utf-8")
 
 
-def test_the_cli_dispatches_to_the_three_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cli_dispatches_to_the_six_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[str] = []
     monkeypatch.setattr(tb, "sample", lambda out: seen.append("sample") or 0)
     monkeypatch.setattr(tb, "run", lambda out: seen.append("run") or 0)
     monkeypatch.setattr(tb, "report", lambda out: seen.append("report") or 0)
-    for command in ("sample", "run", "report"):
+    for name in ("serial_sample", "serial_run", "serial_report"):
+        monkeypatch.setattr(tb, name, lambda out, name=name: seen.append(name) or 0)
+    commands = ("sample", "run", "report", "serial-sample", "serial-run", "serial-report")
+    for command in commands:
         assert tb.main([command, "--out", str(tmp_path)]) == 0
-    assert seen == ["sample", "run", "report"]
+    assert seen == [c.replace("-", "_") for c in commands]
 
 
 def test_the_serial_verdict_follows_the_pre_registered_rule() -> None:
@@ -268,3 +271,23 @@ def test_the_serial_replay_samples_at_budget_vote_cases_runs_one_call_at_a_time_
     text = (tmp_path / tb.SERIAL_DIR / "report.md").read_text(encoding="utf-8")
     assert "| 2048 | " in text and "| 8192 | " in text and "concurrency: the guard is met" in text
     assert "# Thinking budget, serial replay" in capsys.readouterr().out
+
+
+def test_serial_run_sends_the_serial_cases_one_arm_after_the_other_and_sampling_will_not_overwrite_logs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cases = [_case(i) for i in range(3)]
+    _run_all(tmp_path, cases, FakeModel())
+    tb.serial_sample(tmp_path)
+    model = FakeModel()
+    monkeypatch.setattr(tb, "build_json_client", lambda llm, seed: model)
+    assert tb.serial_run(tmp_path) == 0
+    assert len(model.calls) == 3 * 2 * len(tb.SERIAL_ARMS)
+    with pytest.raises(SystemExit, match="already has arm logs"):
+        tb.serial_sample(tmp_path)
+
+
+def test_a_missing_serial_arm_is_reported_with_its_call_count(tmp_path: Path) -> None:
+    cases = [_case(i) for i in range(3)]
+    _run_all(tmp_path, cases, FakeModel())
+    tb.serial_sample(tmp_path)
+    tb.serial_report(tmp_path)
+    assert "not decidable (0 of 6 serial calls logged)" in (tmp_path / tb.SERIAL_DIR / "report.md").read_text(encoding="utf-8")

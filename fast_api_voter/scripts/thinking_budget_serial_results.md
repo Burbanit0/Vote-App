@@ -5,28 +5,32 @@ rule in `thinking_budget_serial_preregistration.md`, committed before the first 
 originally, 2 repeats each, one call at a time, on the local 8B alone (vLLM 0.31.0, EAGLE-3), temperature 0, seed 42. 320 calls,
 none rejected; 1h 23min.
 
-| budget | units | serial E2 | serial flip rate | concurrent flip rate (same cases) | E2 repeat 0 agrees with concurrent repeat 0 | pre-registered reading |
-|---|---:|---:|---:|---:|---:|---|
-| 2048 | 432 | 64.8% | 4.6% | 12.0% | 78.2% | the flip is concurrency |
-| 8192 | 432 | 5.3% | 4.2% | 6.9% | 93.5% | the flip is concurrency |
+| budget | units | serial E2 | concurrent E2 (same cases) | serial flip rate | concurrent flip rate (same cases) | E2 repeat 0 agrees with concurrent repeat 0 | pre-registered reading |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 2048 | 432 | 64.8% | 69.9% | 4.6% | 12.0% | 78.2% | the flip is concurrency |
+| 8192 | 432 | 5.3% | 10.0% | 4.2% | 6.9% | 93.5% | (reported the same way; not decisive, see below) |
 
-Also, on the same 80 cases and units (not pre-registered outcomes): E2 concurrent 69.9% at 2048 and 10.0% at 8192; E1
-(blank against the rule) serial 49.3% and 5.3%, concurrent 54.6% and 9.5%.
+Every figure in the table comes from `serial-report`; E1 (blank against the rule) is not in it (serial 49.3% and 5.3%,
+concurrent 54.6% and 9.5%, computed once by hand).
 
-**Pre-registered reading: the flip is concurrency.** One call at a time, the 2048 arm's two repeats disagree on 4.6% of units,
-under the 5% guard (12.0% when the same cases ran 8 at a time). The margin to the guard is 0.4 points, with a standard error
-near 1.5, so it is a pass by the rule and not a comfortable one. The 8192 arm gives 4.2%.
+**Pre-registered reading, on the 2048 arm: the flip is concurrency.** One call at a time, its two repeats disagree on 4.6% of
+units (10 of 216 repeat pairs), under the 5% guard; 11 would have failed it. 12.0% when the same cases ran 8 at a time. This is a
+pass by the rule and a fragile one: voters of one call share one model output, so units are clustered in 80 calls and the
+real standard error is above the 1.5 points the pre-registration assumed (it also counted about 270 units per pair; the
+design gives 216). The 8192 arm is reported the same way, but its serial and concurrent rates (4.2%, 6.9%) are close, so
+its "concurrency" label says only that it is under the guard.
 
-Reading, after the data (not pre-registered):
-- The serial answers are also better: at 8192, E2 5.3% against 10.0% for the same cases and bytes when 8 ran at once. The
-  concurrent experiment's error rates at 8192 and with no budget (12.0%, 10.2%) therefore include an error that comes from
-  the batching, not from the model or the budget. It is one repeat pair on 80 cases, so the size is not settled.
-- The effect of the budget is not in doubt: at 2048 the error is 64.8% serial, at 8192 5.3%.
+**What this does not separate.** The two repeats of a case were sent back to back, so serially the second always hits a warm
+prefix cache and is never batched with anything, whereas concurrently they run side by side. A drop from 12% to 4.6% could
+therefore come from batch size, from cache state or from call order. Interleaving the repeats, or a run at concurrency 2, would
+tell; neither was done.
+
+Reading, after the data (not pre-registered), on a selected subset (cases that ended at the budget originally), one repeat pair:
+- At 8192 the serial answers are also better: E2 5.3% against 10.0% for the same cases and bytes run 8 at once. The size of
+  that difference is not settled.
+- The effect of the budget is not in doubt: E2 at 2048 is 64.8% serial, at 8192 5.3%.
 - What the rule now calls for: replay the whole four-arm experiment serially (about 9 hours on the 8B) and apply the
   registered decision rule then. Not done here.
-- Consequence beyond the experiment: any live run with several calls in flight (the sweeps use 9 at once) carries this
-  extra flip; the "two controls diverge" finding of the 8-year order A/B is consistent with it, and was already called a
-  batching floor in the investigation.
 
-**Not verified**: the 4096 and "none" arms, the chamber, and whether a serial replay changes the decision rule's outcome;
-the cause inside the server (EAGLE-3 speculation, batching, or both) is not separated.
+**Not verified**: the 4096 and "none" arms, the chamber, whether a serial replay changes the decision rule's outcome; the
+cause inside the server (batch size, EAGLE-3 speculation, cache state or call order) is not separated.
