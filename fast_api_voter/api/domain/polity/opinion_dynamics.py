@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from api.domain.polity.citizen import Citizen, LatentStructure
+from api.domain.polity.citizen import Citizen, LatentStructure, Office
 from api.domain.polity.config import DynamicsConfig
 from api.domain.polity.social_graph import SocialGraph
 
@@ -53,25 +53,58 @@ class DynamicsStep:
     max_shift: float
     influenced: int
     """Citizens with at least one neighbour within the confidence bound."""
+    radicalised: int = 0
+    """Citizens ADR-033's push moved this update."""
+
+
+PUSH_COUNTED = 0.01
+"""A citizen counts as pushed (`radicalised`) when anger x salience reaches this share of the step: anger is an
+exponential blend that never reaches exactly 0, and a push of 1e-9 is not a radicalised citizen."""
+
+
+@dataclass(frozen=True)
+class Mood:
+    """What ADR-033 reads off the citizens: each one's anger and the salience a shock left them, in citizen
+    order, and the factors of the president they are angry at (None: no president, nobody is pushed)."""
+
+    anger: np.ndarray
+    salience: np.ndarray
+    president: np.ndarray | None
 
 
 def update_latent_factors(
     factors: np.ndarray, anchors: np.ndarray, edges: NeighbourEdges, config: DynamicsConfig, rng: np.random.Generator,
+    mood: Mood | None = None,
 ) -> DynamicsStep:
-    """One Friedkin-Johnsen update with bounded confidence (see the module docstring)."""
+    """One Friedkin-Johnsen update with bounded confidence (see the module docstring), and with a `mood`
+    ADR-033's two couplings: anger narrows a citizen's confidence bound, and an angry citizen the shock
+    reached steps away from the president. With radical_step and anger_narrows_bound at 0 the mood is
+    never read, so the neutral settings stay exactly neutral."""
     innovation = rng.normal(0.0, 1.0, size=factors.shape)
     toward = factors[edges.target] - factors[edges.source]
-    within = np.linalg.norm(toward, axis=1) <= config.confidence_bound
+    bound = np.full(len(factors), config.confidence_bound)
+    if mood is not None and config.anger_narrows_bound > 0:
+        bound = bound * (1.0 - config.anger_narrows_bound * mood.anger)
+    within = np.linalg.norm(toward, axis=1) <= bound[edges.source]
     counts = np.bincount(edges.source[within], minlength=len(factors))
     sums = np.zeros_like(factors)
     np.add.at(sums, edges.source[within], toward[within])
     pull = sums / np.maximum(counts, 1)[:, None]  # m_i - f_i; zero where nobody is within the bound
+    step = config.influence_step * pull
+    pushed = 0
+    if mood is not None and mood.president is not None and config.radical_step > 0:
+        away = factors - mood.president
+        distance = np.linalg.norm(away, axis=1, keepdims=True)
+        direction = np.divide(away, distance, out=np.zeros_like(away), where=distance > 0)
+        push = config.radical_step * (mood.anger * mood.salience)[:, None] * direction
+        step = step + push
+        pushed = int((np.linalg.norm(push, axis=1) > PUSH_COUNTED * config.radical_step).sum())
     s = config.susceptibility
-    moved = (1.0 - s) * anchors + s * (factors + config.influence_step * pull) + config.drift_std * innovation
+    moved = (1.0 - s) * anchors + s * (factors + step) + config.drift_std * innovation
     shifts = np.linalg.norm(moved - factors, axis=1)
     return DynamicsStep(
         factors=moved, mean_shift=float(shifts.mean()) if len(shifts) else 0.0,
-        max_shift=float(shifts.max()) if len(shifts) else 0.0, influenced=int((counts > 0).sum()),
+        max_shift=float(shifts.max()) if len(shifts) else 0.0, influenced=int((counts > 0).sum()), radicalised=pushed,
     )
 
 
@@ -93,6 +126,18 @@ def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit
     citizen.issue_positions = tuple(float(x) for x in structure.positions(factors, [citizen.citizen_id])[0])
 
 
+def _mood(citizens: Sequence[Citizen], factors: np.ndarray) -> Mood:
+    """Each citizen's anger (0 where untracked) and shock salience, and the factors of the president they are
+    angry at: the one the emotions phase appraises (emotions._update_emotions), the sitting president with a
+    revealed position, so the push and the anger agree on who that is."""
+    president = next((i for i, c in enumerate(citizens) if c.office == Office.PRESIDENT and c.revealed_position is not None), None)
+    return Mood(
+        anger=np.array([c.anger or 0.0 for c in citizens], dtype=float),
+        salience=np.array([c.event_salience for c in citizens], dtype=float),
+        president=None if president is None else factors[president],
+    )
+
+
 def apply_dynamics(
     citizens: Sequence[Citizen], structure: LatentStructure, edges: NeighbourEdges, config: DynamicsConfig,
     rng: np.random.Generator,
@@ -100,9 +145,11 @@ def apply_dynamics(
     """Move every citizen's factors one update and recompute their issue positions."""
     if [c.citizen_id for c in citizens] != list(range(len(citizens))):
         raise ValueError("apply_dynamics needs the whole population, ordered by citizen_id")
-    step = update_latent_factors(current_factors(citizens, structure), structure.anchors, edges, config, rng)
+    factors = current_factors(citizens, structure)
+    moody = config.radical_step > 0 or config.anger_narrows_bound > 0  # else the mood is never read: do not build it
+    step = update_latent_factors(factors, structure.anchors, edges, config, rng, mood=_mood(citizens, factors) if moody else None)
     positions = structure.positions(step.factors)
-    for citizen, factors, issue_positions in zip(citizens, step.factors, positions):
-        citizen.latent_factors = tuple(float(x) for x in factors)
+    for citizen, moved, issue_positions in zip(citizens, step.factors, positions):
+        citizen.latent_factors = tuple(float(x) for x in moved)
         citizen.issue_positions = tuple(float(x) for x in issue_positions)
     return step

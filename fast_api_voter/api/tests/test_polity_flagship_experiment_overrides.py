@@ -90,12 +90,13 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     explored, scenario = profiled("exploration"), profiled("scenario")
     assert explored.llm.crowd and explored.agents.forum_size == 30 and explored.dynamics.drift_std == 0.0
     assert not scenario.llm.crowd and scenario.vote.mode == "utility"
-    assert scenario.agents.forum_size == 10 and scenario.dynamics.drift_std == 0.02
+    assert scenario.agents.forum_size == 10 and scenario.dynamics.drift_std == 0.18
+    assert scenario.dynamics.radical_step == 0.5 and scenario.dynamics.anger_narrows_bound == 0.3 and explored.dynamics.radical_step == 0.0
     assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
     assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
     validate_config(scenario)
     twin = profiled("scenario", engine="deterministic")
-    assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.02
+    assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.18
     validate_config(twin)
     assert tuple(flagship.PROFILES) == ("flagship", "exploration", "scenario")
     # A flag outranks the profile, and the contradiction is refused rather than rewritten.

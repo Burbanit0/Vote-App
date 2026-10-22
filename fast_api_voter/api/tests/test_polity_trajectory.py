@@ -180,6 +180,32 @@ def test_plausibility_names_the_band_checks_a_run_fails_and_skips_what_it_cannot
     assert plausibility(_summary(elections=[{"tick": 0, "winner": 1, "turnout": 0.3}])) == ["turnout"]
     assert plausibility(_summary(legislative=_with_legislative(enp_seats=9.0, volatility=0.5))) == ["enp_seats", "volatility"]
     assert plausibility(_summary(elections=[], legislative=[])) == []
+    assert plausibility(_summary(panel_stability=0.995)) == ["panel_stability"]  # citizens who never change their minds
+    assert plausibility(_summary(panel_stability=0.3)) == ["panel_stability"]  # churn with no memory
+    assert plausibility(_summary(panel_stability=0.85)) == []
+
+
+def _census(year: int, factors: list[tuple[float, float]]) -> list[dict[str, Any]]:
+    return [{"citizen_id": i, "year": year, "tick": year * 4, "issue_positions": [0.5], "latent_factors": list(f)} for i, f in enumerate(factors)]
+
+
+def test_panel_stability_is_the_four_year_correlation_of_each_factor_and_absent_where_it_cannot_be_read() -> None:
+    from api.domain.polity.trajectory import panel_stability
+
+    start = [(0.0, 1.0), (1.0, 0.0), (2.0, 3.0), (3.0, 2.0)]
+    same = _census(1, start) + _census(5, start)
+    assert panel_stability(same) == pytest.approx(1.0)  # a static population
+    flipped = _census(1, start) + _census(5, [(3.0, 2.0), (2.0, 3.0), (1.0, 0.0), (0.0, 1.0)])
+    assert panel_stability(flipped) == pytest.approx(-1.0)  # reversed on both factors
+    assert panel_stability(_census(1, start) + _census(4, start)) is None  # no pair four years apart
+    assert panel_stability([{"citizen_id": 0, "year": 1, "issue_positions": [0.5]}, {"citizen_id": 0, "year": 5, "issue_positions": [0.5]}]) is None  # no latent factors
+    flat = _census(1, [(1.0, 1.0)] * 4) + _census(5, [(1.0, 1.0)] * 4)
+    assert panel_stability(flat) is None  # nobody varies: the correlation is undefined
+    partial = _census(1, start) + _census(5, start[:3])  # a census missing a citizen is not compared
+    assert panel_stability(partial) is None
+    reversed_start = [(3.0, 2.0), (2.0, 3.0), (1.0, 0.0), (0.0, 1.0)]
+    two_pairs = _census(1, start) + _census(5, start) + _census(2, start) + _census(6, reversed_start)
+    assert panel_stability(two_pairs) == pytest.approx(0.0)  # the mean over the pairs (1.0 and -1.0)
 
 
 def test_trajectory_summary_builds_the_yearly_series_and_notes_a_successful_refusal_to_leave() -> None:
@@ -219,7 +245,7 @@ def test_trajectory_summary_builds_the_yearly_series_and_notes_a_successful_refu
 
 def test_trajectory_summary_without_a_census_has_no_polarization_rather_than_a_guess() -> None:
     summary = trajectory_summary([], [], terms=[], population=10, ticks_per_year=4, last_tick=3, office_occupancy=0.0)
-    assert summary["polarization"] == [] and summary["archetype"] == "collapse"
+    assert summary["polarization"] == [] and summary["archetype"] == "collapse" and summary["panel_stability"] is None
     assert summary["yearly"]["dispersion"] == [None] and summary["yearly"]["pressure"] == [0.0]
 
 

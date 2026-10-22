@@ -330,6 +330,13 @@ dynamics:
   drift_std: 0.0                # écart-type du pas idiosyncratique, par facteur
                                 # Neutres tant que la calibration de l'ADR-012
                                 # (stabilité de panel) n'a pas tourné.
+  radical_step: 0.0             # [ADR-033] pas, par mise à jour, d'un citoyen en colère contre le
+                                #   président, loin de lui dans l'espace latent, x colère x saillance
+                                #   que les événements lui ont laissée (elle ne décroît qu'à chaque
+                                #   événement) ; requiert emotions, events, susceptibility < 1.
+                                #   Nul par défaut : seul le profil scenario le règle
+  anger_narrows_bound: 0.0      # [ADR-033] à colère 1, la confiance bornée vaut (1 - ceci) x
+                                #   confidence_bound : un citoyen en colère n'écoute que les siens
 
 emotions:
   enabled: false                # requiert awakening.enabled

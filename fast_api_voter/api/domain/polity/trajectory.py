@@ -41,10 +41,14 @@ CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
 
 
-PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {"enp_seats": (1.5, 8.0), "turnout": (0.5, 0.85), "volatility": (0.05, 0.30)}
+PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {
+    "enp_seats": (1.5, 8.0), "turnout": (0.5, 0.85), "volatility": (0.05, 0.30), "panel_stability": (0.70, 0.90),
+}
 """Generic European party-system facts, as a band a run should not leave: ENP by seats at the last
-legislative election, mean turnout, mean legislative volatility (Pedersen). A filter against absurd runs,
-not a target."""
+legislative election, mean turnout, mean legislative volatility (Pedersen), and the four-year correlation of
+each latent factor across citizens (ADR-012's D1: a static population scores 1.0, churn with no memory near
+0). A filter against absurd runs, not a target."""
+PANEL_YEARS = 4
 
 DIVERGENCE_ENTROPY_BITS = 1.0
 DIVERGENCE_LARGEST_SHARE = 0.5
@@ -146,6 +150,40 @@ def polarization_by_year(snapshots: Sequence[Mapping[str, Any]]) -> list[dict[st
             first_mean = mean
         rows.append({"year": year, **polarization(positions), "mean_shift": float(np.linalg.norm(mean - first_mean))})
     return rows
+
+
+def _factors_by_year(snapshots: Sequence[Mapping[str, Any]]) -> dict[int, dict[int, Sequence[float]]]:
+    """Each census year's latent factors by citizen; rows without factors (a static population) are left out."""
+    by_year: dict[int, dict[int, Sequence[float]]] = defaultdict(dict)
+    for row in snapshots:
+        if row.get("latent_factors") is not None:
+            by_year[int(row["year"])][int(row["citizen_id"])] = row["latent_factors"]
+    return by_year
+
+
+def _factor_correlations(before: np.ndarray, after: np.ndarray) -> list[float]:
+    """Pearson's r between two censuses for each factor nobody is constant on (else it is undefined)."""
+    return [
+        float(np.corrcoef(before[:, k], after[:, k])[0, 1])
+        for k in range(before.shape[1]) if before[:, k].std() > 0 and after[:, k].std() > 0
+    ]
+
+
+def panel_stability(snapshots: Sequence[Mapping[str, Any]]) -> float | None:
+    """ADR-012's D1: across citizens, the correlation of each latent factor between yearly censuses
+    PANEL_YEARS apart (years 1 to 5 up to 4 to 8), averaged over the pairs and the factors. None where the
+    census carries no latent factors (a static population: dynamics off), no pair of censuses of the same
+    citizens is that far apart, or nobody varies on a factor."""
+    by_year = _factors_by_year(snapshots)
+    correlations: list[float] = []
+    for year, census in sorted(by_year.items()):
+        later = by_year.get(year + PANEL_YEARS)
+        if later is not None and set(later) == set(census):
+            ids = sorted(census)
+            correlations += _factor_correlations(
+                np.array([census[i] for i in ids], dtype=float), np.array([later[i] for i in ids], dtype=float),
+            )
+    return _mean(correlations)
 
 
 def office_summary(terms: Sequence[Term]) -> dict[str, Any]:
@@ -251,6 +289,7 @@ def plausibility(summary: Mapping[str, Any]) -> list[str]:
         "enp_seats": enp[-1] if enp else None,
         "turnout": _mean([row["turnout"] for row in summary["elections"]]),
         "volatility": _mean([row["volatility"] for row in legislative if row["volatility"] is not None]),
+        "panel_stability": summary.get("panel_stability"),
     }
     failed = []
     for name, (low, high) in PLAUSIBILITY_BAND.items():
@@ -333,6 +372,7 @@ def trajectory_summary(
         "legislative": legislative_points(events),
         "margins": presidential_margins(events),
         "polarization": polarization_by_year(snapshots),
+        "panel_stability": panel_stability(snapshots),
         "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
     }
     summary["archetype"] = archetype(summary)
