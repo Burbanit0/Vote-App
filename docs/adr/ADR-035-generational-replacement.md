@@ -33,7 +33,7 @@ Ten seeds, 30 years, 100 citizens, the rule-only twin (`--engine deterministic -
 | 0 | - | 0% | 0.917 | 2.33 | realignment 9, stasis 1 (0.47 bits) | grows, not varied | 2/10 |
 | 0.03 | 0.2 | 53% | 0.899 | 1.77 | realignment 7, stasis 2, churn 1 (1.16) | grows, varied | 0/10 |
 | **0.03** | **0.35** | **53%** | **0.901** | **1.83** | **realignment 7, alternation 1, churn 1, stasis 1 (1.36)** | **grows, varied** | **0/10** |
-| 0.03 | 0.5 | 53% | 0.904 | 1.83 | realignment 7, alternation 2, stasis 1 (1.16) | grows, varied | 1/10 |
+| 0.03 | 0.5 | 53% | 0.904 | 1.83 | realignment 7, alternation 1, churn 1, stasis 1 (1.36) | grows, varied | 1/10 |
 | 0.03 | 0.8 | 53% | 0.908 | 1.98 | realignment 10 (0.00) | grows, not varied | 2/10 |
 | 0.06 | 0.5 | 75% | 0.890 | 1.52 | realignment 9, alternation 1 (0.47) | grows, not varied | 1/10 |
 
