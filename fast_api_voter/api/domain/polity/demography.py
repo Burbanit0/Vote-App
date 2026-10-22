@@ -72,6 +72,14 @@ def _newcomer(old: Citizen, factors: np.ndarray, structure: LatentStructure, con
     )
 
 
+def _born(old: Citizen, factors: np.ndarray, structure: LatentStructure, parties: Sequence[Party], config: CitizensConfig, rng: np.random.Generator) -> Citizen:
+    """The slot's newcomer, with the party whose platform is nearest (none when there are no parties)."""
+    newcomer = _newcomer(old, factors, structure, config, rng)
+    if parties:
+        newcomer.party_affiliation = assign_party_affiliation(newcomer, list(parties))
+    return newcomer
+
+
 def replace_generation(
     citizens: list[Citizen], structure: LatentStructure, graph: SocialGraph | None, parties: Sequence[Party],
     config: CitizensConfig, ticks_per_year: int, rng: np.random.Generator,
@@ -90,9 +98,6 @@ def replace_generation(
         circle = sorted(j for j in (graph.neighbors[i] if graph is not None else ()) if j not in leaving)
         centre = before[circle].mean(axis=0) if circle else everyone
         factors = centre + rng.normal(0.0, config.newcomer_spread, size=centre.shape)
-        newcomer = _newcomer(citizens[i], factors, structure, config, rng)
-        if parties:
-            newcomer.party_affiliation = assign_party_affiliation(newcomer, list(parties))
-        citizens[i] = newcomer
-        replaced.append(Replacement(citizen_id=i, party_id=newcomer.party_affiliation, circle=len(circle)))
+        citizens[i] = _born(citizens[i], factors, structure, parties, config, rng)
+        replaced.append(Replacement(citizen_id=i, party_id=citizens[i].party_affiliation, circle=len(circle)))
     return replaced

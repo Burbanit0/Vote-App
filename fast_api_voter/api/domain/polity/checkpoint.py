@@ -162,30 +162,37 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
 """TickState field -> checkpoint JSON key."""
 
 
+def _pending_to_dict(pending: PendingRerun | None) -> dict[str, Any] | None:
+    if pending is None:
+        return None
+    return {
+        "attempt": pending.attempt,
+        "next_tick": pending.next_tick,
+        "barred_candidate_ids": sorted(pending.barred_candidate_ids),
+        # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
+        **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
+    }
+
+
 def _state_to_payload(state: TickState) -> dict[str, Any]:
-    pending = state.pending_rerun
     return {
         "citizens": [_citizen_to_dict(c) for c in state.citizens],
         "parties": [_party_to_dict(p) for p in state.parties],
         "rupture_rng_state": state.rupture_rng.bit_generator.state,
         "events_rng_state": state.events_rng.bit_generator.state,
         "sortition_rng_state": state.sortition_rng.bit_generator.state,
-        "pending_rerun": None if pending is None else {
-            "attempt": pending.attempt,
-            "next_tick": pending.next_tick,
-            "barred_candidate_ids": sorted(pending.barred_candidate_ids),
-            # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
-            **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
-        },
+        "pending_rerun": _pending_to_dict(state.pending_rerun),
         "staggered_declared_cids": (
             sorted(state.staggered_declared_cids) if state.staggered_declared_cids is not None else None
         ),
         "economy_x": state.economy_x,
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
-        # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
-        **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
-        # ADR-035: likewise only for a run whose generations turn over.
-        **({"demography_rng_state": state.demography_rng.bit_generator.state} if state.demography_rng is not None else {}),
+        # S4.3 and ADR-035: written only for a dynamic run, and for one whose generations turn over, so a
+        # static run's checkpoint is unchanged.
+        **_set_only(
+            dynamics_rng_state=None if state.dynamics_rng is None else state.dynamics_rng.bit_generator.state,
+            demography_rng_state=None if state.demography_rng is None else state.demography_rng.bit_generator.state,
+        ),
         # ADR-022: likewise only for a regime run, and the declaration only while one stands.
         **_regime_payload(state),
         # S4.2: likewise only for a legislating run.
