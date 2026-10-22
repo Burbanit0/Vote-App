@@ -108,7 +108,7 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
         max_batch_replays=0, provider=None, workers=1, profile="scenario", vote_mode="llm",
     )
     assert contradiction.vote.mode == "llm"
-    with pytest.raises(PolityConfigError, match="llm.crowd"):
+    with pytest.raises(PolityConfigError, match="vote.mode: utility"):  # the crowd rule and the economic-voting rule both name it
         validate_config(contradiction)
 
 

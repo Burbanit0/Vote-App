@@ -68,6 +68,8 @@ def test_scripted_events_are_parsed_sorted_and_checked_against_the_run() -> None
         ({"tick": 3, "kind": "scandal", "magnitude": 0.2}, "takes no magnitude"),
         ({"tick": 3, "kind": "economic_shock"}, "magnitude"),
         ({"tick": 3, "kind": "economic_shock", "magnitude": 0}, "magnitude"),
+        ({"tick": 3, "kind": "economic_shock", "magnitude": float("nan")}, "finite"),
+        ({"tick": 3, "kind": "economic_shock", "magnitude": float("inf")}, "finite"),
         ({"tick": 3}, "expected a mapping"),
         ({"tick": 3, "kind": "scandal", "extra": 1}, "expected a mapping"),
         ("scandal at 3", "expected a mapping"),
@@ -90,6 +92,32 @@ def test_a_disabled_mechanism_stays_disabled_scripted_or_not_and_economic_voting
     no_economy = dataclasses.replace(base.events, economic_shock_enabled=False)
     with pytest.raises(PolityConfigError, match="economic_voting"):
         validate_config(dataclasses.replace(base, events=no_economy, vote=dataclasses.replace(base.vote, economic_voting=1.0)))
+
+
+def test_a_schedule_built_in_code_is_held_to_the_same_rules_as_one_parsed_from_yaml(flagship: Any, tmp_path: Path) -> None:
+    base = _twin(flagship, tmp_path)
+    last = base.run.duration_years * base.run.ticks_per_year
+    for event, match in (
+        (ScriptedEvent(last + 1, "scandal"), "outside the run"),
+        (ScriptedEvent(-1, "scandal"), "outside the run"),
+        (ScriptedEvent(3, "scandal", 0.4), "takes no magnitude"),
+        (ScriptedEvent(3, "economic_shock", 0.0), "finite nonzero"),
+        (ScriptedEvent(3, "economic_shock", float("nan")), "finite nonzero"),
+        (ScriptedEvent(3, "economic_shock", float("inf")), "finite nonzero"),
+        (ScriptedEvent(3, "coup"), "not one of"),
+    ):
+        with pytest.raises(PolityConfigError, match=match):
+            validate_config(dataclasses.replace(base, events=dataclasses.replace(base.events, scripted=(event,))))
+    validate_config(dataclasses.replace(base, events=dataclasses.replace(base.events, scripted=(ScriptedEvent(last, "scandal"),))))  # the last tick is inside
+
+
+def test_economic_voting_must_be_finite_and_needs_the_utility_ballot(flagship: Any, tmp_path: Path) -> None:
+    base = _twin(flagship, tmp_path)
+    with pytest.raises(PolityConfigError, match="finite"):
+        validate_config(dataclasses.replace(base, vote=dataclasses.replace(base.vote, economic_voting=float("inf"))))
+    with pytest.raises(PolityConfigError, match="vote.mode: utility"):
+        validate_config(dataclasses.replace(base, vote=dataclasses.replace(base.vote, mode="llm", economic_voting=1.0)))
+    validate_config(dataclasses.replace(base, vote=dataclasses.replace(base.vote, mode="llm", economic_voting=0.0)))  # no weight, no rule
 
 
 # ── the vote ──────────────────────────────────────────────────────────────
@@ -169,6 +197,7 @@ def test_a_scripted_scandal_and_shock_happen_at_their_tick_and_leave_the_random_
     plain = run_simulation(_twin(flagship, tmp_path / "plain"), run_id="run")
     events = _events(scripted)
     assert [e["tick"] for e in events if e["event_type"] == "scandal_occurred" and e["tick"] == 5] == [5]
+    assert not [e for e in _events(plain) if e["event_type"] == "scandal_occurred" and e["tick"] == 5]  # no draw gave it: the script did
     shock = [e for e in events if e["event_type"] == "economic_shock_tick" and e["tick"] == 9]
     assert shock and shock[0]["payload"]["x"] < -0.5  # the impulse crossed the "major shock" threshold
     # The AR(1) is linear and the draws are the same, so the whole difference in the economy is the impulse decayed:
@@ -193,7 +222,13 @@ def test_a_recession_before_an_election_costs_the_incumbent_approval_only_when_v
     assert judging < ignoring  # the same recession, the same seed: only the weight differs
 
 
-def test_economic_voting_at_zero_leaves_the_run_exactly_as_it_was(flagship: Any, tmp_path: Path) -> None:
-    before = run_simulation(_twin(flagship, tmp_path / "a"), run_id="run")
-    again = run_simulation(_twin(flagship, tmp_path / "b", economic_voting=0.0), run_id="run")
-    assert before.read_bytes() == again.read_bytes()
+def test_economic_voting_at_zero_and_an_empty_schedule_change_nothing_about_a_run(flagship: Any, tmp_path: Path) -> None:
+    """Neutrality of the settings against each other; against the code before them it is held by the explorer
+    fixture, whose `events.jsonl` and `snapshots.jsonl` are byte-identical across this change (the manifest records
+    their digests and test_polity_explorer_fixture checks them), and by the review's run of the scenario profile
+    on both revisions."""
+    implicit = run_simulation(_twin(flagship, tmp_path / "a"), run_id="run")
+    explicit = run_simulation(_twin(flagship, tmp_path / "b", scripted=(), economic_voting=0.0), run_id="run")
+    assert implicit.read_bytes() == explicit.read_bytes()
+    boom_ignored = run_simulation(_twin(flagship, tmp_path / "c", (ScriptedEvent(5, "economic_shock", 0.8),), 0.0), run_id="run")
+    assert boom_ignored.read_bytes() != implicit.read_bytes()  # a schedule is not nothing: the economy moves, even if no ballot reads it

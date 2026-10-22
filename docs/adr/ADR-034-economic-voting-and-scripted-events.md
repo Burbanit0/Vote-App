@@ -25,15 +25,20 @@ the recent economy, not the whole term; the AR(1) is persistent enough, phi 0.8,
 It rides on the policy record already threaded to every vote and every approval (`PolicyRecord.economy`;
 empty `then` and `now` when no legislation runs, and `policy_gain` is then 0), so approval, and through it
 legitimacy and the confidence vote, move with the economy as well. It needs
-`events.economic_shock_enabled`: without it x stays 0.
+`events.economic_shock_enabled` (without it x stays 0) and `vote.mode: utility` (the model's own ballots, mode `llm`, do not
+read it; a config rule refuses the pair rather than leave the weight inert).
 
 **`events.scripted`**: a list of `{tick, kind}` (a `scandal` against the sitting president) or
 `{tick, kind, magnitude}` (an `economic_shock` adding `magnitude` to x(t): negative a recession, positive a
 boom). Each tick must lie in the run (a crisis after the last tick would silently never happen); a scandal
 takes no magnitude; a scripted scandal needs `scandal_enabled` and a scripted shock `economic_shock_enabled`
-(a disabled mechanism stays disabled). The draws are still made, so **a schedule never moves the random
-stream**: with the same seed a scripted shock changes the economy by exactly the impulse decayed, nothing else
-(a test holds it).
+(a disabled mechanism stays disabled); the schedule is held to the same rules whether parsed from YAML or built in
+code, and a magnitude must be finite. The draws are still made, so **a schedule does not move the events stream**: with the
+same seed a scripted shock changes the economy by exactly the impulse decayed (a test holds it). It is not the same run
+plus an impulse, though: the changed economy changes approval, votes and recalls, so everything downstream that
+draws from another stream can differ from that tick on. A scripted scandal on a tick where a random one also falls
+is one scandal, not two, and the journal does not mark which events were scripted (the run's `config.json` holds the
+schedule).
 
 The scenario profile sets `economic_voting` 1.0. Its schedule is empty: a schedule is a scenario's input, which
 the catalogue varies.
@@ -82,10 +87,15 @@ tick 16). Not pre-registered: a reading, reproduced by `python scripts/probe_wel
   and not others), no partisan perception (supporters of the incumbent seeing a better economy than opponents:
   Bartels 2002), and so still no per-citizen reach of a shock on the rule path (ADR-033's open point): the
   salience a scripted shock leaves is the same for everyone.
-- **No memory.** The economy at the election, not an average over the term; a recession two years before an
-  election is forgotten as the AR(1) mean-reverts.
+- **A short memory, by two channels the table mixes.** The vote reads the economy at the election only, and the AR(1)
+  mean-reverts, so a recession two years before is gone from the ballot. But approval reads it every tick and
+  `legitimacy.approval_weight` (0.5 in the scenario profile) blends approval into legitimacy's moving average
+  (decay 0.9, about ten ticks), which feeds the incumbent's record term, the confidence vote and the recall
+  floor: the economy persists for a few years there, and the effective weight on it is larger than
+  `economic_voting` alone. The measured table is the sum of the direct term and that channel.
 - **Legislative elections judge the economy only through a governing record,** which needs legislation on;
-  without it the legislative vote ignores the economy.
+  without it the legislative vote ignores the economy (the scenario profile has legislation on). The model's own
+  ballots (`vote.mode: llm`) ignore it: refused by a rule.
 - **The convention is new, and emotions do not share it.** x was symmetric before (anxiety reads |x|, and so does
   the shock threshold that triggers a reaction); positive is now good for the vote, and nothing else read its
   sign. A scripted boom therefore frightens citizens exactly as much as a recession, and sets off the same
@@ -94,3 +104,6 @@ tick 16). Not pre-registered: a reading, reproduced by `python scripts/probe_wel
   (utilities are distances in [0, 1] and x runs ±0.17 typically, ±0.8 in a crisis), from one seed set and the
   rule-only twin.
 - **Scripted events are not marked as scripted in the journal**; the run's `config.json` holds the schedule.
+- **A checkpoint written before these two fields cannot resume after them**: they change `config_hash` for every
+  configuration (loud, at resume time), and the YAML parser requires both keys (`vote.economic_voting`,
+  `events.scripted`), as it does for every other field.

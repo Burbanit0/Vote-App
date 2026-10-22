@@ -193,7 +193,7 @@
      ],
      "ref": {
       "file": "config.py",
-      "line": 1367,
+      "line": 1387,
       "label": null,
       "expect": "# must hold for a config built in code with dataclasses.replace, which never passes"
      }

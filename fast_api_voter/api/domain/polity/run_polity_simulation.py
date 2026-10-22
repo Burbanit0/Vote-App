@@ -1130,7 +1130,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         legislature = state.legislature
         seats, votes = _hold_legislative_election(
             state.citizens, state.parties, context.config, context.journal, context.tick,
-            governing=_governing_record(state.citizens, legislature, state.economy_x if context.config.vote.economic_voting else 0.0),
+            governing=_governing_record(state.citizens, legislature, state.economy_x),
         )
         answers: dict[tuple[int, int], LeaderAnswer] = {}
         talks: Callable[..., Any] = _run_coalition_negotiation

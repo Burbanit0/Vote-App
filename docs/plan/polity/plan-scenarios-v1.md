@@ -1,6 +1,6 @@
 # Scenarios v1: from a world to an instrument
 
-> **status:** live — steps 1 (trajectory metrics, archetypes, the divergence test; #979), 1b (the crowd, live, in the engine atlas; #981) and 2 (the scenario profile; the rule-only twin fails the divergence test, the baseline for steps 3–4) 3a (the radicalisation channel, ADR-033) and 3b (economic voting and scripted events, ADR-034) built; the model arm of step 2 still to time; 3c and steps 4–7 to do. (Set 2026-10-21; `docs/README.md` lists every plan.)
+> **status:** live — steps 1 (trajectory metrics, archetypes, the divergence test; #979), 1b (the crowd, live, in the engine atlas; #981) and 2 (the scenario profile; the rule-only twin fails the divergence test, the baseline for steps 3–4), 3a (the radicalisation channel, ADR-033) and 3b (economic voting and scripted events, ADR-034) built; the model arm of step 2 still to time; 3c and steps 4–7 to do. (Set 2026-10-21; `docs/README.md` lists every plan.)
 
 **What this is.** The assessment of 2026-10-21 of why the polity engine, after phases 0–5 of
 `plan-polity-agency-roadmap.md`, still does not hand the researcher *different scenarios of an
