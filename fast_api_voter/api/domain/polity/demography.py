@@ -9,10 +9,11 @@ inherits what its elders came to think, hardened or not), their priorities, tole
 threshold, their party (the nearest platform), a fresh emotional state, and their own anchor (`anchor_factors`),
 which opinion dynamics then draw them back to instead of the slot's founding views.
 
-Who is exempt: anyone holding an office or standing as a candidate (a former president, who is an elector with a
-record, can be replaced, and the newcomer has none), and the sitting sortition chamber (it is seated for a year).
+Who is exempt: anyone holding an office or standing as a candidate, anyone who has been president (the newcomer
+would share their id in the office history), the sitting sortition chamber (it is seated for a year), and the
+citizens the election in progress still counts on (the declared and the barred).
 
-The stream is drawn once per slot per tick whoever is eligible, so its position never depends on who held office.
+The stream is drawn for every slot the rate picks, exempt or not, so its position never depends on who held office.
 """
 from __future__ import annotations
 
@@ -38,8 +39,13 @@ class Replacement:
 
 
 def replaceable(citizen: Citizen) -> bool:
-    """An ordinary citizen: no office, not a candidate, not seated in the sortition chamber."""
-    return citizen.role == Role.ELECTOR and citizen.office == Office.NONE and citizen.sortition_seat_until_tick is None
+    """An ordinary citizen: no office, never held the presidency (a newcomer sharing a former president's id
+    would read as the same person in the office history and escape the term limit), not seated in the
+    sortition chamber."""
+    return (
+        citizen.role == Role.ELECTOR and citizen.office == Office.NONE and citizen.mandates_served == 0
+        and citizen.sortition_seat_until_tick is None
+    )
 
 
 def _traits(config: CitizensConfig, rng: np.random.Generator) -> tuple[np.ndarray, float, float, float]:
@@ -80,24 +86,37 @@ def _born(old: Citizen, factors: np.ndarray, structure: LatentStructure, parties
     return newcomer
 
 
+def _socialised(
+    slot: int, before: np.ndarray, everyone: np.ndarray, leaving: set[int], graph: SocialGraph | None, spread: float,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, int]:
+    """The views a newcomer grows into: the mean of the neighbours who stay (the whole population's, for a slot with
+    no tie left) plus noise, and how many neighbours that was."""
+    circle = sorted(j for j in (graph.neighbors[slot] if graph is not None else ()) if j not in leaving)
+    centre = before[circle].mean(axis=0) if circle else everyone
+    return centre + rng.normal(0.0, spread, size=centre.shape), len(circle)
+
+
 def replace_generation(
     citizens: list[Citizen], structure: LatentStructure, graph: SocialGraph | None, parties: Sequence[Party],
-    config: CitizensConfig, ticks_per_year: int, rng: np.random.Generator,
+    config: CitizensConfig, ticks_per_year: int, rng: np.random.Generator, exempt: frozenset[int] = frozenset(),
 ) -> list[Replacement]:
     """Replace, in place in `citizens`, each ordinary citizen the year's rate picks this tick (ascending id), and
-    return who. A newcomer's circle is read as the generation stood before any of this tick's replacements."""
+    return who. `exempt` are citizens the run is still counting on (a declared candidate, a barred one). A
+    newcomer's circle is read as the generation stood before any of this tick's replacements. Every slot the
+    rate picks gets its newcomer drawn, exempt or not, so the stream's position never depends on who held what."""
     draws = rng.random(len(citizens))
     chance = config.replacement_per_year / ticks_per_year
-    chosen = [i for i, draw in enumerate(draws) if draw < chance and replaceable(citizens[i])]
-    if not chosen:
+    picked = [i for i, draw in enumerate(draws) if draw < chance]
+    if not picked:
         return []
     before = current_factors(citizens, structure)
-    everyone, leaving = before.mean(axis=0), set(chosen)
+    everyone, leaving = before.mean(axis=0), set(picked)
     replaced = []
-    for i in chosen:
-        circle = sorted(j for j in (graph.neighbors[i] if graph is not None else ()) if j not in leaving)
-        centre = before[circle].mean(axis=0) if circle else everyone
-        factors = centre + rng.normal(0.0, config.newcomer_spread, size=centre.shape)
-        citizens[i] = _born(citizens[i], factors, structure, parties, config, rng)
-        replaced.append(Replacement(citizen_id=i, party_id=citizens[i].party_affiliation, circle=len(circle)))
+    for i in picked:
+        factors, circle = _socialised(i, before, everyone, leaving, graph, config.newcomer_spread, rng)
+        newcomer = _born(citizens[i], factors, structure, parties, config, rng)
+        if replaceable(citizens[i]) and i not in exempt:
+            citizens[i] = newcomer
+            replaced.append(Replacement(citizen_id=i, party_id=newcomer.party_affiliation, circle=circle))
     return replaced

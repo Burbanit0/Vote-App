@@ -46,17 +46,21 @@ def test_the_replacement_settings_ship_neutral_and_need_dynamics_and_a_living_po
         validate_config(wants)  # no dynamics: no latent factors to draw a newcomer from
     with pytest.raises(PolityConfigError, match="static_population"):
         validate_config(dataclasses.replace(wants, citizens=dataclasses.replace(wants.citizens, static_population=True)))
+    dynamic = dataclasses.replace(wants, dynamics=dataclasses.replace(wants.dynamics, enabled=True))
+    with pytest.raises(PolityConfigError, match="social_graph.enabled"):
+        validate_config(dynamic)  # no graph: every circle is empty and each generation is drawn around the mean
+    validate_config(dataclasses.replace(dynamic, social_graph=dataclasses.replace(dynamic.social_graph, enabled=True)))
 
 
 # ── who can be replaced ───────────────────────────────────────────────────
 
-def test_office_holders_candidates_and_the_sitting_chamber_are_exempt_a_former_president_is_not() -> None:
+def test_office_holders_candidates_the_sitting_chamber_and_former_presidents_are_exempt() -> None:
     plain = Citizen(citizen_id=0, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.3, ambition_score=0.1)
     assert replaceable(plain)
     assert not replaceable(dataclasses.replace(plain, office=Office.PRESIDENT, role=Role.ELECTED))
     assert not replaceable(dataclasses.replace(plain, role=Role.CANDIDATE))
     assert not replaceable(dataclasses.replace(plain, sortition_seat_until_tick=20))
-    assert replaceable(dataclasses.replace(plain, mandates_served=2))  # retired: an elector with a record
+    assert not replaceable(dataclasses.replace(plain, mandates_served=1))  # a newcomer would share a former president's id in the office history
 
 
 # ── replacing a generation ────────────────────────────────────────────────
@@ -97,15 +101,18 @@ def test_a_newcomer_takes_the_average_views_of_the_circle_that_stays_plus_noise(
         assert np.allclose(citizens[r.citizen_id].latent_factors, expected)
 
 
-def test_the_stream_is_drawn_once_per_slot_whoever_is_eligible() -> None:
-    a, structure, graph, parties, config = _world(replacement=1e-9)
+def test_the_stream_is_drawn_for_every_slot_the_rate_picks_whoever_is_eligible() -> None:
+    a, structure, graph, parties, config = _world()  # chance 1 a tick: every slot is picked
     b = [dataclasses.replace(c) for c in a]
     b[0].office, b[0].role = Office.PRESIDENT, Role.ELECTED
     for c in b[1:4]:
         c.sortition_seat_until_tick = 9
     rng_a, rng_b = np.random.default_rng(3), np.random.default_rng(3)
-    assert replace_generation(a, structure, graph, parties, config, 4, rng_a) == [] == replace_generation(b, structure, graph, parties, config, 4, rng_b)
+    done_a = replace_generation(a, structure, graph, parties, config, 4, rng_a)
+    done_b = replace_generation(b, structure, graph, parties, config, 4, rng_b, exempt=frozenset({5}))
+    assert len(done_a) == N and len(done_b) == N - 5  # the president, three seated and one counted-on slot stay
     assert rng_a.bit_generator.state == rng_b.bit_generator.state  # the next tick's draws do not depend on who held office
+    assert b[5].anchor_factors is None  # exempt means untouched, though its newcomer was drawn
 
 
 def test_no_replacement_at_a_rate_of_zero_draws_nothing_that_matters() -> None:
@@ -192,3 +199,38 @@ def test_a_run_with_replacement_resumed_after_a_crash_matches_an_uninterrupted_o
     resumed = run_simulation(_twin(flagship, tmp_path / "b", 0.3), run_id="run", resume=True)
     assert resumed.read_bytes() == uninterrupted.read_bytes()
     assert (resumed.parent / "snapshots.jsonl").read_bytes() == (uninterrupted.parent / "snapshots.jsonl").read_bytes()
+
+
+def test_what_the_run_keyed_by_id_does_not_outlive_the_person(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    from api.domain.polity.agents import AgentMemory
+    from api.domain.polity.events import CitizenReplaced
+    from api.domain.polity.journal import JournalEvent
+    from api.domain.polity.run_polity_simulation import _turn_over_generation
+
+    citizens, structure, graph, parties, config = _world()
+    president = citizens[0]
+    president.office, president.role = Office.PRESIDENT, Role.ELECTED
+    president.petition_signers = frozenset({1, 2, 9})
+    written: list[tuple[int | None, Any]] = []
+    full = dataclasses.replace(load_config(), citizens=config)
+    context = SimpleNamespace(
+        config=full, latent=structure, graph=graph, tick=7,
+        journal=SimpleNamespace(write_event=lambda tick, event, citizen_id: written.append((citizen_id, event))),
+    )
+    state = SimpleNamespace(
+        citizens=citizens, parties=parties, demography_rng=np.random.default_rng(1), pending_rerun=None,
+        staggered_declared_cids={4}, mobilized_last_tick={1: "x", 2: "y", 4: "z"},
+    )
+    _turn_over_generation(context, state)  # type: ignore[arg-type]
+    gone = {i for i, event in written if isinstance(event, CitizenReplaced)}
+    assert 0 not in gone and 4 not in gone and 1 in gone  # the president, and the candidate the election counts on, stay
+    assert president.petition_signers == frozenset({1, 2, 9}) - gone  # a signer who left no longer signs
+    assert set(state.mobilized_last_tick) == {1, 2, 4} - gone  # a mobilised citizen who left no longer counts for the neighbours
+
+    memory = AgentMemory()
+    memory.petitioned[1] = 3
+    memory.own[1].append(JournalEvent(run_id="r", event_id=1, tick=3, event_type="forum_post", citizen_id=1, payload={"post": "hi"}))
+    memory.observe(JournalEvent(run_id="r", event_id=2, tick=7, event_type="citizen_replaced", citizen_id=1, payload={}))
+    assert 1 not in memory.petitioned and not memory.own.get(1)  # the newcomer remembers nothing of who left

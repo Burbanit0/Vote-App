@@ -13,6 +13,7 @@ one seed set.
 from __future__ import annotations
 
 import argparse
+import collections
 import dataclasses
 import statistics
 import sys
@@ -48,6 +49,7 @@ def spread_kept(snapshots: list[dict[str, Any]]) -> float | None:
 
 def run_arm(rate: float, spread: float, years: int, output_dir: Path) -> dict[str, Any]:
     series, labels, in_band = {}, {}, 0
+    failed: collections.Counter[str] = collections.Counter()
     stability: list[float] = []
     spreads: list[float] = []
     shifts: list[float] = []
@@ -66,6 +68,7 @@ def run_arm(rate: float, spread: float, years: int, output_dir: Path) -> dict[st
         citizens = load_checkpoint(journal.parent / "checkpoint.json").state.citizens
         series[f"seed {seed}"], labels[f"seed {seed}"] = trajectory["yearly"], trajectory["archetype"]
         in_band += not trajectory["plausibility_failed"]
+        failed.update(trajectory["plausibility_failed"])
         if trajectory["panel_stability"] is not None:
             stability.append(trajectory["panel_stability"])
         kept = spread_kept(snapshots)
@@ -75,10 +78,15 @@ def run_arm(rate: float, spread: float, years: int, output_dir: Path) -> dict[st
         newcomers.append(sum(c.anchor_factors is not None for c in citizens) / len(citizens))
     ensemble, by_year = diversity(labels, pairwise_distances(series)), divergence_by_year(series)
     return {
-        "newcomers": statistics.mean(newcomers), "D1": statistics.mean(stability), "D2": statistics.mean(spreads), "shift": statistics.mean(shifts),
+        "newcomers": statistics.mean(newcomers), "D1": _mean(stability), "D2": _mean(spreads), "shift": statistics.mean(shifts),
         "archetypes": ensemble["archetypes"], "entropy": ensemble["archetype_entropy_bits"], "distance": (by_year[0], by_year[-1]),
-        "in_band": in_band, "verdict": divergence_verdict(by_year, ensemble, in_band / len(SEEDS)),
+        "in_band": in_band, "failed": dict(failed), "verdict": divergence_verdict(by_year, ensemble, in_band / len(SEEDS)),
     }
+
+
+def _mean(values: list[float]) -> float:
+    """NaN when no seed produced the reading (a run too short for a four-year panel), not a crash after hours of runs."""
+    return statistics.mean(values) if values else float("nan")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -92,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         r = run_arm(rate, spread, args.years, args.output_dir)
         print(f"rate {rate} spread {spread} ({args.years}y): newcomers at the end {r['newcomers']:.0%} D1 {r['D1']:.3f} D2 {r['D2']:.2f} "
               f"shift {r['shift']:.3f} {r['archetypes']} {r['entropy']:.2f} bits distance {r['distance'][0]:.2f}->{r['distance'][1]:.2f} "
-              f"in band {r['in_band']}/10 {r['verdict']}")
+              f"in band {r['in_band']}/10 (failed checks {r['failed']}) {r['verdict']}")
     return 0
 
 

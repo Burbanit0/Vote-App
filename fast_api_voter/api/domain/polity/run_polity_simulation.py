@@ -1511,13 +1511,29 @@ def _turn_over_generation(context: TickContext, state: TickState) -> None:
     if state.demography_rng is None or config.citizens.replacement_per_year <= 0:
         return
     assert context.latent is not None
-    for replacement in replace_generation(
-        state.citizens, context.latent, context.graph, state.parties, config.citizens, config.run.ticks_per_year, state.demography_rng,
-    ):
+    replacements = replace_generation(
+        state.citizens, context.latent, context.graph, state.parties, config.citizens, config.run.ticks_per_year,
+        state.demography_rng, _counted_on(state),
+    )
+    gone = {r.citizen_id for r in replacements}
+    for citizen in state.citizens:  # what the run keyed by id belongs to the person who left
+        citizen.petition_signers -= gone
+    state.mobilized_last_tick = {cid: target for cid, target in state.mobilized_last_tick.items() if cid not in gone}
+    for r in replacements:
         context.journal.write_event(
-            tick=context.tick, event=CitizenReplaced(party_id=replacement.party_id, circle=replacement.circle),
-            citizen_id=replacement.citizen_id,
+            tick=context.tick, event=CitizenReplaced(party_id=r.party_id, circle=r.circle), citizen_id=r.citizen_id,
         )
+
+
+def _counted_on(state: TickState) -> frozenset[int]:
+    """The citizens an election in progress still counts on: those who declared and those barred or re-running."""
+    pending = state.pending_rerun
+    counted = set(state.staggered_declared_cids or ())
+    if pending is not None:
+        counted |= pending.barred_candidate_ids
+        if pending.incumbent_id is not None:
+            counted.add(pending.incumbent_id)
+    return frozenset(counted)
 
 
 def _phase_accountability(context: TickContext, state: TickState) -> None:

@@ -1431,9 +1431,12 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "stays at 0 and voters would have nothing to judge"
     ) if c.vote.economic_voting > 0 and not c.events.economic_shock_enabled else None,
     lambda c: (
-        "'citizens.replacement_per_year' > 0 requires 'citizens.static_population: false' and 'dynamics.enabled' "
-        "(ADR-035): newcomers are drawn from their circle's latent factors, which only the dynamics track"
-    ) if c.citizens.replacement_per_year > 0 and (c.citizens.static_population or not c.dynamics.enabled) else None,
+        "'citizens.replacement_per_year' > 0 requires 'citizens.static_population: false', 'dynamics.enabled' and "
+        "'social_graph.enabled' (ADR-035): newcomers are drawn from their circle's latent factors, which only the "
+        "dynamics track, and without a graph every circle is empty and each generation is drawn around the mean"
+    ) if c.citizens.replacement_per_year > 0 and (
+        c.citizens.static_population or not c.dynamics.enabled or not c.social_graph.enabled
+    ) else None,
     lambda c: (
         "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
         "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "

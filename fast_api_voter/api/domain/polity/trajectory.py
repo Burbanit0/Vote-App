@@ -185,7 +185,7 @@ def panel_stability(
         if later is not None and set(later) == set(census):
             leavers = {who for tick, who in replaced if year * ticks_per_year <= tick < (year + PANEL_YEARS) * ticks_per_year}
             ids = sorted(set(census) - leavers)
-            if len(ids) < 3:
+            if leavers and len(ids) < 3:  # too few left to correlate
                 continue
             correlations += _factor_correlations(
                 np.array([census[i] for i in ids], dtype=float), np.array([later[i] for i in ids], dtype=float),
