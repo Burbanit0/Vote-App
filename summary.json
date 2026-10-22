@@ -248,28 +248,29 @@
     "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
     "dependabot/pip/fast_api_voter/filelock-4.0.0",
     "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "feat/polity-thinking-budget-live",
     "fix/apportionment-quotient-ties"
    ],
    "category": "code",
-   "count": 15,
+   "count": 16,
    "example": {
     "job": "CI health check",
     "lines": [
-     "ci-health snapshot generated_at=2026-10-20T13:31:16Z (0.0h ago)",
-     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-21 (the weekly Secret Scan failed on full-history false positives (generic-api-key on the *_THINK_TOKEN_ALLOWANCE token-count constants, commit 7fb05c28), fixed by the .gitleaks.toml allowlist in fix/scheduled-secret-scan. The cron fires from develop, so it needs the develop sync to carry the fix: the first green scheduled run is Monday 10-12 if the sync lands first, 10-19 otherwise; this date covers both. The mutation-testing snooze that was here expired on 2026-09-27 and is dropped.)]",
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.8/x64/lib",
+     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (224.7h ago)",
      "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed",
+     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
      "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [
-     966
+     977
     ],
-    "sha": "2dffbe8761353c2248f22f7fe7d3412391954819",
+    "sha": "49fed90e7ee6f4b21be2b168d465e7dabf4a957e",
     "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39431111694"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39711589978"
    },
-   "last_seen": "2026-10-20T13:31:23Z",
+   "last_seen": "2026-10-22T02:28:45Z",
    "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
@@ -1563,12 +1564,12 @@
  ],
  "failures_by_category": {
   "advisory": 19,
-  "code": 167,
+  "code": 168,
   "infra": 13,
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-22T02:20:55Z",
+ "generated_at": "2026-10-22T02:26:46Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1826,7 +1827,7 @@
     "success": 27
    },
    "2026-10-22": {
-    "success": 2
+    "success": 3
    }
   },
   "CI Health Watchdog": {
@@ -2099,6 +2100,9 @@
    },
    "2026-10-21": {
     "success": 18
+   },
+   "2026-10-22": {
+    "success": 1
    }
   },
   "E2E Tests": {
@@ -2847,8 +2851,8 @@
     "success": 59
    },
    "2026-10-22": {
-    "skipped": 4,
-    "success": 7
+    "skipped": 8,
+    "success": 8
    }
   },
   "zizmor online": {
@@ -2896,9 +2900,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-22T02:15:38Z",
+   "created_at": "2026-10-22T02:17:07Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39710392393"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39710528680"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2924,9 +2928,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-21T23:59:03Z",
+   "created_at": "2026-10-22T02:28:58Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39696861412"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39711609610"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2993,10 +2997,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-22T02:25:01Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-22T02:29:57Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39711247835"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39711698396"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3006,7 +3010,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14406,
+ "runs": 14423,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3109,12 +3113,13 @@
     "2026-10-17": 11.0,
     "2026-10-18": 12,
     "2026-10-20": 11.0,
-    "2026-10-21": 11
+    "2026-10-21": 11,
+    "2026-10-22": 9
    },
    "p50_s": 11,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 657
+   "runs": 658
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3135,12 +3140,12 @@
     "2026-10-19": 346.0,
     "2026-10-20": 367.0,
     "2026-10-21": 401,
-    "2026-10-22": 333.0
+    "2026-10-22": 356
    },
    "p50_s": 391,
    "p95_s": 584,
    "queue_p50_s": 0,
-   "runs": 585
+   "runs": 586
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3263,12 +3268,13 @@
     "2026-10-18": 9,
     "2026-10-19": 729,
     "2026-10-20": 11.0,
-    "2026-10-21": 11.0
+    "2026-10-21": 11.0,
+    "2026-10-22": 9
    },
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 610
+   "runs": 611
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3287,12 +3293,13 @@
     "2026-10-17": 10,
     "2026-10-18": 10.0,
     "2026-10-20": 10,
-    "2026-10-21": 11.0
+    "2026-10-21": 11.0,
+    "2026-10-22": 10
    },
    "p50_s": 11,
    "p95_s": 175,
    "queue_p50_s": 0,
-   "runs": 321
+   "runs": 322
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3309,12 +3316,13 @@
     "2026-10-17": 11,
     "2026-10-18": 12.5,
     "2026-10-20": 11,
-    "2026-10-21": 12.0
+    "2026-10-21": 12.0,
+    "2026-10-22": 10
    },
    "p50_s": 12,
    "p95_s": 50,
    "queue_p50_s": 0,
-   "runs": 259
+   "runs": 260
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3345,12 +3353,12 @@
     "2026-10-19": 666,
     "2026-10-20": 230.5,
     "2026-10-21": 507.0,
-    "2026-10-22": 639
+    "2026-10-22": 324.5
    },
    "p50_s": 561,
    "p95_s": 786,
    "queue_p50_s": 0,
-   "runs": 813
+   "runs": 814
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3381,12 +3389,12 @@
     "2026-10-19": 638,
     "2026-10-20": 11.0,
     "2026-10-21": 11,
-    "2026-10-22": 12
+    "2026-10-22": 11.0
    },
    "p50_s": 18,
    "p95_s": 281,
    "queue_p50_s": 0,
-   "runs": 862
+   "runs": 863
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3417,12 +3425,12 @@
     "2026-10-19": 1374,
     "2026-10-20": 97.0,
     "2026-10-21": 98.0,
-    "2026-10-22": 98
+    "2026-10-22": 84.5
    },
    "p50_s": 87,
    "p95_s": 141,
    "queue_p50_s": 0,
-   "runs": 903
+   "runs": 904
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3445,12 +3453,13 @@
     "2026-10-18": 17,
     "2026-10-19": 703,
     "2026-10-20": 18,
-    "2026-10-21": 19.0
+    "2026-10-21": 19.0,
+    "2026-10-22": 17
    },
    "p50_s": 17,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 620
+   "runs": 621
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3512,12 +3521,13 @@
     "2026-10-18": 37,
     "2026-10-19": 1290,
     "2026-10-20": 46.0,
-    "2026-10-21": 45
+    "2026-10-21": 45,
+    "2026-10-22": 35
    },
    "p50_s": 41,
    "p95_s": 143,
    "queue_p50_s": 0,
-   "runs": 343
+   "runs": 344
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3604,12 +3614,12 @@
     "2026-10-19": 1534,
     "2026-10-20": 10.5,
     "2026-10-21": 11,
-    "2026-10-22": 9
+    "2026-10-22": 9.0
    },
    "p50_s": 12,
    "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 493
+   "runs": 494
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -3631,12 +3641,12 @@
     "2026-10-19": 29.0,
     "2026-10-20": 30,
     "2026-10-21": 32,
-    "2026-10-22": 34
+    "2026-10-22": 32.0
    },
    "p50_s": 28,
    "p95_s": 58,
    "queue_p50_s": 0,
-   "runs": 1442
+   "runs": 1443
   },
   "zizmor online": {
    "daily_p50_s": {
