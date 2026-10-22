@@ -168,6 +168,45 @@
   },
   {
    "branches": [
+    "chore/ci-health-snapshot",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "feat/polity-cohorts",
+    "feat/polity-thinking-budget-live",
+    "feat/polity-welfare",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 19,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.1h ago)",
+     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-27 (the weekly Secret Scan failed its last six weekly runs (2026-09-14 to 2026-10-19); the latest on one false positive: generic-api-key on a 16-character hex placeholder assigned to KEY, line 4 of voter-app/src/api/staticPolity.test.ts at commit 133f2b10, which only the unmerged branch feat/static-polity holds and the scan reads (`git log --all`). Fixed by its fingerprint in .gitleaksignore; the scheduled scan checks out polity, so the fix needs no develop sync, and its first green run is Monday 2026-10-26 06:00 UTC, which this date covers. The previous snooze (until 2026-10-21) expired before a scheduled run could clear it.)]",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 235.1h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     986
+    ],
+    "sha": "1975d5c102a985b404f6d65c027c9b26428787e5",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39782329563"
+   },
+   "last_seen": "2026-10-22T12:55:05Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "dependabot/pip/fast_api_voter/polity/multidict-7.0.0",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-124de55ad8",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-15c2e30d82",
@@ -199,44 +238,6 @@
     "Backend CI",
     "E2E Tests",
     "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
-    "chore/ci-health-snapshot",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "feat/polity-thinking-budget-live",
-    "feat/polity-welfare",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 17,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.8/x64/lib",
-     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (224.9h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     984
-    ],
-    "sha": "5fbbbb0d8399cd74e9385c9f82a47af994487613",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39712687943"
-   },
-   "last_seen": "2026-10-22T02:40:36Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -452,6 +453,39 @@
   },
   {
    "branches": [
+    "chore/sync-polity-into-develop-20260927",
+    "feat/polity-amendment-stakes",
+    "feat/polity-call-log-prompts",
+    "feat/polity-cohorts",
+    "feat/polity-president-agent"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Backend: Tests + Coverage + Security",
+    "lines": [
+     "-------------",
+     "Total:   113 lines",
+     "Missing: 5 lines",
+     "Coverage: 95%",
+     "-------------",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     986
+    ],
+    "sha": "7d178f6e2561bab5cb607d2d4f6ad1ba8438522d",
+    "step": "diff-cover \u2014 100% coverage on changed lines and branches",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39775943287"
+   },
+   "last_seen": "2026-10-22T12:08:32Z",
+   "signature": "code: Missing: # lines",
+   "workflows": [
+    "Backend CI"
+   ]
+  },
+  {
+   "branches": [
     "fix/polity-snap-term-end",
     "polity"
    ],
@@ -507,38 +541,6 @@
    "signature": "code: Cleaning up orphan processes",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "chore/sync-polity-into-develop-20260927",
-    "feat/polity-amendment-stakes",
-    "feat/polity-call-log-prompts",
-    "feat/polity-president-agent"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "-------------",
-     "Total:   47 lines",
-     "Missing: 2 lines",
-     "Coverage: 95%",
-     "-------------",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     918
-    ],
-    "sha": "7f4b9bb03cf08510e2478a48625f119254c8ea50",
-    "step": "diff-cover \u2014 100% coverage on changed lines and branches",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38200140907"
-   },
-   "last_seen": "2026-10-12T03:32:20Z",
-   "signature": "code: Missing: # lines",
-   "workflows": [
-    "Backend CI"
    ]
   },
   {
@@ -601,19 +603,19 @@
    "example": {
     "job": "CI health check",
     "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.7/x64/lib",
-     "ci-health snapshot generated_at=2026-09-19T12:27:16Z (145.2h ago)",
+     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.9h ago)",
      "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 145h old (expected every ~24h) -- the watchdog's scheduled audit has gone quiet, which is exactly the failure mode it exists to catch",
+     "  - the ci-health snapshot itself is 235.9h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
+     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
      "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "ddd0ae26358b8bb58043ac8abc80dca658c09e88",
+    "sha": "1c597682f51bb0a9c237afaa9fb9798ff7d01857",
     "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36142252246"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789289045"
    },
-   "last_seen": "2026-09-25T13:38:35Z",
+   "last_seen": "2026-10-22T13:42:54Z",
    "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
@@ -1051,6 +1053,35 @@
    "signature": "code: ##[error]  #:#  error  Replace these # tests with a single Parameterized one  sonarjs/parameterized-tests",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "feat/polity-cohorts"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Generated artifacts in sync",
+    "lines": [
+     " + cogapp==3.6.0",
+     "Check failed",
+     "Checking docs/plan/polity/polity-llm-reference.md  (changed)",
+     "Checking CONTRIBUTING.md",
+     "Checking .claude/skills/voter-ci/SKILL.md",
+     "##[error]Process completed with exit code 5."
+    ],
+    "pr": [
+     986
+    ],
+    "sha": "7d178f6e2561bab5cb607d2d4f6ad1ba8438522d",
+    "step": "Generated doc blocks in sync",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39775943306"
+   },
+   "last_seen": "2026-10-22T12:08:32Z",
+   "signature": "code: Checking .claude/skills/voter-ci/SKILL.md",
+   "workflows": [
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -1502,6 +1533,35 @@
   },
   {
    "branches": [
+    "feat/polity-cohorts"
+   ],
+   "category": "test-flaky",
+   "count": 1,
+   "example": {
+    "job": "Decide whether the PR is held for review",
+    "lines": [
+     "  OWNER: Burbanit0",
+     "  ACTION: edited",
+     "  BEFORE:",
+     "  RUN_URL: https://github.com/Burbanit0/Vote-App/actions/runs/39782401345",
+     "unexpected end of JSON input",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     986
+    ],
+    "sha": "1975d5c102a985b404f6d65c027c9b26428787e5",
+    "step": "Classify the changed paths and test changes, then post the gate",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39782401345"
+   },
+   "last_seen": "2026-10-22T12:55:36Z",
+   "signature": "test-flaky: unexpected end of JSON input",
+   "workflows": [
+    "Human review attestation"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "test-flaky",
@@ -1566,12 +1626,12 @@
  ],
  "failures_by_category": {
   "advisory": 19,
-  "code": 170,
+  "code": 174,
   "infra": 13,
-  "test-flaky": 30,
+  "test-flaky": 31,
   "unknown": 2
  },
- "generated_at": "2026-10-22T10:09:35Z",
+ "generated_at": "2026-10-22T13:44:15Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1830,13 +1890,10 @@
     "success": 27
    },
    "2026-10-22": {
-    "success": 17
+    "success": 18
    }
   },
   "CI Health Watchdog": {
-   "2026-09-22": {
-    "failure": 1
-   },
    "2026-09-23": {
     "failure": 1
    },
@@ -1923,6 +1980,9 @@
     "success": 1
    },
    "2026-10-21": {
+    "failure": 1
+   },
+   "2026-10-22": {
     "failure": 1
    }
   },
@@ -2105,7 +2165,7 @@
     "success": 18
    },
    "2026-10-22": {
-    "success": 7
+    "success": 9
    }
   },
   "E2E Tests": {
@@ -2455,7 +2515,7 @@
     "skipped": 30
    },
    "2026-10-22": {
-    "skipped": 10,
+    "skipped": 11,
     "success": 1
    }
   },
@@ -2497,9 +2557,6 @@
    }
   },
   "OpenSSF Scorecard": {
-   "2026-09-22": {
-    "success": 1
-   },
    "2026-09-25": {
     "success": 4
    },
@@ -2857,7 +2914,7 @@
    },
    "2026-10-22": {
     "cancelled": 2,
-    "skipped": 45,
+    "skipped": 63,
     "success": 35
    }
   },
@@ -2906,16 +2963,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-22T08:52:52Z",
+   "created_at": "2026-10-22T10:09:27Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39751081536"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39760965221"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-21T13:41:48Z",
+   "created_at": "2026-10-22T13:42:54Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39610237112"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789289045"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "develop",
@@ -2934,9 +2991,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-22T03:23:52Z",
+   "created_at": "2026-10-22T12:55:17Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39716601935"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39782357887"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2962,9 +3019,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-22T03:21:14Z",
+   "created_at": "2026-10-22T12:16:36Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39716357569"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39777012714"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -3003,10 +3060,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-10-22T10:09:27Z",
+   "conclusion": "skipped",
+   "created_at": "2026-10-22T13:46:14Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39760965486"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789798067"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3016,7 +3073,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14614,
+ "runs": 14671,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3049,10 +3106,10 @@
     "2026-10-21": 477.0,
     "2026-10-22": 403
    },
-   "p50_s": 316,
-   "p95_s": 518,
+   "p50_s": 317,
+   "p95_s": 519,
    "queue_p50_s": 0,
-   "runs": 854
+   "runs": 856
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3125,7 +3182,7 @@
    "p50_s": 11,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 664
+   "runs": 668
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3146,12 +3203,12 @@
     "2026-10-19": 346.0,
     "2026-10-20": 367.0,
     "2026-10-21": 401,
-    "2026-10-22": 386
+    "2026-10-22": 383.0
    },
    "p50_s": 391,
    "p95_s": 582,
    "queue_p50_s": 0,
-   "runs": 600
+   "runs": 601
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3276,12 +3333,12 @@
     "2026-10-19": 729,
     "2026-10-20": 11.0,
     "2026-10-21": 11.0,
-    "2026-10-22": 9
+    "2026-10-22": 11.0
    },
    "p50_s": 11,
    "p95_s": 36,
    "queue_p50_s": 0,
-   "runs": 617
+   "runs": 620
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3306,7 +3363,7 @@
    "p50_s": 11,
    "p95_s": 175,
    "queue_p50_s": 0,
-   "runs": 328
+   "runs": 330
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3324,12 +3381,12 @@
     "2026-10-18": 12.5,
     "2026-10-20": 11,
     "2026-10-21": 12.0,
-    "2026-10-22": 11
+    "2026-10-22": 12
    },
    "p50_s": 12,
    "p95_s": 50,
    "queue_p50_s": 0,
-   "runs": 266
+   "runs": 268
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3360,12 +3417,12 @@
     "2026-10-19": 666,
     "2026-10-20": 230.5,
     "2026-10-21": 507.0,
-    "2026-10-22": 436.5
+    "2026-10-22": 438
    },
-   "p50_s": 560,
+   "p50_s": 561,
    "p95_s": 787,
    "queue_p50_s": 0,
-   "runs": 822
+   "runs": 825
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3396,12 +3453,12 @@
     "2026-10-19": 638,
     "2026-10-20": 11.0,
     "2026-10-21": 11,
-    "2026-10-22": 10
+    "2026-10-22": 10.0
    },
    "p50_s": 17,
    "p95_s": 278,
    "queue_p50_s": 0,
-   "runs": 872
+   "runs": 875
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3437,7 +3494,7 @@
    "p50_s": 87,
    "p95_s": 143,
    "queue_p50_s": 0,
-   "runs": 913
+   "runs": 915
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3461,12 +3518,12 @@
     "2026-10-19": 703,
     "2026-10-20": 18,
     "2026-10-21": 19.0,
-    "2026-10-22": 19.5
+    "2026-10-22": 21
    },
    "p50_s": 17,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 628
+   "runs": 631
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3486,7 +3543,6 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-22": 50,
     "2026-09-25": 48.0,
     "2026-09-26": 38.0,
     "2026-09-27": 40.5,
@@ -3508,7 +3564,7 @@
    "p50_s": 46,
    "p95_s": 64,
    "queue_p50_s": 0,
-   "runs": 61
+   "runs": 60
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3529,12 +3585,12 @@
     "2026-10-19": 1290,
     "2026-10-20": 46.0,
     "2026-10-21": 45,
-    "2026-10-22": 51
+    "2026-10-22": 49.5
    },
    "p50_s": 41,
-   "p95_s": 143,
+   "p95_s": 139,
    "queue_p50_s": 0,
-   "runs": 350
+   "runs": 353
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3596,12 +3652,12 @@
     "2026-10-19": 2194,
     "2026-10-20": 161,
     "2026-10-21": 160,
-    "2026-10-22": 428.0
+    "2026-10-22": 411
    },
    "p50_s": 153,
    "p95_s": 232,
    "queue_p50_s": 0,
-   "runs": 878
+   "runs": 881
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3621,12 +3677,12 @@
     "2026-10-19": 1534,
     "2026-10-20": 10.5,
     "2026-10-21": 11,
-    "2026-10-22": 10
+    "2026-10-22": 10.0
    },
    "p50_s": 12,
    "p95_s": 60,
    "queue_p50_s": 0,
-   "runs": 503
+   "runs": 506
   },
   "polity red alert": {
    "daily_p50_s": {
