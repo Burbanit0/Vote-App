@@ -234,3 +234,21 @@ def test_what_the_run_keyed_by_id_does_not_outlive_the_person(tmp_path: Path) ->
     memory.own[1].append(JournalEvent(run_id="r", event_id=1, tick=3, event_type="forum_post", citizen_id=1, payload={"post": "hi"}))
     memory.observe(JournalEvent(run_id="r", event_id=2, tick=7, event_type="citizen_replaced", citizen_id=1, payload={}))
     assert 1 not in memory.petitioned and not memory.own.get(1)  # the newcomer remembers nothing of who left
+
+
+def test_a_run_without_parties_gives_newcomers_none_and_the_election_in_progress_names_who_it_counts_on() -> None:
+    from types import SimpleNamespace
+
+    from api.domain.polity.run_polity_simulation import _counted_on
+
+    citizens, structure, graph, _, config = _world()
+    replaced = replace_generation(citizens, structure, graph, [], config, 4, np.random.default_rng(2))
+    assert replaced and all(r.party_id is None and citizens[r.citizen_id].party_affiliation is None for r in replaced)
+
+    def counted(declared: set[int] | None, pending: Any) -> frozenset[int]:
+        return _counted_on(SimpleNamespace(staggered_declared_cids=declared, pending_rerun=pending))  # type: ignore[arg-type]
+
+    assert counted(None, None) == frozenset()
+    assert counted({4}, None) == {4}
+    assert counted(None, SimpleNamespace(barred_candidate_ids=frozenset({1, 2}), incumbent_id=None)) == {1, 2}
+    assert counted({4}, SimpleNamespace(barred_candidate_ids=frozenset({1}), incumbent_id=7)) == {1, 4, 7}

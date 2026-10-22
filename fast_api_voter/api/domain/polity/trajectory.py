@@ -7,7 +7,11 @@ a vote_intention_poll was journaled (the exploration profile), polarization only
 beside the journal.
 
 The archetype rules and their thresholds are a first cut: explicit, applied in ARCHETYPE_RULES order (first
-match wins), and meant to be re-cut once the catalogue (plan-scenarios-v1, step 6) shows what runs do.
+match wins), and meant to be re-cut once the catalogue (plan-scenarios-v1, step 6) shows what runs do. They
+were cut on eight-year runs, and a rule of the form "at some point this reached X" is satisfied by every run
+given enough years (a thirty-year run always has an election with a volatility of 0.4 and a mean that moved
+0.1), so a run is labelled block by block: it is cut into blocks of ARCHETYPE_BLOCK_YEARS to twice that, the
+rules read each block as if it were a run, and the run takes its most common block label (ADR-035).
 """
 from __future__ import annotations
 
@@ -39,6 +43,7 @@ FRAGMENTATION_ENP = 8.0
 REALIGNMENT_SHIFT = 0.1
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
+ARCHETYPE_BLOCK_YEARS = 8
 
 
 PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {
@@ -284,6 +289,22 @@ def archetype(summary: Summary) -> str:
     return next(label for label, _, holds in ARCHETYPE_RULES if holds(summary))
 
 
+def block_edges(years: int) -> list[int]:
+    """The census years that cut a run of `years` years into blocks of ARCHETYPE_BLOCK_YEARS to twice that
+    (one block for a run shorter than two blocks' worth), as [0, ..., years]."""
+    blocks = max(1, years // ARCHETYPE_BLOCK_YEARS)
+    return [round(i * years / blocks) for i in range(blocks + 1)]
+
+
+def run_archetype(whole: Summary, blocks: Sequence[Summary]) -> str:
+    """A collapse of the whole run is a collapse; else the most common label of the blocks, the earliest block
+    deciding a tie. A run of one block is labelled exactly as `archetype` would label it."""
+    if _is_collapse(whole):
+        return "collapse"
+    labels = [archetype(block) for block in blocks]
+    return max(dict.fromkeys(labels), key=labels.count)
+
+
 def _mean(values: Sequence[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
@@ -366,12 +387,32 @@ def _census_series(rows: Sequence[Mapping[str, Any]], key: str, years: int) -> l
     return [by_year.get(year) for year in range(years)]
 
 
+def _block_summary(
+    summary: Mapping[str, Any], events: Sequence[Mapping[str, Any]], snapshots: Sequence[Mapping[str, Any]], terms: Sequence[Term],
+    years: tuple[int, int], ticks_per_year: int,
+) -> dict[str, Any]:
+    """The part of the run's summary the archetype rules read, restricted to census years [first, end): its
+    terms (those that began in it), legislative elections, polarization (shifted from the block's own first
+    census) and refusals to leave. The occupancy is the run's: a collapse is judged on the whole."""
+    first, end = years
+    low, high = first * ticks_per_year, end * ticks_per_year
+    return {
+        "office_occupancy": summary["office_occupancy"],
+        "office": office_summary([t for t in terms if low <= t.start_tick < high]),
+        "legislative": [row for row in summary["legislative"] if low <= row["tick"] < high],
+        "polarization": polarization_by_year([r for r in snapshots if first <= int(r["year"]) < end]),
+        "refused_to_leave": any(
+            e["event_type"] == "extra_legal_act" and e["payload"]["success"] and low <= int(e["tick"]) < high for e in events
+        ),
+    }
+
+
 def trajectory_summary(
     events: Sequence[Mapping[str, Any]], snapshots: Sequence[Mapping[str, Any]], *,
     terms: Sequence[Term], population: int, ticks_per_year: int, last_tick: int, office_occupancy: float,
 ) -> dict[str, Any]:
-    """Everything above for one run, plus its archetype, the plausibility checks it fails and its yearly
-    series: the digest's `trajectory` entry."""
+    """Everything above for one run, plus its archetype (block by block: see `run_archetype`), the
+    plausibility checks it fails and its yearly series: the digest's `trajectory` entry."""
     summary: dict[str, Any] = {
         "office_occupancy": office_occupancy,
         "office": office_summary(terms),
@@ -384,7 +425,10 @@ def trajectory_summary(
         ),
         "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
     }
-    summary["archetype"] = archetype(summary)
+    edges = block_edges(last_tick // ticks_per_year + 1)
+    blocks = [_block_summary(summary, events, snapshots, terms, (a, b), ticks_per_year) for a, b in zip(edges, edges[1:])]
+    summary["archetype"] = run_archetype(summary, blocks)
+    summary["archetype_blocks"] = [archetype(block) for block in blocks]
     summary["plausibility_failed"] = plausibility(summary)
     summary["yearly"] = yearly_series(events, summary, population=population, ticks_per_year=ticks_per_year, last_tick=last_tick)
     return summary

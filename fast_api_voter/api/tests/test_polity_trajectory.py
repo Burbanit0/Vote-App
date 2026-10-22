@@ -12,6 +12,7 @@ from api.domain.polity.trajectory import (
     ARCHETYPE_RULES,
     FEATURES,
     archetype,
+    block_edges,
     divergence_by_year,
     divergence_verdict,
     diversity,
@@ -25,6 +26,7 @@ from api.domain.polity.trajectory import (
     polarization,
     polarization_by_year,
     presidential_margins,
+    run_archetype,
     trajectory_summary,
 )
 
@@ -352,3 +354,26 @@ def test_panel_stability_follows_the_same_people_a_replaced_slot_is_left_out_of_
     assert panel_stability(census, [(4, 4)]) == pytest.approx(1.0)  # replaced at the end of year 1's own tick, after its census
     assert panel_stability(census, [(20, 4)]) < 0.95  # replaced at year 5's tick: after the later census, so inside no window
     assert panel_stability(census, [(5, 0), (6, 1), (7, 2)]) is None  # fewer than three slots left to compare
+
+
+def test_blocks_are_eight_to_sixteen_years_and_a_short_run_is_one() -> None:
+    assert block_edges(1) == [0, 1] and block_edges(8) == [0, 8] and block_edges(15) == [0, 15]
+    assert block_edges(16) == [0, 8, 16] and block_edges(30) == [0, 10, 20, 30]
+
+
+def test_a_run_takes_its_most_common_block_label_the_earliest_deciding_a_tie_and_a_collapse_wins() -> None:
+    quiet = {"office_occupancy": 1.0, "legislative": [], "polarization": [], "refused_to_leave": False, "office": office_summary([])}
+    churn = {**quiet, "legislative": [{"tick": 8, "volatility": 0.9, "enp_seats": 2.0, "majority": False, "seated": True}]}
+    assert run_archetype(quiet, [churn, quiet, quiet]) == "stasis"
+    assert run_archetype(quiet, [churn, quiet]) == "churn"  # a tie: the earliest block
+    assert run_archetype(quiet, [quiet]) == archetype(quiet) == "stasis"  # one block is the run
+    assert run_archetype({**quiet, "office_occupancy": 0.1}, [quiet, quiet]) == "collapse"
+
+
+def test_a_long_run_is_not_labelled_by_the_one_election_that_swung_in_thirty_years() -> None:
+    swing = [_legislative(4, {1: 5, 2: 5}, {1: 60.0, 2: 40.0}), _legislative(8, {3: 5, 4: 5}, {3: 60.0, 4: 40.0})]  # year 1 to 2: all new parties
+    summary = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=95, office_occupancy=1.0)
+    assert summary["archetype_blocks"] == ["churn", "stasis", "stasis"] and summary["archetype"] == "stasis"
+    assert archetype(summary) == "churn"  # what "at some point it reached 0.4" would have said of any 24-year run
+    short = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=31, office_occupancy=1.0)
+    assert short["archetype_blocks"] == ["churn"] and short["archetype"] == archetype(short)
