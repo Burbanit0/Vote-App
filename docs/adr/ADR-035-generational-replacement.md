@@ -22,24 +22,26 @@
 
 **Panel stability ignores replaced slots.** The four-year factor correlation (ADR-012 D1) is computed over the people who were there for the whole window: a slot replaced inside it is excluded, and a window with fewer than three left yields no value.
 
+**Runs are labelled block by block.** The first reading of this change was "no variety": every 30-year seed, with or without replacement, was labelled realignment. That was the label, not the runs. The archetype rules were cut on eight-year runs and most are of the form "at some point this reached X": the population's mean moved 0.1, a legislative election had a volatility of 0.4, two alternations. Over thirty years every run meets them (relabelled without the realignment rule, nine or ten of ten seeds read as churn). `trajectory.py` now cuts a run into blocks of 8 to 16 years (a 30-year run is three blocks of 10), applies the rules to each block as if it were a run, and gives the run its most common block label (the earliest block deciding a tie; a collapse of the whole run is a collapse). A run of up to 15 years is one block, so eight-year runs, and the tables in ADR-033 and ADR-034, are labelled exactly as before. The digest carries the block labels as `archetype_blocks`.
+
 ## Measured
 
 Ten seeds, 30 years, 100 citizens, the rule-only twin (`--engine deterministic --profile scenario`, which includes ADR-034's economic voting), the scenario profile at each setting of the two knobs. Not pre-registered: a reading, reproduced by `python scripts/probe_cohorts.py --output-dir <dir>` (`--arm rate,spread` re-runs one row). D1 is the four-year panel stability (ADR-012's band is 0.70 to 0.90); D2 is the ratio of the final spread of positions to the initial one (ADR-012 wants it near 1).
 
-| rate | spread | newcomers at the end | D1 | D2 | archetypes (entropy) | in band |
-|---:|---:|---:|---:|---:|---|---:|
-| 0 | - | 0% | 0.917 | 2.33 | realignment 10 (0.00 bits) | 2/10 |
-| 0.03 | 0.2 | 53% | 0.899 | 1.77 | realignment 10 (0.00) | 0/10 |
-| **0.03** | **0.35** | **53%** | **0.901** | **1.83** | **realignment 10 (0.00)** | **0/10** |
-| 0.03 | 0.5 | 53% | 0.904 | 1.83 | realignment 10 (0.00) | 1/10 |
-| 0.03 | 0.8 | 53% | 0.908 | 1.98 | realignment 10 (0.00) | 2/10 |
-| 0.06 | 0.5 | 75% | 0.890 | 1.52 | realignment 10 (0.00) | 1/10 |
+| rate | spread | newcomers at the end | D1 | D2 | archetypes (entropy) | divergence | in band |
+|---:|---:|---:|---:|---:|---|---|---:|
+| 0 | - | 0% | 0.917 | 2.33 | realignment 9, stasis 1 (0.47 bits) | grows, not varied | 2/10 |
+| 0.03 | 0.2 | 53% | 0.899 | 1.77 | realignment 7, stasis 2, churn 1 (1.16) | grows, varied | 0/10 |
+| **0.03** | **0.35** | **53%** | **0.901** | **1.83** | **realignment 7, alternation 1, churn 1, stasis 1 (1.36)** | **grows, varied** | **0/10** |
+| 0.03 | 0.5 | 53% | 0.904 | 1.83 | realignment 7, alternation 2, stasis 1 (1.16) | grows, varied | 1/10 |
+| 0.03 | 0.8 | 53% | 0.908 | 1.98 | realignment 10 (0.00) | grows, not varied | 2/10 |
+| 0.06 | 0.5 | 75% | 0.890 | 1.52 | realignment 9, alternation 1 (0.47) | grows, not varied | 1/10 |
 
-- **Replacement does one thing here: it holds back the growth of the spread.** Without it the spread of positions more than doubles over 30 years (2.33): drift and radicalisation accumulate with nobody to dilute them. At 3% a year it grows by 77% to 98% (1.77 to 1.98), at 6% by 52%. A larger newcomer spread dilutes less, as it should. Panel stability falls from 0.917 to about 0.90, the top of ADR-012's band, because the correlation excludes replaced slots but the people who stay are pulled toward their neighbours' newcomers.
-- **It does not add variety.** Every arm reads as realignment in all ten seeds (0.00 bits). Over 30 years the realignment rule (mean shift of at least 0.1) saturates, so the 30-year archetype cannot tell these arms apart. Cohorts alone do not make runs differ from one another.
-- **It does not bring runs into the plausibility band.** Zero to two seeds of ten are inside it in every arm, with or without replacement, and the counts are not ordered by the rate, so they are noise. For the two arms whose failures were counted, the shipped one fails volatility in 4 seeds (as the rate-0 arm does), panel stability in 6 (8 without), and turnout in 3 (none without): the one thing replacement made worse is turnout.
-- **An earlier reading of this table said otherwise** (4 seeds of ten inside the band at 3% against 1 without). It was taken before ADR-034's economic voting was merged into the branch, which moves the band on its own; the table above is re-measured on the merged code, after the review fixes (former presidents exempt, the stream drawn for every picked slot).
-- **The shipped value** is rate 0.03, spread 0.35: about half the people are newcomers after thirty years, a spread that is not a copy of the circle (0.2) and not independent of it (0.8). Between 0.2 and 0.5 the readings differ by about one seed, which is noise. It is shipped in the scenario profile because a society that never changes its members is not the object of study, not because it improved the divergence test: it does not.
+- **Replacement holds back the growth of the spread of positions.** Without it the spread more than doubles over 30 years (2.33): drift and radicalisation accumulate with nobody to dilute them. At 3% a year it grows by 77% to 98%, at 6% by 52%. A larger newcomer spread dilutes less, as it should. Panel stability falls from 0.917 to about 0.90, the top of ADR-012's band.
+- **With the labels fixed, it adds variety, at the middle spreads.** At 3% a year with a newcomer spread of 0.2, 0.35 or 0.5, the ten seeds read as three or four different stories (1.16 to 1.36 bits, the "varied" criterion met at 1 bit), against 0.47 bits without replacement. At 0.8 (newcomers independent of their circle) and at 6% a year (three quarters of the people are new) the variety is gone again. Read it as a hint, not a result: the arms share seeds, so they are not independent trials, ten seeds an arm is small, and the three middle arms agree partly because they are neighbours.
+- **The divergence test still fails on two of its four criteria.** One story still covers 7 of 10 seeds (realignment): the rule asks for a shift of 0.1 in the Euclidean mean over twenty issues, which in this profile is exceeded in most blocks of ten years. I did not move the threshold: choosing it to get a variety would be tuning the measure to the result. And 0 to 2 seeds of ten are inside the plausibility band in every arm (noise, not ordered by the rate); the shipped arm fails turnout in 3 seeds (none without replacement), volatility in 4 and panel stability in 6.
+- **Earlier readings of this table** said "no variety" (taken with the whole-run label) and "4 of 10 in band" (taken before ADR-034's economic voting was merged in). Both are superseded by the table above, measured on the merged code with the block labels.
+- **The shipped value** is rate 0.03, spread 0.35: about half the people are newcomers after thirty years, a spread that is not a copy of the circle and not independent of it, and the highest variety of the six arms. The choice between 0.2, 0.35 and 0.5 is within noise.
 
 ## Not settled
 
@@ -47,5 +49,6 @@ Ten seeds, 30 years, 100 citizens, the rule-only twin (`--engine deterministic -
 - **A newcomer reuses the slot's residuals and ties.** The idiosyncratic part of their views is the departed person's, and they are born into the same circle: no new tie is drawn, and rewiring (step 3c, part 2) is a separate change. Past posts in the forum feed stay attributed to the id.
 - **No death or birth as such.** The population size is constant. A slot is a person leaving and another arriving; there is no growth, ageing or age-specific rate.
 - **Officeholders, former presidents and the chamber are exempt**, so they never age out: the replacement rate falls a little short of the nominal one (a few percent of slots at most).
-- **The 30-year archetype is saturated** by realignment under every arm (see above): a finer label (a threshold that scales with the run's length) is a change to `trajectory.py` that this ADR does not make.
+- **Realignment still dominates the labels** (7 of 10 seeds in the arms that vary): its threshold (a mean shift of 0.1 over twenty issues) is low for a profile whose radicalisation moves the mean coherently, and a threshold per issue, or a shift measured against the population's own spread, would be a better rule. Not changed here, so as not to tune the measure to its result.
+- **Block labels have their own edge effects.** A run of 15 years is one block and a run of 16 is two, so a label can change when a run gets one year longer; and a block boundary can split an episode in two.
 - **A checkpoint written before these fields cannot resume after them**: they change `config_hash` for every configuration (loud, at resume time), and the YAML parser requires both keys, as it does for every other field.
