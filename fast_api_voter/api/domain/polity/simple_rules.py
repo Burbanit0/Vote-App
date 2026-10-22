@@ -144,13 +144,20 @@ def _retrospective_term(voter: Citizen, candidate: Citizen, vote: VoteConfig, in
     if incumbent is None:
         return 0.0
     if candidate.citizen_id == incumbent.citizen_id:
-        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent)
+        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent)
     if incumbent.party is not None and candidate.party_affiliation == incumbent.party:
         return (
             vote.approval * vote.approval_party_carryover * incumbent.record
-            + vote.approval_party_carryover * _policy_term(voter, vote, incumbent)
+            + vote.approval_party_carryover * (_policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent))
         )
     return 0.0
+
+
+def _economy_term(vote: VoteConfig, incumbent: IncumbentRecord) -> float:
+    """ADR-034: 0.0 exactly unless both an economy record and a nonzero weight exist; the same for every voter."""
+    if incumbent.policy is None or not vote.economic_voting:
+        return 0.0
+    return vote.economic_voting * incumbent.policy.economy
 
 
 def _policy_term(voter: Citizen, vote: VoteConfig, incumbent: IncumbentRecord) -> float:
@@ -421,14 +428,19 @@ def dissolve_small_parties(
 
 @dataclass(frozen=True)
 class PolicyRecord:
-    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now."""
+    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now; and (ADR-034) the
+    economy's x(t) at the election, which every voter judges the same. `then` and `now` are empty when no
+    legislation runs and only the economy is judged."""
 
     then: tuple[float, ...]
     now: tuple[float, ...]
+    economy: float = 0.0
 
 
 def policy_gain(voter: Citizen, record: PolicyRecord) -> float:
-    """How much closer policy came to the voter over the term (negative: farther)."""
+    """How much closer policy came to the voter over the term (negative: farther); 0 with no policy record."""
+    if not record.then:
+        return 0.0
     return weighted_distance(voter, record.then) - weighted_distance(voter, record.now)
 
 
@@ -442,6 +454,7 @@ class GoverningRecord:
 
 def choose_party(
     voter: Citizen, parties: list[Party], governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    economic: float = 0.0,
 ) -> int | None:
     """Party-list analogue of build_ranking's vote rule (A5), for the
     legislative election (assembly_mode: party_list): nearest party
@@ -453,17 +466,19 @@ def choose_party(
     parties' utility (minus the distance) gains retrospection x policy_gain, and the voter
     picks the highest utility -- blank when even that falls below minus their tolerance.
     At zero it is the nearest-platform rule above, exactly."""
-    utility = _party_utilities(voter, parties, governing, retrospection)
+    utility = _party_utilities(voter, parties, governing, retrospection, economic)
     best = min(parties, key=lambda p: (-utility[p.party_id], p.party_id))
     return None if utility[best.party_id] < -voter.blank_threshold else best.party_id
 
 
 def _party_utilities(
-    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float,
+    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float, economic: float = 0.0,
 ) -> dict[int, float]:
-    """Minus the weighted distance, plus retrospection x policy_gain for a governing party: the one
-    utility choose_party and strategic_party both rank by (at zero weight, minus the distance exactly)."""
+    """Minus the weighted distance, plus retrospection x policy_gain and (ADR-034) economic x the economy for a
+    governing party: the one utility choose_party and strategic_party both rank by (at zero weights, minus the
+    distance exactly)."""
     gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
+    gain += economic * governing.policy.economy if governing is not None and economic else 0.0
     in_power = governing.parties if governing is not None else frozenset()
     return {
         party.party_id: -weighted_distance(voter, party.platform) + (gain if party.party_id in in_power else 0.0)
@@ -481,7 +496,7 @@ def viable_parties(choices: Sequence[int | None], threshold: float) -> frozenset
 
 def strategic_party(
     voter: Citizen, parties: list[Party], sincere: int | None, viable: frozenset[int], margin: float,
-    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
 ) -> int | None:
     """ADR-024, the wasted vote (Cox 1997): a voter whose sincere party falls below the threshold in the
     sincere vote votes instead for the best party above it, when that costs at most `margin` in utility (the
@@ -489,7 +504,7 @@ def strategic_party(
     above the threshold or a margin of 0 leaves the sincere choice."""
     if margin <= 0 or sincere is None or sincere in viable or not viable:
         return sincere
-    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection)
+    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection, economic)
     best = max(viable & utility.keys(), key=lambda party_id: (utility[party_id], -party_id))
     worth_it = utility[sincere] - utility[best] <= margin and utility[best] >= -voter.blank_threshold
     return best if worth_it else sincere
@@ -497,14 +512,14 @@ def strategic_party(
 
 def strategic_choices(
     voters: Sequence[Citizen], parties: list[Party], sincere: Sequence[int | None], margin: float, threshold: float,
-    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
 ) -> list[int | None]:
     """ADR-024 over an electorate: the sincere vote is the poll, and each voter it strands may desert.
     At margin 0, the sincere vote."""
     if margin <= 0:
         return list(sincere)
     viable = viable_parties(sincere, threshold)
-    return [strategic_party(v, parties, s, viable, margin, governing, retrospection) for v, s in zip(voters, sincere)]
+    return [strategic_party(v, parties, s, viable, margin, governing, retrospection, economic) for v, s in zip(voters, sincere)]
 
 
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────

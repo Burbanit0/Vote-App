@@ -90,7 +90,8 @@
     "salience_decay": 0.85,
     "scandal_enabled": true,
     "scandal_magnitude": 0.3,
-    "scandal_rate_per_tick": 0.5
+    "scandal_rate_per_tick": 0.5,
+    "scripted": []
   },
   "institutions": {
     "assembly_mode": "party_list",
@@ -263,6 +264,7 @@
     "approval": 0.0,
     "approval_party_carryover": 0.0,
     "audit_fraction": 0.1,
+    "economic_voting": 0.0,
     "mode": "llm",
     "partisanship": 0.0,
     "policy_retrospection": 0.0,
