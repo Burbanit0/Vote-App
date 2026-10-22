@@ -40,6 +40,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [029](ADR-029-referendum-is-a-new-vote.md) | A referendum is a new vote, each citizen for their own interest (amends ADR-020) | polity | 2026-10-13 | Accepted |
 | [030](ADR-030-field-order-is-part-of-the-prompt.md) | The order of a schema's fields is part of the prompt, chosen by measurement | polity | 2026-10-19 | Accepted |
 | [033](ADR-033-radicalisation.md) | Radicalisation: once events have shaken the polity, angry citizens step away from the president (scenario profile) | polity | 2026-10-21 | Accepted (scenario profile) |
+| [034](ADR-034-economic-voting-and-scripted-events.md) | Voters judge the economy (scenario profile), and a scenario names its crises (`events.scripted`) | polity | 2026-10-22 | Accepted (scripted events everywhere; economic voting in the scenario profile) |
 
 Also in this folder, not ADRs:
 

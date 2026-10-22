@@ -288,6 +288,10 @@ vote:
   valence: 0.0                  # poids de la valence (aucune source encore : 0)
   turnout_cost: 0.0             # abstention si le meilleur candidat vaut le vote
                                 #   blanc à moins de ce coût près (OBS-042)
+  economic_voting: 0.0          # [ADR-034] poids de x(t), l'économie au moment du scrutin, sur
+                                #   le sortant (et les partis au pouvoir) : bonne conjoncture (x > 0)
+                                #   récompense, mauvaise punit, pareil pour tous ; requiert
+                                #   events.economic_shock_enabled
   policy_retrospection: 0.0     # S4.2 (ADR-009) : poids du chemin parcouru par la
                                 #   politique vers l'électeur pendant le mandat —
                                 #   sur le sortant jugé et, aux législatives, sur
@@ -501,6 +505,10 @@ events:
                                 #      / campaign.max_positioning_delta ne
                                 #      sont PAS réutilisés : séparabilité
                                 #      analytique (v4 Lot 6)
+  scripted: []                 # [ADR-034] crises nommées par le scénario, en plus des tirages
+                                #      (qui restent faits : un calendrier ne déplace pas le
+                                #      flux aléatoire) : {tick: 12, kind: scandal} ou
+                                #      {tick: 20, kind: economic_shock, magnitude: -0.6}
 
 # =============================================================================
 # RÉSEAU SOCIAL (§5)

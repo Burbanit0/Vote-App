@@ -124,7 +124,7 @@ from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
-from api.domain.polity.config import PolityConfig, PolityConfigError, amended, broken_rule, validate_config
+from api.domain.polity.config import EventsConfig, PolityConfig, PolityConfigError, amended, broken_rule, validate_config
 from api.domain.polity.constitution import (
     Proposal,
     amend,
@@ -1055,7 +1055,7 @@ def _resolve_refusal(context: TickContext, state: TickState) -> bool:
         or context.election not in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
     ):
         return False
-    level = approval(state.citizens, holder, config.vote, _term_policy_record(state.legislature))
+    level = approval(state.citizens, holder, config.vote, _term_record(state, config))
     probability, success = refusal_succeeds(level, config.regime, state.regime_rng)
     context.journal.write_event(
         tick=context.tick, citizen_id=holder.citizen_id,
@@ -1105,7 +1105,7 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         counted: list[list[str]] = []
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
-            policy=_term_policy_record(legislature), ballots_out=counted, campaign_rng=state.campaign_rng,
+            policy=_term_record(state, config), ballots_out=counted, campaign_rng=state.campaign_rng,
             agent_client=context.client,
         )
         _keep_ballots(state, config, counted)
@@ -1130,7 +1130,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         legislature = state.legislature
         seats, votes = _hold_legislative_election(
             state.citizens, state.parties, context.config, context.journal, context.tick,
-            governing=_governing_record(state.citizens, legislature),
+            governing=_governing_record(state.citizens, legislature, state.economy_x if context.config.vote.economic_voting else 0.0),
         )
         answers: dict[tuple[int, int], LeaderAnswer] = {}
         talks: Callable[..., Any] = _run_coalition_negotiation
@@ -1155,16 +1155,30 @@ def _term_policy_record(legislature: Legislature | None) -> PolicyRecord | None:
     return PolicyRecord(then=legislature.policy_at_term_start, now=legislature.policy)
 
 
-def _governing_record(citizens: list[Citizen], legislature: Legislature | None) -> GoverningRecord | None:
+def _term_record(state: TickState, config: PolityConfig) -> PolicyRecord | None:
+    """What a vote or an approval judges the sitting president on: the policy their term presided over (S4.2,
+    while legislation runs) and, with vote.economic_voting, the economy as it stands (ADR-034). None when
+    neither is judged."""
+    record = _term_policy_record(state.legislature)
+    if not config.vote.economic_voting:
+        return record
+    if record is None:
+        return PolicyRecord(then=(), now=(), economy=state.economy_x)
+    return dataclasses.replace(record, economy=state.economy_x)
+
+
+def _governing_record(citizens: list[Citizen], legislature: Legislature | None, economy: float = 0.0) -> GoverningRecord | None:
     """S4.2: the parties a legislative election judges -- the coalition the last one formed,
-    or the president's party when none did -- and the policy since that election."""
+    or the president's party when none did -- the policy since that election and (ADR-034) the economy."""
     if legislature is None or legislature.policy_at_assembly_start is None:
         return None
     president_parties = {c.party_affiliation for c in current_office_holders(citizens, Office.PRESIDENT) if c.party_affiliation is not None}
     parties = frozenset(legislature.coalition) if legislature.coalition else frozenset(president_parties)
     if not parties:
         return None
-    return GoverningRecord(parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy))
+    return GoverningRecord(
+        parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy, economy=economy),
+    )
 
 
 def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
@@ -1356,7 +1370,7 @@ def _proposer_line(context: TickContext, state: TickState, proposal: Proposal) -
     president, config = state.citizens[proposal.proposer], context.config
     return ballot_proposer_text(
         president, proposal, article_value(config, proposal.article),
-        approval=approval(state.citizens, president, config.vote, _term_policy_record(state.legislature)),
+        approval=approval(state.citizens, president, config.vote, _term_record(state, config)),
         ticks_left=ticks_to_election(context.tick, president.term_end_tick),
         lame_duck=is_term_limited(president, config.institutions.president_term_limit),
     )
@@ -1398,7 +1412,7 @@ def _president_briefing(
     stakes_open = config.agents.amendment_stakes and proposal_closed(state.constitution, members) is None
     return PresidentBriefing(
         tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
-        approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
+        approval=approval(state.citizens, president, config.vote, _term_record(state, config)),
         agenda_closed=agenda_closed,
         policy=legislature.policy if legislature is not None else None,
         public_median=population_median(state.citizens),
@@ -1490,7 +1504,7 @@ def _phase_accountability(context: TickContext, state: TickState) -> None:
     state.mobilized_last_tick = _run_accountability_phase(
         state.citizens, context.config, context.journal, context.tick, context.crowd,
         exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
-        policy=_term_policy_record(state.legislature),
+        policy=_term_record(state, context.config),
     )
 
 
@@ -1691,6 +1705,12 @@ class ExogenousEventsOutcome:
     shock_crossed: bool
 
 
+def _scripted_crises(events: EventsConfig, tick: int) -> tuple[bool, float]:
+    """ADR-034: whether a scandal is scripted at `tick`, and the total economic impulse scripted there."""
+    here = [e for e in events.scripted if e.tick == tick]
+    return any(e.kind == "scandal" for e in here), sum(e.magnitude for e in here if e.kind == "economic_shock")
+
+
 def _run_exogenous_events(
     citizens: list[Citizen],
     config: PolityConfig,
@@ -1711,7 +1731,8 @@ def _run_exogenous_events(
     a reason to skip the draw itself, matching v4's own "vacancy is a
     first-class state" precedent. `target` is null on a vacancy, mirroring
     election_invalidated's own explicit citizen_id=None precedent."""
-    scandal_fired = scandal_arrival(rng, config.events)
+    scripted_scandal, scripted_shock = _scripted_crises(config.events, tick)  # ADR-034: the scenario's own, on top of the draws
+    scandal_fired = scandal_arrival(rng, config.events) or scripted_scandal
     scandal_target: int | None = None
     if scandal_fired:
         holders = current_office_holders(citizens, Office.PRESIDENT)
@@ -1724,7 +1745,7 @@ def _run_exogenous_events(
             citizen_id=scandal_target,
         )
 
-    economy_x = economic_shock_step(economy_x, rng, config.events)
+    economy_x = economic_shock_step(economy_x, rng, config.events) + scripted_shock
     # Explicit re-check of economic_shock_enabled, not just the value
     # comparison (mirrors mandate_deviation_recorded's own redundant
     # config.mandate.enabled check): with economic_shock_enabled=False,
@@ -2182,7 +2203,7 @@ def ballots_today(state: TickState, president: Citizen | None, config: PolityCon
     if not candidates:
         return None
     incumbent = _judged_incumbent(
-        state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
+        state.citizens, president.citizen_id if president else None, config, _term_record(state, config),
     )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
     ballots = [ballot for ballot in cast if ballot is not None]
@@ -2539,10 +2560,10 @@ def _hold_legislative_election(
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
     voters = _voters(citizens)
-    retrospection, margin = config.vote.policy_retrospection, config.vote.strategic_margin
-    sincere = [choose_party(voter, parties, governing, retrospection) for voter in voters]
+    retrospection, margin, economic = config.vote.policy_retrospection, config.vote.strategic_margin, config.vote.economic_voting
+    sincere = [choose_party(voter, parties, governing, retrospection, economic) for voter in voters]
     choices = strategic_choices(
-        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection,
+        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection, economic,
     )
     for choice in choices:
         if choice is None:
