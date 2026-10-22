@@ -92,6 +92,7 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     assert not scenario.llm.crowd and scenario.vote.mode == "utility"
     assert scenario.agents.forum_size == 10 and scenario.dynamics.drift_std == 0.18
     assert scenario.dynamics.radical_step == 0.5 and scenario.dynamics.anger_narrows_bound == 0.3 and explored.dynamics.radical_step == 0.0
+    assert scenario.vote.economic_voting == 1.0 and explored.vote.economic_voting == 0.0 and scenario.events.scripted == ()
     assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
     assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
     validate_config(scenario)
@@ -107,7 +108,7 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
         max_batch_replays=0, provider=None, workers=1, profile="scenario", vote_mode="llm",
     )
     assert contradiction.vote.mode == "llm"
-    with pytest.raises(PolityConfigError, match="llm.crowd"):
+    with pytest.raises(PolityConfigError, match="vote.mode: utility"):  # the crowd rule and the economic-voting rule both name it
         validate_config(contradiction)
 
 

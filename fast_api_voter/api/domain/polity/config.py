@@ -14,6 +14,7 @@ KeyError/TypeError from a caller three frames away.
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -234,6 +235,13 @@ class VoteConfig:
     strategic_margin: float
     """ADR-024: at a legislative election, how much utility a voter gives up to leave a party the sincere
     vote leaves below the electoral threshold for the best party above it. 0 is the sincere vote."""
+    economic_voting: float = 0.0
+    """ADR-034: weight of the economy's x(t) at the election on the judged incumbent (and, in legislative
+    elections, the governing parties): good times (x > 0) reward them, bad times punish them, the same for every
+    voter (sociotropic: the national economy, read at the election, as voters do). It also moves approval, hence
+    legitimacy (with `legitimacy.approval_weight` above 0 the economy then persists in legitimacy's moving average).
+    Needs `events.economic_shock_enabled` (without it x stays 0) and `vote.mode: utility` (the model's own ballots
+    do not read it). Legislative elections judge it only while legislation runs: the governing record is built there."""
 
 
 @dataclass(frozen=True)
@@ -443,6 +451,20 @@ class AwakeningConfig:
 
 
 @dataclass(frozen=True)
+class ScriptedEvent:
+    """ADR-034: a crisis the scenario names instead of leaving to the draws: at `tick`, a `scandal` against
+    the sitting president, or an `economic_shock` that adds `magnitude` to the economy's x(t) (negative: a
+    recession; positive: a boom)."""
+
+    tick: int
+    kind: str
+    magnitude: float = 0.0
+
+
+SCRIPTED_EVENT_KINDS = ("scandal", "economic_shock")
+
+
+@dataclass(frozen=True)
 class EventsConfig:
     """§8 — exogenous events (v5). Two independently toggleable
     sub-mechanisms under one master switch: scandal (a Poisson arrival
@@ -476,6 +498,9 @@ class EventsConfig:
     economy_shock_threshold: float
     salience_decay: float
     max_reaction_delta: float
+    scripted: tuple[ScriptedEvent, ...] = ()
+    """ADR-034: the scenario's own crises, on top of the draws (which are still made, so a schedule never moves the
+    random stream). A scripted scandal needs `scandal_enabled`, a scripted economic shock `economic_shock_enabled`."""
 
 
 @dataclass(frozen=True)
@@ -960,6 +985,7 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
         policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+        economic_voting=_get_nonneg_float(s, "vote", "economic_voting"),
         strategic_margin=_get_nonneg_float(s, "vote", "strategic_margin"),
     )
 
@@ -1150,7 +1176,59 @@ def _parse_events(raw: dict[str, Any]) -> EventsConfig:
         economy_shock_threshold=_get_ratio(s, "events", "economy_shock_threshold"),
         salience_decay=_get_ratio(s, "events", "salience_decay"),
         max_reaction_delta=_get_ratio(s, "events", "max_reaction_delta"),
+        scripted=_parse_scripted_events(s, raw),
     )
+
+
+def _parse_scripted_events(section: dict[str, Any], raw: dict[str, Any]) -> tuple[ScriptedEvent, ...]:
+    """events.scripted: a list of {tick, kind} (a scandal) or {tick, kind, magnitude} (an economic shock), each
+    tick inside the run (a crisis after the last tick would silently never happen)."""
+    run = _parse_run(raw)
+    last_tick = run.duration_years * run.ticks_per_year
+    scripted = [
+        _parse_scripted_event(entry, f"events.scripted[{i}]", last_tick)
+        for i, entry in enumerate(_get(section, "events", "scripted", list))
+    ]
+    return tuple(sorted(scripted, key=lambda e: (e.tick, e.kind)))
+
+
+def _scripted_events_problem(config: PolityConfig) -> str | None:
+    """ADR-034: the schedule's own invariants, held for a config built in code as for one parsed from YAML (the
+    parser checks the same and fails earlier, with the entry's position)."""
+    last_tick = config.run.duration_years * config.run.ticks_per_year
+    for i, event in enumerate(config.events.scripted):
+        where = f"'events.scripted[{i}]'"
+        if event.kind not in SCRIPTED_EVENT_KINDS:
+            return f"{where}: {event.kind!r} is not one of {SCRIPTED_EVENT_KINDS}"
+        if not 0 <= event.tick <= last_tick:
+            return f"{where}: tick {event.tick} is outside the run (0..{last_tick}); the crisis would silently never happen"
+        if event.kind == "scandal" and event.magnitude != 0:
+            return f"{where}: a scandal takes no magnitude"
+        if event.kind == "economic_shock" and (event.magnitude == 0 or not math.isfinite(event.magnitude)):
+            return f"{where}: an economic_shock needs a finite nonzero magnitude, got {event.magnitude!r}"
+    return None
+
+
+def _parse_scripted_event(entry: Any, where: str, last_tick: int) -> ScriptedEvent:
+    if not isinstance(entry, dict) or not {"tick", "kind"} <= set(entry) <= {"tick", "kind", "magnitude"}:
+        raise PolityConfigError(f"'{where}': expected a mapping with tick and kind (and magnitude for an economic_shock)")
+    if entry["kind"] not in SCRIPTED_EVENT_KINDS:
+        raise PolityConfigError(f"'{where}.kind': {entry['kind']!r} is not one of {SCRIPTED_EVENT_KINDS}")
+    tick = entry["tick"]
+    if isinstance(tick, bool) or not isinstance(tick, int) or not 0 <= tick <= last_tick:
+        raise PolityConfigError(f"'{where}.tick': expected a tick in 0..{last_tick} (the run's last), got {tick!r}")
+    return ScriptedEvent(tick=tick, kind=entry["kind"], magnitude=_scripted_magnitude(entry["kind"], entry.get("magnitude"), where))
+
+
+def _scripted_magnitude(kind: str, magnitude: Any, where: str) -> float:
+    """A scandal takes none (events.scandal_magnitude sets its salience); an economic shock a nonzero number."""
+    if kind == "scandal":
+        if magnitude is not None:
+            raise PolityConfigError(f"'{where}': a scandal takes no magnitude (events.scandal_magnitude sets its salience)")
+        return 0.0
+    if isinstance(magnitude, bool) or not isinstance(magnitude, (int, float)) or magnitude == 0 or not math.isfinite(magnitude):
+        raise PolityConfigError(f"'{where}.magnitude': an economic_shock needs a finite nonzero number, got {magnitude!r}")
+    return float(magnitude)
 
 
 def _parse_social_graph(raw: dict[str, Any]) -> SocialGraphConfig:
@@ -1322,6 +1400,26 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'llm.thinking_token_budget' needs 'llm.provider: vllm' (S1.3): it is a vLLM request field, "
         "which Ollama has no equivalent of -- set it to null for any other provider"
     ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
+    _scripted_events_problem,
+    lambda c: (
+        "'vote.economic_voting' must be a finite number (ADR-034)"
+    ) if not math.isfinite(c.vote.economic_voting) else None,
+    lambda c: (
+        "'vote.economic_voting' > 0 requires 'vote.mode: utility' (ADR-034): the model's own ballots (mode llm) "
+        "do not read the economy, so the weight would be silently inert"
+    ) if c.vote.economic_voting > 0 and c.vote.mode != "utility" else None,
+    lambda c: (
+        "'events.scripted' has a scandal but 'events.scandal_enabled' is false (ADR-034): a disabled mechanism "
+        "stays disabled, scripted or not"
+    ) if any(e.kind == "scandal" for e in c.events.scripted) and not c.events.scandal_enabled else None,
+    lambda c: (
+        "'events.scripted' has an economic_shock but 'events.economic_shock_enabled' is false (ADR-034): the economy "
+        "would stay frozen at 0"
+    ) if any(e.kind == "economic_shock" for e in c.events.scripted) and not c.events.economic_shock_enabled else None,
+    lambda c: (
+        "'vote.economic_voting' > 0 requires 'events.economic_shock_enabled' (ADR-034): without it the economy "
+        "stays at 0 and voters would have nothing to judge"
+    ) if c.vote.economic_voting > 0 and not c.events.economic_shock_enabled else None,
     lambda c: (
         "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
         "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "

@@ -352,6 +352,7 @@ def test_the_radicalisation_settings_ship_at_zero_and_need_dynamics_emotions_eve
     no_events = dataclasses.replace(scenario, events=dataclasses.replace(scenario.events, enabled=False, scandal_enabled=False, economic_shock_enabled=False),
                                     awakening=dataclasses.replace(scenario.awakening, context_modulation=dataclasses.replace(
                                         scenario.awakening.context_modulation, event_salience=False)))
+    no_events = dataclasses.replace(no_events, vote=dataclasses.replace(no_events.vote, economic_voting=0.0))  # ADR-034's rule would fire first
     with pytest.raises(PolityConfigError, match="events.enabled"):
         validate_config(no_events)  # salience would stay 0: the push would never fire
     with pytest.raises(PolityConfigError, match="susceptibility"):
