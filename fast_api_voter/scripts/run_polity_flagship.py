@@ -314,6 +314,9 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
         vote=dataclasses.replace(explored.vote, mode="utility", economic_voting=1.0),
         agents=dataclasses.replace(explored.agents, forum_size=10),
         dynamics=dataclasses.replace(explored.dynamics, drift_std=0.18, radical_step=0.5, anger_narrows_bound=0.3),
+        citizens=dataclasses.replace(
+            explored.citizens, static_population=False, replacement_per_year=0.03, newcomer_spread=0.35
+        ),
     )
 
 

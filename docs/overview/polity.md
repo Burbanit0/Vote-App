@@ -115,7 +115,7 @@ layer off. The flagship profile (`_flagship_config`) turns on the LLM, legitimac
 street pressure, awakening, events, the social graph and the chamber, but leaves emotions, opinion
 dynamics and legislation off. The exploration profile (`_exploration_config`) adds those and the
 agency mechanisms. The scenario profile (`_scenario_config`, [plan-scenarios-v1](../plan/polity/plan-scenarios-v1.md) step 2) is the exploration profile with `llm.crowd` off, so the rules
-decide the nine batch decisions and the model plays only the agents, the forum capped at 10 and views that drift. Results always name their profile; see
+decide the nine batch decisions and the model plays only the agents, the forum capped at 10, views that drift and radicalise ([ADR-033](../adr/ADR-033-radicalisation.md)), voters who weigh the economy ([ADR-034](../adr/ADR-034-economic-voting-and-scripted-events.md)) and 3% of the citizens a year replaced by newcomers ([ADR-035](../adr/ADR-035-generational-replacement.md)). Results always name their profile; see
 [`polity-llm-reference.md` §0](../plan/polity/polity-llm-reference.md#0-the-one-thing-to-understand-first).
 
 ## 3. A run, end to end
