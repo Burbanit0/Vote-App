@@ -169,17 +169,24 @@ def _factor_correlations(before: np.ndarray, after: np.ndarray) -> list[float]:
     ]
 
 
-def panel_stability(snapshots: Sequence[Mapping[str, Any]]) -> float | None:
+def panel_stability(
+    snapshots: Sequence[Mapping[str, Any]], replaced: Sequence[tuple[int, int]] = (), ticks_per_year: int = 4,
+) -> float | None:
     """ADR-012's D1: across citizens, the correlation of each latent factor between yearly censuses
-    PANEL_YEARS apart (years 1 to 5 up to 4 to 8), averaged over the pairs and the factors. None where the
-    census carries no latent factors (a static population: dynamics off), no pair of censuses of the same
+    PANEL_YEARS apart (years 1 to 5 up to 4 to 8), averaged over the pairs and the factors. A panel follows the
+    same people, so a slot whose citizen was replaced between the two censuses (`replaced`: (tick, citizen_id),
+    ADR-035; a replacement falls after its tick's census) is left out of that pair. None where the census
+    carries no latent factors (a static population: dynamics off), no pair of censuses of the same
     citizens is that far apart, or nobody varies on a factor."""
     by_year = _factors_by_year(snapshots)
     correlations: list[float] = []
     for year, census in sorted(by_year.items()):
         later = by_year.get(year + PANEL_YEARS)
         if later is not None and set(later) == set(census):
-            ids = sorted(census)
+            leavers = {who for tick, who in replaced if year * ticks_per_year <= tick < (year + PANEL_YEARS) * ticks_per_year}
+            ids = sorted(set(census) - leavers)
+            if len(ids) < 3:
+                continue
             correlations += _factor_correlations(
                 np.array([census[i] for i in ids], dtype=float), np.array([later[i] for i in ids], dtype=float),
             )
@@ -372,7 +379,9 @@ def trajectory_summary(
         "legislative": legislative_points(events),
         "margins": presidential_margins(events),
         "polarization": polarization_by_year(snapshots),
-        "panel_stability": panel_stability(snapshots),
+        "panel_stability": panel_stability(
+            snapshots, [(int(e["tick"]), int(e["citizen_id"])) for e in events if e["event_type"] == "citizen_replaced"], ticks_per_year,
+        ),
         "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
     }
     summary["archetype"] = archetype(summary)

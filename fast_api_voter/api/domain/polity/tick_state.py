@@ -82,6 +82,9 @@ class TickState:
     """citizen_id -> targeted officeholder, from the previous tick's mobilization."""
     dynamics_rng: np.random.Generator | None = None
     """S4.3: the opinion-dynamics stream, None unless dynamics.enabled."""
+    demography_rng: np.random.Generator | None = None
+    """ADR-035: the stream that draws who is replaced and what the newcomer is like, None unless
+    citizens.replacement_per_year > 0."""
     campaign_rng: np.random.Generator | None = None
     """ADR-023: the stream that draws who hears a campaign, None unless campaigning is on."""
     regime_rng: np.random.Generator | None = None

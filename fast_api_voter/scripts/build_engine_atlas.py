@@ -180,6 +180,9 @@ def summary(event: dict[str, Any]) -> str:
                 else ""
             )
         ),
+        "citizen_replaced": lambda: (
+            f"{who} replaced by a newcomer (party {p.get('party_id')}, views from a circle of {p.get('circle')})"
+        ),
         "party_founded": lambda: f"party {p.get('party_id')} founded ({_members(p)})",
         "party_dissolved": lambda: (
             f"party {p.get('party_id')} dissolved ({_members(p)})"

@@ -339,3 +339,16 @@ def test_build_digest_carries_the_trajectory_with_polarization_only_when_a_censu
         handle.write('{"citizen_id": 4, "year": 0, "tick": 0, "issue_pos')  # a torn last line
     torn = build_digest(journal, load_config(), run_id="r", outcome="crashed", resume=False)["trajectory"]
     assert torn["snapshot_lines_skipped"] == 1 and torn["polarization"][0]["dispersion"] == with_census["polarization"][0]["dispersion"]
+
+
+def test_panel_stability_follows_the_same_people_a_replaced_slot_is_left_out_of_its_window() -> None:
+    from api.domain.polity.trajectory import panel_stability
+
+    start = [(0.0, 1.0), (1.0, 0.0), (2.0, 3.0), (3.0, 2.0), (4.0, 5.0)]
+    after = [(0.0, 1.0), (1.0, 0.0), (2.0, 3.0), (3.0, 2.0), (-9.0, 7.0)]  # slot 4 holds somebody else four years on
+    census = _census(1, start) + _census(5, after)
+    assert panel_stability(census) < 0.95  # read as one person changing their mind
+    assert panel_stability(census, [(8, 4)]) == pytest.approx(1.0)  # replaced at tick 8 (year 2): not the same person
+    assert panel_stability(census, [(4, 4)]) == pytest.approx(1.0)  # replaced at the end of year 1's own tick, after its census
+    assert panel_stability(census, [(20, 4)]) < 0.95  # replaced at year 5's tick: after the later census, so inside no window
+    assert panel_stability(census, [(5, 0), (6, 1), (7, 2)]) is None  # fewer than three slots left to compare

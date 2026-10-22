@@ -126,6 +126,18 @@ def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit
     citizen.issue_positions = tuple(float(x) for x in structure.positions(factors, [citizen.citizen_id])[0])
 
 
+def _anchors(citizens: Sequence[Citizen], structure: LatentStructure) -> np.ndarray:
+    """Every citizen's anchor, row i for citizen_id i: the structure's, except where a citizen carries their own
+    (a newcomer's, ADR-035)."""
+    if not any(c.anchor_factors is not None for c in citizens):
+        return structure.anchors
+    anchors = structure.anchors.copy()
+    for i, citizen in enumerate(citizens):
+        if citizen.anchor_factors is not None:
+            anchors[i] = citizen.anchor_factors
+    return anchors
+
+
 def _mood(citizens: Sequence[Citizen], factors: np.ndarray) -> Mood:
     """Each citizen's anger (0 where untracked) and shock salience, and the factors of the president they are
     angry at: the one the emotions phase appraises (emotions._update_emotions), the sitting president with a
@@ -147,7 +159,7 @@ def apply_dynamics(
         raise ValueError("apply_dynamics needs the whole population, ordered by citizen_id")
     factors = current_factors(citizens, structure)
     moody = config.radical_step > 0 or config.anger_narrows_bound > 0  # else the mood is never read: do not build it
-    step = update_latent_factors(factors, structure.anchors, edges, config, rng, mood=_mood(citizens, factors) if moody else None)
+    step = update_latent_factors(factors, _anchors(citizens, structure), edges, config, rng, mood=_mood(citizens, factors) if moody else None)
     positions = structure.positions(step.factors)
     for citizen, moved, issue_positions in zip(citizens, step.factors, positions):
         citizen.latent_factors = tuple(float(x) for x in moved)

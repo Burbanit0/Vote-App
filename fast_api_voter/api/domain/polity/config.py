@@ -193,6 +193,14 @@ class CitizensConfig:
     base_threshold_dist: str
     static_population: bool
     memory_window_terms: int
+    replacement_per_year: float = 0.0
+    """ADR-035: the share of ordinary citizens replaced each year, in place (the id, the social ties and the slot's
+    idiosyncratic views stay; everything else about the person is new). Office-holders and the sitting chamber are
+    exempt. 0 is the static population. Needs `static_population: false` and `dynamics.enabled`."""
+    newcomer_spread: float = 0.5
+    """ADR-035: the standard deviation, per latent factor, of how far a newcomer's views fall from the average of
+    the circle they grew up in (their social ties). Too little and generations collapse toward consensus, too
+    much and the population disperses."""
 
 
 @dataclass(frozen=True)
@@ -927,6 +935,8 @@ def _parse_citizens(raw: dict[str, Any]) -> CitizensConfig:
         base_threshold_dist=_get(s, "citizens", "base_threshold_dist", str),
         static_population=_get(s, "citizens", "static_population", bool),
         memory_window_terms=_get(s, "citizens", "memory_window_terms", int),
+        replacement_per_year=_get_ratio(s, "citizens", "replacement_per_year"),
+        newcomer_spread=_get_nonneg_float(s, "citizens", "newcomer_spread"),
     )
 
 
@@ -1322,6 +1332,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'llm.thinking_token_budget' needs 'llm.provider: vllm' (S1.3): it is a vLLM request field, "
         "which Ollama has no equivalent of -- set it to null for any other provider"
     ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
+    lambda c: (
+        "'citizens.replacement_per_year' > 0 requires 'citizens.static_population: false' and 'dynamics.enabled' "
+        "(ADR-035): newcomers are drawn from their circle's latent factors, which only the dynamics track"
+    ) if c.citizens.replacement_per_year > 0 and (c.citizens.static_population or not c.dynamics.enabled) else None,
     lambda c: (
         "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
         "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "

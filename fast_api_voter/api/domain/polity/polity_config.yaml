@@ -188,6 +188,11 @@ citizens:
                               #      scalaire par citoyen, pas encore un
                               #      persona (§9 différé, voir Lot 1 v4)
   static_population: true     # [v0] pas de mortalité/natalité (D1 de l'audit)
+  replacement_per_year: 0.0   # [ADR-035] part des citoyens ordinaires remplacés chaque année, sur place
+                              #   (même id, mêmes liens, même résidu d'enjeux ; le reste est neuf) ;
+                              #   hors élus et chambre ; requiert static_population: false et dynamics
+  newcomer_spread: 0.5        # [ADR-035] écart-type, par facteur latent, entre un nouveau venu et la
+                              #   moyenne de son cercle (ses liens sociaux)
   memory_window_terms: 2      # [v1] mémoire rétrospective (mandat courant + 1)
 
 # =============================================================================

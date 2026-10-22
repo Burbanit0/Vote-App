@@ -107,7 +107,7 @@ def _citizen_to_dict(citizen: Citizen) -> dict[str, Any]:
     return data
 
 
-_UNTRACKED_UNLESS_SET = ("latent_factors", "anger", "anxiety", "enthusiasm", "engagement")
+_UNTRACKED_UNLESS_SET = ("latent_factors", "anchor_factors", "anger", "anxiety", "enthusiasm", "engagement")
 
 
 def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
@@ -123,8 +123,9 @@ def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
         data["revealed_position"] = tuple(data["revealed_position"])
     if data["chamber_position"] is not None:
         data["chamber_position"] = tuple(data["chamber_position"])
-    if data.get("latent_factors") is not None:
-        data["latent_factors"] = tuple(data["latent_factors"])
+    for key in ("latent_factors", "anchor_factors"):
+        if data.get(key) is not None:
+            data[key] = tuple(data[key])
     return Citizen(**data)
 
 
@@ -150,6 +151,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "economy_x": "economy_x",
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
+    "demography_rng": "demography_rng_state",
     "regime_rng": "regime_rng_state",
     "campaign_rng": "campaign_rng_state",
     "refusal_declared": "refusal_declared",
@@ -182,6 +184,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
         # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
         **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
+        # ADR-035: likewise only for a run whose generations turn over.
+        **({"demography_rng_state": state.demography_rng.bit_generator.state} if state.demography_rng is not None else {}),
         # ADR-022: likewise only for a regime run, and the declaration only while one stands.
         **_regime_payload(state),
         # S4.2: likewise only for a legislating run.
@@ -231,6 +235,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
+        demography_rng=_restore_optional(payload, "demography_rng_state"),
         regime_rng=_restore_optional(payload, "regime_rng_state"),
         campaign_rng=_restore_optional(payload, "campaign_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),

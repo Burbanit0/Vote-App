@@ -167,6 +167,7 @@ from api.domain.polity.events import (
     EmotionsUpdated,
     EngagementUpdated,
     CampaignRun,
+    CitizenReplaced,
     ExtraLegalAct,
     Event,
     LegislativeResult,
@@ -191,6 +192,7 @@ from api.domain.polity.events import (
     SortitionRotation,
     VoteCast,
 )
+from api.domain.polity.demography import replace_generation
 from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale, update_engagement
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
@@ -784,6 +786,10 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
         # static population, so a static run draws and checkpoints exactly as before.
         dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
+        # ADR-035: its own stream, seeded off the run's seed and a constant so it shares no state with the others.
+        demography_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 35])) if config.citizens.replacement_per_year > 0 else None
+        ),
         regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
         campaign_rng=np.random.default_rng(config.run.seed) if config.campaign.salience_step > 0 else None,
         # S4.2: policy starts at the population's per-issue median, a neutral origin.
@@ -1482,6 +1488,22 @@ def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
         ),
         citizen_id=None,
     )
+    _turn_over_generation(context, state)
+
+
+def _turn_over_generation(context: TickContext, state: TickState) -> None:
+    """ADR-035: after the views have moved, a small share of ordinary citizens is replaced by newcomers."""
+    config = context.config
+    if state.demography_rng is None or config.citizens.replacement_per_year <= 0:
+        return
+    assert context.latent is not None
+    for replacement in replace_generation(
+        state.citizens, context.latent, context.graph, state.parties, config.citizens, config.run.ticks_per_year, state.demography_rng,
+    ):
+        context.journal.write_event(
+            tick=context.tick, event=CitizenReplaced(party_id=replacement.party_id, circle=replacement.circle),
+            citizen_id=replacement.citizen_id,
+        )
 
 
 def _phase_accountability(context: TickContext, state: TickState) -> None:
