@@ -141,6 +141,45 @@
   },
   {
    "branches": [
+    "chore/ci-health-snapshot",
+    "dependabot/github_actions/patch-and-minor-19705d2e3d",
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
+    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
+    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
+    "dependabot/pip/fast_api_voter/filelock-4.0.0",
+    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
+    "feat/polity-cohorts",
+    "feat/polity-thinking-budget-live",
+    "feat/polity-welfare",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 20,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-22T13:43:14Z (0.0h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed",
+     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     987
+    ],
+    "sha": "f973bebe02cec623c260ca9f07a91a10deede955",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789362947"
+   },
+   "last_seen": "2026-10-22T13:43:23Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "code",
@@ -164,45 +203,6 @@
    "signature": "code: gh: Resource not accessible by integration (HTTP #)",
    "workflows": [
     "Human review attestation"
-   ]
-  },
-  {
-   "branches": [
-    "chore/ci-health-snapshot",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "feat/polity-cohorts",
-    "feat/polity-thinking-budget-live",
-    "feat/polity-welfare",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 19,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.1h ago)",
-     "\ud83d\udfe1 Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snoozed until 2026-10-27 (the weekly Secret Scan failed its last six weekly runs (2026-09-14 to 2026-10-19); the latest on one false positive: generic-api-key on a 16-character hex placeholder assigned to KEY, line 4 of voter-app/src/api/staticPolity.test.ts at commit 133f2b10, which only the unmerged branch feat/static-polity holds and the scan reads (`git log --all`). Fixed by its fingerprint in .gitleaksignore; the scheduled scan checks out polity, so the fix needs no develop sync, and its first green run is Monday 2026-10-26 06:00 UTC, which this date covers. The previous snooze (until 2026-10-21) expired before a scheduled run could clear it.)]",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 235.1h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     986
-    ],
-    "sha": "1975d5c102a985b404f6d65c027c9b26428787e5",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39782329563"
-   },
-   "last_seen": "2026-10-22T12:55:05Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -1626,12 +1626,12 @@
  ],
  "failures_by_category": {
   "advisory": 19,
-  "code": 174,
+  "code": 175,
   "infra": 13,
   "test-flaky": 31,
   "unknown": 2
  },
- "generated_at": "2026-10-22T13:51:36Z",
+ "generated_at": "2026-10-22T18:31:30Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1890,7 +1890,7 @@
     "success": 27
    },
    "2026-10-22": {
-    "success": 19
+    "success": 20
    }
   },
   "CI Health Watchdog": {
@@ -2915,7 +2915,7 @@
    "2026-10-22": {
     "cancelled": 2,
     "skipped": 63,
-    "success": 35
+    "success": 36
    }
   },
   "zizmor online": {
@@ -2963,9 +2963,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-22T13:44:06Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789471842"
+   "created_at": "2026-10-22T13:46:18Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789807092"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3060,10 +3060,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-10-22T13:46:14Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789798067"
+   "conclusion": "success",
+   "created_at": "2026-10-22T14:33:42Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39796718550"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3073,7 +3073,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14672,
+ "runs": 14676,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3203,12 +3203,12 @@
     "2026-10-19": 346.0,
     "2026-10-20": 367.0,
     "2026-10-21": 401,
-    "2026-10-22": 386
+    "2026-10-22": 388.5
    },
    "p50_s": 391,
-   "p95_s": 582,
+   "p95_s": 584,
    "queue_p50_s": 0,
-   "runs": 602
+   "runs": 603
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3518,12 +3518,12 @@
     "2026-10-19": 703,
     "2026-10-20": 18,
     "2026-10-21": 19.0,
-    "2026-10-22": 21
+    "2026-10-22": 22.0
    },
    "p50_s": 17,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 631
+   "runs": 632
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3704,12 +3704,12 @@
     "2026-10-19": 29.0,
     "2026-10-20": 30,
     "2026-10-21": 32,
-    "2026-10-22": 30
+    "2026-10-22": 30.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1470
+   "runs": 1471
   },
   "zizmor online": {
    "daily_p50_s": {
