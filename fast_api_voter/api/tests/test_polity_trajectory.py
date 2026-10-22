@@ -9,6 +9,7 @@ import pytest
 
 from api.domain.polity.indexer import Term
 from api.domain.polity.trajectory import (
+    _block_summary,
     ARCHETYPE_RULES,
     FEATURES,
     archetype,
@@ -356,24 +357,38 @@ def test_panel_stability_follows_the_same_people_a_replaced_slot_is_left_out_of_
     assert panel_stability(census, [(5, 0), (6, 1), (7, 2)]) is None  # fewer than three slots left to compare
 
 
-def test_blocks_are_eight_to_sixteen_years_and_a_short_run_is_one() -> None:
+def test_blocks_are_eight_to_sixteen_years_and_a_run_of_up_to_fifteen_is_one() -> None:
     assert block_edges(1) == [0, 1] and block_edges(8) == [0, 8] and block_edges(15) == [0, 15]
     assert block_edges(16) == [0, 8, 16] and block_edges(30) == [0, 10, 20, 30]
 
 
 def test_a_run_takes_its_most_common_block_label_the_earliest_deciding_a_tie_and_a_collapse_wins() -> None:
     quiet = {"office_occupancy": 1.0, "legislative": [], "polarization": [], "refused_to_leave": False, "office": office_summary([])}
-    churn = {**quiet, "legislative": [{"tick": 8, "volatility": 0.9, "enp_seats": 2.0, "majority": False, "seated": True}]}
-    assert run_archetype(quiet, [churn, quiet, quiet]) == "stasis"
-    assert run_archetype(quiet, [churn, quiet]) == "churn"  # a tie: the earliest block
-    assert run_archetype(quiet, [quiet]) == archetype(quiet) == "stasis"  # one block is the run
-    assert run_archetype({**quiet, "office_occupancy": 0.1}, [quiet, quiet]) == "collapse"
+    assert run_archetype(quiet, ["churn", "stasis", "stasis"]) == "stasis"
+    assert run_archetype(quiet, ["churn", "stasis"]) == "churn"  # a tie: the earliest block
+    assert run_archetype(quiet, ["stasis"]) == archetype(quiet) == "stasis"  # one block is the run
+    assert run_archetype({**quiet, "office_occupancy": 0.1}, ["stasis", "stasis"]) == "collapse"
 
 
 def test_a_long_run_is_not_labelled_by_the_one_election_that_swung_in_thirty_years() -> None:
     swing = [_legislative(4, {1: 5, 2: 5}, {1: 60.0, 2: 40.0}), _legislative(8, {3: 5, 4: 5}, {3: 60.0, 4: 40.0})]  # year 1 to 2: all new parties
-    summary = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=95, office_occupancy=1.0)
+    summary = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=96, office_occupancy=1.0)  # 24 years
     assert summary["archetype_blocks"] == ["churn", "stasis", "stasis"] and summary["archetype"] == "stasis"
+    assert summary["archetype_version"] == 2
     assert archetype(summary) == "churn"  # what "at some point it reached 0.4" would have said of any 24-year run
-    short = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=31, office_occupancy=1.0)
+    short = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=60, office_occupancy=1.0)  # 15 years: one block
     assert short["archetype_blocks"] == ["churn"] and short["archetype"] == archetype(short)
+
+
+def test_a_block_sees_only_its_own_terms_refusals_and_drift() -> None:
+    terms = [_term(1, 0, 16), _term(2, 16, 32), _term(3, 32, 48), _term(1, 48, 64)]
+    # Years 0-1 and 8-9 are censused; the mean moves 0.2 within the first block and 0.2 within the second.
+    snapshots = [{"year": y, "issue_positions": [m, 1 - m]} for y, m in ((0, 0.4), (1, 0.6), (8, 0.6), (9, 0.8))] * 2
+    summary = {"office_occupancy": 1.0, "legislative": [], "polarization": polarization_by_year(snapshots), "refused_to_leave": False}
+    first = _block_summary(summary, [40], snapshots, terms, (0, 8), 4)
+    second = _block_summary(summary, [40], snapshots, terms, (8, 16), 4)
+    assert (first["office"]["terms"], second["office"]["terms"]) == (2, 2)  # cut by the tick a term began
+    assert (first["office"]["alternations"], second["office"]["alternations"]) == (1, 1)  # the boundary pair is not seen
+    assert (first["refused_to_leave"], second["refused_to_leave"]) == (False, True)  # tick 40 is year 10
+    shifts = [row["mean_shift"] for row in first["polarization"] + second["polarization"]]
+    assert shifts == [pytest.approx(x) for x in (0.0, 0.2 * 2**0.5, 0.0, 0.2 * 2**0.5)]  # each block restarts from its first census

@@ -44,6 +44,9 @@ REALIGNMENT_SHIFT = 0.1
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
 ARCHETYPE_BLOCK_YEARS = 8
+ARCHETYPE_VERSION = 2
+"""1: the rules read the whole run. 2: they read it block by block (ADR-035). Written to every digest, so labels of
+different rules are not mixed in one ensemble unseen."""
 
 
 PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {
@@ -289,19 +292,18 @@ def archetype(summary: Summary) -> str:
     return next(label for label, _, holds in ARCHETYPE_RULES if holds(summary))
 
 
-def block_edges(years: int) -> list[int]:
-    """The census years that cut a run of `years` years into blocks of ARCHETYPE_BLOCK_YEARS to twice that
-    (one block for a run shorter than two blocks' worth), as [0, ..., years]."""
-    blocks = max(1, years // ARCHETYPE_BLOCK_YEARS)
-    return [round(i * years / blocks) for i in range(blocks + 1)]
+def block_edges(duration_years: int) -> list[int]:
+    """The census years that cut a run of `duration_years` years into blocks of ARCHETYPE_BLOCK_YEARS to twice
+    that (one block for a run shorter than two blocks' worth), as [0, ..., duration_years]."""
+    blocks = max(1, duration_years // ARCHETYPE_BLOCK_YEARS)
+    return [round(i * duration_years / blocks) for i in range(blocks + 1)]
 
 
-def run_archetype(whole: Summary, blocks: Sequence[Summary]) -> str:
+def run_archetype(whole: Summary, labels: Sequence[str]) -> str:
     """A collapse of the whole run is a collapse; else the most common label of the blocks, the earliest block
     deciding a tie. A run of one block is labelled exactly as `archetype` would label it."""
     if _is_collapse(whole):
         return "collapse"
-    labels = [archetype(block) for block in blocks]
     return max(dict.fromkeys(labels), key=labels.count)
 
 
@@ -388,12 +390,14 @@ def _census_series(rows: Sequence[Mapping[str, Any]], key: str, years: int) -> l
 
 
 def _block_summary(
-    summary: Mapping[str, Any], events: Sequence[Mapping[str, Any]], snapshots: Sequence[Mapping[str, Any]], terms: Sequence[Term],
+    summary: Mapping[str, Any], refusals: Sequence[int], snapshots: Sequence[Mapping[str, Any]], terms: Sequence[Term],
     years: tuple[int, int], ticks_per_year: int,
 ) -> dict[str, Any]:
     """The part of the run's summary the archetype rules read, restricted to census years [first, end): its
-    terms (those that began in it), legislative elections, polarization (shifted from the block's own first
-    census) and refusals to leave. The occupancy is the run's: a collapse is judged on the whole."""
+    terms (those that began in it: a streak or an alternation across the boundary is not seen, and a block of
+    eight years holds two presidential terms), legislative elections, polarization (shifted from the block's own
+    first census) and the ticks of successful refusals to leave. The occupancy is the run's: a collapse is
+    judged on the whole."""
     first, end = years
     low, high = first * ticks_per_year, end * ticks_per_year
     return {
@@ -401,9 +405,7 @@ def _block_summary(
         "office": office_summary([t for t in terms if low <= t.start_tick < high]),
         "legislative": [row for row in summary["legislative"] if low <= row["tick"] < high],
         "polarization": polarization_by_year([r for r in snapshots if first <= int(r["year"]) < end]),
-        "refused_to_leave": any(
-            e["event_type"] == "extra_legal_act" and e["payload"]["success"] and low <= int(e["tick"]) < high for e in events
-        ),
+        "refused_to_leave": any(low <= tick < high for tick in refusals),
     }
 
 
@@ -423,12 +425,15 @@ def trajectory_summary(
         "panel_stability": panel_stability(
             snapshots, [(int(e["tick"]), int(e["citizen_id"])) for e in events if e["event_type"] == "citizen_replaced"], ticks_per_year,
         ),
-        "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
     }
-    edges = block_edges(last_tick // ticks_per_year + 1)
-    blocks = [_block_summary(summary, events, snapshots, terms, (a, b), ticks_per_year) for a, b in zip(edges, edges[1:])]
-    summary["archetype"] = run_archetype(summary, blocks)
-    summary["archetype_blocks"] = [archetype(block) for block in blocks]
+    refusals = [int(e["tick"]) for e in events if e["event_type"] == "extra_legal_act" and e["payload"]["success"]]
+    summary["refused_to_leave"] = bool(refusals)
+    edges = block_edges(last_tick // ticks_per_year)
+    edges[-1] += 1  # the last block takes the final census year too
+    labels = [archetype(_block_summary(summary, refusals, snapshots, terms, (a, b), ticks_per_year)) for a, b in zip(edges, edges[1:])]
+    summary["archetype"] = run_archetype(summary, labels)
+    summary["archetype_blocks"] = labels
+    summary["archetype_version"] = ARCHETYPE_VERSION
     summary["plausibility_failed"] = plausibility(summary)
     summary["yearly"] = yearly_series(events, summary, population=population, ticks_per_year=ticks_per_year, last_tick=last_tick)
     return summary
