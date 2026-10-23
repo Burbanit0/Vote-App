@@ -5,14 +5,22 @@
     "detail": "matches setup-branch-protection.sh",
     "status": "healthy"
    },
-   "generated_at": "2026-10-03T13:17:50Z",
+   "branch_protection_main": {
+    "detail": "matches setup-branch-protection.sh",
+    "status": "healthy"
+   },
+   "branch_protection_polity": {
+    "detail": "matches setup-branch-protection.sh",
+    "status": "healthy"
+   },
+   "generated_at": "2026-10-22T13:43:14Z",
    "workflows": {
     "atheris-fuzzing.yml": {
      "consecutive_failures": 0,
      "detail": "ok",
      "display_name": "Coverage-Guided Fuzzing (atheris)",
      "expected_cadence_hours": 168,
-     "last_run_at": "2026-10-02T14:36:45Z",
+     "last_run_at": "2026-10-22T09:38:52Z",
      "recent_conclusions": [
       "success",
       "success",
@@ -22,12 +30,27 @@
      ],
      "status": "healthy"
     },
+    "audit.yml": {
+     "consecutive_failures": 5,
+     "detail": "last 5 completed runs all failed",
+     "display_name": "Security Audit",
+     "expected_cadence_hours": 168,
+     "last_run_at": "2026-10-19T12:36:08Z",
+     "recent_conclusions": [
+      "failure",
+      "failure",
+      "failure",
+      "failure",
+      "failure"
+     ],
+     "status": "unhealthy"
+    },
     "dast.yml": {
      "consecutive_failures": 0,
      "detail": "ok",
      "display_name": "DAST \u2014 ZAP Baseline",
      "expected_cadence_hours": 24,
-     "last_run_at": "2026-10-03T08:32:09Z",
+     "last_run_at": "2026-10-22T07:55:45Z",
      "recent_conclusions": [
       "success",
       "success",
@@ -42,7 +65,7 @@
      "detail": "ok",
      "display_name": "Backend Flaky Test Hunt",
      "expected_cadence_hours": 24,
-     "last_run_at": "2026-10-03T09:03:55Z",
+     "last_run_at": "2026-10-22T08:31:07Z",
      "recent_conclusions": [
       "success",
       "success",
@@ -53,26 +76,26 @@
      "status": "healthy"
     },
     "mutation-testing.yml": {
-     "consecutive_failures": 0,
-     "detail": "ok",
+     "consecutive_failures": 5,
+     "detail": "last 5 completed runs all failed",
      "display_name": "Mutation Testing",
      "expected_cadence_hours": 168,
-     "last_run_at": "2026-10-02T14:21:33Z",
+     "last_run_at": "2026-10-19T09:54:33Z",
      "recent_conclusions": [
-      "success",
-      "success",
-      "success",
-      "success",
-      "success"
+      "failure",
+      "failure",
+      "failure",
+      "failure",
+      "failure"
      ],
-     "status": "healthy"
+     "status": "unhealthy"
     },
     "schemathesis.yml": {
      "consecutive_failures": 0,
      "detail": "ok",
      "display_name": "Schemathesis Contract Fuzzing",
      "expected_cadence_hours": 168,
-     "last_run_at": "2026-10-02T14:36:45Z",
+     "last_run_at": "2026-10-22T03:31:24Z",
      "recent_conclusions": [
       "success",
       "success",
@@ -87,7 +110,7 @@
      "detail": "ok",
      "display_name": "OpenSSF Scorecard",
      "expected_cadence_hours": 168,
-     "last_run_at": "2026-10-03T03:18:24Z",
+     "last_run_at": "2026-10-20T12:48:32Z",
      "recent_conclusions": [
       "success",
       "success",
@@ -1631,7 +1654,7 @@
   "test-flaky": 31,
   "unknown": 2
  },
- "generated_at": "2026-10-23T00:14:05Z",
+ "generated_at": "2026-10-23T00:19:52Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1896,7 +1919,7 @@
     "success": 22
    },
    "2026-10-23": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
@@ -2459,7 +2482,7 @@
     "success": 4
    },
    "2026-10-23": {
-    "success": 1
+    "success": 2
    }
   },
   "Human review attestation": {
@@ -2804,7 +2827,7 @@
     "success": 4
    },
    "2026-10-23": {
-    "success": 1
+    "success": 2
    }
   },
   "Workflow Lint": {
@@ -2953,8 +2976,8 @@
    },
    "2026-10-23": {
     "cancelled": 3,
-    "skipped": 14,
-    "success": 5
+    "skipped": 16,
+    "success": 7
    }
   },
   "zizmor online": {
@@ -3002,9 +3025,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-23T00:07:43Z",
+   "created_at": "2026-10-23T00:10:59Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39876202426"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39876553968"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3049,11 +3072,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877197675"
   },
   "Generated Artifacts Contract": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-23T00:07:33Z",
+   "created_at": "2026-10-23T00:17:10Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39876184197"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877197648"
   },
   "Human review attestation": {
    "branch": "develop",
@@ -3084,11 +3107,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39717300165"
   },
   "Security Audit": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-23T00:07:33Z",
+   "created_at": "2026-10-23T00:17:10Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39876184168"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877197615"
   },
   "Workflow Lint": {
    "branch": "polity",
@@ -3100,9 +3123,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-23T00:18:48Z",
+   "created_at": "2026-10-23T00:21:25Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877361323"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877625722"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3112,7 +3135,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14751,
+ "runs": 14761,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3245,12 +3268,12 @@
     "2026-10-20": 367.0,
     "2026-10-21": 401,
     "2026-10-22": 388.5,
-    "2026-10-23": 374
+    "2026-10-23": 450.0
    },
    "p50_s": 391,
    "p95_s": 584,
    "queue_p50_s": 0,
-   "runs": 606
+   "runs": 607
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3543,7 +3566,7 @@
    "p50_s": 87,
    "p95_s": 143,
    "queue_p50_s": 0,
-   "runs": 918
+   "runs": 920
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3637,12 +3660,12 @@
     "2026-10-20": 46.0,
     "2026-10-21": 45,
     "2026-10-22": 49.5,
-    "2026-10-23": 21.0
+    "2026-10-23": 22
    },
    "p50_s": 41,
    "p95_s": 139,
    "queue_p50_s": 0,
-   "runs": 355
+   "runs": 356
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3705,12 +3728,12 @@
     "2026-10-20": 161,
     "2026-10-21": 160,
     "2026-10-22": 411,
-    "2026-10-23": 162
+    "2026-10-23": 171
    },
    "p50_s": 153,
    "p95_s": 232,
    "queue_p50_s": 0,
-   "runs": 884
+   "runs": 886
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3764,7 +3787,7 @@
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1476
+   "runs": 1478
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3970,9 +3993,9 @@
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
-     "created_at": "2026-10-22T03:31:24Z",
-     "sha": "c056c51ebc4b00a85dbc5e4ac338b5839b69e543",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39717300271"
+     "created_at": "2026-10-23T00:17:10Z",
+     "sha": "ef1e4d151f988332e9089c15b5985f2c926cb735",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877197648"
     },
     "Mutation Testing": {
      "conclusion": "failure",
@@ -3988,9 +4011,9 @@
     },
     "Security Audit": {
      "conclusion": "success",
-     "created_at": "2026-10-22T03:31:24Z",
-     "sha": "c056c51ebc4b00a85dbc5e4ac338b5839b69e543",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39717300284"
+     "created_at": "2026-10-23T00:17:10Z",
+     "sha": "ef1e4d151f988332e9089c15b5985f2c926cb735",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39877197615"
     },
     "Workflow Lint": {
      "conclusion": "success",
