@@ -1,25 +1,25 @@
 {
-  "generated_at": "2026-10-03T13:17:50Z",
+  "generated_at": "2026-10-22T13:43:14Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-02T14:21:33Z",
+      "last_run_at": "2026-10-19T09:54:33Z",
       "recent_conclusions": [
-        "success",
-        "success",
-        "success",
-        "success",
-        "success"
+        "failure",
+        "failure",
+        "failure",
+        "failure",
+        "failure"
       ],
-      "consecutive_failures": 0,
-      "status": "healthy",
-      "detail": "ok"
+      "consecutive_failures": 5,
+      "status": "unhealthy",
+      "detail": "last 5 completed runs all failed"
     },
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-02T14:36:45Z",
+      "last_run_at": "2026-10-22T03:31:24Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -34,7 +34,7 @@
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-02T14:36:45Z",
+      "last_run_at": "2026-10-22T09:38:52Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +49,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-03T09:03:55Z",
+      "last_run_at": "2026-10-22T08:31:07Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-10-03T08:32:09Z",
+      "last_run_at": "2026-10-22T07:55:45Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-03T03:18:24Z",
+      "last_run_at": "2026-10-20T12:48:32Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -90,9 +90,32 @@
       "consecutive_failures": 0,
       "status": "healthy",
       "detail": "ok"
+    },
+    "audit.yml": {
+      "display_name": "Security Audit",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-10-19T12:36:08Z",
+      "recent_conclusions": [
+        "failure",
+        "failure",
+        "failure",
+        "failure",
+        "failure"
+      ],
+      "consecutive_failures": 5,
+      "status": "unhealthy",
+      "detail": "last 5 completed runs all failed"
     }
   },
   "branch_protection": {
+    "status": "healthy",
+    "detail": "matches setup-branch-protection.sh"
+  },
+  "branch_protection_polity": {
+    "status": "healthy",
+    "detail": "matches setup-branch-protection.sh"
+  },
+  "branch_protection_main": {
     "status": "healthy",
     "detail": "matches setup-branch-protection.sh"
   }
