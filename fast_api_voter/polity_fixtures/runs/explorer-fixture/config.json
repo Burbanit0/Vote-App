@@ -46,8 +46,10 @@
     "blank_threshold_dist": "beta(3,5)",
     "issue_count": 20,
     "memory_window_terms": 2,
+    "newcomer_spread": 0.5,
     "position_dist": "factor_structure",
     "priority_dist": "dirichlet",
+    "replacement_per_year": 0.0,
     "static_population": true
   },
   "constitution": {

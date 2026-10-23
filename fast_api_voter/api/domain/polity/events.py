@@ -492,6 +492,16 @@ class OpinionDynamicsStep(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class CitizenReplaced(Event):
+    """A generation turns over (demography.py, ADR-035): this citizen's slot now holds a newcomer, who took
+    the average views of the `circle` of citizens they were tied to, plus noise, and was assigned to a party."""
+
+    EVENT_TYPE = "citizen_replaced"
+    party_id: int | None
+    circle: int
+
+
+@dataclass(frozen=True, kw_only=True)
 class EmotionsUpdated(Event):
     """The population's mean emotions after this tick's appraisal (emotions.py)."""
 
@@ -689,7 +699,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ScandalOccurred, EconomicShockTick, ReactionToEvent, RepresentativeResponse, MandateDeviationRecorded,
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
-    OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
+    OpinionDynamicsStep, CitizenReplaced, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
     ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved,
 )

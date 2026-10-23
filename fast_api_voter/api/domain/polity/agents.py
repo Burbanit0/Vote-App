@@ -212,6 +212,10 @@ class AgentMemory:
         """Each citizen who launched a petition, and when they last did."""
 
     def observe(self, event: JournalEvent) -> None:
+        if event.event_type == "citizen_replaced" and event.citizen_id is not None:
+            self.own.pop(event.citizen_id, None)  # the newcomer remembers nothing of who left (ADR-035)
+            self.petitioned.pop(event.citizen_id, None)
+            return
         if event.event_type == "petition_launched" and event.citizen_id is not None:
             self.petitioned[event.citizen_id] = event.tick
         if event.payload.get("post") or event.payload.get("speech"):

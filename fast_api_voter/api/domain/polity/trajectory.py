@@ -7,7 +7,11 @@ a vote_intention_poll was journaled (the exploration profile), polarization only
 beside the journal.
 
 The archetype rules and their thresholds are a first cut: explicit, applied in ARCHETYPE_RULES order (first
-match wins), and meant to be re-cut once the catalogue (plan-scenarios-v1, step 6) shows what runs do.
+match wins), and meant to be re-cut once the catalogue (plan-scenarios-v1, step 6) shows what runs do. They
+were cut on eight-year runs, and a rule of the form "at some point this reached X" is satisfied by every run
+given enough years (a thirty-year run always has an election with a volatility of 0.4 and a mean that moved
+0.1), so a run is labelled block by block: it is cut into blocks of ARCHETYPE_BLOCK_YEARS to twice that, the
+rules read each block as if it were a run, and the run takes its most common block label (ADR-035).
 """
 from __future__ import annotations
 
@@ -39,6 +43,10 @@ FRAGMENTATION_ENP = 8.0
 REALIGNMENT_SHIFT = 0.1
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
+ARCHETYPE_BLOCK_YEARS = 8
+ARCHETYPE_VERSION = 2
+"""1: the rules read the whole run. 2: they read it block by block (ADR-035). Written to every digest, so labels of
+different rules are not mixed in one ensemble unseen."""
 
 
 PLAUSIBILITY_BAND: Mapping[str, tuple[float, float]] = {
@@ -169,17 +177,24 @@ def _factor_correlations(before: np.ndarray, after: np.ndarray) -> list[float]:
     ]
 
 
-def panel_stability(snapshots: Sequence[Mapping[str, Any]]) -> float | None:
+def panel_stability(
+    snapshots: Sequence[Mapping[str, Any]], replaced: Sequence[tuple[int, int]] = (), ticks_per_year: int = 4,
+) -> float | None:
     """ADR-012's D1: across citizens, the correlation of each latent factor between yearly censuses
-    PANEL_YEARS apart (years 1 to 5 up to 4 to 8), averaged over the pairs and the factors. None where the
-    census carries no latent factors (a static population: dynamics off), no pair of censuses of the same
+    PANEL_YEARS apart (years 1 to 5 up to 4 to 8), averaged over the pairs and the factors. A panel follows the
+    same people, so a slot whose citizen was replaced between the two censuses (`replaced`: (tick, citizen_id),
+    ADR-035; a replacement falls after its tick's census) is left out of that pair. None where the census
+    carries no latent factors (a static population: dynamics off), no pair of censuses of the same
     citizens is that far apart, or nobody varies on a factor."""
     by_year = _factors_by_year(snapshots)
     correlations: list[float] = []
     for year, census in sorted(by_year.items()):
         later = by_year.get(year + PANEL_YEARS)
         if later is not None and set(later) == set(census):
-            ids = sorted(census)
+            leavers = {who for tick, who in replaced if year * ticks_per_year <= tick < (year + PANEL_YEARS) * ticks_per_year}
+            ids = sorted(set(census) - leavers)
+            if leavers and len(ids) < 3:  # too few left to correlate
+                continue
             correlations += _factor_correlations(
                 np.array([census[i] for i in ids], dtype=float), np.array([later[i] for i in ids], dtype=float),
             )
@@ -277,6 +292,21 @@ def archetype(summary: Summary) -> str:
     return next(label for label, _, holds in ARCHETYPE_RULES if holds(summary))
 
 
+def block_edges(duration_years: int) -> list[int]:
+    """The census years that cut a run of `duration_years` years into blocks of ARCHETYPE_BLOCK_YEARS to twice
+    that (one block for a run shorter than two blocks' worth), as [0, ..., duration_years]."""
+    blocks = max(1, duration_years // ARCHETYPE_BLOCK_YEARS)
+    return [round(i * duration_years / blocks) for i in range(blocks + 1)]
+
+
+def run_archetype(whole: Summary, labels: Sequence[str]) -> str:
+    """A collapse of the whole run is a collapse; else the most common label of the blocks, the earliest block
+    deciding a tie. A run of one block is labelled exactly as `archetype` would label it."""
+    if _is_collapse(whole):
+        return "collapse"
+    return max(dict.fromkeys(labels), key=labels.count)
+
+
 def _mean(values: Sequence[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
@@ -359,12 +389,32 @@ def _census_series(rows: Sequence[Mapping[str, Any]], key: str, years: int) -> l
     return [by_year.get(year) for year in range(years)]
 
 
+def _block_summary(
+    summary: Mapping[str, Any], refusals: Sequence[int], snapshots: Sequence[Mapping[str, Any]], terms: Sequence[Term],
+    years: tuple[int, int], ticks_per_year: int,
+) -> dict[str, Any]:
+    """The part of the run's summary the archetype rules read, restricted to census years [first, end): its
+    terms (those that began in it: a streak or an alternation across the boundary is not seen, and a block of
+    eight years holds two presidential terms), legislative elections, polarization (shifted from the block's own
+    first census) and the ticks of successful refusals to leave. The occupancy is the run's: a collapse is
+    judged on the whole."""
+    first, end = years
+    low, high = first * ticks_per_year, end * ticks_per_year
+    return {
+        "office_occupancy": summary["office_occupancy"],
+        "office": office_summary([t for t in terms if low <= t.start_tick < high]),
+        "legislative": [row for row in summary["legislative"] if low <= row["tick"] < high],
+        "polarization": polarization_by_year([r for r in snapshots if first <= int(r["year"]) < end]),
+        "refused_to_leave": any(low <= tick < high for tick in refusals),
+    }
+
+
 def trajectory_summary(
     events: Sequence[Mapping[str, Any]], snapshots: Sequence[Mapping[str, Any]], *,
     terms: Sequence[Term], population: int, ticks_per_year: int, last_tick: int, office_occupancy: float,
 ) -> dict[str, Any]:
-    """Everything above for one run, plus its archetype, the plausibility checks it fails and its yearly
-    series: the digest's `trajectory` entry."""
+    """Everything above for one run, plus its archetype (block by block: see `run_archetype`), the
+    plausibility checks it fails and its yearly series: the digest's `trajectory` entry."""
     summary: dict[str, Any] = {
         "office_occupancy": office_occupancy,
         "office": office_summary(terms),
@@ -372,10 +422,18 @@ def trajectory_summary(
         "legislative": legislative_points(events),
         "margins": presidential_margins(events),
         "polarization": polarization_by_year(snapshots),
-        "panel_stability": panel_stability(snapshots),
-        "refused_to_leave": any(e["event_type"] == "extra_legal_act" and e["payload"]["success"] for e in events),
+        "panel_stability": panel_stability(
+            snapshots, [(int(e["tick"]), int(e["citizen_id"])) for e in events if e["event_type"] == "citizen_replaced"], ticks_per_year,
+        ),
     }
-    summary["archetype"] = archetype(summary)
+    refusals = [int(e["tick"]) for e in events if e["event_type"] == "extra_legal_act" and e["payload"]["success"]]
+    summary["refused_to_leave"] = bool(refusals)
+    edges = block_edges(last_tick // ticks_per_year)
+    edges[-1] += 1  # the last block takes the final census year too
+    labels = [archetype(_block_summary(summary, refusals, snapshots, terms, (a, b), ticks_per_year)) for a, b in zip(edges, edges[1:])]
+    summary["archetype"] = run_archetype(summary, labels)
+    summary["archetype_blocks"] = labels
+    summary["archetype_version"] = ARCHETYPE_VERSION
     summary["plausibility_failed"] = plausibility(summary)
     summary["yearly"] = yearly_series(events, summary, population=population, ticks_per_year=ticks_per_year, last_tick=last_tick)
     return summary

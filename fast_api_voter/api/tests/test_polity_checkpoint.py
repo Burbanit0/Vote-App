@@ -320,7 +320,7 @@ def test_every_tick_state_field_has_a_checkpoint_key(tmp_path):
     # for runs that use them (last_ballots, ADR-020; the regime stream and a standing refusal, ADR-022).
     only_when_used = {
         "dynamics_rng_state", "legislature", "constitution", "last_ballots", "regime_rng_state", "refusal_declared",
-        "campaign_rng_state",
+        "campaign_rng_state", "demography_rng_state",  # ADR-035: written only when citizens are replaced
     }
     assert set(payload) == set(STATE_PAYLOAD_KEYS.values()) - only_when_used | {"run_id", "config_hash", "tick", "next_event_id"}
 

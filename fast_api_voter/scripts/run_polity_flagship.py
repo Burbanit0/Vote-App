@@ -305,8 +305,10 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
     ADR-012's D1 band of 0.70 to 0.90), ADR-033's radicalisation (once events have shaken the polity, angry citizens
     step away from the president; anger narrows what they listen to), and ADR-034's economic voting (voters
     weigh the economy at the election, 1.0, so good and bad times move the incumbent's approval and the vote;
-    a scenario's own crises go in `events.scripted`). On the deterministic engine it is the exploration profile
-    plus those."""
+    a scenario's own crises go in `events.scripted`), and ADR-035's generational replacement (3% of the citizens
+    a year are replaced by newcomers drawn around their circle, spread 0.35: over thirty years the spread of
+    positions grows by 83% instead of 133%, and the ten-seed labels go from 0.47 to 1.36 bits; see the ADR). On the deterministic engine it is
+    the exploration profile plus those."""
     explored = _exploration_config(config)
     return dataclasses.replace(
         explored,
@@ -314,6 +316,9 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
         vote=dataclasses.replace(explored.vote, mode="utility", economic_voting=1.0),
         agents=dataclasses.replace(explored.agents, forum_size=10),
         dynamics=dataclasses.replace(explored.dynamics, drift_std=0.18, radical_step=0.5, anger_narrows_bound=0.3),
+        citizens=dataclasses.replace(
+            explored.citizens, static_population=False, replacement_per_year=0.03, newcomer_spread=0.35
+        ),
     )
 
 
