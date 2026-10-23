@@ -620,33 +620,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 4,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.9h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - the ci-health snapshot itself is 235.9h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
-     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "1c597682f51bb0a9c237afaa9fb9798ff7d01857",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789289045"
-   },
-   "last_seen": "2026-10-22T13:42:54Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743"
    ],
@@ -754,6 +727,33 @@
    "signature": "code: Ran # rules on # files: # findings.",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 3,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.9h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 235.9h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
+     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "1c597682f51bb0a9c237afaa9fb9798ff7d01857",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789289045"
+   },
+   "last_seen": "2026-10-22T13:42:54Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -1653,10 +1653,10 @@
   "advisory": 19,
   "code": 181,
   "infra": 13,
-  "test-flaky": 31,
+  "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-23T13:26:16Z",
+ "generated_at": "2026-10-23T18:19:30Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1921,13 +1921,10 @@
     "success": 22
    },
    "2026-10-23": {
-    "success": 13
+    "success": 14
    }
   },
   "CI Health Watchdog": {
-   "2026-09-23": {
-    "failure": 1
-   },
    "2026-09-24": {
     "failure": 1
    },
@@ -2982,7 +2979,7 @@
    "2026-10-23": {
     "cancelled": 3,
     "skipped": 36,
-    "success": 20
+    "success": 21
    }
   },
   "zizmor online": {
@@ -3030,9 +3027,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-23T13:19:47Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39960285525"
+   "created_at": "2026-10-23T13:24:10Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39960892409"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3128,9 +3125,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-23T08:42:54Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39926608462"
+   "created_at": "2026-10-23T14:17:54Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39968423506"
   },
   "zizmor online": {
    "branch": "develop",
@@ -3140,7 +3137,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39407632393"
   }
  },
- "runs": 14861,
+ "runs": 14862,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3273,12 +3270,12 @@
     "2026-10-20": 367.0,
     "2026-10-21": 401,
     "2026-10-22": 388.5,
-    "2026-10-23": 374
+    "2026-10-23": 378.5
    },
    "p50_s": 391,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 618
+   "runs": 619
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3788,12 +3785,12 @@
     "2026-10-20": 30,
     "2026-10-21": 32,
     "2026-10-22": 30.0,
-    "2026-10-23": 27.0
+    "2026-10-23": 27
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1491
+   "runs": 1492
   },
   "zizmor online": {
    "daily_p50_s": {
