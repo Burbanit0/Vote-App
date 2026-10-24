@@ -11,14 +11,14 @@ module is the pure (de)serialization layer; `run_simulation()` itself owns
 WHEN to call it (once per completed tick) and how to splice the restored
 state back into its own loop.
 
-**Deliberately NOT snapshotted, and why**: `graph` (the social-graph
+**Deliberately NOT snapshotted, and why**: a fixed `graph` (the social-graph
 structure) and `InstitutionalClock` are both pure functions of
-`(config, population_size, seed)` with zero mid-run mutation --
-`social_graph.py`'s own docstring: "generated once, population-structural
-(evolving is TRANCHÉ rejected at config-parse time, so this never changes
-mid-run)"; `InstitutionalClock.from_config` takes config alone, holds no
-state. Regenerating either from the resumed config reproduces them exactly;
-snapshotting them would be pure duplication with its own resync risk.
+`(config, population_size, seed)` with zero mid-run mutation; `InstitutionalClock.from_config`
+takes config alone, holds no state. Regenerating either from the resumed config
+reproduces them exactly; snapshotting them would be pure duplication with its own
+resync risk. The exception is a graph that rewires (`social_graph.evolving`, ADR-036):
+its ties depend on the views of the citizens year after year, so they ARE state and
+are snapshotted, as `graph_edges`, only for such a run.
 
 **What is snapshotted** is `tick_state.TickState` whole (S3.4), plus the run id,
 config hash, tick and next event id. The file's JSON keys are unchanged from before
@@ -42,6 +42,7 @@ from api.domain.polity.config import PolityConfig
 from api.domain.polity.constitution import Constitution, Proposal
 from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.parties import Party
+from api.domain.polity.social_graph import graph_edges, graph_from_edges
 from api.domain.polity.tick_state import PendingRerun, TickState
 
 
@@ -152,6 +153,8 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
     "demography_rng": "demography_rng_state",
+    "rewiring_rng": "rewiring_rng_state",
+    "graph": "graph_edges",
     "regime_rng": "regime_rng_state",
     "campaign_rng": "campaign_rng_state",
     "refusal_declared": "refusal_declared",
@@ -192,6 +195,9 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         **_set_only(
             dynamics_rng_state=None if state.dynamics_rng is None else state.dynamics_rng.bit_generator.state,
             demography_rng_state=None if state.demography_rng is None else state.demography_rng.bit_generator.state,
+            # ADR-036: the ties, once, as (low, high) pairs: a rewiring run's graph is state, not a function of the config.
+            rewiring_rng_state=None if state.rewiring_rng is None else state.rewiring_rng.bit_generator.state,
+            graph_edges=None if state.graph is None else graph_edges(state.graph),
         ),
         # ADR-022: likewise only for a regime run, and the declaration only while one stands.
         **_regime_payload(state),
@@ -243,6 +249,8 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
         demography_rng=_restore_optional(payload, "demography_rng_state"),
+        rewiring_rng=_restore_optional(payload, "rewiring_rng_state"),
+        graph=graph_from_edges(len(payload["citizens"]), map(tuple, payload["graph_edges"])) if "graph_edges" in payload else None,
         regime_rng=_restore_optional(payload, "regime_rng_state"),
         campaign_rng=_restore_optional(payload, "campaign_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),

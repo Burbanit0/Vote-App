@@ -502,6 +502,17 @@ class CitizenReplaced(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class TiesRewired(Event):
+    """The social ties moved (social_graph.py, ADR-036): `moved` of the `ties` were dropped by one end and tied
+    elsewhere, and the average distance between the views of two tied citizens is now `mean_gap`."""
+
+    EVENT_TYPE = "ties_rewired"
+    moved: int
+    ties: int
+    mean_gap: float
+
+
+@dataclass(frozen=True, kw_only=True)
 class EmotionsUpdated(Event):
     """The population's mean emotions after this tick's appraisal (emotions.py)."""
 
@@ -699,7 +710,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ScandalOccurred, EconomicShockTick, ReactionToEvent, RepresentativeResponse, MandateDeviationRecorded,
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
-    OpinionDynamicsStep, CitizenReplaced, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
+    OpinionDynamicsStep, CitizenReplaced, TiesRewired, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
     ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved,
 )
