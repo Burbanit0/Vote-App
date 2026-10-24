@@ -63,6 +63,7 @@
     "scripted": []
   },
   "dynamics": {
+    "anchor_follow": 0.0,
     "anger_narrows_bound": 0.0,
     "confidence_bound": 1.0,
     "drift_std": 0.0,
