@@ -346,6 +346,9 @@ dynamics:
                                 #   Nul par défaut : seul le profil scenario le règle
   anger_narrows_bound: 0.0      # [ADR-033] à colère 1, la confiance bornée vaut (1 - ceci) x
                                 #   confidence_bound : un citoyen en colère n'écoute que les siens
+  anchor_follow: 0.0            # [ADR-032 D] part d'un déplacement de position pris au forum
+                                #   (agents.stance_step) qui déplace aussi l'ancre du citoyen : la
+                                #   position prise est en partie gardée ; requiert susceptibility < 1
 
 emotions:
   enabled: false                # requiert awakening.enabled

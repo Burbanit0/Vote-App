@@ -1,6 +1,6 @@
 # ADR-031 (proposed): an accountability signal with range
 
-**Status**: Proposed — for the owner's decision; nothing here changes the engine.
+**Status**: Proposed — for the owner's decision; nothing here changes the engine. Option B was chosen first (2026-10-21) and is **blocked on a model run**: see "Option B on the rule-only twin" below.
 **Date**: 2026-10-21
 **Context**: proposition #3 of the 2026-10-21 polity-engine investigation. ADR-025 removed the recalls of presidents
 the population still approved (OBS-047). Since then no president has been recalled, and the question is whether the
@@ -119,3 +119,13 @@ python3 scripts/check_observations.py recalls ~/Documents/Dev/polity-runs/phase1
 The keep ratios are `confidence_vote_result.payload.keep_ratio` of the same events: minimum 0.72, 0.68, 0.77, 0.67, 0.76, 0.73,
 medians 0.86, 0.82, 0.81, 0.78, 0.82, 0.88, maximum 0.89-0.94. The president-turn counts are `agent_turn` events with
 `payload.role == "president"` and a non-empty `shifts` or `bill`.)
+
+## Option B on the rule-only twin (2026-10-24, plan-scenarios-v1 step 4)
+
+Step 4 of the scenarios plan wanted B, and C only if recalls stay at zero, gated on the divergence test. Before building it I measured the levers on the ten 30-year rule-only runs of ADR-036's control arm (no model, the scenario profile):
+
+- The agenda is already open: the formula drafts a bill every `bill_interval_ticks` (2), 535 bills proposed and 62 enacted over ten runs, so `vote.policy_retrospection`'s policy-gain term in approval is live. The model arm's 12-14% of turns that draft a bill is the case B was meant to improve; on the twin there is nothing to open.
+- The other lever, a president restating positions further per turn, is an agent behaviour: the twin has no agent turns (0 `agent_turn` events), so there is nothing to move.
+- And the vote is still never lost: 34 confidence votes, 0 lost, 0 recalls.
+
+So B as written cannot be measured on the twin, and building a rule-path stand-in for a president's conduct would measure the stand-in. B waits for the pre-registered model test (10 paired 8B seeds at 8 years, which needs vLLM; the GPU is shared). Option C (a retain threshold above one half) is the one that would act on the twin, and it brings back the "recalled while approved" failure OBS-047 named, so it needs the owner to restate the rule; it was not done. Option D of ADR-032 was built instead.

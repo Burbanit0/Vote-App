@@ -302,6 +302,11 @@ class DynamicsConfig:
     """ADR-033: at anger 1 a citizen's confidence bound is (1 - this) of `confidence_bound`: an angry citizen
     listens only to the like-minded (Deffuant's extremist pull). 0 leaves every bound as it was. Needs
     `dynamics.enabled` and `emotions.enabled`."""
+    anchor_follow: float = 0.0
+    """ADR-032 option D: the share of a forum stance shift (`agents.stance_step`) that moves the citizen's anchor
+    too, so a stance taken in the forum is partly kept instead of being pulled back to where the citizen started.
+    0 keeps the anchor where it was. Needs `dynamics.enabled` and `susceptibility` < 1 (the anchor is what the
+    dynamics draw a citizen back to; at 1 it is never read)."""
 
 
 @dataclass(frozen=True)
@@ -1022,6 +1027,7 @@ def _parse_dynamics(raw: dict[str, Any]) -> DynamicsConfig:
         drift_std=_get_nonneg_float(s, "dynamics", "drift_std"),
         radical_step=_get_nonneg_float(s, "dynamics", "radical_step"),
         anger_narrows_bound=_get_ratio(s, "dynamics", "anger_narrows_bound"),
+        anchor_follow=_get_ratio(s, "dynamics", "anchor_follow"),
     )
 
 
@@ -1437,6 +1443,11 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
     ) if c.citizens.replacement_per_year > 0 and (
         c.citizens.static_population or not c.dynamics.enabled or not c.social_graph.enabled
     ) else None,
+    lambda c: (
+        "'dynamics.anchor_follow' > 0 requires 'dynamics.enabled' and 'dynamics.susceptibility' < 1 (ADR-032 D): the "
+        "anchor is what the dynamics draw a citizen back to, and at susceptibility 1 it is never read, so the setting "
+        "would be silently inert"
+    ) if c.dynamics.anchor_follow > 0 and not (c.dynamics.enabled and c.dynamics.susceptibility < 1) else None,
     lambda c: (
         "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
         "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "
