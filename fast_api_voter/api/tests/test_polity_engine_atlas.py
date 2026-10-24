@@ -359,7 +359,7 @@ def _crowd_run(tmp_path: Path, *, graph: bool = True) -> Path:
     run_dir.mkdir()
     config = {
         "run": {"population_size": 5, "seed": 1, "ticks_per_year": 2, "duration_years": 2},
-        "social_graph": {"enabled": graph, "topology": "watts_strogatz", "mean_degree": 2, "rewiring_prob": 0.0, "evolving": False},
+        "social_graph": {"enabled": graph, "topology": "watts_strogatz", "mean_degree": 2, "rewiring_prob": 0.0, "evolving": False, "rewire_per_year": 0.0, "homophily": 0.0},
     }
     (run_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
     census = [
