@@ -39,7 +39,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [028](ADR-028-ambition-shapes-the-presidents-goal.md) | A president's goal follows their ambition (supersedes roadmap D8) | polity | 2026-10-12 | Accepted |
 | [029](ADR-029-referendum-is-a-new-vote.md) | A referendum is a new vote, each citizen for their own interest (amends ADR-020) | polity | 2026-10-13 | Accepted |
 | [030](ADR-030-field-order-is-part-of-the-prompt.md) | The order of a schema's fields is part of the prompt, chosen by measurement | polity | 2026-10-19 | Accepted |
-| [032](ADR-032-opinion-that-persists-proposed.md) | Opinion that persists: option D built (`dynamics.anchor_follow`, off); B, C and E remain proposals | polity | 2026-10-21 | Option D accepted (off) |
+| [032](ADR-032-opinion-that-persists-proposed.md) | Opinion that persists: option D built (`dynamics.anchor_follow`, off); B, C and E remain proposals | polity | 2026-10-21 | Partly accepted: D built (off), B/C/E proposed |
 | [033](ADR-033-radicalisation.md) | Radicalisation: once events have shaken the polity, angry citizens step away from the president (scenario profile) | polity | 2026-10-21 | Accepted (scenario profile) |
 | [034](ADR-034-economic-voting-and-scripted-events.md) | Voters judge the economy (scenario profile), and a scenario names its crises (`events.scripted`) | polity | 2026-10-22 | Accepted (scripted events everywhere; economic voting in the scenario profile) |
 | [035](ADR-035-generational-replacement.md) | Generations turn over: ordinary citizens are replaced in place by newcomers formed in their circle (scenario profile) | polity | 2026-10-22 | Accepted (scenario profile) |

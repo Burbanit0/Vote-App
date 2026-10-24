@@ -41,7 +41,7 @@ SEEDS = range(1, 11)
 TICKS_PER_YEAR, YEARS, STEP, HIGH_POLE, ON_ISSUE_0 = 4, 8, 0.25, 0.85, 0.5
 
 
-def _world(seed: int, follow: float, population: int):
+def _world(seed: int, population: int):
     config = _flagship_config(
         engine="deterministic", years=YEARS, population=population, seats=15, seed=seed, output_dir=Path("/nonexistent"),
         max_batch_replays=0, provider=None, workers=1, profile="exploration",
@@ -52,7 +52,7 @@ def _world(seed: int, follow: float, population: int):
     for c, row in zip(citizens, structure.anchors):
         c.latent_factors = tuple(float(x) for x in row)
     graph = generate_social_graph(dataclasses.replace(config.social_graph, enabled=True), population, seed)
-    return citizens, structure, NeighbourEdges.from_graph(graph), dataclasses.replace(config.dynamics, enabled=True, anchor_follow=follow)
+    return citizens, structure, NeighbourEdges.from_graph(graph), dataclasses.replace(config.dynamics, enabled=True)
 
 
 def _positions(citizens) -> np.ndarray:
@@ -61,7 +61,7 @@ def _positions(citizens) -> np.ndarray:
 
 def run_seed(seed: int, follow: float, rate: float, population: int) -> tuple[float, float]:
     """(displacement in years 5-8, spread ratio at year 8) with emulated shifts."""
-    citizens, structure, edges, dynamics = _world(seed, follow, population)
+    citizens, structure, edges, dynamics = _world(seed, population)
     shifts, dyn = np.random.default_rng([seed, 1]), np.random.default_rng([seed, 2])
     n_issues = len(citizens[0].issue_positions)
     start, year_marks = _positions(citizens), [_positions(citizens)]
@@ -79,7 +79,7 @@ def run_seed(seed: int, follow: float, rate: float, population: int) -> tuple[fl
 
 def kept_after(seed: int, follow: float, population: int, years: int) -> float:
     """One shift to everyone on issue 3 and nothing else: the share of it along its direction after `years` years."""
-    citizens, structure, edges, dynamics = _world(seed, follow, population)
+    citizens, structure, edges, dynamics = _world(seed, population)
     before = current_factors(citizens, structure)
     for citizen in citizens:
         shift_stance(citizen, structure, 3, STEP, follow)
@@ -92,11 +92,11 @@ def kept_after(seed: int, follow: float, population: int, years: int) -> float:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--follow", type=float, action="append", default=[], help="anchor_follow (repeatable); the first is the control")
+    parser.add_argument("--follow", type=float, action="append", default=[], help="anchor_follow (repeatable); 0, the control, always runs first")
     parser.add_argument("--rate", type=float, default=0.01)
     parser.add_argument("--population", type=int, default=100)
     args = parser.parse_args(argv)
-    follows = args.follow or list(FOLLOWS)
+    follows = [0.0] + [f for f in (args.follow or FOLLOWS) if f != 0.0]  # the control is always the first arm
     control: list[float] = []
     for follow in follows:
         runs = [run_seed(seed, follow, args.rate, args.population) for seed in SEEDS]
@@ -104,8 +104,8 @@ def main(argv: list[str] | None = None) -> int:
         kept8 = [kept_after(seed, follow, args.population, YEARS) for seed in SEEDS]
         moved = [m for m, _ in runs]
         control = control or moved
-        print(f"anchor_follow {follow}: displacement y5-8 {statistics.mean(moved):.4f} (above the control in "
-              f"{sum(m > c for m, c in zip(moved, control))}/{len(moved)} seeds) shift kept after a year {statistics.mean(kept):.2f}, "
+        versus = "the control" if follow == 0 else f"above the control in {sum(m > c for m, c in zip(moved, control))}/{len(moved)} seeds"
+        print(f"anchor_follow {follow}: displacement y5-8 {statistics.mean(moved):.4f} ({versus}) shift kept after a year {statistics.mean(kept):.2f}, "
               f"after {YEARS} years {statistics.mean(kept8):.2f}, spread ratio {statistics.mean(s for _, s in runs):.2f}")
     return 0
 

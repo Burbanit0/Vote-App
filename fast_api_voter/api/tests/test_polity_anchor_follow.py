@@ -34,7 +34,7 @@ def _world() -> tuple[list[Any], Any, NeighbourEdges, Any]:
 
 # ── config ────────────────────────────────────────────────────────────────
 
-def test_the_setting_ships_neutral_and_needs_dynamics_and_a_susceptibility_below_one() -> None:
+def test_the_setting_ships_neutral_and_needs_dynamics_a_susceptibility_below_one_and_a_forum_shift() -> None:
     config = load_config()
     assert config.dynamics.anchor_follow == 0.0
     wants = dataclasses.replace(config, dynamics=dataclasses.replace(config.dynamics, anchor_follow=0.5))
@@ -43,7 +43,10 @@ def test_the_setting_ships_neutral_and_needs_dynamics_and_a_susceptibility_below
     dynamic = dataclasses.replace(wants, dynamics=dataclasses.replace(wants.dynamics, enabled=True))
     with pytest.raises(PolityConfigError, match="susceptibility"):
         validate_config(dynamic)  # at 1 the anchor is never read
-    validate_config(dataclasses.replace(dynamic, dynamics=dataclasses.replace(dynamic.dynamics, susceptibility=0.9)))
+    loose = dataclasses.replace(dynamic, dynamics=dataclasses.replace(dynamic.dynamics, susceptibility=0.9))
+    with pytest.raises(PolityConfigError, match="stance_step"):
+        validate_config(loose)  # nothing would move the anchor: no forum shift
+    validate_config(_moving(_forum(loose)))
 
 
 # ── the shift ─────────────────────────────────────────────────────────────
@@ -80,7 +83,7 @@ def _kept_after_a_year(follow: float) -> float:
     shifted = current_factors(citizens, structure)
     direction = (shifted - start).mean(axis=0)
     for _ in range(4):
-        apply_dynamics(citizens, structure, edges, dataclasses.replace(dynamics, anchor_follow=follow), np.random.default_rng(1))
+        apply_dynamics(citizens, structure, edges, dynamics, np.random.default_rng(1))
     after = current_factors(citizens, structure)
     return float(((after - start).mean(axis=0) @ direction) / (direction @ direction))
 
