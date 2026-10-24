@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install dependencies first (better layer caching). Dev tools too, so `docker
 # compose exec backend pytest` works — this is the dev image; production is the
 # repo-root Dockerfile. From the lock (requirements.txt + requirements-dev.txt
-# compiled together), like CI and the production image: the same audited,
-# 7-day-cooled versions, not whatever is newest on the day the image is built.
+# compiled together), like CI and the production image: the audited versions,
+# not whatever is newest on the day the image is built.
 COPY requirements-dev.lock.txt ./
 RUN uv pip install --system --no-cache -r requirements-dev.lock.txt
 

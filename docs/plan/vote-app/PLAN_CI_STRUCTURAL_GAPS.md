@@ -170,9 +170,9 @@ fraîcheur des lockfiles est devenu bloquant et `pip-audit` audite
 **Reste ouvert** : 8 workflows (`flaky-check-backend.yml`,
 `atheris-fuzzing.yml`, `e2e.yml`, `audit.yml`,
 `openapi-contract.yml`, `mutation-testing.yml`, `schemathesis.yml`,
-`dast.yml`) et 2 `Dockerfile` (`ci-local/e2e.Dockerfile`,
-`fast_api_voter/Dockerfile`) installent encore `requirements*.txt` en
+`dast.yml`) et 1 `Dockerfile` (`ci-local/e2e.Dockerfile`) installent encore `requirements*.txt` en
 direct — chacun a son propre rayon d'impact à évaluer séparément.
+(`fast_api_voter/Dockerfile` est passé à `requirements-dev.lock.txt` le 2026-10-24.)
 (`release.yml` est passé au lockfile le 2026-09-27, après l'échec du premier
 vrai dispatch sur les modules de test hypothesis/schemathesis.)
 
