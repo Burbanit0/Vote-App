@@ -525,17 +525,18 @@ class SocialGraphConfig:
     `f(context)` -- Granovetter-style threshold diffusion read as another
     continuous modulation of the same gate, never a hard rule (§3.3).
 
-    `evolving` (homophily-driven graph rewiring) is parsed so a typo fails
-    loudly, but `_parse_social_graph` rejects `true` outright -- the design
-    doc's own 🔴 "static or evolving?" point (§5) stays genuinely open;
-    this is a TRANCHÉ parse-time guard, not a resolution, the same
-    precedent as `recall_floor_indexed_on_l0`/`petition.concurrent_allowed`."""
+    `evolving` (ADR-036, the design doc's §5 "static or evolving?") lets the ties move: each year about a share
+    `rewire_per_year` of them is picked, weighted toward the ties whose citizens' views are furthest apart, and one end
+    ties to someone else instead, the more likely the nearer that someone's views. It goes with `rewire_per_year` > 0. `homophily` is the strength
+    of both pulls (0: rewiring at random). Needs `dynamics.enabled`, which tracks the views."""
 
     enabled: bool
     topology: str
     mean_degree: int
     rewiring_prob: float
     evolving: bool
+    rewire_per_year: float = 0.0
+    homophily: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -1249,17 +1250,14 @@ def _scripted_magnitude(kind: str, magnitude: Any, where: str) -> float:
 
 def _parse_social_graph(raw: dict[str, Any]) -> SocialGraphConfig:
     s = _section(raw, "social_graph")
-    if _get(s, "social_graph", "evolving", bool):
-        raise PolityConfigError(
-            "'social_graph.evolving': true is not supported -- homophily-driven graph evolution is "
-            "an open design point (§5), not yet implemented"
-        )
     return SocialGraphConfig(
         enabled=_get(s, "social_graph", "enabled", bool),
         topology=_get_enum(s, "social_graph", "topology", _SOCIAL_GRAPH_TOPOLOGIES),
         mean_degree=_get_positive_int(s, "social_graph", "mean_degree"),
         rewiring_prob=_get_ratio(s, "social_graph", "rewiring_prob"),
-        evolving=False,
+        evolving=_get(s, "social_graph", "evolving", bool),
+        rewire_per_year=_get_ratio(s, "social_graph", "rewire_per_year"),
+        homophily=_get_nonneg_float(s, "social_graph", "homophily"),
     )
 
 
@@ -1448,6 +1446,14 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "> 0 (ADR-032 D): the anchor is what the dynamics draw a citizen back to (at susceptibility 1 it is never read) "
         "and it moves only with a forum stance shift, so the setting would be silently inert"
     ) if c.dynamics.anchor_follow > 0 and not (c.dynamics.enabled and c.dynamics.susceptibility < 1 and c.agents.stance_step > 0) else None,
+    lambda c: (
+        "'social_graph.rewire_per_year' and 'social_graph.evolving' go together (ADR-036): a share without 'evolving: true' "
+        "would leave the ties fixed, and 'evolving: true' without a share would rewire nothing, both silently"
+    ) if (c.social_graph.rewire_per_year > 0) != c.social_graph.evolving else None,
+    lambda c: (
+        "'social_graph.evolving' requires 'social_graph.enabled' and 'dynamics.enabled' (ADR-036): ties move with "
+        "the citizens' views, which only the dynamics track, and without a graph there is nothing to rewire"
+    ) if c.social_graph.evolving and not (c.social_graph.enabled and c.dynamics.enabled) else None,
     lambda c: (
         "'dynamics.radical_step' and 'dynamics.anger_narrows_bound' > 0 require 'dynamics.enabled' and "
         "'emotions.enabled' (ADR-033): they act inside the opinion update, through a citizen's anger, which only "

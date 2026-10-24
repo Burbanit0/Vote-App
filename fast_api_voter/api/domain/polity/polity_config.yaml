@@ -526,9 +526,12 @@ social_graph:
   topology: watts_strogatz    # [v6] watts_strogatz | erdos_renyi | barabasi_albert
   mean_degree: 8              # [v6]
   rewiring_prob: 0.1          # [v6]
-  evolving: false             # [v6] homophilie évolutive — parsé et REJETÉ
-                               #      si true (Lot 1) ; le point ouvert lui-
-                               #      même reste ouvert (§5)
+  evolving: false             # [ADR-036] les liens bougent : chaque année une part rewire_per_year
+                               #      d'entre eux est tirée (d'autant plus que les deux citoyens
+                               #      s'éloignent) et un bout se lie à quelqu'un d'autre (d'autant
+                               #      plus que ses vues sont proches) ; requiert dynamics.enabled
+  rewire_per_year: 0.0        # [ADR-036] part des liens rebattus chaque année (si evolving)
+  homophily: 0.0              # [ADR-036] force des deux attractions ; 0 : rebattage au hasard
 
 # =============================================================================
 # COUCHE LLM (§3, §12) — inactive avant v2

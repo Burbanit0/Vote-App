@@ -190,6 +190,7 @@ from api.domain.polity.events import (
     ScandalOccurred,
     SnapElectionTriggered,
     SortitionRotation,
+    TiesRewired,
     VoteCast,
 )
 from api.domain.polity.demography import replace_generation
@@ -250,7 +251,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, CampaigningNomineeTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
-from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
+from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, current_factors, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
@@ -284,7 +285,7 @@ from api.domain.polity.simple_rules import (
     vacate_office,
     without_blank,
 )
-from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+from api.domain.polity.social_graph import SocialGraph, generate_social_graph, graph_edges, mean_gap, rewire
 from api.domain.polity.tick_state import PendingRerun, TickState
 
 _logger = logging.getLogger(__name__)
@@ -643,17 +644,17 @@ def run_simulation(
 
     _write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-    # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
-    # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
-    # None whenever social_graph.enabled is off (the shipped default) --
-    # every reader below treats None as "no graph" and behaves identically
-    # to pre-v6-Lot-3 code. Regenerated identically on resume too (never
-    # restored from the checkpoint) -- see checkpoint.py's own docstring.
+    # v6 Lot 2/3 (§5): generated once from the config. None whenever
+    # social_graph.enabled is off (the shipped default) -- every reader below
+    # treats None as "no graph" and behaves identically to pre-v6-Lot-3 code.
+    # A fixed graph is regenerated identically on resume (never restored from
+    # the checkpoint); one that rewires (ADR-036) lives in `state.graph`, is
+    # checkpointed, and the loop below swaps it in as it moves.
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
     # S4.3: the latent model the population was drawn from, and the graph as edge arrays --
-    # like the graph, regenerated from the config on resume, never checkpointed.
+    # regenerated from the config on resume, never checkpointed (the edge arrays follow `graph`, see above).
     latent: LatentStructure | None = None
     edges: NeighbourEdges | None = None
     if config.dynamics.enabled:
@@ -708,7 +709,11 @@ def run_simulation(
         ) as client,
     ):
         journal.tap = memory.observe if memory is not None else None
+        if config.social_graph.evolving and state.graph is None:  # ADR-036: a new run starts from the generated ties
+            state.graph = graph
         for tick in range(first_tick, clock.total_ticks + 1):
+            if state.graph is not None and state.graph is not graph:  # the ties moved (or were restored): read them as they stand
+                graph, edges = state.graph, NeighbourEdges.from_graph(state.graph)
             tick_start_time = time.monotonic()
             # Publishes "tick N is being computed" before any phase runs, so a
             # reader can distinguish an in-flight tick from a finished one --
@@ -789,6 +794,10 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # ADR-035: its own stream, seeded off the run's seed and a constant so it shares no state with the others.
         demography_rng=(
             np.random.default_rng(np.random.SeedSequence([config.run.seed, 35])) if config.citizens.replacement_per_year > 0 else None
+        ),
+        # ADR-036: likewise its own stream, drawn from only when the ties rewire.
+        rewiring_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 36])) if config.social_graph.evolving else None
         ),
         regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
         campaign_rng=np.random.default_rng(config.run.seed) if config.campaign.salience_step > 0 else None,
@@ -1503,6 +1512,24 @@ def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
         citizen_id=None,
     )
     _turn_over_generation(context, state)
+    _rewire_ties(context, state)
+
+
+def _rewire_ties(context: TickContext, state: TickState) -> None:
+    """ADR-036: after the views moved and the generation turned over, a share of the ties moves toward like views."""
+    config = context.config
+    if state.rewiring_rng is None or state.graph is None or config.social_graph.rewire_per_year <= 0:
+        return
+    assert context.latent is not None
+    factors = current_factors(state.citizens, context.latent)
+    state.graph, moved = rewire(
+        state.graph, factors, config.social_graph.rewire_per_year / config.run.ticks_per_year,
+        config.social_graph.homophily, state.rewiring_rng,
+    )
+    context.journal.write_event(
+        tick=context.tick, event=TiesRewired(moved=moved, ties=len(graph_edges(state.graph)), mean_gap=mean_gap(state.graph, factors)),
+        citizen_id=None,
+    )
 
 
 def _turn_over_generation(context: TickContext, state: TickState) -> None:

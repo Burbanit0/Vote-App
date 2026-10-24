@@ -241,7 +241,9 @@
   "social_graph": {
     "enabled": true,
     "evolving": false,
+    "homophily": 0.0,
     "mean_degree": 8,
+    "rewire_per_year": 0.0,
     "rewiring_prob": 0.1,
     "topology": "watts_strogatz"
   },

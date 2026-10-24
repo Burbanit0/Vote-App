@@ -183,6 +183,7 @@ def summary(event: dict[str, Any]) -> str:
         "citizen_replaced": lambda: (
             f"{who} replaced by a newcomer (party {p.get('party_id')}, views from a circle of {p.get('circle')})"
         ),
+        "ties_rewired": lambda: f"{p.get('moved')} of {p.get('ties')} ties moved; tied citizens' views {p.get('mean_gap'):.2f} apart on average",
         "party_founded": lambda: f"party {p.get('party_id')} founded ({_members(p)})",
         "party_dissolved": lambda: (
             f"party {p.get('party_id')} dissolved ({_members(p)})"
@@ -490,8 +491,9 @@ def _project(frame: Frame, mean: np.ndarray, axes: np.ndarray) -> list[list[floa
 
 
 def _edges(config: Mapping[str, Any]) -> list[list[int]]:
-    """The social graph's ties, regenerated from the config (the graph is deterministic in config, population
-    and seed, and is deliberately not checkpointed); none when the graph is off."""
+    """The social graph's ties, regenerated from the config (a fixed graph is deterministic in config, population
+    and seed, and is not checkpointed); none when the graph is off. For a run that rewires (ADR-036) these are the
+    ties it started with: the later ones are only in the final checkpoint."""
     graph, run = config.get("social_graph") or {}, config.get("run") or {}
     fields = [f.name for f in dataclasses.fields(SocialGraphConfig)]
     if not graph.get("enabled") or not {"population_size", "seed"} <= set(run) or not set(fields) <= set(graph):

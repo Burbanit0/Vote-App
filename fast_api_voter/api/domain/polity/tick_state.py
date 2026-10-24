@@ -22,6 +22,7 @@ from api.domain.polity.citizen import Citizen
 from api.domain.polity.constitution import Constitution
 from api.domain.polity.legislation import Legislature
 from api.domain.polity.parties import Party
+from api.domain.polity.social_graph import SocialGraph
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,11 @@ class TickState:
     demography_rng: np.random.Generator | None = None
     """ADR-035: the stream that draws who is replaced and what the newcomer is like, None unless
     citizens.replacement_per_year > 0."""
+    rewiring_rng: np.random.Generator | None = None
+    """ADR-036: the stream that draws which ties move and where they go, None unless social_graph.evolving."""
+    graph: SocialGraph | None = None
+    """ADR-036: the social ties as they stand, None unless social_graph.evolving (a fixed graph is rebuilt from the
+    config and is not state)."""
     campaign_rng: np.random.Generator | None = None
     """ADR-023: the stream that draws who hears a campaign, None unless campaigning is on."""
     regime_rng: np.random.Generator | None = None

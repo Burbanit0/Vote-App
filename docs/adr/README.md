@@ -43,6 +43,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [033](ADR-033-radicalisation.md) | Radicalisation: once events have shaken the polity, angry citizens step away from the president (scenario profile) | polity | 2026-10-21 | Accepted (scenario profile) |
 | [034](ADR-034-economic-voting-and-scripted-events.md) | Voters judge the economy (scenario profile), and a scenario names its crises (`events.scripted`) | polity | 2026-10-22 | Accepted (scripted events everywhere; economic voting in the scenario profile) |
 | [035](ADR-035-generational-replacement.md) | Generations turn over: ordinary citizens are replaced in place by newcomers formed in their circle (scenario profile) | polity | 2026-10-22 | Accepted (scenario profile) |
+| [036](ADR-036-homophilous-rewiring.md) | The social ties can move toward like views (`social_graph.evolving`), built and off everywhere: it halves the tie gap but does not move the divergence test | polity | 2026-10-24 | Accepted (off) |
 
 Also in this folder, not ADRs:
 
