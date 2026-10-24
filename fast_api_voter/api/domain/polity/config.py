@@ -520,9 +520,9 @@ class SocialGraphConfig:
     `f(context)` -- Granovetter-style threshold diffusion read as another
     continuous modulation of the same gate, never a hard rule (§3.3).
 
-    `evolving` (ADR-036, the design doc's §5 "static or evolving?") lets the ties move: each year a share
-    `rewire_per_year` of them is picked, the more likely the further apart the two citizens' views, and one end
-    ties to someone else instead, the more likely the nearer that someone's views. `homophily` is the strength
+    `evolving` (ADR-036, the design doc's §5 "static or evolving?") lets the ties move: each year about a share
+    `rewire_per_year` of them is picked, weighted toward the ties whose citizens' views are furthest apart, and one end
+    ties to someone else instead, the more likely the nearer that someone's views. It goes with `rewire_per_year` > 0. `homophily` is the strength
     of both pulls (0: rewiring at random). Needs `dynamics.enabled`, which tracks the views."""
 
     enabled: bool
@@ -1435,6 +1435,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
     ) if c.citizens.replacement_per_year > 0 and (
         c.citizens.static_population or not c.dynamics.enabled or not c.social_graph.enabled
     ) else None,
+    lambda c: (
+        "'social_graph.rewire_per_year' and 'social_graph.evolving' go together (ADR-036): a share without 'evolving: true' "
+        "would leave the ties fixed, and 'evolving: true' without a share would rewire nothing, both silently"
+    ) if (c.social_graph.rewire_per_year > 0) != c.social_graph.evolving else None,
     lambda c: (
         "'social_graph.evolving' requires 'social_graph.enabled' and 'dynamics.enabled' (ADR-036): ties move with "
         "the citizens' views, which only the dynamics track, and without a graph there is nothing to rewire"

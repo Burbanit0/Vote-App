@@ -91,22 +91,27 @@ def graph_from_edges(population_size: int, edges: Iterable[tuple[int, int]]) -> 
 def mean_gap(graph: SocialGraph, factors: np.ndarray) -> float:
     """The average distance between the views of two tied citizens (0 for a graph without ties)."""
     ties = graph_edges(graph)
-    return float(np.mean([np.linalg.norm(factors[i] - factors[j]) for i, j in ties])) if ties else 0.0
+    if not ties:
+        return 0.0
+    ends = np.array(ties)
+    return float(np.linalg.norm(factors[ends[:, 0]] - factors[ends[:, 1]], axis=1).mean())
 
 
 def rewire(graph: SocialGraph, factors: np.ndarray, share: float, homophily: float, rng: np.random.Generator) -> tuple[SocialGraph, int]:
-    """ADR-036: each tie is picked with chance `share`, the more likely the further apart its two citizens' views
-    are; one end of it (either, at random) drops it and ties to someone else, the more likely the nearer that
-    someone's views. `homophily` is the strength of both pulls: 0 rewires at random, so it is the control that
-    shows what the pull adds. Ties stay symmetric, nobody ties to themselves or twice, and the number of ties does
-    not change. Returns the new graph and how many ties moved."""
+    """ADR-036: a number of ties drawn from Binomial(ties, `share`) is picked, without replacement and weighted toward
+    the ties whose two citizens' views are furthest apart (so `share` sets how many move, `homophily` which ones);
+    one end of each, either at random, drops it and ties to someone else, the more likely the nearer that someone's
+    views. `homophily` is the strength of both pulls: 0 rewires at random, so it is the control that shows what the
+    pull adds. The weights are taken relative to the furthest tie and the nearest candidate, so a large `homophily`
+    makes the choice nearly deterministic instead of underflowing. Ties stay symmetric, nobody ties to themselves or
+    twice, and the number of ties does not change. Returns the new graph and how many ties moved."""
     ties = graph_edges(graph)
     if not ties or share <= 0:
         return graph, 0
     ends = np.array(ties)
     gap = np.linalg.norm(factors[ends[:, 0]] - factors[ends[:, 1]], axis=1)
     odds = np.exp(homophily * (gap - gap.max()))
-    count = int(rng.binomial(len(ties), min(share, 1.0)))
+    count = min(int(rng.binomial(len(ties), min(share, 1.0))), int(np.count_nonzero(odds)))  # a huge pull leaves few picks
     adjacent = {i: set(ties_of) for i, ties_of in graph.neighbors.items()}
     moved = 0
     for k in rng.choice(len(ties), size=count, replace=False, p=odds / odds.sum()):
@@ -116,7 +121,8 @@ def rewire(graph: SocialGraph, factors: np.ndarray, share: float, homophily: flo
         candidates = np.array([c for c in range(len(factors)) if c not in taken])
         if not len(candidates):
             continue
-        near = np.exp(-homophily * np.linalg.norm(factors[candidates] - factors[keeper], axis=1))
+        away = np.linalg.norm(factors[candidates] - factors[keeper], axis=1)
+        near = np.exp(-homophily * (away - away.min()))
         chosen = int(candidates[rng.choice(len(candidates), p=near / near.sum())])
         adjacent[keeper].discard(dropper)
         adjacent[dropper].discard(keeper)

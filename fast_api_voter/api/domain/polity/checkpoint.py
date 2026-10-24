@@ -230,6 +230,8 @@ def _set_only(**fields: Any) -> dict[str, Any]:
 
 
 def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
+    if ("graph_edges" in payload) != ("rewiring_rng_state" in payload):  # ADR-036: one without the other would freeze or restart the ties
+        raise ValueError("checkpoint carries the social ties or their random stream but not both (ADR-036): it is damaged")
     pending = payload["pending_rerun"]
     declared = payload.get("staggered_declared_cids")  # absent from checkpoints written before Track E
     return TickState(

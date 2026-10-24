@@ -644,17 +644,17 @@ def run_simulation(
 
     _write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-    # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
-    # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
-    # None whenever social_graph.enabled is off (the shipped default) --
-    # every reader below treats None as "no graph" and behaves identically
-    # to pre-v6-Lot-3 code. Regenerated identically on resume too (never
-    # restored from the checkpoint) -- see checkpoint.py's own docstring.
+    # v6 Lot 2/3 (§5): generated once from the config. None whenever
+    # social_graph.enabled is off (the shipped default) -- every reader below
+    # treats None as "no graph" and behaves identically to pre-v6-Lot-3 code.
+    # A fixed graph is regenerated identically on resume (never restored from
+    # the checkpoint); one that rewires (ADR-036) lives in `state.graph`, is
+    # checkpointed, and the loop below swaps it in as it moves.
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
     # S4.3: the latent model the population was drawn from, and the graph as edge arrays --
-    # like the graph, regenerated from the config on resume, never checkpointed.
+    # regenerated from the config on resume, never checkpointed (the edge arrays follow `graph`, see above).
     latent: LatentStructure | None = None
     edges: NeighbourEdges | None = None
     if config.dynamics.enabled:

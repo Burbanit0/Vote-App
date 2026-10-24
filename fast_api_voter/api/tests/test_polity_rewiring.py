@@ -29,7 +29,7 @@ def _ring() -> tuple[Any, np.ndarray]:
 def test_the_rewiring_settings_ship_neutral_and_need_a_graph_and_dynamics() -> None:
     config = load_config()
     assert not config.social_graph.evolving and config.social_graph.rewire_per_year == 0.0 and config.social_graph.homophily == 0.0
-    wants = dataclasses.replace(config, social_graph=dataclasses.replace(config.social_graph, evolving=True))
+    wants = dataclasses.replace(config, social_graph=dataclasses.replace(config.social_graph, evolving=True, rewire_per_year=0.2))
     with pytest.raises(PolityConfigError, match="social_graph.enabled"):
         validate_config(wants)
     with pytest.raises(PolityConfigError, match="dynamics.enabled"):
@@ -37,6 +37,27 @@ def test_the_rewiring_settings_ship_neutral_and_need_a_graph_and_dynamics() -> N
     validate_config(dataclasses.replace(
         wants, social_graph=dataclasses.replace(wants.social_graph, enabled=True), dynamics=dataclasses.replace(wants.dynamics, enabled=True),
     ))
+
+
+def test_a_share_and_evolving_go_together_and_the_yaml_keys_are_read_and_checked(tmp_path: Path) -> None:
+    from api.tests.test_polity_config import _write
+
+    def edit(**graph: Any) -> Any:
+        def apply(d: dict[str, Any]) -> None:
+            d["dynamics"]["enabled"] = True
+            d["social_graph"].update(enabled=True, **graph)
+        return load_config(_write(tmp_path, apply))
+
+    parsed = edit(evolving=True, rewire_per_year=0.3, homophily=2)
+    assert parsed.social_graph.evolving and parsed.social_graph.rewire_per_year == 0.3 and parsed.social_graph.homophily == 2.0
+    with pytest.raises(PolityConfigError, match="go together"):
+        edit(rewire_per_year=0.3)  # a share without evolving would leave the ties fixed
+    with pytest.raises(PolityConfigError, match="go together"):
+        edit(evolving=True)  # evolving without a share would rewire nothing
+    with pytest.raises(PolityConfigError, match="rewire_per_year"):
+        edit(evolving=True, rewire_per_year=1.5)
+    with pytest.raises(PolityConfigError, match="homophily"):
+        edit(evolving=True, rewire_per_year=0.3, homophily=-1)
 
 
 # ── the move itself ───────────────────────────────────────────────────────
@@ -69,6 +90,12 @@ def test_the_pull_brings_tied_citizens_closer_and_rewiring_at_random_does_not() 
         random_, _ = rewire(random_, factors, 0.3, 0.0, np.random.default_rng(year))
     assert mean_gap(pulled, factors) < 0.5 * mean_gap(graph, factors)  # like attracts like
     assert mean_gap(random_, factors) > mean_gap(pulled, factors)  # the control shows what the pull adds
+
+
+def test_a_huge_pull_does_not_underflow_it_picks_the_furthest_ties_and_the_nearest_candidates() -> None:
+    graph, factors = _ring()
+    after, moved = rewire(graph, factors, 0.5, 500.0, np.random.default_rng(1))  # exp(-500 * gap) is 0.0 in floating point
+    assert 0 < moved and len(graph_edges(after)) == len(graph_edges(graph))
 
 
 def test_a_citizen_tied_to_everyone_cannot_move_their_ties() -> None:
@@ -140,3 +167,18 @@ def test_a_run_that_rewires_resumed_after_a_crash_matches_an_uninterrupted_one(f
     resumed = run_simulation(_twin(flagship, tmp_path / "b", 0.5), run_id="run", resume=True)
     assert resumed.read_bytes() == uninterrupted.read_bytes()
     assert (resumed.parent / "checkpoint.json").read_bytes() == (uninterrupted.parent / "checkpoint.json").read_bytes()
+
+
+def test_a_checkpoint_with_the_ties_but_not_their_stream_or_the_reverse_is_refused(tmp_path: Path) -> None:
+    from api.tests.test_polity_checkpoint import _rng, _save
+
+    config = load_config()
+    both = tmp_path / "both.json"
+    _save(both, config, graph=graph_from_edges(1, []), rewiring_rng=_rng(4))
+    state = load_checkpoint(both).state
+    assert state.rewiring_rng is not None and state.graph is not None
+
+    for name, kept in (("stream_only.json", {"rewiring_rng": _rng(4)}), ("ties_only.json", {"graph": graph_from_edges(1, [])})):
+        _save(tmp_path / name, config, **kept)
+        with pytest.raises(ValueError, match="not both"):
+            load_checkpoint(tmp_path / name)
