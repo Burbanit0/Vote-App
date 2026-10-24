@@ -1685,7 +1685,7 @@
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-24T03:05:01Z",
+ "generated_at": "2026-10-24T03:10:16Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1784,7 +1784,7 @@
     "success": 3
    },
    "2026-10-24": {
-    "success": 2
+    "success": 3
    }
   },
   "Backend Flaky Test Hunt": {
@@ -1885,6 +1885,9 @@
    },
    "2026-10-23": {
     "success": 2
+   },
+   "2026-10-24": {
+    "success": 1
    }
   },
   "CI Dashboard": {
@@ -1956,7 +1959,7 @@
     "success": 16
    },
    "2026-10-24": {
-    "success": 7
+    "success": 8
    }
   },
   "CI Health Watchdog": {
@@ -3047,7 +3050,7 @@
    "2026-10-24": {
     "cancelled": 3,
     "skipped": 28,
-    "success": 20
+    "success": 22
    }
   },
   "zizmor online": {
@@ -3084,23 +3087,23 @@
   "Backend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-24T02:47:44Z",
+   "created_at": "2026-10-24T03:00:22Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40055655385"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40056517231"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-10-23T08:27:20Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39924750899"
+   "created_at": "2026-10-24T02:47:44Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40055655407"
   },
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-24T02:58:19Z",
+   "created_at": "2026-10-24T03:03:51Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40056377698"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40056765785"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3196,9 +3199,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-24T03:08:39Z",
+   "created_at": "2026-10-24T03:11:32Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40057093973"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40057290568"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3208,7 +3211,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40053764297"
   }
  },
- "runs": 15019,
+ "runs": 15024,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3241,12 +3244,12 @@
     "2026-10-21": 477.0,
     "2026-10-22": 403,
     "2026-10-23": 10.5,
-    "2026-10-24": 590
+    "2026-10-24": 590.0
    },
-   "p50_s": 316,
+   "p50_s": 317,
    "p95_s": 528,
    "queue_p50_s": 0,
-   "runs": 871
+   "runs": 872
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3279,12 +3282,13 @@
     "2026-10-20": 1170.0,
     "2026-10-21": 847,
     "2026-10-22": 1302,
-    "2026-10-23": 1158.0
+    "2026-10-23": 1158.0,
+    "2026-10-24": 1426
    },
    "p50_s": 932,
-   "p95_s": 1253,
+   "p95_s": 1259,
    "queue_p50_s": 0,
-   "runs": 129
+   "runs": 130
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3344,12 +3348,12 @@
     "2026-10-21": 401,
     "2026-10-22": 388.5,
     "2026-10-23": 378.5,
-    "2026-10-24": 396
+    "2026-10-24": 393.5
    },
    "p50_s": 391,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 628
+   "runs": 629
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3878,7 +3882,7 @@
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1512
+   "runs": 1514
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -4049,15 +4053,15 @@
    "workflows": {
     "Backend CI": {
      "conclusion": "success",
-     "created_at": "2026-10-24T02:47:44Z",
-     "sha": "068a4c7513768eb3d8e6dc6953cdd05278e5242f",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40055655385"
+     "created_at": "2026-10-24T03:00:22Z",
+     "sha": "c4329ee3646ddd7fd735f50dd149dbc336623e21",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40056517231"
     },
     "Backend Flaky Test Hunt": {
      "conclusion": "success",
-     "created_at": "2026-10-23T00:30:50Z",
-     "sha": "f4087bb9890272561d545f33fb80e26eed8b47cd",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39878559620"
+     "created_at": "2026-10-24T02:47:44Z",
+     "sha": "068a4c7513768eb3d8e6dc6953cdd05278e5242f",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40055655407"
     },
     "Coverage-Guided Fuzzing (atheris)": {
      "conclusion": "success",
