@@ -2,11 +2,11 @@
 
 **Status**: Accepted — changes the scenario profile's `vote.economic_voting` from ADR-034's 1.0 to 0.3. The engine and every other profile are unchanged (the default is still 0).
 **Date**: 2026-10-24
-**Context**: Under ADR-037's realignment rule the catalogue of scenarios (plan-scenarios-v1, step 6) read 60% of its 1,000 runs as churn (a legislative volatility of 0.4 at some election), and the plausibility band failed volatility in 670 of them. Unlike realignment, this was not the label: the mean Pedersen volatility between consecutive legislative elections was 0.35 (the band's generic European range is 0.05 to 0.30). The owner asked for the cause and a fix.
+**Context**: Under ADR-037's realignment rule the catalogue of scenarios (plan-scenarios-v1, step 6) read 60% of its 1,000 runs as churn (a legislative volatility of 0.4 at some election), and the plausibility band failed volatility in 670 of them. Unlike realignment, this was not the label: the mean Pedersen volatility between consecutive legislative elections was 0.35 on the 40 points below (0.36 on the 60-point table; the band's generic European range is 0.05 to 0.30). The owner asked for the cause and a fix.
 
 ## Cause
 
-Measured on the same catalogue points (15 years, the rule-only twin), each time against the shipped profile:
+Measured on the catalogue's own points (15 years, the rule-only twin), each time against the profile at ADR-034's 1.0; `python scripts/probe_economic_voting.py ablate --points 40 --out <dir> --base-economic-voting 1.0` reproduces it:
 
 - **Not party entry or exit.** The five parties run at every election (none founded or dissolved): the part of volatility from parties appearing or disappearing is 0.000.
 - **Not the size of the electorate.** 40 points at 100 and at 400 citizens: mean volatility 0.354 and 0.365.
@@ -28,7 +28,7 @@ The scenario profile's weight is **0.3**, the largest of the weights tried at wh
 | 0.75 | 0.310 | 48% | 0.29 | 0.83 |
 | 1.0 (ADR-034) | 0.358 | 35% | 0.28 | 0.83 |
 
-(60 catalogue points, one run each.) The economy still costs incumbents at 0.3 (a re-election share of 0.34 against 0.38 without it), less than at 1.0. The term is linear in the weight, so a scenario's scripted recession should move the vote about a third as much as under ADR-034; that was not measured.
+(60 catalogue points, one run each; `python scripts/probe_economic_voting.py weights --points 60 --out <dir>` reproduces the table.) The economy still costs incumbents at 0.3 (a re-election share of 0.34 against 0.38 without it), less than at 1.0. How much a scenario's scripted recession moves the vote at 0.3 was not measured: the term is linear in the weight but the vote is a choice of the best party, so the effect depends on how many voters sit near a switch, not on the weight alone.
 
 **Disclosed:** the same 60-point table also printed each weight's archetype counts, and at 0.3 four archetypes were above 5% of those 60 runs. I saw that before choosing. The choice follows the rule above, which 0.2 and 0.1 also pass and 0.5 does not; 0.3 is the largest that passes.
 

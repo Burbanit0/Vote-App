@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.catalogue import Box, apply_point, prim, relabel, sample  # noqa: E402
+from api.domain.polity.checkpoint import config_hash  # noqa: E402
 from api.domain.polity.config import validate_config  # noqa: E402
 from api.domain.polity.run_digest import build_digest  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
@@ -94,6 +95,16 @@ def read_trajectory(trajectory: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def profile_hash(years: int, population: int) -> str:
+    """The scenario profile's rules as the sweep's points start from (seed and run directory fixed, so only the profile
+    and the engine's settings show): a change of the profile, like ADR-038's weight, is a different sweep."""
+    base = _flagship_config(
+        engine="deterministic", years=years, population=population, seats=max(5, population // 7), seed=0,
+        output_dir=Path("catalogue"), max_batch_replays=0, provider=None, workers=1, profile="scenario",
+    )
+    return config_hash(base)
+
+
 def load_rows(out: Path) -> list[dict[str, Any]]:
     """The rows written so far, the latest row of each point (a point that errored and was run again has its new row)."""
     path = out / "rows.jsonl"
@@ -104,7 +115,10 @@ def load_rows(out: Path) -> list[dict[str, Any]]:
 def run(args: argparse.Namespace) -> int:
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
-    settings = {"runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population, "archetype_version": ARCHETYPE_VERSION}
+    settings = {
+        "runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population,
+        "archetype_version": ARCHETYPE_VERSION, "profile": profile_hash(args.years, args.population),
+    }
     settings_path = out / "settings.json"
     if settings_path.exists() and json.loads(settings_path.read_text()) != settings:
         print(f"{out} holds a sweep run with {json.loads(settings_path.read_text())}, not {settings}: use another --out", file=sys.stderr)

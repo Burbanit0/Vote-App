@@ -307,9 +307,10 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
     weigh the economy at the election, so good and bad times move the incumbent's approval and the vote; a
     scenario's own crises go in `events.scripted`) at 0.3, not ADR-034's 1.0: the term is the same for every
     voter, and at 1.0 it swung whole blocs between elections (mean legislative volatility 0.36, inside the
-    band in 35% of runs; ADR-038 takes the largest weight that keeps two thirds of the runs inside it), and ADR-035's generational replacement (3% of the citizens
+    band in 35% of runs, on ADR-038's 60-point sample; ADR-038 takes the largest weight that keeps two thirds of the runs inside it), and ADR-035's generational replacement (3% of the citizens
     a year are replaced by newcomers drawn around their circle, spread 0.35: over thirty years the spread of
-    positions grows by 83% instead of 133%, and the ten-seed labels go from 0.47 to 1.36 bits; see the ADR). On the deterministic engine it is
+    positions grows by 83% instead of 133%, and the ten-seed labels go from 0.47 to 1.36 bits, measured with economic voting
+    at 1.0 and the version-2 labels; see the ADR). On the deterministic engine it is
     the exploration profile plus those."""
     explored = _exploration_config(config)
     return dataclasses.replace(
