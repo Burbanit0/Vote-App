@@ -193,7 +193,7 @@
      ],
      "ref": {
       "file": "config.py",
-      "line": 1395,
+      "line": 1401,
       "label": null,
       "expect": "# must hold for a config built in code with dataclasses.replace, which never passes"
      }
@@ -2351,6 +2351,12 @@
      ""
     ],
     [
+     "dynamics.anchor_follow",
+     "0",
+     "",
+     ""
+    ],
+    [
      "citizens.replacement_per_year",
      "0",
      "",
@@ -2401,7 +2407,7 @@
      "file": "opinion_dynamics.py",
      "line": 120,
      "label": "shift_stance",
-     "expect": "def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float) -"
+     "expect": "def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float, anchor_follow"
     }
    ],
    "adr": [
