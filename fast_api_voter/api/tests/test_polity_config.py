@@ -668,10 +668,10 @@ def test_social_graph_unknown_topology_raises(tmp_path):
         load_config(path)
 
 
-def test_social_graph_evolving_true_raises(tmp_path):
+def test_social_graph_evolving_true_parses_and_needs_the_dynamics(tmp_path):
     path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("evolving", True))
     with pytest.raises(PolityConfigError, match="social_graph.evolving"):
-        load_config(path)
+        load_config(path)  # no graph, no dynamics: ADR-036's cross-validation
 
 
 def test_social_graph_mean_degree_zero_raises(tmp_path):

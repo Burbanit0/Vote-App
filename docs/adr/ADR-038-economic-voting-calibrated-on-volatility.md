@@ -43,5 +43,5 @@ The scenario profile's weight is **0.3**, the largest of the weights tried at wh
 ## Not settled
 
 - **Economic voting is still the same for every voter.** The cause of the swings is that homogeneity as much as the weight; a per-citizen perception of the economy (ADR-034's "not done" list) would let the weight stay larger without moving whole blocs. Not built, so as not to add a mechanism for a calibration.
-- **Earlier tables used 1.0.** ADR-034's and ADR-035's tables, the scenario-profile probes (and ADR-036's, in #993) were measured at 1.0; the current profile does not reproduce them.
+- **Earlier tables used 1.0.** ADR-034's and ADR-035's tables, the scenario-profile probes and [ADR-036](ADR-036-homophilous-rewiring.md)'s were measured at 1.0; the current profile does not reproduce them.
 - **The grid is coarse** (0.3 and 0.5 bracket the two-thirds line) and the rule takes the largest grid value that passes, not an interpolated one.
