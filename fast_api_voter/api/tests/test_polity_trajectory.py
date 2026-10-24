@@ -405,5 +405,7 @@ def test_a_realignment_is_a_shift_measured_against_the_populations_own_spread() 
     assert archetype(_summary(polarization=rows(0.25, 0.5))) == "realignment"  # exactly half a spread counts
     assert largest_relative_shift(rows(0.3, None)) == 0.0 == largest_relative_shift(rows(0.3, 0.0))  # nothing to measure against
     assert largest_relative_shift([]) == 0.0
+    assert largest_relative_shift(rows(0.3, 0.001)) == 0.0  # a population that has all but collapsed to one view: nothing to measure against
+    assert largest_relative_shift(rows(0.3, 0.01)) == pytest.approx(30.0)  # the floor itself still measures
     assert largest_relative_shift([{"year": 0, "mean_shift": 0.0, "dispersion": 0.5}, {"year": 1, "mean_shift": 0.1, "dispersion": 0.1},
                                    {"year": 2, "mean_shift": 0.2, "dispersion": 0.9}]) == pytest.approx(0.4)  # the first census's spread, not the later ones

@@ -2,6 +2,7 @@
 
 **Status**: Accepted — built in the scenario profile only (plan-scenarios-v1, step 3a; owner's direction, 2026-10-21). Off everywhere else: both settings ship at 0.
 **Date**: 2026-10-21
+**Update 2026-10-24**: the archetype labels in this ADR's tables are version 2 (the realignment rule was a fixed 0.1); [ADR-037](ADR-037-realignment-against-the-populations-spread.md) replaced it (version 3), so the current code does not reproduce them. The runs themselves are unchanged.
 **Context**: Until now an event changed a citizen's attention (`event_salience`) and feeling (anger, anxiety),
 never their position. A scandal or a bad economy could mobilise a crowd and still leave every citizen where
 they stood, so a society could be shaken and come back to the same place. The owner asked for citizens who

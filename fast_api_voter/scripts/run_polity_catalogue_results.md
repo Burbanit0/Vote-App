@@ -52,8 +52,7 @@ names a low threshold, a low recall floor and a high petition threshold.
 
 Version 2 labelled 89% of the runs as realignment: the rule was "the population's mean moved 0.1 or more", which 89%
 crossed, exactly. Even with almost no polarization pressure (below 0.1) 71% did. ADR-037 measures the shift in units of the
-first census's own spread (its median over the runs is 0.82) at a threshold of half a spread, fixed before the re-run from
-the effect-size convention, though I knew the old distribution. Relabelling the same runs at other thresholds (the first five
+first census's own spread (its median over the runs is 0.82) at a threshold of half a spread, a round fraction that I picked knowing the old distribution (ADR-037 says so; judge it by this table). `report` prints this table from the stored fields (`catalogue.relabel`). Relabelling the same runs at other thresholds (the first five
 rules never fire in these runs; relabelling at 0.5 reproduces the run's own labels, 1,000 of 1,000):
 
 | threshold | realignment | churn | alternation | stasis | archetypes at 5% or more |

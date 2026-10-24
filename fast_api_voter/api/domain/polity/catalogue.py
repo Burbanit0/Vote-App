@@ -173,3 +173,16 @@ def _best_cut(
             if best is None or score > (best[0], best[1]):
                 best = (score[0], kept, remaining, dim.name, cut)
     return None if best is None else (best[2], best[3], best[4])
+
+
+def relabel(row: Mapping[str, Any], realignment_spreads: float, churn_volatility: float = 0.4, alternation_count: int = 2) -> str:
+    """The archetype a catalogue row would read as at another realignment threshold. Only the four rules from realignment
+    down are re-applied, so it is exact for a row those four label (the catalogue's runs never meet the earlier ones: a row
+    labelled by one of those keeps its label)."""
+    if row["archetype"] not in ("realignment", "churn", "alternation", "stasis"):
+        return str(row["archetype"])
+    if row["max_rel_shift"] >= realignment_spreads:
+        return "realignment"
+    if row["max_volatility"] >= churn_volatility:
+        return "churn"
+    return "alternation" if row["alternations"] >= alternation_count else "stasis"

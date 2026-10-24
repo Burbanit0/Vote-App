@@ -31,11 +31,11 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from api.domain.polity.catalogue import Box, apply_point, prim, sample  # noqa: E402
+from api.domain.polity.catalogue import Box, apply_point, prim, relabel, sample  # noqa: E402
 from api.domain.polity.config import validate_config  # noqa: E402
 from api.domain.polity.run_digest import build_digest  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
-from api.domain.polity.trajectory import largest_relative_shift  # noqa: E402
+from api.domain.polity.trajectory import ARCHETYPE_VERSION, REALIGNMENT_SPREADS, largest_relative_shift  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
 NON_TRIVIAL = 0.05
@@ -104,7 +104,7 @@ def load_rows(out: Path) -> list[dict[str, Any]]:
 def run(args: argparse.Namespace) -> int:
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
-    settings = {"runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population}
+    settings = {"runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population, "archetype_version": ARCHETYPE_VERSION}
     settings_path = out / "settings.json"
     if settings_path.exists() and json.loads(settings_path.read_text()) != settings:
         print(f"{out} holds a sweep run with {json.loads(settings_path.read_text())}, not {settings}: use another --out", file=sys.stderr)
@@ -160,6 +160,17 @@ def boxes_for(rows: list[dict[str, Any]], label: str) -> list[str]:
     return lines + [""]
 
 
+def sensitivity(rows: list[dict[str, Any]]) -> list[str]:
+    """The runs relabelled at other realignment thresholds: how many archetypes reach NON_TRIVIAL of the runs, and each count.
+    The row is a run made under ARCHETYPE_VERSION's rules, so the shipped threshold's line equals the run's own labels."""
+    lines = ["### Other realignment thresholds (the same runs, relabelled)", "", "| spreads | realignment | churn | alternation | stasis | archetypes at 5% or more |", "|---:|---:|---:|---:|---:|---:|"]
+    for threshold in sorted({0.25, REALIGNMENT_SPREADS, 0.75, 1.0}):
+        counts = collections.Counter(relabel(r, threshold) for r in rows)
+        frequent = sum(n / len(rows) >= NON_TRIVIAL for n in counts.values())
+        lines.append(f"| {threshold} | {counts['realignment']} | {counts['churn']} | {counts['alternation']} | {counts['stasis']} | {frequent} |")
+    return lines + [""]
+
+
 def report(args: argparse.Namespace) -> int:
     rows = load_rows(args.out)
     ok = [r for r in rows if "error" not in r]
@@ -182,6 +193,7 @@ def report(args: argparse.Namespace) -> int:
         lines += boxes_for(in_band, "Inside the plausibility band")
     else:
         lines += [f"Inside the plausibility band there are {len(in_band)} runs, under {MIN_BAND_ROWS}: no band-only boxes.", ""]
+    lines += sensitivity(ok)
     text = "\n".join(lines)
     (args.out / "report.md").write_text(text + "\n")
     print(text)

@@ -9,8 +9,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from api.domain.polity.catalogue import DIMENSIONS, Dimension, apply_point, prim, sample
+from api.domain.polity.catalogue import DIMENSIONS, Dimension, apply_point, prim, relabel, sample
 from api.domain.polity.config import validate_config
+from api.domain.polity.trajectory import ARCHETYPE_VERSION
 
 N = 200
 
@@ -130,13 +131,15 @@ def test_the_report_counts_archetypes_and_reads_a_box_only_for_the_frequent_ones
         high = float(rng.random())
         point = {d.name: (d.levels[0] if d.categorical else d.low) for d in DIMENSIONS} | {"polarization_pressure": high}
         archetype = "realignment" if high > 0.5 else ("churn" if i % 20 == 0 else "stasis")
-        rows.append({"index": i, "seed": i, "point": point, "archetype": archetype, "failed": [] if i % 2 else ["turnout"]})
+        rows.append({"index": i, "seed": i, "point": point, "archetype": archetype, "failed": [] if i % 2 else ["turnout"],
+                     "max_rel_shift": 0.6 if archetype == "realignment" else 0.1, "max_volatility": 0.5 if archetype == "churn" else 0.0, "alternations": 0})
     rows.append({"index": 99, "seed": 99, "point": rows[0]["point"], "error": "ValueError: boom"})
     (tmp_path / "rows.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     assert runner.report(argparse.Namespace(out=tmp_path)) == 0
     text = (tmp_path / "report.md").read_text()
     assert "81 runs (80 read, 1 errored)" in text and "ValueError: boom" in text
     assert "realignment" in text and "polarization_pressure" in text  # the box that explains it
+    assert "Other realignment thresholds" in text
     assert "Inside the plausibility band there are 40 runs, under 60" in text
     assert runner.report(argparse.Namespace(out=tmp_path / "missing")) == 1  # nothing to read
 
@@ -154,13 +157,24 @@ def test_resume_runs_an_errored_point_again_and_refuses_other_settings(runner: A
 
     args = argparse.Namespace(out=tmp_path, runs=2, seed=1, years=2, population=30, workers=2)
     (tmp_path / "rows.jsonl").write_text(json.dumps({"index": 0, "seed": 1, "point": {}, "error": "OSError: disk full"}) + "\n")
-    (tmp_path / "settings.json").write_text(json.dumps({"runs": 2, "seed": 1, "years": 2, "population": 30}))
+    (tmp_path / "settings.json").write_text(json.dumps({"runs": 2, "seed": 1, "years": 2, "population": 30, "archetype_version": ARCHETYPE_VERSION}))
     assert runner.run(args) == 0  # point 0 errored before: it is run again, with point 1
     rows = runner.load_rows(tmp_path)
     assert [r["index"] for r in rows] == [0, 1] and all("error" not in r for r in rows)
     assert runner.run(argparse.Namespace(out=tmp_path, runs=2, seed=1, years=5, population=30, workers=2)) == 2  # other settings: refused
+    old = json.loads((tmp_path / "settings.json").read_text()) | {"archetype_version": 2}
+    (tmp_path / "settings.json").write_text(json.dumps(old))
+    assert runner.run(args) == 2  # rows labelled by other rules are not mixed with this version's
 
 
 def test_the_runner_wants_a_positive_number_of_workers(runner: Any) -> None:
     with pytest.raises(SystemExit):
         runner.main(["report", "--out", "/nonexistent", "--workers", "0"])
+
+
+def test_a_row_is_relabelled_by_the_rules_from_realignment_down() -> None:
+    row = {"archetype": "stasis", "max_rel_shift": 0.6, "max_volatility": 0.1, "alternations": 0}
+    assert relabel(row, 0.5) == "realignment" and relabel(row, 0.75) == "stasis"
+    assert relabel(dict(row, max_volatility=0.5), 0.75) == "churn"  # churn comes before alternation
+    assert relabel(dict(row, alternations=2), 0.75) == "alternation"
+    assert relabel(dict(row, archetype="collapse"), 0.75) == "collapse"  # a label from before realignment stays

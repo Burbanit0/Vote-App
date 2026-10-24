@@ -42,8 +42,12 @@ RECALL_CYCLE_RECALLS = 2
 FRAGMENTATION_ENP = 8.0
 REALIGNMENT_SPREADS = 0.5
 """ADR-037: a realignment is the population's mean moving this many of its own spreads (the standard deviation along its first
-principal axis, at the first census of the block) from where it started. Half a spread is a medium effect (Cohen's d).
-Until ADR-037 the threshold was a fixed 0.1 in issue units, which 89% of the catalogue's 15-year runs crossed."""
+principal axis, at the first census of the block) from where it started. A round fraction, not a derived one: the numerator is
+a norm over the issues and the denominator a spread along one axis, so it is not a Cohen's d. Until ADR-037 the threshold was
+a fixed 0.1 in issue units, which 89% of the catalogue's 15-year runs crossed."""
+MIN_SPREAD = 0.01
+"""A first census narrower than this (positions run 0 to 1) is a population that has all but collapsed to one view: any
+movement would read as a huge fraction of nothing, so no shift is measured against it."""
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
 ARCHETYPE_BLOCK_YEARS = 8
@@ -266,9 +270,9 @@ def _is_dominant_party(summary: Summary) -> bool:
 
 def largest_relative_shift(polarization: Sequence[Mapping[str, Any]]) -> float:
     """The largest `mean_shift` of the censuses, in units of the first census's `dispersion`; 0 when the first census has
-    none (fewer than four citizens, or no spread), since a shift cannot be measured against nothing."""
+    none (fewer than four citizens, or under `MIN_SPREAD`), since a shift cannot be measured against nothing."""
     spread = polarization[0]["dispersion"] if polarization else None
-    return max(row["mean_shift"] for row in polarization) / spread if spread else 0.0
+    return max(row["mean_shift"] for row in polarization) / spread if spread and spread >= MIN_SPREAD else 0.0
 
 
 def _is_realignment(summary: Summary) -> bool:
