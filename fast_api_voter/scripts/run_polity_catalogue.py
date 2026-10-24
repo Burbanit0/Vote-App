@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import concurrent.futures
 import multiprocessing
 import shutil
 import statistics
@@ -38,6 +39,8 @@ from run_polity_flagship import _flagship_config  # noqa: E402
 
 NON_TRIVIAL = 0.05
 """An archetype counts when at least this share of the runs read as it."""
+MIN_CLASS_ROWS = 20
+"""An archetype with fewer runs than this is counted but its box is not read: a box of a handful of points is noise."""
 MIN_BAND_ROWS = 60
 """Below this many runs inside the plausibility band the band-only boxes are not worth reading."""
 
@@ -69,7 +72,8 @@ def read_trajectory(trajectory: dict[str, Any]) -> dict[str, Any]:
     """The row a run leaves: its archetype, the plausibility checks it failed, and a few numbers."""
     office, legislative = trajectory["office"], trajectory["legislative"]
     enp = [x["enp_seats"] for x in legislative if x["enp_seats"] is not None]
-    last = trajectory["polarization"][-1]
+    polarization = trajectory["polarization"]
+    last = polarization[-1] if polarization else {"dispersion": None, "bimodality": None}
     return {
         "archetype": trajectory["archetype"],
         "failed": list(trajectory["plausibility_failed"]),
@@ -81,35 +85,57 @@ def read_trajectory(trajectory: dict[str, Any]) -> dict[str, Any]:
         "enp": statistics.mean(enp) if enp else None,
         "dispersion": last["dispersion"],
         "bimodality": last["bimodality"],
-        "mean_shift": last["mean_shift"],
+        # the realignment rule reads the largest shift of the run (trajectory._is_realignment), not the last
+        "max_shift": max((row["mean_shift"] for row in polarization), default=0.0),
     }
 
 
 def load_rows(out: Path) -> list[dict[str, Any]]:
+    """The rows written so far, the latest row of each point (a point that errored and was run again has its new row)."""
     path = out / "rows.jsonl"
-    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+    latest = {row["index"]: row for row in map(json.loads, path.read_text().splitlines())} if path.exists() else {}
+    return [latest[i] for i in sorted(latest)]
 
 
 def run(args: argparse.Namespace) -> int:
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
+    settings = {"runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population}
+    settings_path = out / "settings.json"
+    if settings_path.exists() and json.loads(settings_path.read_text()) != settings:
+        print(f"{out} holds a sweep run with {json.loads(settings_path.read_text())}, not {settings}: use another --out", file=sys.stderr)
+        return 2
+    settings_path.write_text(json.dumps(settings))
     points = sample(args.runs, args.seed)
-    done = {row["index"] for row in load_rows(out)}
+    done = {row["index"] for row in load_rows(out) if "error" not in row}  # an errored point is run again
     jobs = [(i, p, args.seed * 100_000 + i, args.years, args.population, str(out)) for i, p in enumerate(points) if i not in done]
     print(f"{len(points)} points, {len(done)} already done, {len(jobs)} to run on {args.workers} workers", flush=True)
-    with multiprocessing.get_context("fork").Pool(args.workers) as pool, (out / "rows.jsonl").open("a") as sink:
-        for n, row in enumerate(pool.imap_unordered(run_point, jobs), 1):
-            sink.write(json.dumps(row) + "\n")
-            sink.flush()
-            if n % 50 == 0:
-                print(f"  {n}/{len(jobs)}", flush=True)
+    context = multiprocessing.get_context("fork")
+    try:
+        with concurrent.futures.ProcessPoolExecutor(args.workers, mp_context=context) as pool, (out / "rows.jsonl").open("a") as sink:
+            futures = [pool.submit(run_point, job) for job in jobs]
+            for n, future in enumerate(concurrent.futures.as_completed(futures), 1):
+                sink.write(json.dumps(future.result()) + "\n")
+                sink.flush()
+                if n % 50 == 0:
+                    print(f"  {n}/{len(jobs)}", flush=True)
+    except concurrent.futures.process.BrokenProcessPool:
+        print("a worker died (killed or out of memory): the rows written so far are kept, run again to resume", file=sys.stderr)
+        return 1
     return report(args)
 
 
 def describe(box: Box) -> str:
     cuts = []
     for name, cut in box.restrictions.items():
-        cuts.append(f"{name} in {{{', '.join(cut)}}}" if cut and isinstance(cut[0], str) else f"{cut[0]:.3g} <= {name} <= {cut[1]:.3g}")  # type: ignore[index]
+        if isinstance(cut[0], str):
+            cuts.append(f"{name} in {{{', '.join(str(level) for level in cut)}}}")
+        elif cut[1] == float("inf"):
+            cuts.append(f"{name} >= {cut[0]:.3g}")
+        elif cut[0] == float("-inf"):
+            cuts.append(f"{name} <= {cut[1]:.3g}")
+        else:
+            cuts.append(f"{cut[0]:.3g} <= {name} <= {cut[1]:.3g}")
     return "; ".join(cuts) if cuts else "(no restriction)"
 
 
@@ -119,8 +145,8 @@ def boxes_for(rows: list[dict[str, Any]], label: str) -> list[str]:
     lines = [f"### {label} ({len(rows)} runs)", "", "| archetype | runs | share | box | support | density | coverage |", "|---|---:|---:|---|---:|---:|---:|"]
     for archetype, n in counts.most_common():
         share = n / len(rows)
-        if share < NON_TRIVIAL:
-            lines.append(f"| {archetype} | {n} | {share:.1%} | below {NON_TRIVIAL:.0%}: not read | | | |")
+        if share < NON_TRIVIAL or n < MIN_CLASS_ROWS:
+            lines.append(f"| {archetype} | {n} | {share:.1%} | under {NON_TRIVIAL:.0%} of the runs or {MIN_CLASS_ROWS} runs: not read | | | |")
             continue
         box = prim([r["point"] for r in rows], [r["archetype"] == archetype for r in rows])
         if box is None:
@@ -158,6 +184,13 @@ def report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{text} is not a positive integer")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("run", "report"))
@@ -166,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--years", type=int, default=15)
     parser.add_argument("--population", type=int, default=100)
-    parser.add_argument("--workers", type=int, default=max(1, (multiprocessing.cpu_count() or 2) - 2))
+    parser.add_argument("--workers", type=_positive, default=max(1, (multiprocessing.cpu_count() or 2) - 2))
     args = parser.parse_args(argv)
     return run(args) if args.command == "run" else report(args)
 

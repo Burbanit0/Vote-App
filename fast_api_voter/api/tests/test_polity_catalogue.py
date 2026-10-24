@@ -67,7 +67,7 @@ def test_prim_finds_the_box_that_makes_the_target_and_leaves_an_irrelevant_dimen
     assert box is not None
     assert box.density > 0.85 and box.coverage > 0.6  # most of the class, almost nothing else
     assert "noise" not in box.restrictions  # the dimension that does nothing is not cut
-    assert box.restrictions["kind"] == ("a",) and box.restrictions["x"][0] > 0.6
+    assert box.restrictions["kind"] == ("a",) and box.restrictions["x"][0] > 0.6 and box.restrictions["x"][1] == float("inf")  # open above
     assert box.support >= 0.03 and box.path[0] == (1.0, pytest.approx(sum(target) / len(target)))
 
 
@@ -107,7 +107,10 @@ def test_a_point_runs_into_a_row_and_leaves_no_run_directory(runner: Any, tmp_pa
     row = runner.run_point((7, point, 5, 3, 40, str(tmp_path)))
     assert "error" not in row, row.get("trace")
     assert row["index"] == 7 and row["point"] == point and row["archetype"]
-    assert set(row["failed"]) <= {"turnout", "volatility", "panel_stability", "enp", "office_occupancy"} | set(row["failed"])
+    from api.domain.polity.trajectory import PLAUSIBILITY_BAND
+
+    assert set(row["failed"]) <= set(PLAUSIBILITY_BAND)  # only checks the digest knows
+    assert row["max_shift"] >= 0.0
     assert not (tmp_path / "runs" / "7").exists()
 
 
@@ -136,3 +139,28 @@ def test_the_report_counts_archetypes_and_reads_a_box_only_for_the_frequent_ones
     assert "realignment" in text and "polarization_pressure" in text  # the box that explains it
     assert "Inside the plausibility band there are 40 runs, under 60" in text
     assert runner.report(argparse.Namespace(out=tmp_path / "missing")) == 1  # nothing to read
+
+
+def test_prim_does_not_take_a_box_of_a_few_lucky_points() -> None:
+    rows = _rows(400)
+    rare = [i in (3, 90, 200) for i in range(400)]  # three target points scattered at random
+    box = prim(rows, rare, _TWO, alpha=0.1, min_support=0.05, min_hits=3)
+    assert box is None or box.coverage == pytest.approx(1.0)  # a box has all three, or there is none
+
+
+def test_resume_runs_an_errored_point_again_and_refuses_other_settings(runner: Any, tmp_path: Path) -> None:
+    import argparse
+    import json
+
+    args = argparse.Namespace(out=tmp_path, runs=2, seed=1, years=2, population=30, workers=2)
+    (tmp_path / "rows.jsonl").write_text(json.dumps({"index": 0, "seed": 1, "point": {}, "error": "OSError: disk full"}) + "\n")
+    (tmp_path / "settings.json").write_text(json.dumps({"runs": 2, "seed": 1, "years": 2, "population": 30}))
+    assert runner.run(args) == 0  # point 0 errored before: it is run again, with point 1
+    rows = runner.load_rows(tmp_path)
+    assert [r["index"] for r in rows] == [0, 1] and all("error" not in r for r in rows)
+    assert runner.run(argparse.Namespace(out=tmp_path, runs=2, seed=1, years=5, population=30, workers=2)) == 2  # other settings: refused
+
+
+def test_the_runner_wants_a_positive_number_of_workers(runner: Any) -> None:
+    with pytest.raises(SystemExit):
+        runner.main(["report", "--out", "/nonexistent", "--workers", "0"])

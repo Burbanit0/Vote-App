@@ -91,7 +91,7 @@ def apply_point(config: PolityConfig, point: Mapping[str, Value], dimensions: Se
 @dataclass(frozen=True)
 class Box:
     """A region of the settings in which the target is frequent: `restrictions` are the dimensions it cuts, as
-    (low, high) for a range and as the levels kept for a categorical one."""
+    (low, high) for a range (-inf or inf on the side it leaves open) and as the levels kept for a categorical one."""
 
     restrictions: Mapping[str, tuple[float, float] | tuple[str, ...]]
     support: float
@@ -106,11 +106,13 @@ class Box:
 
 def prim(
     points: Sequence[Mapping[str, Value]], target: Sequence[bool], dimensions: Sequence[Dimension] = DIMENSIONS,
-    alpha: float = 0.1, min_support: float = 0.05,
+    alpha: float = 0.1, min_support: float = 0.05, min_hits: int = 5,
 ) -> Box | None:
     """Peel the box down to `min_support` of the points, each step the cut that leaves the highest share of `target`,
-    and return the box on the path with the highest density (the earliest on a tie, so the larger). None when nothing
-    is in the target class or the box could not be peeled at all."""
+    and return the box on the path with the highest density (the earliest on a tie, so the larger) among those holding
+    at least `min_hits` target points (or all of them, if the class is smaller): a box of two lucky points is not a
+    finding. A cut side that was never cut is open (-inf or inf). None when nothing is in the target class or the box
+    could not be peeled at all."""
     hit = np.asarray(target, dtype=bool)
     total, positives = len(hit), int(hit.sum())
     if not total or not positives:
@@ -121,6 +123,7 @@ def prim(
     inside = np.ones(total, dtype=bool)
     bounds: dict[str, list[float]] = {d.name: [d.low, d.high] for d in dimensions if not d.categorical}
     kept: dict[str, set[str]] = {d.name: set(d.levels) for d in dimensions if d.categorical}
+    needed = min(min_hits, positives)
     best, path = (1.0, positives / total, dict(bounds), {k: set(v) for k, v in kept.items()}), [(1.0, positives / total)]
     while inside.sum() / total > min_support:
         candidate = _best_cut(columns, dimensions, inside, hit, alpha)
@@ -133,7 +136,7 @@ def prim(
             kept[name].discard(cut)
         support, density = float(inside.sum()) / total, float(hit[inside].mean())
         path.append((support, density))
-        if support >= min_support and density > best[1]:
+        if support >= min_support and density > best[1] and int(hit[inside].sum()) >= needed:
             best = (support, density, {k: list(v) for k, v in bounds.items()}, {k: set(v) for k, v in kept.items()})
     support, density, final_bounds, final_kept = best
     if support == 1.0:
@@ -143,7 +146,8 @@ def prim(
         if dim.categorical and final_kept[dim.name] != set(dim.levels):
             restrictions[dim.name] = tuple(level for level in dim.levels if level in final_kept[dim.name])
         elif not dim.categorical and final_bounds[dim.name] != [dim.low, dim.high]:
-            restrictions[dim.name] = (float(final_bounds[dim.name][0]), float(final_bounds[dim.name][1]))
+            low, high = final_bounds[dim.name]
+            restrictions[dim.name] = (float("-inf") if low == dim.low else float(low), float("inf") if high == dim.high else float(high))
     return Box(restrictions=restrictions, support=support, density=density, coverage=density * support * total / positives, path=tuple(path))
 
 
