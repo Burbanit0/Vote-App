@@ -345,7 +345,7 @@ pydantic==2.14.1
     #   -r requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.0
+pydantic-core==2.50.1
     # via
     #   -c requirements.lock.txt
     #   pydantic
