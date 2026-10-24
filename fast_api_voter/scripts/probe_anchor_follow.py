@@ -24,6 +24,7 @@ import argparse
 import dataclasses
 import statistics
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +32,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from api.domain.polity.citizen import generate_population, latent_structure  # noqa: E402
+from api.domain.polity.citizen import Citizen, LatentStructure, generate_population, latent_structure  # noqa: E402
+from api.domain.polity.config import DynamicsConfig  # noqa: E402
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, current_factors, shift_stance  # noqa: E402
 from api.domain.polity.social_graph import generate_social_graph  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
@@ -41,7 +43,7 @@ SEEDS = range(1, 11)
 TICKS_PER_YEAR, YEARS, STEP, HIGH_POLE, ON_ISSUE_0 = 4, 8, 0.25, 0.85, 0.5
 
 
-def _world(seed: int, population: int):
+def _world(seed: int, population: int) -> tuple[list[Citizen], LatentStructure, NeighbourEdges, DynamicsConfig]:
     config = _flagship_config(
         engine="deterministic", years=YEARS, population=population, seats=15, seed=seed, output_dir=Path("/nonexistent"),
         max_batch_replays=0, provider=None, workers=1, profile="exploration",
@@ -55,7 +57,7 @@ def _world(seed: int, population: int):
     return citizens, structure, NeighbourEdges.from_graph(graph), dataclasses.replace(config.dynamics, enabled=True)
 
 
-def _positions(citizens) -> np.ndarray:
+def _positions(citizens: Sequence[Citizen]) -> np.ndarray:
     return np.array([c.issue_positions for c in citizens])
 
 
