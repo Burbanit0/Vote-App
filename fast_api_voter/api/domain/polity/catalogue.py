@@ -120,52 +120,92 @@ def prim(
     columns = {
         dim.name: np.array([p[dim.name] for p in points], dtype=object if dim.categorical else float) for dim in dimensions
     }
-    inside = np.ones(total, dtype=bool)
-    bounds: dict[str, list[float]] = {d.name: [d.low, d.high] for d in dimensions if not d.categorical}
-    kept: dict[str, set[str]] = {d.name: set(d.levels) for d in dimensions if d.categorical}
-    needed = min(min_hits, positives)
-    best, path = (1.0, positives / total, dict(bounds), {k: set(v) for k, v in kept.items()}), [(1.0, positives / total)]
+    (support, density, final), path = _peel(columns, dimensions, hit, alpha, min_support, min(min_hits, positives))
+    if support == 1.0:
+        return None
+    return Box(
+        restrictions=final.restrictions(dimensions), support=support, density=density,
+        coverage=density * support * total / positives, path=tuple(path),
+    )
+
+
+def _peel(
+    columns: Mapping[str, np.ndarray], dimensions: Sequence[Dimension], hit: np.ndarray, alpha: float, min_support: float,
+    needed: int,
+) -> tuple[tuple[float, float, _Peel], list[tuple[float, float]]]:
+    """The peeling path, and the densest box on it with at least `min_support` and `needed` target points (the whole
+    sample if none is denser)."""
+    total = len(hit)
+    inside, peel = np.ones(total, dtype=bool), _Peel.whole(dimensions)
+    best, path = (1.0, float(hit.mean()), peel.copy()), [(1.0, float(hit.mean()))]
     while inside.sum() / total > min_support:
         candidate = _best_cut(columns, dimensions, inside, hit, alpha)
         if candidate is None:
             break
         inside, name, cut = candidate
-        if isinstance(cut, tuple):
-            bounds[name] = [max(bounds[name][0], cut[0]), min(bounds[name][1], cut[1])]
-        else:
-            kept[name].discard(cut)
+        peel.apply(name, cut)
         support, density = float(inside.sum()) / total, float(hit[inside].mean())
         path.append((support, density))
         if support >= min_support and density > best[1] and int(hit[inside].sum()) >= needed:
-            best = (support, density, {k: list(v) for k, v in bounds.items()}, {k: set(v) for k, v in kept.items()})
-    support, density, final_bounds, final_kept = best
-    if support == 1.0:
-        return None
-    restrictions: dict[str, tuple[float, float] | tuple[str, ...]] = {}
-    for dim in dimensions:
-        if dim.categorical and final_kept[dim.name] != set(dim.levels):
-            restrictions[dim.name] = tuple(level for level in dim.levels if level in final_kept[dim.name])
-        elif not dim.categorical and final_bounds[dim.name] != [dim.low, dim.high]:
-            low, high = final_bounds[dim.name]
-            restrictions[dim.name] = (float("-inf") if low == dim.low else float(low), float("inf") if high == dim.high else float(high))
-    return Box(restrictions=restrictions, support=support, density=density, coverage=density * support * total / positives, path=tuple(path))
+            best = (support, density, peel.copy())
+    return best, path
+
+
+Cut = tuple[float, float] | str
+"""A peel: (low, high) kept on a numeric dimension (inf on the side not cut), or the level dropped from a categorical one."""
+
+
+@dataclass
+class _Peel:
+    """Where the box stands: the range kept on each numeric dimension, the levels kept on each categorical one."""
+
+    bounds: dict[str, list[float]]
+    kept: dict[str, set[str]]
+
+    @classmethod
+    def whole(cls, dimensions: Sequence[Dimension]) -> _Peel:
+        return cls(
+            bounds={d.name: [d.low, d.high] for d in dimensions if not d.categorical},
+            kept={d.name: set(d.levels) for d in dimensions if d.categorical},
+        )
+
+    def copy(self) -> _Peel:
+        return _Peel(bounds={k: list(v) for k, v in self.bounds.items()}, kept={k: set(v) for k, v in self.kept.items()})
+
+    def apply(self, name: str, cut: Cut) -> None:
+        if isinstance(cut, tuple):
+            self.bounds[name] = [max(self.bounds[name][0], cut[0]), min(self.bounds[name][1], cut[1])]
+        else:
+            self.kept[name].discard(cut)
+
+    def restrictions(self, dimensions: Sequence[Dimension]) -> dict[str, tuple[float, float] | tuple[str, ...]]:
+        """The dimensions the box cuts; a numeric side left where it started is open."""
+        cuts: dict[str, tuple[float, float] | tuple[str, ...]] = {}
+        for dim in dimensions:
+            if dim.categorical and self.kept[dim.name] != set(dim.levels):
+                cuts[dim.name] = tuple(level for level in dim.levels if level in self.kept[dim.name])
+            elif not dim.categorical and self.bounds[dim.name] != [dim.low, dim.high]:
+                low, high = self.bounds[dim.name]
+                cuts[dim.name] = (float("-inf") if low == dim.low else float(low), float("inf") if high == dim.high else float(high))
+        return cuts
+
+
+def _options(dim: Dimension, column: np.ndarray, inside: np.ndarray, alpha: float) -> list[tuple[np.ndarray, Cut]]:
+    """The peels a dimension offers: drop one level still in the box, or its lowest or highest `alpha` share."""
+    if dim.categorical:
+        return [(inside & (column != level), level) for level in dim.levels if (inside & (column == level)).any()]
+    low, high = float(np.quantile(column[inside], alpha)), float(np.quantile(column[inside], 1 - alpha))
+    return [(inside & (column >= low), (low, float("inf"))), (inside & (column <= high), (float("-inf"), high))]
 
 
 def _best_cut(
     columns: Mapping[str, np.ndarray], dimensions: Sequence[Dimension], inside: np.ndarray, hit: np.ndarray, alpha: float,
-) -> tuple[np.ndarray, str, tuple[float, float] | str] | None:
+) -> tuple[np.ndarray, str, Cut] | None:
     """The peel that leaves the highest share of the target (the larger remainder on a tie), among those that take
     at least one point out and leave at least one in."""
-    best: tuple[float, int, np.ndarray, str, tuple[float, float] | str] | None = None
+    best: tuple[float, int, np.ndarray, str, Cut] | None = None
     for dim in dimensions:
-        column = columns[dim.name]
-        options: list[tuple[np.ndarray, tuple[float, float] | str]] = []
-        if dim.categorical:
-            options = [(inside & (column != level), level) for level in dim.levels if (inside & (column == level)).any()]
-        else:
-            low, high = float(np.quantile(column[inside], alpha)), float(np.quantile(column[inside], 1 - alpha))
-            options = [(inside & (column >= low), (low, float("inf"))), (inside & (column <= high), (float("-inf"), high))]
-        for remaining, cut in options:
+        for remaining, cut in _options(dim, columns[dim.name], inside, alpha):
             kept = int(remaining.sum())
             if kept == 0 or kept == int(inside.sum()):
                 continue
