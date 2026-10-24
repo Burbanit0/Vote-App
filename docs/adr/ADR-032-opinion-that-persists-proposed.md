@@ -1,6 +1,6 @@
 # ADR-032 (proposed): opinion that persists
 
-**Status**: Proposed — for the owner's decision; nothing here changes the engine.
+**Status**: Option D chosen by the owner on 2026-10-21 (plan-scenarios-v1) and built 2026-10-24 (`dynamics.anchor_follow`, 0 by default, off in every profile; see "Built: option D" below). Options B, C and E remain proposals and change nothing. (The file keeps its `-proposed` name so the links to it hold.)
 **Date**: 2026-10-21
 **Context**: proposition #4 of the 2026-10-21 polity-engine investigation. ADR-012 gave citizens drifting views,
 ADR-016/017 gave them a forum where a citizen can change their mind. The question is whether, in the runs, anyone's
@@ -104,3 +104,24 @@ The forum-shift persistence (66% after a year, 3% after eight) follows from the 
 (`0.9^4` and `0.9^32`); the forum shift's share of displacement, the direction and issue concentration of shifts, and the
 chamber's direction come from the investigation's scripts (not in the repo) and are reproduced by the experiment above
 when it is run.
+
+## Built: option D (plan-scenarios-v1, step 4)
+
+**`dynamics.anchor_follow`** (0 by default, a ratio in [0, 1]): when a citizen changes their mind in the forum (`agents.stance_step`), the same step moves their anchor by this share (`anchor += k * step`, in the latent factors, along the issue's loading, the step `shift_stance` already applies to the views). The citizen's anchor is their own `anchor_factors` (ADR-035) if they have one, else the structure's; a citizen who moves it gets one, and it is checkpointed like a newcomer's. A config rule requires `dynamics.enabled` and `susceptibility` < 1 (at 1 the anchor is never read, so the setting would be silently inert). With the setting at 0 nothing changes: the explorer fixture's journal and census are byte-identical (its config hash moved with the new key).
+
+**Measured, on the CPU, with the forum emulated** (the pre-registered test's own prescription for options D and E, because the rule-only twin has no forum): `python scripts/probe_anchor_follow.py` (100 citizens, exploration profile's dynamics, ten seeds, each tick each citizen shifts with chance 0.01 by 0.25 logit, toward the high pole 85% of the time, on issue 0 half the time; every arm sees the same shifts). The control reproduces the ADR's own figure (66% of a shift remains after a year, 4% after eight), so the emulation is a fair stand-in for the mechanism, though the rate, issues and poles are the investigation's measurements and not a model's.
+
+| `anchor_follow` | shift kept after 1 year | after 8 years | displacement, years 5-8 | spread at year 8 / year 0 |
+|---:|---:|---:|---:|---:|
+| 0 (control) | 0.66 | 0.04 | 0.0187 | 0.95 |
+| 0.1 | 0.70 | 0.14 | 0.0186 | 0.95 |
+| 0.25 | 0.75 | 0.28 | 0.0187 | 0.95 |
+| 0.5 | 0.83 | 0.52 | 0.0179 | 0.95 |
+| 1.0 | 1.01 | 1.01 | 0.0176 | 0.95 |
+
+- **What D does, it does as designed**: a stance taken in the forum is kept in proportion to `k` (about `k` of it is left after eight years, instead of 4%), and the spread of views does not collapse (0.95 in every arm, against ADR-012's floor of 0.8).
+- **What it does not do is keep opinion moving.** The pre-registered criterion (1) was "mean yearly displacement in years 5-8 significantly above control". It is not met: displacement is the same or slightly lower with a larger `k` (0.0176 to 0.0187 against 0.0187; above the control in at most 5 of 10 seeds). That follows from the mechanism: a kept shift is a one-off displacement that the dynamics then settle around the new anchor; it adds a lasting difference between citizens, not a lasting velocity. The criterion (2), "above 0.3 one year later", is met by the control itself (0.66), so it did not discriminate; the figure that does is the share kept after eight years (0.04 to 1.01 above).
+- **So the criterion was ill-matched to the option.** D answers "does argument leave a trace" (yes, in proportion to `k`); "does opinion keep moving after year four" needs B (a random walk) or C (less pull to the start), which this change does not touch. I did not move the criterion to fit the result.
+- **No value is recommended.** `k` is a statement about how much of a forum conversion is conviction rather than mood, which the runs cannot tell; 0.25-0.5 keeps a quarter to a half after eight years. It stays 0 in the scenario profile because the rule-only twin has no forum (nothing moves an anchor there) and the model arm has not run (no vLLM; the GPU is shared).
+
+**Left for the live check**: the paired 8B runs, 10 seeds at 8 years, of the pre-registered test (outcomes 1-6), which need the model; the 27B makes no shifts (OBS-053), so D is irrelevant to that model. Option E (the chamber's deliberation reaching opinion) is untouched.

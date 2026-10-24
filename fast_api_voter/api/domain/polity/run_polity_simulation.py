@@ -960,7 +960,7 @@ def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn 
         return -1, 0.0
     assert context.latent is not None  # validate_config: stance_step needs dynamics.enabled
     logit = step if turn.shift_direction == "high" else -step
-    shift_stance(citizen, context.latent, turn.shift_issue, logit)
+    shift_stance(citizen, context.latent, turn.shift_issue, logit, context.config.dynamics.anchor_follow)
     return turn.shift_issue, logit
 
 

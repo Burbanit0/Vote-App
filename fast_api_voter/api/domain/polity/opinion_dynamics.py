@@ -117,13 +117,19 @@ def current_factors(citizens: Sequence[Citizen], structure: LatentStructure) -> 
     ], dtype=float).reshape(-1, structure.anchors.shape[1])
 
 
-def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float) -> None:
+def shift_stance(citizen: Citizen, structure: LatentStructure, issue: int, logit: float, anchor_follow: float = 0.0) -> None:
     """ADR-017: move one citizen `logit` (signed, toward the issue's high pole) on one issue, along that
-    issue's loading, so the issues that load with it move too; the dynamics then pull them back."""
+    issue's loading, so the issues that load with it move too; the dynamics then pull them back.
+    ADR-032 D: with `anchor_follow` > 0 the citizen's anchor moves that share of the same step, so part of
+    the stance stays (the citizen's own anchor starts as the structure's, or a newcomer's, ADR-035)."""
     loading = structure.loadings[issue]
-    factors = current_factors([citizen], structure) + logit * loading / float(loading @ loading)
+    step = logit * loading / float(loading @ loading)
+    factors = current_factors([citizen], structure) + step
     citizen.latent_factors = tuple(float(x) for x in factors[0])
     citizen.issue_positions = tuple(float(x) for x in structure.positions(factors, [citizen.citizen_id])[0])
+    if anchor_follow > 0:
+        anchor = np.array(citizen.anchor_factors if citizen.anchor_factors is not None else structure.anchors[citizen.citizen_id])
+        citizen.anchor_factors = tuple(float(x) for x in anchor + anchor_follow * step)
 
 
 def _anchors(citizens: Sequence[Citizen], structure: LatentStructure) -> np.ndarray:
