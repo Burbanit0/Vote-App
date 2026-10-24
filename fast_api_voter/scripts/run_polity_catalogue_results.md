@@ -3,68 +3,70 @@
 plan-scenarios-v1, step 6. Reproduced by `python scripts/run_polity_catalogue.py run --out <dir> --runs 1000 --seed 1`
 (then `report`): the rule-only scenario twin, 15 years, 100 citizens, one run per point of a Latin hypercube over the ten
 settings of `api/domain/polity/catalogue.py::DIMENSIONS`, a run seed of its own per point, 14 workers, about 8 minutes.
-Run twice: the two sweeps agree on the archetype and the failed checks of all 1,000 points. A reading, not a
-pre-registered experiment.
+Run three times (two under the first label, one under ADR-037's): the runs agree point for point, and only the labels
+differ between the labelling versions. A reading, not a pre-registered experiment.
 
-**The step's gate is not met: 2 archetypes reach 5% of the runs, not 4.** The sweep works (1,000 of 1,000 runs read, none
-errored; PRIM runs and finds boxes), but the runs are one story: 89% read as realignment.
+**The step's gate is still not met: 3 archetypes reach 5% of the runs, not 4** (stasis is at 4.0%, 40 runs). It was
+first not met because the realignment label fired on 89% of the runs (archetype version 2, a fixed 0.1); the owner
+had the rule changed to half the population's own spread ([ADR-037](../../docs/adr/ADR-037-realignment-against-the-populations-spread.md),
+version 3), which is the result below. The 5% for "non-trivial" is my reading; the plan does not number it.
 
-## Result
+## Result (archetype version 3)
 
-Archetypes at 5% or more of the runs: **2** (churn, realignment). Inside the plausibility band: **97** runs (9.7%). Checks failed: {'volatility': 670, 'turnout': 467, 'panel_stability': 309, 'enp_seats': 71}.
+Archetypes at 5% or more of the runs: **3** (alternation, churn, realignment). Inside the plausibility band: **97** runs (9.7%). Checks failed: {'volatility': 670, 'turnout': 467, 'panel_stability': 309, 'enp_seats': 71}.
 
 ### All runs (1000 runs)
 
 | archetype | runs | share | box | support | density | coverage |
 |---|---:|---:|---|---:|---:|---:|
-| realignment | 890 | 89.0% | method in {plurality, two_round, irv, borda, schulze}; threshold >= 0.0122; seat_rule in {dhondt}; scandal_rate >= 0.0165; polarization_pressure >= 0.265; ambition in {beta(2,8), beta(1,1)} | 11% | 100% (base 89%) | 12% |
-| churn | 76 | 7.6% | method in {plurality, two_round, irv, borda, schulze}; threshold <= 0.0902; seat_rule in {sainte_lague}; polarization_pressure <= 0.721; ambition in {beta(2,3)} | 6% | 21% (base 8%) | 17% |
-| alternation | 29 | 2.9% | under 5% of the runs or 20 runs: not read | | | |
-| stasis | 5 | 0.5% | under 5% of the runs or 20 runs: not read | | | |
+| churn | 603 | 60.3% | method in {plurality, irv, borda, copeland, schulze}; threshold >= 0.00866; seat_rule in {sainte_lague}; 0.118 <= economy_sigma <= 0.267; ambition in {beta(2,3)} | 6% | 87% (base 60%) | 8% |
+| alternation | 219 | 21.9% | method in {plurality, two_round, borda, copeland, schulze}; threshold <= 0.0914; seat_rule in {dhondt, largest_remainder}; economy_sigma <= 0.14; ambition in {beta(2,3)} | 5% | 67% (base 22%) | 16% |
+| realignment | 138 | 13.8% | method in {plurality, irv, schulze}; seat_rule in {dhondt, sainte_lague}; polarization_pressure >= 0.448; ambition in {beta(2,8)} | 6% | 41% (base 14%) | 18% |
+| stasis | 40 | 4.0% | under 5% of the runs or 20 runs: not read | | | |
 
 ### Inside the plausibility band (97 runs)
 
 | archetype | runs | share | box | support | density | coverage |
 |---|---:|---:|---|---:|---:|---:|
-| realignment | 86 | 88.7% | method in {two_round, irv, borda, copeland, schulze}; seat_rule in {dhondt, sainte_lague}; ambition in {beta(2,8), beta(1,1)} | 36% | 100% (base 89%) | 41% |
-| alternation | 8 | 8.2% | under 5% of the runs or 20 runs: not read | | | |
-| churn | 2 | 2.1% | under 5% of the runs or 20 runs: not read | | | |
-| stasis | 1 | 1.0% | under 5% of the runs or 20 runs: not read | | | |
+| alternation | 61 | 62.9% | method in {plurality, two_round, borda, copeland, schulze}; threshold <= 0.092; recall_floor <= 0.363; petition_threshold >= 0.082; ambition in {beta(2,3)} | 18% | 100% (base 63%) | 28% |
+| churn | 15 | 15.5% | under 5% of the runs or 20 runs: not read | | | |
+| realignment | 12 | 12.4% | under 5% of the runs or 20 runs: not read | | | |
+| stasis | 9 | 9.3% | under 5% of the runs or 20 runs: not read | | | |
 
 PRIM here is peeling only (`catalogue.prim`: alpha 0.1, minimum support 5%, at least 5 target points in a box), over the
 runs the table names; a box is a description of a sample, not a tested rule, and an archetype with fewer than 20 runs gets
-no box. A cut that leaves a side open is written as `>=` or `<=`. The realignment box is nearly empty of information: its
-density (100%) is only 11 points above the 89% every run has. The churn box (21% against 8%) is the one with some lift,
-and it names the seat rule (Sainte-Lague), a middling ambition distribution and low electoral thresholds; read it as a
-lead, not a result.
+no box (stasis, 40 runs and 4.0%, is under the 5% cutoff and gets none). A cut that
+leaves a side open is written as `>=` or `<=`. Three boxes have a real lift over the base rate:
 
-## What drives the realignment share: the label, not the settings
+- **alternation** (22% of the runs): a box at 67% density names a low electoral threshold, a low economy sigma and the
+  middling ambition distribution, with the proportional seat rules (D'Hondt, largest remainder);
+- **realignment** (14%): 41% density for `polarization_pressure >= 0.45`, Sainte-Lague or D'Hondt, and a skewed ambition
+  distribution, which is the radicalisation of ADR-033 doing what it should;
+- **churn** (60%): 87% density for Sainte-Lague, a mid-to-high economy sigma and a middling ambition distribution. With
+  60% as its base rate it is the new dominant label, not a finding by itself.
 
-The realignment rule is "the population's mean moved 0.1 or more from the first census at some census"
-(`trajectory._is_realignment`, the largest `mean_shift` of the run). In these 1,000 runs **89% have a largest shift of
-0.1 or more, which is exactly the realignment share**: the label is the threshold. Slicing the same rows (the numbers are
-from the rows file, not from the PRIM boxes):
+Inside the plausibility band (97 runs, 9.7%) alternation is 63% of the runs and a box with 100% density (18% support)
+names a low threshold, a low recall floor and a high petition threshold.
 
-| polarization pressure (`dynamics.radical_step`) | runs | realignment | churn | alternation | median largest shift |
-|---|---:|---:|---:|---:|---:|
-| 0 - 0.1 | 100 | 71% | 20% | 8% | 0.124 |
-| 0.1 - 0.25 | 150 | 77% | 20% | 2% | 0.137 |
-| 0.25 - 0.5 | 250 | 92% | 3% | 4% | 0.193 |
-| 0.5 - 0.75 | 250 | 92% | 5% | 2% | 0.236 |
-| 0.75 - 1 | 250 | 97% | 2% | 1% | 0.269 |
+## The label's history, and its sensitivity
 
-- **Pressure moves the share, as ADR-033 says it should** (71% to 97%), and a scandal rate above 0.03 moves churn from 14%
-  down to 5-6%. But even with almost no pressure (below 0.1) the median run's largest shift is 0.124, over the rule's 0.1,
-  and with almost no pressure and few scandals (28 runs) 82% still read as realignment. The tenth percentile of the
-  largest shift over all runs is 0.097: nearly every 15-year run crosses the line.
-- **This is the finding ADR-035 recorded and did not act on**: a shift of 0.1 in the Euclidean mean over twenty issues is
-  exceeded in most runs of this profile. I did not move the threshold: choosing it to get four archetypes would be tuning
-  the measure to the result. A threshold per issue, or a shift measured against the population's own spread, is the better
-  rule ADR-035 pointed at; that is a decision for the owner.
-- **The negative control behaves**: `amendment_threshold` appears in no box (the twin has no agents that propose
-  amendments, so it is inert by construction).
-- **The plausibility band is a filter that keeps about one run in ten** (97 of 1,000). The failed checks are volatility
-  (670 runs), turnout (467) and panel stability (309): the same three the earlier sweeps fail.
+Version 2 labelled 89% of the runs as realignment: the rule was "the population's mean moved 0.1 or more", which 89%
+crossed, exactly. Even with almost no polarization pressure (below 0.1) 71% did. ADR-037 measures the shift in units of the
+first census's own spread (its median over the runs is 0.82) at a threshold of half a spread, fixed before the re-run from
+the effect-size convention, though I knew the old distribution. Relabelling the same runs at other thresholds (the first five
+rules never fire in these runs; relabelling at 0.5 reproduces the run's own labels, 1,000 of 1,000):
+
+| threshold | realignment | churn | alternation | stasis | archetypes at 5% or more |
+|---:|---:|---:|---:|---:|---:|
+| 0.1 fixed (version 2) | 890 | 76 | 29 | 5 | 2 |
+| 0.25 spreads | 462 | 363 | 151 | 24 | 3 |
+| **0.5 spreads** | **138** | **603** | **219** | **40** | **3** |
+| 0.75 spreads | 41 | 678 | 238 | 43 | 2 |
+| 1.0 spreads | 7 | 705 | 244 | 44 | 2 |
+
+**No threshold of the realignment rule gives four archetypes at 5%**: stasis tops out at 4.4%. The next bottleneck is the
+churn rule (a volatility of 0.4 in any legislative election), another fixed threshold; I did not retune it. The negative
+control behaves: `amendment_threshold` is in no box.
 
 ## What this does not show
 

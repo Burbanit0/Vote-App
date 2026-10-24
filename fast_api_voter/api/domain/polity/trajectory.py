@@ -40,12 +40,16 @@ COLLAPSE_OCCUPANCY = 0.5
 ENTRENCHMENT_HOLD = 3
 RECALL_CYCLE_RECALLS = 2
 FRAGMENTATION_ENP = 8.0
-REALIGNMENT_SHIFT = 0.1
+REALIGNMENT_SPREADS = 0.5
+"""ADR-037: a realignment is the population's mean moving this many of its own spreads (the standard deviation along its first
+principal axis, at the first census of the block) from where it started. Half a spread is a medium effect (Cohen's d).
+Until ADR-037 the threshold was a fixed 0.1 in issue units, which 89% of the catalogue's 15-year runs crossed."""
 CHURN_VOLATILITY = 0.4
 ALTERNATION_COUNT = 2
 ARCHETYPE_BLOCK_YEARS = 8
-ARCHETYPE_VERSION = 2
-"""1: the rules read the whole run. 2: they read it block by block (ADR-035). Written to every digest, so labels of
+ARCHETYPE_VERSION = 3
+"""1: the rules read the whole run. 2: they read it block by block (ADR-035). 3: a realignment is measured against the
+population's own spread, not a fixed distance (ADR-037). Written to every digest, so labels of
 different rules are not mixed in one ensemble unseen."""
 
 
@@ -260,8 +264,15 @@ def _is_dominant_party(summary: Summary) -> bool:
     return len(summary["legislative"]) >= 2 and all(row["majority"] for row in summary["legislative"])
 
 
+def largest_relative_shift(polarization: Sequence[Mapping[str, Any]]) -> float:
+    """The largest `mean_shift` of the censuses, in units of the first census's `dispersion`; 0 when the first census has
+    none (fewer than four citizens, or no spread), since a shift cannot be measured against nothing."""
+    spread = polarization[0]["dispersion"] if polarization else None
+    return max(row["mean_shift"] for row in polarization) / spread if spread else 0.0
+
+
 def _is_realignment(summary: Summary) -> bool:
-    return max((row["mean_shift"] for row in summary["polarization"]), default=0.0) >= REALIGNMENT_SHIFT
+    return largest_relative_shift(summary["polarization"]) >= REALIGNMENT_SPREADS
 
 
 def _is_churn(summary: Summary) -> bool:
@@ -279,7 +290,7 @@ ARCHETYPE_RULES: tuple[tuple[str, str, Callable[[Summary], bool]], ...] = (
     ("recall_cycle", f"{RECALL_CYCLE_RECALLS} or more recalls", _is_recall_cycle),
     ("fragmentation", f"ENP by seats at least {FRAGMENTATION_ENP} at the last legislative election, and above the first's", _is_fragmentation),
     ("dominant_party", "one party held a majority of the seats at every legislative election (at least two)", _is_dominant_party),
-    ("realignment", f"the population's mean moved {REALIGNMENT_SHIFT} or more from the first census", _is_realignment),
+    ("realignment", f"the population's mean moved {REALIGNMENT_SPREADS} or more of its own spread from the first census", _is_realignment),
     ("churn", f"a legislative volatility of {CHURN_VOLATILITY} or more (parties come and go; opinion need not move)", _is_churn),
     ("alternation", f"{ALTERNATION_COUNT} or more alternations in office", _is_alternation),
     ("stasis", "none of the above", lambda summary: True),

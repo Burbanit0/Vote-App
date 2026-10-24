@@ -17,6 +17,7 @@ from api.domain.polity.trajectory import (
     divergence_by_year,
     divergence_verdict,
     diversity,
+    largest_relative_shift,
     election_points,
     feature_cube,
     legislative_points,
@@ -138,7 +139,7 @@ def _summary(**overrides: Any) -> dict[str, Any]:
             {"tick": 24, "enp_seats": 3.5, "majority": False, "seated": True, "volatility": 0.1},
         ],
         "elections": [{"tick": 0, "winner": 1, "turnout": 0.7}],
-        "polarization": [{"year": 0, "mean_shift": 0.0}, {"year": 1, "mean_shift": 0.02}],
+        "polarization": [{"year": 0, "mean_shift": 0.0, "dispersion": 0.5}, {"year": 1, "mean_shift": 0.02, "dispersion": 0.5}],
         "refused_to_leave": False,
     }
     return {**base, **overrides}
@@ -162,7 +163,7 @@ def _with_legislative(**fields: Any) -> list[dict[str, Any]]:
             {"tick": 24, "enp_seats": 9.0, "majority": False, "seated": True, "volatility": 0.1},
         ]}),
         ("dominant_party", {"legislative": _with_legislative(majority=True)}),
-        ("realignment", {"polarization": [{"year": 0, "mean_shift": 0.0}, {"year": 1, "mean_shift": 0.12}]}),
+        ("realignment", {"polarization": [{"year": 0, "mean_shift": 0.0, "dispersion": 0.5}, {"year": 1, "mean_shift": 0.3, "dispersion": 0.5}]}),
         ("churn", {"legislative": _with_legislative(volatility=0.45)}),
         ("alternation", {"office": {"longest_hold": 1, "recalls": 0, "alternations": 2}}),
     ],
@@ -374,7 +375,7 @@ def test_a_long_run_is_not_labelled_by_the_one_election_that_swung_in_thirty_yea
     swing = [_legislative(4, {1: 5, 2: 5}, {1: 60.0, 2: 40.0}), _legislative(8, {3: 5, 4: 5}, {3: 60.0, 4: 40.0})]  # year 1 to 2: all new parties
     summary = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=96, office_occupancy=1.0)  # 24 years
     assert summary["archetype_blocks"] == ["churn", "stasis", "stasis"] and summary["archetype"] == "stasis"
-    assert summary["archetype_version"] == 2
+    assert summary["archetype_version"] == 3
     assert archetype(summary) == "churn"  # what "at some point it reached 0.4" would have said of any 24-year run
     short = trajectory_summary(swing, [], terms=[], population=10, ticks_per_year=4, last_tick=60, office_occupancy=1.0)  # 15 years: one block
     assert short["archetype_blocks"] == ["churn"] and short["archetype"] == archetype(short)
@@ -392,3 +393,17 @@ def test_a_block_sees_only_its_own_terms_refusals_and_drift() -> None:
     assert (first["refused_to_leave"], second["refused_to_leave"]) == (False, True)  # tick 40 is year 10
     shifts = [row["mean_shift"] for row in first["polarization"] + second["polarization"]]
     assert shifts == [pytest.approx(x) for x in (0.0, 0.2 * 2**0.5, 0.0, 0.2 * 2**0.5)]  # each block restarts from its first census
+
+
+def test_a_realignment_is_a_shift_measured_against_the_populations_own_spread() -> None:
+    def rows(shift: float, spread: float | None) -> list[dict[str, Any]]:
+        return [{"year": 0, "mean_shift": 0.0, "dispersion": spread}, {"year": 1, "mean_shift": shift, "dispersion": spread}]
+
+    assert largest_relative_shift(rows(0.3, 0.5)) == pytest.approx(0.6)
+    assert archetype(_summary(polarization=rows(0.3, 0.5))) == "realignment"  # 0.6 of a spread
+    assert archetype(_summary(polarization=rows(0.3, 1.5))) == "stasis"  # the same distance in a population three times as wide
+    assert archetype(_summary(polarization=rows(0.25, 0.5))) == "realignment"  # exactly half a spread counts
+    assert largest_relative_shift(rows(0.3, None)) == 0.0 == largest_relative_shift(rows(0.3, 0.0))  # nothing to measure against
+    assert largest_relative_shift([]) == 0.0
+    assert largest_relative_shift([{"year": 0, "mean_shift": 0.0, "dispersion": 0.5}, {"year": 1, "mean_shift": 0.1, "dispersion": 0.1},
+                                   {"year": 2, "mean_shift": 0.2, "dispersion": 0.9}]) == pytest.approx(0.4)  # the first census's spread, not the later ones

@@ -2,6 +2,7 @@
 
 **Status**: Accepted — built in the scenario profile only (plan-scenarios-v1, step 3c, part 1); `citizens.replacement_per_year` is 0 by default, which is the static population.
 **Date**: 2026-10-22
+**Update 2026-10-24**: the realignment rule's fixed 0.1, left open below, was replaced by half the population's own spread ([ADR-037](ADR-037-realignment-against-the-populations-spread.md), archetype version 3). The archetype tables in this ADR are version 2 and are not reproduced by the current rules.
 **Context**: The electorate was immortal. `birth_enabled` and `death_enabled` were parsed and never implemented, so a 30-year run was one generation frozen in place: nobody entered, nobody left, and the views of the people who were 40 in year 0 were still 40-year-old views in year 30. Cohort replacement (Mannheim, Inglehart) is one of the standard sources of long-run realignment: a society changes partly because new people, formed in a different period, replace old ones.
 
 ## Decision

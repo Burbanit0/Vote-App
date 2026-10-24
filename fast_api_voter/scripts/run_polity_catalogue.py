@@ -35,6 +35,7 @@ from api.domain.polity.catalogue import Box, apply_point, prim, sample  # noqa: 
 from api.domain.polity.config import validate_config  # noqa: E402
 from api.domain.polity.run_digest import build_digest  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
+from api.domain.polity.trajectory import largest_relative_shift  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
 NON_TRIVIAL = 0.05
@@ -85,8 +86,11 @@ def read_trajectory(trajectory: dict[str, Any]) -> dict[str, Any]:
         "enp": statistics.mean(enp) if enp else None,
         "dispersion": last["dispersion"],
         "bimodality": last["bimodality"],
-        # the realignment rule reads the largest shift of the run (trajectory._is_realignment), not the last
+        # what the rules past the first five read, so a run can be relabelled at another realignment threshold (the
+        # catalogue's runs never meet the earlier rules): the largest shift against the first census's own spread
         "max_shift": max((row["mean_shift"] for row in polarization), default=0.0),
+        "max_rel_shift": largest_relative_shift(polarization),
+        "max_volatility": max((x["volatility"] for x in legislative if x["volatility"] is not None), default=0.0),
     }
 
 

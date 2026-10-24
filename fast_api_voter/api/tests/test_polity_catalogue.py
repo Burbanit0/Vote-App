@@ -110,7 +110,7 @@ def test_a_point_runs_into_a_row_and_leaves_no_run_directory(runner: Any, tmp_pa
     from api.domain.polity.trajectory import PLAUSIBILITY_BAND
 
     assert set(row["failed"]) <= set(PLAUSIBILITY_BAND)  # only checks the digest knows
-    assert row["max_shift"] >= 0.0
+    assert row["max_shift"] >= 0.0 and row["max_rel_shift"] >= 0.0 and row["max_volatility"] >= 0.0
     assert not (tmp_path / "runs" / "7").exists()
 
 
