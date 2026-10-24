@@ -54,6 +54,7 @@ def test_the_registry_reproduces_the_sets_three_modules_kept_by_hand() -> None:
     } | {"agent_turn", "vote_intention_poll"} | {"constitution_amended", "amendment_proposed", "amendment_vote", "amendment_resolved", "forum_post", "referendum_held", "extra_legal_act", "campaign_run"} | {  # ADR-014, ADR-015, ADR-016, ADR-020, ADR-022, ADR-023
         "party_founded", "party_dissolved",  # ADR-018: flagged institutional since #705, but never registered until now
         "citizen_replaced",  # ADR-035
+        "ties_rewired",  # ADR-036
     }
     assert INSTITUTIONAL_EVENT_TYPES == {
         "elected", "election_no_winner", "election_invalidated", "snap_election_triggered", "legislative_result",
