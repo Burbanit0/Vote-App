@@ -42,7 +42,7 @@ from api.domain.polity.config import PolityConfig
 from api.domain.polity.constitution import Constitution, Proposal
 from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.parties import Party
-from api.domain.polity.social_graph import graph_edges, graph_from_edges
+from api.domain.polity.social_graph import SocialGraph, graph_edges, graph_from_edges
 from api.domain.polity.tick_state import PendingRerun, TickState
 
 
@@ -195,10 +195,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         **_set_only(
             dynamics_rng_state=None if state.dynamics_rng is None else state.dynamics_rng.bit_generator.state,
             demography_rng_state=None if state.demography_rng is None else state.demography_rng.bit_generator.state,
-            # ADR-036: the ties, once, as (low, high) pairs: a rewiring run's graph is state, not a function of the config.
-            rewiring_rng_state=None if state.rewiring_rng is None else state.rewiring_rng.bit_generator.state,
-            graph_edges=None if state.graph is None else graph_edges(state.graph),
         ),
+        **_rewiring_payload(state),
         # ADR-022: likewise only for a regime run, and the declaration only while one stands.
         **_regime_payload(state),
         # S4.2: likewise only for a legislating run.
@@ -229,9 +227,24 @@ def _set_only(**fields: Any) -> dict[str, Any]:
     return {key: value for key, value in fields.items() if value is not None}
 
 
-def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
-    if ("graph_edges" in payload) != ("rewiring_rng_state" in payload):  # ADR-036: one without the other would freeze or restart the ties
+def _rewiring_payload(state: TickState) -> dict[str, Any]:
+    """ADR-036: a rewiring run's stream and its ties, once each as (low, high) pairs: its graph is state, not a function
+    of the config. Nothing for a run whose ties stay put."""
+    return _set_only(
+        rewiring_rng_state=None if state.rewiring_rng is None else state.rewiring_rng.bit_generator.state,
+        graph_edges=None if state.graph is None else graph_edges(state.graph),
+    )
+
+
+def _restore_graph(payload: Mapping[str, Any]) -> SocialGraph | None:
+    """ADR-036: the ties a rewiring run had, or None. A checkpoint with the ties but not their stream, or the reverse,
+    would freeze or restart them, so it is refused as damaged."""
+    if ("graph_edges" in payload) != ("rewiring_rng_state" in payload):
         raise ValueError("checkpoint carries the social ties or their random stream but not both (ADR-036): it is damaged")
+    return graph_from_edges(len(payload["citizens"]), map(tuple, payload["graph_edges"])) if "graph_edges" in payload else None
+
+
+def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
     pending = payload["pending_rerun"]
     declared = payload.get("staggered_declared_cids")  # absent from checkpoints written before Track E
     return TickState(
@@ -252,7 +265,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
         demography_rng=_restore_optional(payload, "demography_rng_state"),
         rewiring_rng=_restore_optional(payload, "rewiring_rng_state"),
-        graph=graph_from_edges(len(payload["citizens"]), map(tuple, payload["graph_edges"])) if "graph_edges" in payload else None,
+        graph=_restore_graph(payload),
         regime_rng=_restore_optional(payload, "regime_rng_state"),
         campaign_rng=_restore_optional(payload, "campaign_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),
