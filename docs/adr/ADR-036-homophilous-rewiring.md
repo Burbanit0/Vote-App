@@ -2,6 +2,7 @@
 
 **Status**: Accepted — built, **off everywhere** (plan-scenarios-v1, step 3c, part 2); `social_graph.evolving` is false by default and the scenario profile does not turn it on, because the ten-seed reading below shows it does not move the divergence test the way the plan hoped.
 **Date**: 2026-10-24
+**Update 2026-10-24**: this ADR's table was measured with the scenario profile's economic voting at 1.0 and the version-2 archetype labels; both have since changed ([ADR-038](ADR-038-economic-voting-calibrated-on-volatility.md): 0.3; [ADR-037](ADR-037-realignment-against-the-populations-spread.md): version 3), so `probe_rewiring.py` no longer reproduces it.
 **Context**: The social graph was drawn once and never changed (`social_graph.evolving: true` was rejected at parse time, the design doc's §5 "static or evolving?" point). People in a real society choose who they talk to, and choose people who already think like them, so ties both follow and reinforce the views (homophily; Holme and Newman's coevolving voter model). Step 3c part 2 of plan-scenarios-v1 was "homophilous rewiring once a year", gated on the divergence test and the panel band.
 
 ## Decision

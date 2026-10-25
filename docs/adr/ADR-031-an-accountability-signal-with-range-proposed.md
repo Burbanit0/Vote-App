@@ -122,7 +122,7 @@ medians 0.86, 0.82, 0.81, 0.78, 0.82, 0.88, maximum 0.89-0.94. The president-tur
 
 ## Option B on the rule-only twin (2026-10-24, plan-scenarios-v1 step 4)
 
-Step 4 of the scenarios plan wanted B, and C only if recalls stay at zero, gated on the divergence test. Before building it I measured the levers on ten 30-year rule-only runs (no model, the scenario profile, seeds 1-10, 100 citizens; the shipped profile's arm of `python scripts/probe_cohorts.py --output-dir <dir> --arm 0.03,0.35`, which keeps each run's `events.jsonl`; the command is at the end of this section):
+Step 4 of the scenarios plan wanted B, and C only if recalls stay at zero, gated on the divergence test. Before building it I measured the levers on ten 30-year rule-only runs (no model, the scenario profile, seeds 1-10, 100 citizens; the shipped profile's arm of `python scripts/probe_cohorts.py --output-dir <dir> --arm 0.03,0.35`, which keeps each run's `events.jsonl`; the command is at the end of this section; measured with the scenario profile's economic voting at 1.0, now 0.3 ([ADR-038](ADR-038-economic-voting-calibrated-on-volatility.md)), so the same command now gives other counts):
 
 - The agenda is already open: the formula drafts a bill every `bill_interval_ticks` (2), 535 bills proposed and 62 enacted over ten runs, so `vote.policy_retrospection`'s policy-gain term in approval is live. The model arm's 12-14% of turns that draft a bill is the case B was meant to improve; on the twin there is nothing to open.
 - The other lever, a president restating positions further per turn, is an agent behaviour: the twin has no agent turns (0 `agent_turn` events), so there is nothing to move.

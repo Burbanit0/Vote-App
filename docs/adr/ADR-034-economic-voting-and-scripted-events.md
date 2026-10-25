@@ -2,6 +2,7 @@
 
 **Status**: Accepted — economic voting is built in the scenario profile only (plan-scenarios-v1, step 3b); scripted events are available to every profile and ship empty. Both settings are neutral by default.
 **Date**: 2026-10-22
+**Update 2026-10-24**: the scenario profile's weight is now 0.3, not 1.0 ([ADR-038](ADR-038-economic-voting-calibrated-on-volatility.md)): at 1.0 the same-for-everyone term swung whole blocs between legislative elections (mean volatility 0.36 on ADR-038's 60-point sample). This ADR's tables were measured at 1.0. Also, the archetype labels in this ADR's tables are version 2 (the realignment rule was a fixed 0.1); [ADR-037](ADR-037-realignment-against-the-populations-spread.md) replaced it (version 3), so the current code does not reproduce them. The runs themselves are unchanged.
 **Context**: Two gaps stood between the engine and a lifecycle with turning points.
 
 - **The economy never reached the ballot.** `shock.py`'s AR(1) climate moved a citizen's anxiety and, through
