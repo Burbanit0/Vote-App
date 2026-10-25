@@ -97,7 +97,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
       - run: npm ci
@@ -245,7 +245,7 @@ jobs:
         run: uv pip install --system -r fast_api_voter/requirements.lock.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
       - name: Install frontend dependencies
         run: npm ci
         working-directory: ./voter-app
