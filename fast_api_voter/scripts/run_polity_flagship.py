@@ -320,7 +320,8 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
         llm=dataclasses.replace(explored.llm, crowd=False),
         vote=dataclasses.replace(
             # ADR-039: the twin's cost; the model engine keeps its own (LLM_TURNOUT_COST, a decision of its own)
-            explored.vote, mode="utility", economic_voting=0.3, turnout_cost=explored.vote.turnout_cost or 0.02,
+            explored.vote, mode="utility", economic_voting=0.3,
+            turnout_cost=explored.vote.turnout_cost if explored.llm.enabled else 0.02,
         ),
         agents=dataclasses.replace(explored.agents, forum_size=10),
         dynamics=dataclasses.replace(explored.dynamics, drift_std=0.18, radical_step=0.5, anger_narrows_bound=0.3),

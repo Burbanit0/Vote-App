@@ -3,14 +3,15 @@
 plan-scenarios-v1, step 6. Reproduced by `python scripts/run_polity_catalogue.py run --out <dir> --runs 1000 --seed 1`
 (then `report`): the rule-only scenario twin, 15 years, 100 citizens, one run per point of a Latin hypercube over the ten
 settings of `api/domain/polity/catalogue.py::DIMENSIONS`, a run seed of its own per point, 14 workers, about 8 minutes.
-A reading, not a pre-registered experiment.
+A reading, not a pre-registered experiment. That command reproduces sweep 4 only; the earlier sweeps need the code they ran
+on: sweep 1 at commit 7c1d3a3e, sweep 2 at 5c6c3133 and sweep 3 at 3c4760a0 (the merge of #995).
 
 **The step's gate is met: four archetypes reach 5% of the runs, each with a PRIM box with lift over its base rate.** It
 took two changes, each with its own ADR and its own disclosure, after two sweeps that failed the gate; a third
 (ADR-039) then fixed the most frequent plausibility failure, turnout:
 
 | sweep | realignment rule | profile | archetypes at 5% | runs inside the band |
-|---|---|---:|---:|---:|
+|---|---|---|---:|---:|
 | 1 | fixed 0.1 (version 2) | economic voting 1.0 | 2 (realignment 89%) | 97 |
 | 2 | half the population's spread ([ADR-037](../../docs/adr/ADR-037-realignment-against-the-populations-spread.md), version 3) | economic voting 1.0 | 3 (churn 60%) | 97 |
 | 3 | version 3 | economic voting 0.3 ([ADR-038](../../docs/adr/ADR-038-economic-voting-calibrated-on-volatility.md)) | 4 | 228 |

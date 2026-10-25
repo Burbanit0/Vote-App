@@ -154,7 +154,7 @@
    "text": "Index the run into <code>metrics.json</code>",
    "ref": {
     "file": "scripts/run_polity_flagship.py",
-    "line": 725,
+    "line": 726,
     "label": null,
     "expect": "metrics = index_run(journal_path, config)"
    }
@@ -2997,7 +2997,7 @@
   },
   "exploration": {
    "file": "scripts/run_polity_flagship.py",
-   "line": 333,
+   "line": 334,
    "label": "exploration",
    "expect": "def _exploration_config(config: PolityConfig) -> PolityConfig:"
   }
