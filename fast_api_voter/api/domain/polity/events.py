@@ -674,14 +674,15 @@ class PartyDissolved(Event):
 
 @dataclass(frozen=True, kw_only=True)
 class PartyRepositioned(Event):
-    """A party's leader moved its platform (leaders.py, ADR-040): by `rule`, `shift` far, having read a poll share of
-    `share` (the citizens the party is nearest to)."""
+    """A party's leader took its yearly decision (leaders.py, ADR-040): by `rule`, having read a poll share of `share` (the
+    citizens the party is nearest to), it moved its platform `shift` far, to `platform` (a shift of 0: it stayed)."""
 
     EVENT_TYPE = "party_repositioned"
     party_id: int
     rule: str
     share: float
     shift: float
+    platform: list[float]
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -41,5 +41,8 @@ The catalogue of scenarios with two new dimensions, `leader_rule` (the four rule
 - **No predator** (a party that moves toward the largest one), and no satisficing or speed variants.
 - **Membership is sticky**: citizens keep the party they joined when its platform moves, so a party can drift away from its members; re-affiliation was not built.
 - **The poll is sincere first preferences**, not the vote: strategic voting (ADR-024) and the record of the incumbents (ADR-011, ADR-034) are not in it.
+- **The run explorer draws a party where it started**: per-year party markers need an API and page change; the
+  platforms are in the journal (`party_repositioned` carries the new one), and `check_observations.py` skips its
+  nomination ranks for a run whose parties moved.
 - **The second half of step 7**, classifying the LLM president against these rules, needs the model and has not run.
 - **A checkpoint written before these fields cannot resume after them**: the two keys change `config_hash` for every configuration (loud, at resume time).

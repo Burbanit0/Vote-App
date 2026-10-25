@@ -14,7 +14,8 @@ Once a year every party's leader follows one rule:
 A citizen's supporter is the party nearest them by the legislative ballot's own distance (`simple_rules.weighted_distance`:
 Euclidean, weighted by their priorities); a party's poll share is the share of citizens it is nearest to (sincere first
 preferences, before strategic voting and the incumbents' record). Every leader decides from the same snapshot of
-platforms, so the order of the parties does not matter, and a platform stays in [0, 1] on every issue. Laver and
+platforms; a citizen exactly as near two platforms counts for the lower party id, as `assign_party_affiliation` does. A
+platform stays in [0, 1] on every issue, and a hunter's heading is the direction it actually moved (a wall turns it). Laver and
 Sergenti's predator is not built.
 """
 from __future__ import annotations
@@ -29,7 +30,6 @@ from api.domain.polity.citizen import Citizen
 from api.domain.polity.config import LEADER_RULES
 from api.domain.polity.parties import Party
 
-RULES = LEADER_RULES
 EXPLORER_PROBES = 5
 
 
@@ -71,13 +71,13 @@ def reposition(
 ) -> tuple[list[Party], list[LeaderMove]]:
     """Every party's leader follows `rule` once; the parties as they now stand, and one move per party (a sticker's
     move is a shift of 0)."""
-    if rule not in RULES:
+    if rule not in LEADER_RULES:
         raise ValueError(f"unknown leader rule {rule!r}")
     positions = np.array([c.issue_positions for c in citizens], dtype=float)
     priorities = np.array([c.issue_priorities for c in citizens], dtype=float)
     platforms = np.array([p.platform for p in parties], dtype=float)
-    now = shares(positions, priorities, platforms)
     supporters = nearest(positions, priorities, platforms)
+    now = np.bincount(supporters, minlength=len(platforms)) / len(positions)
     moved, moves = [], []
     for i, party in enumerate(parties):
         here = platforms[i]
@@ -104,7 +104,9 @@ def _decide(
 
 
 def _hunt(party: Party, step: float, here: np.ndarray, share: float, rng: np.random.Generator) -> tuple[np.ndarray, Party]:
-    """Keep going while the share grows; else a random heading in the half-space behind the old one."""
+    """Keep going while the share grows; else a random heading in the half-space behind the old one. The heading kept
+    is the direction the platform actually moved once clipped to the box; a hunter pinned against a wall keeps none,
+    so its next move is a fresh random heading."""
     heading = _unit(rng, len(here))
     if party.heading is not None and party.last_share is not None:
         old = np.array(party.heading)
@@ -112,7 +114,11 @@ def _hunt(party: Party, step: float, here: np.ndarray, share: float, rng: np.ran
             heading = old
         elif float(heading @ old) > 0:
             heading = -heading
-    return here + step * heading, dataclasses.replace(party, heading=tuple(float(x) for x in heading), last_share=share)
+    target = np.clip(here + step * heading, 0.0, 1.0)
+    moved = target - here
+    length = float(np.linalg.norm(moved))
+    kept = tuple(float(x) for x in moved / length) if length > 1e-12 else None
+    return target, dataclasses.replace(party, heading=kept, last_share=share)
 
 
 def _explore(

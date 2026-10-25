@@ -31,7 +31,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from api.domain.polity.catalogue import Box, apply_point, prim, relabel, sample  # noqa: E402
+from api.domain.polity.catalogue import DIMENSIONS, Box, apply_point, prim, relabel, sample  # noqa: E402
 from api.domain.polity.checkpoint import config_hash  # noqa: E402
 from api.domain.polity.config import validate_config  # noqa: E402
 from api.domain.polity.run_digest import build_digest  # noqa: E402
@@ -118,6 +118,7 @@ def run(args: argparse.Namespace) -> int:
     settings = {
         "runs": args.runs, "seed": args.seed, "years": args.years, "population": args.population,
         "archetype_version": ARCHETYPE_VERSION, "profile": profile_hash(args.years, args.population),
+        "dimensions": [d.name for d in DIMENSIONS],  # a hypercube over other settings is another sample
     }
     settings_path = out / "settings.json"
     if settings_path.exists() and json.loads(settings_path.read_text()) != settings:

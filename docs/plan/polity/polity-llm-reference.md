@@ -144,8 +144,8 @@ WHAT = {
     "_phase_emotions": "Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021)",
     "_phase_accountability": "Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025)",
     "_phase_snap_election": "Schedules an election when the presidency is vacant (after a recall)",
-    "_phase_opinion_dynamics": "Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012)",
-    "_phase_party_positions": "At the end of each year, every party's leader moves its platform by the run's rule; off for stickers (ADR-040)",
+    "_phase_opinion_dynamics": "Friedkin-Johnsen opinion update, so the next tick reads moved views (ADR-012)",
+    "_phase_party_positions": "Last: at the end of each year, every party's leader moves its platform by the run's rule from the year's views; off for stickers (ADR-040)",
 }
 missing = [f.__name__ for f in TICK_PHASES if f.__name__ not in WHAT]
 assert not missing, f"describe the new tick phase(s) here: {missing}"
@@ -179,8 +179,8 @@ checkpointed and `progress.json` is updated.
 | 11 | `_phase_emotions` | Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021) |
 | 12 | `_phase_accountability` | Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025) |
 | 13 | `_phase_snap_election` | Schedules an election when the presidency is vacant (after a recall) |
-| 14 | `_phase_opinion_dynamics` | Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012) |
-| 15 | `_phase_party_positions` | At the end of each year, every party's leader moves its platform by the run's rule; off for stickers (ADR-040) |
+| 14 | `_phase_opinion_dynamics` | Friedkin-Johnsen opinion update, so the next tick reads moved views (ADR-012) |
+| 15 | `_phase_party_positions` | Last: at the end of each year, every party's leader moves its platform by the run's rule from the year's views; off for stickers (ADR-040) |
 <!-- [[[end]]] -->
 
 Ordering is load-bearing (the `TICK_PHASES` docstring says why): exogenous events before

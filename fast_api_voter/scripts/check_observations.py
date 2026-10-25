@@ -70,6 +70,10 @@ def _first_election_nominations(events: list[dict[str, Any]]) -> list[dict[str, 
 def _nomination_rows(run_dir: Path, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Model-made nominations at the run's first election, ranked on each criterion the
     nomination prompt shows (ambition, perceived support, platform distance)."""
+    if any(e["event_type"] == "party_repositioned" and e["payload"]["shift"] > 0 for e in events):
+        # ADR-040: the platforms moved after the first election, and this report reads them off the final checkpoint
+        print(f"{run_dir.name}: parties moved their platforms (ADR-040), nominations not ranked", file=sys.stderr)
+        return []
     state = load_checkpoint(run_dir / "checkpoint.json").state
     citizens = {c.citizen_id: c for c in state.citizens}
     # A party dissolved before the checkpoint is gone from it: a founded one is still in the journal (its founding

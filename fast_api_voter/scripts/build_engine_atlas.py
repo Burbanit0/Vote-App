@@ -184,7 +184,10 @@ def summary(event: dict[str, Any]) -> str:
             f"{who} replaced by a newcomer (party {p.get('party_id')}, views from a circle of {p.get('circle')})"
         ),
         "ties_rewired": lambda: f"{p.get('moved')} of {p.get('ties')} ties moved; tied citizens' views {p.get('mean_gap'):.2f} apart on average",
-        "party_repositioned": lambda: f"party {p.get('party_id')} moved its platform {p.get('shift', 0):.3f} ({p.get('rule')}, poll share {p.get('share', 0):.2f})",
+        "party_repositioned": lambda: (
+            f"party {p.get('party_id')} " + (f"moved its platform {p.get('shift', 0):.3f}" if p.get("shift") else "kept its platform")
+            + f" ({p.get('rule')}, poll share {p.get('share', 0):.2f})"
+        ),
         "party_founded": lambda: f"party {p.get('party_id')} founded ({_members(p)})",
         "party_dissolved": lambda: (
             f"party {p.get('party_id')} dissolved ({_members(p)})"

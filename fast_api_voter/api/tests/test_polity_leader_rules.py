@@ -12,7 +12,8 @@ import pytest
 from api.domain.polity.checkpoint import _party_from_dict, _party_to_dict
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.config import PolityConfig, PolityConfigError, load_config, validate_config
-from api.domain.polity.leaders import EXPLORER_PROBES, RULES, nearest, reposition, shares
+from api.domain.polity.config import LEADER_RULES
+from api.domain.polity.leaders import EXPLORER_PROBES, nearest, reposition, shares
 from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.tests.test_polity_run_simulation import _SimulatedCrash
@@ -35,10 +36,21 @@ def _two(left: float = 0.2, right: float = 0.8) -> list[Party]:
 
 def test_leaders_ship_as_stickers_and_a_moving_rule_needs_a_step() -> None:
     config = load_config()
-    assert config.parties.leader_rule == "sticker" and config.parties.leader_step == 0.0 and RULES[0] == "sticker"
+    assert config.parties.leader_rule == "sticker" and config.parties.leader_step == 0.0 and LEADER_RULES[0] == "sticker"
     with pytest.raises(PolityConfigError, match="leader_step"):
         validate_config(dataclasses.replace(config, parties=dataclasses.replace(config.parties, leader_rule="hunter")))
     validate_config(dataclasses.replace(config, parties=dataclasses.replace(config.parties, leader_rule="hunter", leader_step=0.05)))
+
+
+def test_the_step_is_read_from_the_yaml_and_bounded_by_one(tmp_path: Path) -> None:
+    from api.tests.test_polity_config import _write
+
+    with pytest.raises(PolityConfigError, match="leader_step"):
+        load_config(_write(tmp_path, lambda d: d["parties"].update(leader_rule="hunter", leader_step=1.5)))
+    with pytest.raises(PolityConfigError, match="leader_rule"):
+        load_config(_write(tmp_path, lambda d: d["parties"].update(leader_rule="predator", leader_step=0.1)))
+    parsed = load_config(_write(tmp_path, lambda d: d["parties"].update(leader_rule="explorer", leader_step=0.1)))
+    assert parsed.parties.leader_rule == "explorer" and parsed.parties.leader_step == 0.1
 
 
 # ── the poll ──────────────────────────────────────────────────────────────
@@ -99,6 +111,15 @@ def test_an_explorer_moves_only_to_a_probe_that_polls_better() -> None:
     assert EXPLORER_PROBES == 5
 
 
+def test_a_hunter_against_a_wall_keeps_the_direction_it_actually_moved_or_none() -> None:
+    cornered = Party(party_id=0, platform=(1.0, 0.5), heading=(1.0, 0.0), last_share=0.0)  # its share (0.5) rose: keeps going
+    moved, moves = reposition([cornered, Party(party_id=1, platform=(0.0, 0.5))], _line(), "hunter", 0.1, np.random.default_rng(1))
+    assert moves[0].shift == 0 and moved[0].platform == (1.0, 0.5) and moved[0].heading is None  # blocked: no heading kept
+    sliding = dataclasses.replace(cornered, heading=(0.6, 0.8))
+    moved, _ = reposition([sliding, Party(party_id=1, platform=(0.0, 0.5))], _line(), "hunter", 0.1, np.random.default_rng(1))
+    assert moved[0].heading == pytest.approx((0.0, 1.0))  # it slid along the wall, and that is its heading now
+
+
 def test_a_platform_stays_inside_the_unit_box_and_an_unknown_rule_is_refused() -> None:
     edge = [Party(party_id=0, platform=(1.0, 1.0)), Party(party_id=1, platform=(0.0, 0.0))]
     moved, _ = reposition(edge, _line(), "hunter", 0.5, np.random.default_rng(4))
@@ -133,8 +154,10 @@ def test_a_run_moves_every_party_once_a_year_and_checkpoints_the_hunters(flagshi
     moves = [e for e in _lines(journal) if e["event_type"] == "party_repositioned"]
     parties = config.parties.initial_count
     assert len(moves) == 3 * parties and {m["tick"] for m in moves} == {3, 7, 11}  # the last tick of each year
-    assert all(m["payload"]["rule"] == "hunter" and m["payload"]["shift"] > 0 for m in moves)
+    assert all(m["payload"]["rule"] == "hunter" for m in moves) and any(m["payload"]["shift"] > 0 for m in moves)
     stored = json.loads((journal.parent / "checkpoint.json").read_text())
+    last = {m["payload"]["party_id"]: m["payload"]["platform"] for m in moves}  # the journal says where each party now stands
+    assert last == {p["party_id"]: p["platform"] for p in stored["parties"]}
     assert stored["leaders_rng_state"] and all("heading" in p for p in stored["parties"])
 
 

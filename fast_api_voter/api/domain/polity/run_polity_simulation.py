@@ -1528,10 +1528,10 @@ def _phase_party_positions(context: TickContext, state: TickState) -> None:
     if state.leaders_rng is None or (context.tick + 1) % context.config.run.ticks_per_year or not state.parties:
         return
     state.parties, moves = reposition(state.parties, state.citizens, parties.leader_rule, parties.leader_step, state.leaders_rng)
-    for move in moves:
+    for move, party in zip(moves, state.parties):
         context.journal.write_event(
             tick=context.tick,
-            event=PartyRepositioned(party_id=move.party_id, rule=move.rule, share=move.share, shift=move.shift),
+            event=PartyRepositioned(party_id=move.party_id, rule=move.rule, share=move.share, shift=move.shift, platform=list(party.platform)),
             citizen_id=None,
         )
 
@@ -1659,7 +1659,7 @@ value on TickContext for a later phase of the same tick -- the order is load-bea
 exogenous events before accountability (which reads them), elections before the
 chamber and accountability, legislation after the chamber (a bill meets this tick's assembly,
 president and chamber), emotions just before accountability (which reads them), the
-snap-election check, then opinion dynamics last. Phases call the module's
+snap-election check, then opinion dynamics and, at the end of a year, the party leaders' moves (ADR-040) last. Phases call the module's
 named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
 crash-and-resume tests that patch those names still interrupt a real tick."""
 

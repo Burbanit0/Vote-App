@@ -189,7 +189,7 @@ class PartiesConfig:
     run before ADR-040), aggregator steps toward its supporters, hunter keeps its heading while its poll share grows,
     explorer polls nearby positions and takes the best. Anything but sticker needs `leader_step` > 0."""
     leader_step: float = 0.0
-    """ADR-040: how far a leader moves its platform in a year, Euclidean over the issues (positions run 0 to 1)."""
+    """ADR-040: how far a leader moves its platform in a year, Euclidean over the issues (positions run 0 to 1), at most 1."""
 
 
 @dataclass(frozen=True)
@@ -961,7 +961,7 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         founding_ratio=_get_ratio(s, "parties", "founding_ratio"),
         founding_lock_years=_get_nonneg_float(s, "parties", "founding_lock_years"),
         leader_rule=_get_enum(s, "parties", "leader_rule", set(LEADER_RULES)),
-        leader_step=_get_nonneg_float(s, "parties", "leader_step"),
+        leader_step=_get_ratio(s, "parties", "leader_step"),
     )
 
 

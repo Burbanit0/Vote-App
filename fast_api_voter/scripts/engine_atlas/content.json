@@ -574,7 +574,7 @@
      "calls": [],
      "ref": {
       "file": "events.py",
-      "line": 730,
+      "line": 731,
       "label": null,
       "expect": "EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}"
      }
