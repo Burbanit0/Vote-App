@@ -136,7 +136,8 @@ class LoadedRun:
     frames: RunFrames
     macro: RunMacro
     parties: tuple[tuple[int, tuple[float, ...]], ...]
-    """(party_id, platform) of every party the run had, by id; platforms never move during a run."""
+    """(party_id, platform) of every party the run had, by id, where it started: a party whose leader moves its platform
+    (ADR-040) is drawn there; its later platforms are in its `party_repositioned` entries."""
 
     def biography(self, citizen_id: int) -> Biography:
         return build_biography(self.view, citizen_id)

@@ -91,6 +91,9 @@ class TickState:
     graph: SocialGraph | None = None
     """ADR-036: the social ties as they stand, None unless social_graph.evolving (a fixed graph is rebuilt from the
     config and is not state)."""
+    leaders_rng: np.random.Generator | None = None
+    """ADR-040: the stream hunters and explorers draw their headings and probes from; None unless the leaders move
+    (`parties.leader_rule` other than sticker)."""
     campaign_rng: np.random.Generator | None = None
     """ADR-023: the stream that draws who hears a campaign, None unless campaigning is on."""
     regime_rng: np.random.Generator | None = None

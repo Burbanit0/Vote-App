@@ -33,7 +33,7 @@
    "text": "Validate the config; refuse an LLM client when <code>llm.enabled</code> is off, and non-ranked presidential methods",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 619,
+    "line": 621,
     "label": null,
     "expect": "validate_config(config)"
    }
@@ -42,7 +42,7 @@
    "text": "Set up the run directory; refuse a fresh start over a checkpoint, or a resume without one",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 631,
+    "line": 633,
     "label": null,
     "expect": "run_id = run_id or config.run.run_label"
    }
@@ -51,7 +51,7 @@
    "text": "Write <code>run_metadata.json</code> and <code>config.json</code>",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 645,
+    "line": 647,
     "label": null,
     "expect": "_write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)"
    }
@@ -69,7 +69,7 @@
    "text": "Social graph (Watts-Strogatz) and latent opinion structure, when enabled",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 653,
+    "line": 655,
     "label": null,
     "expect": "graph: SocialGraph | None = None"
    }
@@ -87,7 +87,7 @@
    "text": "Fresh state: population, k-means parties, affiliations, six random streams; or resume from the checkpoint and truncate the journal",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 759,
+    "line": 761,
     "label": null,
     "expect": "def _fresh_tick_state(config: PolityConfig) -> TickState:"
    }
@@ -96,7 +96,7 @@
    "text": "Open the journal; build and warm up the LLM client (one call with thinking, one without), wrapped in the call log",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1645,
+    "line": 1667,
     "label": null,
     "expect": "@contextmanager"
    }
@@ -107,7 +107,7 @@
    "text": "Build the tick's context: the config <i>in force</i> (founding rules plus ratified amendments) and which election falls today",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 725,
+    "line": 727,
     "label": null,
     "expect": "context = TickContext("
    }
@@ -116,7 +116,7 @@
    "text": "Run the 14 phases in order (below)",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1619,
+    "line": 1640,
     "label": null,
     "expect": "TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = ("
    }
@@ -125,7 +125,7 @@
    "text": "Save the checkpoint (whole <code>TickState</code>) and record progress; never mid-tick",
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 738,
+    "line": 740,
     "label": null,
     "expect": "save_checkpoint("
    }
@@ -193,7 +193,7 @@
      ],
      "ref": {
       "file": "config.py",
-      "line": 1401,
+      "line": 1411,
       "label": null,
       "expect": "# must hold for a config built in code with dataclasses.replace, which never passes"
      }
@@ -254,7 +254,7 @@
      "calls": [],
      "ref": {
       "file": "parties.py",
-      "line": 65,
+      "line": 69,
       "label": null,
       "expect": "def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -> list[Par"
      }
@@ -292,7 +292,7 @@
      ],
      "ref": {
       "file": "run_polity_simulation.py",
-      "line": 550,
+      "line": 552,
       "label": null,
       "expect": "def run_simulation("
      }
@@ -574,7 +574,7 @@
      "calls": [],
      "ref": {
       "file": "events.py",
-      "line": 718,
+      "line": 731,
       "label": null,
       "expect": "EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}"
      }
@@ -689,7 +689,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 852,
+    "line": 858,
     "label": "_phase_constitution",
     "expect": "def _phase_constitution(context: TickContext, state: TickState) -> None:"
    }
@@ -703,7 +703,7 @@
    "mechanics": [],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1033,
+    "line": 1039,
     "label": "_phase_snapshot",
     "expect": "def _phase_snapshot(context: TickContext, state: TickState) -> None:"
    }
@@ -719,7 +719,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1045,
+    "line": 1051,
     "label": "_phase_rupture_candidacies",
     "expect": "def _phase_rupture_candidacies(context: TickContext, state: TickState) -> None:"
    }
@@ -735,7 +735,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1053,
+    "line": 1059,
     "label": "_phase_exogenous_events",
     "expect": "def _phase_exogenous_events(context: TickContext, state: TickState) -> None:"
    }
@@ -755,7 +755,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1087,
+    "line": 1093,
     "label": "_phase_presidential_election",
     "expect": "def _phase_presidential_election(context: TickContext, state: TickState) -> None:"
    }
@@ -772,7 +772,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1143,
+    "line": 1149,
     "label": "_phase_legislative_election",
     "expect": "def _phase_legislative_election(context: TickContext, state: TickState) -> None:"
    }
@@ -788,7 +788,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1199,
+    "line": 1205,
     "label": "_phase_sortition_chamber",
     "expect": "def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:"
    }
@@ -806,7 +806,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1331,
+    "line": 1337,
     "label": "_phase_leaders",
     "expect": "def _phase_leaders(context: TickContext, state: TickState) -> None:"
    }
@@ -822,7 +822,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 967,
+    "line": 973,
     "label": "_phase_forum",
     "expect": "def _phase_forum(context: TickContext, state: TickState) -> None:"
    }
@@ -838,7 +838,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1208,
+    "line": 1214,
     "label": "_phase_legislation",
     "expect": "def _phase_legislation(context: TickContext, state: TickState) -> None:"
    }
@@ -855,7 +855,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1477,
+    "line": 1483,
     "label": "_phase_emotions",
     "expect": "def _phase_emotions(context: TickContext, state: TickState) -> None:"
    }
@@ -886,7 +886,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1566,
+    "line": 1587,
     "label": "_phase_accountability",
     "expect": "def _phase_accountability("
    }
@@ -902,7 +902,7 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1576,
+    "line": 1597,
     "label": "_phase_snap_election",
     "expect": "def _phase_snap_election(context: TickContext, state: TickState) -> None:"
    }
@@ -918,9 +918,25 @@
    ],
    "ref": {
     "file": "run_polity_simulation.py",
-    "line": 1500,
+    "line": 1506,
     "label": "_phase_opinion_dynamics",
     "expect": "def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:"
+   }
+  },
+  {
+   "n": 15,
+   "name": "Party positions",
+   "cadence": "last tick of each year, when leaders move",
+   "does": "Every party's leader moves its platform by the run's rule, from the year's views.",
+   "sub": [],
+   "mechanics": [
+    "leaders"
+   ],
+   "ref": {
+    "file": "run_polity_simulation.py",
+    "line": 1524,
+    "label": "_phase_party_positions",
+    "expect": "def _phase_party_positions(context: TickContext, state: TickState) -> None:"
    }
   }
  ],
@@ -1032,7 +1048,7 @@
    "refs": [
     {
      "file": "parties.py",
-     "line": 65,
+     "line": 69,
      "label": "initialize_parties",
      "expect": "def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -> list[Par"
     },
@@ -1099,7 +1115,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 1713,
+     "line": 1735,
      "label": "_attempt_rupture_candidacies",
      "expect": "def _attempt_rupture_candidacies("
     }
@@ -1150,7 +1166,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 1907,
+     "line": 1929,
      "label": "_consider_candidacies_llm",
      "expect": "def _consider_candidacies_llm("
     },
@@ -1162,7 +1178,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 1982,
+     "line": 2004,
      "label": "_nominate_llm",
      "expect": "def _nominate_llm("
     },
@@ -1230,13 +1246,13 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 2073,
+     "line": 2095,
      "label": "_position_nominees_llm",
      "expect": "def _position_nominees_llm("
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 2121,
+     "line": 2143,
      "label": "_campaign_turns",
      "expect": "def _campaign_turns("
     },
@@ -1338,7 +1354,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 2391,
+     "line": 2413,
      "label": "_hold_presidential_election",
      "expect": "def _hold_presidential_election("
     },
@@ -1350,7 +1366,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 2293,
+     "line": 2315,
      "label": "audit_sample",
      "expect": "def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen"
     },
@@ -1417,7 +1433,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 2621,
+     "line": 2643,
      "label": "_hold_legislative_election",
      "expect": "def _hold_legislative_election("
     },
@@ -1562,7 +1578,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 3052,
+     "line": 3074,
      "label": "_run_sortition_rotation",
      "expect": "def _run_sortition_rotation("
     },
@@ -1632,7 +1648,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 1331,
+     "line": 1337,
      "label": "_phase_leaders",
      "expect": "def _phase_leaders(context: TickContext, state: TickState) -> None:"
     },
@@ -1704,7 +1720,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 2963,
+     "line": 2985,
      "label": "_run_representative_responses",
      "expect": "def _run_representative_responses("
     },
@@ -2118,7 +2134,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 2326,
+     "line": 2348,
      "label": "_confidence_vote",
      "expect": "def _confidence_vote("
     },
@@ -2287,7 +2303,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 967,
+     "line": 973,
      "label": "_phase_forum",
      "expect": "def _phase_forum(context: TickContext, state: TickState) -> None:"
     },
@@ -2471,7 +2487,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 1208,
+     "line": 1214,
      "label": "_phase_legislation",
      "expect": "def _phase_legislation(context: TickContext, state: TickState) -> None:"
     },
@@ -2550,7 +2566,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 869,
+     "line": 875,
      "label": "_resolve_amendment",
      "expect": "def _resolve_amendment(context: TickContext, state: TickState, proposal: Proposal) -> None"
     },
@@ -2621,7 +2637,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 2261,
+     "line": 2283,
      "label": "ballots_today",
      "expect": "def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> li"
     }
@@ -2661,7 +2677,7 @@
    "refs": [
     {
      "file": "run_polity_simulation.py",
-     "line": 922,
+     "line": 928,
      "label": "_referendum",
      "expect": "def _referendum(context: TickContext, state: TickState, proposal: Proposal) -> bool:"
     },
@@ -2727,7 +2743,7 @@
     },
     {
      "file": "run_polity_simulation.py",
-     "line": 1060,
+     "line": 1066,
      "label": "_resolve_refusal",
      "expect": "def _resolve_refusal(context: TickContext, state: TickState) -> bool:"
     }
@@ -2776,6 +2792,53 @@
    ],
    "adr": [
     "ADR-028"
+   ]
+  },
+  "leaders": {
+   "name": "Party leaders",
+   "fam": "elec",
+   "kind": "rule",
+   "phase": 15,
+   "when": "Last tick of each year, when parties.leader_rule is not sticker.",
+   "who": "Every party's leader.",
+   "inputs": "The citizens' positions and priorities, every platform, a hunter's heading and last poll share.",
+   "decision": "Laver and Sergenti's rules: sticker never moves; aggregator steps toward its supporters' centroid; hunter keeps its heading while its poll share grows, else turns back at random; explorer polls five positions a step away and takes the best. A supporter is the citizen a party is nearest to by the ballot's weighted distance.",
+   "knobs": [
+    [
+     "parties.leader_rule",
+     "sticker",
+     "",
+     ""
+    ],
+    [
+     "parties.leader_step",
+     "0",
+     "",
+     ""
+    ]
+   ],
+   "events": [
+    "party_repositioned"
+   ],
+   "fallback": "-",
+   "feeds": [
+    "legislative",
+    "coalition",
+    "legislation"
+   ],
+   "fedBy": [
+    "opinion"
+   ],
+   "refs": [
+    {
+     "file": "leaders.py",
+     "line": 69,
+     "label": "reposition",
+     "expect": "def reposition("
+    }
+   ],
+   "adr": [
+    "ADR-040"
    ]
   }
  },
@@ -2872,7 +2935,8 @@
    "name": "Party births & deaths",
    "types": [
     "party_founded",
-    "party_dissolved"
+    "party_dissolved",
+    "party_repositioned"
    ]
   },
   {
@@ -2979,7 +3043,7 @@
  "misc_refs": {
   "tick_order": {
    "file": "run_polity_simulation.py",
-   "line": 1635,
+   "line": 1657,
    "label": null,
    "expect": "\"\"\"One tick, in order (S3.4). Each phase reads and updates TickState and may leave a"
   },

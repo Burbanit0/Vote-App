@@ -144,7 +144,8 @@ WHAT = {
     "_phase_emotions": "Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021)",
     "_phase_accountability": "Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025)",
     "_phase_snap_election": "Schedules an election when the presidency is vacant (after a recall)",
-    "_phase_opinion_dynamics": "Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012)",
+    "_phase_opinion_dynamics": "Friedkin-Johnsen opinion update, so the next tick reads moved views (ADR-012)",
+    "_phase_party_positions": "Last: at the end of each year, every party's leader moves its platform by the run's rule from the year's views; off for stickers (ADR-040)",
 }
 missing = [f.__name__ for f in TICK_PHASES if f.__name__ not in WHAT]
 assert not missing, f"describe the new tick phase(s) here: {missing}"
@@ -158,7 +159,7 @@ cog.outl("|---|---|---|")
 for i, f in enumerate(TICK_PHASES, 1):
     cog.outl(f"| {i} | `{f.__name__}` | {WHAT[f.__name__]} |")
 ]]] -->
-The 14 phases of one tick, in order -- generated from `TICK_PHASES` in
+The 15 phases of one tick, in order -- generated from `TICK_PHASES` in
 `api/domain/polity/run_polity_simulation.py`, checked by `scripts/check_generated_docs.sh`;
 a phase added without a line here fails the check. After the last phase, the tick is
 checkpointed and `progress.json` is updated.
@@ -178,7 +179,8 @@ checkpointed and `progress.json` is updated.
 | 11 | `_phase_emotions` | Anger, anxiety, enthusiasm; engagement (active, disengaged, exited) (ADR-012/021) |
 | 12 | `_phase_accountability` | Legitimacy L(t), awakening gate, pressure actions, petitions, recall (ADR-025) |
 | 13 | `_phase_snap_election` | Schedules an election when the presidency is vacant (after a recall) |
-| 14 | `_phase_opinion_dynamics` | Friedkin-Johnsen opinion update, last so the next tick reads moved views (ADR-012) |
+| 14 | `_phase_opinion_dynamics` | Friedkin-Johnsen opinion update, so the next tick reads moved views (ADR-012) |
+| 15 | `_phase_party_positions` | Last: at the end of each year, every party's leader moves its platform by the run's rule from the year's views; off for stickers (ADR-040) |
 <!-- [[[end]]] -->
 
 Ordering is load-bearing (the `TICK_PHASES` docstring says why): exogenous events before
@@ -540,12 +542,12 @@ cog.outl("")
 for label, names in (("institutional", institutional), ("LLM decisions", decisions), ("other", other)):
     cog.outl(f"- {label} ({len(names)}): " + ", ".join(f"`{n}`" for n in names))
 ]]] -->
-**54 event types** can be journaled -- generated from the registry in
+**55 event types** can be journaled -- generated from the registry in
 `api/domain/polity/events.py` (S3.3), checked by `scripts/check_generated_docs.sh`:
 
 - institutional (25): `amendment_proposed`, `amendment_resolved`, `bill_blocked`, `bill_enacted`, `bill_proposed`, `campaign_run`, `coalition_failed`, `coalition_formed`, `confidence_vote_result`, `confidence_vote_triggered`, `constitution_amended`, `economic_shock_tick`, `elected`, `election_invalidated`, `election_no_winner`, `extra_legal_act`, `legislative_result`, `party_dissolved`, `party_founded`, `petition_expired`, `petition_launched`, `recalled`, `referendum_held`, `scandal_occurred`, `snap_election_triggered`
 - LLM decisions (12): `agent_turn`, `amendment_vote`, `campaign_positioning`, `candidacy_considered`, `chamber_deliberation`, `coalition_decision`, `forum_post`, `party_nomination_choice`, `pressure_action`, `reaction_to_event`, `representative_response`, `vote_cast`
-- other (17): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `citizen_replaced`, `clamped_at_bound`, `emotions_updated`, `engagement_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `petition_signed`, `policy_status`, `sortition_rotation`, `ties_rewired`, `vote_intention_poll`
+- other (18): `bill_reviewed`, `bill_voted`, `candidacy_declared`, `citizen_replaced`, `clamped_at_bound`, `emotions_updated`, `engagement_updated`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `opinion_dynamics_step`, `party_repositioned`, `petition_signed`, `policy_status`, `sortition_rotation`, `ties_rewired`, `vote_intention_poll`
 <!-- [[[end]]] -->
 
 The digest reports a count for every one of them, per year, including zeros — so "this did not

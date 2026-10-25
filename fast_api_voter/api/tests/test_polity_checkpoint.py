@@ -322,6 +322,7 @@ def test_every_tick_state_field_has_a_checkpoint_key(tmp_path):
         "dynamics_rng_state", "legislature", "constitution", "last_ballots", "regime_rng_state", "refusal_declared",
         "campaign_rng_state", "demography_rng_state",  # ADR-035: written only when citizens are replaced
         "rewiring_rng_state", "graph_edges",  # ADR-036: written only when the ties rewire
+        "leaders_rng_state",  # ADR-040: written only when the leaders move
     }
     assert set(payload) == set(STATE_PAYLOAD_KEYS.values()) - only_when_used | {"run_id", "config_hash", "tick", "next_event_id"}
 

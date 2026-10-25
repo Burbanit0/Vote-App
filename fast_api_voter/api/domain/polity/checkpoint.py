@@ -134,11 +134,17 @@ def _party_to_dict(party: Party) -> dict[str, Any]:
     data: dict[str, Any] = {"party_id": party.party_id, "platform": list(party.platform)}
     if party.founded_tick is not None:  # only founded parties carry it: a run that never founds checkpoints as before
         data["founded_tick"] = party.founded_tick
+    if party.heading is not None:  # ADR-040: only a hunter keeps a heading and the share it last read
+        data["heading"], data["last_share"] = list(party.heading), party.last_share
     return data
 
 
 def _party_from_dict(data: dict[str, Any]) -> Party:
-    return Party(party_id=data["party_id"], platform=tuple(data["platform"]), founded_tick=data.get("founded_tick"))
+    heading = data.get("heading")
+    return Party(
+        party_id=data["party_id"], platform=tuple(data["platform"]), founded_tick=data.get("founded_tick"),
+        heading=None if heading is None else tuple(heading), last_share=data.get("last_share"),
+    )
 
 
 STATE_PAYLOAD_KEYS: dict[str, str] = {
@@ -157,6 +163,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "graph": "graph_edges",
     "regime_rng": "regime_rng_state",
     "campaign_rng": "campaign_rng_state",
+    "leaders_rng": "leaders_rng_state",
     "refusal_declared": "refusal_declared",
     "legislature": "legislature",
     "constitution": "constitution",
@@ -215,10 +222,11 @@ def _restore_optional(payload: Mapping[str, Any], key: str) -> np.random.Generat
 
 
 def _regime_payload(state: TickState) -> dict[str, Any]:
-    regime, campaign = state.regime_rng, state.campaign_rng
+    regime, campaign, leaders = state.regime_rng, state.campaign_rng, state.leaders_rng
     return _set_only(
         regime_rng_state=None if regime is None else regime.bit_generator.state,
         campaign_rng_state=None if campaign is None else campaign.bit_generator.state,
+        leaders_rng_state=None if leaders is None else leaders.bit_generator.state,  # ADR-040
         refusal_declared=True if state.refusal_declared else None,
     )
 
@@ -268,6 +276,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         graph=_restore_graph(payload),
         regime_rng=_restore_optional(payload, "regime_rng_state"),
         campaign_rng=_restore_optional(payload, "campaign_rng_state"),
+        leaders_rng=_restore_optional(payload, "leaders_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
         constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,

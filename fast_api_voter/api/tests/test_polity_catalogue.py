@@ -159,6 +159,7 @@ def test_resume_runs_an_errored_point_again_and_refuses_other_settings(runner: A
     (tmp_path / "rows.jsonl").write_text(json.dumps({"index": 0, "seed": 1, "point": {}, "error": "OSError: disk full"}) + "\n")
     (tmp_path / "settings.json").write_text(json.dumps({
         "runs": 2, "seed": 1, "years": 2, "population": 30, "archetype_version": ARCHETYPE_VERSION, "profile": runner.profile_hash(2, 30),
+        "dimensions": [d.name for d in DIMENSIONS],
     }))
     assert runner.run(args) == 0  # point 0 errored before: it is run again, with point 1
     rows = runner.load_rows(tmp_path)
@@ -169,6 +170,8 @@ def test_resume_runs_an_errored_point_again_and_refuses_other_settings(runner: A
     assert runner.run(args) == 2  # rows labelled by other rules are not mixed with this version's
     (tmp_path / "settings.json").write_text(json.dumps(old | {"archetype_version": ARCHETYPE_VERSION, "profile": "another profile"}))
     assert runner.run(args) == 2  # nor rows run under another profile (ADR-038's weight, say)
+    (tmp_path / "settings.json").write_text(json.dumps(old | {"archetype_version": ARCHETYPE_VERSION, "profile": runner.profile_hash(2, 30), "dimensions": ["method"]}))
+    assert runner.run(args) == 2  # nor rows sampled over other settings (ADR-040 added two)
 
 
 def test_the_runner_wants_a_positive_number_of_workers(runner: Any) -> None:
