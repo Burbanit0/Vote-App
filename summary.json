@@ -1628,7 +1628,7 @@
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-25T07:50:15Z",
+ "generated_at": "2026-10-25T08:44:06Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1833,7 +1833,7 @@
     "success": 5
    },
    "2026-10-25": {
-    "success": 2
+    "success": 3
    }
   },
   "CI Dashboard": {
@@ -1909,7 +1909,7 @@
     "success": 32
    },
    "2026-10-25": {
-    "success": 15
+    "success": 16
    }
   },
   "CI Health Watchdog": {
@@ -2050,7 +2050,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-25": {
-    "success": 4
+    "success": 3
    },
    "2026-09-26": {
     "success": 8
@@ -3033,7 +3033,7 @@
    "2026-10-25": {
     "cancelled": 4,
     "skipped": 24,
-    "success": 37
+    "success": 38
    }
   },
   "zizmor online": {
@@ -3078,18 +3078,18 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40151685825"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T01:42:27Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40151685896"
+   "created_at": "2026-10-25T08:19:27Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40176155763"
   },
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T06:05:52Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40167895214"
+   "created_at": "2026-10-25T07:50:07Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40174274761"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3185,9 +3185,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T07:50:07Z",
+   "created_at": "2026-10-25T08:43:57Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40174274757"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40177785190"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3197,7 +3197,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555068"
   }
  },
- "runs": 15565,
+ "runs": 15567,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3270,12 +3270,12 @@
     "2026-10-22": 1302,
     "2026-10-23": 1158.0,
     "2026-10-24": 1425,
-    "2026-10-25": 1437.5
+    "2026-10-25": 1443
    },
-   "p50_s": 950,
-   "p95_s": 1359,
+   "p50_s": 954,
+   "p95_s": 1384,
    "queue_p50_s": 0,
-   "runs": 135
+   "runs": 136
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3337,12 +3337,12 @@
     "2026-10-22": 388.5,
     "2026-10-23": 378.5,
     "2026-10-24": 372.0,
-    "2026-10-25": 385
+    "2026-10-25": 379.0
    },
    "p50_s": 390,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 668
+   "runs": 669
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3405,7 +3405,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-25": 177.0,
+    "2026-09-25": 176,
     "2026-09-26": 182.5,
     "2026-09-27": 174.5,
     "2026-09-28": 191,
@@ -3437,10 +3437,10 @@
     "2026-10-24": 151,
     "2026-10-25": 163
    },
-   "p50_s": 174,
+   "p50_s": 173,
    "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 203
+   "runs": 202
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3879,12 +3879,12 @@
     "2026-10-22": 30.0,
     "2026-10-23": 27,
     "2026-10-24": 26,
-    "2026-10-25": 27
+    "2026-10-25": 27.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1588
+   "runs": 1589
   },
   "zizmor online": {
    "daily_p50_s": {
