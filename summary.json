@@ -164,45 +164,6 @@
   },
   {
    "branches": [
-    "chore/ci-health-snapshot",
-    "dependabot/github_actions/patch-and-minor-19705d2e3d",
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0",
-    "dependabot/pip/fast_api_voter/filelock-4.0.0",
-    "dependabot/pip/fast_api_voter/patch-and-minor-3cce1301ff",
-    "feat/polity-cohorts",
-    "feat/polity-thinking-budget-live",
-    "feat/polity-welfare",
-    "fix/apportionment-quotient-ties"
-   ],
-   "category": "code",
-   "count": 22,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "ci-health snapshot generated_at=2026-10-22T13:43:14Z (0.0h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed",
-     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     987
-    ],
-    "sha": "f973bebe02cec623c260ca9f07a91a10deede955",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789362947"
-   },
-   "last_seen": "2026-10-22T13:43:23Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/polity/multidict-7.0.0",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0777fd06be",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-124de55ad8",
@@ -305,6 +266,39 @@
    "signature": "code: scripts/loadtest_v#_engine.py:#: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "chore/ci-health-snapshot",
+    "feat/polity-cohorts",
+    "feat/polity-thinking-budget-live",
+    "feat/polity-welfare",
+    "fix/apportionment-quotient-ties"
+   ],
+   "category": "code",
+   "count": 16,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "ci-health snapshot generated_at=2026-10-22T13:43:14Z (0.0h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed",
+     "  - Security Audit (audit.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-21 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     987
+    ],
+    "sha": "f973bebe02cec623c260ca9f07a91a10deede955",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39789362947"
+   },
+   "last_seen": "2026-10-22T13:43:23Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -422,37 +416,6 @@
    "signature": "test-flaky: Traceback (most recent call last):",
    "workflows": [
     "CI Dashboard"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/size-limit-14.0.0",
-    "dependabot/npm_and_yarn/voter-app/size-limit/file-14.0.0"
-   ],
-   "category": "code",
-   "count": 8,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "npm error code ERESOLVE",
-     "npm error ERESOLVE could not resolve",
-     "npm error",
-     "npm error /home/runner/.npm/_logs/2026-09-25T06_58_10_437Z-eresolve-report.txt",
-     "npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-09-25T06_58_10_437Z-debug-0.log",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "cd479621c7e022eec70525204670c5586fef92e0",
-    "step": "Install frontend dependencies",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105196506"
-   },
-   "last_seen": "2026-09-25T06:56:47Z",
-   "signature": "code: npm error code ERESOLVE",
-   "workflows": [
-    "E2E Tests",
-    "Frontend CI",
-    "Generated Artifacts Contract",
-    "Security Audit"
    ]
   },
   {
@@ -762,34 +725,6 @@
    "signature": "advisory: certifi #.# GHSA-#q#-#c#w-#gw# #.#",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-a1fcba6daf",
-    "feat/polity-president-agent"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
-   },
-   "last_seen": "2026-09-28T12:43:56Z",
-   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -1116,6 +1051,33 @@
   },
   {
    "branches": [
+    "feat/polity-president-agent"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "##[error]  22:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  18:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  62:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "3e36daf696b6151d65f241e910d9e1991f425ab9",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36423715719"
+   },
+   "last_seen": "2026-09-28T12:43:56Z",
+   "signature": "code: ##[error]  #:#  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonar",
+   "workflows": [
+    "Security Audit"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-cohorts"
    ],
    "category": "code",
@@ -1278,30 +1240,6 @@
    "signature": "code: ERROR: Cannot install -r requirements.txt (#) and -r requirements.txt (#) because these package versions have conflicting dependencies.",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/pip/fast_api_voter/filelock-4.0.0"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(locator).toBeVisible() failed",
-     "    Error: element(s) not found",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "33628f76b37e3b266435ae8e25491063970a6dd9",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36105225136"
-   },
-   "last_seen": "2026-09-25T06:57:09Z",
-   "signature": "code: Error: expect(locator).toBeVisible() failed",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -1685,12 +1623,12 @@
  ],
  "failures_by_category": {
   "advisory": 20,
-  "code": 185,
+  "code": 169,
   "infra": 13,
   "test-flaky": 30,
   "unknown": 2
  },
- "generated_at": "2026-10-25T06:06:02Z",
+ "generated_at": "2026-10-25T07:50:15Z",
  "grid": {
   "Backend CI": {
    "2026-09-25": {
@@ -1971,7 +1909,7 @@
     "success": 32
    },
    "2026-10-25": {
-    "success": 14
+    "success": 15
    }
   },
   "CI Health Watchdog": {
@@ -2202,7 +2140,7 @@
     "success": 7
    },
    "2026-10-25": {
-    "success": 4
+    "success": 5
    }
   },
   "Diff Mutation comment": {
@@ -3095,7 +3033,7 @@
    "2026-10-25": {
     "cancelled": 4,
     "skipped": 24,
-    "success": 36
+    "success": 37
    }
   },
   "zizmor online": {
@@ -3149,9 +3087,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T02:06:32Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40153191362"
+   "created_at": "2026-10-25T06:05:52Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40167895214"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3168,11 +3106,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40142242110"
   },
   "DAST \u2014 ZAP Baseline": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T01:42:27Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40151685822"
+   "created_at": "2026-10-25T07:47:43Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40174122699"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -3247,9 +3185,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T02:06:32Z",
+   "created_at": "2026-10-25T07:50:07Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40153191353"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40174274757"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3259,11 +3197,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555068"
   }
  },
- "runs": 15610,
+ "runs": 15565,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-25": 193.5,
+    "2026-09-25": 195.0,
     "2026-09-26": 184,
     "2026-09-27": 184,
     "2026-09-28": 347.5,
@@ -3295,10 +3233,10 @@
     "2026-10-24": 565.5,
     "2026-10-25": 609.0
    },
-   "p50_s": 328,
+   "p50_s": 329,
    "p95_s": 549,
    "queue_p50_s": 0,
-   "runs": 899
+   "runs": 893
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3373,9 +3311,9 @@
     "2026-10-25": 21.0
    },
    "p50_s": 11,
-   "p95_s": 38,
+   "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 699
+   "runs": 693
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3399,12 +3337,12 @@
     "2026-10-22": 388.5,
     "2026-10-23": 378.5,
     "2026-10-24": 372.0,
-    "2026-10-25": 391.0
+    "2026-10-25": 385
    },
    "p50_s": 390,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 667
+   "runs": 668
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3497,16 +3435,16 @@
     "2026-10-22": 310.5,
     "2026-10-23": 154.5,
     "2026-10-24": 151,
-    "2026-10-25": 163.5
+    "2026-10-25": 163
    },
    "p50_s": 174,
    "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 202
+   "runs": 203
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-25": 12,
+    "2026-09-25": 11,
     "2026-09-26": 10.0,
     "2026-09-27": 11.0,
     "2026-09-28": 11.0,
@@ -3539,9 +3477,9 @@
     "2026-10-25": 14.0
    },
    "p50_s": 11,
-   "p95_s": 36,
+   "p95_s": 32,
    "queue_p50_s": 0,
-   "runs": 650
+   "runs": 644
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3599,7 +3537,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-25": 771,
+    "2026-09-25": 774.0,
     "2026-09-26": 635,
     "2026-09-27": 504,
     "2026-09-28": 662,
@@ -3634,11 +3572,11 @@
    "p50_s": 563,
    "p95_s": 784,
    "queue_p50_s": 0,
-   "runs": 866
+   "runs": 863
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-25": 13,
+    "2026-09-25": 11,
     "2026-09-26": 11,
     "2026-09-27": 11.5,
     "2026-09-28": 13,
@@ -3673,11 +3611,11 @@
    "p50_s": 17,
    "p95_s": 279,
    "queue_p50_s": 0,
-   "runs": 918
+   "runs": 914
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-25": 79,
+    "2026-09-25": 83,
     "2026-09-26": 78.5,
     "2026-09-27": 79,
     "2026-09-28": 93.5,
@@ -3712,7 +3650,7 @@
    "p50_s": 88,
    "p95_s": 140,
    "queue_p50_s": 0,
-   "runs": 958
+   "runs": 954
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3853,7 +3791,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-25": 111,
+    "2026-09-25": 109.0,
     "2026-09-26": 116,
     "2026-09-27": 120,
     "2026-09-28": 121.0,
@@ -3886,9 +3824,9 @@
     "2026-10-25": 170.5
    },
    "p50_s": 154,
-   "p95_s": 231,
+   "p95_s": 230,
    "queue_p50_s": 0,
-   "runs": 922
+   "runs": 919
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3941,12 +3879,12 @@
     "2026-10-22": 30.0,
     "2026-10-23": 27,
     "2026-10-24": 26,
-    "2026-10-25": 27.0
+    "2026-10-25": 27
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1587
+   "runs": 1588
   },
   "zizmor online": {
    "daily_p50_s": {
