@@ -69,7 +69,9 @@ box. A cut that leaves a side open is written as `>=` or `<=`.
   the cuts that also make sense mechanically are realignment's `polarization_pressure >= 0.41` (ADR-033's radicalisation)
   and churn's `economy_sigma >= 0.167` (a more volatile economy, through what is left of economic voting).
 - **Plausibility.** Volatility failures fell from 670 to 142 (sweep 3) and turnout failures from 499 to 332 (sweep 4).
-  Turnout (332) and panel stability (310) are now the two most frequent failures.
+  Turnout (332) and panel stability (310) are now the two most frequent failures, every one on the high side (turnout
+  above 0.85, panel stability above 0.90; none below 0.5 or 0.70). Each check alone keeps at least two thirds of the runs
+  inside its range; all four at once, 34.2%.
 
 ## What this does not show
 
