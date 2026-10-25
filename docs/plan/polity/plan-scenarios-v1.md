@@ -157,6 +157,15 @@ population scores 1.0). Generic European facts (Laakso and Taagepera; Pedersen; 
 elections; Ansolabehere, Rodden and Snyder's panel stability), used as a filter against absurd
 runs, never as a target. A check with nothing to read is skipped, not failed.
 
+**Where the scenario profile stands** (the fourth catalogue sweep, 1,000 runs, 2026-10-24, after ADR-038 and ADR-039):
+each check on its own keeps two thirds of the runs inside its range (turnout 66.8%, volatility 86.2%, panel stability
+69.0%, ENP 99.8%), but only **34.2% pass all four at once**. Every failure of turnout and panel stability is on the high
+side (too many voters, views too stable). The owner decided on 2026-10-24 to stop calibrating there: volatility and
+turnout were each traced to a cause and fixed (ADR-038, ADR-039), and panel stability, already inside the per-check rule,
+was left alone. Reaching two thirds jointly would mean pushing every check to about 90% on its own, deep inside its
+range, which would make the band a target. Criterion (iv) of the divergence test below is therefore not met by the
+scenario profile at the catalogue's scale.
+
 **Across runs** (`divergence_by_year`, `pairwise_distances`, `diversity`, `divergence_verdict`): the
 yearly series of every run are standardised feature by feature over the whole ensemble (an absent
 value sits at the mean and adds nothing), the distance between two runs is the mean over years of
@@ -166,7 +175,7 @@ in bits, the largest archetype's share and the mean pairwise distance.
 **The divergence test**, the gate for every mechanism from now on, on N ≥ 10 seeds of one
 configuration: (i) the runs drift apart, the mean pairwise distance of the last third of the years
 exceeds the first third's; (ii) archetype entropy at least 1 bit; (iii) no archetype covers more than
-half the runs; (iv) at least two thirds of the runs stay inside the plausibility band. A mechanism is
+half the runs; (iv) at least two thirds of the runs stay inside the plausibility band (34% for the scenario profile today: see above). A mechanism is
 adopted only if it raises (i)–(iii) without breaking (iv). The seed sweep's summary reports all of it
 (`run_polity_seed_sweep.py`, "Diversity").
 
