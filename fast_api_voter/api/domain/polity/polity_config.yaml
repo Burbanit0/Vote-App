@@ -130,6 +130,10 @@ parties:
   death_enabled: false        # [ADR-018] un parti sous la moitié de founding_ratio est-il dissous ?
   founding_ratio: 0.05        # [ADR-018] part des citoyens qui doivent cofonder un parti (article)
   founding_lock_years: 1.0    # [ADR-018, OBS-052] durée après sa fondation pendant laquelle les membres d'un parti ne peuvent ni fonder ni être entraînés dans une autre fondation (0 : pas de verrou)
+  leader_rule: sticker        # [ADR-040] comment les chefs de parti déplacent leur programme, une fois par an :
+                              #   sticker (ne bouge pas), aggregator (vers ses partisans), hunter (garde son
+                              #   cap tant que ses intentions de vote montent), explorer (sonde autour de lui)
+  leader_step: 0.0            # [ADR-040] distance parcourue par an (euclidienne sur les enjeux, de 0 à 1)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes

@@ -33,6 +33,8 @@ _PRESIDENTIAL_METHODS = {
     "approval", "simple_score", "star", "median", "majority_judgment",
 }
 _SEAT_ALLOCATIONS = {"dhondt", "sainte_lague", "largest_remainder"}
+LEADER_RULES = ("sticker", "aggregator", "hunter", "explorer")
+"""ADR-040: the party leaders' rules; `leaders.RULES` is this tuple."""
 _ASSEMBLY_MODES = {"party_list", "candidate_multiwinner"}
 _COALITION_INITIATORS = {"largest_seats", "largest_votes"}
 _COALITION_TIEBREAK_KEYS = {"seats", "votes", "party_id"}
@@ -182,6 +184,12 @@ class PartiesConfig:
     founding_lock_years: float = 1.0
     """ADR-018, amendment 2026-10-21: for this long after a party is founded, its members can
     neither found another nor be swept into another's founding (OBS-052). 0 turns it off."""
+    leader_rule: str = "sticker"
+    """ADR-040: how every party's leader moves its platform, once a year (`leaders.RULES`): sticker never moves (every
+    run before ADR-040), aggregator steps toward its supporters, hunter keeps its heading while its poll share grows,
+    explorer polls nearby positions and takes the best. Anything but sticker needs `leader_step` > 0."""
+    leader_step: float = 0.0
+    """ADR-040: how far a leader moves its platform in a year, Euclidean over the issues (positions run 0 to 1)."""
 
 
 @dataclass(frozen=True)
@@ -952,6 +960,8 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
         founding_ratio=_get_ratio(s, "parties", "founding_ratio"),
         founding_lock_years=_get_nonneg_float(s, "parties", "founding_lock_years"),
+        leader_rule=_get_enum(s, "parties", "leader_rule", set(LEADER_RULES)),
+        leader_step=_get_nonneg_float(s, "parties", "leader_step"),
     )
 
 
@@ -1446,6 +1456,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "> 0 (ADR-032 D): the anchor is what the dynamics draw a citizen back to (at susceptibility 1 it is never read) "
         "and it moves only with a forum stance shift, so the setting would be silently inert"
     ) if c.dynamics.anchor_follow > 0 and not (c.dynamics.enabled and c.dynamics.susceptibility < 1 and c.agents.stance_step > 0) else None,
+    lambda c: (
+        "'parties.leader_rule' other than sticker requires 'parties.leader_step' > 0 (ADR-040): a leader that moves no "
+        "distance would leave every platform where it is, silently"
+    ) if c.parties.leader_rule != "sticker" and c.parties.leader_step <= 0 else None,
     lambda c: (
         "'social_graph.rewire_per_year' and 'social_graph.evolving' go together (ADR-036): a share without 'evolving: true' "
         "would leave the ties fixed, and 'evolving: true' without a share would rewire nothing, both silently"

@@ -55,6 +55,7 @@ def test_the_registry_reproduces_the_sets_three_modules_kept_by_hand() -> None:
         "party_founded", "party_dissolved",  # ADR-018: flagged institutional since #705, but never registered until now
         "citizen_replaced",  # ADR-035
         "ties_rewired",  # ADR-036
+        "party_repositioned",  # ADR-040
     }
     assert INSTITUTIONAL_EVENT_TYPES == {
         "elected", "election_no_winner", "election_invalidated", "snap_election_triggered", "legislative_result",

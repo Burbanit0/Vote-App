@@ -673,6 +673,18 @@ class PartyDissolved(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class PartyRepositioned(Event):
+    """A party's leader moved its platform (leaders.py, ADR-040): by `rule`, `shift` far, having read a poll share of
+    `share` (the citizens the party is nearest to)."""
+
+    EVENT_TYPE = "party_repositioned"
+    party_id: int
+    rule: str
+    share: float
+    shift: float
+
+
+@dataclass(frozen=True, kw_only=True)
 class AmendmentResolved(Event):
     """The chamber's tally of the pending amendment: ratified, or not."""
 
@@ -712,7 +724,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
     OpinionDynamicsStep, CitizenReplaced, TiesRewired, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved,
+    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved, PartyRepositioned,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

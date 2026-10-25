@@ -144,6 +144,7 @@ from api.domain.polity.events import (
     ForumPost,
     PartyDissolved,
     PartyFounded,
+    PartyRepositioned,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -194,6 +195,7 @@ from api.domain.polity.events import (
     VoteCast,
 )
 from api.domain.polity.demography import replace_generation
+from api.domain.polity.leaders import reposition
 from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale, update_engagement
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
@@ -801,6 +803,10 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         ),
         regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
         campaign_rng=np.random.default_rng(config.run.seed) if config.campaign.salience_step > 0 else None,
+        # ADR-040: its own stream, whenever leaders move (only hunters and explorers draw from it).
+        leaders_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 40])) if config.parties.leader_rule != "sticker" else None
+        ),
         # S4.2: policy starts at the population's per-issue median, a neutral origin.
         legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
@@ -1515,6 +1521,21 @@ def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
     _rewire_ties(context, state)
 
 
+def _phase_party_positions(context: TickContext, state: TickState) -> None:
+    """ADR-040: at the end of each year, every party's leader moves its platform by the run's rule, from the year's
+    views; last in the tick, so the next year's ballots read the new platforms."""
+    parties = context.config.parties
+    if state.leaders_rng is None or (context.tick + 1) % context.config.run.ticks_per_year or not state.parties:
+        return
+    state.parties, moves = reposition(state.parties, state.citizens, parties.leader_rule, parties.leader_step, state.leaders_rng)
+    for move in moves:
+        context.journal.write_event(
+            tick=context.tick,
+            event=PartyRepositioned(party_id=move.party_id, rule=move.rule, share=move.share, shift=move.shift),
+            citizen_id=None,
+        )
+
+
 def _rewire_ties(context: TickContext, state: TickState) -> None:
     """ADR-036: after the views moved and the generation turned over, a share of the ties moves toward like views."""
     config = context.config
@@ -1631,6 +1652,7 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_accountability,
     _phase_snap_election,
     _phase_opinion_dynamics,
+    _phase_party_positions,
 )
 """One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
 value on TickContext for a later phase of the same tick -- the order is load-bearing:

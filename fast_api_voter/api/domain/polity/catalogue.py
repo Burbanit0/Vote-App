@@ -55,6 +55,8 @@ DIMENSIONS: tuple[Dimension, ...] = (
         note="no knob sets the electorate's initial spread: this is how hard angry citizens push away from the president (ADR-033)",
     ),
     Dimension("ambition", "citizens.ambition_dist", levels=("beta(2,8)", "beta(2,3)", "beta(1,1)")),
+    Dimension("leader_rule", "parties.leader_rule", levels=("sticker", "aggregator", "hunter", "explorer")),
+    Dimension("leader_step", "parties.leader_step", 0.02, 0.10, note="read only when leaders move (ADR-040)"),
     Dimension(
         "amendment_threshold", "constitution.amendment_threshold", 0.5, 0.9,
         note="amendments are proposed by the model's agents: expected to be inert on the rule-only twin, so it is the negative control",

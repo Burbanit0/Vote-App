@@ -207,6 +207,8 @@
     "founding_ratio": 0.05,
     "init_strategy": "kmeans_on_citizens",
     "initial_count": 5,
+    "leader_rule": "sticker",
+    "leader_step": 0.0,
     "manual_platforms": []
   },
   "petition": {
