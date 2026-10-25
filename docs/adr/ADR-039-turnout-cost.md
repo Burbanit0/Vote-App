@@ -6,9 +6,19 @@
 
 ## Cause
 
-A voter abstains for one of two reasons on the utility ballot: anger has disengaged them (ADR-021), or their best candidate is within `turnout_cost` of the blank ballot (OBS-042; `simple_rules.abstains`). The scenario profile had `turnout_cost` at 0, so the second path never fired and nobody stayed home out of indifference. ADR-011 had found that the band needs a cost of 0.02 to 0.04 and left it at 0 because turnout and partisanship pulled against each other; partisanship is 0 in this profile, so that conflict does not arise here.
+A voter abstains for one of two reasons on the utility ballot: anger has disengaged them (ADR-021), or their best candidate is within `turnout_cost` of the blank ballot (OBS-042; `simple_rules.abstains`). The scenario profile had `turnout_cost` at 0, so the second path never fired and nobody stayed home out of indifference. Measured on 40 catalogue points at that cost, one candidate driver changed at a time (`python scripts/probe_turnout_cost.py ablate --points 40 --out <dir>`):
 
-**Two earlier decisions on this cost, and why this one differs.** OBS-042's study (`scripts/calibrate_turnout_rule_results.md`) calibrated the same rule on a twin **without disengagement** against four facts at once (retrospective voting, turnout, partisanship, repeat winners) and selected 0.15; it was not adopted, because 0.15 keeps 44% home with two candidates. The model engine's `LLM_TURNOUT_COST` (0.04, `run_polity_flagship.py`) was kept on 2026-10-06 for keeping about a tenth home whatever the field's size. This ADR is narrower: the scenario profile has ADR-021's disengagement (at cost 0 it already keeps about 17% home), and the rule below targets turnout alone. It leaves the model engine's 0.04 alone, so the twin and the model arm of the scenario profile now differ in this cost (0.02 against 0.04).
+| arm (cost 0 unless named) | mean turnout | runs with their mean inside the band | above it |
+|---|---:|---:|---:|
+| the profile | 0.826 | 60% | 40% |
+| no disengagement (`emotions.disengage_anger` 0) | **1.000** | 0% | 100% |
+| no economic voting | 0.833 | 57% | 42% |
+| no polarization pressure (`dynamics.radical_step` 0) | 0.870 | 25% | 75% |
+| `turnout_cost` 0.02 (this ADR) | 0.809 | 75% | 25% |
+
+With disengagement off, turnout is exactly 1: at cost 0 **every abstention is an angry citizen's disengagement**, and anything that lowers anger raises turnout (no polarization pressure, 0.870). Economic voting does not move it. ADR-011 had found that the band needs a cost of 0.02 to 0.04 and left it at 0 because turnout and partisanship pulled against each other; partisanship is 0 in this profile, so that conflict does not arise here.
+
+**Two earlier decisions on this cost, and why this one differs.** OBS-042's study (`scripts/calibrate_turnout_rule_results.md`) calibrated the same rule on a twin **without disengagement** against four facts at once (retrospective voting, turnout, partisanship, repeat winners) and selected 0.15; it was not adopted, because 0.15 keeps 44% home with two candidates. The model engine's `LLM_TURNOUT_COST` (0.04, `run_polity_flagship.py`) was kept on 2026-10-06 for keeping about a tenth home whatever the field's size. This ADR is narrower: the scenario profile has ADR-021's disengagement (at cost 0 it keeps about 17% home, and it is the only thing that does: see the table above), and the rule below targets turnout alone. It leaves the model engine's 0.04 alone, so the twin and the model arm of the scenario profile now differ in this cost (0.02 against 0.04).
 
 ## Decision
 
