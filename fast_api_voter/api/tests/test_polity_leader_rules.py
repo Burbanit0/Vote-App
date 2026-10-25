@@ -120,6 +120,13 @@ def test_a_hunter_against_a_wall_keeps_the_direction_it_actually_moved_or_none()
     assert moved[0].heading == pytest.approx((0.0, 1.0))  # it slid along the wall, and that is its heading now
 
 
+def test_membership_stays_sticky_when_a_platform_moves() -> None:
+    citizens = [dataclasses.replace(c, party_affiliation=0) for c in _line()]  # all joined party 0
+    moved, moves = reposition(_two(), citizens, "aggregator", 0.5, np.random.default_rng(1))
+    assert moves[1].shift > 0  # party 1 moved toward the citizens nearer it
+    assert [c.party_affiliation for c in citizens] == [0] * 10  # and nobody switched party because of it
+
+
 def test_a_platform_stays_inside_the_unit_box_and_an_unknown_rule_is_refused() -> None:
     edge = [Party(party_id=0, platform=(1.0, 1.0)), Party(party_id=1, platform=(0.0, 0.0))]
     moved, _ = reposition(edge, _line(), "hunter", 0.5, np.random.default_rng(4))
