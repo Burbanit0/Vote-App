@@ -307,7 +307,9 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
     weigh the economy at the election, so good and bad times move the incumbent's approval and the vote; a
     scenario's own crises go in `events.scripted`) at 0.3, not ADR-034's 1.0: the term is the same for every
     voter, and at 1.0 it swung whole blocs between elections (mean legislative volatility 0.36, inside the
-    band in 35% of runs, on ADR-038's 60-point sample; ADR-038 takes the largest weight that keeps two thirds of the runs inside it), and ADR-035's generational replacement (3% of the citizens
+    band in 35% of runs, on ADR-038's 60-point sample; ADR-038 takes the largest weight that keeps two thirds of the runs inside it), voters who abstain when
+    their best candidate is within 0.02 of the blank ballot on the deterministic engine (ADR-039: at 0 nobody abstained
+    out of indifference, and turnout sat above the band's 0.85 in 42% of runs; the model engine keeps LLM_TURNOUT_COST), and ADR-035's generational replacement (3% of the citizens
     a year are replaced by newcomers drawn around their circle, spread 0.35: over thirty years the spread of
     positions grows by 83% instead of 133%, and the ten-seed labels go from 0.47 to 1.36 bits, measured with economic voting
     at 1.0 and the version-2 labels; see the ADR). On the deterministic engine it is
@@ -316,7 +318,10 @@ def _scenario_config(config: PolityConfig) -> PolityConfig:
     return dataclasses.replace(
         explored,
         llm=dataclasses.replace(explored.llm, crowd=False),
-        vote=dataclasses.replace(explored.vote, mode="utility", economic_voting=0.3),
+        vote=dataclasses.replace(
+            # ADR-039: the twin's cost; the model engine keeps its own (LLM_TURNOUT_COST, a decision of its own)
+            explored.vote, mode="utility", economic_voting=0.3, turnout_cost=explored.vote.turnout_cost or 0.02,
+        ),
         agents=dataclasses.replace(explored.agents, forum_size=10),
         dynamics=dataclasses.replace(explored.dynamics, drift_std=0.18, radical_step=0.5, anger_narrows_bound=0.3),
         citizens=dataclasses.replace(

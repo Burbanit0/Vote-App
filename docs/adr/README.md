@@ -46,6 +46,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [036](ADR-036-homophilous-rewiring.md) | The social ties can move toward like views (`social_graph.evolving`), built and off everywhere: it halves the tie gap but does not move the divergence test | polity | 2026-10-24 | Accepted (off) |
 | [037](ADR-037-realignment-against-the-populations-spread.md) | A realignment is a shift of half the population's own spread, not a fixed 0.1 (archetype version 3) | polity | 2026-10-24 | Accepted |
 | [038](ADR-038-economic-voting-calibrated-on-volatility.md) | Economic voting at 0.3 in the scenario profile: at ADR-034's 1.0 it swung whole blocs between elections (volatility 0.36) | polity | 2026-10-24 | Accepted |
+| [039](ADR-039-turnout-cost.md) | A voter whose best candidate is within 0.02 of the blank ballot stays home (scenario profile): at 0 turnout sat above the band in 42% of runs | polity | 2026-10-24 | Accepted |
 
 Also in this folder, not ADRs:
 

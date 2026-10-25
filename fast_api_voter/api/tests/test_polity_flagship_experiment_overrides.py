@@ -95,6 +95,9 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     assert scenario.citizens.replacement_per_year == 0.03 and scenario.citizens.newcomer_spread == 0.35
     assert not scenario.citizens.static_population and explored.citizens.replacement_per_year == 0.0
     assert scenario.vote.economic_voting == 0.3 and explored.vote.economic_voting == 0.0 and scenario.events.scripted == ()  # ADR-038
+    # ADR-039: the twin's indifference cost; the model engine keeps its own
+    assert scenario.vote.turnout_cost == explored.vote.turnout_cost == flagship.LLM_TURNOUT_COST
+    assert profiled("scenario", "deterministic").vote.turnout_cost == 0.02 and profiled("exploration", "deterministic").vote.turnout_cost == 0.0
     assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
     assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
     validate_config(scenario)

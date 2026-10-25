@@ -20,6 +20,7 @@ import concurrent.futures
 import dataclasses
 import json
 import multiprocessing
+import shutil
 import statistics
 import sys
 from pathlib import Path
@@ -52,10 +53,14 @@ def run_one(job: tuple[int, dict[str, Any], str, dict[str, dict[str, float]], st
     config = apply_point(config, point)
     for section, fields in overrides.items():
         config = dataclasses.replace(config, **{section: dataclasses.replace(getattr(config, section), **fields)})
-    journal = run_simulation(config, run_id="probe")
-    events = [json.loads(line) for line in journal.read_text().splitlines()]
-    results = [e for e in events if e["event_type"] == "legislative_result"]
-    trajectory = build_digest(journal, config, run_id="probe", outcome="completed", resume=False)["trajectory"]
+    run_dir = Path(out) / arm / str(index)
+    try:
+        journal = run_simulation(config, run_id="probe")
+        events = [json.loads(line) for line in journal.read_text().splitlines()]
+        results = [e for e in events if e["event_type"] == "legislative_result"]
+        trajectory = build_digest(journal, config, run_id="probe", outcome="completed", resume=False)["trajectory"]
+    finally:
+        shutil.rmtree(run_dir, ignore_errors=True)  # a run's journal and index are about 10 MB: hundreds would fill a disk
     return {
         "arm": arm, "volatility": [pedersen_volatility(_votes(a), _votes(b)) for a, b in zip(results, results[1:])],
         "reelections": trajectory["office"]["reelections"], "terms": trajectory["office"]["terms"],
