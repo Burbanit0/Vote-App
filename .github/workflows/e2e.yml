@@ -253,7 +253,7 @@ jobs:
       # from the image, so no browser cache and no `playwright install`.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -303,7 +303,7 @@ jobs:
       # merge-reports comes with @playwright/test, so the locked install.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 

@@ -13,11 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies first (better layer caching). Dev tools (requirements-
-# dev.txt) too, so `docker compose exec backend pytest` works — this is the dev
-# image; production is the repo-root Dockerfile.
-COPY requirements.txt requirements-dev.txt ./
-RUN uv pip install --system --no-cache -r requirements.txt -r requirements-dev.txt
+# Install dependencies first (better layer caching). Dev tools too, so `docker
+# compose exec backend pytest` works — this is the dev image; production is the
+# repo-root Dockerfile. From the lock (requirements.txt + requirements-dev.txt
+# compiled together), like CI and the production image: the audited versions,
+# not whatever is newest on the day the image is built.
+COPY requirements-dev.lock.txt ./
+RUN uv pip install --system --no-cache -r requirements-dev.lock.txt
 
 # Copy the application code.
 COPY . .
