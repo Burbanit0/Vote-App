@@ -74,8 +74,10 @@ box. A cut that leaves a side open is written as `>=` or `<=`.
   `polarization_pressure >= 0.34` (ADR-033's radicalisation), churn's `leader_rule` hunter (ADR-040: vote-chasing leaders
   move their parties) and churn's `economy_sigma >= 0.15` (a more volatile economy, through what is left of economic voting).
 - **Plausibility.** Volatility failures fell from 670 to 142 (sweep 3) and turnout failures from 499 to 332 (sweep 4).
-  In sweep 5 (other points), panel stability (336) and turnout (335) are the two most frequent failures, every one on
-  the high side; 308 runs pass all four checks.
+  In sweep 4, turnout (332) and panel stability (310) were the two most frequent failures, every one on the high side
+  (turnout above 0.85, panel stability above 0.90; none below 0.5 or 0.70). Each check alone kept at least two thirds
+  of the runs inside its range; all four at once, 34.2%. In sweep 5 (other points), panel stability (336) and turnout
+  (335) are the two most frequent failures, again every one on the high side; 308 runs pass all four checks.
 
 ## What this does not show
 

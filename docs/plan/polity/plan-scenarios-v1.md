@@ -157,6 +157,18 @@ population scores 1.0). Generic European facts (Laakso and Taagepera; Pedersen; 
 elections; Ansolabehere, Rodden and Snyder's panel stability), used as a filter against absurd
 runs, never as a target. A check with nothing to read is skipped, not failed.
 
+**Where the scenario profile stands** (the rule-only twin's fourth catalogue sweep, 1,000 runs over a Latin hypercube
+of ten settings, 2026-10-24, after ADR-038 and ADR-039; [results](../../../fast_api_voter/scripts/run_polity_catalogue_results.md)).
+Each check keeps at least two thirds of the runs inside its own range, the rule ADR-038 and ADR-039 used to choose their
+values: turnout 66.8%, volatility 86.2%, panel stability 69.0%, ENP 99.8%. Only **34.2% pass all four at once**. Every
+failure of turnout (332 runs) and of panel stability (310) is on the high side: too many voters, views too stable (from
+the sweep's rows: none below 0.5 or 0.70). Volatility and turnout were each traced to a cause and calibrated (ADR-038,
+ADR-039, each with open questions); panel stability, already inside its two-thirds, was left alone. **The owner decided
+on 2026-10-24 to stop calibrating there.** Three checks bind (ENP is near 1), and their failures fall on different runs
+(34.2% pass jointly against 39.7% if the checks were independent), so two thirds jointly would need each of them well
+above 87%, deep inside its range: that would make the band a target. The 34.2% is a figure across settings, not
+criterion (iv) below, which is judged per configuration over at least ten seeds.
+
 **Across runs** (`divergence_by_year`, `pairwise_distances`, `diversity`, `divergence_verdict`): the
 yearly series of every run are standardised feature by feature over the whole ensemble (an absent
 value sits at the mean and adds nothing), the distance between two runs is the mean over years of
