@@ -8,8 +8,10 @@
            the presidential re-election share and the mean turnout: what ADR-038's rule picks from.
 
 Usage (from fast_api_voter/):
-    python scripts/probe_economic_voting.py ablate  --points 40 --out /tmp/ev --base-economic-voting 1.0
-    python scripts/probe_economic_voting.py weights --points 60 --out /tmp/ev
+    python scripts/probe_economic_voting.py ablate  --points 40 --out /tmp/ev --base-economic-voting 1.0 --turnout-cost 0
+    python scripts/probe_economic_voting.py weights --points 60 --out /tmp/ev --turnout-cost 0
+
+(`--turnout-cost 0` gives ADR-038's own conditions: the profile has since added ADR-039's 0.02.)
 
 A reading, not a pre-registered experiment: one run per point.
 """
@@ -20,6 +22,7 @@ import concurrent.futures
 import dataclasses
 import json
 import multiprocessing
+import shutil
 import statistics
 import sys
 from pathlib import Path
@@ -52,10 +55,15 @@ def run_one(job: tuple[int, dict[str, Any], str, dict[str, dict[str, float]], st
     config = apply_point(config, point)
     for section, fields in overrides.items():
         config = dataclasses.replace(config, **{section: dataclasses.replace(getattr(config, section), **fields)})
-    journal = run_simulation(config, run_id="probe")
-    events = [json.loads(line) for line in journal.read_text().splitlines()]
-    results = [e for e in events if e["event_type"] == "legislative_result"]
-    trajectory = build_digest(journal, config, run_id="probe", outcome="completed", resume=False)["trajectory"]
+    run_dir = Path(out) / arm / str(index)
+    try:
+        journal = run_simulation(config, run_id="probe")
+        events = [json.loads(line) for line in journal.read_text().splitlines()]
+        results = [e for e in events if e["event_type"] == "legislative_result"]
+        trajectory = build_digest(journal, config, run_id="probe", outcome="completed", resume=False)["trajectory"]
+    except Exception as error:  # noqa: BLE001 -- a row, so one bad point does not lose the table; its run directory is kept
+        return {"arm": arm, "error": f"{type(error).__name__}: {error}", "run_dir": str(run_dir)}
+    shutil.rmtree(run_dir, ignore_errors=True)  # a run's journal and index are about 10 MB: hundreds would fill a disk
     return {
         "arm": arm, "volatility": [pedersen_volatility(_votes(a), _votes(b)) for a, b in zip(results, results[1:])],
         "reelections": trajectory["office"]["reelections"], "terms": trajectory["office"]["terms"],
@@ -70,13 +78,31 @@ def run_all(arms: dict[str, dict[str, dict[str, float]]], points: int, out: Path
     return {arm: [r for r in rows if r["arm"] == arm] for arm in arms}
 
 
-def line(arm: str, runs: list[dict[str, Any]]) -> str:
+def summary(runs: list[dict[str, Any]]) -> dict[str, float]:
+    """What both probes print about a set of runs: the mean legislative volatility, the share of runs (among those with
+    two legislative elections) whose mean is inside the band, the presidential re-election share and the mean turnout.
+    NaN where no run gives the reading."""
     low, high = PLAUSIBILITY_BAND["volatility"]
-    volatilities = [v for r in runs for v in r["volatility"]]
-    in_band = sum(low <= statistics.mean(r["volatility"]) <= high for r in runs if r["volatility"]) / len(runs)
-    reelected = sum(r["reelections"] for r in runs) / max(1, sum(r["terms"] - 1 for r in runs))
-    turnout = statistics.mean(t for r in runs for t in r["turnout"])
-    return f"| {arm} | {statistics.mean(volatilities):.3f} | {in_band:.0%} | {reelected:.2f} | {turnout:.2f} |"
+    volatile = [r for r in runs if r["volatility"]]
+    turnouts = [t for r in runs for t in r["turnout"]]
+    return {
+        "volatility": statistics.mean(v for r in volatile for v in r["volatility"]) if volatile else float("nan"),
+        "volatility_in_band": sum(low <= statistics.mean(r["volatility"]) <= high for r in volatile) / len(volatile) if volatile else float("nan"),
+        "reelected": sum(r["reelections"] for r in runs) / max(1, sum(r["terms"] - 1 for r in runs)),
+        "turnout": statistics.mean(turnouts) if turnouts else float("nan"),
+    }
+
+
+def read(runs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str]:
+    """The runs that ran, and a note on those that raised (their run directories are kept)."""
+    failed = [r for r in runs if "error" in r]
+    return [r for r in runs if "error" not in r], (f" ({len(failed)} raised: {failed[0]['error']}, kept in {failed[0]['run_dir']})" if failed else "")
+
+
+def line(arm: str, runs: list[dict[str, Any]]) -> str:
+    ran, note = read(runs)
+    s = summary(ran)
+    return f"| {arm}{note} | {s['volatility']:.3f} | {s['volatility_in_band']:.0%} | {s['reelected']:.2f} | {s['turnout']:.2f} |"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -85,13 +111,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--points", type=int, default=40)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--base-economic-voting", type=float, default=None, help="ablate against the profile at this weight")
+    parser.add_argument("--turnout-cost", type=float, default=None, help="pin vote.turnout_cost in every arm (ADR-038's tables: 0)")
     parser.add_argument("--workers", type=int, default=max(1, (multiprocessing.cpu_count() or 2) - 2))
     args = parser.parse_args(argv)
+    pinned = {} if args.turnout_cost is None else {"turnout_cost": args.turnout_cost}
     if args.table == "ablate":
-        base = {} if args.base_economic_voting is None else {"economic_voting": args.base_economic_voting}
+        base = pinned | ({} if args.base_economic_voting is None else {"economic_voting": args.base_economic_voting})
         arms = {arm: {"vote": base | o.get("vote", {}), **{k: v for k, v in o.items() if k != "vote"}} for arm, o in ARMS.items()}
     else:
-        arms = {f"economic_voting={w}": {"vote": {"economic_voting": w}} for w in WEIGHTS}
+        arms = {f"economic_voting={w}": {"vote": pinned | {"economic_voting": w}} for w in WEIGHTS}
     print("| arm | mean volatility | runs with their mean in band | re-election share | mean turnout |")
     print("|---|---:|---:|---:|---:|")
     for arm, runs in run_all(arms, args.points, args.out, args.workers).items():
