@@ -423,20 +423,20 @@
     "polity"
    ],
    "category": "code",
-   "count": 7,
+   "count": 8,
    "example": {
     "job": "Frontend mutation score (Stryker, floor 80%)",
     "lines": [
-     "00:09:57 (2327) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-     "00:09:57 (2327) ERROR Stryker There were failed tests in the initial test run.",
+     "10:09:05 (2238) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+     "10:09:05 (2238) ERROR Stryker There were failed tests in the initial test run.",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [],
-    "sha": "e45486cfe7a283012c997508d4cfc829372cc3ff",
+    "sha": "0b4cc9c7a407b068331fb2f149b9c7704af1a9af",
     "step": "Run Stryker (fails under thresholds.break)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555044"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
    },
-   "last_seen": "2026-10-25T00:08:54Z",
+   "last_seen": "2026-10-26T10:08:05Z",
    "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
    "workflows": [
     "Mutation Testing"
@@ -1621,12 +1621,12 @@
  ],
  "failures_by_category": {
   "advisory": 20,
-  "code": 166,
+  "code": 167,
   "infra": 13,
   "test-flaky": 29,
   "unknown": 2
  },
- "generated_at": "2026-10-26T09:11:02Z",
+ "generated_at": "2026-10-26T10:30:57Z",
  "grid": {
   "Backend CI": {
    "2026-09-26": {
@@ -1907,7 +1907,7 @@
     "success": 28
    },
    "2026-10-26": {
-    "success": 3
+    "success": 4
    }
   },
   "CI Health Watchdog": {
@@ -2615,6 +2615,9 @@
    },
    "2026-10-25": {
     "failure": 1
+   },
+   "2026-10-26": {
+    "failure": 1
    }
   },
   "OpenSSF Scorecard": {
@@ -3015,7 +3018,7 @@
     "success": 54
    },
    "2026-10-26": {
-    "success": 2
+    "success": 3
    }
   },
   "zizmor online": {
@@ -3069,9 +3072,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-26T08:08:06Z",
+   "created_at": "2026-10-26T09:10:53Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40290173966"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40297574042"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3130,11 +3133,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40215783831"
   },
   "Mutation Testing": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-25T00:08:54Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555044"
+   "created_at": "2026-10-26T10:08:05Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
   },
   "OpenSSF Scorecard": {
    "branch": "develop",
@@ -3167,9 +3170,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-26T09:10:53Z",
+   "created_at": "2026-10-26T10:30:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40297574073"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40307994104"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3179,7 +3182,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555068"
   }
  },
- "runs": 15422,
+ "runs": 15425,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3318,12 +3321,12 @@
     "2026-10-23": 378.5,
     "2026-10-24": 372.0,
     "2026-10-25": 379.0,
-    "2026-10-26": 380
+    "2026-10-26": 386.0
    },
    "p50_s": 390,
    "p95_s": 588,
    "queue_p50_s": 0,
-   "runs": 684
+   "runs": 685
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3853,12 +3856,12 @@
     "2026-10-23": 27,
     "2026-10-24": 26,
     "2026-10-25": 27.0,
-    "2026-10-26": 28.5
+    "2026-10-26": 27
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1607
+   "runs": 1608
   },
   "zizmor online": {
    "daily_p50_s": {
