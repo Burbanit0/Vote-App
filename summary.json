@@ -727,31 +727,6 @@
   },
   {
    "branches": [
-    "chore/sync-develop-into-polity-20260927",
-    "fix/teaching-content-errors"
-   ],
-   "category": "code",
-   "count": 2,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "c7f2bcced018f247048d91c12decaeec8bb39fe6",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37862459550"
-   },
-   "last_seen": "2026-10-08T23:59:57Z",
-   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "feat/claims-registry",
     "feat/winner-strip"
    ],
@@ -1129,33 +1104,6 @@
   },
   {
    "branches": [
-    "main"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Tests backend",
-    "lines": [
-     "ERROR fast_api_voter/api/tests/test_hypothesis_monotonicity.py",
-     "ERROR fast_api_voter/api/tests/test_schema_contract.py",
-     "ERROR fast_api_voter/api/tests/test_simulations_bounds.py",
-     "ERROR fast_api_voter/api/tests/test_voting_criteria_matrix.py",
-     "ERROR fast_api_voter/api/tests/test_z3_formal_proofs.py",
-     "##[error]Process completed with exit code 2."
-    ],
-    "pr": [],
-    "sha": "f18d21764a15ecf266579c643bf3f7f80e4c642e",
-    "step": "Run python -m pytest fast_api_voter/api/tests -v",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36292989132"
-   },
-   "last_seen": "2026-09-27T03:59:20Z",
-   "signature": "code: ERROR fast_api_voter/api/tests/test_hypothesis_monotonicity.py",
-   "workflows": [
-    "\ud83d\ude80 Release Vote Lab"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf"
    ],
    "category": "code",
@@ -1180,6 +1128,30 @@
    "signature": "code: ERROR: Cannot install -r requirements.txt (#) and -r requirements.txt (#) because these package versions have conflicting dependencies.",
    "workflows": [
     "Security Audit"
+   ]
+  },
+  {
+   "branches": [
+    "fix/teaching-content-errors"
+   ],
+   "category": "code",
+   "count": 1,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "c7f2bcced018f247048d91c12decaeec8bb39fe6",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37862459550"
+   },
+   "last_seen": "2026-10-08T23:59:57Z",
+   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -1349,33 +1321,6 @@
    "category": "test-flaky",
    "count": 1,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
-    "lines": [
-     "-------------",
-     "Total:   5259 lines",
-     "Missing: 55 lines",
-     "Coverage: 98%",
-     "-------------",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "48bebe80c86c2aa1e30d547ba813b87f19054e72",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36292439662"
-   },
-   "last_seen": "2026-09-27T03:47:37Z",
-   "signature": "test-flaky: -------------",
-   "workflows": [
-    "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 1,
-   "example": {
     "job": "CI health check",
     "lines": [
      "ci-health snapshot generated_at=2026-10-12T17:46:19Z (235.9h ago)",
@@ -1394,33 +1339,6 @@
    "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 1,
-   "example": {
-    "job": "Validate branch source and naming",
-    "lines": [
-     "  security \u2192 correctif s\u00e9curit\u00e9",
-     "Exemples :",
-     "  feat(blank-vote): add competitive rule to scenario builder",
-     "  fix(navbar): dark mode background not adapting to theme",
-     "  ci: add pre-commit hooks and coverage thresholds",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "48bebe80c86c2aa1e30d547ba813b87f19054e72",
-    "step": "Validate PR title format",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36292439700"
-   },
-   "last_seen": "2026-09-27T03:47:37Z",
-   "signature": "test-flaky: ci: add pre-commit hooks and coverage thresholds",
-   "workflows": [
-    "Branch Policy"
    ]
   },
   {
@@ -1505,29 +1423,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 1,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  760ms",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "48bebe80c86c2aa1e30d547ba813b87f19054e72",
-    "step": "diff-cover \u2014 100% coverage on changed lines",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36292439708"
-   },
-   "last_seen": "2026-09-27T03:47:37Z",
-   "signature": "test-flaky: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-124de55ad8"
    ],
    "category": "unknown",
@@ -1569,16 +1464,16 @@
  ],
  "failures_by_category": {
   "advisory": 20,
-  "code": 162,
+  "code": 160,
   "infra": 13,
-  "test-flaky": 29,
+  "test-flaky": 26,
   "unknown": 2
  },
- "generated_at": "2026-10-27T01:03:33Z",
+ "generated_at": "2026-10-27T05:00:55Z",
  "grid": {
   "Backend CI": {
    "2026-09-27": {
-    "success": 12
+    "success": 7
    },
    "2026-09-28": {
     "cancelled": 2,
@@ -1677,7 +1572,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-09-27": {
-    "success": 4
+    "success": 2
    },
    "2026-09-28": {
     "success": 1
@@ -1854,12 +1749,12 @@
     "success": 12
    },
    "2026-10-27": {
-    "success": 4
+    "success": 5
    }
   },
   "CI Health Watchdog": {
    "2026-09-27": {
-    "success": 8
+    "success": 3
    },
    "2026-09-28": {
     "success": 1
@@ -1996,7 +1891,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-09-27": {
-    "success": 5
+    "success": 2
    },
    "2026-09-28": {
     "success": 1
@@ -2150,8 +2045,7 @@
   },
   "E2E Tests": {
    "2026-09-27": {
-    "cancelled": 2,
-    "success": 10
+    "success": 7
    },
    "2026-09-28": {
     "cancelled": 5,
@@ -2256,7 +2150,7 @@
   },
   "Frontend CI": {
    "2026-09-27": {
-    "success": 12
+    "success": 7
    },
    "2026-09-28": {
     "success": 21
@@ -2354,7 +2248,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-27": {
-    "success": 12
+    "success": 7
    },
    "2026-09-28": {
     "success": 21
@@ -2530,7 +2424,7 @@
     "skipped": 1
    },
    "2026-10-27": {
-    "skipped": 4,
+    "skipped": 6,
     "success": 1
    }
   },
@@ -2579,7 +2473,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-09-27": {
-    "success": 7
+    "success": 2
    },
    "2026-09-29": {
     "success": 1
@@ -2634,7 +2528,7 @@
   },
   "Schemathesis Contract Fuzzing": {
    "2026-09-27": {
-    "success": 3
+    "success": 1
    },
    "2026-09-28": {
     "success": 1
@@ -2711,7 +2605,7 @@
   },
   "Security Audit": {
    "2026-09-27": {
-    "success": 12
+    "success": 7
    },
    "2026-09-28": {
     "failure": 1,
@@ -2984,7 +2878,7 @@
    },
    "2026-10-27": {
     "cancelled": 4,
-    "skipped": 9,
+    "skipped": 12,
     "success": 9
    }
   },
@@ -3039,9 +2933,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-27T00:53:31Z",
+   "created_at": "2026-10-27T01:00:57Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40429239428"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40430007258"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -3095,9 +2989,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-27T00:50:21Z",
+   "created_at": "2026-10-27T01:19:00Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40428913520"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40431841225"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -3137,9 +3031,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-10-27T01:07:01Z",
+   "created_at": "2026-10-27T01:18:19Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40430635282"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40431777187"
   },
   "zizmor online": {
    "branch": "polity",
@@ -3149,11 +3043,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555068"
   }
  },
- "runs": 15169,
+ "runs": 15036,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-27": 184,
+    "2026-09-27": 298.5,
     "2026-09-28": 347.5,
     "2026-09-29": 340.0,
     "2026-09-30": 367,
@@ -3183,16 +3077,16 @@
     "2026-10-24": 565.5,
     "2026-10-25": 595.5,
     "2026-10-26": 11,
-    "2026-10-27": 9
+    "2026-10-27": 315.5
    },
-   "p50_s": 351,
-   "p95_s": 570,
+   "p50_s": 356,
+   "p95_s": 573,
    "queue_p50_s": 0,
-   "runs": 828
+   "runs": 812
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-09-27": 301.5,
+    "2026-09-27": 513.5,
     "2026-09-28": 474,
     "2026-09-29": 525,
     "2026-09-30": 740,
@@ -3223,10 +3117,10 @@
     "2026-10-25": 1445.5,
     "2026-10-26": 1408
    },
-   "p50_s": 986,
+   "p50_s": 995,
    "p95_s": 1426,
    "queue_p50_s": 0,
-   "runs": 125
+   "runs": 123
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3262,9 +3156,9 @@
     "2026-10-27": 9
    },
    "p50_s": 11,
-   "p95_s": 36,
+   "p95_s": 37,
    "queue_p50_s": 0,
-   "runs": 639
+   "runs": 627
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3290,16 +3184,16 @@
     "2026-10-24": 372.0,
     "2026-10-25": 379.0,
     "2026-10-26": 398.0,
-    "2026-10-27": 459.5
+    "2026-10-27": 498
    },
    "p50_s": 390,
    "p95_s": 588,
    "queue_p50_s": 0,
-   "runs": 697
+   "runs": 698
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-27": 10.5,
+    "2026-09-27": 12,
     "2026-09-28": 20,
     "2026-09-29": 33,
     "2026-09-30": 16,
@@ -3331,9 +3225,9 @@
     "2026-10-27": 10
    },
    "p50_s": 11,
-   "p95_s": 37,
+   "p95_s": 38,
    "queue_p50_s": 0,
-   "runs": 540
+   "runs": 525
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3358,7 +3252,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-09-27": 176,
+    "2026-09-27": 167.0,
     "2026-09-28": 191,
     "2026-09-29": 176,
     "2026-09-30": 201,
@@ -3390,10 +3284,10 @@
     "2026-10-26": 162,
     "2026-10-27": 168
    },
-   "p50_s": 173,
-   "p95_s": 201,
+   "p50_s": 172,
+   "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 192
+   "runs": 189
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3430,9 +3324,9 @@
     "2026-10-27": 10.0
    },
    "p50_s": 11,
-   "p95_s": 32,
+   "p95_s": 33,
    "queue_p50_s": 0,
-   "runs": 596
+   "runs": 584
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3492,7 +3386,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-27": 503.0,
+    "2026-09-27": 555.5,
     "2026-09-28": 662,
     "2026-09-29": 519.5,
     "2026-09-30": 679.5,
@@ -3522,16 +3416,16 @@
     "2026-10-24": 620.5,
     "2026-10-25": 641.0,
     "2026-10-26": 10,
-    "2026-10-27": 528
+    "2026-10-27": 576.0
    },
-   "p50_s": 551,
+   "p50_s": 552,
    "p95_s": 730,
    "queue_p50_s": 0,
-   "runs": 804
+   "runs": 791
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-27": 11.0,
+    "2026-09-27": 13,
     "2026-09-28": 13,
     "2026-09-29": 94.5,
     "2026-09-30": 11.0,
@@ -3563,14 +3457,14 @@
     "2026-10-26": 12,
     "2026-10-27": 94.5
    },
-   "p50_s": 17,
+   "p50_s": 18,
    "p95_s": 281,
    "queue_p50_s": 0,
-   "runs": 848
+   "runs": 831
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-27": 79,
+    "2026-09-27": 86,
     "2026-09-28": 93.5,
     "2026-09-29": 96.5,
     "2026-09-30": 89.0,
@@ -3605,7 +3499,7 @@
    "p50_s": 89,
    "p95_s": 140,
    "queue_p50_s": 0,
-   "runs": 889
+   "runs": 871
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3659,7 +3553,7 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-09-27": 41,
+    "2026-09-27": 42.0,
     "2026-09-29": 59,
     "2026-10-02": 47,
     "2026-10-03": 46,
@@ -3680,7 +3574,7 @@
    "p50_s": 47,
    "p95_s": 64,
    "queue_p50_s": 0,
-   "runs": 47
+   "runs": 42
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3741,14 +3635,14 @@
     "2026-10-25": 66,
     "2026-10-26": 81
    },
-   "p50_s": 74,
+   "p50_s": 75,
    "p95_s": 86,
    "queue_p50_s": 0,
-   "runs": 113
+   "runs": 111
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-27": 118,
+    "2026-09-27": 121,
     "2026-09-28": 121.0,
     "2026-09-29": 118.0,
     "2026-09-30": 121.0,
@@ -3778,12 +3672,12 @@
     "2026-10-24": 159,
     "2026-10-25": 178,
     "2026-10-26": 154.5,
-    "2026-10-27": 160
+    "2026-10-27": 161.0
    },
-   "p50_s": 157,
-   "p95_s": 230,
+   "p50_s": 158,
+   "p95_s": 231,
    "queue_p50_s": 0,
-   "runs": 856
+   "runs": 839
   },
   "Workflow Lint": {
    "daily_p50_s": {
