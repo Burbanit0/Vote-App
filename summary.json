@@ -1469,7 +1469,7 @@
   "test-flaky": 26,
   "unknown": 2
  },
- "generated_at": "2026-10-27T10:31:36Z",
+ "generated_at": "2026-10-27T14:22:16Z",
  "grid": {
   "Backend CI": {
    "2026-09-27": {
@@ -1752,12 +1752,12 @@
     "success": 12
    },
    "2026-10-27": {
-    "success": 8
+    "success": 9
    }
   },
   "CI Health Watchdog": {
    "2026-09-27": {
-    "success": 3
+    "success": 2
    },
    "2026-09-28": {
     "success": 1
@@ -1847,7 +1847,7 @@
     "success": 1
    },
    "2026-10-27": {
-    "success": 1
+    "success": 2
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
@@ -2526,7 +2526,7 @@
     "success": 1
    },
    "2026-10-27": {
-    "success": 1
+    "success": 2
    }
   },
   "Schemathesis Contract Fuzzing": {
@@ -2882,7 +2882,7 @@
    "2026-10-27": {
     "cancelled": 4,
     "skipped": 12,
-    "success": 11
+    "success": 12
    }
   },
   "zizmor online": {
@@ -2915,6 +2915,9 @@
    },
    "2026-10-25": {
     "success": 1
+   },
+   "2026-10-27": {
+    "success": 1
    }
   }
  },
@@ -2936,16 +2939,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-27T09:18:38Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40479799633"
+   "created_at": "2026-10-27T10:31:28Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40489137569"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-27T00:31:44Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40426977601"
+   "created_at": "2026-10-27T14:21:35Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40520354584"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -3006,9 +3009,9 @@
   "OpenSSF Scorecard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-27T00:31:44Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40426977609"
+   "created_at": "2026-10-27T13:24:00Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40511691175"
   },
   "Schemathesis Contract Fuzzing": {
    "branch": "develop",
@@ -3034,19 +3037,19 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-27T09:18:38Z",
+   "created_at": "2026-10-27T10:56:16Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40479799582"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40492327094"
   },
   "zizmor online": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-25T00:08:54Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555068"
+   "created_at": "2026-10-27T10:55:58Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40492287353"
   }
  },
- "runs": 15041,
+ "runs": 15045,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -3188,16 +3191,16 @@
     "2026-10-24": 372.0,
     "2026-10-25": 379.0,
     "2026-10-26": 398.0,
-    "2026-10-27": 390.5
+    "2026-10-27": 392
    },
    "p50_s": 390,
    "p95_s": 588,
    "queue_p50_s": 0,
-   "runs": 701
+   "runs": 702
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-27": 12,
+    "2026-09-27": 11.5,
     "2026-09-28": 20,
     "2026-09-29": 33,
     "2026-09-30": 16,
@@ -3226,7 +3229,7 @@
     "2026-10-24": 11.5,
     "2026-10-25": 11.0,
     "2026-10-26": 20.0,
-    "2026-10-27": 10
+    "2026-10-27": 10.0
    },
    "p50_s": 11,
    "p95_s": 38,
@@ -3573,12 +3576,12 @@
     "2026-10-17": 49.0,
     "2026-10-20": 45,
     "2026-10-23": 44,
-    "2026-10-27": 57
+    "2026-10-27": 54.0
    },
    "p50_s": 47,
    "p95_s": 64,
    "queue_p50_s": 0,
-   "runs": 42
+   "runs": 43
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3738,12 +3741,12 @@
     "2026-10-24": 26,
     "2026-10-25": 27.0,
     "2026-10-26": 28.5,
-    "2026-10-27": 26
+    "2026-10-27": 26.5
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1622
+   "runs": 1623
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3756,12 +3759,13 @@
     "2026-10-17": 19,
     "2026-10-20": 15,
     "2026-10-24": 17.5,
-    "2026-10-25": 18
+    "2026-10-25": 18,
+    "2026-10-27": 16
    },
    "p50_s": 18,
    "p95_s": 22,
    "queue_p50_s": 0,
-   "runs": 19
+   "runs": 20
   },
   "\ud83d\ude80 Release Vote Lab": {
    "daily_p50_s": {
