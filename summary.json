@@ -302,40 +302,6 @@
   },
   {
    "branches": [
-    "feat/claims-registry",
-    "feat/polity-biography-compact",
-    "feat/polity-constitution-reporting",
-    "feat/polity-timeline-phase5-glyphs",
-    "feat/static-pages",
-    "feat/winner-strip",
-    "fix/playground-first-contact",
-    "polity"
-   ],
-   "category": "code",
-   "count": 14,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  720ms",
-     "     \u00d7 gated compute (probability lens) costs measurably more than a trivial disclosure toggle 1077ms",
-     " FAIL  src/pages/__tests__/PlaygroundPage.perf.test.tsx > PlaygroundPage form-lock \u2014 React Profiler invariant > gated compute (probability lens) costs measurably more than a trivial disclosure toggle",
-     "AssertionError: expected 85.01724799999874 to be greater than 86.2905540000047",
-     "##[error]AssertionError: expected 85.01724799999874 to be greater than 86.2905540000047",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "e9cbc87dba3d6bf999a8332db30d006d59f94258",
-    "step": "Tests with coverage",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38837966282"
-   },
-   "last_seen": "2026-10-16T01:58:16Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0600667cd0",
     "develop",
     "test/scripts-import-smoke"
@@ -390,6 +356,39 @@
    },
    "last_seen": "2026-10-02T15:07:10Z",
    "signature": "advisory: To address all issues, run:",
+   "workflows": [
+    "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "feat/claims-registry",
+    "feat/polity-biography-compact",
+    "feat/polity-timeline-phase5-glyphs",
+    "feat/static-pages",
+    "feat/winner-strip",
+    "fix/playground-first-contact",
+    "polity"
+   ],
+   "category": "code",
+   "count": 12,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  720ms",
+     "     \u00d7 gated compute (probability lens) costs measurably more than a trivial disclosure toggle 1077ms",
+     " FAIL  src/pages/__tests__/PlaygroundPage.perf.test.tsx > PlaygroundPage form-lock \u2014 React Profiler invariant > gated compute (probability lens) costs measurably more than a trivial disclosure toggle",
+     "AssertionError: expected 85.01724799999874 to be greater than 86.2905540000047",
+     "##[error]AssertionError: expected 85.01724799999874 to be greater than 86.2905540000047",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "e9cbc87dba3d6bf999a8332db30d006d59f94258",
+    "step": "Tests with coverage",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38837966282"
+   },
+   "last_seen": "2026-10-16T01:58:16Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
    "workflows": [
     "Frontend CI"
    ]
@@ -1410,16 +1409,16 @@
  ],
  "failures_by_category": {
   "advisory": 20,
-  "code": 155,
+  "code": 153,
   "infra": 13,
   "test-flaky": 25,
   "unknown": 2
  },
- "generated_at": "2026-10-28T15:02:40Z",
+ "generated_at": "2026-10-28T19:32:36Z",
  "grid": {
   "Backend CI": {
    "2026-09-28": {
-    "success": 10
+    "success": 5
    },
    "2026-09-29": {
     "success": 2
@@ -1694,13 +1693,10 @@
     "success": 12
    },
    "2026-10-28": {
-    "success": 5
+    "success": 6
    }
   },
   "CI Health Watchdog": {
-   "2026-09-28": {
-    "success": 1
-   },
    "2026-09-29": {
     "success": 1
    },
@@ -1984,7 +1980,7 @@
   },
   "E2E Tests": {
    "2026-09-28": {
-    "success": 10
+    "success": 5
    },
    "2026-09-29": {
     "success": 2
@@ -2085,7 +2081,7 @@
   },
   "Frontend CI": {
    "2026-09-28": {
-    "success": 10
+    "success": 5
    },
    "2026-09-29": {
     "success": 2
@@ -2180,7 +2176,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-09-28": {
-    "success": 10
+    "success": 5
    },
    "2026-09-29": {
     "success": 2
@@ -2522,7 +2518,7 @@
   },
   "Security Audit": {
    "2026-09-28": {
-    "success": 10
+    "success": 5
    },
    "2026-09-29": {
     "success": 2
@@ -2795,7 +2791,7 @@
     "success": 13
    },
    "2026-10-28": {
-    "success": 2
+    "success": 3
    }
   },
   "zizmor online": {
@@ -2852,9 +2848,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-28T13:59:40Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40701586471"
+   "created_at": "2026-10-28T15:02:32Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40711924934"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2950,9 +2946,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-28T10:00:11Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40668628205"
+   "created_at": "2026-10-28T16:09:13Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40723131025"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2962,11 +2958,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40492287353"
   }
  },
- "runs": 14721,
+ "runs": 14641,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-28": 366,
+    "2026-09-28": 372.5,
     "2026-09-29": 340.0,
     "2026-09-30": 367,
     "2026-10-01": 376.0,
@@ -2997,10 +2993,10 @@
     "2026-10-26": 11,
     "2026-10-27": 315.5
    },
-   "p50_s": 362,
+   "p50_s": 365,
    "p95_s": 581,
    "queue_p50_s": 0,
-   "runs": 765
+   "runs": 754
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3073,9 +3069,9 @@
     "2026-10-27": 9
    },
    "p50_s": 11,
-   "p95_s": 38,
+   "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 595
+   "runs": 587
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3102,16 +3098,15 @@
     "2026-10-25": 379.0,
     "2026-10-26": 398.0,
     "2026-10-27": 396.5,
-    "2026-10-28": 387
+    "2026-10-28": 384.5
    },
    "p50_s": 390,
-   "p95_s": 588,
+   "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 710
+   "runs": 711
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-09-28": 20,
     "2026-09-29": 33,
     "2026-09-30": 16,
     "2026-10-01": 19,
@@ -3145,7 +3140,7 @@
    "p50_s": 11,
    "p95_s": 38,
    "queue_p50_s": 0,
-   "runs": 520
+   "runs": 519
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -3241,7 +3236,7 @@
    "p50_s": 11,
    "p95_s": 33,
    "queue_p50_s": 0,
-   "runs": 552
+   "runs": 544
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3301,7 +3296,7 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-28": 665,
+    "2026-09-28": 677.0,
     "2026-09-29": 519.5,
     "2026-09-30": 679.5,
     "2026-10-01": 672,
@@ -3332,14 +3327,14 @@
     "2026-10-26": 10,
     "2026-10-27": 576.0
    },
-   "p50_s": 552,
-   "p95_s": 730,
+   "p50_s": 550,
+   "p95_s": 728,
    "queue_p50_s": 0,
-   "runs": 747
+   "runs": 736
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-28": 166,
+    "2026-09-28": 161.0,
     "2026-09-29": 94.5,
     "2026-09-30": 11.0,
     "2026-10-01": 10.0,
@@ -3373,11 +3368,11 @@
    "p50_s": 19,
    "p95_s": 282,
    "queue_p50_s": 0,
-   "runs": 780
+   "runs": 769
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-28": 96,
+    "2026-09-28": 94.0,
     "2026-09-29": 96.5,
     "2026-09-30": 89.0,
     "2026-10-01": 92,
@@ -3409,9 +3404,9 @@
     "2026-10-27": 50.0
    },
    "p50_s": 89,
-   "p95_s": 140,
+   "p95_s": 143,
    "queue_p50_s": 0,
-   "runs": 821
+   "runs": 808
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3550,7 +3545,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-28": 122,
+    "2026-09-28": 121.5,
     "2026-09-29": 118.0,
     "2026-09-30": 121.0,
     "2026-10-01": 120,
@@ -3581,10 +3576,10 @@
     "2026-10-26": 154.5,
     "2026-10-27": 161.0
    },
-   "p50_s": 160,
+   "p50_s": 161,
    "p95_s": 233,
    "queue_p50_s": 0,
-   "runs": 789
+   "runs": 776
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3642,12 +3637,12 @@
     "2026-10-25": 27.0,
     "2026-10-26": 28.5,
     "2026-10-27": 27,
-    "2026-10-28": 30.5
+    "2026-10-28": 31
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1626
+   "runs": 1627
   },
   "zizmor online": {
    "daily_p50_s": {
