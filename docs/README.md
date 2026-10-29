@@ -54,6 +54,7 @@ Every plan's first lines say its status: **live** (being executed or maintained)
 
 | Live | Reference |
 |---|---|
+| [`ROADMAP_M1.md`](plan/ROADMAP_M1.md), fix, test, clean, then Milestone 1 (set 2026-10-29) | |
 | [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md), the current plan | [`polity/polity-simulation-design-v2.md`](plan/polity/polity-simulation-design-v2.md), the authority on intent |
 | [`polity/plan-polity-agency-roadmap.md`](plan/polity/plan-polity-agency-roadmap.md) | [`polity/polity-llm-reference.md`](plan/polity/polity-llm-reference.md), what the simulator does today |
 | [`polity/plan-polity-build-order.md`](plan/polity/plan-polity-build-order.md) | [`polity/polity-decision-contracts.md`](plan/polity/polity-decision-contracts.md) |
