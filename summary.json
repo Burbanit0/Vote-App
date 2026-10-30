@@ -393,35 +393,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/patch-and-minor-709d3b11bf",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
-    "polity"
-   ],
-   "category": "advisory",
-   "count": 10,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "fix available via `npm audit fix`",
-     "node_modules/ip-address",
-     "3 vulnerabilities (2 moderate, 1 high)",
-     "To address all issues, run:",
-     "  npm audit fix",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
-    "step": "Security \u2014 npm audit (high CVEs block)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
-   },
-   "last_seen": "2026-10-02T15:07:10Z",
-   "signature": "advisory: To address all issues, run:",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "develop",
     "polity"
    ],
@@ -443,6 +414,35 @@
    "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
    "workflows": [
     "Mutation Testing"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/npm_and_yarn/voter-app/patch-and-minor-709d3b11bf",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
+    "polity"
+   ],
+   "category": "advisory",
+   "count": 7,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "fix available via `npm audit fix`",
+     "node_modules/ip-address",
+     "3 vulnerabilities (2 moderate, 1 high)",
+     "To address all issues, run:",
+     "  npm audit fix",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
+    "step": "Security \u2014 npm audit (high CVEs block)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
+   },
+   "last_seen": "2026-10-02T15:07:10Z",
+   "signature": "advisory: To address all issues, run:",
+   "workflows": [
+    "Frontend CI"
    ]
   },
   {
@@ -999,33 +999,6 @@
   },
   {
    "branches": [
-    "feat/polity-extra-legal"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Generated artifacts in sync",
-    "lines": [
-     "Resolved 1 package in 67ms",
-     "Installed 1 package in 3ms",
-     " + cogapp==3.6.0",
-     "Check failed",
-     "Checking docs/plan/polity/polity-llm-reference.md  (changed)",
-     "##[error]Process completed with exit code 5."
-    ],
-    "pr": [],
-    "sha": "23b3462d0739c0c736228b5696bdb967af77aeb3",
-    "step": "Generated doc blocks in sync",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/36747781108"
-   },
-   "last_seen": "2026-09-30T16:55:53Z",
-   "signature": "code: Checking docs/plan/polity/polity-llm-reference.md  (changed)",
-   "workflows": [
-    "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
     "feat/browser-engine"
    ],
    "category": "code",
@@ -1411,18 +1384,15 @@
   }
  ],
  "failures_by_category": {
-  "advisory": 18,
-  "code": 157,
+  "advisory": 15,
+  "code": 156,
   "infra": 13,
   "test-flaky": 26,
   "unknown": 2
  },
- "generated_at": "2026-10-30T16:41:24Z",
+ "generated_at": "2026-10-30T21:28:56Z",
  "grid": {
   "Backend CI": {
-   "2026-09-30": {
-    "success": 3
-   },
    "2026-10-01": {
     "success": 1
    },
@@ -1696,7 +1666,7 @@
     "success": 8
    },
    "2026-10-30": {
-    "success": 5
+    "success": 6
    }
   },
   "CI Health Watchdog": {
@@ -1988,9 +1958,6 @@
    }
   },
   "E2E Tests": {
-   "2026-09-30": {
-    "success": 3
-   },
    "2026-10-01": {
     "success": 1
    },
@@ -2082,9 +2049,6 @@
    }
   },
   "Frontend CI": {
-   "2026-09-30": {
-    "failure": 3
-   },
    "2026-10-01": {
     "failure": 1
    },
@@ -2171,9 +2135,6 @@
    }
   },
   "Generated Artifacts Contract": {
-   "2026-09-30": {
-    "success": 3
-   },
    "2026-10-01": {
     "success": 1
    },
@@ -2507,9 +2468,6 @@
    }
   },
   "Security Audit": {
-   "2026-09-30": {
-    "success": 3
-   },
    "2026-10-01": {
     "success": 1
    },
@@ -2838,9 +2796,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-30T14:59:49Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41076589289"
+   "created_at": "2026-10-30T16:41:17Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41092142923"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2948,11 +2906,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40492287353"
   }
  },
- "runs": 14606,
+ "runs": 14550,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-09-30": 383,
     "2026-10-01": 376.0,
     "2026-10-02": 128.5,
     "2026-10-03": 13,
@@ -2982,10 +2939,10 @@
     "2026-10-27": 315.5,
     "2026-10-30": 534
    },
-   "p50_s": 363,
-   "p95_s": 586,
+   "p50_s": 361,
+   "p95_s": 588,
    "queue_p50_s": 0,
-   "runs": 735
+   "runs": 726
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3027,7 +2984,6 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-09-30": 7.5,
     "2026-10-01": 6.5,
     "2026-10-02": 11,
     "2026-10-03": 10.0,
@@ -3059,7 +3015,7 @@
    "p50_s": 11,
    "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 578
+   "runs": 572
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3088,12 +3044,12 @@
     "2026-10-27": 396.5,
     "2026-10-28": 387.0,
     "2026-10-29": 374.5,
-    "2026-10-30": 367
+    "2026-10-30": 368.0
    },
    "p50_s": 390,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 726
+   "runs": 727
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3192,7 +3148,6 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-09-30": 11.0,
     "2026-10-01": 10.5,
     "2026-10-02": 13,
     "2026-10-03": 10.0,
@@ -3223,9 +3178,9 @@
     "2026-10-30": 14.5
    },
    "p50_s": 11,
-   "p95_s": 33,
+   "p95_s": 34,
    "queue_p50_s": 0,
-   "runs": 535
+   "runs": 529
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3287,7 +3242,6 @@
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-09-30": 717,
     "2026-10-01": 672,
     "2026-10-02": 573,
     "2026-10-03": 46,
@@ -3318,13 +3272,12 @@
     "2026-10-30": 646.5
    },
    "p50_s": 540,
-   "p95_s": 730,
+   "p95_s": 728,
    "queue_p50_s": 0,
-   "runs": 719
+   "runs": 710
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-09-30": 11.0,
     "2026-10-01": 10.0,
     "2026-10-02": 12,
     "2026-10-03": 13,
@@ -3354,14 +3307,13 @@
     "2026-10-27": 94.5,
     "2026-10-30": 23.5
    },
-   "p50_s": 19,
+   "p50_s": 20,
    "p95_s": 282,
    "queue_p50_s": 0,
-   "runs": 753
+   "runs": 747
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-09-30": 84.5,
     "2026-10-01": 92,
     "2026-10-02": 90.5,
     "2026-10-03": 41.5,
@@ -3394,7 +3346,7 @@
    "p50_s": 88,
    "p95_s": 143,
    "queue_p50_s": 0,
-   "runs": 790
+   "runs": 782
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3534,7 +3486,6 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-09-30": 119,
     "2026-10-01": 120,
     "2026-10-02": 128.0,
     "2026-10-03": 121.0,
@@ -3564,10 +3515,10 @@
     "2026-10-27": 161.0,
     "2026-10-30": 152.0
    },
-   "p50_s": 161,
+   "p50_s": 162,
    "p95_s": 234,
    "queue_p50_s": 0,
-   "runs": 759
+   "runs": 750
   },
   "Workflow Lint": {
    "daily_p50_s": {
