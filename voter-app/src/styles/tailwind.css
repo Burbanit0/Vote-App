@@ -163,6 +163,21 @@
   }
 }
 
+/* The navbar's current page: its bar grows in from the centre as the page arrives. */
+@keyframes nav-bar {
+  from {
+    transform: scaleX(0);
+  }
+}
+.nav-active::after {
+  animation: nav-bar 0.48s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-active::after {
+    animation: none;
+  }
+}
+
 /* Homepage, "Bureau de vote" motion (the design canvas's Motion board): lines rise out
    of their own masks, content settles in, and the "Elected" stamp lands with an ink
    bleed. Curves: settle cubic-bezier(.2,.7,.2,1); durations 240 / 480 / 900 ms. */
