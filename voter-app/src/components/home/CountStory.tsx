@@ -7,7 +7,9 @@ import {
   BALLOTS,
   PILE_X,
   STEPS,
+  MAP,
   VIEW,
+  approvalArea,
   candidatePoint,
   captionPose,
   countFrame,
@@ -109,7 +111,7 @@ const CountStory: React.FC = () => {
   const castDigits = useRef<(SVGGElement | null)[]>([]);
   const pileDigits = useRef<(SVGGElement | null)[]>([]);
   const pileNums = useRef<(SVGGElement | null)[]>([]);
-  const disc = useRef<SVGCircleElement>(null);
+  const areas = useRef<(SVGEllipseElement | null)[]>([]);
   const box = useRef<SVGGElement>(null);
   const fill = useRef<HTMLDivElement>(null);
   const playButton = useRef<HTMLButtonElement>(null);
@@ -137,8 +139,10 @@ const CountStory: React.FC = () => {
     f.lit.forEach((on, i) =>
       setStyle(voters.current[i]!, 'fill', on ? CANDIDATES[VOTERS[i].first].color : MUTED)
     );
-    setAttr(disc.current!, 'opacity', (0.12 * f.disc).toFixed(3));
-    setStyle(disc.current!, 'transform', `scale(${(0.2 + 0.8 * f.disc).toFixed(3)})`);
+    f.areas.forEach((a, i) => {
+      setAttr(areas.current[i]!, 'opacity', a.toFixed(3));
+      setStyle(areas.current[i]!, 'transform', `scale(${(0.2 + 0.8 * a).toFixed(3)})`);
+    });
     setAttr(box.current!, 'transform', `translate(0 ${f.jolt.toFixed(1)})`);
     [Math.floor(f.cast / 100) % 10, Math.floor(f.cast / 10) % 10, f.cast % 10].forEach((d, i) =>
       setStyle(castDigits.current[i]!, 'transform', `translateY(${-d * 20}px)`)
@@ -265,18 +269,33 @@ const CountStory: React.FC = () => {
               <line x1="40" y1="350" x2="440" y2="350" />
               <line x1="240" y1="160" x2="240" y2="540" />
             </g>
-            <circle
-              ref={disc}
-              cx={candidatePoint(1).x}
-              cy={candidatePoint(1).y}
-              r="150"
-              opacity="0"
-              fill={CANDIDATES[1].color}
-              style={{
-                transformOrigin: `${candidatePoint(1).x}px ${candidatePoint(1).y}px`,
-                transform: 'scale(0.2)',
-              }}
-            />
+            {/* Approval: each candidate's area, the voters who approve them. Clipped to
+                the map: no voter lives outside it. */}
+            <clipPath id="home-count-map">
+              <rect x={MAP.x} y={MAP.y} width={MAP.w} height={MAP.h} rx={COUNT_DRAW.radius} />
+            </clipPath>
+            <g clipPath="url(#home-count-map)">
+              {CANDIDATES.map((c, i) => {
+                const a = approvalArea(i);
+                return (
+                  <ellipse
+                    key={c.name}
+                    ref={(el) => {
+                      areas.current[i] = el;
+                    }}
+                    {...a}
+                    opacity="0"
+                    fill={c.color}
+                    fillOpacity={0.1}
+                    stroke={c.color}
+                    strokeOpacity={0.75}
+                    strokeWidth={1.5}
+                    strokeDasharray="6 5"
+                    style={{ transformOrigin: `${a.cx}px ${a.cy}px`, transform: 'scale(0.2)' }}
+                  />
+                );
+              })}
+            </g>
             {VOTERS.map((_, i) => {
               const p = voterPoint(i);
               return (

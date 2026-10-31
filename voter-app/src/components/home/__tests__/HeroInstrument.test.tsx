@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroInstrument from '../HeroInstrument';
+import type { RuleId } from '@/lib/home/scenario';
 import { fakeMedia, manualFrames } from '../../../test/frames';
 
 const realMatchMedia = window.matchMedia;
@@ -15,6 +16,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** The page holds the rule (HomePage); here, a minimal page does. */
+function Hero() {
+  const [rule, setRule] = React.useState<RuleId>('plurality');
+  return <HeroInstrument rule={rule} onRule={setRule} />;
+}
+
 const dotFills = (c: HTMLElement) =>
   [...c.querySelectorAll('[data-testid="hero-map"] circle')].map(
     (d) => (d as SVGElement).style.fill
@@ -22,7 +29,7 @@ const dotFills = (c: HTMLElement) =>
 
 describe('HeroInstrument', () => {
   it('stamps a different winner under each rule, and marks the runoff’s eliminated', () => {
-    render(<HeroInstrument />);
+    render(<Hero />);
     expect(screen.getByTestId('hero-winner')).toHaveTextContent('Elected: Bob');
     fireEvent.click(screen.getByTestId('hero-rule-runoff'));
     expect(screen.getByTestId('hero-winner')).toHaveTextContent('Elected: Alice');
@@ -34,7 +41,7 @@ describe('HeroInstrument', () => {
   });
 
   it('greys the voters who do not approve the approval winner', () => {
-    const { container } = render(<HeroInstrument />);
+    const { container } = render(<Hero />);
     expect(dotFills(container)).not.toContain('var(--muted-foreground)');
     fireEvent.click(screen.getByTestId('hero-rule-approval'));
     expect(dotFills(container)).toContain('var(--muted-foreground)');
@@ -43,7 +50,7 @@ describe('HeroInstrument', () => {
   it('redraws the tally and knocks the tray on a change, never on mount or a re-pick', () => {
     const animate = vi.fn();
     Element.prototype.animate = animate as unknown as typeof Element.prototype.animate;
-    render(<HeroInstrument />);
+    render(<Hero />);
     fireEvent.click(screen.getByTestId('hero-rule-plurality'));
     expect(animate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('hero-rule-runoff'));
@@ -55,7 +62,7 @@ describe('HeroInstrument', () => {
   it('survives a browser without the Web Animations API', () => {
     // @ts-expect-error — jsdom-like: no animate()
     delete Element.prototype.animate;
-    render(<HeroInstrument />);
+    render(<Hero />);
     expect(() => fireEvent.click(screen.getByTestId('hero-rule-runoff'))).not.toThrow();
   });
 
@@ -64,7 +71,7 @@ describe('HeroInstrument', () => {
     const animate = vi.fn();
     Element.prototype.animate = animate as unknown as typeof Element.prototype.animate;
     const frames = manualFrames();
-    render(<HeroInstrument />);
+    render(<Hero />);
     fireEvent.click(screen.getByTestId('hero-rule-runoff'));
     fireEvent.pointerMove(screen.getByTestId('hero-map'), { pointerType: 'mouse', clientX: 10 });
     expect(animate).not.toHaveBeenCalled();
@@ -73,7 +80,7 @@ describe('HeroInstrument', () => {
 
   it('drifts the map layers with a mouse, not a finger, and settles back', () => {
     const frames = manualFrames();
-    const { container } = render(<HeroInstrument />);
+    const { container } = render(<Hero />);
     const map = screen.getByTestId('hero-map');
     vi.spyOn(map, 'getBoundingClientRect').mockReturnValue({
       left: 0,

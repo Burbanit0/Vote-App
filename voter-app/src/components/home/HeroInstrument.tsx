@@ -5,6 +5,7 @@ import { useReducedMotion } from '@/hooks/useMediaQuery';
 import { useFrameLoop } from '@/hooks/useFrameLoop';
 import { EASE, approach } from '@/lib/home/motion';
 import { HERO_DRAW } from '@/lib/home/handover';
+import { ENGINE_RULE } from '@/lib/home/methods';
 import {
   CANDIDATES,
   RULES,
@@ -21,11 +22,6 @@ import {
 // electorate and its tallies live in lib/home/scenario.ts, shared with the count
 // further down the page, so both always agree.
 
-const RULE_KEY: Record<RuleId, string> = {
-  plurality: 'rules.plurality',
-  runoff: 'rules.two_round',
-  approval: 'rules.approval',
-};
 const NOTE_KEY: Record<RuleId, string> = {
   plurality: 'home.notePlurality',
   runoff: 'home.noteRunoff',
@@ -94,11 +90,14 @@ const Odometer: React.FC<{ value: number; row: number }> = ({ value, row }) => (
   </span>
 );
 
-const HeroInstrument: React.FC = () => {
+/** Controlled: the page holds the rule, so the method strip below can echo it. */
+const HeroInstrument: React.FC<{ rule: RuleId; onRule: (rule: RuleId) => void }> = ({
+  rule,
+  onRule,
+}) => {
   const { t } = useTranslation();
   const { t: tp } = useTranslation('playground');
   const reduce = useReducedMotion();
-  const [rule, setRule] = useState<RuleId>('plurality');
   // Bumped by each rule change, so the redraw runs on a change and never on mount.
   const [changes, setChanges] = useState(0);
   const tally = TALLY[rule];
@@ -167,15 +166,15 @@ const HeroInstrument: React.FC = () => {
 
   const pick = (r: RuleId) => {
     if (r === rule) return;
-    setRule(r);
     setChanges((c) => c + 1);
+    onRule(r);
   };
 
   return (
     <div
       ref={tray}
       data-testid="hero-instrument"
-      className="flex w-full min-w-0 max-w-[560px] flex-col gap-3.5 rounded-2xl bg-envelope p-4"
+      className="flex w-full max-w-[560px] min-w-0 flex-col gap-3.5 rounded-2xl bg-envelope p-4 [@media(max-height:960px)]:max-w-[500px]"
       // The tray clears away as the page hands its map over to the count (HandoverMap).
       data-handover-out
       style={{ opacity: 'calc(1 - var(--handover, 0) * 1.6)' }}
@@ -184,7 +183,11 @@ const HeroInstrument: React.FC = () => {
         <svg
           viewBox={`0 0 ${HERO_DRAW.w} ${HERO_DRAW.h}`}
           role="img"
-          aria-label={t('home.mapLabel', { n: N, rule: tp(RULE_KEY[rule]), winner: win.name })}
+          aria-label={t('home.mapLabel', {
+            n: N,
+            rule: tp(`rules.${ENGINE_RULE[rule]}`),
+            winner: win.name,
+          })}
           className="block h-auto w-full border border-border bg-card"
           // The map itself leaves at once: from here the flying copy carries it.
           data-handover-from
@@ -271,7 +274,7 @@ const HeroInstrument: React.FC = () => {
               rule === r ? 'text-primary-foreground' : 'text-foreground'
             )}
           >
-            {tp(RULE_KEY[r])}
+            {tp(`rules.${ENGINE_RULE[r]}`)}
           </button>
         ))}
       </div>

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { BALLOTS, captionPose, countFrame, pileSlot, stampPoint } from './countFrame';
-import { TALLY, VOTERS } from './scenario';
+import {
+  BALLOTS,
+  approvalArea,
+  captionPose,
+  countFrame,
+  pileSlot,
+  stampPoint,
+  voterPoint,
+} from './countFrame';
+import { CANDIDATES, TALLY, VOTERS } from './scenario';
 
 describe('the scrubbed count', () => {
   it('starts with every ballot still in a voter’s hand', () => {
@@ -34,9 +42,25 @@ describe('the scrubbed count', () => {
     expect(countFrame(3.75).stamp).toBeNull();
   });
 
-  it('shows the approval disc only in the approval chapter', () => {
-    expect(countFrame(3).disc).toBe(0);
-    expect(countFrame(4.5).disc).toBe(1);
+  it('opens each candidate’s approval area, one after the other, only for approval', () => {
+    expect(countFrame(3).areas).toEqual([0, 0, 0]);
+    const opening = countFrame(3.5).areas;
+    expect(opening[0]).toBeGreaterThan(opening[1]);
+    expect(opening[1]).toBeGreaterThan(opening[2]);
+    expect(countFrame(4.5).areas).toEqual([1, 1, 1]);
+  });
+
+  it('draws each approval area around exactly the voters who approve that candidate', () => {
+    CANDIDATES.forEach((_, c) => {
+      const a = approvalArea(c);
+      VOTERS.forEach((v, i) => {
+        const p = voterPoint(i);
+        const inside = ((p.x - a.cx) / a.rx) ** 2 + ((p.y - a.cy) / a.ry) ** 2 <= 1;
+        // Inside the area means approving; approving anyone but your first choice means inside.
+        if (inside) expect(v.approves).toContain(c);
+        if (v.approves.includes(c) && v.first !== c) expect(inside).toBe(true);
+      });
+    });
   });
 
   it('is a function of progress alone, so scrolling back retraces it', () => {

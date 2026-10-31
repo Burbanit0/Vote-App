@@ -301,6 +301,10 @@ const pseudo: TranslationKeys = {
       '⟦Cáról~~ ést~~ élímíñéé~~~ áú~ prémíér~~~ tóúr,~~ ét~ présqúé~~~ tóús~~ sés~~ éléçtéúrs~~~~ sé~ répórtéñt~~~~ súr~~ Álíçé~~ :~ {{alice}} çóñtré~~~ {{bob}}.~⟧',
     noteApproval:
       '⟦Cháçúñ~~~ áppróúvé~~~ tóús~~ çéúx~~ qú’íl~~ péút~~ áççéptér.~~~~ Lés~~ póíñts~~~ vérts~~ áppróúvéñt~~~~ Cáról~~ :~ {{carol}} súr~~ {{n}}.~⟧',
+    methodsTitle: '⟦Mêmés~~ {{n}} búllétíñs,~~~~ {{m}} fáçóñs~~~ dé~ çómptér~~~⟧',
+    methodsNote:
+      '⟦Cháqúé~~~ búllétíñ~~~ ést~~ úñé~~ méthódé,~~~ à~ lá~ çóúléúr~~~ dú~ çáñdídát~~~ qú’éllé~~~ élít.~~⟧',
+    methodsElects: '⟦{{rule}} élít~~ {{name}}.~⟧',
     introVoters: '⟦éléçtéúrs,~~~~ úñ~ búllétíñ~~~ çháçúñ~~~⟧',
     sections: '⟦Séçtíóñs~~~ dé~ lá~ págé~~⟧',
     sectionTop: '⟦Háút~~ dé~ págé~~⟧',
@@ -322,7 +326,7 @@ const pseudo: TranslationKeys = {
       '⟦Cáról~~ ést~~ élímíñéé.~~~~ Sés~~ éléçtéúrs~~~~ çhóísísséñt~~~~ éñtré~~ lés~~ déúx~~ fíñálístés,~~~~ ét~ Álíçé~~ bát~~ Bób~~ {{alice}} à~ {{bob}}.~⟧',
     cap4Title: '⟦L’áppróbátíóñ~~~~~ láíssé~~~ çóçhér~~~ plúsíéúrs~~~~ ñóms.~~⟧',
     cap4Text:
-      '⟦Cháçúñ~~~ áppróúvé~~~ tóús~~ çéúx~~ qú’íl~~ péút~~ áççéptér.~~~~ Cáról,~~~ áú~ çéñtré,~~~ réçúéíllé~~~~ {{carol}} áppróbátíóñs.~~~~~⟧',
+      '⟦Cháçúñ~~~ áppróúvé~~~ tóús~~ çéúx~~ qú’íl~~ péút~~ áççéptér~~~ :~ çháqúé~~~ zóñé~~ réúñít~~~ lés~~ áppróbátíóñs~~~~~ d’úñ~~ çáñdídát.~~~~ Céllé~~ dé~ Cáról,~~~ áú~ çéñtré,~~~ éñ~ çómpté~~~ {{carol}}.~⟧',
     cap5Title: '⟦Mêmés~~ éléçtéúrs,~~~~ tróís~~ élús.~~⟧',
     cap5Text:
       '⟦Lé~ sçrútíñ~~~ májórítáíré~~~~ á~ élú~~ Bób,~~ lé~ séçóñd~~~ tóúr~~ Álíçé,~~~ l’áppróbátíóñ~~~~~ Cáról.~~~ À~ çháqúé~~~ fóís,~~ ç’ést~~ lá~ règlé~~ qúí~~ á~ déçídé.~~~⟧',

@@ -288,6 +288,9 @@ const fr = {
       'Carol est éliminée au premier tour, et presque tous ses électeurs se reportent sur Alice : {{alice}} contre {{bob}}.',
     noteApproval:
       'Chacun approuve tous ceux qu’il peut accepter. Les points verts approuvent Carol : {{carol}} sur {{n}}.',
+    methodsTitle: 'Mêmes {{n}} bulletins, {{m}} façons de compter',
+    methodsNote: 'Chaque bulletin est une méthode, à la couleur du candidat qu’elle élit.',
+    methodsElects: '{{rule}} élit {{name}}.',
     introVoters: 'électeurs, un bulletin chacun',
     sections: 'Sections de la page',
     sectionTop: 'Haut de page',
@@ -308,7 +311,7 @@ const fr = {
       'Carol est éliminée. Ses électeurs choisissent entre les deux finalistes, et Alice bat Bob {{alice}} à {{bob}}.',
     cap4Title: 'L’approbation laisse cocher plusieurs noms.',
     cap4Text:
-      'Chacun approuve tous ceux qu’il peut accepter. Carol, au centre, recueille {{carol}} approbations.',
+      'Chacun approuve tous ceux qu’il peut accepter : chaque zone réunit les approbations d’un candidat. Celle de Carol, au centre, en compte {{carol}}.',
     cap5Title: 'Mêmes électeurs, trois élus.',
     cap5Text:
       'Le scrutin majoritaire a élu Bob, le second tour Alice, l’approbation Carol. À chaque fois, c’est la règle qui a décidé.',

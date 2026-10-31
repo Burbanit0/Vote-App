@@ -5,7 +5,15 @@
 // exactly. Drawn in a 1000 × 640 viewBox: the map on the left, the box in the
 // middle, a pile per candidate on the right.
 
-import { CANDIDATES, RUNOFF_CHOICE, TALLY, VOTERS, lcg, type RuleId } from './scenario';
+import {
+  APPROVAL_RADIUS,
+  CANDIDATES,
+  RUNOFF_CHOICE,
+  TALLY,
+  VOTERS,
+  lcg,
+  type RuleId,
+} from './scenario';
 import { bounce, clamp01, easeInOutCubic as ease, lerp } from './motion';
 
 export const MAP = { x: 40, y: 160, w: 400, h: 380 };
@@ -94,6 +102,15 @@ function build(): Ballot[] {
 
 export const BALLOTS: Ballot[] = build();
 
+/**
+ * Where a candidate's approvals come from: every voter within APPROVAL_RADIUS of them,
+ * which the map's 400 × 380 stretch draws as a slight ellipse.
+ */
+export function approvalArea(c: number) {
+  const p = candidatePoint(c);
+  return { cx: p.x, cy: p.y, rx: APPROVAL_RADIUS * MAP.w, ry: APPROVAL_RADIUS * MAP.h };
+}
+
 /** A tally mark's place: four strokes, then the fifth across them. */
 export function pileSlot(cand: number, k: number) {
   const col = k % 5;
@@ -127,8 +144,8 @@ export interface CountFrame {
   cast: number;
   /** Ballots resting on each pile. */
   landed: number[];
-  /** The approval disc around Carol, 0 … 1. */
-  disc: number;
+  /** How far each candidate's approval area has opened, 0 … 1 (see approvalArea). */
+  areas: number[];
   /** How far the box jolts down, in px, from ballots hitting the heap. */
   jolt: number;
   /** The chapter the count is closest to, 0 … STEPS. */
@@ -291,7 +308,8 @@ export function countFrame(P: number): CountFrame {
     lit: BALLOTS.slice(0, VOTERS.length).map((b) => raw(0.35, 1.0, b.dA, 0.45) > 0.02),
     cast: n.cast,
     landed: n.landed,
-    disc: ease(raw(3.15, 4.0, 0, 1)),
+    // One after the other, so each candidate's reach reads on its own before they overlap.
+    areas: CANDIDATES.map((_, c) => ease(raw(3.15, 4.0, c * 0.15, 0.7))),
     jolt: Math.min(3, n.jolt * 0.7),
     step: Math.round(clamp01(P / STEPS) * STEPS),
     stamp: decided(P),

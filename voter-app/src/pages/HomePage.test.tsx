@@ -65,6 +65,14 @@ describe('HomePage', () => {
     expect(stories).toHaveLength(STORIES.length);
   });
 
+  it('echoes the tally sheet’s rule in the strip of every method', () => {
+    renderHome();
+    const active = () => document.querySelector('[data-method][aria-current]');
+    expect(active()).toHaveAttribute('data-method', 'plurality');
+    fireEvent.click(screen.getByTestId('hero-rule-approval'));
+    expect(active()).toHaveAttribute('data-method', 'approval');
+  });
+
   it('keeps the footer’s road to Polity', () => {
     renderHome();
     expect(screen.getByTestId('home-foot-polity')).toHaveAttribute('href', '/polity');

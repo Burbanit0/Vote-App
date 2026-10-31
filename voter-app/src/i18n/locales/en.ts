@@ -286,6 +286,9 @@ const en: TranslationKeys = {
       'Carol is out after round one, and nearly all her voters rally to Alice: {{alice}} to {{bob}}.',
     noteApproval:
       'Voters approve everyone they can live with. The green dots approve Carol: {{carol}} of {{n}}.',
+    methodsTitle: 'Same {{n}} ballots, {{m}} ways to count them',
+    methodsNote: 'Each slip is a counting method, coloured by the candidate it elects.',
+    methodsElects: '{{rule}} elects {{name}}.',
     introVoters: 'voters, one ballot each',
     sections: 'Page sections',
     sectionTop: 'Top',
@@ -306,7 +309,7 @@ const en: TranslationKeys = {
       'Carol is out. Her voters pick between the two finalists, and Alice beats Bob {{alice}} to {{bob}}.',
     cap4Title: 'Approval lets voters tick several names.',
     cap4Text:
-      'Voters approve everyone they can live with. Carol, in the middle, collects {{carol}} approvals.',
+      'Voters approve everyone they can live with: each shaded area holds one candidate’s approvals. Carol’s, in the middle, holds {{carol}}.',
     cap5Title: 'Same voters, three winners.',
     cap5Text:
       'Plurality elected Bob, the runoff elected Alice, approval elected Carol. The rule decided every time.',
