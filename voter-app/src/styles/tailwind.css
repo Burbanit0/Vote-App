@@ -43,6 +43,11 @@
   --bs-primary: #0e7068;
   --bs-primary-bg-subtle: #d3e6e3;
   --bs-table-bg: transparent;
+
+  /* Homepage "Bureau de vote": the envelope you vote with holds the instrument; the
+     stamp's violet is spent only when a result is decided. */
+  --envelope: #d7dee6;
+  --ballot-stamp: #5b3a9e;
 }
 
 /* Dark mode rides the existing toggle (useUIStore sets data-bs-theme on <html>). */
@@ -77,6 +82,9 @@
   --bs-primary: #2bb3a3;
   --bs-primary-bg-subtle: #0c2a27;
   --bs-table-bg: transparent;
+
+  --envelope: #1d2938;
+  --ballot-stamp: #b9a2f0;
 }
 
 /* Map the CSS variables to Tailwind color/​radius utilities (bg-primary,
@@ -101,6 +109,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-envelope: var(--envelope);
+  --color-ballot-stamp: var(--ballot-stamp);
 
   /* Brand palette (COLORS.brand) */
   --color-brand: #005cab;
@@ -110,10 +120,15 @@
   /* Event accent — a bascule / flip / alert moment (the one "stamp" colour). */
   --color-stamp: #e07a3f;
 
-  /* Type identity — Space Grotesk (display) · Inter (body) · Plex Mono (data). */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* Type identity — Big Shoulders (display) · Atkinson Hyperlegible Next (body) ·
+     Atkinson Hyperlegible Mono (data). The display face is condensed: the fallback is
+     a narrow system sans so headings don't reflow wider while it loads. */
+  --font-sans: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Big Shoulders', 'Arial Narrow', ui-sans-serif, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* `tracking-tight` (29 headings) was tuned for Space Grotesk; set that tight, the
+     condensed Big Shoulders runs its letters together. */
+  --tracking-tight: 0.005em;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -121,7 +136,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ── Base type: Inter everywhere, Space Grotesk for headings/display ───────── */
+/* ── Base type: Atkinson everywhere, Big Shoulders for headings/display ────── */
 @layer base {
   /* A playing story's narration sticks under the navbar below lg (StoryPlayer, at most
      40svh): keep focused and scrolled-to content below it, not hidden under it. */
@@ -144,7 +159,7 @@
   h4,
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.011em;
+    letter-spacing: 0.005em;
   }
 }
 

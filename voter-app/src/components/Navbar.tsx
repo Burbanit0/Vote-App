@@ -93,11 +93,34 @@ const Navbar: React.FC = () => {
         {/* ── Brand ── */}
         <BootstrapNavbar.Brand
           href={`${base}/`}
-          className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
-          style={{ fontSize: '1.1rem' }}
+          className="font-display flex items-center gap-2 font-extrabold me-4"
+          style={{ fontSize: '1.45rem', lineHeight: 1 }}
           onClick={() => setNavExpanded(false)}
         >
-          <span style={{ fontSize: '1.2rem' }}>🗳️</span>
+          {/* The ballot slip: a sheet with a folded corner. The homepage entrance
+              folds the screen into it (data-brand-mark). */}
+          <svg data-brand-mark width="20" height="26" viewBox="0 0 20 26" aria-hidden="true">
+            <path
+              d="M1 1h12l6 6v18H1z"
+              style={{ fill: 'var(--card)' }}
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M13 1v6h6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 13h10M5 17h7"
+              style={{ stroke: 'var(--ballot-stamp)' }}
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
           Vote Lab
           <Badge
             variant="info"
