@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "sh",
+      "args": ["-c", "cd voter-app && exec npx -y shadcn@4.22.1 mcp"]
+    }
+  }
+}
