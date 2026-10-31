@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Check } from 'lucide-react';
+import { RotateCcw, Check, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { voteFrames, type Frame, type TallyFrame } from '../../lib/discoverVoteAnim';
@@ -13,15 +13,17 @@ import type { Rule } from '../../lib/playgroundVoting';
 //
 // The move that carries the runoff: an eliminated pile does not blink to zero and
 // re-appear as an abstract number. Its ballots travel into the survivor's pile and
-// stay there marked in terracotta with the eliminated option's face — so the
-// winning pile reads as "our ballots + the ones that came over," which is exactly
+// stay there in the eliminated option's colour, with its icon — so the winning
+// pile reads as "our ballots + the ones that came over," which is exactly
 // what a redistribution is. The final frame flags the leading pile so "the biggest
 // pile wins" is shown, not asserted. Honours prefers-reduced-motion (jumps to the
 // final still, nothing in flight).
 
-interface Food {
-  emoji: string;
+/** A restaurant: its icon and its colour, which its strokes are counted in. */
+export interface Food {
+  Icon: LucideIcon;
   name: string;
+  color: string;
 }
 const STEP_MS = 1600;
 
@@ -75,6 +77,15 @@ const Strokes: React.FC<{
       <Gate key={i} k={k} />
     ))}
   </span>
+);
+
+export const FoodIcon: React.FC<{ food: Food }> = ({ food }) => (
+  <food.Icon
+    aria-hidden
+    className="h-4 w-4 shrink-0"
+    strokeWidth={1.75}
+    style={{ color: food.color }}
+  />
 );
 
 const DiscoverVoteAnimation: React.FC<{
@@ -150,31 +161,25 @@ const DiscoverVoteAnimation: React.FC<{
                     wins && 'font-semibold'
                   )}
                 >
-                  <span aria-hidden>{foods[b.food].emoji}</span>
+                  <FoodIcon food={foods[b.food]} />
                   {foods[b.food].name}
                 </span>
 
                 <span className="relative flex h-6 flex-1 items-center gap-1.5 overflow-visible">
                   {own > 0 && (
-                    <Strokes
-                      n={own}
-                      animated={animate}
-                      delayMs={row * 90}
-                      className="text-primary"
-                    />
+                    <span style={{ color: foods[b.food].color }}>
+                      <Strokes n={own} animated={animate} delayMs={row * 90} />
+                    </span>
                   )}
-                  {/* Ballots that came over from the eliminated option: terracotta,
-                      tagged with its face, laid down after the pile's own strokes. */}
+                  {/* Ballots that came over from the eliminated option keep its colour
+                      and its icon, laid down after the pile's own strokes. */}
                   {b.received ? (
                     <span
-                      className="flex items-center gap-1 text-[var(--color-stamp)]"
+                      className="flex items-center gap-1"
+                      style={{ color: b.from != null ? foods[b.from].color : undefined }}
                       title={b.from != null ? foods[b.from].name : undefined}
                     >
-                      {b.from != null && (
-                        <span aria-hidden className="text-sm leading-none">
-                          {foods[b.from].emoji}
-                        </span>
-                      )}
+                      {b.from != null && <FoodIcon food={foods[b.from]} />}
                       <Strokes n={b.received} animated={animate} delayMs={row * 90 + 560} />
                     </span>
                   ) : null}
@@ -222,9 +227,7 @@ const DiscoverVoteAnimation: React.FC<{
                     {d.leftVotes}
                   </span>
                   <Strokes n={d.leftVotes} animated={animate} delayMs={row * 120} />
-                  <span aria-hidden className="text-base">
-                    {foods[d.left].emoji}
-                  </span>
+                  <FoodIcon food={foods[d.left]} />
                 </span>
                 <span className="h-8 w-px shrink-0 bg-border" />
                 <span
@@ -233,9 +236,7 @@ const DiscoverVoteAnimation: React.FC<{
                     leftWins ? 'text-muted-foreground' : 'text-primary'
                   )}
                 >
-                  <span aria-hidden className="text-base">
-                    {foods[d.right].emoji}
-                  </span>
+                  <FoodIcon food={foods[d.right]} />
                   <Strokes n={d.rightVotes} animated={animate} delayMs={row * 120} />
                   <span className="font-mono text-sm font-semibold tabular-nums">
                     {d.rightVotes}

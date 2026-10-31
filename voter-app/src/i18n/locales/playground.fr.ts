@@ -943,7 +943,6 @@ const pgFr = {
     },
   },
   curiosity: {
-    kicker: 'Par curiosité',
     title: 'Par où commencer ? Suis ta question.',
     sub: 'Chaque question ouvre l’histoire qui y répond, dans l’instrument.',
     q: {

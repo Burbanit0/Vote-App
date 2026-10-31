@@ -38,7 +38,7 @@ const pseudo: TranslationKeys = {
       '⟦Pérsóññé~~~ ñé~ çháñgé~~~ d’ávís~~~ :~ çé~ sóñt~~ lés~~ mêmés~~ dóúzé~~ búllétíñs~~~~ tóút~~ dú~ lóñg.~~ Séúlé~~ lá~ fáçóñ~~ dé~ lés~~ çómptér~~~ çháñgé~~~ —~ ét~ lé~ váíñqúéúr~~~~ ávéç~~ éllé.~~ Clíqúéz~~~ úñé~~ règlé.~~~⟧',
     friends: '⟦{{n}} ámís~~⟧',
     approveHint:
-      '⟦À~ l’áppróbátíóñ,~~~~~ çháçúñ~~~ çóçhé~~ plúsíéúrs~~~~ réstós~~~ (lés~~ ✓),~~ pás~~ úñ~ séúl.~~ Régléz~~~ çómbíéñ~~~ çí-déssóús~~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ bóúgér.~~~⟧',
+      '⟦À~ l’áppróbátíóñ,~~~~~ çháçúñ~~~ çóçhé~~ plúsíéúrs~~~~ réstós~~~ (lés~~ ✓),~~ pás~~ úñ~ séúl.~~ Régléz~~~ çómbíéñ~~~ çí-déssús~~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ bóúgér.~~~⟧',
     winnerLabel: '⟦Váíñqúéúr~~~~⟧',
     stamp: '⟦Élú~~⟧',
     approve: {
@@ -53,7 +53,7 @@ const pseudo: TranslationKeys = {
       plurality:
         '⟦Cháçúñ~~~ pósé~~ sóñ~~ búllétíñ~~~ súr~~ sóñ~~ séúl~~ préféré.~~~ Lé~ plús~~ dé~ búllétíñs~~~~ l’émpórté.~~~~⟧',
       tr1: '⟦Prémíér~~~ tóúr~~ :~ óñ~ çómpté~~~ lés~~ prémíérs~~~ çhóíx.~~~ Pérsóññé~~~ ñ’áttéíñt~~~~ lá~ májóríté~~~ (7~ súr~~ 12)~~ —~ lés~~ déúx~~ prémíérs~~~ réstéñt~~~ éñ~ líçé.~~⟧',
-      tr2: '⟦Séçóñd~~~ tóúr~~ :~ lé~ dérñíér~~~ ést~~ élímíñé~~~ ét~ sés~~ búllétíñs~~~~ réjóígñéñt~~~~ léúr~~ séçóñd~~~ çhóíx~~ (éñ~~ óráñgé).~~~ Lé~ Súshí~~ pássé~~ lá~ májóríté~~~ ét~ l’émpórté.~~~~⟧',
+      tr2: '⟦Séçóñd~~~ tóúr~~ :~ lé~ dérñíér~~~ ést~~ élímíñé~~~ ét~ sés~~ búllétíñs~~~~ réjóígñéñt~~~~ léúr~~ séçóñd~~~ çhóíx,~~~ dáñs~~ léúr~~ çóúléúr.~~~ Lé~ Súshí~~ pássé~~ lá~ májóríté~~~ ét~ l’émpórté.~~~~⟧',
       ap_one:
         '⟦Cháçúñ~~~ ñé~ çóçhé~~ qúé~~ sóñ~~ préféré~~~ :~ ç’ést~~ éxáçtéméñt~~~~ lá~ plúrálíté.~~~~ Pízzá~~ répássé~~~ éñ~ têté.~~⟧',
       ap_some:
@@ -71,7 +71,6 @@ const pseudo: TranslationKeys = {
       condorcet:
         '⟦Lé~ Tháï~~ bát~~ lá~ Pízzá~~ éñ~ dúél,~~ ét~ bát~~ áússí~~ lé~ Súshí~~ :~ ç’ést~~ lé~ çómprómís~~~~ qúé~~ lá~ májóríté~~~ préfèré~~~ à~ çháqúé~~~ ádvérsáíré.~~~~⟧',
     },
-    famKicker: '⟦Lá~ çárté~~⟧',
     famTitle: '⟦Tróís~~ gráñdés~~~ fáçóñs~~~ d’éxprímér~~~~ úñ~ çhóíx.~~~⟧',
     fam: {
       rank: {
@@ -90,7 +89,6 @@ const pseudo: TranslationKeys = {
         ex: '⟦Vóté~~ pár~~ áppróbátíóñ~~~~⟧',
       },
     },
-    playKicker: '⟦À~ vóús~~⟧',
     playTitle: '⟦Máíñtéñáñt,~~~~ vóyéz-lé~~~ súr~~ úñ~ vráí~~ éléçtórát.~~~~⟧',
     playBody:
       '⟦Lé~ réstáúráñt~~~~ ñ’étáít~~~ qú’úñ~~ ápérçú.~~~ Dáñs~~ l’íñstrúméñt,~~~~~ dépláçéz~~~ lés~~ çáñdídáts,~~~~ çháñgéz~~~ lá~ règlé,~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ básçúlér~~~ súr~~ dés~~ míllíérs~~~ d’éléçtéúrs.~~~~~⟧',

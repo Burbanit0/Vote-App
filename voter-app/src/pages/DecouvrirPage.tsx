@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, ListOrdered, Star, CheckSquare } from 'lucide-react';
+import { ArrowRight, Fish, Pizza, Soup } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/segmented';
 import { useMetaTags } from '../hooks/useMetaTags';
 import CuriosityQuestions from '../components/shared/common/CuriosityQuestions';
 import { ruleWinnerFromRanks, type Rule } from '../lib/playgroundVoting';
@@ -14,7 +15,12 @@ import {
   approvalScores,
   approvalCountsForK,
 } from '../lib/discoverVoteAnim';
-import DiscoverVoteAnimation from '../components/home/DiscoverVoteAnimation';
+import DiscoverVoteAnimation, {
+  FoodIcon,
+  type Food,
+} from '../components/home/DiscoverVoteAnimation';
+import { textTone } from '../lib/palette';
+import { CANDIDATES } from '../lib/home/scenario';
 
 // DecouvrirPage — the on-ramp for someone who only knows the method their country
 // uses. Four beats: Anchor (you already know one way to vote) → Rupture (same
@@ -23,15 +29,22 @@ import DiscoverVoteAnimation from '../components/home/DiscoverVoteAnimation';
 // SAME client engine the Playground uses (ruleWinnerFromRanks over fixed ballots)
 // and its animation frames are computed from the same ballots, so the "aha" is
 // computed, never illustrated — if a rule changes, the demo changes with it.
+//
+// Dressed like the homepage ("Bureau de vote"): the twelve friends' ballots are
+// ballot slips, the count is a hand tally, the result is stamped in violet. The
+// three restaurants take the homepage's three colours for the same three roles:
+// Pizza wins plurality (red, like Bob), Sushi the runoff (blue, like Alice), Thaï
+// is the compromise (green, like Carol). Each is drawn in its text tone (lib/palette), so
+// its strokes and its name keep their contrast on a dark card too.
 
 // The 12-friends / one-restaurant profile lives in lib/discoverVoteAnim (shared
-// with the animation). Here we only need the food faces (emoji + name); indices
-// line up with that profile: Pizza=0, Sushi=1, Thaï=2.
-const FOODS = [
-  { emoji: '🍕', name: 'Pizza' },
-  { emoji: '🍣', name: 'Sushi' },
-  { emoji: '🍜', name: 'Thaï' },
-] as const;
+// with the animation); indices line up with it: Pizza=0, Sushi=1, Thaï=2.
+const [ALICE, CAROL, BOB] = CANDIDATES.map((c) => textTone(c.color));
+const FOODS: readonly Food[] = [
+  { Icon: Pizza, name: 'Pizza', color: BOB },
+  { Icon: Fish, name: 'Sushi', color: ALICE },
+  { Icon: Soup, name: 'Thaï', color: CAROL },
+];
 
 // The four rules the demo flips between, in teaching order (familiar → surprising).
 const DEMO_RULES: Rule[] = ['plurality', 'two_round', 'approval', 'condorcet'];
@@ -42,24 +55,99 @@ const WHY_KEY: Record<string, string> = {
 };
 // Approval cutoffs offered by the interactive threshold: approve your favourite
 // (= plurality), your two favourites (the compromise wins), or everyone (a tie).
-const APPROVAL_STOPS: { k: number; labelKey: string }[] = [
-  { k: 1, labelKey: 'discover.approve.k1' },
-  { k: 2, labelKey: 'discover.approve.k2' },
-  { k: 3, labelKey: 'discover.approve.k3' },
-];
-
-const FAMILIES = [
-  { id: 'rank', Icon: ListOrdered },
-  { id: 'score', Icon: Star },
-  { id: 'approve', Icon: CheckSquare },
+const APPROVAL_STOPS = [
+  { k: '1', labelKey: 'discover.approve.k1' },
+  { k: '2', labelKey: 'discover.approve.k2' },
+  { k: '3', labelKey: 'discover.approve.k3' },
 ] as const;
+
+/** What each family's ballot looks like: a slip, ranked, scored or ticked. */
+const FamilySlip: React.FC<{ id: 'rank' | 'score' | 'approve' }> = ({ id }) => (
+  <svg viewBox="0 0 120 150" aria-hidden="true" className="h-auto w-24">
+    <path
+      d="M4 4h82l30 30v112H4z"
+      className="fill-card stroke-foreground"
+      strokeWidth={2}
+      strokeLinejoin="round"
+    />
+    <path d="M86 4v30h30" fill="none" className="stroke-foreground" strokeWidth={2} />
+    {FOODS.map((f, i) => {
+      const y = 58 + i * 30;
+      return (
+        <g key={f.name}>
+          <rect x={44} y={y - 4} width={56} height={8} rx={4} className="fill-muted" />
+          {id === 'rank' && (
+            <text
+              x={24}
+              y={y + 6}
+              textAnchor="middle"
+              fontSize={18}
+              fontWeight={800}
+              style={{ fill: f.color }}
+              className="font-display"
+            >
+              {[2, 3, 1][i]}
+            </text>
+          )}
+          {id === 'score' &&
+            [0, 1, 2].map((k) => (
+              <circle
+                key={k}
+                cx={14 + k * 10}
+                cy={y}
+                r={3.5}
+                style={{ fill: k < [1, 2, 3][i] ? f.color : 'none', stroke: f.color }}
+                strokeWidth={1.5}
+              />
+            ))}
+          {id === 'approve' && (
+            <>
+              <rect
+                x={14}
+                y={y - 9}
+                width={18}
+                height={18}
+                rx={3}
+                fill="none"
+                style={{ stroke: f.color }}
+                strokeWidth={2}
+              />
+              {i > 0 && (
+                <path
+                  d={`M18 ${y}l4 4 7-8`}
+                  fill="none"
+                  style={{ stroke: f.color }}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </>
+          )}
+        </g>
+      );
+    })}
+  </svg>
+);
+
+const FAMILIES = ['rank', 'score', 'approve'] as const;
+
+/** A slip's folded corner: clip-path cuts the corner (and its border) off, this draws the fold. */
+const Fold: React.FC<{ size: number }> = ({ size }) => (
+  <span
+    aria-hidden
+    className="absolute top-0 right-0 bg-border [clip-path:polygon(0_0,100%_100%,0_100%)]"
+    style={{ width: size, height: size }}
+  />
+);
 
 const DecouvrirPage: React.FC = () => {
   const { t } = useTranslation();
   const { t: tp } = useTranslation('playground');
   const [rule, setRule] = React.useState<Rule>('plurality');
   // Approval only: how many options each friend approves (the cutoff that decides).
-  const [approvalK, setApprovalK] = React.useState(2);
+  const [approvalStop, setApprovalStop] = React.useState<(typeof APPROVAL_STOPS)[number]['k']>('2');
+  const approvalK = Number(approvalStop);
   const activeIsApproval = rule === 'approval';
 
   useMetaTags({ title: `Vote Lab — ${t('discover.title')}`, description: t('discover.lede') });
@@ -84,237 +172,201 @@ const DecouvrirPage: React.FC = () => {
   const win = FOODS[winner] ?? FOODS[0];
 
   return (
-    <div data-style="tailwind" className="min-h-[calc(100dvh-49px)]">
+    <div data-style="tailwind">
       {/* ── 1 · Anchor: the method you already know ── */}
-      <section className="border-b border-border">
-        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('discover.eyebrow')}
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+      <section className="mx-auto flex max-w-6xl flex-wrap items-end gap-x-16 gap-y-10 px-4 pt-14 pb-16 sm:px-6">
+        <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-5">
+          <p className="home-up text-[15px] font-bold text-primary">{t('discover.eyebrow')}</p>
+          <h1 className="home-up font-display text-[clamp(44px,5.4vw,80px)] leading-[0.92] font-extrabold [animation-delay:80ms]">
             {t('discover.title')}
           </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          <p className="home-up max-w-[36rem] text-xl text-muted-foreground [animation-delay:200ms]">
             {t('discover.lede')}
           </p>
-
-          <div className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-5">
-            <p className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-primary">
-              {t('discover.s1Kicker')}
-            </p>
-            <h2 className="mt-1 font-display text-lg font-semibold">{t('discover.s1Title')}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {t('discover.s1Body')}
-            </p>
-          </div>
+        </div>
+        {/* The starting point, on a ballot slip: the one rule you already know. */}
+        <div className="home-up relative min-w-0 flex-[1_1_320px] border border-border bg-card p-6 [animation-delay:320ms] [clip-path:polygon(0_0,calc(100%-28px)_0,100%_28px,100%_100%,0_100%)]">
+          <p className="text-[15px] font-bold text-primary">{t('discover.s1Kicker')}</p>
+          <h2 className="mt-1 font-display text-[28px] leading-none font-extrabold">
+            {t('discover.s1Title')}
+          </h2>
+          <p className="mt-3 text-base text-muted-foreground">{t('discover.s1Body')}</p>
+          <Fold size={28} />
         </div>
       </section>
 
       {/* ── 2 · Rupture: same ballots, a different winner ── */}
-      <section className="border-b border-border bg-accent/20">
-        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('discover.demoKicker')}
-          </p>
-          <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
-            {t('discover.demoTitle')}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {t('discover.demoIntro')}
-          </p>
+      <section className="border-y border-border bg-muted">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-3">
+            <h2 className="font-display text-[44px] leading-none font-extrabold sm:text-[56px]">
+              {t('discover.demoTitle')}
+            </h2>
+            <p className="max-w-xl text-base text-muted-foreground">{t('discover.demoIntro')}</p>
+          </div>
 
-          {/* The ballots — the SAME twelve, shown once. */}
-          <ul className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {/* The ballots — the SAME twelve, shown once, one slip per group of friends. */}
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {GROUPS.map((g, gi) => (
               <li
                 key={gi}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3"
+                data-testid={`discover-ballot-${gi}`}
+                className="relative flex flex-col gap-3 border border-border bg-card px-5 pt-4 pb-5 [clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,0_100%)]"
               >
-                <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+                <Fold size={22} />
+                <span className="font-display text-[22px] leading-none font-extrabold">
                   {t('discover.friends', { n: g.n })}
                 </span>
-                <div className="flex items-center gap-1.5 text-lg">
+                <ol className="flex flex-col gap-1.5">
                   {g.rank.map((ci, pos) => {
                     // In approval mode, the top-k options are the ones this group
-                    // ticks — shown with a ✓ so the tally is visible, not asserted.
+                    // ticks: shown with a tick so the tally is visible, not asserted.
                     const ticked = pos < approvalK;
+                    const food = FOODS[ci];
                     return (
-                      <React.Fragment key={ci}>
-                        {pos > 0 && <span className="text-xs text-muted-foreground">›</span>}
-                        <span
-                          title={FOODS[ci].name}
-                          className={cn('relative', activeIsApproval && !ticked && 'opacity-25')}
-                        >
-                          {FOODS[ci].emoji}
-                          {activeIsApproval && ticked && (
-                            <span className="absolute -right-1.5 -top-1 text-[0.6rem] font-bold text-primary">
-                              ✓
-                            </span>
-                          )}
+                      <li
+                        key={ci}
+                        className={cn(
+                          'flex items-center gap-2.5 text-[15px] transition-opacity duration-300 motion-reduce:transition-none',
+                          activeIsApproval && !ticked && 'opacity-35'
+                        )}
+                      >
+                        <span className="w-4 font-mono text-sm font-semibold text-muted-foreground">
+                          {pos + 1}
                         </span>
-                      </React.Fragment>
+                        <FoodIcon food={food} />
+                        <span className="font-semibold">{food.name}</span>
+                        {activeIsApproval && ticked && (
+                          <span
+                            data-testid="discover-tick"
+                            className="home-up ml-auto text-sm font-bold"
+                            style={{ color: food.color }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </li>
                     );
                   })}
-                </div>
+                </ol>
               </li>
             ))}
           </ul>
-          <p className="mt-2 min-h-[1.25rem] text-xs text-muted-foreground">
-            {activeIsApproval ? t('discover.approveHint') : ' '}
-          </p>
 
-          {/* The rule selector — flipping it flips the winner, live. */}
-          <div
-            className="mt-4 flex flex-wrap gap-2"
-            role="tablist"
-            aria-label={t('discover.demoKicker')}
-          >
-            {DEMO_RULES.map((id) => {
-              const active = id === rule;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setRule(id)}
-                  className={
-                    'rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ' +
-                    (active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-accent/40')
-                  }
-                >
-                  {tp(`rules.${id}`)}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* The count, played out — then the winner + why. aria-live so the
-              flip is announced to a screen reader, not only seen. */}
-          <div
-            aria-live="polite"
-            className="mt-4 rounded-xl border border-primary/40 bg-card p-4 sm:p-5"
-          >
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-muted-foreground">
-              {t('discover.winnerLabel')} · {tp(`rules.${rule}`)}
-            </p>
-            <p className="mt-1 flex items-center gap-3">
-              <span className="text-4xl leading-none">{approvalTie ? '🤝' : win.emoji}</span>
-              <span
-                data-testid="discover-winner"
-                className="font-display text-3xl font-bold text-primary"
-              >
-                {approvalTie ? t('discover.approve.tie') : win.name}
-              </span>
-              {/* The result, stamped — the app's one "flip/result" accent. */}
-              {!approvalTie && (
-                <span className="-rotate-6 rounded border-2 border-[var(--color-stamp)] px-2 py-0.5 font-mono text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--color-stamp)]">
-                  {t('discover.stamp')}
-                </span>
-              )}
-            </p>
-
-            {/* Approval's defining knob: how many each friend approves. Sliding it
-                slides the winner (favourite-only = plurality = Pizza). */}
-            {activeIsApproval && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {t('discover.approve.threshold')}
-                </span>
-                <div
-                  className="flex flex-wrap gap-1.5"
-                  role="group"
-                  aria-label={t('discover.approve.threshold')}
-                >
-                  {APPROVAL_STOPS.map(({ k, labelKey }) => {
-                    const active = k === approvalK;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setApprovalK(k)}
-                        className={cn(
-                          'rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors',
-                          active
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                        )}
-                      >
-                        {t(labelKey)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Key on the rule so switching methods restarts the animation; the
-                approval threshold re-tallies in place (no remount). */}
-            <DiscoverVoteAnimation key={rule} rule={rule} foods={FOODS} approvalK={approvalK} />
-
-            {!activeIsApproval && (
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                {t(WHY_KEY[rule])}
+          {/* The count: pick a rule, read the winner off the tally. */}
+          <div className="flex flex-col gap-5 rounded-2xl bg-envelope p-4 sm:p-5">
+            <Segmented
+              label={t('discover.demoKicker')}
+              value={rule}
+              onChange={setRule}
+              options={DEMO_RULES.map((id) => ({
+                value: id,
+                label: tp(`rules.${id}`),
+                testid: `discover-rule-${id}`,
+              }))}
+            />
+            {/* aria-live so the flip is announced to a screen reader, not only seen. */}
+            <div aria-live="polite" className="rounded-xl bg-card p-5 sm:p-6">
+              <p className="text-sm font-semibold text-muted-foreground">
+                {t('discover.winnerLabel')}: {tp(`rules.${rule}`)}
               </p>
-            )}
+              <div className="mt-2 flex flex-wrap items-center gap-4">
+                {!approvalTie && (
+                  <win.Icon
+                    aria-hidden
+                    className="h-10 w-10"
+                    strokeWidth={1.5}
+                    style={{ color: win.color }}
+                  />
+                )}
+                <span
+                  data-testid="discover-winner"
+                  className="font-display text-[48px] leading-none font-extrabold"
+                  style={{ color: approvalTie ? undefined : win.color }}
+                >
+                  {approvalTie ? t('discover.approve.tie') : win.name}
+                </span>
+                {/* The result, stamped: the one violet on the page. Keyed so it lands again
+                    each time the winner changes. */}
+                {!approvalTie && (
+                  <span
+                    key={`${rule}-${approvalK}`}
+                    className="home-stamp rounded border-[2.5px] border-ballot-stamp px-2.5 pt-px pb-0.5 font-display text-[19px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase"
+                  >
+                    {t('discover.stamp')}
+                  </span>
+                )}
+              </div>
+
+              {/* Approval's defining knob: how many each friend approves. Sliding it
+                  slides the winner (favourite-only = plurality = Pizza). */}
+              {activeIsApproval && (
+                <div className="mt-5 flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {t('discover.approve.threshold')}
+                  </span>
+                  <Segmented
+                    label={t('discover.approve.threshold')}
+                    value={approvalStop}
+                    onChange={setApprovalStop}
+                    options={APPROVAL_STOPS.map(({ k, labelKey }) => ({
+                      value: k,
+                      label: t(labelKey),
+                      testid: `discover-approve-${k}`,
+                    }))}
+                  />
+                  <p className="text-sm text-muted-foreground">{t('discover.approveHint')}</p>
+                </div>
+              )}
+
+              {/* Key on the rule so switching methods restarts the animation; the
+                  approval threshold re-tallies in place (no remount). */}
+              <DiscoverVoteAnimation key={rule} rule={rule} foods={FOODS} approvalK={approvalK} />
+
+              {!activeIsApproval && (
+                <p className="mt-4 border-t border-border pt-4 text-[15px] text-muted-foreground">
+                  {t(WHY_KEY[rule])}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── 3 · Map: three families, in plain words ── */}
-      <section className="border-b border-border">
-        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('discover.famKicker')}
-          </p>
-          <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
-            {t('discover.famTitle')}
-          </h2>
-          <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {FAMILIES.map(({ id, Icon }) => (
-              <li
-                key={id}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"
-              >
-                <Icon aria-hidden className="h-5 w-5 text-primary" />
-                <h3 className="font-display text-lg font-semibold">
-                  {t(`discover.fam.${id}.title`)}
-                </h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {t(`discover.fam.${id}.desc`)}
-                </p>
-                <p className="mt-auto pt-1 font-mono text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">
-                  {t(`discover.fam.${id}.ex`)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* ── 3 · Map: three families, each drawn as the ballot it asks for ── */}
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6">
+        <h2 className="font-display text-[44px] leading-none font-extrabold sm:text-[56px]">
+          {t('discover.famTitle')}
+        </h2>
+        <ul className="grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-3">
+          {FAMILIES.map((id) => (
+            <li key={id} className="flex flex-col gap-3 border-t-2 border-primary pt-5">
+              <FamilySlip id={id} />
+              <h3 className="font-display text-[32px] leading-none font-extrabold">
+                {t(`discover.fam.${id}.title`)}
+              </h3>
+              <p className="text-base text-muted-foreground">{t(`discover.fam.${id}.desc`)}</p>
+              <p className="mt-auto text-sm font-semibold text-foreground">
+                {t(`discover.fam.${id}.ex`)}
+              </p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ── 3.5 · Follow your curiosity: questions → the story that answers ── */}
-      <section className="border-b border-border">
-        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
-          <CuriosityQuestions />
-        </div>
+      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <CuriosityQuestions />
       </section>
 
       {/* ── 4 · Play: go see it on a real electorate ── */}
-      <section className="bg-accent/20">
-        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('discover.playKicker')}
-          </p>
-          <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
+      <section className="border-t border-border bg-muted">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-20 sm:px-6">
+          <h2 className="max-w-3xl font-display text-[52px] leading-[0.92] font-extrabold lg:text-[80px]">
             {t('discover.playTitle')}
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {t('discover.playBody')}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <p className="max-w-[34rem] text-xl text-muted-foreground">{t('discover.playBody')}</p>
+          <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" variant="primary" asChild className="px-5">
               <Link to="/playground?story=spoiler">
                 {t('discover.playStory')} <ArrowRight aria-hidden className="h-4 w-4" />

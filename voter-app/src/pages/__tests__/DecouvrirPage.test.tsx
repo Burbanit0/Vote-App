@@ -33,25 +33,28 @@ describe('DecouvrirPage', () => {
     // Default rule is plurality → Pizza (the centre-squeeze first choice).
     expect(winnerText()).toMatch(/Pizza/);
 
-    fireEvent.click(screen.getByRole('tab', { name: /Two-round/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Two-round/i }));
     expect(winnerText()).toMatch(/Sushi/);
 
-    fireEvent.click(screen.getByRole('tab', { name: /Approval/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Approval/i }));
     expect(winnerText()).toMatch(/Thaï/);
 
-    fireEvent.click(screen.getByRole('tab', { name: /Condorcet/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Condorcet/i }));
     expect(winnerText()).toMatch(/Thaï/);
   });
 
   it('the approval threshold slides the winner: favourite = Pizza, top two = Thaï, all = Tie', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('tab', { name: /Approval/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Approval/i }));
     expect(winnerText()).toMatch(/Thaï/); // default: approve top two
+    // Each group ticks its top two: six ticks on the three ballots.
+    expect(screen.getAllByTestId('discover-tick')).toHaveLength(6);
 
-    fireEvent.click(screen.getByRole('button', { name: 'their favourite' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'their favourite' }));
     expect(winnerText()).toMatch(/Pizza/); // approve one = plurality
+    expect(screen.getAllByTestId('discover-tick')).toHaveLength(3);
 
-    fireEvent.click(screen.getByRole('button', { name: 'all of them' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'all of them' }));
     expect(winnerText()).toMatch(/Tie/); // approve everyone = deadlock
   });
 

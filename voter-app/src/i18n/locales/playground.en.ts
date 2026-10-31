@@ -922,7 +922,6 @@ const pgEn: PlaygroundKeys = {
     },
   },
   curiosity: {
-    kicker: 'Out of curiosity',
     title: 'Where to start? Follow your question.',
     sub: 'Each question opens the story that answers it, inside the instrument.',
     q: {

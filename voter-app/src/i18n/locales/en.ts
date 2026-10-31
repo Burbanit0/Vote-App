@@ -36,7 +36,7 @@ const en: TranslationKeys = {
       'Nobody changes their mind: these are the same twelve ballots throughout. Only the way of counting them changes — and the winner with it. Click a rule.',
     friends: '{{n}} friends',
     approveHint:
-      'Under approval, everyone ticks several restaurants (the ✓s), not just one. Set how many below and watch the winner move.',
+      'Under approval, everyone ticks several restaurants (the ✓s), not just one. Set how many above and watch the winner move.',
     winnerLabel: 'Winner',
     stamp: 'Elected',
     approve: {
@@ -50,7 +50,7 @@ const en: TranslationKeys = {
       replay: 'Replay',
       plurality: 'Everyone puts their ballot on their single favourite. The most ballots wins.',
       tr1: 'First round: count first choices. Nobody reaches a majority (7 of 12) — the top two stay in the race.',
-      tr2: 'Runoff: the last-placed is eliminated and its ballots join their second choice (in orange). Sushi crosses the majority and wins.',
+      tr2: 'Runoff: the last-placed is eliminated and its ballots join their second choice, in their own colour. Sushi crosses the majority and wins.',
       ap_one:
         'Everyone ticks only their favourite: that is exactly plurality. Pizza is back on top.',
       ap_some:
@@ -66,7 +66,6 @@ const en: TranslationKeys = {
       condorcet:
         'Thaï beats Pizza head-to-head, and beats Sushi too: the compromise a majority prefers to each rival.',
     },
-    famKicker: 'The map',
     famTitle: 'Three broad ways to express a choice.',
     fam: {
       rank: {
@@ -85,7 +84,6 @@ const en: TranslationKeys = {
         ex: 'Approval voting',
       },
     },
-    playKicker: 'Your turn',
     playTitle: 'Now watch it on a real electorate.',
     playBody:
       'The restaurant was just a taste. In the instrument, drag the candidates, change the rule, and watch the winner flip across thousands of voters.',

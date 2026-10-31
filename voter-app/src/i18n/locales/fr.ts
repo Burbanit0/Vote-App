@@ -34,7 +34,7 @@ const fr = {
       'Personne ne change d’avis : ce sont les mêmes douze bulletins tout du long. Seule la façon de les compter change — et le vainqueur avec elle. Cliquez une règle.',
     friends: '{{n}} amis',
     approveHint:
-      'À l’approbation, chacun coche plusieurs restos (les ✓), pas un seul. Réglez combien ci-dessous et regardez le vainqueur bouger.',
+      'À l’approbation, chacun coche plusieurs restos (les ✓), pas un seul. Réglez combien ci-dessus et regardez le vainqueur bouger.',
     winnerLabel: 'Vainqueur',
     stamp: 'Élu',
     approve: {
@@ -48,7 +48,7 @@ const fr = {
       replay: 'Rejouer',
       plurality: 'Chacun pose son bulletin sur son seul préféré. Le plus de bulletins l’emporte.',
       tr1: 'Premier tour : on compte les premiers choix. Personne n’atteint la majorité (7 sur 12) — les deux premiers restent en lice.',
-      tr2: 'Second tour : le dernier est éliminé et ses bulletins rejoignent leur second choix (en orange). Le Sushi passe la majorité et l’emporte.',
+      tr2: 'Second tour : le dernier est éliminé et ses bulletins rejoignent leur second choix, dans leur couleur. Le Sushi passe la majorité et l’emporte.',
       ap_one:
         'Chacun ne coche que son préféré : c’est exactement la pluralité. Pizza repasse en tête.',
       ap_some:
@@ -65,7 +65,6 @@ const fr = {
       condorcet:
         'Le Thaï bat la Pizza en duel, et bat aussi le Sushi : c’est le compromis que la majorité préfère à chaque adversaire.',
     },
-    famKicker: 'La carte',
     famTitle: 'Trois grandes façons d’exprimer un choix.',
     fam: {
       rank: {
@@ -84,7 +83,6 @@ const fr = {
         ex: 'Vote par approbation',
       },
     },
-    playKicker: 'À vous',
     playTitle: 'Maintenant, voyez-le sur un vrai électorat.',
     playBody:
       'Le restaurant n’était qu’un aperçu. Dans l’instrument, déplacez les candidats, changez la règle, et regardez le vainqueur basculer sur des milliers d’électeurs.',

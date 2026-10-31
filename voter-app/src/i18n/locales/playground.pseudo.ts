@@ -1011,7 +1011,6 @@ const pgPseudo: PlaygroundKeys = {
     },
   },
   curiosity: {
-    kicker: '⟦Pár~~ çúríósíté~~~~⟧',
     title: '⟦Pár~~ óù~ çómméñçér~~~~ ?~ Súís~~ tá~ qúéstíóñ.~~~~⟧',
     sub: '⟦Cháqúé~~~ qúéstíóñ~~~ óúvré~~ l’hístóíré~~~~ qúí~~ y~ répóñd,~~~ dáñs~~ l’íñstrúméñt.~~~~~⟧',
     q: {
