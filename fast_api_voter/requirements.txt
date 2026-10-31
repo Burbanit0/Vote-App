@@ -52,7 +52,7 @@ opentelemetry-instrumentation-fastapi==0.66b1  # matching contrib pre-release li
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.5.4
 scipy==1.18.1                  # polity statistics (bakeoff_statistics, sweep_statistics: stats tests)
-duckdb==1.5.6                  # §16.6 — compaction post-run du journal JSONL en base
+duckdb==2.0.0                  # §16.6 — compaction post-run du journal JSONL en base
                                 # analytique (domain/polity/compaction.py). Embarqué,
                                 # sans serveur : un fichier .duckdb par run.
 networkx==3.7                  # §5 — génération du graphe social (v6),
