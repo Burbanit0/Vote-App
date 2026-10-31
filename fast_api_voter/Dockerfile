@@ -1,5 +1,5 @@
 # Vote Lab backend — FastAPI (ASGI), served by uvicorn. Dev image.
-FROM python:3.14-slim-bookworm
+FROM python:3.14-slim-bookworm@sha256:adc4d063b42319df5a46301c3f5a88bd090fb7496bf6a8f9f3a1f380487c3c0d
 
 # uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): faster, reproducible installs than
 # pip. Binary copied from Astral's distroless image rather than `pip install
