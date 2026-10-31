@@ -7,6 +7,7 @@ import {
   BALLOTS,
   PILE_X,
   STEPS,
+  VIEW,
   candidatePoint,
   captionPose,
   countFrame,
@@ -15,6 +16,8 @@ import {
 } from '@/lib/home/countFrame';
 import { CANDIDATES, VOTERS, countsByName, type RuleId } from '@/lib/home/scenario';
 import { approach, clamp01 } from '@/lib/home/motion';
+import { COUNT_DRAW } from '@/lib/home/handover';
+import { countPin } from './countPin';
 
 // CountStory — the homepage's long scroll: one screen pinned while the next five
 // screens of scroll play the count (cast, plurality, runoff, approval, verdict).
@@ -45,6 +48,11 @@ const chapterCounts = (i: number) => {
 };
 
 const MUTED = 'var(--muted-foreground)';
+/**
+ * The caption, the box, the piles and the scrubber come in once the hero's map is most
+ * of the way over (HandoverMap): one lead at a time, the map first.
+ */
+const AFTER_THE_MAP = 'calc((var(--handover, 1) - 0.6) * 2.5)';
 
 /** Writes an attribute only when it changes: most ballots sit still on most frames. */
 const setAttr = (el: Element, k: string, v: string) => {
@@ -107,16 +115,7 @@ const CountStory: React.FC = () => {
   const playButton = useRef<HTMLButtonElement>(null);
   const loop = useRef({ smooth: NaN, lastP: NaN, last: 0, playing: false });
 
-  /**
-   * A screen of the count (the pinned stage's height), and the scroll position where
-   * the stage pins: the track's top less the navbar the stage sticks under.
-   */
-  const geometry = () => {
-    const H = stage.current!.clientHeight || window.innerHeight;
-    const top =
-      track.current!.getBoundingClientRect().top + window.scrollY - (window.innerHeight - H);
-    return { H, top };
-  };
+  const geometry = () => countPin(track.current!, stage.current!);
 
   const draw = (P: number) => {
     const f = countFrame(P);
@@ -234,7 +233,7 @@ const CountStory: React.FC = () => {
       id="home-count"
       data-testid="home-count"
       aria-labelledby="home-count-title"
-      className="relative h-[calc((100dvh-49px)*6)] border-t border-border"
+      className="relative h-[calc((100dvh-49px)*6)]"
     >
       <div
         ref={stage}
@@ -244,181 +243,187 @@ const CountStory: React.FC = () => {
           {t('home.countTitle')}
         </h2>
         <svg
-          // The drawing starts at y = 90: nothing flies higher than the ballots' arcs.
-          viewBox="0 90 1000 550"
+          viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label={label}
           className="min-h-0 w-full flex-1"
+          data-handover-to
         >
-          <rect
-            x="40"
-            y="160"
-            width="400"
-            height="380"
-            rx="12"
-            className="fill-card stroke-border"
-            strokeWidth={1.2}
-          />
-          <g className="stroke-border" strokeWidth={1}>
-            <line x1="40" y1="350" x2="440" y2="350" />
-            <line x1="240" y1="160" x2="240" y2="540" />
-          </g>
-          <circle
-            ref={disc}
-            cx={candidatePoint(1).x}
-            cy={candidatePoint(1).y}
-            r="150"
-            opacity="0"
-            fill={CANDIDATES[1].color}
-            style={{
-              transformOrigin: `${candidatePoint(1).x}px ${candidatePoint(1).y}px`,
-              transform: 'scale(0.2)',
-            }}
-          />
-          {VOTERS.map((_, i) => {
-            const p = voterPoint(i);
-            return (
-              <circle
-                key={i}
-                ref={(el) => {
-                  voters.current[i] = el;
-                }}
-                cx={p.x}
-                cy={p.y}
-                r="3.2"
-                opacity="0.75"
-                style={{ fill: MUTED }}
-              />
-            );
-          })}
-          {CANDIDATES.map((c, i) => {
-            const p = candidatePoint(i);
-            return (
-              <g key={c.name}>
+          {/* The map: shown once the hero's has landed on it (HandoverMap flies it in). */}
+          <g style={{ opacity: 'clamp(0, calc((var(--handover, 1) - 0.9999) * 10000), 1)' }}>
+            <rect
+              x="40"
+              y="160"
+              width="400"
+              height="380"
+              rx={COUNT_DRAW.radius}
+              className="fill-card stroke-border"
+              strokeWidth={1.2}
+            />
+            <g className="stroke-border" strokeWidth={1}>
+              <line x1="40" y1="350" x2="440" y2="350" />
+              <line x1="240" y1="160" x2="240" y2="540" />
+            </g>
+            <circle
+              ref={disc}
+              cx={candidatePoint(1).x}
+              cy={candidatePoint(1).y}
+              r="150"
+              opacity="0"
+              fill={CANDIDATES[1].color}
+              style={{
+                transformOrigin: `${candidatePoint(1).x}px ${candidatePoint(1).y}px`,
+                transform: 'scale(0.2)',
+              }}
+            />
+            {VOTERS.map((_, i) => {
+              const p = voterPoint(i);
+              return (
                 <circle
+                  key={i}
+                  ref={(el) => {
+                    voters.current[i] = el;
+                  }}
                   cx={p.x}
                   cy={p.y}
-                  r="8"
-                  fill={c.color}
-                  className="stroke-card"
-                  strokeWidth={2.5}
+                  r={COUNT_DRAW.voterR}
+                  opacity="0.75"
+                  style={{ fill: MUTED }}
+                />
+              );
+            })}
+            {CANDIDATES.map((c, i) => {
+              const p = candidatePoint(i);
+              return (
+                <g key={c.name}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={COUNT_DRAW.candR}
+                    fill={c.color}
+                    className="stroke-card"
+                    strokeWidth={2.5}
+                  />
+                  <text
+                    x={p.x}
+                    y={p.y - COUNT_DRAW.labelDy}
+                    textAnchor="middle"
+                    fontSize={COUNT_DRAW.label}
+                    fontWeight={700}
+                    className="fill-foreground"
+                  >
+                    {c.name}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+
+          {/* The box and the piles come in behind the flying map. */}
+          <g style={{ opacity: AFTER_THE_MAP }}>
+            <g ref={box}>
+              <rect
+                x="500"
+                y="300"
+                width="120"
+                height="170"
+                rx="6"
+                className="fill-envelope stroke-primary"
+                strokeWidth={1.6}
+                opacity="0.6"
+              />
+              <rect x="536" y="296" width="48" height="8" rx="2" className="fill-foreground" />
+              <rect x="528" y="336" width="64" height="24" rx="4" className="fill-foreground" />
+              <clipPath id="home-count-counter">
+                <rect x="528" y="336" width="64" height="24" rx="4" />
+              </clipPath>
+              <g clipPath="url(#home-count-counter)">
+                {[544, 560, 576].map((x, i) => (
+                  <g
+                    key={x}
+                    ref={(el) => {
+                      castDigits.current[i] = el;
+                    }}
+                    style={{ transition: 'transform 240ms cubic-bezier(.2,.7,.2,1)' }}
+                  >
+                    {DIGITS.map((n) => (
+                      <text
+                        key={n}
+                        x={x}
+                        y={354 + n * 20}
+                        textAnchor="middle"
+                        fontSize="16"
+                        fontWeight={600}
+                        className="fill-background font-mono"
+                      >
+                        {n}
+                      </text>
+                    ))}
+                  </g>
+                ))}
+              </g>
+            </g>
+
+            {CANDIDATES.map((c, ci) => (
+              <g key={c.name}>
+                <line
+                  x1={PILE_X[ci] - 34}
+                  y1="552"
+                  x2={PILE_X[ci] + 34}
+                  y2="552"
+                  className="stroke-foreground"
+                  strokeWidth={1.5}
                 />
                 <text
-                  x={p.x}
-                  y={p.y - 16}
+                  x={PILE_X[ci]}
+                  y="578"
                   textAnchor="middle"
-                  fontSize="15"
+                  fontSize="16"
                   fontWeight={700}
                   className="fill-foreground"
                 >
                   {c.name}
                 </text>
-              </g>
-            );
-          })}
-
-          <g ref={box}>
-            <rect
-              x="500"
-              y="300"
-              width="120"
-              height="170"
-              rx="6"
-              className="fill-envelope stroke-primary"
-              strokeWidth={1.6}
-              opacity="0.6"
-            />
-            <rect x="536" y="296" width="48" height="8" rx="2" className="fill-foreground" />
-            <rect x="528" y="336" width="64" height="24" rx="4" className="fill-foreground" />
-            <clipPath id="home-count-counter">
-              <rect x="528" y="336" width="64" height="24" rx="4" />
-            </clipPath>
-            <g clipPath="url(#home-count-counter)">
-              {[544, 560, 576].map((x, i) => (
+                <clipPath id={`home-count-pile-${ci}`}>
+                  <rect x={PILE_X[ci] - 14} y="586" width="28" height="26" />
+                </clipPath>
                 <g
-                  key={x}
                   ref={(el) => {
-                    castDigits.current[i] = el;
+                    pileNums.current[ci] = el;
                   }}
-                  style={{ transition: 'transform 240ms cubic-bezier(.2,.7,.2,1)' }}
+                  style={{ opacity: 0, transition: 'opacity 240ms ease' }}
                 >
-                  {DIGITS.map((n) => (
-                    <text
-                      key={n}
-                      x={x}
-                      y={354 + n * 20}
-                      textAnchor="middle"
-                      fontSize="16"
-                      fontWeight={600}
-                      className="fill-background font-mono"
-                    >
-                      {n}
-                    </text>
-                  ))}
-                </g>
-              ))}
-            </g>
-          </g>
-
-          {CANDIDATES.map((c, ci) => (
-            <g key={c.name}>
-              <line
-                x1={PILE_X[ci] - 34}
-                y1="552"
-                x2={PILE_X[ci] + 34}
-                y2="552"
-                className="stroke-foreground"
-                strokeWidth={1.5}
-              />
-              <text
-                x={PILE_X[ci]}
-                y="578"
-                textAnchor="middle"
-                fontSize="16"
-                fontWeight={700}
-                className="fill-foreground"
-              >
-                {c.name}
-              </text>
-              <clipPath id={`home-count-pile-${ci}`}>
-                <rect x={PILE_X[ci] - 14} y="586" width="28" height="26" />
-              </clipPath>
-              <g
-                ref={(el) => {
-                  pileNums.current[ci] = el;
-                }}
-                style={{ opacity: 0, transition: 'opacity 240ms ease' }}
-              >
-                <g clipPath={`url(#home-count-pile-${ci})`}>
-                  {[PILE_X[ci] - 6, PILE_X[ci] + 6].map((x, col) => (
-                    <g
-                      key={x}
-                      ref={(el) => {
-                        pileDigits.current[ci * 2 + col] = el;
-                      }}
-                      style={{ transition: 'transform 240ms cubic-bezier(.2,.7,.2,1)' }}
-                    >
-                      {DIGITS.map((n) => (
-                        <text
-                          key={n}
-                          x={x}
-                          y={606 + n * 24}
-                          textAnchor="middle"
-                          fontSize="18"
-                          fontWeight={600}
-                          fill={c.color}
-                          className="font-mono"
-                        >
-                          {n}
-                        </text>
-                      ))}
-                    </g>
-                  ))}
+                  <g clipPath={`url(#home-count-pile-${ci})`}>
+                    {[PILE_X[ci] - 6, PILE_X[ci] + 6].map((x, col) => (
+                      <g
+                        key={x}
+                        ref={(el) => {
+                          pileDigits.current[ci * 2 + col] = el;
+                        }}
+                        style={{ transition: 'transform 240ms cubic-bezier(.2,.7,.2,1)' }}
+                      >
+                        {DIGITS.map((n) => (
+                          <text
+                            key={n}
+                            x={x}
+                            y={606 + n * 24}
+                            textAnchor="middle"
+                            fontSize="18"
+                            fontWeight={600}
+                            fill={c.color}
+                            className="font-mono"
+                          >
+                            {n}
+                          </text>
+                        ))}
+                      </g>
+                    ))}
+                  </g>
                 </g>
               </g>
-            </g>
-          ))}
+            ))}
+          </g>
 
           {BALLOTS.map((_, i) => (
             <rect
@@ -442,7 +447,10 @@ const CountStory: React.FC = () => {
 
         {/* The captions share one grid cell, so the block is as tall as the longest one
             and the drawing below never runs under a caption. */}
-        <div className="pointer-events-none order-first grid px-6 pt-[5vh] sm:pl-[5vw] lg:pr-20">
+        <div
+          className="pointer-events-none order-first grid px-6 pt-[5vh] sm:pl-[5vw] lg:pr-20"
+          style={{ opacity: AFTER_THE_MAP }}
+        >
           {Array.from({ length: STEPS + 1 }, (_, i) => (
             <div
               key={i}
@@ -462,7 +470,11 @@ const CountStory: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex items-center gap-5 px-6 pt-2 pb-10 sm:pl-[5vw] lg:pr-20">
+        <div
+          className="flex items-center gap-5 px-6 pt-2 pb-10 sm:pl-[5vw] lg:pr-20"
+          data-handover-in
+          style={{ opacity: AFTER_THE_MAP }}
+        >
           <button
             type="button"
             onClick={togglePlay}

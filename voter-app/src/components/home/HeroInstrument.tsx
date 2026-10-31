@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useReducedMotion } from '@/hooks/useMediaQuery';
 import { useFrameLoop } from '@/hooks/useFrameLoop';
 import { EASE, approach } from '@/lib/home/motion';
+import { HERO_DRAW } from '@/lib/home/handover';
 import {
   CANDIDATES,
   RULES,
@@ -112,8 +113,8 @@ const HeroInstrument: React.FC = () => {
   const dots = useMemo(() => {
     const w = CANDIDATES[tally.winner];
     return VOTERS.map((v, i) => ({
-      x: v.x * 100,
-      y: v.y * 70,
+      x: v.x * HERO_DRAW.w,
+      y: v.y * HERO_DRAW.h,
       fill: dotColor(rule, i),
       delay: `${Math.round((Math.hypot(v.x - w.x, v.y - w.y) / 0.8) * 420)}ms`,
     }));
@@ -175,17 +176,26 @@ const HeroInstrument: React.FC = () => {
       ref={tray}
       data-testid="hero-instrument"
       className="flex w-full min-w-0 max-w-[560px] flex-col gap-3.5 rounded-2xl bg-envelope p-4"
+      // The tray clears away as the page hands its map over to the count (HandoverMap).
+      data-handover-out
+      style={{ opacity: 'calc(1 - var(--handover, 0) * 1.6)' }}
     >
       <div data-testid="hero-map" onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
         <svg
-          viewBox="0 0 100 70"
+          viewBox={`0 0 ${HERO_DRAW.w} ${HERO_DRAW.h}`}
           role="img"
           aria-label={t('home.mapLabel', { n: N, rule: tp(RULE_KEY[rule]), winner: win.name })}
-          className="block h-auto w-full rounded-[10px] border border-border bg-card"
+          className="block h-auto w-full border border-border bg-card"
+          // The map itself leaves at once: from here the flying copy carries it.
+          data-handover-from
+          style={{
+            borderRadius: HERO_DRAW.radius,
+            opacity: 'clamp(0, calc(1 - var(--handover, 0) * 10000), 1)',
+          }}
         >
           <g className="stroke-border" strokeWidth={0.4}>
-            <line x1={0} y1={35} x2={100} y2={35} />
-            <line x1={50} y1={0} x2={50} y2={70} />
+            <line x1={0} y1={HERO_DRAW.h / 2} x2={HERO_DRAW.w} y2={HERO_DRAW.h / 2} />
+            <line x1={HERO_DRAW.w / 2} y1={0} x2={HERO_DRAW.w / 2} y2={HERO_DRAW.h} />
           </g>
           <g
             ref={(el) => {
@@ -195,9 +205,10 @@ const HeroInstrument: React.FC = () => {
             {dots.map((d, i) => (
               <circle
                 key={i}
+                data-voter
                 cx={d.x}
                 cy={d.y}
-                r={0.9}
+                r={HERO_DRAW.voterR}
                 opacity={0.6}
                 style={{ fill: d.fill, transition: `fill 480ms ${EASE.settle} ${d.delay}` }}
               />
@@ -211,18 +222,18 @@ const HeroInstrument: React.FC = () => {
             {CANDIDATES.map((c) => (
               <g key={c.name}>
                 <circle
-                  cx={c.x * 100}
-                  cy={c.y * 70}
-                  r={2.6}
+                  cx={c.x * HERO_DRAW.w}
+                  cy={c.y * HERO_DRAW.h}
+                  r={HERO_DRAW.candR}
                   fill={c.color}
                   className="stroke-card"
                   strokeWidth={0.8}
                 />
                 <text
-                  x={c.x * 100}
-                  y={c.y * 70 - 4.5}
+                  x={c.x * HERO_DRAW.w}
+                  y={c.y * HERO_DRAW.h - HERO_DRAW.labelDy}
                   textAnchor="middle"
-                  fontSize={3.6}
+                  fontSize={HERO_DRAW.label}
                   fontWeight={700}
                   className="fill-foreground"
                 >

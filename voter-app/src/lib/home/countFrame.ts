@@ -9,6 +9,8 @@ import { CANDIDATES, RUNOFF_CHOICE, TALLY, VOTERS, lcg, type RuleId } from './sc
 import { bounce, clamp01, easeInOutCubic as ease, lerp } from './motion';
 
 export const MAP = { x: 40, y: 160, w: 400, h: 380 };
+/** The part of the 1000 × 640 drawing on screen: nothing flies higher than y = 90. */
+export const VIEW = { x: 0, y: 90, w: 1000, h: 550 };
 /** Where ballots go into the box. */
 export const SLOT = { x: 560, y: 292 };
 export const PILE_X = [690, 800, 910];

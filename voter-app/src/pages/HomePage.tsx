@@ -11,6 +11,7 @@ import MomentsTrack from '../components/home/MomentsTrack';
 import StoriesRegister from '../components/home/StoriesRegister';
 import BallotBoxFinale from '../components/home/BallotBoxFinale';
 import SectionRail from '../components/home/SectionRail';
+import HandoverMap from '../components/home/HandoverMap';
 
 // HomePage — the doorway, "Bureau de vote": the thesis (the rule decides, not just the
 // voters) made live in the hero, then told as a count you scroll through, then the
@@ -54,6 +55,7 @@ const HomePage: React.FC = () => {
     <div data-style="tailwind" data-home>
       <HomeEntrance onReveal={onEntered} />
       <SectionRail />
+      <HandoverMap />
 
       <section
         id="home-top"
@@ -61,7 +63,15 @@ const HomePage: React.FC = () => {
         aria-labelledby="home-title"
         className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-16 gap-y-12 px-4 pt-14 pb-[72px] sm:px-6"
       >
-        <div className="flex min-w-0 flex-[1_1_440px] flex-col gap-6">
+        <div
+          className="flex min-w-0 flex-[1_1_440px] flex-col gap-6"
+          // Lifts away as the map flies on to the count (HandoverMap).
+          data-handover-out
+          style={{
+            opacity: 'calc(1 - var(--handover, 0) * 1.6)',
+            transform: 'translateY(calc(var(--handover, 0) * -60px))',
+          }}
+        >
           <h1
             id="home-title"
             className="font-display text-[clamp(56px,6vw,96px)] leading-[0.9] font-extrabold"
