@@ -33,6 +33,15 @@ describe('Navbar', () => {
     });
   });
 
+  it('closes the phone menu when the brand is followed', () => {
+    renderNavbar();
+    const toggle = screen.getByTestId('navbar-toggle');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByText('Vote Lab'));
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('renders the Vote Lab brand', () => {
     renderNavbar();
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();

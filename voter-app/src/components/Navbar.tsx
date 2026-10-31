@@ -1,4 +1,17 @@
 import React, { useState } from 'react';
+import {
+  Bug,
+  FlaskConical,
+  GraduationCap,
+  Languages,
+  Moon,
+  Settings,
+  SlidersHorizontal,
+  Sun,
+  Type,
+  Vote,
+  type LucideIcon,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dropdown } from '@/components/ui/dropdown';
 import { Check } from '@/components/ui/form-controls';
@@ -17,15 +30,18 @@ import { NEW_ISSUE_URL } from '../lib/repo';
 // lives inside the Laboratoire's fiches. Polity (a research run explorer, not part
 // of the teaching path) is linked from the home page footer; its route is unchanged.
 
+// Line icons, one size and one stroke for the whole bar (they replaced emojis).
+const ICON = { size: 16, strokeWidth: 1.75, 'aria-hidden': true } as const;
+
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
 const SettingRow: React.FC<{
-  icon: string;
+  icon: LucideIcon;
   label: string;
   checked: boolean;
   onToggle: () => void;
   badge?: string;
-}> = ({ icon, label, checked, onToggle, badge }) => (
+}> = ({ icon: Icon, label, checked, onToggle, badge }) => (
   <div
     role="button"
     tabIndex={0}
@@ -43,7 +59,7 @@ const SettingRow: React.FC<{
     }}
   >
     <span className="flex items-center gap-2">
-      <span>{icon}</span>
+      <Icon {...ICON} className="shrink-0 text-muted-foreground" />
       <span>{label}</span>
       {badge && (
         <Badge variant="primary" style={{ fontSize: '0.6rem' }}>
@@ -97,37 +113,25 @@ const Navbar: React.FC = () => {
           style={{ fontSize: '1.45rem', lineHeight: 1 }}
           onClick={() => setNavExpanded(false)}
         >
-          {/* The ballot slip: a sheet with a folded corner. The homepage entrance
-              folds the screen into it (data-brand-mark). */}
+          {/* The ballot slip, cast: a solid sheet with its corner folded back in petrol
+              and one tick. Its outline is the shape the homepage entrance folds the
+              screen into (data-brand-mark, slipPolygon in lib/home/motion.ts). */}
           <svg data-brand-mark width="20" height="26" viewBox="0 0 20 26" aria-hidden="true">
+            <path d="M1 1h12l6 6v18H1z" fill="currentColor" />
+            <path d="M13 1v6h6z" style={{ fill: 'var(--primary)' }} />
             <path
-              d="M1 1h12l6 6v18H1z"
-              style={{ fill: 'var(--card)' }}
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M13 1v6h6"
+              d="M5.5 15.5l3 3 6-7"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M5 13h10M5 17h7"
-              style={{ stroke: 'var(--ballot-stamp)' }}
-              strokeWidth="1.8"
+              style={{ stroke: 'var(--background)' }}
+              strokeWidth="2.2"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
           </svg>
           Vote Lab
-          <Badge
-            variant="info"
-            style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
-          >
+          <span className="rounded-full border border-border px-1.5 py-px font-sans text-[0.62rem] font-semibold tracking-normal text-muted-foreground">
             {t('nav.beta')}
-          </Badge>
+          </span>
         </BootstrapNavbar.Brand>
 
         <BootstrapNavbar.Toggle
@@ -155,7 +159,10 @@ const Navbar: React.FC = () => {
                 transition: 'all 0.15s',
               }}
             >
-              🎛 {t('nav.playground')}
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal {...ICON} />
+                {t('nav.playground')}
+              </span>
             </Nav.Link>
 
             {/* Laboratoire — the "go deeper" destination */}
@@ -171,7 +178,10 @@ const Navbar: React.FC = () => {
                 transition: 'all 0.15s',
               }}
             >
-              🔬 {t('nav.laboratoire')}
+              <span className="flex items-center gap-1.5">
+                <FlaskConical {...ICON} />
+                {t('nav.laboratoire')}
+              </span>
             </Nav.Link>
 
             {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
@@ -187,7 +197,10 @@ const Navbar: React.FC = () => {
                 transition: 'all 0.15s',
               }}
             >
-              ✍️ {t('nav.play')}
+              <span className="flex items-center gap-1.5">
+                <Vote {...ICON} />
+                {t('nav.play')}
+              </span>
             </Nav.Link>
           </Nav>
 
@@ -202,7 +215,8 @@ const Navbar: React.FC = () => {
                 style={{ border: '1px solid var(--bs-border-color)' }}
                 id="user-settings-dropdown"
               >
-                <span style={{ fontSize: '0.82rem' }}>⚙ {t('nav.settings')}</span>
+                <Settings {...ICON} />
+                <span style={{ fontSize: '0.82rem' }}>{t('nav.settings')}</span>
               </Dropdown.Toggle>
 
               <Dropdown.Menu style={{ minWidth: 240 }}>
@@ -220,28 +234,28 @@ const Navbar: React.FC = () => {
                   </div>
 
                   <SettingRow
-                    icon={theme === 'dark' ? '☀️' : '🌙'}
+                    icon={theme === 'dark' ? Sun : Moon}
                     label={theme === 'dark' ? t('nav.lightModeTip') : t('nav.darkModeTip')}
                     checked={theme === 'dark'}
                     onToggle={toggleTheme}
                   />
 
                   <SettingRow
-                    icon="🌐"
+                    icon={Languages}
                     label={i18n.language === 'fr' ? 'Switch to English' : 'Passer en français'}
                     checked={i18n.language !== 'fr'}
                     onToggle={toggleLang}
                   />
 
                   <SettingRow
-                    icon="⚡"
+                    icon={GraduationCap}
                     label={expertMode ? t('nav.expert') : t('nav.beginner')}
                     checked={expertMode}
                     onToggle={() => setExpertMode(!expertMode)}
                   />
 
                   <SettingRow
-                    icon="🔤"
+                    icon={Type}
                     label={t('nav.plain')}
                     checked={plainLanguage}
                     onToggle={() => setPlainLanguage(!plainLanguage)}
@@ -257,7 +271,8 @@ const Navbar: React.FC = () => {
                   className="dropdown-item flex items-center gap-2 px-3 py-2"
                   style={{ fontSize: '0.85rem', textDecoration: 'none' }}
                 >
-                  🐛 {t('nav.reportBug')}
+                  <Bug {...ICON} className="shrink-0 text-muted-foreground" />
+                  {t('nav.reportBug')}
                 </a>
               </Dropdown.Menu>
             </Dropdown>
