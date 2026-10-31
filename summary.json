@@ -638,6 +638,33 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 3,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
+     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (119.4h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "83b4a1298052c551e0eb1d6cd8272305bf6d1142",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41210285118"
+   },
+   "last_seen": "2026-10-31T14:28:32Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-show-exchanges",
     "polity"
    ],
@@ -774,33 +801,6 @@
    "signature": "test-flaky: Error: expect(received).toBeGreaterThan(expected)",
    "workflows": [
     "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 2,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
-     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (95.9h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "83b4a1298052c551e0eb1d6cd8272305bf6d1142",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41076535305"
-   },
-   "last_seen": "2026-10-30T14:59:26Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -1361,10 +1361,10 @@
   "advisory": 14,
   "code": 156,
   "infra": 13,
-  "test-flaky": 26,
+  "test-flaky": 27,
   "unknown": 2
  },
- "generated_at": "2026-10-31T09:53:57Z",
+ "generated_at": "2026-10-31T14:28:57Z",
  "grid": {
   "Backend CI": {
    "2026-10-02": {
@@ -1453,9 +1453,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-01": {
-    "success": 1
-   },
    "2026-10-02": {
     "success": 3
    },
@@ -1646,7 +1643,7 @@
     "success": 10
    },
    "2026-10-31": {
-    "success": 3
+    "success": 4
    }
   },
   "CI Health Watchdog": {
@@ -1739,12 +1736,12 @@
    },
    "2026-10-30": {
     "failure": 1
+   },
+   "2026-10-31": {
+    "failure": 1
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "2026-10-01": {
-    "success": 1
-   },
    "2026-10-02": {
     "cancelled": 1,
     "success": 1
@@ -2789,16 +2786,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-10-31T08:53:51Z",
+   "created_at": "2026-10-31T09:53:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41186448095"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41190532488"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-30T14:59:26Z",
+   "created_at": "2026-10-31T14:28:32Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41076535305"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41210285118"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "develop",
@@ -2940,7 +2937,6 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-01": 711,
     "2026-10-02": 686,
     "2026-10-03": 421,
     "2026-10-04": 824,
@@ -2975,7 +2971,7 @@
    "p50_s": 1004,
    "p95_s": 1448,
    "queue_p50_s": 0,
-   "runs": 123
+   "runs": 122
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -3041,12 +3037,12 @@
     "2026-10-28": 387.0,
     "2026-10-29": 374.5,
     "2026-10-30": 368.0,
-    "2026-10-31": 331
+    "2026-10-31": 329.0
    },
    "p50_s": 390,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 734
+   "runs": 735
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3086,7 +3082,6 @@
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-10-01": 1841,
     "2026-10-02": 1949,
     "2026-10-04": 1837,
     "2026-10-06": 1862.5,
@@ -3103,7 +3098,7 @@
    "p50_s": 1839,
    "p95_s": 1892,
    "queue_p50_s": 0,
-   "runs": 22
+   "runs": 21
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
