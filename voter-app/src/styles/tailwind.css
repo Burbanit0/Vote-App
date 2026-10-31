@@ -163,23 +163,78 @@
   }
 }
 
-/* Homepage hero — the winner readout "pops" each time the rule changes it. */
-@keyframes hero-pop {
+/* Homepage, "Bureau de vote" motion (the design canvas's Motion board): lines rise out
+   of their own masks, content settles in, and the "Elected" stamp lands with an ink
+   bleed. Curves: settle cubic-bezier(.2,.7,.2,1); durations 240 / 480 / 900 ms. */
+@keyframes home-rise {
+  from {
+    transform: translateY(108%);
+  }
+}
+@keyframes home-up {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(16px);
+  }
+}
+@keyframes home-ink {
+  0% {
+    transform: rotate(-7deg) scale(1.9);
+    opacity: 0;
+  }
+  58% {
+    transform: rotate(-7deg) scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-7deg) scale(1);
+  }
+}
+@keyframes home-bleed {
+  from {
+    transform: rotate(-7deg) scale(0.96);
+    opacity: 0.5;
   }
   to {
-    opacity: 1;
-    transform: none;
+    transform: rotate(-7deg) scale(1.45);
+    opacity: 0;
   }
 }
-.hero-pop {
-  animation: hero-pop 0.34s cubic-bezier(0.2, 0.7, 0.2, 1);
+.home-rise {
+  animation: home-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.home-up {
+  animation: home-up 0.48s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.home-stamp {
+  transform: rotate(-7deg);
+  animation: home-ink 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) 0.14s both;
+}
+.home-bleed {
+  transform: rotate(-7deg);
+  opacity: 0;
+  animation: home-bleed 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
+}
+/* The count's stamp is an SVG group: scale it around its own centre. */
+.home-svg-stamp {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: home-ink 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-pop {
+  .home-rise,
+  .home-up,
+  .home-stamp,
+  .home-bleed,
+  .home-svg-stamp {
     animation: none;
+  }
+  /* The homepage's inline transitions too (the rolling counts, the voters' colour
+     wave, the rule pill, the story rows): values change at once. */
+  [data-home] *,
+  [data-home] *::before,
+  [data-home] *::after {
+    transition: none !important;
   }
 }
 
