@@ -168,6 +168,32 @@
   }
 }
 
+/* Homepage hero — the Aceternity decorations (components/ui/spotlight-new,
+   hero-highlight). Upstream drives both from JS (motion); as CSS they run on
+   the compositor and cost no main-thread work per frame. */
+@keyframes spotlight-drift {
+  50% {
+    transform: translateX(var(--drift));
+  }
+}
+.spotlight-drift {
+  animation: spotlight-drift 7s ease-in-out infinite;
+}
+@keyframes highlight-sweep {
+  from {
+    background-size: 0% 100%;
+  }
+}
+.highlight-sweep {
+  animation: highlight-sweep 2s linear 0.5s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-drift,
+  .highlight-sweep {
+    animation: none;
+  }
+}
+
 /* /decouvrir "dépouillement" — the hand-count. Tally rows reveal left-to-right
    as if being counted; a runoff sends the eliminated pile's strokes drifting up
    toward the survivor. */

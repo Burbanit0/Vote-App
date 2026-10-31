@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { SlidersHorizontal, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HaloList } from '@/components/ui/card-hover-effect';
+import { HeroHighlight, Highlight } from '@/components/ui/hero-highlight';
+import { Spotlight } from '@/components/ui/spotlight-new';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
 import HeroInstrument from '../components/home/HeroInstrument';
@@ -76,52 +79,58 @@ const HomePage: React.FC = () => {
           its own instrument and clips it. */}
       <section
         data-testid="home-hero"
-        className="flex flex-1 flex-col justify-center border-b border-border lg:grow-0 lg:basis-auto"
+        className="relative flex flex-1 flex-col border-b border-border lg:grow-0 lg:basis-auto"
       >
-        <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
-          <div className="grid w-full items-center gap-6 lg:grid-cols-[1fr_minmax(0,26rem)]">
-            <div className="flex flex-col justify-center gap-5">
-              <div>
-                <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-                  {t('home.eyebrow')}
-                </p>
-                <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-5xl">
-                  {t('home.h1Line1')}
-                  <br />
-                  <span className="text-primary">{t('home.h1Line2')}</span>
-                </h1>
-                <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  {t('home.heroLede')}
-                </p>
-              </div>
-              <div>
-                {/* Découvrir leads (primary) — for a newcomer, learning the idea
+        <Spotlight />
+        <HeroHighlight
+          containerClassName="flex flex-1 flex-col"
+          className="flex flex-1 flex-col justify-center"
+        >
+          <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
+            <div className="grid w-full items-center gap-6 lg:grid-cols-[1fr_minmax(0,26rem)]">
+              <div className="flex flex-col justify-center gap-5">
+                <div>
+                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+                    {t('home.eyebrow')}
+                  </p>
+                  <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-5xl">
+                    {t('home.h1Line1')}
+                    <br />
+                    <Highlight className="text-primary">{t('home.h1Line2')}</Highlight>
+                  </h1>
+                  <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+                    {t('home.heroLede')}
+                  </p>
+                </div>
+                <div>
+                  {/* Découvrir leads (primary) — for a newcomer, learning the idea
                     comes before the full instrument. The instrument is one click
                     away as the secondary action. */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button size="lg" variant="primary" className="px-5" asChild>
-                    <Link to="/decouvrir">
-                      <Sparkles aria-hidden className="h-4 w-4" />
-                      {t('home.ctaDiscover')}
-                      <span className="ml-1.5 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[0.62rem] font-semibold">
-                        {t('home.discoverTag')}
-                      </span>
-                    </Link>
-                  </Button>
-                  <Button size="lg" variant="outline" onClick={openInstrument}>
-                    <SlidersHorizontal aria-hidden className="h-4 w-4" />
-                    {t('home.ctaOpen')} →
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="lg" variant="primary" className="px-5" asChild>
+                      <Link to="/decouvrir">
+                        <Sparkles aria-hidden className="h-4 w-4" />
+                        {t('home.ctaDiscover')}
+                        <span className="ml-1.5 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[0.62rem] font-semibold">
+                          {t('home.discoverTag')}
+                        </span>
+                      </Link>
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={openInstrument}>
+                      <SlidersHorizontal aria-hidden className="h-4 w-4" />
+                      {t('home.ctaOpen')} →
+                    </Button>
+                  </div>
+                  <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+                    {t('home.reassure')}
+                  </p>
                 </div>
-                <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
-                  {t('home.reassure')}
-                </p>
               </div>
-            </div>
 
-            <HeroInstrument />
+              <HeroInstrument />
+            </div>
           </div>
-        </div>
+        </HeroHighlight>
       </section>
 
       {/* ── The journey: five moments, one strip ── */}
@@ -133,9 +142,13 @@ const HomePage: React.FC = () => {
             </p>
             <p className="text-[0.72rem] text-muted-foreground">{t('home.journeyLede')}</p>
           </div>
-          <ol className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {MOMENTS.map((m) => (
-              <li key={m.id}>
+          <HaloList
+            as="ol"
+            layoutId="home-journey-halo"
+            className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+            items={MOMENTS.map((m) => ({
+              key: m.id,
+              node: (
                 <Link
                   to="/playground"
                   title={tp(`moments.${m.id}.hint`)}
@@ -152,9 +165,9 @@ const HomePage: React.FC = () => {
                     {tp(`moments.${m.id}.label`)}
                   </span>
                 </Link>
-              </li>
-            ))}
-          </ol>
+              ),
+            }))}
+          />
         </div>
       </section>
 
@@ -167,9 +180,13 @@ const HomePage: React.FC = () => {
             </p>
             <p className="text-[0.72rem] text-muted-foreground">{tp('stories.launchHint')}</p>
           </div>
-          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {STORIES.map((s) => (
-              <li key={s.id}>
+          <HaloList
+            as="ul"
+            layoutId="home-story-halo"
+            className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            items={STORIES.map((s) => ({
+              key: s.id,
+              node: (
                 <Link
                   to={`/playground?story=${s.id}`}
                   className="group flex h-full flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-accent/40"
@@ -187,9 +204,9 @@ const HomePage: React.FC = () => {
                     {tp(s.taglineKey)}
                   </span>
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ),
+            }))}
+          />
         </div>
       </section>
 
