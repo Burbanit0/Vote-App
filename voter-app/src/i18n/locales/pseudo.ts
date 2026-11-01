@@ -23,6 +23,14 @@ const pseudo: TranslationKeys = {
     toggleLabel: '⟦Méñú~~ dé~ ñávígátíóñ~~~~⟧',
     reportBug: '⟦Sígñálér~~~ úñ~ búg~~⟧',
   },
+  notFound: {
+    title: '⟦Cé~ búllétíñ~~~ ñ’ést~~ pás~~ dáñs~~ l’úrñé.~~~⟧',
+    message:
+      '⟦Cétté~~ págé~~ ñ’éxísté~~~ pás,~~ óú~ plús~~ :~ éllé~~ á~ péút-êtré~~~~ été~~ dépláçéé.~~~~⟧',
+    stamp: '⟦Núl~~⟧',
+    home: '⟦Rétóúr~~~ à~ l’áççúéíl~~~~⟧',
+    playground: '⟦Óúvrír~~~ l’íñstrúméñt~~~~~⟧',
+  },
   discover: {
     eyebrow: '⟦Cómpréñdré~~~~ éñ~ 3~ míñútés~~~⟧',
     title:

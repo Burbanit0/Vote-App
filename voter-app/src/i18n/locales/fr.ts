@@ -20,6 +20,13 @@ const fr = {
     reportBug: 'Signaler un bug',
   },
 
+  notFound: {
+    title: 'Ce bulletin n’est pas dans l’urne.',
+    message: 'Cette page n’existe pas, ou plus : elle a peut-être été déplacée.',
+    stamp: 'Nul',
+    home: 'Retour à l’accueil',
+    playground: 'Ouvrir l’instrument',
+  },
   discover: {
     eyebrow: 'Comprendre en 3 minutes',
     title: 'Il existe plusieurs façons de voter — et elles ne donnent pas le même gagnant.',

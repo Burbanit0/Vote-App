@@ -22,6 +22,13 @@ const en: TranslationKeys = {
     reportBug: 'Report a bug',
   },
 
+  notFound: {
+    title: 'This ballot isn’t in the box.',
+    message: 'This page doesn’t exist, or no longer does: it may have moved.',
+    stamp: 'Void',
+    home: 'Back to the homepage',
+    playground: 'Open the instrument',
+  },
   discover: {
     eyebrow: 'Understand it in 3 minutes',
     title: 'There is more than one way to vote — and they don’t pick the same winner.',
