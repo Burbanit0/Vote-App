@@ -65,13 +65,29 @@ const WinnerStrip: React.FC = () => {
   return (
     <div
       data-testid="winner-strip"
-      className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm"
+      // In the envelope tray, as the homepage's result is: the winner rises in and is
+      // stamped each time it changes (keyed on it, so a drag that keeps it moves nothing).
+      className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-envelope px-5 py-3 text-sm"
     >
       <LiveAnnouncement testId="winner-announce" text={announced} />
-      <span data-testid="winner-strip-current" className="font-display text-base">
+      <span data-testid="winner-strip-current" className="font-display text-[22px] leading-none">
         {t('strip.under', { rule: ruleLabels[leaderRule] })}{' '}
-        {hasFixedWinner(leaderRule) && current != null ? name(current) : <NoFixedWinner />}
+        {hasFixedWinner(leaderRule) && current != null ? (
+          <span key={`${leaderRule}-${current}`} className="home-up inline-block">
+            {name(current)}
+          </span>
+        ) : (
+          <NoFixedWinner />
+        )}
       </span>
+      {hasFixedWinner(leaderRule) && current != null && (
+        <span key={`${leaderRule}-${current}`} aria-hidden="true" className="relative">
+          <span className="home-bleed absolute inset-0 rounded border-2 border-ballot-stamp" />
+          <span className="home-stamp block rounded border-2 border-ballot-stamp px-2 pt-px pb-0.5 font-display text-[15px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase">
+            {t('strip.stamp')}
+          </span>
+        </span>
+      )}
       {otherRules.length > 0 && (
         <span
           data-testid="winner-strip-others"

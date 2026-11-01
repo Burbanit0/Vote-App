@@ -79,9 +79,7 @@ const DuelSide: React.FC<{
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-muted-foreground">
-          {t('duel.winner')}
-        </span>
+        <span className="text-sm font-bold text-muted-foreground">{t('duel.winner')}</span>
         {winner ? (
           <span
             data-testid={`duel-winner-${side}`}
@@ -142,9 +140,7 @@ const MethodDuel: React.FC = () => {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-          {t('duel.eyebrow')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('duel.eyebrow')}</p>
         <h2 className="font-display text-lg font-bold tracking-tight">{t('duel.title')}</h2>
         <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{t('duel.intro')}</p>
       </div>

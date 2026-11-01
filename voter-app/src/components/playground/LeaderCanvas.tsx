@@ -358,9 +358,11 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             data-testid="lens-switch"
             role="radiogroup"
             aria-label={t('canvas.viewLabel')}
-            className="flex items-center gap-1 text-xs"
+            className="flex flex-wrap items-center gap-1.5 text-sm"
           >
-            <span className="text-muted-foreground">{t('canvas.viewLabel')}</span>
+            <span className="mr-1 font-semibold text-muted-foreground">
+              {t('canvas.viewLabel')}
+            </span>
             {LENS_IDS.map((id) => (
               <button
                 key={id}
@@ -368,10 +370,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 role="radio"
                 aria-checked={lens === id}
                 data-testid={`lens-${id}`}
-                className={`rounded border px-2 py-0.5 ${
+                className={`rounded-full border px-3 py-1 transition-colors motion-reduce:transition-none ${
                   lens === id
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
+                    ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                    : 'border-border bg-card text-foreground hover:border-primary/50'
                 }`}
                 onClick={() => onLensChange?.(id)}
               >

@@ -69,8 +69,11 @@ const MethodInfo: React.FC<Props> = ({ method, context = {}, placement = 'top', 
       <InfoLine label={labels.criterion}>{c.criterion}</InfoLine>
       <InfoLine label={labels.example}>{c.example}</InfoLine>
       {note && (
-        <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[0.7rem] leading-snug text-amber-700 dark:text-amber-400">
-          ⚡ {note}
+        <p
+          data-testid={`note-${method}`}
+          className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[0.7rem] leading-snug text-amber-700 dark:text-amber-400"
+        >
+          {note}
         </p>
       )}
     </InfoPopover>

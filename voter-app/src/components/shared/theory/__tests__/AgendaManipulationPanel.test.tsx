@@ -169,7 +169,7 @@ describe('AgendaManipulationPanel', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('simulate-btn'));
     });
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveClass('bg-red-100'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveClass('border-l-destructive'));
   });
 
   it('posts correct payload to API', async () => {

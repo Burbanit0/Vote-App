@@ -3,6 +3,7 @@
  * causes spoiled (null) ballots and which voting methods lose the most votes.
  */
 import React, { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -316,7 +317,10 @@ const BallotComplexityPanel: React.FC = () => {
                   <td style={{ fontSize: '0.78rem' }}>{r.winner ?? '—'}</td>
                   <td style={{ fontSize: '0.78rem' }}>
                     {r.winner_changed ? (
-                      <span style={{ color: '#dc3545' }}>⚠</span>
+                      <TriangleAlert
+                        aria-hidden
+                        className="inline h-3.5 w-3.5 align-[-2px] text-stamp"
+                      />
                     ) : (
                       <span style={{ color: '#198754' }}>✓</span>
                     )}

@@ -125,9 +125,7 @@ const RegimeGlobe: React.FC = () => {
   return (
     <div data-testid="regime-globe" className="flex flex-col gap-3">
       <div>
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-          {t('atlas.kicker')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('atlas.kicker')}</p>
         <h2 className="font-display text-lg font-bold tracking-tight">{t('atlas.title')}</h2>
         <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{t('atlas.intro')}</p>
       </div>

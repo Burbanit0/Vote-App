@@ -12,14 +12,14 @@ test.describe('Découvrir — the thesis, one step at a time', () => {
 
   test('the four demo rules do not all elect the same candidate', async ({ page }) => {
     const winner = page.locator('[data-testid="discover-winner"]');
-    const tabs = page.getByRole('tab');
-    const count = await tabs.count();
+    const rules = page.locator('[data-testid^="discover-rule-"]');
+    const count = await rules.count();
     expect(count).toBe(4);
 
     const seen = new Set<string>();
     for (let i = 0; i < count; i++) {
-      await tabs.nth(i).click();
-      await expect(tabs.nth(i)).toHaveAttribute('aria-selected', 'true');
+      await rules.nth(i).click();
+      await expect(rules.nth(i)).toHaveAttribute('aria-checked', 'true');
       await expect(winner).not.toBeEmpty();
       seen.add(((await winner.textContent()) ?? '').trim());
     }

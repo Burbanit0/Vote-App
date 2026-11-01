@@ -44,9 +44,7 @@ const StructuralPanel: React.FC<{
       className="flex flex-col gap-2 rounded-md border border-border p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('structural.title')}
-        </span>
+        <span className="text-xs font-semibold text-muted-foreground">{t('structural.title')}</span>
         <div className="flex items-center gap-2 text-xs">
           <label
             className="flex items-center gap-1 text-muted-foreground"
@@ -84,9 +82,7 @@ const StructuralPanel: React.FC<{
             data-testid="malapportionment-out"
             className="rounded-md border border-border px-3 py-2 text-xs"
           >
-            <p className="font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('structural.unequalWeight')}
-            </p>
+            <p className="font-semibold text-muted-foreground">{t('structural.unequalWeight')}</p>
             <p className="mt-1 tabular-nums">
               {t('structural.popPerSeat')}{' '}
               <strong>{data.malapportionment.pop_per_seat_ratio.toFixed(1)} : 1</strong>
@@ -109,10 +105,7 @@ const StructuralPanel: React.FC<{
             data-testid="efficiency-gap-out"
             className="rounded-md border border-border px-3 py-2 text-xs"
           >
-            <p
-              className="font-semibold uppercase tracking-wide text-muted-foreground"
-              title={t('structural.egTitle')}
-            >
+            <p className="font-semibold text-muted-foreground" title={t('structural.egTitle')}>
               {t('structural.egLabel', {
                 a: data.efficiency_gap.party_a,
                 b: data.efficiency_gap.party_b,
@@ -145,10 +138,7 @@ const StructuralPanel: React.FC<{
             data-testid="penrose-out"
             className="rounded-md border border-border px-3 py-2 text-xs"
           >
-            <p
-              className="font-semibold uppercase tracking-wide text-muted-foreground"
-              title={t('structural.penroseTitle')}
-            >
+            <p className="font-semibold text-muted-foreground" title={t('structural.penroseTitle')}>
               {t('structural.penroseHead')}
             </p>
             <div className="mt-1 flex flex-col gap-0.5 tabular-nums">
@@ -178,10 +168,7 @@ const StructuralPanel: React.FC<{
             data-testid="cumulative-out"
             className="rounded-md border border-border px-3 py-2 text-xs"
           >
-            <p
-              className="font-semibold uppercase tracking-wide text-muted-foreground"
-              title={t('structural.cumTitle')}
-            >
+            <p className="font-semibold text-muted-foreground" title={t('structural.cumTitle')}>
               {t('structural.cumHead', { seats: data.cumulative.at_large_seats })}
             </p>
             {(['seats_bloc', 'seats_cumulative'] as const).map((key) => (

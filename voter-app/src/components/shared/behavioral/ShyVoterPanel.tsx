@@ -224,7 +224,7 @@ const ShyVoterPanel: React.FC = () => {
               </Alert>
             )}
             <Badge variant="info" data-testid="shy-candidate-badge">
-              🤫 {t('shyVoter.shyLabel')}: {data.shy_candidate}
+              {t('shyVoter.shyLabel')}: {data.shy_candidate}
             </Badge>
           </div>
 
@@ -347,7 +347,7 @@ const ShyVoterPanel: React.FC = () => {
                       {c}
                       {c === data.shy_candidate && (
                         <Badge variant="warning" className="ms-1" style={{ fontSize: '0.6rem' }}>
-                          🤫
+                          {t('shyVoter.shyLabel')}
                         </Badge>
                       )}
                     </td>

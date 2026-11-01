@@ -2,6 +2,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Modal } from '@/components/ui/modal';
+import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/segmented';
+import { RevealSection, RiseWords, Slip } from '@/components/ui/slip';
+import { Strokes } from '../components/home/DiscoverVoteAnimation';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { candidateColor, textTone } from '../lib/palette';
 import { track } from '../lib/analytics';
@@ -102,21 +106,41 @@ const tacticNames = (b: Ballot, lang: BallotLanguage): string => {
   return CANDIDATES[b.rank[0]]?.name ?? '—';
 };
 
-/** Registration ticks — the instrument's corner marks, as on the lab bench. */
-const Corners: React.FC = () => (
+/** A mark made with a pen: drawn in when it lands (✗ or ✓). */
+const PenMark: React.FC<{ d: string }> = ({ d }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true" className="h-4 w-4">
+    <path
+      d={d}
+      pathLength={1}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="stroke-draw"
+      style={{ animationDuration: '0.36s' }}
+    />
+  </svg>
+);
+const CROSS = 'M3 3l8 8M11 3l-8 8';
+const TICK = 'M2 7.5l3 3 7-8';
+
+/** An empty box on the paper, where no mark was made. */
+const Box: React.FC = () => <span className="h-4 w-4 rounded-[3px] border border-border" />;
+
+/** A section's head: what it is about, then its title, as on the homepage. */
+const Head: React.FC<{ kicker: React.ReactNode; children: React.ReactNode }> = ({
+  kicker,
+  children,
+}) => (
   <>
-    {[
-      'left-1.5 top-1.5 border-l border-t',
-      'right-1.5 top-1.5 border-r border-t',
-      'bottom-1.5 left-1.5 border-b border-l',
-      'bottom-1.5 right-1.5 border-b border-r',
-    ].map((c) => (
-      <span
-        key={c}
-        aria-hidden
-        className={cn('pointer-events-none absolute h-2.5 w-2.5 border-primary/50', c)}
-      />
-    ))}
+    <p className="home-up text-[15px] font-bold text-primary">{kicker}</p>
+    <h2
+      className="home-up mt-1 flex items-center gap-3 font-display text-[36px] leading-none font-extrabold sm:text-[44px]"
+      style={{ animationDelay: '60ms' }}
+    >
+      {children}
+    </h2>
   </>
 );
 
@@ -146,14 +170,13 @@ const BallotPaper: React.FC<{
   const { t } = useTranslation();
   const pips = ballot?.score ? pipsFrom(ballot.score, POINT_BUDGET) : [];
   return (
-    <div
+    <Slip
       data-testid={testId}
       className={cn(
-        'relative mx-auto w-full max-w-[30rem] rotate-[-0.7deg] rounded-sm border bg-card px-5 py-4 shadow-md',
-        ballot ? 'border-primary/25' : 'border-dashed border-border opacity-55'
+        'mx-auto w-full max-w-[30rem] px-5 py-4',
+        !ballot && 'border-dashed opacity-55'
       )}
     >
-      <Corners />
       {!ballot && (
         <span
           data-testid={`${testId}-abstain`}
@@ -162,7 +185,7 @@ const BallotPaper: React.FC<{
           {t('play.posture.abstain')}
         </span>
       )}
-      <p className="border-b border-dashed border-border pb-2 text-center font-mono text-[0.6rem] uppercase tracking-[0.28em] text-muted-foreground">
+      <p className="border-b border-dashed border-border pb-2 text-center font-display text-[15px] font-extrabold text-muted-foreground">
         {t('play.ballotPaper')}
       </p>
 
@@ -192,31 +215,26 @@ const BallotPaper: React.FC<{
 
               <span
                 data-testid={`${testId}-mark-${i}`}
-                className="flex shrink-0 items-center gap-1 font-mono text-[var(--color-stamp)]"
+                className="flex shrink-0 items-center gap-1 font-mono text-foreground"
               >
                 {!ballot && <span className="text-xs text-muted-foreground">—</span>}
 
                 {ballot &&
                   lang === 'one' &&
-                  (ballot.rank[0] === i ? (
-                    <span className="text-lg font-bold leading-none">✗</span>
-                  ) : (
-                    <span className="h-4 w-4 rounded-[3px] border border-border" />
-                  ))}
+                  (ballot.rank[0] === i ? <PenMark d={CROSS} /> : <Box />)}
 
                 {ballot && lang === 'rank' && (
-                  <span className="text-base font-bold leading-none">
+                  <span
+                    key={ballot.rank.indexOf(i)}
+                    className="home-up font-display text-lg leading-none font-extrabold"
+                  >
                     {ballot.rank.indexOf(i) + 1}
                   </span>
                 )}
 
                 {ballot &&
                   lang === 'approve' &&
-                  (ballot.score?.[i] === 1 ? (
-                    <span className="text-base font-bold leading-none">✓</span>
-                  ) : (
-                    <span className="h-4 w-4 rounded-[3px] border border-border" />
-                  ))}
+                  (ballot.score?.[i] === 1 ? <PenMark d={TICK} /> : <Box />)}
 
                 {ballot && lang === 'score' && (
                   <span className="flex items-center gap-0.5">
@@ -227,7 +245,7 @@ const BallotPaper: React.FC<{
                         className={cn(
                           'h-3.5 w-3.5 rounded-[3px] border text-center text-[0.55rem] leading-[0.8rem]',
                           g <= grade
-                            ? 'border-[var(--color-stamp)] bg-[var(--color-stamp)]/20 font-bold'
+                            ? 'border-foreground bg-foreground/10 font-bold'
                             : 'border-border'
                         )}
                       >
@@ -246,7 +264,7 @@ const BallotPaper: React.FC<{
                           aria-hidden
                           className={cn(
                             'h-2 w-2 rounded-full',
-                            p < (pips[i] ?? 0) ? 'bg-[var(--color-stamp)]' : 'border border-border'
+                            p < (pips[i] ?? 0) ? 'bg-foreground' : 'border border-border'
                           )}
                         />
                       ))}
@@ -262,7 +280,7 @@ const BallotPaper: React.FC<{
 
       <div aria-hidden className="mt-3 border-b border-dashed border-border" />
       {children}
-    </div>
+    </Slip>
   );
 };
 
@@ -282,6 +300,9 @@ const AVousDeJouerPage: React.FC = () => {
 
   // ── The sealed vote, and the live analysis of it (not part of the vote). ──
   const [cast, setCast] = React.useState<Cast | null>(null);
+  // Counts the casts: the sealed ballot drops and is stamped again at each one, even when
+  // the new vote is the same as the last.
+  const [castCount, setCastCount] = React.useState(0);
   const [bloc, setBloc] = React.useState(1);
   const [rule, setRule] = React.useState<Rule>('plurality');
   const [margin, setMargin] = React.useState(FLORIDA.margin);
@@ -387,6 +408,7 @@ const AVousDeJouerPage: React.FC = () => {
         : draftSincere;
 
   const castVote = () => {
+    setCastCount((n) => n + 1);
     setCast({
       you: draftYou,
       lang: draftLang,
@@ -421,35 +443,42 @@ const AVousDeJouerPage: React.FC = () => {
   };
 
   return (
-    <div data-style="tailwind" className="min-h-[calc(100dvh-49px)] bg-background">
-      <div className="container mx-auto max-w-5xl px-4 py-8 sm:py-10">
+    <div
+      data-style="tailwind"
+      className="min-h-[calc(100dvh-49px)] bg-background [&_input[type=range]]:accent-[var(--primary)]"
+    >
+      <div className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
         {/* ── Masthead: the thesis ── */}
-        <header>
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('play.eyebrow')}
-          </p>
-          <h1 className="mt-2 max-w-3xl font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-            {t('play.title')}
+        <header className="flex flex-col gap-5">
+          <p className="home-up text-[15px] font-bold text-primary">{t('play.eyebrow')}</p>
+          <h1 className="max-w-4xl font-display text-[clamp(44px,5.4vw,80px)] leading-[0.92] font-extrabold">
+            <RiseWords text={t('play.title')} delay={80} />
           </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          <p
+            className="home-up max-w-[40rem] text-xl text-muted-foreground"
+            style={{ animationDelay: '240ms' }}
+          >
             {t('play.lede', { n: VOTER_COUNT })}
           </p>
         </header>
 
         {!cast ? (
           /* ── Before the vote: the booth invitation. Nothing to analyse yet. ── */
-          <section className="mt-8 rounded-xl border border-border bg-card p-6 sm:p-8">
-            <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-              {t('play.vote.kicker')}
-            </p>
-            <h2 className="mt-1 max-w-2xl font-display text-xl font-bold tracking-tight">
+          // The invitation, on a slip that unfolds from its corner.
+          <Slip
+            fold={28}
+            className="slip-unfold mt-12 max-w-3xl p-6 sm:p-8"
+            style={{ animationDelay: '420ms' }}
+          >
+            <p className="text-[15px] font-bold text-primary">{t('play.vote.kicker')}</p>
+            <h2 className="mt-1 font-display text-[32px] leading-none font-extrabold sm:text-[40px]">
               {t('play.vote.prompt', { n: VOTER_COUNT })}
             </h2>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2">
               {CANDIDATES.map((c, i) => (
                 <span
                   key={c.name}
-                  className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-sm"
+                  className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[15px] font-semibold"
                 >
                   <span
                     aria-hidden
@@ -460,22 +489,28 @@ const AVousDeJouerPage: React.FC = () => {
                 </span>
               ))}
             </div>
-            <button
-              type="button"
+            <Button
+              size="lg"
+              variant="primary"
               data-testid="play-vote-open"
               onClick={() => setBoothOpen(true)}
-              className="mt-6 rounded-md border border-primary bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="mt-7 px-5"
             >
               {t('play.vote.open')}
-            </button>
-          </section>
+            </Button>
+          </Slip>
         ) : (
           /* ── After the vote: the sealed ballot. It cannot be edited in place. ── */
+          // The sealed vote, in the envelope tray: the ballot drops in again at each vote.
           <section
             data-testid="play-sealed-strip"
-            className="mt-8 flex flex-col gap-5 rounded-xl border border-primary/30 bg-card p-5 sm:flex-row sm:items-center"
+            className="mt-12 flex flex-col gap-6 rounded-2xl bg-envelope p-4 sm:flex-row sm:items-center sm:p-6"
           >
-            <div className="sm:w-[28rem] sm:shrink-0">
+            <div
+              key={castCount}
+              className="ballot-drop sm:w-[28rem] sm:shrink-0"
+              style={{ '--tilt': '-3deg' } as React.CSSProperties}
+            >
               <BallotPaper
                 lang={lang}
                 ballot={ballot}
@@ -485,34 +520,46 @@ const AVousDeJouerPage: React.FC = () => {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="flex items-center gap-4 text-[15px] font-bold text-primary">
                 {t('play.sealed.kicker')}
-                <span className="-rotate-3 rounded border-2 border-[var(--color-stamp)] px-1.5 py-0.5 text-[0.6rem] font-bold text-[var(--color-stamp)]">
-                  {t('play.sealed.stamp')}
+                {/* Sealed: stamped in violet, with its ink bleed, each time a vote is cast. */}
+                <span key={castCount} className="relative">
+                  {/* The stamp lands once the ballot has dropped; its ink bleeds just after. */}
+                  <span
+                    aria-hidden="true"
+                    className="home-bleed absolute inset-0 rounded border-[2.5px] border-ballot-stamp"
+                    style={{ animationDelay: '0.66s' }}
+                  />
+                  <span
+                    className="home-stamp block rounded border-[2.5px] border-ballot-stamp px-2.5 pt-px pb-0.5 font-display text-[19px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase"
+                    style={{ animationDelay: '0.5s' }}
+                  >
+                    {t('play.sealed.stamp')}
+                  </span>
                 </span>
               </p>
-              <p className="mt-2 text-sm">
+              <p className="mt-3 text-base">
                 {t('play.sealed.summary', {
                   lang: t(`play.lang.${lang}`),
                   posture: t(`play.posture.${posture}`),
                 })}
               </p>
               {posture === 'strategic' && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {t('play.sealed.strategicNote', { method: ruleLabels[activeRule] })}
                 </p>
               )}
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                 {t('play.sealed.locked')}
               </p>
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 data-testid="play-revote"
                 onClick={() => setBoothOpen(true)}
-                className="mt-3 rounded-md border border-primary px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+                className="mt-4"
               >
                 {t('play.sealed.revote')}
-              </button>
+              </Button>
             </div>
           </section>
         )}
@@ -528,16 +575,14 @@ const AVousDeJouerPage: React.FC = () => {
           <Modal.Header closeButton>
             <Modal.Title>{t('play.booth.title')}</Modal.Title>
           </Modal.Header>
-          <Modal.Body className="flex flex-col gap-5">
+          <Modal.Body className="flex flex-col gap-5 [&_input[type=range]]:accent-[var(--primary)]">
             <p className="text-sm text-muted-foreground">{t('play.booth.hint')}</p>
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
               {/* Your opinion */}
               <section data-testid="play-opinion" className="h-fit">
-                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                  {t('play.opinionKicker')}
-                </p>
-                <h3 className="mt-0.5 font-display text-lg font-semibold">
+                <p className="text-[15px] font-bold text-primary">{t('play.opinionKicker')}</p>
+                <h3 className="mt-0.5 font-display text-[26px] leading-none font-extrabold">
                   {t('play.opinionTitle')}
                 </h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -575,7 +620,7 @@ const AVousDeJouerPage: React.FC = () => {
                     </label>
                   ))}
                 </div>
-                <p className="mt-4 border-t border-border pt-3 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
+                <p className="mt-4 border-t border-border pt-3 text-sm font-bold text-primary">
                   {t('play.yourOrder')}
                 </p>
                 <p data-testid="play-order" className="mt-1 text-sm font-medium">
@@ -586,9 +631,7 @@ const AVousDeJouerPage: React.FC = () => {
               {/* The ballot */}
               <section className="flex flex-col gap-4">
                 <div>
-                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                    {t('play.ballotKicker')}
-                  </p>
+                  <p className="text-[15px] font-bold text-primary">{t('play.ballotKicker')}</p>
                   <div
                     role="radiogroup"
                     aria-label={t('play.ballotKicker')}
@@ -605,16 +648,14 @@ const AVousDeJouerPage: React.FC = () => {
                           data-testid={`play-lang-${id}`}
                           onClick={() => setDraftLang(id)}
                           className={cn(
-                            'flex flex-col items-center gap-1 rounded-lg border px-2 py-2 transition-colors',
+                            'flex flex-col items-center gap-1 rounded-lg border bg-card px-2 py-2 transition-colors motion-reduce:transition-none',
                             on
-                              ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                              : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                              ? 'border-primary text-foreground shadow-sm ring-1 ring-primary'
+                              : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
                           )}
                         >
-                          <span className={on ? 'text-primary-foreground' : 'text-primary'}>
-                            {GLYPH[id]}
-                          </span>
-                          <span className="text-center text-[0.68rem] font-medium leading-tight">
+                          <span className="text-primary">{GLYPH[id]}</span>
+                          <span className="text-center text-[0.72rem] leading-tight font-semibold">
                             {t(`play.lang.${id}`)}
                           </span>
                         </button>
@@ -674,35 +715,18 @@ const AVousDeJouerPage: React.FC = () => {
 
                 {/* How you fill it in */}
                 <div>
-                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                    {t('play.posture.kicker')}
-                  </p>
-                  <div
-                    role="radiogroup"
-                    aria-label={t('play.posture.kicker')}
-                    className="mt-2 flex flex-wrap gap-1.5"
-                  >
-                    {POSTURES.map((p) => {
-                      const on = p === draftPosture;
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          role="radio"
-                          aria-checked={on}
-                          data-testid={`play-posture-${p}`}
-                          onClick={() => setDraftPosture(p)}
-                          className={cn(
-                            'rounded-md border px-3 py-1.5 text-sm transition-colors',
-                            on
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                          )}
-                        >
-                          {t(`play.posture.${p}`)}
-                        </button>
-                      );
-                    })}
+                  <p className="text-[15px] font-bold text-primary">{t('play.posture.kicker')}</p>
+                  <div className="mt-2">
+                    <Segmented
+                      label={t('play.posture.kicker')}
+                      value={draftPosture}
+                      onChange={setDraftPosture}
+                      options={POSTURES.map((p) => ({
+                        value: p,
+                        label: t(`play.posture.${p}`),
+                        testid: `play-posture-${p}`,
+                      }))}
+                    />
                   </div>
                   {draftPosture === 'strategic' && (
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -717,21 +741,12 @@ const AVousDeJouerPage: React.FC = () => {
             <GuessPrompt candidates={CANDIDATES} value={draftGuess} onChange={setDraftGuess} />
           </Modal.Body>
           <Modal.Footer>
-            <button
-              type="button"
-              onClick={() => setBoothOpen(false)}
-              className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <Button variant="outline" onClick={() => setBoothOpen(false)}>
               {t('play.booth.cancel')}
-            </button>
-            <button
-              type="button"
-              data-testid="play-cast"
-              onClick={castVote}
-              className="rounded-md border border-primary bg-primary px-5 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
+            </Button>
+            <Button variant="primary" data-testid="play-cast" onClick={castVote} className="px-5">
               {t('play.booth.cast')}
-            </button>
+            </Button>
           </Modal.Footer>
         </Modal>
 
@@ -739,12 +754,10 @@ const AVousDeJouerPage: React.FC = () => {
         {cast && (
           <>
             {/* ── Your weight: how many like you it takes ── */}
-            <section className="mt-7 rounded-xl border border-border bg-card p-4 sm:p-5">
-              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                {t('play.poidsKicker')}
-              </p>
+            <RevealSection className="home-up mt-8 rounded-2xl border border-border bg-card p-5 sm:p-6">
+              <p className="text-[15px] font-bold text-primary">{t('play.poidsKicker')}</p>
               <label className="mt-2 flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {t('play.bloc.label', { n: bloc, total: VOTER_COUNT + bloc })}
                 </span>
                 <input
@@ -760,7 +773,7 @@ const AVousDeJouerPage: React.FC = () => {
 
               <p
                 data-testid="play-verdict"
-                className="mt-3 border-t border-border pt-3 text-sm leading-relaxed"
+                className="mt-4 border-t border-border pt-4 text-base leading-relaxed"
               >
                 {posture === 'abstain'
                   ? t(
@@ -791,15 +804,16 @@ const AVousDeJouerPage: React.FC = () => {
                         : t(bloc === 1 ? 'play.verdict.alone' : 'play.verdict.notYet', { n: bloc })}
               </p>
 
-              <dl className="mt-3 flex flex-col gap-1.5 border-t border-dashed border-border pt-3">
-                <div className="flex items-baseline gap-2.5">
+              <dl className="mt-4 flex flex-col gap-2 border-t border-dashed border-border pt-4">
+                <div className="flex items-baseline gap-3">
                   <dd
+                    key={toFlip}
                     data-testid="play-toflip"
-                    className="w-10 shrink-0 text-right font-mono text-2xl font-bold leading-none tabular-nums text-primary"
+                    className="home-up w-14 shrink-0 text-right font-display text-[40px] leading-none font-extrabold tabular-nums text-primary"
                   >
                     {toFlip || '—'}
                   </dd>
-                  <dt className="text-xs leading-snug text-muted-foreground">
+                  <dt className="text-sm leading-snug text-muted-foreground">
                     {toFlip
                       ? t('play.count.toFlip', { method: ruleLabels[activeRule] })
                       : sincereRank === 1
@@ -807,46 +821,45 @@ const AVousDeJouerPage: React.FC = () => {
                         : t('play.count.noFlip', { max: MAX_BLOC })}
                   </dt>
                 </div>
-                <div className="flex items-baseline gap-2.5">
+                <div className="flex items-baseline gap-3">
                   <dd
+                    key={toTempt}
                     data-testid="play-totempt"
-                    className="w-10 shrink-0 text-right font-mono text-2xl font-bold leading-none tabular-nums text-[var(--color-stamp)]"
+                    className="home-up w-14 shrink-0 text-right font-display text-[40px] leading-none font-extrabold tabular-nums text-[var(--color-stamp)]"
                   >
                     {toTempt || '—'}
                   </dd>
-                  <dt className="text-xs leading-snug text-muted-foreground">
+                  <dt className="text-sm leading-snug text-muted-foreground">
                     {toTempt ? t('play.count.toTempt') : t('play.count.noTempt')}
                   </dt>
                 </div>
               </dl>
-            </section>
+            </RevealSection>
 
             {/* ── Where you stand in the crowd — hand-tally of first choices ── */}
-            <section className="mt-7">
-              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                {t('play.crowd.kicker')}
-              </p>
-              <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
-                {t('play.crowd.title')}
-              </h2>
+            <RevealSection className="mt-20">
+              <Head kicker={t('play.crowd.kicker')}>{t('play.crowd.title')}</Head>
+              {/* The first choices, counted by hand: a stroke per voter, gates of five, and
+                  your camp's own strokes laid down after, in the page's colour for you. */}
               <div
                 data-testid="play-crowd"
-                className="mt-3 rounded-xl border border-border bg-card p-4 sm:p-5"
+                className="home-up mt-5 rounded-2xl border border-border bg-card p-5 sm:p-6"
+                style={{ animationDelay: '120ms' }}
               >
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                   {CANDIDATES.map((c, i) => {
                     const base = ELECTORATE_FIRST_CHOICE[i];
                     const mine = i === myFav ? bloc : 0;
                     const isLeader = i === leader;
                     return (
-                      <div key={c.name} className="flex items-start gap-3">
-                        <div className="flex w-28 shrink-0 items-center gap-1.5 pt-0.5 sm:w-32">
+                      <div key={c.name} className="flex items-center gap-3">
+                        <div className="flex w-28 shrink-0 items-center gap-1.5 sm:w-32">
                           <span
                             aria-hidden
                             className="h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{ background: candidateColor(i) }}
                           />
-                          <span className="truncate text-sm">{c.name}</span>
+                          <span className="truncate text-[15px] font-semibold">{c.name}</span>
                           <span
                             className={cn(
                               'ml-auto font-mono text-sm tabular-nums',
@@ -856,26 +869,20 @@ const AVousDeJouerPage: React.FC = () => {
                             {base + mine}
                           </span>
                         </div>
-                        <div className="flex flex-1 flex-wrap content-start gap-1 pt-1">
-                          {Array.from({ length: base }, (_, k) => (
+                        <div className="flex flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
+                          <span style={{ color: textTone(candidateColor(i)) }}>
+                            <Strokes n={base} animated delayMs={i * 90} />
+                          </span>
+                          {mine > 0 && (
                             <span
-                              key={`b${k}`}
-                              aria-hidden
-                              className="h-2.5 w-2.5 rounded-full opacity-45"
-                              style={{ background: candidateColor(i) }}
-                            />
-                          ))}
-                          {Array.from({ length: mine }, (_, k) => (
-                            <span
-                              key={`m${k}`}
-                              aria-hidden
-                              title={k === 0 ? t('play.crowd.you') : t('play.crowd.likeYou')}
-                              className={cn(
-                                'h-2.5 w-2.5 rounded-full bg-[var(--color-stamp)] ring-1 ring-[var(--color-stamp)]',
-                                k === 0 && 'ring-2'
-                              )}
-                            />
-                          ))}
+                              className="text-[var(--color-stamp)]"
+                              title={t('play.crowd.likeYou')}
+                            >
+                              {/* Not drawn in: these change with the slider, and a
+                                  stroke drawn after its entrance delay would lag it. */}
+                              <Strokes n={mine} animated={false} />
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -885,7 +892,7 @@ const AVousDeJouerPage: React.FC = () => {
                 <p
                   data-testid="play-crowd-caption"
                   aria-live="polite"
-                  className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground"
+                  className="mt-5 border-t border-border pt-4 text-base leading-relaxed text-muted-foreground"
                 >
                   {t('play.crowd.stand', {
                     fav: CANDIDATES[myFav]?.name ?? '—',
@@ -901,22 +908,21 @@ const AVousDeJouerPage: React.FC = () => {
                   )}
                 </p>
               </div>
-            </section>
+            </RevealSection>
 
             {/* ── How each method would count your sealed ballot ── */}
-            <section className="mt-7">
-              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                {t('play.allowsKicker')}
-              </p>
-              <h2 className="mt-0.5 flex items-center gap-2 font-display text-xl font-bold tracking-tight">
+            <RevealSection className="mt-20">
+              <Head kicker={t('play.allowsKicker')}>
                 {t('play.allowsTitle')}
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-mono text-base font-semibold text-primary">
                   {rules.length}
                 </span>
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('play.allowsHint')}</p>
+              </Head>
+              <p className="home-up mt-3 max-w-2xl text-base text-muted-foreground">
+                {t('play.allowsHint')}
+              </p>
 
-              <div data-testid="play-methods" className="mt-3 flex flex-wrap gap-1.5">
+              <div data-testid="play-methods" className="home-up mt-4 flex flex-wrap gap-2">
                 {perRule.map((r) => {
                   const w =
                     posture === 'abstain'
@@ -934,7 +940,7 @@ const AVousDeJouerPage: React.FC = () => {
                       title={r.pays ? t('play.chipPays') : undefined}
                       onClick={() => setRule(r.rule)}
                       className={cn(
-                        'flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors',
+                        'flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5 text-sm transition-colors motion-reduce:transition-none',
                         on
                           ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary'
                           : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
@@ -963,7 +969,7 @@ const AVousDeJouerPage: React.FC = () => {
                 })}
               </div>
 
-              <p data-testid="play-pays-count" className="mt-2.5 text-sm text-muted-foreground">
+              <p data-testid="play-pays-count" className="mt-3 text-base text-muted-foreground">
                 <span
                   aria-hidden
                   className="mr-1.5 inline-block h-3 w-[2px] translate-y-[2px] bg-[var(--color-stamp)]"
@@ -974,17 +980,14 @@ const AVousDeJouerPage: React.FC = () => {
                     ? t('play.paysSome', { n: paysCount, total: rules.length })
                     : t('play.paysNone', { total: rules.length })}
               </p>
-            </section>
+            </RevealSection>
 
             {/* ── The count itself, step by step — nothing hidden ── */}
-            <section className="mt-7">
-              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                <Term id="depouillement">{t('play.depouille.kicker')}</Term>
-              </p>
-              <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
+            <RevealSection className="mt-20">
+              <Head kicker={<Term id="depouillement">{t('play.depouille.kicker')}</Term>}>
                 {t('play.depouille.title', { method: ruleLabels[activeRule] })}
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              </Head>
+              <p className="home-up mt-3 max-w-2xl text-base text-muted-foreground">
                 {t('play.depouille.hint')}
               </p>
               <DepouillementPanel trace={trace} candidates={CANDIDATES} />
@@ -992,13 +995,13 @@ const AVousDeJouerPage: React.FC = () => {
                 <div
                   data-testid="play-guess-result"
                   className={cn(
-                    'mt-3 rounded-lg border-l-2 py-2 pl-3',
+                    'mt-4 rounded-lg border-l-2 py-2 pl-3',
                     cast.guess === trace.winner
                       ? 'border-emerald-500 dark:border-emerald-400'
                       : 'border-rose-500 dark:border-rose-400'
                   )}
                 >
-                  <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="text-sm font-bold text-muted-foreground">
                     {t('play.guess.resultKicker')}
                   </p>
                   <p className="mt-0.5 text-sm text-foreground">
@@ -1023,77 +1026,88 @@ const AVousDeJouerPage: React.FC = () => {
                 mineFrom={mineFrom}
                 candidates={CANDIDATES}
               />
-            </section>
+            </RevealSection>
 
             {/* ── The result, and what it means for YOU ── */}
-            <section
-              aria-live="polite"
-              className="mt-5 flex flex-col gap-4 rounded-xl border border-primary/30 bg-card p-5 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
-                  {t('play.electedWith', { method: ruleLabels[activeRule] })}
-                </p>
-                <p className="mt-1 flex items-center gap-3">
-                  <span
-                    data-testid="play-winner"
-                    className="font-display text-3xl font-bold"
-                    style={winner >= 0 ? { color: candidateColor(winner) } : undefined}
-                  >
-                    {CANDIDATES[winner]?.name ?? '—'}
-                  </span>
-                  {winner >= 0 && (
-                    <span className="-rotate-6 rounded border-2 border-[var(--color-stamp)] px-2 py-0.5 font-mono text-[0.66rem] font-bold uppercase tracking-[0.18em] text-[var(--color-stamp)]">
-                      {t('play.stamp')}
+            <section aria-live="polite" className="mt-8 rounded-2xl bg-envelope p-4 sm:p-5">
+              <div className="flex flex-col gap-4 rounded-xl bg-card p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    {t('play.electedWith', { method: ruleLabels[activeRule] })}
+                  </p>
+                  <p className="mt-2 flex items-center gap-4">
+                    {/* The winner rises out of its mask each time it changes. */}
+                    <span className="-mb-[0.08em] overflow-hidden pb-[0.08em]">
+                      <span
+                        key={`${activeRule}-${winner}`}
+                        data-testid="play-winner"
+                        className="home-rise block font-display text-[48px] leading-none font-extrabold"
+                        style={
+                          winner >= 0 ? { color: textTone(candidateColor(winner)) } : undefined
+                        }
+                      >
+                        {CANDIDATES[winner]?.name ?? '—'}
+                      </span>
                     </span>
-                  )}
-                </p>
-              </div>
+                    {winner >= 0 && (
+                      <span key={`${activeRule}-${winner}`} className="relative">
+                        <span
+                          aria-hidden="true"
+                          className="home-bleed absolute inset-0 rounded border-[2.5px] border-ballot-stamp"
+                        />
+                        <span className="home-stamp block rounded border-[2.5px] border-ballot-stamp px-2.5 pt-px pb-0.5 font-display text-[19px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase">
+                          {t('play.stamp')}
+                        </span>
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-              <div className="sm:text-right">
-                <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
-                  {t('play.youGetKicker')}
-                </p>
-                <p
-                  data-testid="play-yourank"
-                  className={cn(
-                    'mt-1 font-display text-2xl font-bold',
-                    myRank === 1
-                      ? 'text-primary'
-                      : myRank >= CANDIDATES.length
-                        ? 'text-[var(--color-stamp)]'
-                        : 'text-foreground'
-                  )}
-                >
-                  {winner < 0 ? t('play.tie') : t(`play.ord.${myRank}`)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {posture === 'sincere'
-                    ? t('play.youGetHint')
-                    : t('play.vsSincere', {
-                        rank: sincereRank ? t(`play.ord.${sincereRank}`) : t('play.tie'),
-                      })}
-                </p>
+                <div className="sm:text-right">
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    {t('play.youGetKicker')}
+                  </p>
+                  <p
+                    data-testid="play-yourank"
+                    className={cn(
+                      'mt-2 font-display text-[36px] leading-none font-extrabold',
+                      myRank === 1
+                        ? 'text-primary'
+                        : myRank >= CANDIDATES.length
+                          ? 'text-[var(--color-stamp)]'
+                          : 'text-foreground'
+                    )}
+                  >
+                    {winner < 0 ? t('play.tie') : t(`play.ord.${myRank}`)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {posture === 'sincere'
+                      ? t('play.youGetHint')
+                      : t('play.vsSincere', {
+                          rank: sincereRank ? t(`play.ord.${sincereRank}`) : t('play.tie'),
+                        })}
+                  </p>
+                </div>
               </div>
             </section>
 
             {/* ── The weight: what actually decides an election is the margin ── */}
-            <section className="mt-7">
-              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                <Term id="pivotality">{t('play.weight.kicker')}</Term>
-              </p>
-              <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
+            <RevealSection className="mt-20">
+              <Head kicker={<Term id="pivotality">{t('play.weight.kicker')}</Term>}>
                 {t('play.weight.title')}
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              </Head>
+              <p className="home-up mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
                 {t('play.weight.lede', { n: num.format(BIG_N) })}
               </p>
 
-              <div className="mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div
+                className="home-up mt-5 rounded-2xl border border-border bg-card p-5 sm:p-6"
+                style={{ animationDelay: '120ms' }}
+              >
                 <label className="flex flex-col gap-1.5">
                   <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span className="text-xs text-muted-foreground">{t('play.weight.knob')}</span>
-                    <span className="font-mono text-sm tabular-nums text-foreground">
+                    <span className="text-sm text-muted-foreground">{t('play.weight.knob')}</span>
+                    <span className="font-mono text-base font-semibold tabular-nums text-foreground">
                       {t('play.weight.gap', { margin: num.format(margin) })}
                     </span>
                   </span>
@@ -1111,26 +1125,26 @@ const AVousDeJouerPage: React.FC = () => {
                   />
                 </label>
 
-                <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 gap-6 border-t border-border pt-5 sm:grid-cols-2">
                   <div>
                     <p
                       data-testid="play-share"
-                      className="font-mono text-3xl font-bold leading-none tabular-nums text-primary"
+                      className="font-display text-[56px] leading-none font-extrabold tabular-nums text-primary"
                     >
                       {pct(margin / BIG_N)}
                     </p>
-                    <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                    <p className="mt-2 text-sm leading-snug text-muted-foreground">
                       {t('play.weight.shareHint')}
                     </p>
                   </div>
                   <div>
                     <p
                       data-testid="play-convince"
-                      className="font-mono text-3xl font-bold leading-none tabular-nums text-[var(--color-stamp)]"
+                      className="font-display text-[56px] leading-none font-extrabold tabular-nums text-[var(--color-stamp)]"
                     >
                       {num.format(Math.ceil(margin / 2))}
                     </p>
-                    <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                    <p className="mt-2 text-sm leading-snug text-muted-foreground">
                       {t('play.weight.convinceHint')}
                     </p>
                   </div>
@@ -1139,7 +1153,7 @@ const AVousDeJouerPage: React.FC = () => {
                 {toFlip > 0 && (
                   <p
                     data-testid="play-bridge"
-                    className="mt-4 border-t border-dashed border-border pt-3 text-xs leading-relaxed text-muted-foreground"
+                    className="mt-5 border-t border-dashed border-border pt-4 text-sm leading-relaxed text-muted-foreground"
                   >
                     {t('play.weight.bridge', {
                       method: ruleLabels[activeRule],
@@ -1159,7 +1173,7 @@ const AVousDeJouerPage: React.FC = () => {
                     setMargin(FLORIDA.margin);
                   }}
                   className={cn(
-                    'mt-4 flex w-full items-start gap-2.5 rounded-lg border p-3 text-left text-xs leading-relaxed transition-colors',
+                    'mt-5 flex w-full items-start gap-2.5 rounded-lg border p-3 text-left text-sm leading-relaxed transition-colors motion-reduce:transition-none',
                     margin === FLORIDA.margin
                       ? 'border-[var(--color-stamp)] bg-[var(--color-stamp)]/5 text-foreground'
                       : 'border-dashed border-border text-muted-foreground hover:border-[var(--color-stamp)]/50 hover:text-foreground'
@@ -1185,10 +1199,10 @@ const AVousDeJouerPage: React.FC = () => {
                 </button>
               </div>
 
-              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-5 max-w-3xl text-base leading-relaxed text-muted-foreground">
                 {t('play.weight.oneOverN')}
               </p>
-            </section>
+            </RevealSection>
           </>
         )}
       </div>

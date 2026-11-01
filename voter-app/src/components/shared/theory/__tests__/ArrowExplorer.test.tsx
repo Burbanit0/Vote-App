@@ -170,6 +170,14 @@ describe('ArrowExplorer', () => {
     expect(screen.getByTestId('axiom-matrix')).toBeInTheDocument();
   });
 
+  it("names the methods as the app does, the backend's kemeny_young included", () => {
+    renderExplorer();
+    const matrix = screen.getByTestId('axiom-matrix');
+    expect(matrix).toHaveTextContent('Kemeny-Young');
+    expect(matrix).not.toHaveTextContent('kemeny_young');
+    expect(screen.getByRole('option', { name: 'Kemeny-Young' })).toBeInTheDocument();
+  });
+
   it('shows compatible-methods when axioms are checked', () => {
     renderExplorer();
     // Check one axiom
@@ -185,7 +193,7 @@ describe('ArrowExplorer', () => {
     fireEvent.click(screen.getByTestId('axiom-check-pareto'));
     const box = screen.getByTestId('compatible-methods');
     expect(box).toBeInTheDocument();
-    expect(box.textContent).toContain('plurality');
+    expect(box.textContent).toContain('Plurality (1 round)');
   });
 
   it('shows Arrow impossibility message when all axioms checked', () => {

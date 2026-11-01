@@ -20,6 +20,9 @@ describe('FlipReveal', () => {
     );
     expect(screen.getByTestId('inner')).toBeInTheDocument();
     expect(screen.queryByTestId('flip-caption')).not.toBeInTheDocument();
+    // Nothing flipped: the stage is shown as is, no enter animation.
+    expect(screen.getByTestId('flip-stage').style.opacity).toBe('1');
+    expect(screen.getByTestId('flip-stage').style.transform).toBe('scale(1)');
   });
 
   it('shows the caption on mode change (both directions) and hides it after the delay', () => {

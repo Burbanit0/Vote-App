@@ -178,8 +178,8 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
           className="mb-3"
           style={{ fontSize: '0.85rem', borderLeft: '3px solid #0d6efd' }}
         >
-          <strong>🎓 Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de
-          vote ne peut être complètement résistante à la manipulation. Ce graphique montre les{' '}
+          <strong>Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de vote
+          ne peut être complètement résistante à la manipulation. Ce graphique montre les{' '}
           <strong>3 méthodes les plus résistantes</strong> au vote stratégique. Un faible taux
           signifie que peu d'électeurs peuvent améliorer leur résultat en mentant sur leurs
           préférences.

@@ -8,6 +8,7 @@
  * And reveals which methods are most robust under polarized electorates.
  */
 import React, { useState } from 'react';
+import { Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -277,7 +278,7 @@ const PolarizationPanel: React.FC = () => {
             onClick={() => run(selectedIdeologies, numSims)}
             disabled={loading}
           >
-            {loading ? <Spinner size="sm" /> : `📊 ${t('polarization.run')}`}
+            {loading ? <Spinner size="sm" /> : t('polarization.run')}
           </Button>
         </Col>
       </Row>
@@ -437,7 +438,12 @@ const PolarizationPanel: React.FC = () => {
                         style={{ fontSize: '0.7rem' }}
                         data-testid={`best-badge-${r.ideology}`}
                       >
-                        {r.ideology}: 🏆 {listNames(r.best_method)}
+                        {r.ideology}:{' '}
+                        <Trophy
+                          aria-hidden
+                          className="inline h-3.5 w-3.5 align-[-2px] text-primary"
+                        />{' '}
+                        {listNames(r.best_method)}
                       </Badge>
                     )}
                   </React.Fragment>

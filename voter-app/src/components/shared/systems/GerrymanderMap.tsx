@@ -339,12 +339,12 @@ const GerrymanderMap: React.FC = () => {
             ⊞ {t('gerrymander.autoRedraw')}
           </Button>
           <Button size="sm" variant="outline-danger" onClick={gerrymanderOptimal}>
-            ⚠ {t('gerrymander.gerryOptimal')}
+            {t('gerrymander.gerryOptimal')}
           </Button>
         </Col>
         <Col xs={12} sm={3}>
           <Button variant="primary" className="w-full" onClick={run} disabled={loading}>
-            {loading ? <Spinner size="sm" /> : `🗺 ${t('gerrymander.run')}`}
+            {loading ? <Spinner size="sm" /> : t('gerrymander.run')}
           </Button>
         </Col>
       </Row>

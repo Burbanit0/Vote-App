@@ -6,22 +6,26 @@ import { cn } from '@/lib/utils';
 // Bootstrap-compatible Alert (Phase 6 Tailwind migration). Keeps the same
 // `variant` names react-bootstrap uses (danger/success/warning/info/…) so the
 // migration is a near drop-in: `<Alert variant="danger">msg</Alert>`. Renders a
-// role="alert" div with the matching Bootstrap-ish colours.
-const alertVariants = cva('rounded-md border px-3 py-2 text-sm', {
-  variants: {
-    variant: {
-      primary: 'border-blue-300 bg-blue-100 text-blue-800',
-      secondary: 'border-slate-300 bg-slate-100 text-slate-800',
-      success: 'border-green-300 bg-green-100 text-green-800',
-      danger: 'border-red-300 bg-red-100 text-red-800',
-      warning: 'border-amber-300 bg-amber-100 text-amber-900',
-      info: 'border-cyan-300 bg-cyan-100 text-cyan-900',
-      light: 'border-slate-200 bg-slate-50 text-slate-800',
-      dark: 'border-slate-700 bg-slate-800 text-slate-100',
+// role="alert" div, drawn as a note in the margin (Bureau de vote): ink on a faint
+// tint, the variant said by the rule down its left side, in both themes.
+const alertVariants = cva(
+  'rounded-lg border-0 border-l-[3px] px-3.5 py-2.5 text-sm text-foreground',
+  {
+    variants: {
+      variant: {
+        primary: 'border-l-primary bg-primary/[0.07]',
+        info: 'border-l-primary bg-primary/[0.07]',
+        secondary: 'border-l-muted-foreground/50 bg-muted',
+        light: 'border-l-border bg-muted/60',
+        success: 'border-l-ok bg-ok/[0.08]',
+        danger: 'border-l-destructive bg-destructive/[0.08]',
+        warning: 'border-l-stamp bg-stamp/[0.1]',
+        dark: 'border-l-primary bg-foreground text-background',
+      },
     },
-  },
-  defaultVariants: { variant: 'primary' },
-});
+    defaultVariants: { variant: 'primary' },
+  }
+);
 
 export interface AlertProps
   extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {}

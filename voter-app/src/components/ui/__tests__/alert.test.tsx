@@ -7,7 +7,7 @@ describe('Alert (shadcn/ui)', () => {
     render(<Alert variant="danger">Something went wrong</Alert>);
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('Something went wrong');
-    expect(alert.className).toContain('border-red-300');
+    expect(alert.className).toContain('border-l-destructive');
   });
 
   it('is an alert landmark whatever the variant', () => {

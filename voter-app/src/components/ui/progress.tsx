@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils';
 // the Bootstrap-ish fill colours.
 const FILL: Record<string, string> = {
   primary: 'bg-primary',
-  success: 'bg-[#198754]',
-  danger: 'bg-[#dc3545]',
-  warning: 'bg-[#ffc107]',
+  success: 'bg-ok',
+  danger: 'bg-destructive',
+  warning: 'bg-stamp',
 };
 
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
