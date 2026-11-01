@@ -155,7 +155,7 @@ jedi==0.20.1
     # via marimo
 jinja2==3.1.6
     # via diff-cover
-jsonschema-rs==0.58.6
+jsonschema-rs==0.60.3
     # via schemathesis
 libcst==1.9.0
     # via mutmut
