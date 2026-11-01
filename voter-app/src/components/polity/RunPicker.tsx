@@ -41,13 +41,11 @@ const RunPicker: React.FC = () => {
       className="flex min-w-0 max-w-[min(28rem,100%)] flex-col gap-1 overflow-x-clip text-sm [overflow-clip-margin:4px]"
       htmlFor="polity-run-picker"
     >
-      <span className="font-mono text-[0.66rem] uppercase tracking-[0.18em] text-muted-foreground">
-        {t('runPicker.label')}
-      </span>
+      <span className="text-[15px] font-bold text-primary">{t('runPicker.label')}</span>
       <select
         id="polity-run-picker"
         data-testid="polity-run-picker"
-        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[15px]"
         // A listed run is always picked (pickRun falls back to the first), so the key is set here.
         value={runKey as string}
         onChange={(e) => setRunKey(e.target.value)}

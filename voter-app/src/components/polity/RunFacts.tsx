@@ -4,16 +4,20 @@ import { unfinished } from '../../lib/polity/runs';
 import { completedYears, simulatedDate } from '../../lib/polity/ticks';
 import { usePolityCtx } from './PolityController';
 
-const Fact: React.FC<{ label: string; value: string; testId: string }> = ({
+/** One fact; with `changeKey`, its value rises in again each time the key changes. */
+const Fact: React.FC<{ label: string; value: string; testId: string; changeKey?: number }> = ({
   label,
   value,
   testId,
+  changeKey,
 }) => (
-  <div className="flex flex-col">
-    <dt className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
-      {label}
-    </dt>
-    <dd className="text-sm font-medium tabular-nums" data-testid={testId}>
+  <div className="flex flex-col gap-1.5">
+    <dt className="text-sm font-semibold text-muted-foreground">{label}</dt>
+    <dd
+      key={changeKey}
+      className={`font-display text-[28px] leading-none font-extrabold tabular-nums ${changeKey === undefined ? '' : 'home-up'}`}
+      data-testid={testId}
+    >
       {value}
     </dd>
   </div>
@@ -41,7 +45,7 @@ const RunFacts: React.FC = () => {
   return (
     <dl
       data-testid="polity-run-facts"
-      className="flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border bg-muted/30 px-4 py-3"
+      className="flex flex-wrap gap-x-12 gap-y-5 border-y border-border py-5"
     >
       <Fact
         testId="polity-fact-population"
@@ -66,6 +70,7 @@ const RunFacts: React.FC = () => {
       <Fact testId="polity-fact-votes" label={t('runFacts.votes')} value={votes} />
       <Fact
         testId="polity-fact-tick"
+        changeKey={tick}
         label={t('runFacts.tick')}
         value={
           t('runFacts.tickValue', { year: date.year, quarter: date.quarter }) +
