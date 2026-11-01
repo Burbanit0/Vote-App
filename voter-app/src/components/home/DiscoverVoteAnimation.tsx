@@ -70,7 +70,7 @@ const Gate: React.FC<{ k: number; delayMs?: number }> = ({ k, delayMs }) => {
 
 // A run of strokes. Animated: drawn one by one (a hand laying them down); migrating:
 // drifts off as the pile empties; still: the reduced-motion fallback.
-const Strokes: React.FC<{
+export const Strokes: React.FC<{
   n: number;
   animated: boolean;
   migrating?: boolean;

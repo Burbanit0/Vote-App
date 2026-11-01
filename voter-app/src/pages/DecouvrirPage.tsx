@@ -5,6 +5,7 @@ import { ArrowRight, Fish, Pizza, Soup } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
+import { RevealSection, RiseWords, Slip } from '@/components/ui/slip';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useReveal } from '../hooks/useReveal';
 import CuriosityQuestions from '../components/shared/common/CuriosityQuestions';
@@ -154,15 +155,6 @@ const FamilySlip: React.FC<{ id: 'rank' | 'score' | 'approve'; delay: number }> 
 
 const FAMILIES = ['rank', 'score', 'approve'] as const;
 
-/** A slip's folded corner: clip-path cuts the corner (and its border) off, this draws the fold. */
-const Fold: React.FC<{ size: number }> = ({ size }) => (
-  <span
-    aria-hidden
-    className="absolute top-0 right-0 bg-border [clip-path:polygon(0_0,100%_100%,0_100%)]"
-    style={{ width: size, height: size }}
-  />
-);
-
 const DecouvrirPage: React.FC = () => {
   const { t } = useTranslation();
   const { t: tp } = useTranslation('playground');
@@ -174,7 +166,6 @@ const DecouvrirPage: React.FC = () => {
 
   const ballots = useReveal<HTMLUListElement>();
   const families = useReveal<HTMLUListElement>();
-  const play = useReveal<HTMLElement>();
 
   useMetaTags({ title: `Vote Lab — ${t('discover.title')}`, description: t('discover.lede') });
 
@@ -205,33 +196,28 @@ const DecouvrirPage: React.FC = () => {
           <p className="home-up text-[15px] font-bold text-primary">{t('discover.eyebrow')}</p>
           {/* Each word rises out of its own mask, like the homepage's headline lines. */}
           <h1 className="font-display text-[clamp(44px,5.4vw,80px)] leading-[0.92] font-extrabold">
-            {t('discover.title')
-              .split(' ')
-              .map((word, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && ' '}
-                  <span className="-mb-[0.08em] inline-block overflow-hidden pb-[0.08em] align-bottom">
-                    <span className="home-rise inline-block" style={after(80 + i * 45)}>
-                      {word}
-                    </span>
-                  </span>
-                </React.Fragment>
-              ))}
+            <RiseWords text={t('discover.title')} delay={80} />
           </h1>
-          <p className="home-up max-w-[36rem] text-xl text-muted-foreground [animation-delay:200ms]">
+          <p
+            className="home-up max-w-[36rem] text-xl text-muted-foreground"
+            style={{ animationDelay: '200ms' }}
+          >
             {t('discover.lede')}
           </p>
         </div>
         {/* The starting point, on a ballot slip that unfolds from its corner: the one rule
             you already know. */}
-        <div className="slip-unfold relative min-w-0 flex-[1_1_320px] border border-border bg-card p-6 [animation-delay:420ms] [clip-path:polygon(0_0,calc(100%-28px)_0,100%_28px,100%_100%,0_100%)]">
+        <Slip
+          fold={28}
+          className="slip-unfold min-w-0 flex-[1_1_320px] p-6"
+          style={{ animationDelay: '420ms' }}
+        >
           <p className="text-[15px] font-bold text-primary">{t('discover.s1Kicker')}</p>
           <h2 className="mt-1 font-display text-[28px] leading-none font-extrabold">
             {t('discover.s1Title')}
           </h2>
           <p className="mt-3 text-base text-muted-foreground">{t('discover.s1Body')}</p>
-          <Fold size={28} />
-        </div>
+        </Slip>
       </section>
 
       {/* ── 2 · Rupture: same ballots, a different winner ── */}
@@ -251,55 +237,56 @@ const DecouvrirPage: React.FC = () => {
                 key={gi}
                 data-testid={`discover-ballot-${gi}`}
                 style={{ ...after(gi * 120), '--tilt': TILT[gi] } as React.CSSProperties}
-                className="ballot-drop relative flex flex-col gap-3 border border-border bg-card px-5 pt-4 pb-5 [clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,0_100%)]"
+                className="ballot-drop"
               >
-                <Fold size={22} />
-                <span className="font-display text-[22px] leading-none font-extrabold">
-                  {t('discover.friends', { n: g.n })}
-                </span>
-                <ol className="flex flex-col gap-1.5">
-                  {g.rank.map((ci, pos) => {
-                    // In approval mode, the top-k options are the ones this group
-                    // ticks: shown with a tick so the tally is visible, not asserted.
-                    const ticked = pos < approvalK;
-                    const food = FOODS[ci];
-                    return (
-                      <li
-                        key={ci}
-                        className={cn(
-                          'flex items-center gap-2.5 text-[15px] transition-opacity duration-300 motion-reduce:transition-none',
-                          activeIsApproval && !ticked && 'opacity-35'
-                        )}
-                      >
-                        <span className="w-4 font-mono text-sm font-semibold text-muted-foreground">
-                          {pos + 1}
-                        </span>
-                        <FoodIcon food={food} />
-                        <span className="font-semibold">{food.name}</span>
-                        {activeIsApproval && ticked && (
-                          // The tick is drawn, as a pen would.
-                          <svg
-                            data-testid="discover-tick"
-                            viewBox="0 0 14 14"
-                            aria-hidden="true"
-                            className="ml-auto h-3.5 w-3.5"
-                          >
-                            <path
-                              d="M2 7.5l3 3 7-8"
-                              pathLength={1}
-                              fill="none"
-                              className="stroke-draw"
-                              style={{ stroke: food.color, ...after(pos * 90) }}
-                              strokeWidth={2.2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
+                <Slip className="flex h-full flex-col gap-3 px-5 pt-4 pb-5">
+                  <span className="font-display text-[22px] leading-none font-extrabold">
+                    {t('discover.friends', { n: g.n })}
+                  </span>
+                  <ol className="flex flex-col gap-1.5">
+                    {g.rank.map((ci, pos) => {
+                      // In approval mode, the top-k options are the ones this group
+                      // ticks: shown with a tick so the tally is visible, not asserted.
+                      const ticked = pos < approvalK;
+                      const food = FOODS[ci];
+                      return (
+                        <li
+                          key={ci}
+                          className={cn(
+                            'flex items-center gap-2.5 text-[15px] transition-opacity duration-300 motion-reduce:transition-none',
+                            activeIsApproval && !ticked && 'opacity-35'
+                          )}
+                        >
+                          <span className="w-4 font-mono text-sm font-semibold text-muted-foreground">
+                            {pos + 1}
+                          </span>
+                          <FoodIcon food={food} />
+                          <span className="font-semibold">{food.name}</span>
+                          {activeIsApproval && ticked && (
+                            // The tick is drawn, as a pen would.
+                            <svg
+                              data-testid="discover-tick"
+                              viewBox="0 0 14 14"
+                              aria-hidden="true"
+                              className="ml-auto h-3.5 w-3.5"
+                            >
+                              <path
+                                d="M2 7.5l3 3 7-8"
+                                pathLength={1}
+                                fill="none"
+                                className="stroke-draw"
+                                style={{ stroke: food.color, ...after(pos * 90) }}
+                                strokeWidth={2.2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </Slip>
               </li>
             ))}
           </ul>
@@ -426,7 +413,7 @@ const DecouvrirPage: React.FC = () => {
       </section>
 
       {/* ── 4 · Play: go see it on a real electorate ── */}
-      <section data-reveal ref={play} className="border-t border-border bg-muted">
+      <RevealSection className="border-t border-border bg-muted">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-20 sm:px-6">
           <h2 className="-mb-[0.08em] max-w-3xl overflow-hidden pb-[0.08em] font-display text-[52px] leading-[0.92] font-extrabold lg:text-[80px]">
             <span className="home-rise block">{t('discover.playTitle')}</span>
@@ -443,7 +430,7 @@ const DecouvrirPage: React.FC = () => {
             </Button>
           </div>
         </div>
-      </section>
+      </RevealSection>
     </div>
   );
 };
