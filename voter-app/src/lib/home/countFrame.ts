@@ -20,7 +20,7 @@ export const MAP = { x: 40, y: 160, w: 400, h: 380 };
 /** The part of the 1000 × 640 drawing on screen: nothing flies higher than y = 90. */
 export const VIEW = { x: 0, y: 90, w: 1000, h: 550 };
 /** Where ballots go into the box. */
-export const SLOT = { x: 560, y: 292 };
+const SLOT = { x: 560, y: 292 };
 export const PILE_X = [690, 800, 910];
 export const STEPS = 5;
 
@@ -125,7 +125,7 @@ export function stampPoint(rule: RuleId) {
   return { x: PILE_X[t.winner], y: 545 - Math.ceil(t.counts[t.winner] / 5) * 18 - 34 };
 }
 
-export interface Pose {
+interface Pose {
   x: number;
   y: number;
   w: number;
