@@ -1146,6 +1146,7 @@ const pgEn: PlaygroundKeys = {
   },
   strip: {
     under: 'Under {{rule}}:',
+    stamp: 'Elected',
     noFixedWinner: 'no fixed winner',
     noFixedWinnerTitle:
       'A random ballot draws one ballot at random: each candidate wins with the share of voters who rank them first.',

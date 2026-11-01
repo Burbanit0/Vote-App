@@ -257,7 +257,7 @@ const BilanMoment: React.FC = () => {
                         : t('bilan.methodCountMany', { count: rules.length })}
                     </span>
                     {idx === condorcetIdx && (
-                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
                         {t('bilan.condorcetBadge')}
                       </span>
                     )}
@@ -297,26 +297,26 @@ const BilanMoment: React.FC = () => {
                 <table className="w-full border-collapse text-[0.72rem]">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="py-1.5 pl-3 pr-2 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
+                      <th className="py-1.5 pl-3 pr-2 text-left text-[0.6rem] text-muted-foreground">
                         {t('bilan.colMethod')}
                       </th>
-                      <th className="px-2 py-1.5 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
+                      <th className="px-2 py-1.5 text-left text-[0.6rem] text-muted-foreground">
                         {t('bilan.colWinner')}
                       </th>
                       <th
-                        className="w-28 px-2 py-1.5 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground"
+                        className="w-28 px-2 py-1.5 text-left text-[0.6rem] text-muted-foreground"
                         title={t('axes.stability.hint')}
                       >
                         {t('bilan.colStability')}
                       </th>
                       <th
-                        className="w-28 px-2 py-1.5 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground"
+                        className="w-28 px-2 py-1.5 text-left text-[0.6rem] text-muted-foreground"
                         title={t('axes.strategic_resistance.hint')}
                       >
                         {t('bilan.colStrategy')}
                       </th>
                       <th
-                        className="w-28 px-2 py-1.5 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground"
+                        className="w-28 px-2 py-1.5 text-left text-[0.6rem] text-muted-foreground"
                         title={t('axes.condorcet_efficiency.hint')}
                       >
                         {t('bilan.colCondorcet')}
@@ -327,10 +327,7 @@ const BilanMoment: React.FC = () => {
                     {FAMILY_ORDER.filter((fam) => familyRules[fam].length > 0).map((fam) => (
                       <React.Fragment key={fam}>
                         <tr className={FAMILY_HEADER_CLS[fam]}>
-                          <td
-                            colSpan={5}
-                            className="py-0.5 pl-3 font-mono text-[0.58rem] font-semibold uppercase tracking-wider"
-                          >
+                          <td colSpan={5} className="py-0.5 pl-3 text-xs font-semibold">
                             {t(FAMILY_LABEL_KEY[fam])}
                           </td>
                         </tr>

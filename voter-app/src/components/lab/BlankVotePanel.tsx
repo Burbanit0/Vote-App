@@ -123,7 +123,7 @@ const BlankVotePanel: React.FC = () => {
         {/* Mixer */}
         <div className="rounded-lg border border-border bg-card p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-semibold text-muted-foreground">
               {t('blankVote.mixerTitle')}
             </p>
             <div className="flex flex-wrap items-center gap-1.5">

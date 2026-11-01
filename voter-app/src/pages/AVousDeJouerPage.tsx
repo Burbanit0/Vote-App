@@ -185,7 +185,7 @@ const BallotPaper: React.FC<{
           {t('play.posture.abstain')}
         </span>
       )}
-      <p className="border-b border-dashed border-border pb-2 text-center font-display text-[15px] font-extrabold tracking-[0.14em] text-muted-foreground uppercase">
+      <p className="border-b border-dashed border-border pb-2 text-center font-display text-[15px] font-extrabold text-muted-foreground">
         {t('play.ballotPaper')}
       </p>
 

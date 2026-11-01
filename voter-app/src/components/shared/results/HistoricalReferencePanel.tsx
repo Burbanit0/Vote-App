@@ -107,7 +107,7 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
               {/* Vote shares if available */}
               {data.vote_shares && (
                 <div className="mt-4">
-                  <div className="mb-1 text-[0.75rem] uppercase tracking-wider text-muted-foreground">
+                  <div className="mb-1 text-xs text-muted-foreground">
                     {t('scenarios.voteShares')}
                   </div>
                   {Object.entries(data.vote_shares)

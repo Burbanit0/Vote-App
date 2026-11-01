@@ -206,7 +206,7 @@ const StoriesRegister: React.FC = () => {
             transform: hover >= 0 ? `rotate(${tilt}deg)` : 'rotate(-8deg) scale(0.86)',
           }}
         >
-          <span className="font-display text-[22px] leading-none font-extrabold uppercase">
+          <span className="font-display text-[22px] leading-none font-extrabold">
             {tp(shown.titleKey)}
           </span>
           <Sketch figure={figureOf(shown)} />

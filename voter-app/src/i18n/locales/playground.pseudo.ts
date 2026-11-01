@@ -1246,6 +1246,7 @@ const pgPseudo: PlaygroundKeys = {
   },
   strip: {
     under: '⟦Ávéç~~ {{rule}} :~⟧',
+    stamp: '⟦Élú~~⟧',
     noFixedWinner: '⟦pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
     noFixedWinnerTitle:
       '⟦Úñ~ vóté~~ áú~ sórt~~ tíré~~ úñ~ búllétíñ~~~ áú~ hásárd~~~ :~ çháqúé~~~ çáñdídát~~~ gágñé~~ ávéç~~ lá~ párt~~ dés~~ éléçtéúrs~~~~ qúí~~ lé~ pláçéñt~~~ éñ~ têté.~~⟧',

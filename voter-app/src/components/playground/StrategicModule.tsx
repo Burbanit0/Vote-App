@@ -79,7 +79,7 @@ const StrategicModule: React.FC<{ config: ElectionConfig; playground: Playground
         <div data-testid="strategic-rows" className="flex flex-col gap-1">
           {/* Column header: manipulability bar, then the two axiom flags. Cells are
               divs (not spans) so the row-label spans below stay first in the DOM. */}
-          <div className="flex items-center gap-2 text-[0.6rem] uppercase tracking-wide text-muted-foreground/70">
+          <div className="flex items-center gap-2 text-[0.6rem] text-muted-foreground/70">
             <div className="w-40 shrink-0" />
             <div className="flex-1">{t('strategy.svColManip')}</div>
             <div className="w-10" />

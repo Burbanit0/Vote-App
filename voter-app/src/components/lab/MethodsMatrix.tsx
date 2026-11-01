@@ -194,13 +194,13 @@ const CriteriaGrid: React.FC = React.memo(function CriteriaGrid() {
         <table className="w-full border-collapse text-[0.72rem]">
           <thead>
             <tr className="border-b border-border">
-              <th className="w-36 py-2 pl-4 pr-2 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
+              <th className="w-36 py-2 pl-4 pr-2 text-left text-[0.6rem] text-muted-foreground">
                 {t('lab.matrix.colMethod')}
               </th>
               {CRITERION_KEYS.map((crit) => (
                 <th
                   key={crit}
-                  className="px-1 py-2 text-center font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground"
+                  className="px-1 py-2 text-center text-[0.6rem] text-muted-foreground"
                   title={t(`lab.matrix.criteria.${crit as CriterionKey}`)}
                 >
                   <span className="hidden sm:inline">
@@ -219,7 +219,7 @@ const CriteriaGrid: React.FC = React.memo(function CriteriaGrid() {
                 <tr className={FAMILY_HEADER_CLS[fam]}>
                   <td
                     colSpan={CRITERION_KEYS.length + 1}
-                    className="py-1 pl-4 font-mono text-[0.6rem] font-semibold uppercase tracking-wider"
+                    className="py-1 pl-4 text-[0.6rem] font-semibold"
                   >
                     {t(FAMILY_LABEL_KEY[fam])}
                   </td>

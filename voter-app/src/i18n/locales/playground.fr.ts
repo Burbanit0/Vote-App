@@ -1169,6 +1169,7 @@ const pgFr = {
   // ticked methods elect.
   strip: {
     under: 'Avec {{rule}} :',
+    stamp: 'Élu',
     noFixedWinner: 'pas de vainqueur fixe',
     noFixedWinnerTitle:
       'Un vote au sort tire un bulletin au hasard : chaque candidat gagne avec la part des électeurs qui le placent en tête.',
