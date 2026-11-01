@@ -629,10 +629,10 @@ contagion micro et la pression institutionnelle macro — et **la condition
 nécessaire de tout basculement collectif** : sans lui (régime v4), les
 cascades sont mécaniquement impossibles (§7bis.9f).
 
-**🔴 Ouvert** : graphe social statique ou évolutif (homophilie) ? — informé, pas clos, par le palier
-v6a : `social_graph.evolving` est analysé (un typo échoue bruyamment) mais **rejeté** si `true`
-(garde-fou TRANCHÉ, v6a Lot 1) ; seul un graphe statique est implémenté et exercé par le run
-d'acceptation de v6a Lot 4 (`scripts/acceptance_v6a_results.md`). La question elle-même reste ouverte.
+**🔴 Ouvert** : graphe social statique ou évolutif (homophilie) ? — informé, pas clos. Le palier v6a
+rejetait `social_graph.evolving: true` (garde-fou TRANCHÉ, v6a Lot 1) ; l'ADR-036 l'implémente (les liens
+bougent vers des vues proches, `rewire_per_year`/`homophily`), éteint partout par défaut, car sur dix graines
+et trente ans il ne fait pas bouger le test de divergence. Le profil de scénario garde un graphe statique.
 
 ---
 

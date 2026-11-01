@@ -45,13 +45,14 @@ import dataclasses
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import PolityConfig
-from api.domain.polity.indexer import segment_terms
+from api.domain.polity.indexer import Term, segment_terms
 from api.domain.polity.metrics import effective_number_of_parties, office_occupancy
 from api.domain.polity.events import ALL_EVENT_TYPES as REGISTERED_EVENT_TYPES
+from api.domain.polity.trajectory import trajectory_summary
 from api.domain.polity.viz_export import _INSTITUTIONAL_EVENT_TYPES, export_metadata
 
 DIGEST_FILENAME = "digest.json"
@@ -394,7 +395,9 @@ def build_digest(
     checkpoint = _read_json(journal_path.with_name("checkpoint.json"))
     # See "terms"/"office_occupancy" below for why this is computed once,
     # here, rather than inline in each of those two places.
-    terms = segment_terms(events, last_tick or 0)
+    reached = last_tick or 0
+    terms = segment_terms(events, reached)
+    occupancy = office_occupancy(sum(term.end_tick - term.start_tick for term in terms), reached)
 
     return {
         "run_id": run_id,
@@ -434,10 +437,11 @@ def build_digest(
         # just a run with low office_occupancy, a fact this makes visible
         # without reading the journal by hand). Engine-agnostic like the
         # metric itself -- see that function's own docstring.
-        "office_occupancy": office_occupancy(
-            sum(term.end_tick - term.start_tick for term in terms),
-            last_tick or 0,
-        ),
+        "office_occupancy": occupancy,
+        # plan-scenarios-v1 step 1: the run as a trajectory (volatility, polarization, margins, who held
+        # office), its archetype and its yearly series, so runs can be told apart and an ensemble's
+        # variety measured. Snapshots absent: polarization is absent, never estimated.
+        "trajectory": _trajectory(journal_path, events, config, terms=terms, last_tick=reached, office_occupancy=occupancy),
         "institutional_timeline": institutional_timeline(events),
         "effective_parties": effective_parties(events, config),
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
@@ -449,6 +453,21 @@ def build_digest(
         "metadata": export_metadata(config),
         "sibling_artifacts": _sibling_artifacts(journal_path),
     }
+
+
+def _trajectory(
+    journal_path: Path, events: list[dict[str, Any]], config: PolityConfig, *,
+    terms: Sequence[Term], last_tick: int, office_occupancy: float,
+) -> dict[str, Any]:
+    """The run as a trajectory, from the journal and the census beside it (snapshots.jsonl, absent on an
+    old run: then no polarization, never an estimate). A torn census line is counted like a torn journal
+    line, not folded into the figures."""
+    snapshots, snapshot_lines_skipped = read_journal_tolerant(journal_path.with_name("snapshots.jsonl"))
+    summary = trajectory_summary(
+        events, snapshots, terms=terms, population=config.run.population_size,
+        ticks_per_year=config.run.ticks_per_year, last_tick=last_tick, office_occupancy=office_occupancy,
+    )
+    return {**summary, "snapshot_lines_skipped": snapshot_lines_skipped}
 
 
 def _llm_quality(progress: dict[str, Any] | None) -> dict[str, Any]:

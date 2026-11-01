@@ -150,7 +150,7 @@ describe('DistrictMap', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
-      const alerts = document.querySelectorAll('.bg-amber-100');
+      const alerts = document.querySelectorAll('.border-l-stamp');
       expect(alerts.length).toBeGreaterThan(0);
     });
     vi.runAllTimers();

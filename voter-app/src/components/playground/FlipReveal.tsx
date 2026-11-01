@@ -14,25 +14,25 @@ export interface FlipRevealProps {
 }
 
 const FlipReveal: React.FC<FlipRevealProps> = ({ modeKey, caption, children }) => {
-  const [entered, setEntered] = useState(false);
+  // Already entered on first mount: nothing flipped yet, and a stage scaling in on load
+  // keeps the browser's scroll anchoring off the map for half a second.
+  const [entered, setEntered] = useState(true);
   const [showCaption, setShowCaption] = useState(false);
   const first = useRef(true);
 
   useEffect(() => {
-    // Restart the enter animation on every mode change (skip the caption on
-    // first mount — nothing flipped yet).
-    setEntered(false);
-    const raf = requestAnimationFrame(() => setEntered(true));
-    let t: ReturnType<typeof setTimeout> | undefined;
     if (first.current) {
       first.current = false;
-    } else {
-      setShowCaption(true);
-      t = setTimeout(() => setShowCaption(false), CAPTION_MS);
+      return;
     }
+    // Restart the enter animation on every mode change.
+    setEntered(false);
+    const raf = requestAnimationFrame(() => setEntered(true));
+    setShowCaption(true);
+    const t = setTimeout(() => setShowCaption(false), CAPTION_MS);
     return () => {
       cancelAnimationFrame(raf);
-      if (t) clearTimeout(t);
+      clearTimeout(t);
     };
   }, [modeKey]);
 

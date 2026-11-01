@@ -488,6 +488,28 @@ class OpinionDynamicsStep(Event):
     mean_shift: float
     max_shift: float
     influenced: int
+    radicalised: int = OMIT  # ADR-033: citizens an angry shock-struck push moved this update, present while radical_step > 0
+
+
+@dataclass(frozen=True, kw_only=True)
+class CitizenReplaced(Event):
+    """A generation turns over (demography.py, ADR-035): this citizen's slot now holds a newcomer, who took
+    the average views of the `circle` of citizens they were tied to, plus noise, and was assigned to a party."""
+
+    EVENT_TYPE = "citizen_replaced"
+    party_id: int | None
+    circle: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class TiesRewired(Event):
+    """The social ties moved (social_graph.py, ADR-036): `moved` of the `ties` were dropped by one end and tied
+    elsewhere, and the average distance between the views of two tied citizens is now `mean_gap`."""
+
+    EVENT_TYPE = "ties_rewired"
+    moved: int
+    ties: int
+    mean_gap: float
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -651,6 +673,19 @@ class PartyDissolved(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class PartyRepositioned(Event):
+    """A party's leader took its yearly decision (leaders.py, ADR-040): by `rule`, having read a poll share of `share` (the
+    citizens the party is nearest to), it moved its platform `shift` far, to `platform` (a shift of 0: it stayed)."""
+
+    EVENT_TYPE = "party_repositioned"
+    party_id: int
+    rule: str
+    share: float
+    shift: float
+    platform: list[float]
+
+
+@dataclass(frozen=True, kw_only=True)
 class AmendmentResolved(Event):
     """The chamber's tally of the pending amendment: ratified, or not."""
 
@@ -688,9 +723,9 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ScandalOccurred, EconomicShockTick, ReactionToEvent, RepresentativeResponse, MandateDeviationRecorded,
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
-    OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
+    OpinionDynamicsStep, CitizenReplaced, TiesRewired, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
     AgentTurn, VoteIntentionPoll, ConstitutionAmended, AmendmentProposed, AmendmentVote, AmendmentResolved, ForumPost,
-    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved,
+    ReferendumHeld, EngagementUpdated, ExtraLegalAct, CampaignRun, PartyFounded, PartyDissolved, PartyRepositioned,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

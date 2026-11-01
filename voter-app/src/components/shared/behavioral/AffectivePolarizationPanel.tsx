@@ -319,7 +319,7 @@ const AffectivePolarizationPanel: React.FC = () => {
             onClick={() => run(hostility, numSims)}
             disabled={loading}
           >
-            {loading ? <Spinner size="sm" /> : `💔 ${t('affect.run')}`}
+            {loading ? <Spinner size="sm" /> : t('affect.run')}
           </Button>
         </Col>
       </Row>
@@ -335,9 +335,7 @@ const AffectivePolarizationPanel: React.FC = () => {
               variant={data.winner_changed ? 'danger' : 'success'}
               data-testid="winner-changed-badge"
             >
-              {data.winner_changed
-                ? `⚠ ${t('affect.winnerChanged')}`
-                : `✓ ${t('affect.winnerUnchanged')}`}
+              {data.winner_changed ? t('affect.winnerChanged') : `✓ ${t('affect.winnerUnchanged')}`}
             </Badge>
             {data.condorcet_violation && (
               <Badge variant="warning" data-testid="condorcet-violation-badge">

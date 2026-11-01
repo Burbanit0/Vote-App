@@ -5,6 +5,8 @@
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useVotingLabels } from '../../../hooks/useVotingLabels';
+import type { Rule } from '../../../lib/playgroundVoting';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,10 +61,10 @@ interface IIARateData {
 // ── Axiom definitions ─────────────────────────────────────────────────────────
 
 const AXIOMS = [
-  { key: 'iia', labelKey: 'arrow.iia', icon: '🔗' },
-  { key: 'pareto', labelKey: 'arrow.pareto', icon: '🤝' },
-  { key: 'transitivity', labelKey: 'arrow.transitivity', icon: '🔄' },
-  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship', icon: '⚖️' },
+  { key: 'iia', labelKey: 'arrow.iia' },
+  { key: 'pareto', labelKey: 'arrow.pareto' },
+  { key: 'transitivity', labelKey: 'arrow.transitivity' },
+  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship' },
 ] as const;
 
 /** The rules this panel offers: every one /iia-rate measures, plus majority judgment. */
@@ -78,6 +80,12 @@ const METHODS: Method[] = [
   'majority_judgment',
   'kemeny_young',
 ];
+
+/** A method's name as the rest of the app writes it (the backend says kemeny_young). */
+function useMethodLabel(): (m: Method) => string {
+  const { ruleLabels } = useVotingLabels();
+  return (m) => ruleLabels[(m === 'kemeny_young' ? 'kemeny' : m) as Rule];
+}
 
 // ── Pentagon SVG ──────────────────────────────────────────────────────────────
 
@@ -137,7 +145,7 @@ const AxiomPentagon: React.FC<PentagonProps> = ({ violations, t }) => {
               textAnchor="middle"
               style={{ fontSize: 9, fill: violated ? '#dc3545' : '#198754', fontWeight: 600 }}
             >
-              {ax.icon} {t(ax.labelKey).slice(0, 12)}
+              {t(ax.labelKey).slice(0, 12)}
             </text>
           </g>
         );
@@ -162,7 +170,10 @@ const KNOWN_VIOLATIONS: Record<string, Record<string, boolean>> = {
   kemeny_young: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
 };
 
-const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
+const AxiomMatrix: React.FC<{ t: (k: string) => string; label: (m: Method) => string }> = ({
+  t,
+  label,
+}) => (
   <div className="table-responsive" data-testid="axiom-matrix">
     <Table
       className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50"
@@ -173,7 +184,7 @@ const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
           <th>{t('arrow.method')}</th>
           {AXIOMS.map((ax) => (
             <th key={ax.key} style={{ textAlign: 'center' }}>
-              {ax.icon} {t(ax.labelKey).slice(0, 6)}
+              {t(ax.labelKey)}
             </th>
           ))}
         </tr>
@@ -181,17 +192,15 @@ const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
       <tbody>
         {METHODS.filter((m) => m in KNOWN_VIOLATIONS).map((m) => (
           <tr key={m}>
-            <td>
-              <code>{m}</code>
-            </td>
+            <td className="font-semibold">{label(m)}</td>
             {AXIOMS.map((ax) => {
               const violated = KNOWN_VIOLATIONS[m]?.[ax.key] ?? false;
               return (
                 <td key={ax.key} style={{ textAlign: 'center' }}>
                   {violated ? (
-                    <span style={{ color: '#dc3545', fontWeight: 700 }}>✗</span>
+                    <span className="font-bold text-destructive">✗</span>
                   ) : (
-                    <span style={{ color: '#198754' }}>✓</span>
+                    <span className="text-ok">✓</span>
                   )}
                 </td>
               );
@@ -293,6 +302,7 @@ const CounterexampleCard: React.FC<{
 
 const ArrowExplorer: React.FC = () => {
   const { t } = useTranslation();
+  const label = useMethodLabel();
 
   const [method, setMethod] = useState<Method>('plurality');
   const simArrow = $api.useMutation('post', '/api/v2/theory/arrow');
@@ -338,9 +348,9 @@ const ArrowExplorer: React.FC = () => {
       <Alert variant="success" style={{ fontSize: '0.78rem' }}>
         ✓ {t('arrow.compatible')}:{' '}
         {compatibleMethods.map((m) => (
-          <code key={m} className="me-1">
-            {m}
-          </code>
+          <span key={m} className="me-2 font-semibold">
+            {label(m)}
+          </span>
         ))}
       </Alert>
     );
@@ -376,7 +386,7 @@ const ArrowExplorer: React.FC = () => {
                 key={ax.key}
                 type="checkbox"
                 id={`check-${ax.key}`}
-                label={`${ax.icon} ${t(ax.labelKey)}`}
+                label={t(ax.labelKey)}
                 checked={checkedAxioms.has(ax.key)}
                 data-testid={`axiom-check-${ax.key}`}
                 onChange={() => toggleAxiom(ax.key)}
@@ -402,7 +412,7 @@ const ArrowExplorer: React.FC = () => {
           >
             {METHODS.map((m) => (
               <option key={m} value={m}>
-                {m}
+                {label(m)}
               </option>
             ))}
           </Select>
@@ -511,12 +521,12 @@ const ArrowExplorer: React.FC = () => {
         <div className="font-semibold mb-2" style={{ fontSize: '0.85rem' }}>
           {t('arrow.matrixTitle')}
         </div>
-        <AxiomMatrix t={t} />
+        <AxiomMatrix t={t} label={label} />
       </div>
 
       {/* Key message */}
       <Alert variant="primary" className="mt-3" style={{ fontSize: '0.85rem' }}>
-        <strong>🏛 {t('arrow.centralMessage')}</strong>
+        <strong>{t('arrow.centralMessage')}</strong>
       </Alert>
     </div>
   );

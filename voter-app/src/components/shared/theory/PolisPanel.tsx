@@ -218,17 +218,17 @@ const StatementTable: React.FC<StmtTableProps> = ({ statements, clusters, filter
             <td>
               {s.is_consensus && (
                 <Badge variant="success" style={{ fontSize: '0.6rem' }}>
-                  🟢 {t('polis.consensus')}
+                  {t('polis.consensus')}
                 </Badge>
               )}
               {s.is_polarizing && (
                 <Badge variant="danger" style={{ fontSize: '0.6rem' }}>
-                  🔴 {t('polis.polarizing')}
+                  {t('polis.polarizing')}
                 </Badge>
               )}
               {!s.is_consensus && !s.is_polarizing && (
                 <Badge variant="secondary" style={{ fontSize: '0.6rem' }}>
-                  ⚪ {t('polis.mitigated')}
+                  {t('polis.mitigated')}
                 </Badge>
               )}
             </td>
@@ -344,7 +344,7 @@ const PolisPanel: React.FC = () => {
             >
               <div className="text-center">
                 <div className="text-muted-foreground" style={{ fontSize: '0.72rem' }}>
-                  🌐 Pol.is
+                  Pol.is
                 </div>
                 <Badge
                   variant="primary"
@@ -361,7 +361,7 @@ const PolisPanel: React.FC = () => {
               </span>
               <div className="text-center">
                 <div className="text-muted-foreground" style={{ fontSize: '0.72rem' }}>
-                  🗳 Vote classique
+                  Vote classique
                 </div>
                 <Badge
                   variant="secondary"
@@ -386,13 +386,13 @@ const PolisPanel: React.FC = () => {
             {/* Stats badges */}
             <div className="flex flex-wrap gap-2 mb-3">
               <Badge variant="success" data-testid="consensus-count-badge">
-                🟢 {data.consensus_count} {t('polis.consensus')}
+                {data.consensus_count} {t('polis.consensus')}
               </Badge>
               <Badge variant="danger" data-testid="polarizing-count-badge">
-                🔴 {data.polarizing_count} {t('polis.polarizing')}
+                {data.polarizing_count} {t('polis.polarizing')}
               </Badge>
               <Badge variant="warning" data-testid="silent-majority-badge">
-                ⚪ {data.silent_majority_count} {t('polis.silent_majority')}
+                {data.silent_majority_count} {t('polis.silent_majority')}
               </Badge>
             </div>
 

@@ -11,31 +11,32 @@ import { CURIOSITY_QUESTIONS } from '../../../lib/curiosityQuestions';
 const CuriosityQuestions: React.FC = () => {
   const { t } = useTranslation('playground');
   return (
-    <div>
-      <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-        {t('curiosity.kicker')}
-      </p>
-      <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
-        {t('curiosity.title')}
-      </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        {t('curiosity.sub')}
-      </p>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+        <h2 className="font-display text-[44px] leading-none font-extrabold sm:text-[56px]">
+          {t('curiosity.title')}
+        </h2>
+        <p className="max-w-md text-base text-muted-foreground">{t('curiosity.sub')}</p>
+      </div>
 
-      <ul data-testid="curiosity-questions" className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {/* A register, like the homepage's stories: one ruled line per question. */}
+      <ul
+        data-testid="curiosity-questions"
+        className="grid grid-cols-1 border-t-2 border-foreground sm:grid-cols-2 sm:gap-x-10"
+      >
         {CURIOSITY_QUESTIONS.map((q) => (
-          <li key={q.id}>
+          <li key={q.id} className="border-b border-border">
             <Link
               to={`/playground?story=${q.story}`}
               data-testid={`curiosity-${q.id}`}
-              className="group flex h-full items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+              className="group flex h-full items-center justify-between gap-4 px-1 py-4 text-foreground no-underline"
             >
-              <span className="text-sm font-medium leading-snug group-hover:text-primary">
+              <span className="text-[17px] leading-snug font-semibold transition-transform duration-[240ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none group-hover:translate-x-1.5 group-focus-visible:translate-x-1.5">
                 {t(`curiosity.q.${q.id}`)}
               </span>
               <ArrowRight
                 aria-hidden
-                className="mt-0.5 h-4 w-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+                className="h-4 w-4 shrink-0 text-primary transition-transform duration-[240ms] group-hover:translate-x-1 motion-reduce:transition-none"
               />
             </Link>
           </li>

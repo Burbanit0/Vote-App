@@ -1,10 +1,12 @@
 {
   "agents": {
+    "ambition_goal": true,
     "amendment_stakes": false,
     "amendments": false,
     "coalition": false,
     "forum": false,
     "forum_size": 30,
+    "forward_stakes": true,
     "nominees": false,
     "party_moves": false,
     "president": false,
@@ -44,8 +46,10 @@
     "blank_threshold_dist": "beta(3,5)",
     "issue_count": 20,
     "memory_window_terms": 2,
+    "newcomer_spread": 0.5,
     "position_dist": "factor_structure",
     "priority_dist": "dirichlet",
+    "replacement_per_year": 0.0,
     "static_population": true
   },
   "constitution": {
@@ -59,10 +63,13 @@
     "scripted": []
   },
   "dynamics": {
+    "anchor_follow": 0.0,
+    "anger_narrows_bound": 0.0,
     "confidence_bound": 1.0,
     "drift_std": 0.0,
     "enabled": false,
     "influence_step": 0.0,
+    "radical_step": 0.0,
     "susceptibility": 1.0
   },
   "emotions": {
@@ -86,7 +93,8 @@
     "salience_decay": 0.85,
     "scandal_enabled": true,
     "scandal_magnitude": 0.3,
-    "scandal_rate_per_tick": 0.5
+    "scandal_rate_per_tick": 0.5,
+    "scripted": []
   },
   "institutions": {
     "assembly_mode": "party_list",
@@ -145,6 +153,7 @@
     "cache_backend": "redis",
     "cache_url": "redis://localhost:6379/0",
     "codebook_version": "1.6",
+    "crowd": true,
     "enabled": true,
     "max_batch_replays": 0,
     "max_batch_size": 25,
@@ -194,9 +203,12 @@
       "party_id"
     ],
     "death_enabled": false,
+    "founding_lock_years": 1.0,
     "founding_ratio": 0.05,
     "init_strategy": "kmeans_on_citizens",
     "initial_count": 5,
+    "leader_rule": "sticker",
+    "leader_step": 0.0,
     "manual_platforms": []
   },
   "petition": {
@@ -231,7 +243,9 @@
   "social_graph": {
     "enabled": true,
     "evolving": false,
+    "homophily": 0.0,
     "mean_degree": 8,
+    "rewire_per_year": 0.0,
     "rewiring_prob": 0.1,
     "topology": "watts_strogatz"
   },
@@ -257,6 +271,7 @@
     "approval": 0.0,
     "approval_party_carryover": 0.0,
     "audit_fraction": 0.1,
+    "economic_voting": 0.0,
     "mode": "llm",
     "partisanship": 0.0,
     "policy_retrospection": 0.0,

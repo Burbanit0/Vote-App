@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { FoldedCorner, RiseWords } from '@/components/ui/slip';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { PlaygroundProvider } from '../components/playground/PlaygroundController';
 import {
@@ -62,29 +63,6 @@ const FAMILY_ICON: Record<FamilyId, LucideIcon> = {
   blank: Ban,
 };
 
-// Registration ticks — the instrument's corner marks, so a fiche reads as a
-// specimen on the lab bench (echoes the Playground's scope frame).
-const Corners: React.FC = () => (
-  <>
-    <span
-      aria-hidden
-      className="pointer-events-none absolute left-1.5 top-1.5 h-2.5 w-2.5 border-l border-t border-primary/55"
-    />
-    <span
-      aria-hidden
-      className="pointer-events-none absolute right-1.5 top-1.5 h-2.5 w-2.5 border-r border-t border-primary/55"
-    />
-    <span
-      aria-hidden
-      className="pointer-events-none absolute bottom-1.5 left-1.5 h-2.5 w-2.5 border-b border-l border-primary/55"
-    />
-    <span
-      aria-hidden
-      className="pointer-events-none absolute bottom-1.5 right-1.5 h-2.5 w-2.5 border-b border-r border-primary/55"
-    />
-  </>
-);
-
 // ── One fiche on the bench ───────────────────────────────────────────────────
 
 const BenchFiche: React.FC<{
@@ -103,67 +81,74 @@ const BenchFiche: React.FC<{
   const kicker =
     t(group.titleKey) === t(experiment.titleKey) ? t(family.labelKey) : t(group.titleKey);
   return (
+    // The bench is a slip: its corner is folded over, drawn rather than cut, so the
+    // fiche's popovers and tooltips are never clipped. The column B one drops in.
     <section
       data-testid={side === 'vs' ? 'lab-bench-vs' : 'lab-bench'}
-      className="relative min-w-0 rounded-md border border-primary/25 bg-card shadow-sm"
-    >
-      <Corners />
-      <header className="flex items-start justify-between gap-3 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
-        <div className="min-w-0">
-          <p className="truncate font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-            {kicker}
-          </p>
-          {!experiment.ownHeader && (
-            <h2 className="mt-0.5 font-display text-lg font-semibold leading-tight tracking-tight">
-              {t(experiment.titleKey)}
-            </h2>
-          )}
-          {/* The electorate this column is measured on — the axis the face-à-face
-              holds one side against the other. */}
-          <span
-            data-testid={`lab-elec-label-${side}`}
-            className="mt-1 inline-flex max-w-full items-center gap-1 truncate rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-primary"
-          >
-            <Users aria-hidden className="h-3 w-3 shrink-0" />
-            <span className="truncate">{electorateLabel}</span>
-          </span>
-        </div>
-        {onCompare && (
-          <Button
-            data-testid="lab-compare"
-            variant="outline"
-            size="sm"
-            className="shrink-0 gap-1.5"
-            onClick={onCompare}
-          >
-            <Columns2 aria-hidden className="h-3.5 w-3.5" />
-            {t('lab.compareElec')}
-          </Button>
-        )}
-        {onClose && (
-          <Button
-            data-testid="lab-compare-close"
-            variant="ghost"
-            size="sm"
-            className="shrink-0 gap-1 text-muted-foreground"
-            onClick={onClose}
-            aria-label={t('lab.compareStop')}
-          >
-            <X aria-hidden className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </header>
-      {group.introKey && (
-        <p className="border-b border-border/40 px-4 py-2 text-[0.7rem] leading-relaxed text-muted-foreground/80">
-          {t(group.introKey)}
-        </p>
+      className={cn(
+        'relative min-w-0 border border-border bg-card',
+        side === 'vs' && 'ballot-drop'
       )}
-      <div className="p-4">
-        <React.Suspense fallback={<AnchorFallback />}>
-          <Body />
-        </React.Suspense>
+      style={side === 'vs' ? ({ '--tilt': '2deg' } as React.CSSProperties) : undefined}
+    >
+      <FoldedCorner size={28} />
+      {/* Keyed on the fiche: each new one is laid down by the slip's slanted sweep. */}
+      <div key={experiment.id} className="bench-wipe">
+        <header className="flex items-start justify-between gap-3 border-b border-border py-4 pr-10 pl-5 sm:pl-6">
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-bold text-primary">{kicker}</p>
+            {!experiment.ownHeader && (
+              <h2 className="mt-1 font-display text-[30px] leading-[0.95] font-extrabold sm:text-[36px]">
+                {t(experiment.titleKey)}
+              </h2>
+            )}
+            {/* The electorate this column is measured on — the axis the face-à-face
+              holds one side against the other. */}
+            <span
+              data-testid={`lab-elec-label-${side}`}
+              className="mt-2.5 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-border bg-muted px-2.5 py-0.5 text-[0.78rem] font-semibold text-muted-foreground"
+            >
+              <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{electorateLabel}</span>
+            </span>
+          </div>
+          {onCompare && (
+            <Button
+              data-testid="lab-compare"
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={onCompare}
+            >
+              <Columns2 aria-hidden className="h-3.5 w-3.5" />
+              {t('lab.compareElec')}
+            </Button>
+          )}
+          {onClose && (
+            <Button
+              data-testid="lab-compare-close"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 gap-1 text-muted-foreground"
+              onClick={onClose}
+              aria-label={t('lab.compareStop')}
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </header>
+        {group.introKey && (
+          <p className="border-b border-border px-5 py-3 text-sm leading-relaxed text-muted-foreground sm:px-6">
+            {t(group.introKey)}
+          </p>
+        )}
+        <div className="p-5 sm:p-6">
+          <React.Suspense fallback={<AnchorFallback />}>
+            <Body />
+          </React.Suspense>
+        </div>
       </div>
-      <footer className="border-t border-border/40 px-4 py-1.5 text-right">
+      <footer className="border-t border-border px-5 py-2 text-right sm:px-6">
         {/* The electorate label says which column a compare-mode reader was on. */}
         <ReportContentError where={`lab:${experiment.id} @ ${electorateLabel}`} />
       </footer>
@@ -233,21 +218,26 @@ const LaboratoireContent: React.FC = () => {
     : null;
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-5">
+    <div className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
       {/* ── Masthead ── */}
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {t('lab.eyebrow')}
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t('lab.title')}
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+        <div className="flex max-w-3xl flex-col gap-4">
+          <p className="home-up text-[15px] font-bold text-primary">{t('lab.eyebrow')}</p>
+          <h1 className="font-display text-[clamp(52px,6.4vw,96px)] leading-[0.9] font-extrabold">
+            <RiseWords text={t('lab.title')} delay={80} />
           </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <p
+            className="home-up text-lg leading-relaxed text-muted-foreground"
+            style={{ animationDelay: '200ms' }}
+          >
             {t('lab.intro')}
           </p>
         </div>
-        <Link to="/playground" className="text-sm text-primary hover:underline">
+        <Link
+          to="/playground"
+          className="home-up text-[15px] font-bold text-primary no-underline hover:underline"
+          style={{ animationDelay: '260ms' }}
+        >
           ← {t('lab.backToPlayground')}
         </Link>
       </header>
@@ -257,7 +247,8 @@ const LaboratoireContent: React.FC = () => {
         data-testid="lab-family-rail"
         role="radiogroup"
         aria-label={t('lab.title')}
-        className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:flex lg:items-stretch"
+        className="home-up grid grid-cols-2 gap-1 border-b border-border sm:grid-cols-3 lg:flex lg:items-stretch"
+        style={{ animationDelay: '300ms' }}
       >
         {LAB_FAMILIES.map((f) => {
           const on = f.id === familyId;
@@ -271,28 +262,26 @@ const LaboratoireContent: React.FC = () => {
               data-testid={`lab-family-${f.id}`}
               onClick={() => setFamilyId(f.id)}
               className={cn(
-                'group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all',
+                'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-t-lg px-3 py-2.5 text-left transition-colors motion-reduce:transition-none',
                 on
-                  ? 'border border-primary/30 bg-card shadow-sm'
-                  : 'border border-transparent hover:bg-muted/50'
+                  ? 'bg-card after:absolute after:inset-x-2 after:-bottom-px after:h-[3px] after:rounded-full after:bg-primary'
+                  : 'hover:bg-muted/60'
               )}
             >
               <span
                 className={cn(
-                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors motion-reduce:transition-none',
                   on
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground group-hover:text-foreground'
+                    : 'bg-muted text-muted-foreground group-hover:text-foreground'
                 )}
               >
-                <Icon aria-hidden className="h-3.5 w-3.5" />
+                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               </span>
               <span
                 className={cn(
-                  'min-w-0 truncate text-sm transition-colors',
-                  on
-                    ? 'font-display font-semibold text-foreground'
-                    : 'font-medium text-muted-foreground group-hover:text-foreground'
+                  'min-w-0 text-[15px] leading-tight font-semibold transition-colors motion-reduce:transition-none',
+                  on ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
                 )}
               >
                 {t(f.labelKey)}
@@ -303,22 +292,23 @@ const LaboratoireContent: React.FC = () => {
       </div>
 
       {/* ── Catalogue of the active family ── */}
-      <div
-        data-testid="lab-catalogue"
-        className="mt-3 rounded-xl border border-border bg-card/60 px-3 py-2.5"
-      >
-        <div className="flex flex-col gap-2.5">
-          {family.groups.map((g) => (
-            <div key={g.key}>
-              <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
-                {t(g.titleKey)}
+      <div data-testid="lab-catalogue" className="mt-2">
+        <div key={family.id} className="flex flex-col">
+          {family.groups.map((g, gi) => (
+            <div
+              key={g.key}
+              className="home-up flex flex-col gap-2.5 border-b border-border py-4 lg:flex-row lg:gap-8"
+              style={{ animationDelay: `${gi * 70}ms` }}
+            >
+              <p className="flex shrink-0 flex-col lg:w-56">
+                <span className="font-display text-[22px] leading-none font-extrabold">
+                  {t(g.titleKey)}
+                </span>
                 {g.subtitleKey && (
-                  <span className="normal-case tracking-normal text-muted-foreground/60">
-                    {t(g.subtitleKey)}
-                  </span>
+                  <span className="mt-1 text-sm text-muted-foreground">{t(g.subtitleKey)}</span>
                 )}
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap content-start gap-1.5">
                 {g.experiments.map((e) => {
                   const isActive = e.id === active.experiment.id;
                   return (
@@ -331,10 +321,10 @@ const LaboratoireContent: React.FC = () => {
                       onFocus={e.preload}
                       onClick={() => pick(e.id)}
                       className={cn(
-                        'rounded-md border px-2 py-1 text-xs transition-colors',
+                        'rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none',
                         isActive
-                          ? 'border-primary/60 bg-primary/10 font-medium text-foreground'
-                          : 'border-border text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                          ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                          : 'border-border bg-card text-foreground hover:border-primary/50'
                       )}
                     >
                       {t(e.titleKey)}
@@ -351,11 +341,9 @@ const LaboratoireContent: React.FC = () => {
       {(pickingElec || vsElec) && (
         <div
           data-testid="lab-elec-picker"
-          className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2"
+          className="home-up mt-6 flex flex-wrap items-center gap-2 rounded-2xl bg-envelope px-4 py-3"
         >
-          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-primary">
-            {t('lab.comparePick')}
-          </span>
+          <span className="mr-1 text-[15px] font-bold text-primary">{t('lab.comparePick')}</span>
           {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
             <button
               key={id}
@@ -364,10 +352,10 @@ const LaboratoireContent: React.FC = () => {
               aria-pressed={id === vsElec}
               onClick={() => pickElec(id)}
               className={cn(
-                'rounded-md border px-2 py-1 text-xs transition-colors',
+                'rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none',
                 id === vsElec
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                  : 'border-border bg-card text-foreground hover:border-primary/50'
               )}
             >
               {p.label}
@@ -377,7 +365,7 @@ const LaboratoireContent: React.FC = () => {
       )}
 
       {/* ── L'établi ── */}
-      <div className={cn('mt-3 grid grid-cols-1 gap-3', vsElec && 'xl:grid-cols-2')}>
+      <div className={cn('mt-8 grid grid-cols-1 gap-5', vsElec && 'xl:grid-cols-2')}>
         <BenchFiche
           located={active}
           electorateLabel={t('lab.elecCurrent')}

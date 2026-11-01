@@ -254,3 +254,42 @@ def test_the_note_is_silent_unless_the_pooling_flag_ran_across_histories(seed_sw
     assert seed_sweep._divergence_note(all_unknown, evaluated) == [
         "- note on the third flag: its across-seed spread mixes runs whose history is unknown; "
         "set against a first run of another or unknown history: seed 1 rep 2 (see Constitutions)"]
+
+
+def test_the_sweep_summary_reports_diversity_beside_refuse_to_average(tmp_path: Path, seed_sweep: Any) -> None:
+    """plan-scenarios-v1 step 1: the Diversity section reads each seed's first completed run that carries a
+    trajectory, names the digests that do not, and leaves the occupancy pooling as it was."""
+    from api.domain.polity.trajectory import FEATURES
+
+    def yearly(*values: float) -> dict[str, list[float]]:
+        return {feature: list(values) for feature in FEATURES}
+
+    digests: dict[int, dict[str, Any]] = {
+        1: {"outcome": "completed", "office_occupancy": 0.9,
+            "trajectory": {"archetype": "stasis", "plausibility_failed": [], "yearly": yearly(0.0, 0.0, 0.0)}},
+        2: {"outcome": "completed", "office_occupancy": 0.9,
+            "trajectory": {"archetype": "churn", "plausibility_failed": ["turnout"], "yearly": yearly(0.0, 1.0, 2.0)}},
+        3: {"outcome": "completed", "office_occupancy": 0.9},  # a digest from before step 1
+        4: {"outcome": "completed", "office_occupancy": 0.9,
+            "trajectory": {"archetype": "stasis", "plausibility_failed": [], "yearly": {"legitimacy": [0.5]}}},  # another feature set
+    }
+    for seed, digest in digests.items():
+        run_dir = tmp_path / f"sweep-1y-p10-seed{seed}" / "run" / f"sweep-1y-p10-seed{seed}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "digest.json").write_text(json.dumps(digest), encoding="utf-8")
+        (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+
+    text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3, 4]).read_text(encoding="utf-8")
+    assert "## office_occupancy across seeds" in text  # refuse-to-average is still reported, untouched
+    section = text.split("## Diversity and the divergence test")[1].split("## ")[0]
+    assert "without a comparable trajectory (digest older than step 1, or another feature set): seed 3, seed 4" in section
+    assert "| seed 1 | stasis | - |" in section and "| seed 2 | churn | turnout |" in section
+    assert "archetypes: {'churn': 1, 'stasis': 1}; entropy 1.00 bits; largest share 50%" in section
+    assert "mean pairwise distance by year: 0.00, " in section  # the runs agree in year 0 and drift apart after
+    assert "verdict: grows yes; varied yes; no_dominant_story yes; plausible no" in section
+
+    for seed in (1, 2, 4):
+        run_dir = tmp_path / f"sweep-1y-p10-seed{seed}" / "run" / f"sweep-1y-p10-seed{seed}"
+        (run_dir / "digest.json").write_text(json.dumps(digests[3]), encoding="utf-8")
+    text = seed_sweep._write_sweep_summary(tmp_path, 1, 10, [1, 2, 3, 4]).read_text(encoding="utf-8")
+    assert "- no completed run carries a trajectory yet" in text

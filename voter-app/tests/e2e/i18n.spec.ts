@@ -52,7 +52,7 @@ async function leakedKeys(page: Page): Promise<string[]> {
 // 'en' was saved, so the "English" tests below were rendering French.
 async function switchToEnglish(page: Page) {
   await page.locator('#user-settings-dropdown').click();
-  await page.getByRole('button', { name: /switch to english/i }).click();
+  await page.getByTestId('lang-en').click();
   await expect(
     page.locator('[data-testid="navbar"]').getByRole('link', { name: /your turn/i })
   ).toBeVisible();

@@ -75,7 +75,7 @@ const MethodMoment: React.FC = () => {
       <div className="flex flex-col gap-3">
         {FAMILIES.map((fam) => (
           <fieldset key={fam.key} className="rounded-md border border-border p-2.5">
-            <legend className="px-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            <legend className="px-1 text-xs font-semibold text-muted-foreground">
               <label className="flex cursor-pointer items-center gap-1.5">
                 <input
                   type="checkbox"
@@ -129,9 +129,7 @@ const MethodMoment: React.FC = () => {
 
       {mode === 'parliament' && (
         <div className="flex flex-col gap-3 rounded-md border border-border p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('method.assemblyTitle')}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground">{t('method.assemblyTitle')}</p>
           <Field label={t('method.structureLabel')} htmlFor="pg-structure">
             <select
               id="pg-structure"

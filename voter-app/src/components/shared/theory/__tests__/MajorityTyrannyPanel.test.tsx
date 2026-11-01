@@ -117,8 +117,8 @@ function renderPanel() {
   );
 }
 
-async function renderAndRun() {
-  apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
+async function renderAndRun(data: typeof MOCK_DATA = MOCK_DATA) {
+  apiClient.POST.mockResolvedValueOnce(ok(data));
   renderPanel();
   await act(async () => {
     fireEvent.click(screen.getByTestId('run-btn'));
@@ -215,6 +215,17 @@ describe('MajorityTyrannyPanel', () => {
     expect(screen.getByTestId('table-view')).toBeInTheDocument();
     expect(screen.getByTestId('row-simple_majority')).toBeInTheDocument();
     expect(screen.getByTestId('row-unanimous')).toBeInTheDocument();
+  });
+
+  it('colours the tyranny index by band: high, middling, low', async () => {
+    const data = structuredClone(MOCK_DATA);
+    data.results.qv.tyranny_index = 0.6;
+    await renderAndRun(data);
+    fireEvent.click(screen.getByTestId('view-btn-table'));
+    const tone = (r: string) => screen.getByTestId(`row-${r}`).querySelector('.font-bold');
+    expect(tone('simple_majority')).toHaveClass('text-destructive');
+    expect(tone('qv')).toHaveClass('text-stamp');
+    expect(tone('unanimous')).toHaveClass('text-ok');
   });
 
   it('shows safeguards section', async () => {

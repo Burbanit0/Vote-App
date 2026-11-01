@@ -282,3 +282,14 @@ def test_an_arms_renamed_motif_is_restored_before_decoding(arm) -> None:
     assert restore is not None and '"motif"' not in renamed
     assert restore(renamed) == original
     assert br.decode_answers(case, restore(renamed)) == br.decode_answers(case, original)
+
+
+def test_the_committed_order_bank_is_intact_balanced_and_generated_the_same_every_time() -> None:
+    # ADR-030's bank: ground truth large enough to see a 10-point change, with both classes full.
+    bank = bb.read_bank(COMMITTED_BANK.with_name("case_bank_order.jsonl"))
+    assert bank.families() == sorted(bc.ORDER_FAMILIES) and bank.reference["bank"] == "order"
+    truth = {family: [v for c in bank.cases if c.family == family for v in c.labels["truth"].values()]
+             for family in ("pressure_act_wide", "vote_first_choice_wide")}
+    assert sorted(truth["pressure_act_wide"]) == [False] * 72 + [True] * 72
+    assert sum(v == "blank" for v in truth["vote_first_choice_wide"]) == 80 and len(truth["vote_first_choice_wide"]) == 160
+    assert bc.generate_order_bank(reference_config()).content_sha256 == bc.generate_order_bank(reference_config()).content_sha256
