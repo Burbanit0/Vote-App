@@ -14,6 +14,7 @@ import base from './vitest.config';
 //    winner on 60 ordinal + 60 cardinal profiles dies here. Excluding it would
 //    have measured the weaker half of the harness and reported a worse score
 //    than the code actually has.
+//
 // Spread, not mergeConfig: mergeConfig CONCATENATES arrays, so the base `include`
 // (src/**/*.test.{ts,tsx}) stayed in and Stryker's dry run executed all ~180 test
 // files from its .stryker-tmp sandbox. One of them reads docs/research/bibliography.bib,

@@ -5,6 +5,6 @@
   },
   "mutation-testing.yml": {
     "until": "2026-11-07",
-    "reason": "the frontend job failed from 2026-10-12 because vitest.stryker.config.ts used mergeConfig, which concatenated the base include with the two playgroundVoting files, so Stryker's dry run executed ~180 test files from its .stryker-tmp sandbox and methodCriteria.test.ts failed reading docs/research/bibliography.bib (ENOENT). Fixed in this PR (include is now overridden; the dry run passes locally, 158 tests). Mutation Testing only runs on push to develop/polity, so the first green run is after this merges; the snooze covers that window and must not be renewed again: if the run is still red by this date the fix did not work."
+    "reason": "the frontend job failed from 2026-10-12 because vitest.stryker.config.ts used mergeConfig, which concatenated the base include with the two playgroundVoting files, so Stryker's dry run executed ~180 test files from its .stryker-tmp sandbox and methodCriteria.test.ts failed reading docs/research/bibliography.bib (ENOENT). Fixed in this PR (include is now overridden; the dry run passes locally, 158 tests). Mutation Testing runs on push to develop/polity, on a Monday schedule and on workflow_dispatch, never on a PR, so the first green run comes after this merges; the snooze covers that window and must not be renewed again: if the run is still red by this date the fix did not work."
   }
 }
