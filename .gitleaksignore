@@ -19,3 +19,9 @@ f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:
 f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:98
 f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:163
 f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:204
+#
+# generic-api-key in staticPolity.test.ts -- a TEST constant: a 16-character hex placeholder assigned to KEY,
+#   standing in for a cache key in a unit test. Not a credential. Reviewed 2026-10-21.
+#   The commit is on the unmerged remote branch feat/static-polity, which the weekly scan reads
+#   (`git log --all`); the line is not in polity or develop. Fingerprint copied from the scanner's own output.
+133f2b10789657ac132823cdd9c94ef5e997a0c2:voter-app/src/api/staticPolity.test.ts:generic-api-key:4

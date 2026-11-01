@@ -38,9 +38,7 @@ const DemocracyMap: React.FC<DemocracyMapProps> = ({ entries, current }) => {
   const { t } = useTranslation('playground');
   return (
     <div data-testid="democracy-map" className="flex flex-col gap-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('democracy.title')}
-      </p>
+      <p className="text-xs font-semibold text-muted-foreground">{t('democracy.title')}</p>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={t('democracy.aria')}>
         {/* Axis */}
         <line

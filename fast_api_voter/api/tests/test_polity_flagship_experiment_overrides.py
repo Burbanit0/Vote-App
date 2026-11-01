@@ -52,18 +52,74 @@ def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) 
     assert frozen.constitution.scripted == () and frozen.institutions.electoral_threshold == 0.03
     kept = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=False)
     assert len(kept.constitution.scripted) == 1  # without the freeze, a scripted amendment is the run's own
+    assert (kept.agents.forward_stakes, kept.agents.ambition_goal) == (True, True)
+    arm = flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward-stakes"])
+    assert (arm.agents.forward_stakes, arm.agents.ambition_goal) == (False, True)  # OBS-048: one mechanism off
+    with pytest.raises(ValueError, match="nothing to turn off"):  # frozen, there are no stakes to recount
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=True, without=["forward-stakes"])
+    with pytest.raises(ValueError, match="one of"):
+        flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward_stakes"])
 
 
 def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sweep: Any, tmp_path: Path) -> None:
     import argparse
 
     sweep = seed_sweep
-    args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True)
+    args = argparse.Namespace(engine="llm", profile="exploration", threshold=0.03, freeze_amendments=True, without=[])
     flags = sweep._run_flags(args)
     assert flags == ["--engine", "llm", "--profile", "exploration", "--threshold", "0.03", "--freeze-amendments"]
+    arm = sweep._run_flags(argparse.Namespace(engine="llm", profile="exploration", threshold=None, freeze_amendments=False,
+                                              without=["ambition-goal"]))
+    assert arm == ["--engine", "llm", "--profile", "exploration", "--without", "ambition-goal"]
     sweep._claim_output_dir(tmp_path, flags)
     sweep._claim_output_dir(tmp_path, flags)  # the same arm resumes
     with pytest.raises(SystemExit, match="use another --output-dir"):
         sweep._claim_output_dir(tmp_path, sweep._run_flags(argparse.Namespace(
-            engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True)))
+            engine="llm", profile="exploration", threshold=0.05, freeze_amendments=True, without=[])))
 
+
+
+def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(flagship: Any, tmp_path: Path) -> None:
+    """plan-scenarios-v1 step 2."""
+    def profiled(profile: str, engine: str = "llm") -> Any:
+        return flagship._flagship_config(
+            engine=engine, years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
+            max_batch_replays=0, provider=None, workers=1, profile=profile,
+        )
+
+    explored, scenario = profiled("exploration"), profiled("scenario")
+    assert explored.llm.crowd and explored.agents.forum_size == 30 and explored.dynamics.drift_std == 0.0
+    assert not scenario.llm.crowd and scenario.vote.mode == "utility"
+    assert scenario.agents.forum_size == 10 and scenario.dynamics.drift_std == 0.18
+    assert scenario.dynamics.radical_step == 0.5 and scenario.dynamics.anger_narrows_bound == 0.3 and explored.dynamics.radical_step == 0.0
+    assert scenario.citizens.replacement_per_year == 0.03 and scenario.citizens.newcomer_spread == 0.35
+    assert not scenario.citizens.static_population and explored.citizens.replacement_per_year == 0.0
+    assert scenario.vote.economic_voting == 0.3 and explored.vote.economic_voting == 0.0 and scenario.events.scripted == ()  # ADR-038
+    # ADR-039: the twin's indifference cost; the model engine keeps its own
+    assert scenario.vote.turnout_cost == explored.vote.turnout_cost == flagship.LLM_TURNOUT_COST
+    assert profiled("scenario", "deterministic").vote.turnout_cost == 0.02 and profiled("exploration", "deterministic").vote.turnout_cost == 0.0
+    assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
+    assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
+    validate_config(scenario)
+    twin = profiled("scenario", engine="deterministic")
+    assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.18
+    validate_config(twin)
+    assert tuple(flagship.PROFILES) == ("flagship", "exploration", "scenario")
+    # A flag outranks the profile, and the contradiction is refused rather than rewritten.
+    from api.domain.polity.config import PolityConfigError
+
+    contradiction = flagship._flagship_config(
+        engine="llm", years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
+        max_batch_replays=0, provider=None, workers=1, profile="scenario", vote_mode="llm",
+    )
+    assert contradiction.vote.mode == "llm"
+    with pytest.raises(PolityConfigError, match="vote.mode: utility"):  # the crowd rule and the economic-voting rule both name it
+        validate_config(contradiction)
+
+
+def test_the_scenario_profile_is_a_command_line_choice(flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr(flagship, "run_flagship", lambda **kwargs: seen.append(kwargs["profile"]))
+    monkeypatch.setattr(flagship.signal, "signal", lambda *_: None)
+    flagship.main(["--profile", "scenario", "--output-dir", str(tmp_path), "--years", "1", "--population", "10", "--seats", "3"])
+    assert seen == ["scenario"]

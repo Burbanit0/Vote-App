@@ -11,14 +11,14 @@ module is the pure (de)serialization layer; `run_simulation()` itself owns
 WHEN to call it (once per completed tick) and how to splice the restored
 state back into its own loop.
 
-**Deliberately NOT snapshotted, and why**: `graph` (the social-graph
+**Deliberately NOT snapshotted, and why**: a fixed `graph` (the social-graph
 structure) and `InstitutionalClock` are both pure functions of
-`(config, population_size, seed)` with zero mid-run mutation --
-`social_graph.py`'s own docstring: "generated once, population-structural
-(evolving is TRANCHÉ rejected at config-parse time, so this never changes
-mid-run)"; `InstitutionalClock.from_config` takes config alone, holds no
-state. Regenerating either from the resumed config reproduces them exactly;
-snapshotting them would be pure duplication with its own resync risk.
+`(config, population_size, seed)` with zero mid-run mutation; `InstitutionalClock.from_config`
+takes config alone, holds no state. Regenerating either from the resumed config
+reproduces them exactly; snapshotting them would be pure duplication with its own
+resync risk. The exception is a graph that rewires (`social_graph.evolving`, ADR-036):
+its ties depend on the views of the citizens year after year, so they ARE state and
+are snapshotted, as `graph_edges`, only for such a run.
 
 **What is snapshotted** is `tick_state.TickState` whole (S3.4), plus the run id,
 config hash, tick and next event id. The file's JSON keys are unchanged from before
@@ -42,6 +42,7 @@ from api.domain.polity.config import PolityConfig
 from api.domain.polity.constitution import Constitution, Proposal
 from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.parties import Party
+from api.domain.polity.social_graph import SocialGraph, graph_edges, graph_from_edges
 from api.domain.polity.tick_state import PendingRerun, TickState
 
 
@@ -107,7 +108,7 @@ def _citizen_to_dict(citizen: Citizen) -> dict[str, Any]:
     return data
 
 
-_UNTRACKED_UNLESS_SET = ("latent_factors", "anger", "anxiety", "enthusiasm", "engagement")
+_UNTRACKED_UNLESS_SET = ("latent_factors", "anchor_factors", "anger", "anxiety", "enthusiasm", "engagement")
 
 
 def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
@@ -123,17 +124,27 @@ def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
         data["revealed_position"] = tuple(data["revealed_position"])
     if data["chamber_position"] is not None:
         data["chamber_position"] = tuple(data["chamber_position"])
-    if data.get("latent_factors") is not None:
-        data["latent_factors"] = tuple(data["latent_factors"])
+    for key in ("latent_factors", "anchor_factors"):
+        if data.get(key) is not None:
+            data[key] = tuple(data[key])
     return Citizen(**data)
 
 
 def _party_to_dict(party: Party) -> dict[str, Any]:
-    return {"party_id": party.party_id, "platform": list(party.platform)}
+    data: dict[str, Any] = {"party_id": party.party_id, "platform": list(party.platform)}
+    if party.founded_tick is not None:  # only founded parties carry it: a run that never founds checkpoints as before
+        data["founded_tick"] = party.founded_tick
+    if party.heading is not None:  # ADR-040: only a hunter keeps a heading and the share it last read
+        data["heading"], data["last_share"] = list(party.heading), party.last_share
+    return data
 
 
 def _party_from_dict(data: dict[str, Any]) -> Party:
-    return Party(party_id=data["party_id"], platform=tuple(data["platform"]))
+    heading = data.get("heading")
+    return Party(
+        party_id=data["party_id"], platform=tuple(data["platform"]), founded_tick=data.get("founded_tick"),
+        heading=None if heading is None else tuple(heading), last_share=data.get("last_share"),
+    )
 
 
 STATE_PAYLOAD_KEYS: dict[str, str] = {
@@ -147,8 +158,12 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "economy_x": "economy_x",
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
+    "demography_rng": "demography_rng_state",
+    "rewiring_rng": "rewiring_rng_state",
+    "graph": "graph_edges",
     "regime_rng": "regime_rng_state",
     "campaign_rng": "campaign_rng_state",
+    "leaders_rng": "leaders_rng_state",
     "refusal_declared": "refusal_declared",
     "legislature": "legislature",
     "constitution": "constitution",
@@ -157,28 +172,38 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
 """TickState field -> checkpoint JSON key."""
 
 
+def _pending_to_dict(pending: PendingRerun | None) -> dict[str, Any] | None:
+    if pending is None:
+        return None
+    return {
+        "attempt": pending.attempt,
+        "next_tick": pending.next_tick,
+        "barred_candidate_ids": sorted(pending.barred_candidate_ids),
+        # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
+        **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
+    }
+
+
 def _state_to_payload(state: TickState) -> dict[str, Any]:
-    pending = state.pending_rerun
     return {
         "citizens": [_citizen_to_dict(c) for c in state.citizens],
         "parties": [_party_to_dict(p) for p in state.parties],
         "rupture_rng_state": state.rupture_rng.bit_generator.state,
         "events_rng_state": state.events_rng.bit_generator.state,
         "sortition_rng_state": state.sortition_rng.bit_generator.state,
-        "pending_rerun": None if pending is None else {
-            "attempt": pending.attempt,
-            "next_tick": pending.next_tick,
-            "barred_candidate_ids": sorted(pending.barred_candidate_ids),
-            # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
-            **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
-        },
+        "pending_rerun": _pending_to_dict(state.pending_rerun),
         "staggered_declared_cids": (
             sorted(state.staggered_declared_cids) if state.staggered_declared_cids is not None else None
         ),
         "economy_x": state.economy_x,
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
-        # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
-        **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
+        # S4.3 and ADR-035: written only for a dynamic run, and for one whose generations turn over, so a
+        # static run's checkpoint is unchanged.
+        **_set_only(
+            dynamics_rng_state=None if state.dynamics_rng is None else state.dynamics_rng.bit_generator.state,
+            demography_rng_state=None if state.demography_rng is None else state.demography_rng.bit_generator.state,
+        ),
+        **_rewiring_payload(state),
         # ADR-022: likewise only for a regime run, and the declaration only while one stands.
         **_regime_payload(state),
         # S4.2: likewise only for a legislating run.
@@ -197,16 +222,34 @@ def _restore_optional(payload: Mapping[str, Any], key: str) -> np.random.Generat
 
 
 def _regime_payload(state: TickState) -> dict[str, Any]:
-    regime, campaign = state.regime_rng, state.campaign_rng
+    regime, campaign, leaders = state.regime_rng, state.campaign_rng, state.leaders_rng
     return _set_only(
         regime_rng_state=None if regime is None else regime.bit_generator.state,
         campaign_rng_state=None if campaign is None else campaign.bit_generator.state,
+        leaders_rng_state=None if leaders is None else leaders.bit_generator.state,  # ADR-040
         refusal_declared=True if state.refusal_declared else None,
     )
 
 
 def _set_only(**fields: Any) -> dict[str, Any]:
     return {key: value for key, value in fields.items() if value is not None}
+
+
+def _rewiring_payload(state: TickState) -> dict[str, Any]:
+    """ADR-036: a rewiring run's stream and its ties, once each as (low, high) pairs: its graph is state, not a function
+    of the config. Nothing for a run whose ties stay put."""
+    return _set_only(
+        rewiring_rng_state=None if state.rewiring_rng is None else state.rewiring_rng.bit_generator.state,
+        graph_edges=None if state.graph is None else graph_edges(state.graph),
+    )
+
+
+def _restore_graph(payload: Mapping[str, Any]) -> SocialGraph | None:
+    """ADR-036: the ties a rewiring run had, or None. A checkpoint with the ties but not their stream, or the reverse,
+    would freeze or restart them, so it is refused as damaged."""
+    if ("graph_edges" in payload) != ("rewiring_rng_state" in payload):
+        raise ValueError("checkpoint carries the social ties or their random stream but not both (ADR-036): it is damaged")
+    return graph_from_edges(len(payload["citizens"]), map(tuple, payload["graph_edges"])) if "graph_edges" in payload else None
 
 
 def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
@@ -228,8 +271,12 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
+        demography_rng=_restore_optional(payload, "demography_rng_state"),
+        rewiring_rng=_restore_optional(payload, "rewiring_rng_state"),
+        graph=_restore_graph(payload),
         regime_rng=_restore_optional(payload, "regime_rng_state"),
         campaign_rng=_restore_optional(payload, "campaign_rng_state"),
+        leaders_rng=_restore_optional(payload, "leaders_rng_state"),
         refusal_declared=payload.get("refusal_declared", False),
         legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
         constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,

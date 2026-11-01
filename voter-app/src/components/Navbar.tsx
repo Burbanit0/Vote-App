@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import {
+  Bug,
+  FlaskConical,
+  GraduationCap,
+  Moon,
+  Settings,
+  SlidersHorizontal,
+  Sun,
+  Type,
+  Vote,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Dropdown } from '@/components/ui/dropdown';
-import { Check } from '@/components/ui/form-controls';
+import { Segmented } from '@/components/ui/segmented';
+import { Switch } from '@/components/ui/switch';
 import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
 import { Container } from '@/components/ui/grid';
 import { useTheme } from '../stores/useUIStore';
@@ -17,47 +29,29 @@ import { NEW_ISSUE_URL } from '../lib/repo';
 // lives inside the Laboratoire's fiches. Polity (a research run explorer, not part
 // of the teaching path) is linked from the home page footer; its route is unchanged.
 
-// ── Settings row (used inside user dropdown) ──────────────────────────────────
+// Line icons, one size and one stroke for the whole bar (they replaced emojis).
+const ICON = { size: 16, strokeWidth: 1.75, 'aria-hidden': true } as const;
 
-const SettingRow: React.FC<{
-  icon: string;
-  label: string;
-  checked: boolean;
-  onToggle: () => void;
-  badge?: string;
-}> = ({ icon, label, checked, onToggle, badge }) => (
-  <div
-    role="button"
-    tabIndex={0}
-    className="dropdown-item flex items-center justify-between px-3 py-2"
-    style={{ cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem' }}
-    onClick={(e) => {
-      e.stopPropagation();
-      onToggle();
-    }}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onToggle();
-      }
-    }}
-  >
-    <span className="flex items-center gap-2">
-      <span>{icon}</span>
-      <span>{label}</span>
-      {badge && (
-        <Badge variant="primary" style={{ fontSize: '0.6rem' }}>
-          {badge}
-        </Badge>
-      )}
-    </span>
-    <Check
-      type="switch"
-      checked={checked}
-      onChange={onToggle}
-      onClick={(e) => e.stopPropagation()}
-      style={{ pointerEvents: 'none' }}
-    />
+const LINKS = [
+  { path: '/playground', testid: 'nav-playground', key: 'nav.playground', Icon: SlidersHorizontal },
+  { path: '/laboratoire', testid: 'nav-laboratoire', key: 'nav.laboratoire', Icon: FlaskConical },
+  { path: '/a-vous-de-jouer', testid: 'nav-a-vous-de-jouer', key: 'nav.play', Icon: Vote },
+] as const;
+
+/**
+ * The page you are on is marked three ways: a tinted background, a petrol icon, and a
+ * petrol bar on the bar's bottom edge (on the phone menu, along the item's left side).
+ */
+const LINK =
+  'relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[0.88rem] font-semibold transition-colors hover:bg-muted';
+const ACTIVE =
+  'nav-active bg-primary/10 text-foreground max-lg:shadow-[inset_3px_0_0_var(--primary)] lg:after:absolute lg:after:inset-x-3 lg:after:-bottom-2 lg:after:h-[3px] lg:after:rounded-full lg:after:bg-primary';
+
+/** One preference: its name above, its control below. */
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="flex flex-col gap-1.5 px-2 py-1.5">
+    <span className="text-[0.72rem] font-semibold text-muted-foreground">{label}</span>
+    {children}
   </div>
 );
 
@@ -70,7 +64,6 @@ const Navbar: React.FC = () => {
   const { t } = useTranslation();
   const [navExpanded, setNavExpanded] = useState(false);
 
-  const toggleLang = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
   // The site may be served under a base path (GitHub Pages: /Vote-App/); these links load
   // a whole page, so they carry it, and the active link is read without it.
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -93,18 +86,29 @@ const Navbar: React.FC = () => {
         {/* ── Brand ── */}
         <BootstrapNavbar.Brand
           href={`${base}/`}
-          className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
-          style={{ fontSize: '1.1rem' }}
+          className="font-display flex items-center gap-2 font-extrabold me-4"
+          style={{ fontSize: '1.45rem', lineHeight: 1 }}
           onClick={() => setNavExpanded(false)}
         >
-          <span style={{ fontSize: '1.2rem' }}>🗳️</span>
+          {/* The ballot slip, cast: a solid sheet with its corner folded back in petrol
+              and one tick. Its outline is the shape the homepage entrance folds the
+              screen into (data-brand-mark, slipPolygon in lib/home/motion.ts). */}
+          <svg data-brand-mark width="20" height="26" viewBox="0 0 20 26" aria-hidden="true">
+            <path d="M1 1h12l6 6v18H1z" fill="currentColor" />
+            <path d="M13 1v6h6z" style={{ fill: 'var(--primary)' }} />
+            <path
+              d="M5.5 15.5l3 3 6-7"
+              fill="none"
+              style={{ stroke: 'var(--background)' }}
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           Vote Lab
-          <Badge
-            variant="info"
-            style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
-          >
+          <span className="rounded-full border border-border px-1.5 py-px font-sans text-[0.62rem] font-semibold tracking-normal text-muted-foreground">
             {t('nav.beta')}
-          </Badge>
+          </span>
         </BootstrapNavbar.Brand>
 
         <BootstrapNavbar.Toggle
@@ -115,61 +119,30 @@ const Navbar: React.FC = () => {
         />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
-          {/* ── Main nav — Playground → Laboratoire → À vous de jouer → Polity ── */}
-          <Nav className="mr-auto lg:items-center gap-1">
-            {/* Playground — hero link */}
-            <Nav.Link
-              href={`${base}/playground`}
-              data-testid="nav-playground"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/playground'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                background: currentPath === '/playground' ? 'var(--bs-primary)' : 'transparent',
-                color: currentPath === '/playground' ? '#fff' : 'var(--bs-primary)',
-                border: '1.5px solid var(--bs-primary)',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              🎛 {t('nav.playground')}
-            </Nav.Link>
-
-            {/* Laboratoire — the "go deeper" destination */}
-            <Nav.Link
-              href={`${base}/laboratoire`}
-              data-testid="nav-laboratoire"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/laboratoire'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                color: currentPath === '/laboratoire' ? 'var(--bs-primary)' : 'inherit',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              🔬 {t('nav.laboratoire')}
-            </Nav.Link>
-
-            {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
-            <Nav.Link
-              href={`${base}/a-vous-de-jouer`}
-              data-testid="nav-a-vous-de-jouer"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/a-vous-de-jouer'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                color: currentPath === '/a-vous-de-jouer' ? 'var(--bs-primary)' : 'inherit',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              ✍️ {t('nav.play')}
-            </Nav.Link>
+          {/* ── Main nav — Playground → Laboratoire → À vous de jouer ── */}
+          <Nav className="mr-auto gap-1 lg:items-center">
+            {LINKS.map(({ path, testid, key, Icon }) => {
+              const on = currentPath === path;
+              return (
+                <Nav.Link
+                  key={path}
+                  href={`${base}${path}`}
+                  data-testid={testid}
+                  active={on}
+                  onClick={() => setNavExpanded(false)}
+                  className={cn(LINK, on && ACTIVE)}
+                >
+                  <Icon {...ICON} className={cn(on && 'text-primary')} />
+                  {t(key)}
+                </Nav.Link>
+              );
+            })}
           </Nav>
 
           {/* ── Right side ── */}
-          <Nav className="lg:items-center gap-2">
+          {/* On a phone it lines up with the links; on a desktop it ends the bar, so its
+              menu opens leftwards, inside the window. */}
+          <Nav className="gap-2 max-lg:self-start lg:items-center">
             {/* ── User / Settings dropdown ── */}
             <Dropdown>
               <Dropdown.Toggle
@@ -179,50 +152,59 @@ const Navbar: React.FC = () => {
                 style={{ border: '1px solid var(--bs-border-color)' }}
                 id="user-settings-dropdown"
               >
-                <span style={{ fontSize: '0.82rem' }}>⚙ {t('nav.settings')}</span>
+                <Settings {...ICON} />
+                <span style={{ fontSize: '0.82rem' }}>{t('nav.settings')}</span>
               </Dropdown.Toggle>
 
-              <Dropdown.Menu style={{ minWidth: 240 }}>
-                {/* ── Settings section ── */}
-                <div className="px-1 pb-1">
-                  <div
-                    className="text-muted-foreground px-2 py-1"
-                    style={{
-                      fontSize: '0.72rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    {t('nav.preferences')}
-                  </div>
-
-                  <SettingRow
-                    icon={theme === 'dark' ? '☀️' : '🌙'}
-                    label={theme === 'dark' ? t('nav.lightModeTip') : t('nav.darkModeTip')}
-                    checked={theme === 'dark'}
-                    onToggle={toggleTheme}
-                  />
-
-                  <SettingRow
-                    icon="🌐"
-                    label={i18n.language === 'fr' ? 'Switch to English' : 'Passer en français'}
-                    checked={i18n.language !== 'fr'}
-                    onToggle={toggleLang}
-                  />
-
-                  <SettingRow
-                    icon="⚡"
-                    label={expertMode ? t('nav.expert') : t('nav.beginner')}
-                    checked={expertMode}
-                    onToggle={() => setExpertMode(!expertMode)}
-                  />
-
-                  <SettingRow
-                    icon="🔤"
-                    label={t('nav.plain')}
+              <Dropdown.Menu className="lg:right-0 lg:left-auto" style={{ minWidth: 260 }}>
+                <div className="flex flex-col gap-1 p-1">
+                  <Field label={t('nav.theme')}>
+                    <Segmented
+                      label={t('nav.theme')}
+                      value={theme === 'dark' ? 'dark' : 'light'}
+                      onChange={toggleTheme}
+                      options={[
+                        { value: 'light', label: t('nav.light'), icon: Sun, testid: 'theme-light' },
+                        { value: 'dark', label: t('nav.dark'), icon: Moon, testid: 'theme-dark' },
+                      ]}
+                    />
+                  </Field>
+                  <Field label={t('nav.language')}>
+                    <Segmented
+                      label={t('nav.language')}
+                      value={i18n.language === 'fr' ? 'fr' : 'en'}
+                      onChange={(lang) => void switchLanguage(lang)}
+                      options={[
+                        // Each language is named in itself, so it can be found from the other.
+                        { value: 'fr', label: 'Français', testid: 'lang-fr' },
+                        { value: 'en', label: 'English', testid: 'lang-en' },
+                      ]}
+                    />
+                  </Field>
+                  <Field label={t('nav.level')}>
+                    <Segmented
+                      label={t('nav.level')}
+                      value={expertMode ? 'expert' : 'beginner'}
+                      onChange={(level) => setExpertMode(level === 'expert')}
+                      options={[
+                        { value: 'beginner', label: t('nav.beginner'), testid: 'level-beginner' },
+                        {
+                          value: 'expert',
+                          label: t('nav.expert'),
+                          icon: GraduationCap,
+                          testid: 'level-expert',
+                        },
+                      ]}
+                    />
+                  </Field>
+                  <Switch
                     checked={plainLanguage}
-                    onToggle={() => setPlainLanguage(!plainLanguage)}
-                  />
+                    onChange={setPlainLanguage}
+                    testid="setting-plain"
+                  >
+                    <Type {...ICON} className="shrink-0 text-muted-foreground" />
+                    {t('nav.plain')}
+                  </Switch>
                 </div>
 
                 <hr className="my-1" style={{ borderColor: 'var(--bs-border-color)' }} />
@@ -234,7 +216,8 @@ const Navbar: React.FC = () => {
                   className="dropdown-item flex items-center gap-2 px-3 py-2"
                   style={{ fontSize: '0.85rem', textDecoration: 'none' }}
                 >
-                  🐛 {t('nav.reportBug')}
+                  <Bug {...ICON} className="shrink-0 text-muted-foreground" />
+                  {t('nav.reportBug')}
                 </a>
               </Dropdown.Menu>
             </Dropdown>

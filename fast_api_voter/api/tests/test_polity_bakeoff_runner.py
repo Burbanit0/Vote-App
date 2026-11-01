@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -145,3 +146,38 @@ def test_a_field_order_arm_decodes_what_the_model_returned_under_the_renamed_key
     hashed = {hashlib.sha256(c.encode("utf-8")).hexdigest() for c in returned}
     assert {r["content_sha256"] for r in main} <= hashed  # and so does the result: its hash is the log's
     assert json.loads((tmp_path / "arm" / br.GATES_FILENAME).read_text())["logprobs_available"] is False  # renamed text has no aligned tokens
+
+
+def test_the_order_arms_are_the_six_rules_and_alphabetical_and_change_nothing_but_the_order() -> None:
+    from api.domain.polity.bakeoff_order import isolation_violations
+    from api.domain.polity.schema_order import RULES, rule_table
+
+    orders = {name: arm.wire_order for name, arm in br.ARMS.items() if arm.wire_order is not None}
+    assert orders == {"alphabetical_order": {}, **{f"order_{rule}": rule_table(rule) for rule in RULES}}
+    assert isolation_violations(reference_bank(), sorted(orders)) == []
+
+
+def test_the_isolation_check_catches_an_arm_that_changes_what_is_sent(monkeypatch: Any) -> None:
+    from api.domain.polity.bakeoff_order import isolation_violations
+
+    monkeypatch.setitem(br.ARMS, "leaky", br.BakeoffArm(schema=lambda case, schema: {**schema, "description": "x"}, wire_order={}))
+    monkeypatch.setitem(br.ARMS, "seeded", br.BakeoffArm(request=lambda case: {"seed": 7}, wire_order={}))
+    bank = reference_bank()
+    assert isolation_violations(bank, ["leaky", "seeded"]) == [
+        f"{arm}: {dt}" for arm in ("leaky", "seeded") for dt in sorted({c.decision_type for c in bank.cases})]
+
+
+def test_every_session_states_its_wire_order_so_a_reused_client_is_reset() -> None:
+    from api.domain.polity.llm_client import WIRE_ORDER
+    from api.domain.polity.schema_order import rule_table
+
+    client = BankFakeClient()
+    for arm, expected in (("order_mdx", rule_table("mdx")), (None, WIRE_ORDER), ("alphabetical_order", {})):
+        with tempfile.TemporaryDirectory() as tmp:
+            _run(_small_bank("candidacy_p500"), client, Path(tmp), arm=arm)
+        assert getattr(client, "wire_order", None) == expected, arm
+        # and the session records it, so a later decide knows what a control sent
+        with tempfile.TemporaryDirectory() as tmp:
+            _run(_small_bank("candidacy_p500"), client, Path(tmp), arm=arm)
+            recorded = json.loads((Path(tmp) / br.SESSION_FILENAME).read_text())["wire_order"]
+        assert recorded == {title: list(order) for title, order in expected.items()}, arm

@@ -58,7 +58,7 @@ interface SortitionData {
 const EXAMPLES = [
   {
     year: '-500',
-    location: '🏛 Athènes',
+    location: 'Athènes',
     desc: 'Boulé (500 citoyens) pendant 200 ans',
     method: 'Tirage au sort',
   },

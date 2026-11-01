@@ -1,13 +1,13 @@
+/* Unlayered, so these beat every Tailwind layer: they set only what the theme's
+   tokens don't. The typefaces come from tailwind.css (--font-sans, --font-mono); a
+   font-family here would override them app-wide (it did, from the first commit
+   until the Bureau de vote type change). */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: var(--font-mono);
 }

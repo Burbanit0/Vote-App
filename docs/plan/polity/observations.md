@@ -79,7 +79,11 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-047](#obs-047) | Every president recalled in phase11 still had a majority behind them: pressure costs legitimacy ten times what support adds | 2026-10-10 | decided |
 | [OBS-048](#obs-048) | Phase14: one president's reasons turn self-interested; after each of two founding-ratio cuts the party count jumps by 10, and one assembly sat empty | 2026-10-12 | decided |
 | [OBS-049](#obs-049) | A president pushed a voting method the stakes said would gain them nothing; the referendum found nothing to refer, and a candidate the forecast did not know won | 2026-10-16 | cause found |
-| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | cause found |
+| [OBS-050](#obs-050) | The model writes every object's fields in alphabetical order, whatever order the schema declares: `rationale` comes after the moves it was meant to precede | 2026-10-16 | mechanism fixed 2026-10-19 (ADR-030) |
+| [OBS-051](#obs-051) | Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change | 2026-10-18 | explained, not shipped |
+| [OBS-052](#obs-052) | On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens | 2026-10-21 | fixed (ADR-018, amendment 2026-10-21), one live pair agrees |
+| [OBS-053](#obs-053) | The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind | 2026-10-21 | cause found |
+| [OBS-054](#obs-054) | The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does | 2026-10-21 | effect of the budget shown, verdict unresolved, budget to adopt open |
 
 ---
 
@@ -256,6 +260,30 @@ petition or election, and its context is `ticks_left` alone.
 *What would settle it.* A design decision on what the chamber is for. With no agenda (S4.2's
 legislation would give it one) and an instruction to hold still, "no change" is the expected
 answer. Removing the sentence alone would likely bring back the loops it cured (OBS-008).
+
+*Update 2026-10-21: no longer true on current code.* The exploration profile turns on opinion dynamics, which
+moves every member's sincere position each tick while `chamber_position` stays where seating pinned it, so from the
+second deliberation on the two differ and the sentence no longer binds. `check_observations.py chamber <run_dir>`:
+8B baseline (8y p100 seed 42) 187 of 495 decisions with motif 702, order-8y ctl-a seed 1 221, phase16 ambition-only
+seed 1 192, phase11 seed 1 212 (38-45%), against 12-18 of 2,475 at p500 in September. Split by the member's
+`ctx.ticks_left` (4 = the first deliberation after seating), the share answering 701:
+
+```bash
+cd fast_api_voter && python3 -c "import json,glob,collections,sys
+c=collections.defaultdict(lambda:[0,0])
+for j in glob.glob(sys.argv[1]):
+    for l in open(j):
+        e=json.loads(l)
+        if e['event_type']=='chamber_deliberation':
+            k='first' if e['payload']['ctx']['ticks_left']==4 else 'later'; c[k][1]+=1; c[k][0]+=e['motif']=='701'
+print(dict(c))" '<run_dir>/events.jsonl'
+```
+
+gives first / later: 128/135 and 180/360 (8B baseline), 124/135 and 150/360 (order-8y ctl-a seed 1), 129/135 and
+174/360 (phase16 ambition-only seed 1): 92-96% on the seating tick, 42-50% after. The shifts still land on
+`chamber_position` only (`llm_behavior_engine.py:4878`), which nothing but the bill votes reads: the chamber never
+writes `issue_positions`, so "the chamber moves" and "deliberation changes anyone's position" are different
+statements.
 
 ### OBS-005
 
@@ -434,6 +462,32 @@ mostly end in `nomination_lost`.
 and the one reference tried argued in the wrong direction.
 
 *What would settle it.* S2.2's candidacy case bank, and S2.4 (is it this model family?).
+
+*Update 2026-10-21: the same on current code, and what it means.* `check_observations.py elections` (it runs on any
+root again once its dissolved-party crash is fixed), pooled: phase11 384 of 1,000 declare, 204 would pass the 0.30
+threshold, 139 of those declare, so 245 of the 384 (64%) are below it; phase16 (10 runs) 193 of 500, 103, 71, so 122 of
+193 (63%); order-8y (9 runs) 299 of 900, 165, 110, so 189 of 299 (63%). Agreement with the threshold stays 69%
+(346 of 500 in phase16). The threshold is not applied on the LLM path at all (ADR-002, amendment 2026-10-21), so this
+is the model arbitrating, not a violated rule (the threshold is only the per-chunk fallback, `_deterministic_candidacy_fallback`).
+What it does to who stands, from the journals and checkpoints (the same command with `candidacy_considered` and five
+ambition bands gives the declared share by band in the amendment: 8-13% under 0.1, 31-32% at 0.1-0.2, 44-52% at 0.2-0.3,
+66% at 0.3-0.4, 77-83% above 0.4):
+
+```bash
+cd fast_api_voter && python3 -c "import json,glob,os,sys
+below=total=n_below=n=0
+for ck in glob.glob(sys.argv[1]+'/**/run/*/checkpoint.json', recursive=True):
+    run=os.path.dirname(ck); c=json.load(open(ck)); amb={x['citizen_id']:x['ambition_score'] for x in (c.get('state') or c)['citizens']}
+    for l in open(run+'/events.jsonl'):
+        e=json.loads(l)
+        if e['event_type']=='elected' and e['payload'].get('office')=='president': total+=1; below+=amb[e['citizen_id']]<0.30
+        if e['event_type']=='candidacy_declared' and e['payload'].get('path')=='dominant': n+=1; n_below+=amb[e['citizen_id']]<0.30
+print('presidents below 0.30:',below,'/',total,' nominees below:',n_below,'/',n)" ~/Documents/Dev/polity-runs/phase16
+```
+
+gives, for phase11 / phase16 / order-8y: presidents elected below 0.30 36 of 70 / 11 of 30 / 13 of 27, nominees below
+496 of 1,042 / 177 of 387 / 160 of 338. About half of the people who stand and of those who govern are below the gate the
+config lists. Enforcing the gate is therefore a large change (ADR-002's amendment lists the options), not a fix.
 
 ### OBS-012
 
@@ -2502,9 +2556,10 @@ on 9ef6d61a and phase14 on 663ff3c3. Seed 2 crashed at tick 24 and resumed there
   referendum a new vote on today's opinions.
 - **The empty assembly.** Handled, not ruled on. Since #931 the polity runs on with the agenda closed. Whether
   an assembly may stay empty for a term is not decided.
-- **The causes stay unmeasured.**
-  - Whether ADR-027 or ADR-028 drives the self-interested reasons needs the single-switch arms above.
-  - Whether the party jumps follow the founding-ratio cuts needs the seeds with the ratio frozen.
+- **The causes:** measured in part by phase16 (below).
+  - The voting-method proposals follow the forward stakes.
+  - The self-serving acts do not separate.
+  - Whether the party jumps follow the founding-ratio cuts still needs the seeds with the ratio frozen.
 
 The decision is recorded here and in ADR-029.
 
@@ -2538,6 +2593,62 @@ second, near sample of the same arm.
   - None of the 13 seeds without a cut peaked above 30: phase13's five, phase15's five, phase14's other three.
   - Consistent with the cuts driving the jumps, still not a test.
 - **Recalls:** none, with 10 full terms (`check_observations.py recalls`, as for phase14).
+
+*Phase16 (2026-10-17): one cause separates, the other does not.* Phase16
+(`~/Documents/Dev/polity-runs/phase16/`, 5b5b8be8, #960) has phase15's settings with one mechanism switched off per
+arm, 5 seeds each.
+- `forward-only` (`--without ambition-goal`): every president gets D8's goal, and every agent's persona shows its
+  ambition as a bare number. That covers nominees, chamber members, forum posters and coalition leaders, not only the
+  president.
+- `ambition-only` (`--without forward-stakes`): the president's method stakes recount the last election, in ADR-026's
+  wording.
+
+Each distinct proposal (run, proposer, article, old, new) is counted once. A president re-proposing a rejected change
+nine times is one proposal:
+
+| | both off (phase13) | forward-only | ambition-only | both on (phase14-15) |
+|---|---:|---:|---:|---:|
+| runs | 5 | 5 | 5 | 10 |
+| distinct proposals (with repeats) | 21 (31) | 17 (19) | 17 (33) | 47 (75) |
+| extending the president's own hold | 5 (24%) | 4 (24%) | 6 (35%) | 11 (23%) |
+| runs with a voting-method proposal | 0 | 3 | 0 | 6 |
+| a reason naming the president's own interest (regex above) | 5 (24%) | 4 (24%) | 4 (24%) | 19 (40%) |
+
+"Extending the president's own hold" means raising or abolishing the term limit, raising the petition threshold, or
+lowering the recall floor.
+
+- **The voting-method proposals follow the forward stakes.** They appear in 9 of the 15 runs with them and in none of
+  the 10 without. That is the one result the arms separate.
+- **The self-serving acts do not separate.** Counted once each, 23-35% of proposals extend the president's hold in
+  every arm.
+  - A first count with repeats gave ambition-only 67%. 18 of its 22 were two presidents (citizen 29 in seed 2,
+    citizen 88 in seed 5) re-proposing a third term nine times each, worded as "Secure long-term stability and
+    policy continuity".
+  - Citizen 29 makes the same kind of moves in forward-only, where the goal is off: a third term twice and a higher
+    petition bar twice, worded likewise ("ensures continuity of policy", "to protect stability").
+- **Suspected: the ambition goal makes presidents persist.** Repeats are highest with the goal on: ambition-only 33
+  proposals for 17 distinct, both on 75 for 47. Without it, forward-only has 19 for 17 and both off 31 for 21. This
+  is not tested.
+- **Self-interest said outright rises only with both on** (40%, against 24% in each other arm), in the pooled arm
+  whose seed-to-seed swing the phase15 paragraph documented.
+- **Not a clean 2x2.**
+  - The columns ran on four commits. Between phase15 (f8c31727) and phase16 (5b5b8be8), #947 changed how a
+    blank-only ballot counts toward a mandate, and the prompt stamp changed.
+  - Both off is also pre-ADR-029.
+  - Seat-based effective numbers (7.02, 8.55, 4.76, 6.68) are reported in `probes/arms.py` but not read as arm
+    effects.
+- **No founding-ratio cut, no jump.** Neither arm cut the ratio, and neither peaked above 31 parties. That makes 23
+  seeds without a cut and none above 31, against the 2 seeds with a cut at 43 and 48. The seeds with the ratio frozen
+  would test it; they have not been run.
+- **Recalls:** none in either arm.
+
+*Evidence:* run from `fast_api_voter/`, with `R=~/Documents/Dev/polity-runs`:
+```
+python scripts/check_observations.py amendments both-off=$R/phase13/runs forward-only=$R/phase16/forward-only \
+  ambition-only=$R/phase16/ambition-only both-on=$R/phase14/runs,$R/phase15/runs
+```
+It prints every row of the table. The quotes are `amendment_proposed` reasons in `phase16/ambition-only` and
+`phase16/forward-only`.
 
 *Status: decided.*
 
@@ -2600,6 +2711,37 @@ refer, and a candidate the forecast did not know won.**
   leaders of parties founded since? That is a guess at who will be nominated, which ADR-027 chose not to make.
 - **Journaling the referendums not held.** The reason (same winner, or too few against) and the counts would have
   answered this from the journal, without a replay.
+
+*Probe (2026-10-17): a pattern, not one president.* `check_amendment_stakes.py` now also judges a proposed
+method from the president's side, on today's ballots:
+- gain: it elects them, the method in force does not;
+- nothing: the same winner;
+- shift: another winner, still not them;
+- loss: they lose what the method in force gives them;
+- barred: the term limit stops them standing at all.
+
+It was run on the sitting presidents of the 30 finished exploration runs (phases 11-15, final states), 2 turns
+each, with and without the stakes, at temperature 0.6. The log is
+`~/Documents/Dev/polity-runs/probes/method-gain-20261017b.log`.
+
+- **Who could gain:** 6 of the 30 are barred by the term limit. Of the other 24, today's ballots elect 21 under
+  the method in force, none loses under it and wins under another, and 3 lose under every method.
+- **Without the stakes:** 2 voting-method proposals in 60 turns, both "nothing".
+- **With the stakes:** 7 in 60 turns, from 5 presidents (5 plurality, 2 approval).
+  - 6 change nothing.
+  - 1 shifts the win to another candidate (phase11 seed 8: neither method elects that president).
+  - None is a gain.
+- **The reasons:** 6 of the 7 name the president's re-election or party, from 4 of the 5 presidents ("Switch to
+  plurality to simplify re-election prospects", "favor my party's strengths").
+- **Answers rejected by the kernel:** 29 of the probe's answers were rejected and replayed at temperature 0.3.
+  - 23 tried to abolish the term limit, which the kernel refuses while `regime.enabled` needs a finite one.
+  - 4 turns exhausted their retries, all without the stakes; they are counted apart, not as "no proposal".
+- **A run before the count was fixed** (`method-gain-20261017.log`) went the same way: 1 proposal without the
+  stakes, 8 with, none a gain.
+
+Showing a president every method that elects them reads as an invitation to switch to one, even when the method
+in force elects them too. Final states leave little room for a real gain (21 of 24 eligible presidents already
+win), so the probe cannot say whether presidents who could gain choose the method that gives it.
 
 *Status: cause found.*
 
@@ -2665,4 +2807,199 @@ when it comes before the id: read it as an unexplained effect to replicate, not 
 journals, and every replay log, are regenerated, and the cache key the sort was written for needs another way
 to be canonical (sort the body's top level, not the schema). The owner's call; nothing is changed here.
 
-*Status: cause found.*
+*Status: mechanism fixed 2026-10-19 (ADR-030, EXP-025).* `llm_client.WIRE_ORDER` decides the order a decision
+class's fields are sent in, and `scripts/check_schema_order.py` decides `WIRE_ORDER` on ground truth; it is
+set for four decisions since 2026-10-20 (ADR-030, "The first table"); every other object still goes out
+alphabetically, byte for byte as before. Applied on the wire
+after the request hash is taken: the "what a fix costs" paragraph above overstated it. Trying the order
+first (`motif` first) is OBS-051.
+
+### OBS-051
+
+**Sending the reason code first made every consulted citizen act, and the declared order of the forum turn silenced opinion change.**
+
+*Seen.* The order tried on 2026-10-18 (EXP-025, commit `ddabeaf8`, never pushed): every decision as id,
+`motif`, decision, dependents, and every other object in its class's declared order. On stock vLLM 0.31.0,
+exploration profile, p100, 4 years, seeds 1-3, against the alphabetical control run at the same time on the
+same server:
+
+| measure | alphabetical | tried order | phase15 (older code), first 4 years |
+|---|---|---|---|
+| pressure "nothing" share | 55% (41-72% per seed) | 0% (0 of 1143) | 61% |
+| forum mind-shift rate | 3.8-4.1% per seed | 0.0-1.1% per seed | 6% |
+| fallbacks | 0 (a second control run: 15) | 5 per seed, all `chamber_deliberation` | 0-5 |
+| elections / recalls per run | 2 / 0 | 2 / 0 | 2 / 0 |
+
+*Why.* The pressure change is the only one `PressureDecision` received (`act, cid, motif, target` to `cid,
+motif, act, target`). On the bank's 24 ground-truth citizens the model then acted for 23, including all 12 far
+below their tolerance: the code it wrote first anchored the act, and it stopped reading the citizen's
+situation (45.8% correct, against 62.5% alphabetical and 79.2% in the declared order). The forum change comes
+from the objects without a `motif`: `ForumTurn` (`shift_issue` now after `rationale`, `post`, `note_to_self`).
+The chamber fallbacks are not an effect: a second run of the unchanged control code (2026-10-20) had 15 too.
+Two sessions sent identical bytes answer pressure the same way every time, so this is not noise.
+
+*Outcome.* Not shipped. ADR-030 makes the order a measured table; the live check, judged against two runs of
+the control code, rejects this order for its pressure and forum changes. The table that did ship (ADR-030,
+"The first table": `act` before `motif`, agent turns unchanged) stays inside both controls on every measure.
+
+*Status: explained, not shipped.*
+
+### OBS-052
+
+**On the 8B, founders re-found their own party every tick: 47 parties founded and 30 dissolved in 8 years for 100 citizens.**
+
+*Seen.* The like-for-like baseline of the rented 27B probe (`plan-rented-gpu-runs.md` G6): the 8B on the
+probe's own code and config (`e11971af`, seed 42, 8 years, p100, 15 seats, exploration, 24 workers, relaxed),
+run `~/Documents/Dev/polity-runs/rtxpro6000-8b-baseline/baseline-8y-p100-qwen3-8b-w24-seed42`:
+
+| | 27B probe | 8B baseline |
+|---|---:|---:|
+| forum turns asking to `found` | 2 of 495 | 96 of 506 |
+| parties founded / dissolved | 2 / 0 | 47 / 30 |
+| founded parties dissolved within 2 ticks of founding | - | 11 of 29 (the 30th dissolution was initial party 2) |
+| effective parties (seats), first → last election | 5.30 → 5.11 | 8.01 → 5.38 |
+
+Nine parties were founded at tick 0. Citizen 8 founded party 6 at tick 0, 14 at tick 1 (party 6 dissolved,
+1 member left), 16 at tick 2 (14 dissolved, 0 left), 18 at tick 3 (16 dissolved); citizen 77 founded 23 at
+tick 4 and 25 at tick 5, dissolving 21 and 23. From `events.jsonl`: the `party_founded` and `party_dissolved`
+events in order, with each `forum_post`'s `party_move`.
+
+*Cause.* `simple_rules.cofounders` brings along everyone who would sign for the founder's positions and stands
+nearer to them than to their own party's platform, including the members of a party founded a tick before.
+Dissolution is checked right after each move, and party 6 went from 6 members at its founding to 1 in the move
+that founded party 14: the new founding took them. Why they followed is inferred, not observed: a founder's
+positions drift between ticks (opinion dynamics, the forum), so the members of their party, whose platform is
+the founder's old positions, can stand nearer the new ones. ADR-018 expected the gap between the founding ratio and half of it to stop "a party being founded
+and dissolved in turn"; it does not, because the members leave all at once. The 8B asks to found readily
+(OBS-045: 59/60 able founders found, whatever the threshold), so it hits this; the 27B rarely does. A unit
+test reproduces it without a model: after a founding, move the founder halfway to their members' centre,
+found again, and the first party keeps 2 of its 8 members.
+
+*Outcome.* ADR-018, amendment 2026-10-21: for `parties.founding_lock_years` (1 by default) after a party is
+founded, its members can neither found nor be brought into another founding; joining and leaving stay free,
+and the forum turn's stand line tells a member until when.
+
+*What it did (2026-10-21, one seed pair).* The baseline's config (8B, seed 42, 8 years, p100, exploration profile), current
+polity without the lock (`a95f5d28`, `ctl`) against the branch with it (`36e4078e`, `lock`), run together on one
+server (`~/Documents/Dev/polity-runs/founding-lock-ab`, `chain.sh`; 103 and 100 minutes, 3 elections and 0 recalls in
+both). Founding events and `party_dissolved` ages from `events.jsonl`:
+
+| | ctl (no lock) | lock |
+|---|---:|---:|
+| forum turns asking to `found` / applied | 83 / 44 | 80 / 32 |
+| parties founded / founded parties dissolved | 44 / 25 | 32 / 11 |
+| founded parties dissolved inside their first year (< 4 ticks) | 8 | 1 |
+| dissolutions journaled right after a founding in the same tick | 7 | 1 |
+| ages at dissolution (ticks) | 0 1 1 1 1 2 3 3 4 5 5 5 5 7 8 9 12 13 19 21 23 23 26 28 29 | 1 4 7 8 9 10 12 16 20 24 24 |
+| effective parties by seats, first / second legislative election | 7.81 / 6.55 | 10.06 / 13.89 |
+| prompt texts carrying the lock sentence | 0 | 152 |
+
+The mechanism behaves as designed: dissolutions inside the lock fall from 8 to 1, and from 7 to 1 right behind a founding.
+The one inside the lock is a dissolution through the party's own members leaving (the lock does not stop joins or
+leaves). Fewer foundings are applied (32 against 44) although the model asks about as often (80 against 83); a
+suspicion, not shown: the kernel refuses more because a locked party's members no longer count as co-founders. The ENP
+by seats is higher with the lock, as fewer parties are dissolved. Not shown: that this holds beyond one seed pair (the
+arms also differ in what the model did: retries 58 against 85, fallbacks 5 against 3, noise of the OBS-020 kind), and
+nothing here tests the effect on the elections.
+
+*Status: fixed (ADR-018, amendment 2026-10-21); one live seed pair agrees, more seeds would say how much.*
+
+### OBS-053
+
+**The 27B rebuilds the JSON schema in its reasoning on nearly every thinking call, because the prompts say "the schema given" and never show it; its forum never changes a mind.**
+
+*Seen.* The rented 27B probe and its 8B baseline (`plan-rented-gpu-runs.md` §11), same code (`e11971af`) and
+config. Thinking calls whose reasoning searches for the answer's format (a regex on "schema", "likely keys",
+"need to output JSON", "what fields"), from `llm_calls.jsonl`:
+
+| decision | 27B | 8B |
+|---|---:|---:|
+| forum_post | 494 / 495 | 2 / 506 |
+| chamber_deliberation | 94 / 99 | 0 / 122 |
+| president_turn | 31 / 33 | 0 / 34 |
+| coalition_turn | 30 / 30 | 0 / 45 |
+| nominee_turn | 18 / 18 | 0 / 36 |
+| amendment_vote | 65 / 75 | 0 / 135 |
+| vote_cast | 15 / 15 | 0 / 20 |
+
+The reasoning reads like "Need JSON schema: rationale, post, note_to_self, party_move, party_id, shift_issue,
+shift_direction? ... shift_issue -1, shift_direction "none"." In the forum, the 27B set `shift_issue` to -1 and
+`shift_direction` to "none" in all 495 turns (the 8B moved in 20 of 506, 4.0%). Both models wrote the fields in
+the same (alphabetical) order, so the order is not the difference.
+
+*Cause.* The prompts point at a schema they never show. The agent turns, the forum and the amendment ballot say
+"Answer with one JSON object in the schema given"; most batch decisions, the vote and the chamber among them, say "Reponds
+UNIQUEMENT avec un objet JSON conforme au schema fourni" (18 such places in `api/domain/polity/`). The schema
+itself goes to vLLM as the structured-output constraint only, never into the prompt text (`llm_prompts.jsonl`
+keeps it apart). The prompts name some fields in prose, not the object's shape. The 27B looks for the schema it
+was told about; the 8B does not. Related history: the "Mode A" vote loop (`llm_behavior_engine.py`, the vote
+system prompt's docstring), where the 8B reasoned in circles on "the format question" until fixed by rewording.
+
+*Suspected effects, not shown.* The search uses reasoning tokens, so it is part of why the 27B reaches the
+2,048-token budget on 62-100% of leader and chamber calls; and it treats the shift fields as boilerplate to
+fill with their "no change" values, which would explain 0 shifts in 495 turns. Neither is measured.
+
+*What would settle it.* Show the fields in the prompt (or drop "in the schema given"), then a bake-off on the
+27B and the 8B: the share of reasoning spent on the format, reasoning tokens, and the forum's shift rate on
+the same cases. A prompt change for every agent decision, so a measured one.
+
+*Status: cause found (the missing schema); its effects are open.*
+
+### OBS-054
+
+**The 8B votes blank against the prompt's own rule, in half the units when the thinking budget cuts it; the 27B never does.**
+
+*Seen.* The vote prompt states the rule: a candidate whose distance is at most the voter's `blank_threshold` is
+acceptable, and blank is for the voter with none (`build_system_prompt`, `llm_behavior_engine.py`). The prompt carries
+each voter's `distances` and `blank_threshold`, so every logged `vote_cast` answer can be scored against it. From the
+runs that kept `llm_prompts.jsonl` (`python scripts/audit_decisions.py <root>`; units are the voters of the audit batches):
+
+| run | budget state | units | rule says blank | model blank | blank though a candidate was acceptable | first choice = nearest acceptable |
+|---|---|---:|---:|---:|---:|---:|
+| 8B baseline, 8y p100 seed 42 | at the thinking budget | 27 | 0% | 30% | 30% | 11/19 |
+| 8B baseline | under it | 11 | 9% | 36% | 27% | 7/7 |
+| 8B, full 30y p500 seed 1 | at | 327 | 4% | 58% | 54% | 80/135 |
+| | under | 78 | 6% | 19% | 13% | 63/63 |
+| 8B, full 30y p500 seed 2 | at | 383 | 3% | 52% | 50% | 142/182 |
+| | under | 159 | 8% | 21% | 13% | 126/126 |
+| 8B, full 30y p500 seed 42 | at | 469 | 6% | 52% | 47% | 148/220 |
+| | under | 79 | 10% | 20% | 10% | 62/63 |
+| 27B, 8y p100 seed 42 | under (never at) | 41 | 2% | 2% | 0% | 39/40 |
+| 27B, 2y p200 seed 42 | under (never at) | 22 | 9% | 9% | 0% | 20/20 |
+
+("At the budget" = the call's reasoning reached `llm.thinking_token_budget` - 2 tokens, so it was cut, not finished.
+The share of vote calls in that state is 84%, 72% and 86% in the three p500 runs and 80% in the 8y baseline; OBS-023.)
+
+*Cause.* Shown for the budget: under it the 8B ranked the nearest acceptable candidate in 258 of 259 ranked units
+and blanked against the rule in 10-27% of units (13%, 13% and 10% at p500; the 27% is 11 units); cut at the budget
+it blanked against the rule in 47-54% of units at p500 (30% at 27 units) and ranked the nearest acceptable candidate
+in 58-78% of ranked units. The remaining under-budget error is the model's: the rule is in the prompt and the 27B
+follows it (0 of 63 units blank against it, 59 of 60 ranked units right). The first experiment of the 2026-10-21 investigation then showed that a larger budget removes the at-budget half and
+leaves the model's own ~10% (update below).
+
+*Consequence.* None for who governs: since ADR-011 every counted presidential ballot is the kernel's `utility_ballot`;
+the model votes a 10% audit sample, journaled with `audit` and never counted. It does mean the audit cannot stand as
+the "validated" instrument for the 8B (W2.3's fit-for-inference table says `vote_cast` is validated, on the bank).
+
+*What would settle it.* The bank's `vote_first_choice` and `logprob_gate` at budgets 2048, 4096, 8192 and none on the
+same live prompts, paired by call, scored with `decision_audit.vote_rule`.
+
+*Update 2026-10-21: raising the budget removes most of the error; the registered verdict is unresolved.* The logged
+prompts of the 8B baseline and the three p500 runs (255 vote calls, 1,402 voters where the rule says a candidate is
+acceptable; and 100 chamber calls) were sent again under `thinking_token_budget` 2048, 4096, 8192 and none, same bytes
+otherwise (`scripts/thinking_budget_live.py`, results in `scripts/thinking_budget_live_results.md`, rule committed before
+the first call). The share of voters whose first choice is not the nearest acceptable candidate: 60.4% at 2048, 24.9% at
+4096, 12.0% at 8192, 10.2% with no budget; blank against the rule 47.3%, 21.7%, 11.1%, 9.8%. The cases that had ended
+under the budget originally stay at 6-16% in every arm (spread 9.6 points, inside the 13.8-point noise floor: the
+internal check holds). The pre-registered verdict is "unresolved": the 2048 arm's own two repeats flip on 10.4% of units,
+above the 5% guard (the arms flip on 8-14%). The choice of budget is not made here, and what the decision rule would say
+if applied anyway depends on how rejected calls are scored (the pre-registration was silent): scored wrong, 8192; left
+out (9 vote calls with no budget were rejected), "no tested budget removes the error", because E2 with no budget falls
+to 8.6% against 11.3% at 8192 on the same units. Cost of 8192: latency p50 22 s to 44 s on a vote call, 22 s to 57 s on a
+chamber call; no budget is not viable for the chamber (86 of 300 calls hit `max_tokens`). Two departures from the
+pre-registration: the 8B baseline gave 15 first-attempt vote calls, not 20; and the replay used the reference config's temperature 0.0 and seed 42
+(the log has no per-call override). The 10% flip between repeats is therefore the server's, not sampling.
+
+*Status: effect shown (a larger budget cuts the error from about 60% to about 12%); registered verdict unresolved; the
+budget to adopt is open.*
+

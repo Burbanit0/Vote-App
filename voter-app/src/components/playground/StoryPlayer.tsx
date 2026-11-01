@@ -211,7 +211,7 @@ const StoryPlayer: React.FC = () => {
                 />
               ))}
             </span>
-            <span className="font-mono text-[0.7rem] uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-sm font-bold text-muted-foreground">
               {t('stories.step', { n: stepIdx + 1, total: active.steps.length })}
             </span>
           </div>

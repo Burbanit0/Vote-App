@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,7 +106,15 @@ const MethodColumn: React.FC<{
                   }}
                 >
                   {winner ?? '—'}
-                  {hasChanged && isBlank && ' ⚠'}
+                  {hasChanged && isBlank && (
+                    <>
+                      {' '}
+                      <TriangleAlert
+                        aria-hidden
+                        className="inline h-3.5 w-3.5 align-[-2px] text-stamp"
+                      />
+                    </>
+                  )}
                 </span>
               </div>
             );
@@ -326,7 +335,7 @@ const BlankVoteDivergencePanel: React.FC = () => {
           {/* Pedagogical message */}
           {highImpact && (
             <Alert variant="warning" className="py-2" style={{ fontSize: '0.82rem' }}>
-              ⚠️{' '}
+              <TriangleAlert aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-stamp" />{' '}
               {t('divergence.highImpactMessage', {
                 pct: Math.round(result.pct_methods_changed * 100),
                 methods: result.methods_changed.slice(0, 3).join(', '),

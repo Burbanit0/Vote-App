@@ -84,8 +84,9 @@ code 1" — pour ce repo, les schémas déjà vus sont :
 - `npm ci` : `ERESOLVE` avec un peer dependency qui plafonne bas (ex.
   `eslint-plugin-jsx-a11y` qui cape `eslint` à `^9`).
 - incompatibilité `engines.node` : un paquet exige Node ≥ X — la CI de ce
-  repo épingle Node 24 partout depuis 2026-09 (bump depuis Node 20, EOL
-  2026-04-30 ; `grep -rn "node-version" .github/workflows/`), donc ce n'est
+  repo lit sa version de Node dans `voter-app/.nvmrc` (`node-version-file`, depuis
+  2026-10-24 ; avant : Node 24 flottant, bump depuis Node 20, EOL 2026-04-30 ;
+  `grep -rn "node-version" .github/workflows/`), donc ce n'est
   plus la cause par défaut à suspecter en premier — vérifie quand même la
   version réelle avant de conclure, au cas où un workflow aurait dérivé.
 

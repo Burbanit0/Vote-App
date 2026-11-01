@@ -29,7 +29,7 @@ Effet de bord : a révélé `ruff`/`pytest`/`pytest-asyncio`/`pytest-cov`
 dupliqués dans `requirements.txt` (production) alors qu'ils n'appartiennent
 qu'à `requirements-dev.txt` — retirés, et `fast_api_voter/Dockerfile` (image
 dev, utilisée par `scripts/bootstrap.sh` pour lancer `pytest` en conteneur)
-installe désormais aussi `requirements-dev.txt` en conséquence.*
+installe désormais aussi les dépendances de dev en conséquence (depuis le 2026-10-24 via `requirements-dev.lock.txt`).*
 
 *`madge` ajouté le même jour (imports circulaires côté frontend +
 visualisation du graphe) — informationnel uniquement, pas dans le cliquet

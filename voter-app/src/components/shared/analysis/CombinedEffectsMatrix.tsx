@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,12 @@ const MatrixCell: React.FC<{
     >
       <div style={{ fontWeight: 700, fontSize: '0.85rem', color: changed ? '#B71C1C' : undefined }}>
         {combo.plurality_winner ?? '—'}
-        {changed && ' ⚠'}
+        {changed && (
+          <>
+            {' '}
+            <TriangleAlert aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-stamp" />
+          </>
+        )}
       </div>
       {combo.condorcet_winner === combo.plurality_winner && combo.condorcet_winner && (
         <Badge variant="success" style={{ fontSize: '0.6rem' }}>
@@ -110,7 +116,7 @@ const FactorialMatrix: React.FC<{
                 border: '1px solid var(--bs-border-color)',
               }}
             >
-              📅 {t('combined.campaignOff')}
+              {t('combined.campaignOff')}
             </th>
             <th
               colSpan={2}
@@ -121,7 +127,7 @@ const FactorialMatrix: React.FC<{
                 border: '1px solid var(--bs-border-color)',
               }}
             >
-              📅 {t('combined.campaignOn')}
+              {t('combined.campaignOn')}
             </th>
           </tr>
           <tr>
@@ -143,7 +149,7 @@ const FactorialMatrix: React.FC<{
                   border: '1px solid var(--bs-border-color)',
                 }}
               >
-                📡 {i % 2 === 0 ? t('combined.infoOff') : t('combined.infoOn')}
+                {i % 2 === 0 ? t('combined.infoOff') : t('combined.infoOn')}
               </th>
             ))}
           </tr>
@@ -176,7 +182,10 @@ const FactorialMatrix: React.FC<{
         <span style={{ color: '#C8590A' }}>■ 60–80%</span>
         <span style={{ color: '#B71C1C' }}>■ &lt; 60%</span>
         <span>✓ C = {t('combined.condorcet')}</span>
-        <span>⚠ = {t('combined.winnerChanged', { base: base_winner ?? '?' })}</span>
+        <span>
+          <TriangleAlert aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-stamp" /> ={' '}
+          {t('combined.winnerChanged', { base: base_winner ?? '?' })}
+        </span>
       </div>
     </div>
   );
@@ -397,7 +406,7 @@ const CombinedEffectsMatrix: React.FC = () => {
                 {/* Most / least disruptive badges */}
                 <div className="flex gap-2 mt-3 flex-wrap" style={{ fontSize: '0.75rem' }}>
                   <Badge variant="danger">
-                    ⚠ {t('combined.mostDisruptive')}: {result.most_disruptive_factor}
+                    {t('combined.mostDisruptive')}: {result.most_disruptive_factor}
                   </Badge>
                   <Badge style={{ background: '#007A33' }}>
                     ✓ {t('combined.leastDisruptive')}: {result.least_disruptive_factor}

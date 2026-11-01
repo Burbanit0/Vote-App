@@ -138,6 +138,11 @@ class Citizen:
     # starting values live in LatentStructure, regenerated from the seed); the three
     # emotions are each in [0, 1].
     latent_factors: tuple[float, ...] | None = None
+    # ADR-035: where this citizen's views are drawn back to (Friedkin-Johnsen's anchor) when it is not the
+    # one LatentStructure drew at the start: a newcomer's, set when a generation replaces their slot, or (ADR-032 D,
+    # dynamics.anchor_follow > 0) a citizen's whose forum stance shift moved it. None for everyone else, whose
+    # anchor is the structure's row for their id. So it marks a newcomer only while anchor_follow is 0.
+    anchor_factors: tuple[float, ...] | None = None
     anger: float | None = None
     anxiety: float | None = None
     enthusiasm: float | None = None

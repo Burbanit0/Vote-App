@@ -338,7 +338,7 @@ const DistrictMap: React.FC = () => {
                 {t('districts.computing')}
               </>
             ) : (
-              `🗺 ${t('districts.run')}`
+              t('districts.run')
             )}
           </Button>
           {data && (

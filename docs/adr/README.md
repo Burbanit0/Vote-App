@@ -38,6 +38,16 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [027](ADR-027-forward-method-stakes.md) | A voting method is weighed by the next election, not the last | polity | 2026-10-12 | Accepted (exploration profile) |
 | [028](ADR-028-ambition-shapes-the-presidents-goal.md) | A president's goal follows their ambition (supersedes roadmap D8) | polity | 2026-10-12 | Accepted |
 | [029](ADR-029-referendum-is-a-new-vote.md) | A referendum is a new vote, each citizen for their own interest (amends ADR-020) | polity | 2026-10-13 | Accepted |
+| [030](ADR-030-field-order-is-part-of-the-prompt.md) | The order of a schema's fields is part of the prompt, chosen by measurement | polity | 2026-10-19 | Accepted |
+| [032](ADR-032-opinion-that-persists-proposed.md) | Opinion that persists: option D built (`dynamics.anchor_follow`, off); B, C and E remain proposals | polity | 2026-10-21 | Partly accepted: D built (off), B/C/E proposed |
+| [033](ADR-033-radicalisation.md) | Radicalisation: once events have shaken the polity, angry citizens step away from the president (scenario profile) | polity | 2026-10-21 | Accepted (scenario profile) |
+| [034](ADR-034-economic-voting-and-scripted-events.md) | Voters judge the economy (scenario profile), and a scenario names its crises (`events.scripted`) | polity | 2026-10-22 | Accepted (scripted events everywhere; economic voting in the scenario profile) |
+| [035](ADR-035-generational-replacement.md) | Generations turn over: ordinary citizens are replaced in place by newcomers formed in their circle (scenario profile) | polity | 2026-10-22 | Accepted (scenario profile) |
+| [036](ADR-036-homophilous-rewiring.md) | The social ties can move toward like views (`social_graph.evolving`), built and off everywhere: it halves the tie gap but does not move the divergence test | polity | 2026-10-24 | Accepted (off) |
+| [037](ADR-037-realignment-against-the-populations-spread.md) | A realignment is a shift of half the population's own spread, not a fixed 0.1 (archetype version 3) | polity | 2026-10-24 | Accepted |
+| [038](ADR-038-economic-voting-calibrated-on-volatility.md) | Economic voting at 0.3 in the scenario profile: at ADR-034's 1.0 it swung whole blocs between elections (volatility 0.36) | polity | 2026-10-24 | Accepted |
+| [039](ADR-039-turnout-cost.md) | A voter whose best candidate is within 0.02 of the blank ballot stays home (scenario profile): at 0 turnout sat above the band in 42% of runs | polity | 2026-10-24 | Accepted |
+| [040](ADR-040-party-leaders-move-their-platform.md) | Party leaders move their platform by Laver and Sergenti's rules (sticker, aggregator, hunter, explorer), off by default; hunters make churn | polity | 2026-10-25 | Accepted (off) |
 
 Also in this folder, not ADRs:
 

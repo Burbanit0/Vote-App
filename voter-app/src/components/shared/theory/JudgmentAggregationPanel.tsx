@@ -4,6 +4,7 @@
  * results even when every individual voter is perfectly coherent.
  */
 import React, { useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -168,7 +169,7 @@ const LogicTreeSVG: React.FC<TreeProps> = ({ data, incoherences }) => {
                 textAnchor="middle"
                 style={{ fontSize: 8, fill: '#dc3545', fontWeight: 700 }}
               >
-                ⚡ INCOHÉRENT
+                INCOHÉRENT
               </text>
             )}
           </g>
@@ -310,9 +311,10 @@ const JudgmentAggregationPanel: React.FC = () => {
                           </Badge>
                           {p.text}
                           {isInco && (
-                            <Badge variant="danger" className="ms-1" style={{ fontSize: '0.6rem' }}>
-                              ⚡
-                            </Badge>
+                            <TriangleAlert
+                              aria-label="incohérent"
+                              className="ms-1 inline h-3.5 w-3.5 align-[-2px] text-destructive"
+                            />
                           )}
                         </td>
                         <td style={{ fontSize: '0.78rem' }}>
@@ -354,7 +356,7 @@ const JudgmentAggregationPanel: React.FC = () => {
                 >
                   {data.incoherences.map((inc, i) => (
                     <div key={i}>
-                      <strong>⚡ {inc.problem}</strong>
+                      <strong>{inc.problem}</strong>
                       <div className="text-muted-foreground" style={{ fontSize: '0.72rem' }}>
                         Prémisses: {inc.premises.join(', ')} → Conclusion: {inc.conclusion}
                       </div>

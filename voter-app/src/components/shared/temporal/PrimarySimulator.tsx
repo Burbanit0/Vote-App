@@ -426,7 +426,7 @@ const PrimarySimulator: React.FC = () => {
                 {t('primary.simulating')}
               </>
             ) : (
-              `🗳 ${t('primary.run')}`
+              t('primary.run')
             )}
           </Button>
           {error && (
@@ -462,7 +462,7 @@ const PrimarySimulator: React.FC = () => {
                 )}
                 {anyDrift && (
                   <Badge variant="danger" data-testid="drift-badge">
-                    ⚠ {t('primary.driftDetected')}
+                    {t('primary.driftDetected')}
                   </Badge>
                 )}
               </div>
