@@ -35,9 +35,21 @@ const prefersReducedMotion = () =>
 const gatesOf = (n: number): number[] =>
   Array.from({ length: Math.ceil(n / 5) }, (_, i) => Math.min(5, n - i * 5));
 
-// One tally gate: up to four uprights, the fifth a diagonal slash across them.
-const Gate: React.FC<{ k: number }> = ({ k }) => {
+/** The pause between two strokes of the count, in ms. */
+const STROKE_MS = 45;
+
+// One tally gate: up to four uprights, the fifth a diagonal slash across them. Animated,
+// each stroke is drawn in turn from `delayMs`, as a hand counting would.
+const Gate: React.FC<{ k: number; delayMs?: number }> = ({ k, delayMs }) => {
   const xs = [3, 8, 13, 18];
+  const draw = (i: number) =>
+    delayMs == null
+      ? {}
+      : {
+          pathLength: 1,
+          className: 'stroke-draw',
+          style: { animationDelay: `${delayMs + i * STROKE_MS}ms` },
+        };
   return (
     <svg
       viewBox="0 0 22 20"
@@ -49,15 +61,15 @@ const Gate: React.FC<{ k: number }> = ({ k }) => {
       aria-hidden
     >
       {xs.slice(0, Math.min(k, 4)).map((x, i) => (
-        <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} />
+        <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} {...draw(i)} />
       ))}
-      {k === 5 && <line x1={0.5} y1={17.5} x2={21} y2={2.5} />}
+      {k === 5 && <line x1={0.5} y1={17.5} x2={21} y2={2.5} {...draw(4)} />}
     </svg>
   );
 };
 
-// A run of strokes. Animated: sweeps in left-to-right (a hand laying them down);
-// migrating: drifts off as the pile empties; still: the reduced-motion fallback.
+// A run of strokes. Animated: drawn one by one (a hand laying them down); migrating:
+// drifts off as the pile empties; still: the reduced-motion fallback.
 const Strokes: React.FC<{
   n: number;
   animated: boolean;
@@ -65,16 +77,13 @@ const Strokes: React.FC<{
   delayMs?: number;
   className?: string;
 }> = ({ n, animated, migrating, delayMs = 0, className }) => (
-  <span
-    className={cn(
-      'flex items-center gap-1',
-      animated && (migrating ? 'tally-migrate-anim' : 'tally-sweep-anim'),
-      className
-    )}
-    style={animated ? { animationDelay: `${delayMs}ms` } : undefined}
-  >
+  <span className={cn('flex items-center gap-1', migrating && 'tally-migrate-anim', className)}>
     {gatesOf(n).map((k, i) => (
-      <Gate key={i} k={k} />
+      <Gate
+        key={i}
+        k={k}
+        delayMs={animated && !migrating ? delayMs + i * 5 * STROKE_MS : undefined}
+      />
     ))}
   </span>
 );
@@ -195,11 +204,16 @@ const DiscoverVoteAnimation: React.FC<{
                 </span>
 
                 {wins && <Check aria-hidden className="h-4 w-4 shrink-0 text-primary" />}
+                {/* The total is written once its strokes are down. */}
                 <span
                   className={cn(
                     'w-6 text-right font-mono text-sm tabular-nums',
+                    animate && 'home-up',
                     wins ? 'font-bold text-primary' : 'font-semibold text-foreground'
                   )}
+                  style={{
+                    animationDelay: `${row * 90 + (b.received ? 560 + b.received * STROKE_MS : own * STROKE_MS)}ms`,
+                  }}
                 >
                   {b.value}
                 </span>

@@ -279,15 +279,39 @@
   }
 }
 
-/* /decouvrir "dépouillement" — the hand-count. Tally rows reveal left-to-right
-   as if being counted; a runoff sends the eliminated pile's strokes drifting up
-   toward the survivor. */
-@keyframes tally-sweep {
+/* /decouvrir — the homepage's motion carried over (the design canvas's Motion board):
+   the starting slip unfolds from its corner (the slip wipe), the twelve friends'
+   ballots drop and settle, each tally stroke is drawn by hand, four uprights then the
+   strike, and a runoff sends the eliminated pile's strokes drifting toward the
+   survivor. A section marked data-reveal holds its entrances paused until useReveal
+   marks it data-shown, the first time it comes into view. */
+[data-reveal]:not([data-shown]) * {
+  animation-play-state: paused !important;
+}
+@keyframes slip-unfold {
   from {
-    clip-path: inset(0 100% 0 0);
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0, 0 0);
   }
-  to {
-    clip-path: inset(0 0 0 0);
+}
+@keyframes ballot-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-56px) rotate(var(--tilt));
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(5px) rotate(calc(var(--tilt) * -0.25));
+  }
+  66% {
+    transform: translateY(-3px) rotate(calc(var(--tilt) * 0.1));
+  }
+  84% {
+    transform: translateY(1px) rotate(0deg);
+  }
+}
+@keyframes stroke-draw {
+  from {
+    stroke-dashoffset: 1;
   }
 }
 @keyframes tally-migrate {
@@ -300,14 +324,24 @@
     opacity: 0;
   }
 }
-.tally-sweep-anim {
-  animation: tally-sweep 0.52s ease-out both;
+.slip-unfold {
+  animation: slip-unfold 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.ballot-drop {
+  animation: ballot-drop 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* On an SVG path or line drawn with pathLength="1". */
+.stroke-draw {
+  stroke-dasharray: 1;
+  animation: stroke-draw 0.24s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .tally-migrate-anim {
   animation: tally-migrate 0.64s ease-in forwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tally-sweep-anim,
+  .slip-unfold,
+  .ballot-drop,
+  .stroke-draw,
   .tally-migrate-anim {
     animation: none;
   }
