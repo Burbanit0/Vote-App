@@ -1364,7 +1364,7 @@
   "test-flaky": 27,
   "unknown": 2
  },
- "generated_at": "2026-11-01T01:23:59Z",
+ "generated_at": "2026-11-01T01:29:14Z",
  "grid": {
   "Backend CI": {
    "2026-10-02": {
@@ -1649,7 +1649,7 @@
     "success": 8
    },
    "2026-11-01": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
@@ -2309,7 +2309,7 @@
     "success": 3
    },
    "2026-11-01": {
-    "skipped": 3,
+    "skipped": 7,
     "success": 1
    }
   },
@@ -2351,6 +2351,9 @@
    },
    "2026-10-26": {
     "failure": 1
+   },
+   "2026-11-01": {
+    "success": 1
    }
   },
   "OpenSSF Scorecard": {
@@ -2762,7 +2765,7 @@
    },
    "2026-11-01": {
     "cancelled": 7,
-    "skipped": 25,
+    "skipped": 30,
     "success": 5
    }
   },
@@ -2820,9 +2823,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-01T01:16:25Z",
+   "created_at": "2026-11-01T01:19:40Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260393277"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260622458"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2876,16 +2879,16 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-01T01:15:32Z",
+   "created_at": "2026-11-01T01:33:52Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260327140"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41261600417"
   },
   "Mutation Testing": {
-   "branch": "develop",
-   "conclusion": "failure",
-   "created_at": "2026-10-26T10:08:05Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
+   "branch": "polity",
+   "conclusion": "success",
+   "created_at": "2026-11-01T01:15:41Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260339106"
   },
   "OpenSSF Scorecard": {
    "branch": "develop",
@@ -2917,10 +2920,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-01T01:27:32Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-01T01:33:18Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41261171398"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41261558595"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2930,7 +2933,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40492287353"
   }
  },
- "runs": 14759,
+ "runs": 14775,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2962,12 +2965,12 @@
     "2026-10-27": 315.5,
     "2026-10-30": 452.0,
     "2026-10-31": 277.0,
-    "2026-11-01": 240.0
+    "2026-11-01": 491.0
    },
-   "p50_s": 361,
+   "p50_s": 363,
    "p95_s": 589,
    "queue_p50_s": 0,
-   "runs": 730
+   "runs": 732
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3072,12 +3075,12 @@
     "2026-10-29": 374.5,
     "2026-10-30": 368.0,
     "2026-10-31": 326.5,
-    "2026-11-01": 412
+    "2026-11-01": 489.5
    },
    "p50_s": 389,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 740
+   "runs": 741
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3303,12 +3306,12 @@
     "2026-10-27": 576.0,
     "2026-10-30": 643,
     "2026-10-31": 836,
-    "2026-11-01": 653.5
+    "2026-11-01": 708
    },
    "p50_s": 540,
-   "p95_s": 732,
+   "p95_s": 740,
    "queue_p50_s": 0,
-   "runs": 712
+   "runs": 715
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -3429,12 +3432,13 @@
     "2026-10-06": 10160,
     "2026-10-07": 7571,
     "2026-10-08": 10428,
-    "2026-10-10": 10665
+    "2026-10-10": 10665,
+    "2026-11-01": 1101
    },
-   "p50_s": 10160,
+   "p50_s": 8653,
    "p95_s": 10467,
    "queue_p50_s": 0,
-   "runs": 12
+   "runs": 13
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
@@ -3799,10 +3803,10 @@
      "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260339059"
     },
     "Mutation Testing": {
-     "conclusion": "failure",
-     "created_at": "2026-10-25T00:08:54Z",
-     "sha": "e45486cfe7a283012c997508d4cfc829372cc3ff",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40145555044"
+     "conclusion": "success",
+     "created_at": "2026-11-01T01:15:41Z",
+     "sha": "c0557739aa229e8925139b63e8e673052ca8bbaa",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260339106"
     },
     "Schemathesis Contract Fuzzing": {
      "conclusion": "success",
