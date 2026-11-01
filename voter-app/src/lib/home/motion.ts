@@ -74,7 +74,7 @@ export interface Drop {
   delay: number;
 }
 
-export const DROP_MS = 820;
+const DROP_MS = 820;
 
 /** 100 ballots in a 20 × 5 heap, falling row by row in a shuffled order. */
 export function finaleHeap(): Drop[] {
