@@ -1,5 +1,4 @@
 import base from './vitest.config';
-import { mergeConfig } from 'vitest/config';
 
 // Vitest config used ONLY by Stryker (see stryker.config.json).
 //
@@ -15,9 +14,17 @@ import { mergeConfig } from 'vitest/config';
 //    winner on 60 ordinal + 60 cardinal profiles dies here. Excluding it would
 //    have measured the weaker half of the harness and reported a worse score
 //    than the code actually has.
-export default mergeConfig(base, {
+//
+// Spread, not mergeConfig: mergeConfig CONCATENATES arrays, so the base `include`
+// (src/**/*.test.{ts,tsx}) stayed in and Stryker's dry run executed all ~180 test
+// files from its .stryker-tmp sandbox. One of them reads docs/research/bibliography.bib,
+// which the sandbox does not copy: the dry run failed and no mutation score was
+// computed from 2026-10-12.
+export default {
+  ...base,
   test: {
+    ...base.test,
     include: ['src/lib/playgroundVoting.test.ts', 'src/lib/playgroundVoting.parity.test.ts'],
-    coverage: { enabled: false },
+    coverage: { ...base.test?.coverage, enabled: false },
   },
-});
+};
