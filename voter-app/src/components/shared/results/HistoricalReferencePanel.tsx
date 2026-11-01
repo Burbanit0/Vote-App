@@ -65,7 +65,7 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
             onClick={() => navigate('/playground')}
             data-testid="open-replay-btn"
           >
-            📺 {t('replay.openReplay')}
+            {t('replay.openReplay')}
           </Button>
           {data.reference && (
             <a
@@ -90,9 +90,7 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
           {/* A) Résultat réel */}
           <div className="md:col-span-5">
             <div className="h-full rounded bg-muted p-4 text-[0.82rem]">
-              <div className="mb-2 text-[0.85rem] font-semibold">
-                🏛️ {t('scenarios.realResult')}
-              </div>
+              <div className="mb-2 text-[0.85rem] font-semibold">{t('scenarios.realResult')}</div>
               <div className="mb-1 text-muted-foreground">
                 {t('scenarios.method')} : <strong>{data.real_result.method}</strong>
               </div>
@@ -136,7 +134,7 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
           {result && (
             <div className="md:col-span-7">
               <div className="mb-2 text-[0.85rem] font-semibold">
-                ⚖️ {t('scenarios.simulatedComparison')}
+                {t('scenarios.simulatedComparison')}
               </div>
               <table className="w-full border-collapse text-[0.78rem]">
                 <thead className="bg-muted">

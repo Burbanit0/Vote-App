@@ -239,7 +239,7 @@ const MultiwinnerCompare: React.FC = () => {
             onClick={run}
             disabled={loading || !enoughCandidates}
           >
-            {loading ? <Spinner size="sm" /> : `🏛 ${t('multiwinner.run')}`}
+            {loading ? <Spinner size="sm" /> : t('multiwinner.run')}
           </Button>
         </Col>
       </Row>

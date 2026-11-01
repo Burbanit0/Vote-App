@@ -239,7 +239,7 @@ const AdaptiveVotingPanel: React.FC = () => {
                 {t('adaptive.simulating')}
               </>
             ) : (
-              `⚙ ${t('adaptive.run')}`
+              t('adaptive.run')
             )}
           </Button>
           {data && (
@@ -281,7 +281,7 @@ const AdaptiveVotingPanel: React.FC = () => {
             )}
             {highDrift && (
               <Badge variant="warning" data-testid="drift-badge">
-                ⚠ {t('adaptive.drift')}: +{data.strategic_drift.toFixed(3)}
+                {t('adaptive.drift')}: +{data.strategic_drift.toFixed(3)}
               </Badge>
             )}
           </div>

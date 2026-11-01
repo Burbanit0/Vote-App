@@ -59,10 +59,10 @@ interface IIARateData {
 // ── Axiom definitions ─────────────────────────────────────────────────────────
 
 const AXIOMS = [
-  { key: 'iia', labelKey: 'arrow.iia', icon: '🔗' },
-  { key: 'pareto', labelKey: 'arrow.pareto', icon: '🤝' },
-  { key: 'transitivity', labelKey: 'arrow.transitivity', icon: '🔄' },
-  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship', icon: '⚖️' },
+  { key: 'iia', labelKey: 'arrow.iia' },
+  { key: 'pareto', labelKey: 'arrow.pareto' },
+  { key: 'transitivity', labelKey: 'arrow.transitivity' },
+  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship' },
 ] as const;
 
 /** The rules this panel offers: every one /iia-rate measures, plus majority judgment. */
@@ -137,7 +137,7 @@ const AxiomPentagon: React.FC<PentagonProps> = ({ violations, t }) => {
               textAnchor="middle"
               style={{ fontSize: 9, fill: violated ? '#dc3545' : '#198754', fontWeight: 600 }}
             >
-              {ax.icon} {t(ax.labelKey).slice(0, 12)}
+              {t(ax.labelKey).slice(0, 12)}
             </text>
           </g>
         );
@@ -173,7 +173,7 @@ const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
           <th>{t('arrow.method')}</th>
           {AXIOMS.map((ax) => (
             <th key={ax.key} style={{ textAlign: 'center' }}>
-              {ax.icon} {t(ax.labelKey).slice(0, 6)}
+              {t(ax.labelKey).slice(0, 6)}
             </th>
           ))}
         </tr>
@@ -376,7 +376,7 @@ const ArrowExplorer: React.FC = () => {
                 key={ax.key}
                 type="checkbox"
                 id={`check-${ax.key}`}
-                label={`${ax.icon} ${t(ax.labelKey)}`}
+                label={t(ax.labelKey)}
                 checked={checkedAxioms.has(ax.key)}
                 data-testid={`axiom-check-${ax.key}`}
                 onChange={() => toggleAxiom(ax.key)}
@@ -516,7 +516,7 @@ const ArrowExplorer: React.FC = () => {
 
       {/* Key message */}
       <Alert variant="primary" className="mt-3" style={{ fontSize: '0.85rem' }}>
-        <strong>🏛 {t('arrow.centralMessage')}</strong>
+        <strong>{t('arrow.centralMessage')}</strong>
       </Alert>
     </div>
   );

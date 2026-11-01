@@ -141,7 +141,7 @@ const ChoiceOverloadPanel: React.FC = () => {
         </Col>
         <Col xs={12} md={3}>
           <label className="mb-1 inline-block text-sm mb-0">
-            🎤 {t('overload.notoriety')}: <strong>{Math.round(hNotoriety * 100)}%</strong>
+            {t('overload.notoriety')}: <strong>{Math.round(hNotoriety * 100)}%</strong>
           </label>
           <Range
             data-testid="notoriety-slider"
@@ -173,7 +173,7 @@ const ChoiceOverloadPanel: React.FC = () => {
         </Col>
         <Col xs={12} md={3}>
           <label className="mb-1 inline-block text-sm mb-0">
-            🏳️ {t('overload.partisan')}: <strong>{Math.round(hPartisan * 100)}%</strong>
+            {t('overload.partisan')}: <strong>{Math.round(hPartisan * 100)}%</strong>
           </label>
           <Range
             data-testid="partisan-slider"

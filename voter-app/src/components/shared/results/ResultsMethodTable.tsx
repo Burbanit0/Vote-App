@@ -1,4 +1,5 @@
 import React from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Table } from '@/components/ui/table';
@@ -96,7 +97,14 @@ const ResultsMethodTable: React.FC<{ result: ElectionResult }> = ({ result }) =>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
-                    {md.blank_triggered && <span className="text-[#cc9a00] ms-1">⚠</span>}
+                    {md.blank_triggered && (
+                      <span className="ms-1">
+                        <TriangleAlert
+                          aria-hidden
+                          className="inline h-3.5 w-3.5 align-[-2px] text-stamp"
+                        />
+                      </span>
+                    )}
                   </td>
                 )}
                 <td style={{ fontSize: '0.8rem' }}>{md.bayesian_regret?.toFixed(4) ?? '—'}</td>

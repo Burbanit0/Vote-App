@@ -90,9 +90,7 @@ const PlaygroundShell: React.FC = () => {
       {/* ── Masthead ── */}
       <header className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
         <div>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-primary">
-            {t('masthead.kicker')}
-          </p>
+          <p className="text-sm font-bold text-primary">{t('masthead.kicker')}</p>
           <h1 className="mt-0.5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
             {t('masthead.title')}
           </h1>

@@ -98,7 +98,7 @@ const PRESETS: Record<string, { label: string; parties: Omit<PartyInput, 'color'
     ],
   },
   pivot_paradox: {
-    label: '⚖️ Paradoxe pivot',
+    label: 'Paradoxe pivot',
     parties: [
       { name: 'Grand', seats: 45, pariah: false },
       { name: 'Moyen', seats: 35, pariah: false },
@@ -687,7 +687,7 @@ const PowerIndicesPanel: React.FC = () => {
                   className="py-1 mb-1"
                   style={{ fontSize: '0.75rem' }}
                 >
-                  ⚡ {s}
+                  {s}
                 </Alert>
               ))}
             </div>

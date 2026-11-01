@@ -179,7 +179,7 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
             <div className="mt-1">
               {result.winner_changed ? (
                 <span style={{ color: '#dc3545', fontSize: '0.7rem', fontWeight: 700 }}>
-                  ⚡ {t('assumptions.winnerChanged')}: {listNames(result.winner)} (
+                  {t('assumptions.winnerChanged')}: {listNames(result.winner)} (
                   {Math.round(result.pct_trials_changed * 100)}% {t('assumptions.ofTrials')})
                 </span>
               ) : (
@@ -289,7 +289,7 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
 
       <div className="mt-2 mb-1">
         <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-          🔬 {t('lab.fromElectionLab')}
+          {t('lab.fromElectionLab')}
         </Badge>
       </div>
 

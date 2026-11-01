@@ -72,9 +72,7 @@ const MethodsMatrix: React.FC = () => {
     <div className="rounded-xl border border-border bg-card">
       {/* ── Header ── */}
       <div className="border-b border-border px-4 py-3">
-        <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-primary">
-          {t('lab.eyebrow')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('lab.eyebrow')}</p>
         <h2 className="mt-0.5 font-display text-base font-bold tracking-tight">
           {t('lab.matrix.title')}
         </h2>
@@ -82,9 +80,7 @@ const MethodsMatrix: React.FC = () => {
 
       {/* ── Live winners row ── */}
       <div className="border-b border-border px-4 py-3">
-        <p className="mb-2 font-mono text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
-          {t('lab.matrix.liveRow')}
-        </p>
+        <p className="mb-2 text-sm font-bold text-muted-foreground">{t('lab.matrix.liveRow')}</p>
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           {FAMILY_ORDER.map((fam) => (
             <div key={fam} className="flex flex-col gap-1.5">

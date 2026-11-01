@@ -218,7 +218,7 @@ const CoalitionPanel: React.FC = () => {
               {t('coalition.computing')}
             </>
           ) : (
-            `🏛 ${t('coalition.run')}`
+            t('coalition.run')
           )}
         </Button>
         {error && (

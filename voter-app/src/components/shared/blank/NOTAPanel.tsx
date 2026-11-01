@@ -182,7 +182,7 @@ const NOTAPanel: React.FC = () => {
           🇮🇳 {t('nota.invalidate')}: {t('nota.invalidateDesc')}
         </span>
         <span>
-          🔄 {t('nota.runoff')}: {t('nota.runoffDesc')}
+          {t('nota.runoff')}: {t('nota.runoffDesc')}
         </span>
         <span>
           🇺🇸 {t('nota.winner_take_all')}: {t('nota.winner_take_allDesc')}
@@ -261,7 +261,7 @@ const NOTAPanel: React.FC = () => {
             </ResponsiveContainer>
             {tippingPoint != null && (
               <div className="text-[#dc3545] mt-1" style={{ fontSize: '0.78rem' }}>
-                ⚠ {t('nota.notaWinsAt')} {tippingPoint.toFixed(2)}
+                {t('nota.notaWinsAt')} {tippingPoint.toFixed(2)}
               </div>
             )}
           </div>

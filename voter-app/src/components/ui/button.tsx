@@ -20,18 +20,20 @@ const buttonVariants = cva(
 
         // ── Bootstrap-name aliases (Phase 6) so `variant="success"` etc.
         // migrate as a near drop-in across the 262 react-bootstrap <Button>s.
+        // Mapped onto the Bureau de vote palette, so a fiche's "success" or "info"
+        // button is one of ours, in both themes, not Bootstrap's.
         primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        success: 'bg-[#198754] text-white hover:bg-[#198754]/90',
-        danger: 'bg-[#dc3545] text-white hover:bg-[#dc3545]/90',
-        warning: 'bg-[#ffc107] text-black hover:bg-[#ffc107]/90',
-        info: 'bg-[#0dcaf0] text-black hover:bg-[#0dcaf0]/90',
-        dark: 'bg-slate-900 text-white hover:bg-slate-900/90',
-        light: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+        success: 'bg-ok text-background hover:bg-ok/90',
+        danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        warning: 'bg-stamp text-[#16202e] hover:bg-stamp/90',
+        info: 'bg-primary/10 text-primary hover:bg-primary/15',
+        dark: 'bg-foreground text-background hover:bg-foreground/90',
+        light: 'bg-muted text-foreground hover:bg-muted/70',
         'outline-primary': 'border border-primary text-primary hover:bg-primary/10',
         'outline-secondary':
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        'outline-success': 'border border-[#198754] text-[#198754] hover:bg-[#198754]/10',
-        'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
+        'outline-success': 'border border-ok text-ok hover:bg-ok/10',
+        'outline-danger': 'border border-destructive text-destructive hover:bg-destructive/10',
       },
       size: {
         default: 'h-9 px-4 py-2',

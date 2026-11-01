@@ -25,7 +25,7 @@ const PRESETS: Record<string, Weights> = {
 
 const LENS_FLAG: Record<BlankLens, string> = {
   france_today: '🇫🇷',
-  in_exprimes: '⚖️',
+  in_exprimes: '',
   competitive: '🇺🇾',
   threshold: '🇨🇴',
 };
@@ -84,9 +84,7 @@ const BlankVotePanel: React.FC = () => {
       {/* ── Act 1 — you CAN vote blank ─────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <div>
-          <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-            {t('blankVote.act1Kicker')}
-          </p>
+          <p className="text-sm font-bold text-primary">{t('blankVote.act1Kicker')}</p>
           <h2 className="font-display text-lg font-bold tracking-tight">
             {t('blankVote.act1Title')}
           </h2>
@@ -113,9 +111,7 @@ const BlankVotePanel: React.FC = () => {
       {/* ── Act 2 — the blank wins, now what? ──────────────────────────── */}
       <section className="flex flex-col gap-3">
         <div>
-          <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-            {t('blankVote.act2Kicker')}
-          </p>
+          <p className="text-sm font-bold text-primary">{t('blankVote.act2Kicker')}</p>
           <h2 className="font-display text-lg font-bold tracking-tight">
             {t('blankVote.act2Title')}
           </h2>
@@ -323,9 +319,7 @@ const BlankVotePanel: React.FC = () => {
       {/* ── What already exists — 16 real regimes ──────────────────────── */}
       <section className="flex flex-col gap-3">
         <div>
-          <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-            {t('blankVote.worldKicker')}
-          </p>
+          <p className="text-sm font-bold text-primary">{t('blankVote.worldKicker')}</p>
           <h2 className="font-display text-lg font-bold tracking-tight">
             {t('blankVote.worldTitle')}
           </h2>

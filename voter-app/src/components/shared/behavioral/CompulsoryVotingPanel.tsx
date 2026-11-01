@@ -296,7 +296,7 @@ const CompulsoryVotingPanel: React.FC = () => {
                       className="font-semibold"
                       style={{ color: '#198754', fontSize: '0.82rem' }}
                     >
-                      📈 {t('compulsory.repImprovement')}
+                      {t('compulsory.repImprovement')}
                     </div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#198754' }}>
                       {data.representation_improvement >= 0 ? '+' : ''}
@@ -316,7 +316,7 @@ const CompulsoryVotingPanel: React.FC = () => {
                       className="font-semibold"
                       style={{ color: '#dc3545', fontSize: '0.82rem' }}
                     >
-                      📉 {t('compulsory.qualityDegradation')}
+                      {t('compulsory.qualityDegradation')}
                     </div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#dc3545' }}>
                       +{Math.round(data.quality_degradation * 100)}%

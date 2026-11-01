@@ -92,7 +92,7 @@ export const Instrument = React.forwardRef<HTMLDivElement, InstrumentProps>(
         )}
         <div className={flush ? undefined : 'p-3'}>{children}</div>
         {status && (
-          <div className="flex items-center gap-2 border-t border-primary/15 bg-muted/30 px-3 py-1.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="flex items-center gap-2 border-t border-primary/15 bg-muted/30 px-3 py-1.5 text-sm font-bold text-muted-foreground">
             {status}
           </div>
         )}

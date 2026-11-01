@@ -49,7 +49,7 @@ const GuidedFooter: React.FC = () => {
               />
             ))}
           </span>
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="text-sm font-bold text-muted-foreground">
             {t('guided.moment', { n: current.n, total: MOMENTS.length })}
           </span>
         </div>

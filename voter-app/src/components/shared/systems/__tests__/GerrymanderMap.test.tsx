@@ -163,7 +163,7 @@ describe('GerrymanderMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
-    expect(alert.className).toContain('bg-amber-100');
+    expect(alert.className).toContain('border-l-stamp');
     vi.runAllTimers();
   });
 
@@ -173,7 +173,7 @@ describe('GerrymanderMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
-    expect(alert.className).toContain('bg-green-100');
+    expect(alert.className).toContain('border-l-ok');
     vi.runAllTimers();
   });
 

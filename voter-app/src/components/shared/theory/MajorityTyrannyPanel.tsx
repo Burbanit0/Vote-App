@@ -244,10 +244,10 @@ const MajorityTyrannyPanel: React.FC = () => {
           {/* ── Summary badges ── */}
           <div className="flex flex-wrap gap-2 mb-3" data-testid="summary-badges">
             <Badge variant="success" data-testid="best-protector-badge">
-              🛡 {t('tyranny.bestProtector')}: {t(`tyranny.rule_${data.best_protector}`)}
+              {t('tyranny.bestProtector')}: {t(`tyranny.rule_${data.best_protector}`)}
             </Badge>
             <Badge variant="warning" data-testid="least-efficient-badge">
-              ⚠ {t('tyranny.leastEfficient')}: {t(`tyranny.rule_${data.least_efficient}`)}
+              {t('tyranny.leastEfficient')}: {t(`tyranny.rule_${data.least_efficient}`)}
             </Badge>
           </div>
 

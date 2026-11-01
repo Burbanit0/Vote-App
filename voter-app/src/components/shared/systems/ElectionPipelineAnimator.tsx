@@ -1,4 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {
+  CalendarDays,
+  Handshake,
+  Radio,
+  RefreshCw,
+  Trophy,
+  Users,
+  Waves,
+  type LucideIcon,
+} from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,12 +47,18 @@ const PARTY_COLORS: Record<string, string> = {
 
 // ── Step icon mapping ─────────────────────────────────────────────────────────
 
-const STEP_ICONS: Record<string, string> = {
-  base: '👥',
-  campaign: '📅',
-  contagion: '🦠',
-  information: '📡',
-  results: '🏆',
+const STEP_ICONS: Record<string, LucideIcon> = {
+  base: Users,
+  campaign: CalendarDays,
+  contagion: Waves,
+  information: Radio,
+  results: Trophy,
+};
+
+/** A step's icon, or a dot for a step that has none. */
+const StepIcon: React.FC<{ id: string; className?: string }> = ({ id, className }) => {
+  const Icon = STEP_ICONS[id];
+  return Icon ? <Icon aria-hidden className={className} strokeWidth={1.75} /> : <span>●</span>;
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -210,7 +226,7 @@ const Stepper: React.FC<{
           }}
           data-testid={`pipeline-step-${s.id}`}
         >
-          <span style={{ fontSize: '1.1rem' }}>{STEP_ICONS[s.id] ?? '●'}</span>
+          <StepIcon id={s.id} className="h-[1.1rem] w-[1.1rem]" />
           <span className="font-semibold" style={{ lineHeight: 1.2 }}>
             {s.label[lang]}
           </span>
@@ -370,7 +386,7 @@ const ElectionPipelineAnimator: React.FC = () => {
           <Col xs={12} md={7}>
             <Card>
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 flex items-center gap-2">
-                <span style={{ fontSize: '1.2rem' }}>{STEP_ICONS[step.id]}</span>
+                <StepIcon id={step.id} className="h-5 w-5 text-primary" />
                 <div>
                   <strong style={{ fontSize: '0.88rem' }}>{step.label[lang]}</strong>
                   <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
@@ -431,14 +447,14 @@ const ElectionPipelineAnimator: React.FC = () => {
                 {/* Generic metrics */}
                 {step.metrics.num_voters && (
                   <MetricRow
-                    icon="👥"
+                    icon={<Users aria-hidden className="inline h-3.5 w-3.5" />}
                     label={t('pipeline.metricVoters')}
                     value={String(step.metrics.num_voters)}
                   />
                 )}
                 {step.metrics.changed !== undefined && (
                   <MetricRow
-                    icon="🔄"
+                    icon={<RefreshCw aria-hidden className="inline h-3.5 w-3.5" />}
                     label={t('pipeline.metricChanged')}
                     value={String(step.metrics.changed)}
                     variant={Number(step.metrics.changed) > 0 ? 'warning' : 'success'}
@@ -454,7 +470,7 @@ const ElectionPipelineAnimator: React.FC = () => {
                 )}
                 {step.metrics.inter_method_agreement !== undefined && (
                   <MetricRow
-                    icon="🤝"
+                    icon={<Handshake aria-hidden className="inline h-3.5 w-3.5" />}
                     label={t('pipeline.metricAgreement')}
                     value={`${Math.round(Number(step.metrics.inter_method_agreement) * 100)}%`}
                     variant={
@@ -510,7 +526,7 @@ const ElectionPipelineAnimator: React.FC = () => {
 // ── Metric row helper ─────────────────────────────────────────────────────────
 
 const MetricRow: React.FC<{
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   variant?: React.ComponentProps<typeof Badge>['variant'];

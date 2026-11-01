@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
@@ -106,7 +107,10 @@ const StrategicModule: React.FC<{ config: ElectionConfig; playground: Playground
                   title={t(noShow ? 'strategy.svNoShowYes' : 'strategy.svNoShowNo')}
                 >
                   {noShow ? (
-                    <span className="text-amber-600 dark:text-amber-400">⚠</span>
+                    <TriangleAlert
+                      aria-hidden
+                      className="inline h-3.5 w-3.5 align-[-2px] text-stamp"
+                    />
                   ) : (
                     <span className="text-muted-foreground/40">·</span>
                   )}

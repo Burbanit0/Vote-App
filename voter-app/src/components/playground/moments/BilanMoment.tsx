@@ -182,9 +182,7 @@ const BilanMoment: React.FC = () => {
             data-testid="bilan-verdict"
             className="rounded-lg border border-border bg-muted/20 p-4"
           >
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-primary">
-              {t('bilan.verdictTitle')}
-            </p>
+            <p className="text-sm font-bold text-primary">{t('bilan.verdictTitle')}</p>
             {winnerGroups.length === 0 && (
               <p className="mt-1 font-display text-2xl font-bold tracking-tight">
                 {t('strip.under', { rule: ruleLabels.random_ballot })} <NoFixedWinner />
@@ -198,9 +196,7 @@ const BilanMoment: React.FC = () => {
                 <p className="mt-0.5 text-sm text-muted-foreground">{t('bilan.verdictSplitSub')}</p>
                 {duelLines && (
                   <div data-testid="bilan-why" className="mt-3 flex flex-col gap-1 text-sm">
-                    <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
-                      {t('bilan.whyTitle')}
-                    </p>
+                    <p className="text-sm font-bold text-muted-foreground">{t('bilan.whyTitle')}</p>
                     {duelLines.map((line, k) => (
                       <p key={k} className="leading-relaxed">
                         {line}

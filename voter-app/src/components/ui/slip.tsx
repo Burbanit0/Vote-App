@@ -33,6 +33,24 @@ export function Slip({
   );
 }
 
+/**
+ * A folded corner drawn over a card instead of cut out of it: for a card that must not
+ * clip what it holds (popovers, chart tooltips). The page's colour hides the corner,
+ * the fold is drawn beneath it. `surface` is the colour the card sits on.
+ */
+export function FoldedCorner({ size = 22, surface = 'bg-background' }) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -top-px -right-px z-10"
+      style={{ width: size + 1, height: size + 1 }}
+    >
+      <span className={cn('absolute inset-0 [clip-path:polygon(0_0,100%_0,100%_100%)]', surface)} />
+      <span className="absolute inset-0 bg-border [clip-path:polygon(0_0,100%_100%,0_100%)]" />
+    </span>
+  );
+}
+
 /** Text whose words rise in turn out of their own masks, from `delay` ms (home-rise). */
 export function RiseWords({ text, delay = 0 }: { text: string; delay?: number }) {
   return text.split(' ').map((word, i) => (

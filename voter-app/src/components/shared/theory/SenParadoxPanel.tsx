@@ -106,7 +106,7 @@ const ConflictViz: React.FC<ConflictProps> = ({ data }) => {
         textAnchor="middle"
         style={{ fontSize: 9, fill: hasConflict ? '#dc3545' : '#198754', fontWeight: 700 }}
       >
-        {hasConflict ? '⚡ Contradiction' : '✓ Compatible'}
+        {hasConflict ? '✗ Contradiction' : '✓ Compatible'}
       </text>
     </svg>
   );
@@ -202,7 +202,7 @@ const SenParadoxPanel: React.FC = () => {
                         className="block space-y-0 border-b border-border px-4 py-2 py-1 bg-[#dc3545] bg-opacity-10"
                         style={{ fontSize: '0.8rem', fontWeight: 700 }}
                       >
-                        ⚡ {ex.name}
+                        {ex.name}
                       </CardHeader>
                       <CardBody className="py-2">
                         <div className="flex gap-4 mb-2" style={{ fontSize: '0.78rem' }}>
@@ -250,7 +250,7 @@ const SenParadoxPanel: React.FC = () => {
 
               {/* Real world analogy */}
               <Alert variant="light" style={{ fontSize: '0.78rem', border: '1px solid #dee2e6' }}>
-                🏙 <strong>{t('sen.analogyTitle')}</strong> {data.real_world_analogy}
+                <strong>{t('sen.analogyTitle')}</strong> {data.real_world_analogy}
               </Alert>
             </Col>
 
