@@ -140,38 +140,98 @@
  "failure_groups": [
   {
    "branches": [
-    "dependabot/pip/fast_api_voter/polity/multidict-7.0.0",
+    "chore/ci-health-snapshot",
+    "dependabot/github_actions/polity/patch-and-minor-bb4c28e9a2",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-b8e2528701",
+    "dependabot/pip/fast_api_voter/polity/duckdb-2.0.0",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0294fd5d16",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-0777fd06be",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-124de55ad8",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-15c2e30d82",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-3dce31a33b",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-cce460357b",
-    "dependabot/pip/fast_api_voter/pymdown-extensions-12.1"
+    "feat/a-vous-de-jouer-bureau-de-vote",
+    "feat/aceternity-home-trial",
+    "feat/decouvrir-bureau-de-vote",
+    "feat/home-bureau-de-vote",
+    "feat/laboratoire-bureau-de-vote",
+    "feat/not-found-bureau-de-vote",
+    "feat/playground-bureau-de-vote",
+    "feat/polity-bureau-de-vote",
+    "feat/polity-cohorts",
+    "feat/polity-thinking-budget-live",
+    "feat/polity-welfare",
+    "fix/lab-fiches"
    ],
    "category": "code",
-   "count": 24,
+   "count": 31,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
+    "job": "CI health check",
     "lines": [
-     "error: No solution found when resolving dependencies",
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
+     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (143.8h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [
-     1006
+     1018
     ],
-    "sha": "03aaf96a8998c6dcef663bcc9a60cb9284e65be2",
-    "step": "Install production + dev dependencies (from the lockfile)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260458507"
+    "sha": "c6b91a7b46dd07326502351f8c1aa3ea418b5e11",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318335919"
    },
-   "last_seen": "2026-11-01T01:17:18Z",
-   "signature": "code: error: No solution found when resolving dependencies",
+   "last_seen": "2026-11-01T14:52:29Z",
+   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
-    "Backend CI",
-    "E2E Tests",
-    "Generated Artifacts Contract"
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
+    "feat/a-vous-de-jouer-bureau-de-vote",
+    "feat/claims-registry",
+    "feat/decouvrir-bureau-de-vote",
+    "feat/home-bureau-de-vote",
+    "feat/laboratoire-bureau-de-vote",
+    "feat/not-found-bureau-de-vote",
+    "feat/playground-bureau-de-vote",
+    "feat/polity-anchor-follow",
+    "feat/polity-bureau-de-vote",
+    "feat/polity-catalogue",
+    "feat/polity-field-order-arms",
+    "feat/polity-reseat-script",
+    "feat/polity-rewiring",
+    "feat/polity-scenario-metrics",
+    "feat/polity-strategic-voting",
+    "feat/static-ci",
+    "feat/winner-strip",
+    "fix/e2e-navigation-settle",
+    "fix/e2e-phone-story-flake",
+    "fix/lab-fiches",
+    "fix/playground-first-contact",
+    "fix/polity-provenance-server-flags",
+    "test/polity-journal-invariants"
+   ],
+   "category": "code",
+   "count": 28,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "scripts/loadtest_v2_engine.py:114: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
+     "scripts/loadtest_v2_engine.py:126: error: Untyped decorator makes function \"profile_simulate_default\" untyped  [untyped-decorator]",
+     "scripts/loadtest_v2_engine.py:135: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
+     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
+     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1018
+    ],
+    "sha": "c6b91a7b46dd07326502351f8c1aa3ea418b5e11",
+    "step": "Quality ratchet (debt may shrink, never grow)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318335645"
+   },
+   "last_seen": "2026-11-01T14:52:29Z",
+   "signature": "code: scripts/loadtest_v#_engine.py:#: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -200,39 +260,37 @@
   },
   {
    "branches": [
-    "chore/ci-health-snapshot",
-    "dependabot/github_actions/polity/patch-and-minor-bb4c28e9a2",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-b8e2528701",
-    "dependabot/pip/fast_api_voter/polity/duckdb-2.0.0",
+    "dependabot/pip/fast_api_voter/polity/multidict-7.0.0",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0294fd5d16",
-    "feat/aceternity-home-trial",
-    "feat/polity-cohorts",
-    "feat/polity-thinking-budget-live",
-    "feat/polity-welfare"
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-0777fd06be",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-124de55ad8",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-15c2e30d82",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-3dce31a33b",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-60eec00d55",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-cce460357b"
    ],
    "category": "code",
-   "count": 23,
+   "count": 22,
    "example": {
-    "job": "CI health check",
+    "job": "Backend: Tests + Coverage + Security",
     "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
-     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (126.1h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "error: No solution found when resolving dependencies",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [
-     1008
+     1006
     ],
-    "sha": "16ce8c6b5fa0eac839ba87531f2895c2366df3dd",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41242421447"
+    "sha": "03aaf96a8998c6dcef663bcc9a60cb9284e65be2",
+    "step": "Install production + dev dependencies (from the lockfile)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41260458507"
    },
-   "last_seen": "2026-10-31T21:11:30Z",
-   "signature": "code: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "last_seen": "2026-11-01T01:17:18Z",
+   "signature": "code: error: No solution found when resolving dependencies",
    "workflows": [
-    "CI Health Watchdog"
+    "Backend CI",
+    "E2E Tests",
+    "Generated Artifacts Contract"
    ]
   },
   {
@@ -260,49 +318,6 @@
    "signature": "code: gh: Resource not accessible by integration (HTTP #)",
    "workflows": [
     "Human review attestation"
-   ]
-  },
-  {
-   "branches": [
-    "feat/claims-registry",
-    "feat/polity-anchor-follow",
-    "feat/polity-catalogue",
-    "feat/polity-field-order-arms",
-    "feat/polity-reseat-script",
-    "feat/polity-rewiring",
-    "feat/polity-scenario-metrics",
-    "feat/polity-strategic-voting",
-    "feat/static-ci",
-    "feat/winner-strip",
-    "fix/e2e-navigation-settle",
-    "fix/e2e-phone-story-flake",
-    "fix/playground-first-contact",
-    "fix/polity-provenance-server-flags",
-    "test/polity-journal-invariants"
-   ],
-   "category": "code",
-   "count": 20,
-   "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
-    "lines": [
-     "scripts/loadtest_v2_engine.py:114: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
-     "scripts/loadtest_v2_engine.py:126: error: Untyped decorator makes function \"profile_simulate_default\" untyped  [untyped-decorator]",
-     "scripts/loadtest_v2_engine.py:135: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
-     "##[error]  17:24  error  Simplify this regular expression to reduce its runtime, as it has super-linear performance due to backtracking  sonarjs/super-linear-regex",
-     "##[error]  38:14  error  Replace this fixed wait with a synchronization on an observable condition  sonarjs/no-fixed-wait-in-tests",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     995
-    ],
-    "sha": "5c6c31339060c9fac521fba32952d4fd5d3f65ae",
-    "step": "Quality ratchet (debt may shrink, never grow)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40137372305"
-   },
-   "last_seen": "2026-10-24T22:10:00Z",
-   "signature": "code: scripts/loadtest_v#_engine.py:#: error: Class cannot subclass \"HttpUser\" (has type \"Any\")  [misc]",
-   "workflows": [
-    "Security Audit"
    ]
   },
   {
@@ -419,6 +434,34 @@
   },
   {
    "branches": [
+    "feat/claims-registry",
+    "feat/playground-bureau-de-vote",
+    "fix/lab-fiches",
+    "fix/score-ties-lot"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Playwright E2E",
+    "lines": [
+     "    Error: expect(received).toBeGreaterThan(expected)",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1018
+    ],
+    "sha": "c6b91a7b46dd07326502351f8c1aa3ea418b5e11",
+    "step": "Fail on flaky tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318335653"
+   },
+   "last_seen": "2026-11-01T14:52:29Z",
+   "signature": "code: Error: expect(received).toBeGreaterThan(expected)",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "fix/polity-snap-term-end",
     "polity"
    ],
@@ -449,34 +492,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-0d070e7aed",
-    "polity"
-   ],
-   "category": "advisory",
-   "count": 4,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "fix available via `npm audit fix`",
-     "node_modules/ip-address",
-     "3 vulnerabilities (2 moderate, 1 high)",
-     "To address all issues, run:",
-     "  npm audit fix",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
-    "step": "Security \u2014 npm audit (high CVEs block)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
-   },
-   "last_seen": "2026-10-02T15:07:10Z",
-   "signature": "advisory: To address all issues, run:",
-   "workflows": [
-    "Frontend CI"
-   ]
-  },
-  {
-   "branches": [
     "develop"
    ],
    "category": "test-flaky",
@@ -497,6 +512,33 @@
    "signature": "test-flaky: ##[error]Creating Pages deployment failed",
    "workflows": [
     "CI Dashboard"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 4,
+   "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
+     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (143.9h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "83b4a1298052c551e0eb1d6cd8272305bf6d1142",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318802732"
+   },
+   "last_seen": "2026-11-01T14:58:15Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
    ]
   },
   {
@@ -555,32 +597,6 @@
   },
   {
    "branches": [
-    "feat/claims-registry",
-    "fix/score-ties-lot"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Playwright E2E",
-    "lines": [
-     "    Error: expect(received).toBeGreaterThan(expected)",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     887
-    ],
-    "sha": "0cb9e28c1da67e69787a42fb08aa9bad3cb9a557",
-    "step": "Fail on flaky tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/38021033223"
-   },
-   "last_seen": "2026-10-10T03:34:18Z",
-   "signature": "code: Error: expect(received).toBeGreaterThan(expected)",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "ci/red-on-base",
     "feat/polity-atlas-live-compare",
     "feat/polity-field-order-arms"
@@ -633,33 +649,6 @@
    "signature": "test-flaky: Cleaning up orphan processes",
    "workflows": [
     "Security Audit"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 3,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
-     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (119.4h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "83b4a1298052c551e0eb1d6cd8272305bf6d1142",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41210285118"
-   },
-   "last_seen": "2026-10-31T14:28:32Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -827,6 +816,33 @@
    },
    "last_seen": "2026-10-24T02:21:24Z",
    "signature": "advisory: GHSA-ch#-#w#c-c#xp: exception expires on #-#-# \u2014 fix or renew it before then",
+   "workflows": [
+    "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
+    "polity"
+   ],
+   "category": "advisory",
+   "count": 1,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "fix available via `npm audit fix`",
+     "node_modules/ip-address",
+     "3 vulnerabilities (2 moderate, 1 high)",
+     "To address all issues, run:",
+     "  npm audit fix",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "0337bc2a72d354f1549953546a595befe8d7a4d2",
+    "step": "Security \u2014 npm audit (high CVEs block)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/37024697761"
+   },
+   "last_seen": "2026-10-02T15:07:10Z",
+   "signature": "advisory: To address all issues, run:",
    "workflows": [
     "Frontend CI"
    ]
@@ -1357,18 +1373,17 @@
   }
  ],
  "failures_by_category": {
-  "advisory": 12,
-  "code": 161,
+  "advisory": 9,
+  "code": 177,
   "infra": 13,
-  "test-flaky": 27,
+  "test-flaky": 28,
   "unknown": 2
  },
- "generated_at": "2026-11-01T13:19:17Z",
+ "generated_at": "2026-11-01T15:04:05Z",
  "grid": {
   "Backend CI": {
    "2026-10-02": {
-    "cancelled": 2,
-    "success": 14
+    "success": 11
    },
    "2026-10-03": {
     "cancelled": 1,
@@ -1455,9 +1470,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-02": {
-    "success": 2
-   },
    "2026-10-03": {
     "success": 1
    },
@@ -1652,12 +1664,12 @@
     "success": 8
    },
    "2026-11-01": {
-    "success": 18
+    "success": 19
    }
   },
   "CI Health Watchdog": {
    "2026-10-02": {
-    "success": 6
+    "success": 2
    },
    "2026-10-03": {
     "success": 3
@@ -1745,13 +1757,12 @@
    },
    "2026-10-31": {
     "failure": 1
+   },
+   "2026-11-01": {
+    "failure": 1
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
-   "2026-10-02": {
-    "cancelled": 1,
-    "success": 1
-   },
    "2026-10-04": {
     "success": 3
    },
@@ -1791,9 +1802,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-02": {
-    "success": 2
-   },
    "2026-10-03": {
     "success": 1
    },
@@ -1950,13 +1958,13 @@
     "success": 5
    },
    "2026-11-01": {
-    "success": 9
+    "success": 16
    }
   },
   "E2E Tests": {
    "2026-10-02": {
-    "cancelled": 4,
-    "success": 12
+    "cancelled": 2,
+    "success": 9
    },
    "2026-10-03": {
     "cancelled": 1,
@@ -2050,8 +2058,8 @@
   },
   "Frontend CI": {
    "2026-10-02": {
-    "failure": 3,
-    "success": 13
+    "failure": 1,
+    "success": 10
    },
    "2026-10-03": {
     "cancelled": 1,
@@ -2139,7 +2147,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-10-02": {
-    "success": 16
+    "success": 11
    },
    "2026-10-03": {
     "success": 12
@@ -2317,14 +2325,11 @@
     "success": 3
    },
    "2026-11-01": {
-    "skipped": 12,
+    "skipped": 21,
     "success": 2
    }
   },
   "Mutation Testing": {
-   "2026-10-02": {
-    "success": 1
-   },
    "2026-10-04": {
     "success": 2
    },
@@ -2366,7 +2371,7 @@
   },
   "OpenSSF Scorecard": {
    "2026-10-02": {
-    "success": 5
+    "success": 2
    },
    "2026-10-03": {
     "cancelled": 1,
@@ -2414,9 +2419,6 @@
    }
   },
   "Schemathesis Contract Fuzzing": {
-   "2026-10-02": {
-    "success": 2
-   },
    "2026-10-04": {
     "success": 10
    },
@@ -2489,7 +2491,7 @@
   },
   "Security Audit": {
    "2026-10-02": {
-    "success": 16
+    "success": 11
    },
    "2026-10-03": {
     "success": 12
@@ -2776,7 +2778,7 @@
    },
    "2026-11-01": {
     "cancelled": 20,
-    "skipped": 45,
+    "skipped": 96,
     "success": 38
    }
   },
@@ -2837,16 +2839,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-01T10:40:24Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41298513188"
+   "created_at": "2026-11-01T13:19:10Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41310675873"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "failure",
-   "created_at": "2026-10-31T14:28:32Z",
+   "created_at": "2026-11-01T14:58:15Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41210285118"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318802732"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -2865,9 +2867,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-01T01:58:32Z",
+   "created_at": "2026-11-01T15:07:32Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41263254562"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41319604869"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2893,9 +2895,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-01T01:38:26Z",
+   "created_at": "2026-11-01T15:06:35Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41261919742"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41319520147"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -2934,10 +2936,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-01T10:40:24Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-01T15:07:32Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41298513210"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41319605145"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2947,11 +2949,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41263191282"
   }
  },
- "runs": 14876,
+ "runs": 14905,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-10-02": 156.0,
+    "2026-10-02": 260,
     "2026-10-03": 13,
     "2026-10-04": 12,
     "2026-10-05": 12.5,
@@ -2979,16 +2981,15 @@
     "2026-10-27": 315.5,
     "2026-10-30": 452.0,
     "2026-10-31": 277.0,
-    "2026-11-01": 512
+    "2026-11-01": 56
    },
    "p50_s": 369,
    "p95_s": 590,
    "queue_p50_s": 0,
-   "runs": 732
+   "runs": 729
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-02": 628.5,
     "2026-10-03": 421,
     "2026-10-04": 824,
     "2026-10-05": 837,
@@ -3023,11 +3024,11 @@
    "p50_s": 1010,
    "p95_s": 1448,
    "queue_p50_s": 0,
-   "runs": 123
+   "runs": 121
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-10-02": 11,
+    "2026-10-02": 11.0,
     "2026-10-03": 10.0,
     "2026-10-04": 10,
     "2026-10-05": 11,
@@ -3057,9 +3058,9 @@
     "2026-11-01": 20
    },
    "p50_s": 11,
-   "p95_s": 44,
+   "p95_s": 40,
    "queue_p50_s": 0,
-   "runs": 574
+   "runs": 561
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3090,16 +3091,16 @@
     "2026-10-29": 374.5,
     "2026-10-30": 368.0,
     "2026-10-31": 326.5,
-    "2026-11-01": 370.5
+    "2026-11-01": 357
    },
    "p50_s": 387,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 757
+   "runs": 758
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-02": 16.5,
+    "2026-10-02": 10.0,
     "2026-10-03": 11,
     "2026-10-04": 11,
     "2026-10-05": 11.0,
@@ -3129,13 +3130,12 @@
     "2026-11-01": 18
    },
    "p50_s": 11,
-   "p95_s": 43,
+   "p95_s": 39,
    "queue_p50_s": 0,
-   "runs": 521
+   "runs": 515
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
-    "2026-10-02": 1949,
     "2026-10-04": 1837,
     "2026-10-06": 1862.5,
     "2026-10-08": 1834.0,
@@ -3150,13 +3150,12 @@
     "2026-11-01": 1856
    },
    "p50_s": 1839,
-   "p95_s": 1892,
+   "p95_s": 1856,
    "queue_p50_s": 0,
-   "runs": 22
+   "runs": 21
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-02": 192.5,
     "2026-10-03": 144,
     "2026-10-04": 179,
     "2026-10-05": 185,
@@ -3188,14 +3187,14 @@
     "2026-10-31": 205,
     "2026-11-01": 197.5
    },
-   "p50_s": 172,
-   "p95_s": 205,
+   "p50_s": 173,
+   "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 194
+   "runs": 192
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-10-02": 14,
+    "2026-10-02": 12,
     "2026-10-03": 10.0,
     "2026-10-04": 10.0,
     "2026-10-05": 12,
@@ -3223,12 +3222,12 @@
     "2026-10-27": 10.0,
     "2026-10-30": 14.5,
     "2026-10-31": 20,
-    "2026-11-01": 39
+    "2026-11-01": 48
    },
    "p50_s": 11,
-   "p95_s": 41,
+   "p95_s": 43,
    "queue_p50_s": 0,
-   "runs": 531
+   "runs": 529
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3255,12 +3254,12 @@
     "2026-10-27": 8.5,
     "2026-10-30": 10.5,
     "2026-10-31": 16,
-    "2026-11-01": 12
+    "2026-11-01": 32.5
    },
    "p50_s": 11,
    "p95_s": 163,
    "queue_p50_s": 0,
-   "runs": 383
+   "runs": 390
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -3285,12 +3284,12 @@
     "2026-10-27": 11.0,
     "2026-10-30": 19.5,
     "2026-10-31": 64,
-    "2026-11-01": 79
+    "2026-11-01": 176.0
    },
    "p50_s": 12,
-   "p95_s": 64,
+   "p95_s": 79,
    "queue_p50_s": 0,
-   "runs": 321
+   "runs": 328
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3322,16 +3321,16 @@
     "2026-10-27": 576.0,
     "2026-10-30": 643,
     "2026-10-31": 836,
-    "2026-11-01": 615.0
+    "2026-11-01": 647.5
    },
-   "p50_s": 542,
-   "p95_s": 752,
+   "p50_s": 548,
+   "p95_s": 740,
    "queue_p50_s": 0,
-   "runs": 714
+   "runs": 704
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-10-02": 19.0,
+    "2026-10-02": 12,
     "2026-10-03": 13,
     "2026-10-04": 197.0,
     "2026-10-05": 213,
@@ -3359,16 +3358,16 @@
     "2026-10-27": 94.5,
     "2026-10-30": 27,
     "2026-10-31": 24,
-    "2026-11-01": 169.0
+    "2026-11-01": 308
    },
-   "p50_s": 24,
-   "p95_s": 286,
+   "p50_s": 25,
+   "p95_s": 292,
    "queue_p50_s": 0,
-   "runs": 756
+   "runs": 752
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-10-02": 90,
+    "2026-10-02": 86.0,
     "2026-10-03": 41.5,
     "2026-10-04": 11,
     "2026-10-05": 12.0,
@@ -3396,12 +3395,12 @@
     "2026-10-27": 50.0,
     "2026-10-30": 101,
     "2026-10-31": 138,
-    "2026-11-01": 117.0
+    "2026-11-01": 87
    },
-   "p50_s": 89,
-   "p95_s": 149,
+   "p50_s": 88,
+   "p95_s": 144,
    "queue_p50_s": 0,
-   "runs": 788
+   "runs": 780
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -3438,11 +3437,10 @@
    "p50_s": 17,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 704
+   "runs": 706
   },
   "Mutation Testing": {
    "daily_p50_s": {
-    "2026-10-02": 7719,
     "2026-10-04": 8249.0,
     "2026-10-05": 7835,
     "2026-10-06": 10160,
@@ -3451,14 +3449,14 @@
     "2026-10-10": 10665,
     "2026-11-01": 1247.5
    },
-   "p50_s": 7835,
+   "p50_s": 8653,
    "p95_s": 10467,
    "queue_p50_s": 0,
-   "runs": 14
+   "runs": 13
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-10-02": 47,
+    "2026-10-02": 49.0,
     "2026-10-03": 46,
     "2026-10-04": 45.0,
     "2026-10-05": 43.5,
@@ -3475,9 +3473,9 @@
     "2026-10-27": 54.0
    },
    "p50_s": 48,
-   "p95_s": 64,
+   "p95_s": 63,
    "queue_p50_s": 0,
-   "runs": 40
+   "runs": 37
   },
   "Red on base": {
    "daily_p50_s": {
@@ -3506,16 +3504,15 @@
     "2026-10-27": 23.5,
     "2026-10-30": 65.5,
     "2026-10-31": 100,
-    "2026-11-01": 76
+    "2026-11-01": 108
    },
    "p50_s": 42,
-   "p95_s": 143,
+   "p95_s": 157,
    "queue_p50_s": 0,
-   "runs": 408
+   "runs": 418
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-10-02": 71.0,
     "2026-10-04": 60.5,
     "2026-10-05": 78,
     "2026-10-06": 68.5,
@@ -3543,11 +3540,11 @@
    "p50_s": 75,
    "p95_s": 86,
    "queue_p50_s": 0,
-   "runs": 112
+   "runs": 110
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-10-02": 127,
+    "2026-10-02": 126.0,
     "2026-10-03": 121.0,
     "2026-10-04": 128,
     "2026-10-05": 142.5,
@@ -3575,12 +3572,12 @@
     "2026-10-27": 161.0,
     "2026-10-30": 156,
     "2026-10-31": 176,
-    "2026-11-01": 204.5
+    "2026-11-01": 204
    },
    "p50_s": 163,
-   "p95_s": 236,
+   "p95_s": 234,
    "queue_p50_s": 0,
-   "runs": 756
+   "runs": 740
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3608,12 +3605,12 @@
     "2026-10-27": 9.5,
     "2026-10-30": 29,
     "2026-10-31": 16,
-    "2026-11-01": 55.5
+    "2026-11-01": 41.0
    },
    "p50_s": 12,
    "p95_s": 70,
    "queue_p50_s": 0,
-   "runs": 585
+   "runs": 595
   },
   "polity red alert": {
    "daily_p50_s": {
