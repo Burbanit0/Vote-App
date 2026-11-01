@@ -55,7 +55,7 @@ export function countViewport(box: Box) {
   };
 }
 
-export interface Disc {
+interface Disc {
   x: number;
   y: number;
   r: number;
