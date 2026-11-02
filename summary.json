@@ -1377,12 +1377,12 @@
   "test-flaky": 29,
   "unknown": 2
  },
- "generated_at": "2026-11-02T18:14:08Z",
+ "generated_at": "2026-11-02T20:45:16Z",
  "grid": {
   "Backend CI": {
    "2026-10-03": {
     "cancelled": 1,
-    "success": 3
+    "success": 2
    },
    "2026-10-04": {
     "success": 25
@@ -1662,7 +1662,7 @@
     "success": 27
    },
    "2026-11-02": {
-    "success": 8
+    "success": 9
    }
   },
   "CI Health Watchdog": {
@@ -1960,7 +1960,7 @@
   "E2E Tests": {
    "2026-10-03": {
     "cancelled": 1,
-    "success": 3
+    "success": 2
    },
    "2026-10-04": {
     "cancelled": 2,
@@ -2051,7 +2051,7 @@
   "Frontend CI": {
    "2026-10-03": {
     "cancelled": 1,
-    "success": 3
+    "success": 2
    },
    "2026-10-04": {
     "cancelled": 1,
@@ -2134,7 +2134,7 @@
   },
   "Generated Artifacts Contract": {
    "2026-10-03": {
-    "success": 4
+    "success": 3
    },
    "2026-10-04": {
     "success": 25
@@ -2208,7 +2208,7 @@
   },
   "Human review attestation": {
    "2026-10-03": {
-    "skipped": 7
+    "skipped": 5
    },
    "2026-10-04": {
     "failure": 12,
@@ -2476,7 +2476,7 @@
   },
   "Security Audit": {
    "2026-10-03": {
-    "success": 4
+    "success": 3
    },
    "2026-10-04": {
     "cancelled": 1,
@@ -2769,7 +2769,7 @@
    "2026-11-02": {
     "failure": 1,
     "skipped": 6,
-    "success": 4
+    "success": 5
    }
   },
   "zizmor online": {
@@ -2829,9 +2829,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-02T16:34:20Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41482773744"
+   "created_at": "2026-11-02T18:13:59Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41498587996"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2926,10 +2926,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-02T18:16:28Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41498991595"
+   "conclusion": "success",
+   "created_at": "2026-11-02T19:36:07Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41511451228"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2939,7 +2939,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41263191282"
   }
  },
- "runs": 14869,
+ "runs": 14856,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2976,7 +2976,7 @@
    "p50_s": 369,
    "p95_s": 593,
    "queue_p50_s": 0,
-   "runs": 699
+   "runs": 697
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -3018,7 +3018,7 @@
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-10-03": 11,
+    "2026-10-03": 11.0,
     "2026-10-04": 10,
     "2026-10-05": 11,
     "2026-10-06": 12.0,
@@ -3050,7 +3050,7 @@
    "p50_s": 11,
    "p95_s": 45,
    "queue_p50_s": 0,
-   "runs": 544
+   "runs": 543
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -3082,12 +3082,12 @@
     "2026-10-30": 368.0,
     "2026-10-31": 326.5,
     "2026-11-01": 366,
-    "2026-11-02": 384.5
+    "2026-11-02": 387
    },
    "p50_s": 387,
    "p95_s": 584,
    "queue_p50_s": 0,
-   "runs": 774
+   "runs": 775
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3184,7 +3184,7 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-10-03": 9,
+    "2026-10-03": 9.0,
     "2026-10-04": 10.0,
     "2026-10-05": 12,
     "2026-10-06": 12,
@@ -3217,7 +3217,7 @@
    "p50_s": 11,
    "p95_s": 47,
    "queue_p50_s": 0,
-   "runs": 515
+   "runs": 514
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -3313,14 +3313,14 @@
     "2026-11-01": 695.5,
     "2026-11-02": 21
    },
-   "p50_s": 551,
+   "p50_s": 550,
    "p95_s": 770,
    "queue_p50_s": 0,
-   "runs": 676
+   "runs": 674
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-10-03": 11.5,
+    "2026-10-03": 10.5,
     "2026-10-04": 197.0,
     "2026-10-05": 213,
     "2026-10-06": 192,
@@ -3353,7 +3353,7 @@
    "p50_s": 27,
    "p95_s": 313,
    "queue_p50_s": 0,
-   "runs": 725
+   "runs": 723
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3390,11 +3390,11 @@
    "p50_s": 88,
    "p95_s": 149,
    "queue_p50_s": 0,
-   "runs": 750
+   "runs": 748
   },
   "Human review attestation": {
    "daily_p50_s": {
-    "2026-10-03": 13,
+    "2026-10-03": 12.5,
     "2026-10-04": 13.5,
     "2026-10-05": 14,
     "2026-10-06": 16,
@@ -3427,7 +3427,7 @@
    "p50_s": 17,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 720
+   "runs": 719
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3569,7 +3569,7 @@
    "p50_s": 165,
    "p95_s": 239,
    "queue_p50_s": 0,
-   "runs": 710
+   "runs": 708
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3636,12 +3636,12 @@
     "2026-10-30": 29.0,
     "2026-10-31": 22,
     "2026-11-01": 26,
-    "2026-11-02": 27.0
+    "2026-11-02": 27
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 1697
+   "runs": 1698
   },
   "zizmor online": {
    "daily_p50_s": {
