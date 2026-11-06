@@ -269,7 +269,7 @@ opentelemetry-sdk==1.45.1
     #   -r requirements.txt
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b1
+opentelemetry-semantic-conventions==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation
