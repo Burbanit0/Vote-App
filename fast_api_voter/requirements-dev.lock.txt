@@ -83,7 +83,7 @@ deprecated==3.0.0
     #   limits
 deptry==0.25.1
     # via -r requirements-dev.txt
-diff-cover==10.6.0
+diff-cover==11.0.0
     # via -r requirements-dev.txt
 docutils==0.23
     # via marimo
