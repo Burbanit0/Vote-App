@@ -1009,7 +1009,7 @@
   "code": 126,
   "test-flaky": 18
  },
- "generated_at": "2026-11-08T09:30:20Z",
+ "generated_at": "2026-11-08T10:16:57Z",
  "grid": {
   "Backend CI": {
    "2026-10-09": {
@@ -1176,7 +1176,7 @@
   },
   "CI Dashboard": {
    "2026-10-09": {
-    "success": 31
+    "success": 30
    },
    "2026-10-10": {
     "success": 70
@@ -1271,7 +1271,7 @@
     "success": 8
    },
    "2026-11-08": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
@@ -1402,7 +1402,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-10-09": {
-    "success": 7
+    "success": 6
    },
    "2026-10-10": {
     "success": 20
@@ -2085,7 +2085,7 @@
    "2026-10-09": {
     "cancelled": 34,
     "skipped": 154,
-    "success": 70
+    "success": 69
    },
    "2026-10-10": {
     "cancelled": 51,
@@ -2276,9 +2276,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-08T02:27:47Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42438643896"
+   "created_at": "2026-11-08T09:30:12Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42467441430"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2386,7 +2386,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41640229923"
   }
  },
- "runs": 9254,
+ "runs": 9252,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2499,7 +2499,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-09": 423,
+    "2026-10-09": 429.5,
     "2026-10-10": 408.0,
     "2026-10-11": 368,
     "2026-10-12": 413.0,
@@ -2529,7 +2529,7 @@
     "2026-11-05": 328,
     "2026-11-06": 305,
     "2026-11-07": 246.5,
-    "2026-11-08": 245
+    "2026-11-08": 247.0
    },
    "p50_s": 384,
    "p95_s": 572,
@@ -2591,7 +2591,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-09": 170,
+    "2026-10-09": 170.5,
     "2026-10-10": 164.0,
     "2026-10-11": 164,
     "2026-10-12": 166.5,
@@ -2626,7 +2626,7 @@
    "p50_s": 170,
    "p95_s": 205,
    "queue_p50_s": 0,
-   "runs": 122
+   "runs": 121
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -3032,7 +3032,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-09": 28.5,
+    "2026-10-09": 28,
     "2026-10-10": 27.0,
     "2026-10-11": 27,
     "2026-10-12": 28.0,
@@ -3067,7 +3067,7 @@
    "p50_s": 28,
    "p95_s": 54,
    "queue_p50_s": 0,
-   "runs": 1022
+   "runs": 1021
   },
   "zizmor online": {
    "daily_p50_s": {
