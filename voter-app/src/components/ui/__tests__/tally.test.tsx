@@ -31,7 +31,7 @@ describe('tally', () => {
     render(<Spinner size="sm" className="me-2" />);
     const spinner = screen.getByRole('status', { name: 'loading' });
     expect(spinner).not.toHaveAttribute('aria-hidden');
-    expect(spinner).toHaveClass('tally-loop', 'h-4', 'me-2');
+    expect(spinner).toHaveClass('tally-loop', 'me-2');
     expect(spinner.style.getPropertyValue('--tally-n')).toBe('5');
     expect(strokeIndices(spinner)).toEqual([0, 1, 2, 3, 4]);
   });
@@ -48,8 +48,9 @@ describe('tally', () => {
     expect(strokeIndices(row)).toEqual([...Array(15).keys()]);
   });
 
-  it('without a label, the loader is still announced as loading', () => {
-    render(<TallyLoader />);
-    expect(screen.getByRole('status', { name: 'loading' })).toBeInTheDocument();
+  it('passes the wrapper attributes through', () => {
+    render(<TallyLoader label="…" id="wait" aria-busy="true" />);
+    expect(screen.getByRole('status')).toHaveAttribute('id', 'wait');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   });
 });

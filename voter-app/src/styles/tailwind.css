@@ -366,7 +366,9 @@
    cycle; stroke `--i` of `--tally-n` is drawn over its own slice of the first
    `--tally-draw` of it, so the strokes come in order, four uprights then the strike, and
    the count holds, then fades before starting again. Registered so it interpolates; at
-   rest (reduced motion, or a browser without @property) it is 1: the count complete. */
+   rest (reduced motion) it is 1: the count complete and still. A browser without
+   @property (Safari < 16.4, Firefox < 128) flips it 0 → 1 halfway: the count blinks
+   instead of being drawn, still a working loader. */
 @property --tally-t {
   syntax: '<number>';
   inherits: true;
@@ -392,9 +394,10 @@
   animation: tally-loop var(--tally-cycle, 1.25s) linear infinite;
 }
 /* In px, not bare numbers: Chromium and Firefox drop a unitless calc() here (WebKit alone
-   takes it). With pathLength="1", 1px is the whole stroke. */
+   takes it). With pathLength="1", 1px is the whole stroke; the 2px gap keeps the next
+   dash past the end, so an undrawn stroke leaves no round-cap dot there. */
 .tally-loop-stroke {
-  stroke-dasharray: 1px;
+  stroke-dasharray: 1px 2px;
   stroke-dashoffset: clamp(
     0px,
     (var(--i) + 1 - var(--tally-t, 1) * var(--tally-n) / var(--tally-draw)) * 1px,

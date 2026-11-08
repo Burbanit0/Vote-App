@@ -46,7 +46,7 @@ export const TallyGate: React.FC<TallyGateProps> = ({
     {UPRIGHTS.slice(0, Math.min(k, 4)).map((x, i) => (
       <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} {...strokeProps?.(i)} />
     ))}
-    {k >= GATE_STROKES && <line x1={0.5} y1={17.5} x2={21} y2={2.5} {...strokeProps?.(4)} />}
+    {k === GATE_STROKES && <line x1={0.5} y1={17.5} x2={21} y2={2.5} {...strokeProps?.(4)} />}
   </svg>
 );
 
@@ -107,12 +107,11 @@ export const TallySpinner: React.FC<TallySpinnerProps> = ({
   />
 );
 
-export interface TallyLoaderProps {
-  /** Shown beside the count, and announced as the status. */
-  label?: React.ReactNode;
+export interface TallyLoaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Shown beside the count: it is what the status announces. */
+  label: React.ReactNode;
   /** Gates in the count: 3 by default (fifteen strokes). */
   gates?: number;
-  className?: string;
   'data-testid'?: string;
 }
 
@@ -121,13 +120,12 @@ export const TallyLoader: React.FC<TallyLoaderProps> = ({
   label,
   gates = 3,
   className,
-  'data-testid': testId,
+  ...rest
 }) => (
   <div
     role="status"
-    aria-label={label == null ? 'loading' : undefined}
-    data-testid={testId}
     className={cn('flex items-center justify-center gap-3 text-muted-foreground', className)}
+    {...rest}
   >
     <span
       className="tally-loop flex items-center gap-1 text-foreground/70"
@@ -143,6 +141,6 @@ export const TallyLoader: React.FC<TallyLoaderProps> = ({
         />
       ))}
     </span>
-    {label != null && <span className="text-sm">{label}</span>}
+    <span className="text-sm">{label}</span>
   </div>
 );
