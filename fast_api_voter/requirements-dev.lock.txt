@@ -276,7 +276,7 @@ opentelemetry-semantic-conventions==0.66b1
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.66b1
+opentelemetry-util-http==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
