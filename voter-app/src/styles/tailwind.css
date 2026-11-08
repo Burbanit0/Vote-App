@@ -362,12 +362,55 @@
 .tally-migrate-anim {
   animation: tally-migrate 0.64s ease-in forwards;
 }
+/* The loaders (ui/tally.tsx): a tally counted in a loop. `--tally-t` runs 0 → 1 over a
+   cycle; stroke `--i` of `--tally-n` is drawn over its own slice of the first
+   `--tally-draw` of it, so the strokes come in order, four uprights then the strike, and
+   the count holds, then fades before starting again. Registered so it interpolates; at
+   rest (reduced motion) it is 1: the count complete and still. A browser without
+   @property (Safari < 16.4, Firefox < 128) flips it 0 → 1 halfway: the count blinks
+   instead of being drawn, still a working loader. */
+@property --tally-t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@keyframes tally-loop {
+  0% {
+    --tally-t: 0;
+    opacity: 1;
+  }
+  84% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0;
+  }
+  100% {
+    --tally-t: 1;
+    opacity: 0;
+  }
+}
+.tally-loop {
+  animation: tally-loop var(--tally-cycle, 1.25s) linear infinite;
+}
+/* In px, not bare numbers: Chromium and Firefox drop a unitless calc() here (WebKit alone
+   takes it). With pathLength="1", 1px is the whole stroke; the 2px gap keeps the next
+   dash past the end, so an undrawn stroke leaves no round-cap dot there. */
+.tally-loop-stroke {
+  stroke-dasharray: 1px 2px;
+  stroke-dashoffset: clamp(
+    0px,
+    (var(--i) + 1 - var(--tally-t, 1) * var(--tally-n) / var(--tally-draw)) * 1px,
+    1px
+  );
+}
 @media (prefers-reduced-motion: reduce) {
   .slip-unfold,
   .bench-wipe,
   .ballot-drop,
   .stroke-draw,
-  .tally-migrate-anim {
+  .tally-migrate-anim,
+  .tally-loop {
     animation: none;
   }
 }

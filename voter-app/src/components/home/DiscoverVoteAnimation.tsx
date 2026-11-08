@@ -2,6 +2,7 @@ import React from 'react';
 import { RotateCcw, Check, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { TallyGate, gatesOf } from '@/components/ui/tally';
 import { voteFrames, type Frame, type TallyFrame } from '../../lib/discoverVoteAnim';
 import type { Rule } from '../../lib/playgroundVoting';
 
@@ -31,42 +32,26 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
-// A count as groups of five: 12 → [5,5,2].
-const gatesOf = (n: number): number[] =>
-  Array.from({ length: Math.ceil(n / 5) }, (_, i) => Math.min(5, n - i * 5));
-
 /** The pause between two strokes of the count, in ms. */
 const STROKE_MS = 45;
 
-// One tally gate: up to four uprights, the fifth a diagonal slash across them. Animated,
-// each stroke is drawn in turn from `delayMs`, as a hand counting would.
-const Gate: React.FC<{ k: number; delayMs?: number }> = ({ k, delayMs }) => {
-  const xs = [3, 8, 13, 18];
-  const draw = (i: number) =>
-    delayMs == null
-      ? {}
-      : {
-          pathLength: 1,
-          className: 'stroke-draw',
-          style: { animationDelay: `${delayMs + i * STROKE_MS}ms` },
-        };
-  return (
-    <svg
-      viewBox="0 0 22 20"
-      className="h-5 w-[22px] shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      aria-hidden
-    >
-      {xs.slice(0, Math.min(k, 4)).map((x, i) => (
-        <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} {...draw(i)} />
-      ))}
-      {k === 5 && <line x1={0.5} y1={17.5} x2={21} y2={2.5} {...draw(4)} />}
-    </svg>
-  );
-};
+// One tally gate (ui/tally.tsx). Animated, each stroke is drawn in turn from `delayMs`,
+// as a hand counting would.
+const Gate: React.FC<{ k: number; delayMs?: number }> = ({ k, delayMs }) => (
+  <TallyGate
+    k={k}
+    className="h-5 w-[22px]"
+    strokeProps={
+      delayMs == null
+        ? undefined
+        : (i) => ({
+            pathLength: 1,
+            className: 'stroke-draw',
+            style: { animationDelay: `${delayMs + i * STROKE_MS}ms` },
+          })
+    }
+  />
+);
 
 // A run of strokes. Animated: drawn one by one (a hand laying them down); migrating:
 // drifts off as the pile empties; still: the reduced-motion fallback.
