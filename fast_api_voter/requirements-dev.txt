@@ -89,4 +89,4 @@ types-PyYAML==6.0.12.20260906  # domain/polity/config.py — polity_config.yaml 
 # backend-ci-cd-pipeline.yml). frontend-ci-cd-pipeline.yml also runs it (against
 # lcov.info) via `pipx run`, constrained to requirements-dev.lock.txt, so this is
 # the only place the version is pinned.
-diff-cover==10.6.0
+diff-cover==11.0.0
