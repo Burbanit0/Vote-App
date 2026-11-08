@@ -152,19 +152,20 @@
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-d4d236b823"
    ],
    "category": "code",
-   "count": 40,
+   "count": 41,
    "example": {
-    "job": "Backend: Tests + Coverage + Security",
+    "job": "Playwright E2E (shard 1/2)",
     "lines": [
      "error: No solution found when resolving dependencies",
-     "##[error]Process completed with exit code 1."
+     "##[error]Process completed with exit code 1.",
+     "##[error]No files were found with the provided path: voter-app/blob-report/. No artifacts will be uploaded."
     ],
     "pr": [
      1038
     ],
     "sha": "793ac3e2ffae624d5ce6986bccc8472c601de591",
-    "step": "Install production + dev dependencies (from the lockfile)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494832179"
+    "step": "Install Python dependencies",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494832180"
    },
    "last_seen": "2026-11-08T15:26:39Z",
    "signature": "code: error: No solution found when resolving dependencies",
@@ -977,10 +978,10 @@
  ],
  "failures_by_category": {
   "advisory": 3,
-  "code": 136,
+  "code": 137,
   "test-flaky": 18
  },
- "generated_at": "2026-11-08T15:24:40Z",
+ "generated_at": "2026-11-08T15:28:40Z",
  "grid": {
   "Backend CI": {
    "2026-10-09": {
@@ -1249,7 +1250,7 @@
     "success": 8
    },
    "2026-11-08": {
-    "success": 15
+    "success": 16
    }
   },
   "CI Health Watchdog": {
@@ -2235,7 +2236,7 @@
    },
    "2026-11-08": {
     "cancelled": 25,
-    "skipped": 55,
+    "skipped": 57,
     "success": 42
    }
   },
@@ -2293,9 +2294,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-08T15:20:09Z",
+   "created_at": "2026-11-08T15:24:03Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494277713"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494616778"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2391,9 +2392,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-08T15:27:18Z",
+   "created_at": "2026-11-08T15:28:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494884837"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42495003561"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2403,7 +2404,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42491482900"
   }
  },
- "runs": 9190,
+ "runs": 9195,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2549,12 +2550,12 @@
     "2026-11-05": 328,
     "2026-11-06": 305,
     "2026-11-07": 246.5,
-    "2026-11-08": 288
+    "2026-11-08": 279.5
    },
    "p50_s": 381,
    "p95_s": 568,
    "queue_p50_s": 0,
-   "runs": 591
+   "runs": 592
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3020,12 +3021,12 @@
     "2026-11-05": 156,
     "2026-11-06": 189,
     "2026-11-07": 131,
-    "2026-11-08": 207
+    "2026-11-08": 199.5
    },
-   "p50_s": 167,
+   "p50_s": 166,
    "p95_s": 273,
    "queue_p50_s": 0,
-   "runs": 396
+   "runs": 397
   },
   "Workflow Lint": {
    "daily_p50_s": {
