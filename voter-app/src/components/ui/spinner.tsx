@@ -1,23 +1,12 @@
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { TallySpinner, type TallySpinnerProps } from './tally';
 
-// Drop-in replacement for react-bootstrap <Spinner> (Phase 6). `size="sm"`
-// mirrors the Bootstrap small spinner; otherwise a 1.5rem spinner.
-export interface SpinnerProps extends React.HTMLAttributes<SVGSVGElement> {
-  size?: 'sm' | 'md' | 'lg';
-}
+// The small loader, inline in a button or a line of text: one tally gate counted in a
+// loop (ui/tally.tsx). It replaced the spinning lucide `Loader2`, keeping its API, so
+// the ~55 call sites draw the count unchanged. A block-level wait uses `TallyLoader`.
+export type SpinnerProps = TallySpinnerProps;
 
-const SIZES = { sm: 'h-4 w-4', md: 'h-6 w-6', lg: 'h-8 w-8' } as const;
-
-const Spinner: React.FC<SpinnerProps> = ({ size = 'md', className, ...props }) => (
-  <Loader2
-    className={cn('inline animate-spin', SIZES[size], className)}
-    role="status"
-    aria-label="loading"
-    {...props}
-  />
-);
+const Spinner: React.FC<SpinnerProps> = (props) => <TallySpinner {...props} />;
 
 export { Spinner };

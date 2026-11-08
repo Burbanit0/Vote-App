@@ -7,7 +7,7 @@ import {
   useLocation,
   useNavigationType,
 } from 'react-router';
-import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
@@ -33,10 +33,7 @@ import OfflineBanner from './components/shared/ui/OfflineBanner';
 import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
-  <div className="flex justify-center items-center py-5" data-testid="route-fallback">
-    <Spinner role="status" size="sm" className="me-2" />
-    <span className="text-muted-foreground text-sm">Chargement…</span>
-  </div>
+  <TallyLoader data-testid="route-fallback" className="py-5" label="Chargement…" />
 );
 
 // <BrowserRouter> restores no scroll position: a <Link> to another page kept the old
