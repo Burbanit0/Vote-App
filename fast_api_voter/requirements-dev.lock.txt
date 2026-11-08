@@ -250,7 +250,7 @@ opentelemetry-instrumentation==0.66b1
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-asgi==0.66b1
+opentelemetry-instrumentation-asgi==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-fastapi
