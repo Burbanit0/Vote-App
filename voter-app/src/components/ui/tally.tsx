@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 // for a result looks like the count going on.
 
 /** Strokes in a full gate: four uprights and the strike. */
-export const GATE_STROKES = 5;
+const GATE_STROKES = 5;
 
 /** A count as gates of five: 12 → [5, 5, 2]. */
 export const gatesOf = (n: number): number[] =>
