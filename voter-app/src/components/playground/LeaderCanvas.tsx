@@ -17,7 +17,7 @@ import {
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
-import LeaderScene3D from './LeaderScene3D';
+import LeaderScene3D, { type SceneCamera } from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
 import {
@@ -148,6 +148,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const [scene3d, setScene3d] = useState(true);
   const [replayOpen, setReplayOpen] = useState(false);
   const show3d = dims === 3 && scene3d;
+  // The orbit camera outlives the scene: toggling to the plane to edit (which unmounts
+  // the scene) must not throw away the viewpoint. A ref, not state — the camera moves
+  // every animation frame and must not re-render this heavy component.
+  const sceneCamera = useRef<SceneCamera | null>(null);
 
   // y maps to the plane in 2/3-D, to the centre line in 1-D.
   const cyOf = (p: Pt): number => (dims === 1 ? CENTER : toSvg(p.y, 'y'));
@@ -164,6 +168,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // extra work at first paint). The probability lens reads the random-ballot
   // lottery; the win-region lens reads the current rule.
   useEffect(() => {
+    // The scene draws the electorate only: the win-region and probability grids paint the
+    // hidden x–y map, so skip them while it is hidden (they recompute when the plane
+    // returns). Manipulation and criteria also feed panels shown under the scene.
+    if (show3d && (lens === 'winner' || lens === 'probability')) return;
     let alive = true;
     const timer = setTimeout(() => {
       if (!alive) return;
@@ -181,7 +189,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       alive = false;
       clearTimeout(timer);
     };
-  }, [gridVoters, candidates, rule, dims, lens, manipShare, manipTactic]);
+  }, [gridVoters, candidates, rule, dims, lens, show3d, manipShare, manipTactic]);
 
   // Manipulation summary (the Gibbard-Satterthwaite boundary, inline): how many
   // voters this rule tempts vs random ballot's guaranteed zero.
@@ -407,7 +415,13 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       )}
 
       {show3d && (
-        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
+        <LeaderScene3D
+          voters={voters}
+          candidates={candidates}
+          palette={PALETTE}
+          you={youMarker}
+          cameraRef={sceneCamera}
+        />
       )}
 
       {/* hidden: read once, as the map's description, not again in reading order. */}
@@ -425,7 +439,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
-        {showRuleUi && lens === 'winner' && (
+        {showRuleUi && !show3d && lens === 'winner' && (
           <g data-testid="winregion" opacity={0.28}>
             {region &&
               region.cells.map((widx, k) => {
@@ -448,7 +462,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
         {/* Probability lens — random-ballot win-probability heatmap of a new
             entrant: opacity ∝ its lottery chance (first-preference basin). */}
-        {lens === 'probability' && probRegion && (
+        {lens === 'probability' && !show3d && probRegion && (
           <g data-testid="problens">
             {(() => {
               const maxV = Math.max(...probRegion.cells, 1e-6);
@@ -911,13 +925,15 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             {c.name}
           </span>
         ))}
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: ENTRY_COLOR }}
-          />
-          {t('canvas.entrantZone')}
-        </span>
+        {!show3d && (
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ background: ENTRY_COLOR }}
+            />
+            {t('canvas.entrantZone')}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {lens === 'manipulation' && t('canvas.capManip')}

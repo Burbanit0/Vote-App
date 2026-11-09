@@ -202,6 +202,57 @@ describe('LeaderCanvas', () => {
     expect(onMoveCandidate).toHaveBeenCalledWith(2, cands[2].x, cands[2].y, 0.6);
   });
 
+  describe('3-D scene', () => {
+    const cands3: NamedPt[] = CANDS.map((c, i) => ({ ...c, z: i * 0.3 - 0.3 }));
+    const props3 = {
+      dims: 3 as const,
+      candidates: cands3,
+      voters: sampleVoters(80, 1, 'random', 3),
+    };
+
+    it('paints no hidden-map grid while the scene shows, and recomputes it on the plane', () => {
+      vi.useFakeTimers();
+      const spy = vi.spyOn(playgroundVoting, 'winRegionGrid');
+      try {
+        setup({ ...props3, lens: 'winner' });
+        act(() => vi.advanceTimersByTime(500));
+        expect(spy).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('view-plane'));
+        act(() => vi.advanceTimersByTime(500));
+        expect(spy).toHaveBeenCalled();
+        expect(screen.getByTestId('winregion')).toBeInTheDocument();
+      } finally {
+        spy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it('still shows the plane-independent lens panels under the scene', async () => {
+      setup({ ...props3, lens: 'criteria' });
+      expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(await screen.findByTestId('criteria-matrix')).toBeInTheDocument();
+    });
+
+    it('keeps the orbit viewpoint across a trip to the x–y plane', () => {
+      setup(props3);
+      fireEvent.click(screen.getByTestId('scene-spin')); // pause auto-spin
+      fireEvent.mouseDown(screen.getByTestId('scene-3d'), { clientX: 100, clientY: 100 });
+      fireEvent.mouseMove(window, { clientX: 260, clientY: 160 });
+      fireEvent.mouseUp(window);
+      const cx = () =>
+        screen.getByTestId('scene-candidate-1').querySelector('circle')!.getAttribute('cx');
+      const orbited = cx();
+      fireEvent.click(screen.getByTestId('view-plane'));
+      expect(screen.queryByTestId('scene-3d')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('view-3d'));
+      expect(cx()).toBe(orbited);
+      // …and it stays paused: the user's pause is part of the viewpoint.
+      expect(screen.getByTestId('scene-spin')).toHaveTextContent('▶');
+    });
+  });
+
   // ── React.memo isolation (perf/leader-canvas-drag-and-memo) ────────────────
   //
   // LeaderCanvas can render up to VOTER_CAP+num_voters SVG <circle>s; it sits

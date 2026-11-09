@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 
@@ -73,6 +73,21 @@ const CUBE_EDGES: [number, number][] = [
   [3, 7],
 ];
 
+/** The orbit camera. The host may own it (a ref) so it survives the scene unmounting. */
+export interface SceneCamera {
+  yaw: number;
+  pitch: number;
+  spin: boolean;
+}
+
+const initialCamera = (): SceneCamera => ({
+  yaw: 0.6,
+  pitch: 0.35,
+  // Don't auto-rotate for users who asked for less motion (the orbit is an
+  // infinite animation); they can still start it from the toggle.
+  spin: !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+});
+
 export interface LeaderScene3DProps {
   voters: Pt[];
   candidates: NamedPt[];
@@ -81,6 +96,9 @@ export interface LeaderScene3DProps {
   /** Optional "you" marker (the sincere-vote module) — read-only here; the
    *  x/y/z sliders drive it, since depth can't be dragged unambiguously. */
   you?: Pt | null;
+  /** Optional host-owned camera: read on mount, written on every change, so the
+   *  viewpoint is kept when the scene is unmounted and mounted again. */
+  cameraRef?: React.MutableRefObject<SceneCamera | null>;
 }
 
 const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
@@ -89,16 +107,20 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   palette,
   axisLabels = ['x', 'y', 'z'],
   you,
+  cameraRef,
 }) => {
   const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
-  const [yaw, setYaw] = useState(0.6);
-  const [pitch, setPitch] = useState(0.35);
-  // Don't auto-rotate for users who asked for less motion (the orbit is an
-  // infinite animation); they can still start it from the toggle.
-  const [spin, setSpin] = useState(
-    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  );
+  const ownCamera = useRef<SceneCamera | null>(null);
+  const camera = cameraRef ?? ownCamera;
+  camera.current ??= initialCamera();
+  const [yaw, setYaw] = useState(camera.current.yaw);
+  const [pitch, setPitch] = useState(camera.current.pitch);
+  const [spin, setSpin] = useState(camera.current.spin);
+  useEffect(() => {
+    // Mutate in place: this runs every spin frame.
+    if (camera.current) Object.assign(camera.current, { yaw, pitch, spin });
+  }, [camera, yaw, pitch, spin]);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-rotate until the user grabs it.
@@ -156,13 +178,17 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     setSpin(false);
   };
 
+  // Nearest candidate doesn't depend on the camera: compute it when the electorate
+  // changes, not on every orbit frame.
+  const parties = useMemo(
+    () => voters.map((v) => nearestCandidate(v, candidates)),
+    [voters, candidates]
+  );
+
   // Project everything, then paint far→near.
   const cubePts = CUBE.map((c) => rotate({ x: c[0], y: c[1], z: c[2] }, yaw, pitch));
   const voterDots = voters
-    .map((v) => {
-      const r = rotate(v, yaw, pitch);
-      return { r, party: nearestCandidate(v, candidates) };
-    })
+    .map((v, k) => ({ r: rotate(v, yaw, pitch), party: parties[k] }))
     .sort((a, b) => a.r.z - b.r.z);
   const candDots = candidates
     .map((c, i) => ({ r: rotate(c, yaw, pitch), i, name: c.name }))
