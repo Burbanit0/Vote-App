@@ -257,6 +257,18 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
         }
       : null;
+  // Index of the candidate the scene rings: the strategic winner when voters aren't
+  // sincere (same as the readout), else the rule's winner; none for a lottery rule.
+  // Nothing is ringed before a method is chosen (showRuleUi false hides the readout), and
+  // a name shared by two candidates can't say which one won — better no ring than a wrong one.
+  const winnerIdx =
+    !showRuleUi || !hasFixedWinner(rule)
+      ? null
+      : strat && strategicOutcome
+        ? strategicOutcome.strategicWinner
+        : winner == null || candidates.filter((c) => c.name === winner).length !== 1
+          ? null
+          : candidates.findIndex((c) => c.name === winner);
   // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
   // first-choice share, then the winner the readout shows.
   const summaryId = React.useId();
@@ -421,6 +433,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           palette={PALETTE}
           you={youMarker}
           cameraRef={sceneCamera}
+          winner={winnerIdx != null && winnerIdx >= 0 ? winnerIdx : null}
+          condorcet={showRuleUi && cwIndex >= 0 ? cwIndex : null}
+          describedBy={summaryId}
         />
       )}
 

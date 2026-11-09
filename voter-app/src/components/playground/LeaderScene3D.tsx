@@ -99,6 +99,12 @@ export interface LeaderScene3DProps {
   /** Optional host-owned camera: read on mount, written on every change, so the
    *  viewpoint is kept when the scene is unmounted and mounted again. */
   cameraRef?: React.MutableRefObject<SceneCamera | null>;
+  /** Index of the candidate the active rule elects (ringed); null/undefined = none. */
+  winner?: number | null;
+  /** Index of the Condorcet winner (criteria lens); null/undefined = none. */
+  condorcet?: number | null;
+  /** Id of a text that describes the scene (the host's hidden summary, which names the winner). */
+  describedBy?: string;
 }
 
 const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
@@ -108,6 +114,9 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   axisLabels = ['x', 'y', 'z'],
   you,
   cameraRef,
+  winner,
+  condorcet,
+  describedBy,
 }) => {
   const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
@@ -221,6 +230,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         width="100%"
         role="img"
         aria-label={t('scene.aria')}
+        aria-describedby={describedBy}
         className="touch-none select-none rounded-lg bg-card"
         style={{ maxHeight: '70vh', cursor: 'grab' }}
         onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
@@ -278,20 +288,46 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         {/* Candidates */}
         <g>
           {candDots.map((d) => {
-            const t = depth01(d.r.z);
+            const near = depth01(d.r.z);
+            const rad = 6 + near * 5;
+            const isWinner = d.i === winner;
+            const isCondorcet = d.i === condorcet;
             return (
               <g key={d.i} data-testid={`scene-candidate-${d.i}`}>
+                {isCondorcet && (
+                  <circle
+                    data-testid="scene-condorcet"
+                    cx={sx(d.r)}
+                    cy={sy(d.r)}
+                    r={rad + (isWinner ? 9 : 5)}
+                    fill="none"
+                    stroke="#0f766e"
+                    strokeWidth={2}
+                    strokeDasharray="3 2"
+                  />
+                )}
+                {isWinner && (
+                  <circle
+                    data-testid="scene-winner"
+                    cx={sx(d.r)}
+                    cy={sy(d.r)}
+                    r={rad + 4}
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth={2.5}
+                  />
+                )}
                 <circle
                   cx={sx(d.r)}
                   cy={sy(d.r)}
-                  r={6 + t * 5}
+                  r={rad}
                   fill={palette[d.i % palette.length]}
                   stroke="#fff"
                   strokeWidth={1.5}
                 />
                 <text
                   x={sx(d.r)}
-                  y={sy(d.r) - 10 - t * 4}
+                  y={sy(d.r) - 10 - near * 4}
                   textAnchor="middle"
                   fontSize={11}
                   fontWeight={600}
@@ -299,6 +335,20 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
                 >
                   {d.name}
                 </text>
+                {(isWinner || isCondorcet) && (
+                  <text
+                    x={sx(d.r)}
+                    y={sy(d.r) + rad + (isWinner && isCondorcet ? 26 : 17)}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fontWeight={700}
+                    fill={isWinner ? '#d97706' : '#0f766e'}
+                  >
+                    {[isWinner && t('scene.winner'), isCondorcet && t('canvas.condorcetMarker')]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </text>
+                )}
               </g>
             );
           })}

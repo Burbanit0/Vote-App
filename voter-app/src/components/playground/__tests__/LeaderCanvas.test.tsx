@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import LeaderCanvas from '../LeaderCanvas';
@@ -233,6 +233,66 @@ describe('LeaderCanvas', () => {
       expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
       expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
       expect(await screen.findByTestId('criteria-matrix')).toBeInTheDocument();
+    });
+
+    it('rings the same winner as the readout, and none for a lottery rule', () => {
+      setup({ ...props3, rule: 'plurality' });
+      const name = screen.getByTestId('field-winner').querySelector('strong')!.textContent!;
+      const ringed = screen.getByTestId('scene-winner').parentElement!;
+      expect(ringed).toHaveTextContent(name);
+      cleanup();
+      setup({ ...props3, rule: 'random_ballot' });
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+    });
+
+    it('rings the Condorcet winner under the criteria lens only', async () => {
+      setup({ ...props3, lens: 'criteria' });
+      expect(await screen.findByTestId('scene-condorcet')).toBeInTheDocument();
+      cleanup();
+      setup({ ...props3, lens: 'winner' });
+      expect(screen.queryByTestId('scene-condorcet')).not.toBeInTheDocument();
+    });
+
+    it('puts the Condorcet ring on the candidate every voter prefers', async () => {
+      // Every voter sits on C: C beats each rival head to head, whatever the rule says.
+      const onC = Array.from({ length: 40 }, (_, k) => ({
+        x: cands3[2].x + (k % 5) * 0.01,
+        y: cands3[2].y,
+        z: cands3[2].z,
+      }));
+      setup({ ...props3, voters: onC, lens: 'criteria' });
+      const ring = await screen.findByTestId('scene-condorcet');
+      expect(ring.parentElement).toBe(screen.getByTestId('scene-candidate-2'));
+    });
+
+    it('rings the strategic winner, as the readout does, when voters are not sincere', () => {
+      setup({
+        ...props3,
+        behavior: 'strategic',
+        strategicOutcome: {
+          sincereWinner: 0,
+          strategicWinner: 2,
+          defectors: [],
+          defectRate: 0,
+          sampled: 0,
+        },
+      });
+      expect(screen.getByTestId('scene-winner').parentElement).toBe(
+        screen.getByTestId('scene-candidate-2')
+      );
+    });
+
+    it('rings nobody before a method is chosen (showRuleUi off)', () => {
+      setup({ ...props3, showRuleUi: false, lens: 'criteria' });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('scene-condorcet')).not.toBeInTheDocument();
+    });
+
+    it('describes the scene with the canvas summary, which names the winner', () => {
+      setup(props3);
+      const summary = screen.getByTestId('leader-map-summary');
+      expect(screen.getByTestId('scene-3d')).toHaveAttribute('aria-describedby', summary.id);
     });
 
     it('keeps the orbit viewpoint across a trip to the x–y plane', () => {

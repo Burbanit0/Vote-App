@@ -223,6 +223,7 @@ const pgFr = {
     pauseSpin: '⏸ rotation',
     playSpin: '▶ rotation',
     aria: 'Vue 3D de l’électorat',
+    winner: 'Vainqueur',
   },
   timeline: {
     thesisAt: 'Au',
