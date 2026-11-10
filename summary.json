@@ -923,7 +923,7 @@
   "code": 120,
   "test-flaky": 17
  },
- "generated_at": "2026-11-10T11:20:59Z",
+ "generated_at": "2026-11-10T16:22:42Z",
  "grid": {
   "Backend CI": {
    "2026-10-11": {
@@ -1094,7 +1094,7 @@
   },
   "CI Dashboard": {
    "2026-10-11": {
-    "success": 12
+    "success": 10
    },
    "2026-10-12": {
     "failure": 1,
@@ -1189,13 +1189,10 @@
     "success": 16
    },
    "2026-11-10": {
-    "success": 5
+    "success": 6
    }
   },
   "CI Health Watchdog": {
-   "2026-10-11": {
-    "success": 1
-   },
    "2026-10-12": {
     "success": 3
    },
@@ -1285,7 +1282,7 @@
     "success": 1
    },
    "2026-11-10": {
-    "success": 1
+    "success": 2
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
@@ -1829,7 +1826,7 @@
     "success": 1
    },
    "2026-11-10": {
-    "success": 1
+    "success": 2
    }
   },
   "Schemathesis Contract Fuzzing": {
@@ -2024,7 +2021,7 @@
    "2026-10-11": {
     "cancelled": 3,
     "skipped": 36,
-    "success": 22
+    "success": 21
    },
    "2026-10-12": {
     "cancelled": 10,
@@ -2158,7 +2155,7 @@
    },
    "2026-11-10": {
     "cancelled": 3,
-    "success": 5
+    "success": 6
    }
   },
   "zizmor online": {
@@ -2191,6 +2188,9 @@
    },
    "2026-11-08": {
     "success": 1
+   },
+   "2026-11-10": {
+    "success": 1
    }
   }
  },
@@ -2212,16 +2212,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-10T10:23:55Z",
+   "created_at": "2026-11-10T11:20:52Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42798796970"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42806720642"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-10T00:50:53Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42731412444"
+   "created_at": "2026-11-10T16:22:05Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42853817353"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -2282,9 +2282,9 @@
   "OpenSSF Scorecard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-10T00:50:53Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42731412541"
+   "created_at": "2026-11-10T15:40:32Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42846816890"
   },
   "Schemathesis Contract Fuzzing": {
    "branch": "develop",
@@ -2310,19 +2310,19 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-10T11:20:52Z",
+   "created_at": "2026-11-10T13:44:54Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42806720778"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42827344310"
   },
   "zizmor online": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-08T14:46:55Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42491482900"
+   "created_at": "2026-11-10T13:44:27Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42827277102"
   }
  },
- "runs": 7102,
+ "runs": 7103,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2437,7 +2437,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-11": 385.5,
+    "2026-10-11": 409.5,
     "2026-10-12": 413.0,
     "2026-10-13": 443,
     "2026-10-14": 430.5,
@@ -2467,16 +2467,16 @@
     "2026-11-07": 246.5,
     "2026-11-08": 270,
     "2026-11-09": 257.0,
-    "2026-11-10": 241
+    "2026-11-10": 250.0
    },
    "p50_s": 375,
    "p95_s": 567,
    "queue_p50_s": 0,
-   "runs": 525
+   "runs": 524
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-11": 11,
+    "2026-10-11": 10.5,
     "2026-10-12": 10.0,
     "2026-10-13": 12.0,
     "2026-10-14": 21.5,
@@ -2503,7 +2503,7 @@
     "2026-11-07": 17.5,
     "2026-11-08": 16,
     "2026-11-09": 19.5,
-    "2026-11-10": 11
+    "2026-11-10": 17.5
    },
    "p50_s": 11,
    "p95_s": 60,
@@ -2830,12 +2830,12 @@
     "2026-11-01": 44,
     "2026-11-03": 61,
     "2026-11-08": 129,
-    "2026-11-10": 55
+    "2026-11-10": 55.0
    },
    "p50_s": 50,
    "p95_s": 61,
    "queue_p50_s": 0,
-   "runs": 13
+   "runs": 14
   },
   "Red on base": {
    "daily_p50_s": {
@@ -2976,7 +2976,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-11": 28.0,
+    "2026-10-11": 28,
     "2026-10-12": 28.0,
     "2026-10-13": 29,
     "2026-10-14": 32,
@@ -3006,7 +3006,7 @@
     "2026-11-07": 28,
     "2026-11-08": 27,
     "2026-11-09": 28.0,
-    "2026-11-10": 28
+    "2026-11-10": 29.5
    },
    "p50_s": 28,
    "p95_s": 55,
@@ -3024,12 +3024,13 @@
     "2026-10-27": 16,
     "2026-11-01": 16,
     "2026-11-03": 27,
-    "2026-11-08": 19
+    "2026-11-08": 19,
+    "2026-11-10": 18
    },
    "p50_s": 18,
    "p95_s": 24,
    "queue_p50_s": 0,
-   "runs": 14
+   "runs": 15
   }
  },
  "tips": {
