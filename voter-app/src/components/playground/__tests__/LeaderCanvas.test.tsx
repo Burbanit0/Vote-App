@@ -265,6 +265,16 @@ describe('LeaderCanvas', () => {
       expect(ring.parentElement).toBe(screen.getByTestId('scene-candidate-2'));
     });
 
+    it('counts the Condorcet winner on every voter, not on the thinned grid sample', async () => {
+      // 330 voters > the 160-voter cap, so the grid keeps every 3rd one. Those are all
+      // on A, but two thirds of the electorate sit on B: B is the true Condorcet winner.
+      const at = (c: NamedPt) => ({ x: c.x, y: c.y, z: c.z });
+      const crowd = Array.from({ length: 330 }, (_, i) => at(cands3[i % 3 === 0 ? 0 : 1]));
+      setup({ ...props3, voters: crowd, lens: 'criteria' });
+      const ring = await screen.findByTestId('scene-condorcet');
+      expect(ring.parentElement).toBe(screen.getByTestId('scene-candidate-1'));
+    });
+
     it('rings the strategic winner, as the readout does, when voters are not sincere', () => {
       setup({
         ...props3,

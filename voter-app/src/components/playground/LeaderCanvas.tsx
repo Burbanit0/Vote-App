@@ -202,10 +202,13 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   }, [lens, manipField]);
 
   // Condorcet winner of the current electorate (criteria lens marks it on the map).
+  // Counted on every voter, not the thinned grid sample: the rule's winner is, so the
+  // two must not disagree through sampling noise alone. Ranking is O(n·m log m) —
+  // cheap; the cap exists for the O(n²)/grid work.
   const cwIndex = useMemo(() => {
     if (lens !== 'criteria' || candidates.length === 0) return -1;
-    return condorcetFromRanks(computeRanks(gridVoters, candidates), candidates.length);
-  }, [lens, gridVoters, candidates]);
+    return condorcetFromRanks(computeRanks(voters, candidates), candidates.length);
+  }, [lens, voters, candidates]);
 
   // Current field's lottery (existing candidates' first-preference shares).
   const lotteryShares = useMemo(

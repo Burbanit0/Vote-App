@@ -343,6 +343,11 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
                     fontSize={10}
                     fontWeight={700}
                     fill={isWinner ? '#d97706' : '#0f766e'}
+                    // A halo in the card colour keeps the tag legible over the voter dots.
+                    className="stroke-card"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    strokeLinejoin="round"
                   >
                     {[isWinner && t('scene.winner'), isCondorcet && t('canvas.condorcetMarker')]
                       .filter(Boolean)
