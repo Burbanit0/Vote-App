@@ -182,7 +182,8 @@ const MacroCurvesPanel: React.FC = () => {
                         type="button"
                         className="underline-offset-2 hover:underline"
                         aria-label={t('map.select', { id: e.winner })}
-                        onClick={() => setCitizen(e.winner ?? null)}
+                        // Narrowed by the `e.winner == null` branch above; a closure loses that.
+                        onClick={() => setCitizen(e.winner as number)}
                       >
                         {e.winner}
                       </button>

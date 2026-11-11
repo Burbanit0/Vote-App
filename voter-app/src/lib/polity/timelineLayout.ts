@@ -183,8 +183,8 @@ export function layoutTimeline(
   vacant(covered, lastTick);
 
   const slotOf = (event: EventInput) => `${glyphOf(event.event_type)[0]}:${event.tick}`;
-  const slotSize = new Map<string, number>();
-  for (const event of events) slotSize.set(slotOf(event), (slotSize.get(slotOf(event)) ?? 0) + 1);
+  const slotSize: Record<string, number> = {};
+  for (const event of events) slotSize[slotOf(event)] = (slotSize[slotOf(event)] ?? 0) + 1;
 
   const stacked = new Map<string, number>();
   const glyphs = events.map((event) => {
@@ -193,7 +193,7 @@ export function layoutTimeline(
     const depth = stacked.get(slot) ?? 0;
     stacked.set(slot, depth + 1);
     // A short stack keeps its 5px spacing; a long one tightens so it never leaves its lane.
-    const size = slotSize.get(slot) ?? 1;
+    const size = slotSize[slot]; // counted above for every event's slot, so always set
     const step = size > 1 ? Math.min(STACK_OFFSET, MAX_STACK_DROP / (size - 1)) : 0;
     return {
       x: tickX(event.tick),

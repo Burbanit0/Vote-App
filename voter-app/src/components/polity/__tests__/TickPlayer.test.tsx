@@ -39,6 +39,14 @@ describe('TickPlayer', () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it('leaves Space to the control that has focus, and claims the arrows for itself', async () => {
+    const player = await renderPlayer();
+    // fireEvent returns false when the handler called preventDefault.
+    expect(fireEvent.keyDown(screen.getByTestId('player-toggle'), { key: ' ' })).toBe(true);
+    expect(screen.getByTestId('player-toggle')).toHaveAttribute('aria-pressed', 'false');
+    expect(fireEvent.keyDown(player, { key: 'ArrowRight' })).toBe(false);
+  });
+
   it('scrubs and steps through the run, with the ends disabled', async () => {
     await renderPlayer();
     expect(screen.getByTestId('player-step-back')).toBeDisabled();

@@ -100,7 +100,7 @@ export function servePolity(
       if (path === '/api/v2/polity/runs') {
         return failRuns ? failed('roots unreadable') : ok({ runs });
       }
-      const key = init.params?.path?.run_key ?? '';
+      const key = String(init.params?.path?.run_key);
       if (path === '/api/v2/polity/runs/{run_key}') {
         return failRun ? failed('run not found') : ok(overview ?? runOverview(key));
       }
