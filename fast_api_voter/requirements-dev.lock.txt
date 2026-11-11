@@ -14,14 +14,14 @@ annotated-types==0.8.0
     # via
     #   -c requirements.lock.txt
     #   pydantic
-anyio==4.15.1
+anyio==4.16.0
     # via
     #   -c requirements.lock.txt
     #   httpx
     #   schemathesis
     #   starlette
     #   watchfiles
-asgiref==3.12.1
+asgiref==3.13.0
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
@@ -41,7 +41,7 @@ boolean-py==5.0
     # via license-expression
 cachecontrol==0.14.4
     # via pip-audit
-certifi==2026.10.19
+certifi==2026.10.23
     # via
     #   -c requirements.lock.txt
     #   httpcore
@@ -77,13 +77,13 @@ defusedxml==0.7.1
     # via
     #   -r requirements-dev.txt
     #   py-serializable
-deprecated==3.0.0
+deprecated==3.0.1
     # via
     #   -c requirements.lock.txt
     #   limits
 deptry==0.25.1
     # via -r requirements-dev.txt
-diff-cover==10.6.0
+diff-cover==11.0.0
     # via -r requirements-dev.txt
 docutils==0.23
     # via marimo
@@ -93,11 +93,11 @@ duckdb==2.0.0
     #   -r requirements.txt
 execnet==2.1.2
     # via pytest-xdist
-fastapi==0.161.1
+fastapi==0.162.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-filelock==4.2.4
+filelock==4.2.6
     # via cachecontrol
 frozenlist==1.8.0
     # via
@@ -109,7 +109,7 @@ googleapis-common-protos==1.76.0
     #   opentelemetry-exporter-otlp-proto-http
 graphql-core==3.2.13
     # via hypothesis-graphql
-grimp==3.17
+grimp==3.18
     # via import-linter
 h11==0.16.0
     # via
@@ -131,12 +131,12 @@ httpx==0.28.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-hypothesis==6.170.8
+hypothesis==6.170.14
     # via
     #   -r requirements-dev.txt
     #   hypothesis-graphql
     #   schemathesis
-hypothesis-graphql==0.13.5
+hypothesis-graphql==0.13.6
     # via schemathesis
 idna==3.20
     # via
@@ -192,7 +192,7 @@ mdit-py-plugins==0.6.1
     # via textual
 mdurl==0.1.2
     # via markdown-it-py
-msgpack==1.2.3
+msgpack==1.2.4
     # via cachecontrol
 msgspec==0.22.0
     # via marimo
@@ -200,13 +200,13 @@ multidict==6.9.1
     # via
     #   aiohttp
     #   yarl
-mutmut==3.8.0
+mutmut==3.8.1
     # via -r requirements-dev.txt
-mypy==2.4.0
+mypy==2.4.1
     # via -r requirements-dev.txt
 mypy-extensions==1.1.0
     # via mypy
-narwhals==2.27.1
+narwhals==2.28.0
     # via marimo
 networkx==3.7
     # via
@@ -217,7 +217,7 @@ numpy==2.5.4
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   scipy
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -229,54 +229,54 @@ opentelemetry-api==1.45.1
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-http-transport==0.66b1
+opentelemetry-exporter-http-transport==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-common==0.66b1
+opentelemetry-exporter-otlp-common==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-common==1.45.1
+opentelemetry-exporter-otlp-proto-common==1.45.2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-opentelemetry-instrumentation==0.66b1
+opentelemetry-instrumentation==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-asgi==0.66b1
+opentelemetry-instrumentation-asgi==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-fastapi==0.66b1
+opentelemetry-instrumentation-fastapi==0.66b2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-opentelemetry-proto==1.45.1
+opentelemetry-proto==1.45.2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.45.1
+opentelemetry-sdk==1.45.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b1
+opentelemetry-semantic-conventions==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-asgi
     #   opentelemetry-instrumentation-fastapi
     #   opentelemetry-sdk
-opentelemetry-util-http==0.66b1
+opentelemetry-util-http==0.66b2
     # via
     #   -c requirements.lock.txt
     #   opentelemetry-instrumentation-asgi
@@ -306,7 +306,7 @@ pip-audit==2.10.1
     # via -r requirements-dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
-platformdirs==4.13.5
+platformdirs==4.14.2
     # via
     #   pip-audit
     #   textual
@@ -339,17 +339,17 @@ py-cpuinfo2==10.1.1
     # via pytest-benchmark
 py-serializable==2.1.0
     # via cyclonedx-python-lib
-pydantic==2.14.1
+pydantic==2.14.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.1
+pydantic-core==2.50.2
     # via
     #   -c requirements.lock.txt
     #   pydantic
-pydantic-settings==2.16.1
+pydantic-settings==2.16.2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -366,7 +366,7 @@ pyparsing==3.3.3
     # via pip-requirements-parser
 pyrate-limiter==4.5.1
     # via schemathesis
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   -r requirements-dev.txt
     #   mutmut
@@ -377,9 +377,9 @@ pytest==9.1.1
     #   pytest-xdist
     #   schemathesis
     #   syrupy
-pytest-asyncio==1.4.0
+pytest-asyncio==1.4.1
     # via -r requirements-dev.txt
-pytest-benchmark==5.3.0
+pytest-benchmark==5.3.1
     # via -r requirements-dev.txt
 pytest-cov==7.1.0
     # via -r requirements-dev.txt
@@ -393,13 +393,13 @@ python-dotenv==1.2.4
     #   -r requirements.txt
     #   pydantic-settings
     #   uvicorn
-python-engineio==4.14.0
+python-engineio==4.15.1
     # via
     #   -c requirements.lock.txt
     #   python-socketio
-python-multipart==0.0.32
+python-multipart==0.0.33
     # via marimo
-python-socketio==5.17.0
+python-socketio==5.17.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -442,9 +442,9 @@ rich==15.0.0
     #   pip-audit
     #   schemathesis
     #   textual
-ruff==0.17.2
+ruff==0.17.3
     # via -r requirements-dev.txt
-schemathesis==4.32.4
+schemathesis==4.32.7
     # via -r requirements-dev.txt
 scipy==1.18.1
     # via
@@ -470,7 +470,7 @@ sortedcontainers==2.4.0
     # via
     #   cyclonedx-python-lib
     #   hypothesis
-starlette==1.9.0
+starlette==1.10.0
     # via
     #   -c requirements.lock.txt
     #   fastapi
@@ -540,14 +540,14 @@ watchfiles==1.3.0
     # via
     #   -c requirements.lock.txt
     #   uvicorn
-websockets==17.3
+websockets==17.4
     # via
     #   -c requirements.lock.txt
     #   marimo
     #   uvicorn
 werkzeug==3.1.9
     # via schemathesis
-wrapt==2.5.1
+wrapt==2.5.2
     # via
     #   -c requirements.lock.txt
     #   deprecated
@@ -560,5 +560,5 @@ xenon==0.9.3
     # via -r requirements-dev.txt
 yarl==1.25.1
     # via aiohttp
-z3-solver==5.3.1.0
+z3-solver==5.3.3.0
     # via -r requirements-dev.txt

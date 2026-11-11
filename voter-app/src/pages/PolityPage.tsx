@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 import { RiseWords } from '@/components/ui/slip';
 import { PolityProvider, usePolityCtx } from '../components/polity/PolityController';
 import RunPicker from '../components/polity/RunPicker';
@@ -20,16 +20,18 @@ const Status: React.FC<{ testId: string; children: React.ReactNode; busy?: boole
   testId,
   children,
   busy = false,
-}) => (
-  <p
-    data-testid={testId}
-    role={busy ? 'status' : 'alert'}
-    className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
-  >
-    {busy && <Spinner size="sm" />}
-    {children}
-  </p>
-);
+}) =>
+  busy ? (
+    <TallyLoader data-testid={testId} className="justify-start py-6" label={children} />
+  ) : (
+    <p
+      data-testid={testId}
+      role="alert"
+      className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+    >
+      {children}
+    </p>
+  );
 
 /** A block of the run view, coming in after the one above it, as the homepage's sections do. */
 const Rise: React.FC<{ at: number; className?: string; children: React.ReactNode }> = ({

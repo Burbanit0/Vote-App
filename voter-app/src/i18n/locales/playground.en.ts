@@ -218,6 +218,7 @@ const pgEn: PlaygroundKeys = {
     pauseSpin: '⏸ rotation',
     playSpin: '▶ rotation',
     aria: '3D view of the electorate',
+    winner: 'Winner',
   },
   timeline: {
     thesisAt: 'On',

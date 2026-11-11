@@ -245,6 +245,7 @@ const pgPseudo: PlaygroundKeys = {
     pauseSpin: '⟦⏸~ rótátíóñ~~~⟧',
     playSpin: '⟦▶~ rótátíóñ~~~⟧',
     aria: '⟦Vúé~~ 3D~ dé~ l’éléçtórát~~~~⟧',
+    winner: '⟦Váíñqúéúr~~~~⟧',
   },
   timeline: {
     thesisAt: '⟦Áú~⟧',

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Select } from '@/components/ui/form-controls';
-import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 import {
   Bar,
   BarChart,
@@ -712,12 +712,7 @@ const VoteStepAnimator: React.FC<Props> = ({
       </CardHeader>
 
       <CardBody style={{ minHeight: 220 }}>
-        {loading && (
-          <div className="flex items-center justify-center py-5">
-            <Spinner size="sm" className="me-2" />
-            <span className="text-muted-foreground text-sm">{t('animation.loading')}</span>
-          </div>
-        )}
+        {loading && <TallyLoader className="py-5" label={t('animation.loading')} />}
         {error && <div className="text-[#dc3545] text-sm">{error}</div>}
         {!loading && !error && renderStep()}
       </CardBody>

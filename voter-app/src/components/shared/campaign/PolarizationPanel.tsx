@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 import {
   ScatterChart,
   Scatter,
@@ -286,12 +287,7 @@ const PolarizationPanel: React.FC = () => {
       {error && <Alert variant="danger">{error}</Alert>}
       {!data && !loading && <Alert variant="info">{t('polarization.prompt')}</Alert>}
 
-      {loading && (
-        <div className="text-center py-4 text-muted-foreground">
-          <Spinner className="me-2" />
-          {t('polarization.computing')}
-        </div>
-      )}
+      {loading && <TallyLoader className="py-4" label={t('polarization.computing')} />}
 
       {data && !loading && (
         <>
