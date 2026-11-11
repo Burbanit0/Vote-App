@@ -292,6 +292,16 @@ describe('LeaderCanvas', () => {
       );
     });
 
+    it('rings nobody when the rule elects no one or two candidates share the winner name', () => {
+      setup({ ...props3, voters: [] });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+      cleanup();
+      setup({ ...props3, candidates: cands3.map((c) => ({ ...c, name: 'A' })) });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+    });
+
     it('rings nobody before a method is chosen (showRuleUi off)', () => {
       setup({ ...props3, showRuleUi: false, lens: 'criteria' });
       expect(screen.getByTestId('scene-3d')).toBeInTheDocument();

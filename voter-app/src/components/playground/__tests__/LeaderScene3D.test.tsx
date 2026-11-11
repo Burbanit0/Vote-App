@@ -78,6 +78,25 @@ describe('LeaderScene3D', () => {
     expect(group).toHaveTextContent('Winner · Condorcet');
   });
 
+  it('marks a Condorcet winner the rule did not elect as a ring of its own, without the winner tag', () => {
+    render(
+      <LeaderScene3D
+        voters={sampleVoters(60, 7, 'random', 3)}
+        candidates={CANDS}
+        palette={PALETTE}
+        winner={0}
+        condorcet={2}
+      />
+    );
+    const group = screen.getByTestId('scene-candidate-2');
+    expect(group).toContainElement(screen.getByTestId('scene-condorcet'));
+    expect(group).toHaveTextContent('Condorcet');
+    expect(group).not.toHaveTextContent('Winner');
+    expect(screen.getByTestId('scene-candidate-0')).toContainElement(
+      screen.getByTestId('scene-winner')
+    );
+  });
+
   it('follows the electorate and the candidates when they change', () => {
     const near = (name: string): NamedPt =>
       name === 'A' ? { name, x: -0.9, y: 0, z: 0 } : { name, x: 0.9, y: 0, z: 0 };
@@ -101,6 +120,6 @@ describe('LeaderScene3D', () => {
         palette={PALETTE}
       />
     );
-    expect(screen.getByTestId('scene-3d').querySelectorAll('circle').length).toBe(before + 2);
+    expect(screen.getByTestId('scene-3d').querySelectorAll('circle')).toHaveLength(before + 2);
   });
 });

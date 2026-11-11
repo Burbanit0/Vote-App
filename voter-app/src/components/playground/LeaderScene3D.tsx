@@ -122,14 +122,14 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const ownCamera = useRef<SceneCamera | null>(null);
   const camera = cameraRef ?? ownCamera;
-  camera.current ??= initialCamera();
-  const [yaw, setYaw] = useState(camera.current.yaw);
-  const [pitch, setPitch] = useState(camera.current.pitch);
-  const [spin, setSpin] = useState(camera.current.spin);
+  const saved = (camera.current ??= initialCamera());
+  const [yaw, setYaw] = useState(saved.yaw);
+  const [pitch, setPitch] = useState(saved.pitch);
+  const [spin, setSpin] = useState(saved.spin);
   useEffect(() => {
     // Mutate in place: this runs every spin frame.
-    if (camera.current) Object.assign(camera.current, { yaw, pitch, spin });
-  }, [camera, yaw, pitch, spin]);
+    Object.assign(saved, { yaw, pitch, spin });
+  }, [saved, yaw, pitch, spin]);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-rotate until the user grabs it.

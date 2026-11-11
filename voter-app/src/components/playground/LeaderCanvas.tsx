@@ -41,6 +41,44 @@ export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
 const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
 
+/** Index of the candidate called `name`, or null when there is none or the name is shared. */
+function indexOfUniqueName(candidates: NamedPt[], name: string | null | undefined): number | null {
+  if (name == null) return null;
+  const at = candidates.findIndex((c) => c.name === name);
+  return at >= 0 && !candidates.some((c, i) => i !== at && c.name === name) ? at : null;
+}
+
+/** `index` when the scene may mark it (a real index and `show`), else null. */
+function markedIndex(show: boolean, index: number | null): number | null {
+  return show && index != null && index >= 0 ? index : null;
+}
+
+/**
+ * Index of the candidate the scene rings: the strategic winner when voters aren't sincere
+ * (same as the readout), else the rule's winner; none for a lottery rule. Nothing is ringed
+ * before a method is chosen (showRuleUi false hides the readout), and a name shared by two
+ * candidates can't say which one won — better no ring than a wrong one.
+ */
+function sceneWinnerIndex(o: {
+  showRuleUi: boolean;
+  rule: Rule;
+  behavior: Behavior;
+  strategicOutcome: StrategicOutcome | null | undefined;
+  candidates: NamedPt[];
+  winner: string | null;
+}): number | null {
+  if (!o.showRuleUi || !hasFixedWinner(o.rule)) return null;
+  if (o.behavior !== 'sincere' && o.strategicOutcome) {
+    return markedIndex(true, o.strategicOutcome.strategicWinner);
+  }
+  return indexOfUniqueName(o.candidates, o.winner);
+}
+
+/** The win-region and probability grids only paint the x–y map, so the 3-D scene skips them. */
+function mapIsHidden(show3d: boolean, lens: Lens): boolean {
+  return show3d && (lens === 'winner' || lens === 'probability');
+}
+
 const PROB_HUE = '#4f46e5';
 
 // Manipulation lens — each voter as a conviction bloc; colour by temptation.
@@ -171,7 +209,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
     // The scene draws the electorate only: the win-region and probability grids paint the
     // hidden x–y map, so skip them while it is hidden (they recompute when the plane
     // returns). Manipulation and criteria also feed panels shown under the scene.
-    if (show3d && (lens === 'winner' || lens === 'probability')) return;
+    if (mapIsHidden(show3d, lens)) return;
     let alive = true;
     const timer = setTimeout(() => {
       if (!alive) return;
@@ -260,18 +298,14 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
         }
       : null;
-  // Index of the candidate the scene rings: the strategic winner when voters aren't
-  // sincere (same as the readout), else the rule's winner; none for a lottery rule.
-  // Nothing is ringed before a method is chosen (showRuleUi false hides the readout), and
-  // a name shared by two candidates can't say which one won — better no ring than a wrong one.
-  const winnerIdx =
-    !showRuleUi || !hasFixedWinner(rule)
-      ? null
-      : strat && strategicOutcome
-        ? strategicOutcome.strategicWinner
-        : winner == null || candidates.filter((c) => c.name === winner).length !== 1
-          ? null
-          : candidates.findIndex((c) => c.name === winner);
+  const winnerIdx = sceneWinnerIndex({
+    showRuleUi,
+    rule,
+    behavior,
+    strategicOutcome,
+    candidates,
+    winner,
+  });
   // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
   // first-choice share, then the winner the readout shows.
   const summaryId = React.useId();
@@ -436,8 +470,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           palette={PALETTE}
           you={youMarker}
           cameraRef={sceneCamera}
-          winner={winnerIdx != null && winnerIdx >= 0 ? winnerIdx : null}
-          condorcet={showRuleUi && cwIndex >= 0 ? cwIndex : null}
+          winner={winnerIdx}
+          condorcet={markedIndex(showRuleUi, cwIndex)}
           describedBy={summaryId}
         />
       )}
