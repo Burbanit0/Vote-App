@@ -1,32 +1,13 @@
 import { apiPost } from '../api/client';
 import { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
+import { electoratePayload, toAssemblyPayload } from './assemblyPayload';
+
+// Still exported from here: the other parliament-side services import it from this module.
+export { electoratePayload };
 
 // Lab reshape P3 — the party-level assembly endpoint. One shared electorate;
 // votes → seats under PR / FPTP / MMP with proportionality, fragmentation,
 // wasted-vote and coalition read-outs.
-
-/** Composed electorate (community mixture) → backend payload, only when active.
- * When 'simple', returns null so the backend keeps the ideology preset cloud.
- * Shared by every parliament-side endpoint so they all read the same electorate. */
-export function electoratePayload(pg: PlaygroundState) {
-  const e = pg.electorate;
-  if (e.mode !== 'composed') return null;
-  return {
-    mode: 'composed' as const,
-    correlation: e.correlation,
-    noise: e.noise,
-    communities: e.communities.map((c) => ({
-      id: c.id,
-      label: c.label,
-      x: c.x,
-      y: c.y,
-      z: c.z ?? 0,
-      spread: c.spread,
-      weight: c.weight,
-      turnout: c.turnout,
-    })),
-  };
-}
 
 export interface AssemblyParty {
   name: string;
@@ -73,23 +54,6 @@ export interface AssemblyResult {
   coalitions: AssemblyCoalition[];
   congruence: AssemblyCongruence;
   mirror: MirrorRegion[];
-}
-
-/** Build the `extra="forbid"` request body from shared electorate + assembly knobs. */
-function toAssemblyPayload(config: ElectionConfig, pg: PlaygroundState) {
-  return {
-    parties: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-    num_voters: config.num_voters,
-    ideology: config.ideology,
-    seed: config.seed,
-    structure: pg.assembly.structure,
-    seats: pg.assembly.seats,
-    threshold: pg.assembly.threshold,
-    apportionment: pg.assembly.apportionment,
-    strategic_desertion: pg.assembly.strategic_desertion,
-    turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
-    electorate: electoratePayload(pg),
-  };
 }
 
 export async function runAssembly(

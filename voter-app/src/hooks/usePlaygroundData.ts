@@ -2,6 +2,7 @@ import React from 'react';
 import type { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
 import { toProfilePayload } from '../services/profilePayload';
+import { toAssemblyPayload } from '../services/assemblyPayload';
 import { runAssembly, type AssemblyResult } from '../services/assemblyApi';
 
 // ── Live profile diagnostics (P1) ───────────────────────────────────────────
@@ -52,18 +53,11 @@ export function useAssembly(
 ): { assembly: AssemblyResult | null; loading: boolean } {
   const [assembly, setAssembly] = React.useState<AssemblyResult | null>(null);
   const [loading, setLoading] = React.useState(false);
-  // Key on every input the /assembly payload actually depends on, so a change to
-  // the electorate mixture, turnout, assembly knobs or parties triggers a refetch.
-  // The old key dropped electorate + turnout → the hemicycle went stale.
+  // Keyed on the request body itself (see useProfileDiagnostics): the hand-picked list this
+  // replaces went stale once already, and had to be kept in step with the payload by hand.
   const key = JSON.stringify({
     enabled,
-    a: playground.assembly,
-    turnout: playground.turnout,
-    electorate: playground.electorate,
-    num_voters: config.num_voters,
-    ideology: config.ideology,
-    seed: config.seed,
-    parties: config.candidates.map((c) => [c.name, c.x, c.y]),
+    body: enabled ? toAssemblyPayload(config, playground) : null,
   });
 
   React.useEffect(() => {
