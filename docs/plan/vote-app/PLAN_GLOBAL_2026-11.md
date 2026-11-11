@@ -30,27 +30,40 @@ against the code before it went in, but a size or a cost marked *(est.)* is an e
 
 ## Phase 0: housekeeping
 
-A box is ticked when the change is on `polity`; "PR" means open and not merged yet.
+A box is ticked when the change is on `polity`.
 
-- [ ] Close #690, #691, #694: all three are fixed on `polity` (checked 2026-11-11).
-- [ ] #682: `precision = 2` (PR #1041).
-- [ ] #681: the flaky check ignores the benchmark suite (PR #1041).
-- [ ] #833: two pinned actions carried the wrong version comment (PR #1041).
-- [ ] The live diagnostics refetch on every input the request sends: turnout, the composed
-  electorate and a candidate's depth were missing from the key (PR #1043, with the hook's
+- [ ] Close #690, #691, #694: all three are fixed (checked 2026-11-11), the issues are still
+  open. #681, #682 and #683 are fixed too and also still open: their PRs said "Closes", but
+  GitHub only acts on that for a PR into the default branch (`develop`), and these went into
+  `polity`. They have to be closed by hand.
+- [x] #682: `precision = 2` (#1041).
+- [x] #681: the flaky check ignores the benchmark suite (#1041).
+- [x] #833: two pinned actions carried the wrong version comment (#1041).
+- [x] The live diagnostics refetch on every input the request sends: turnout, the composed
+  electorate and a candidate's depth were missing from the key (#1043, with the hook's
   first test).
-- [x] This page and `docs/STATUS.md` (this PR).
+- [x] This page and `docs/STATUS.md` (#1045).
 
 ## Phase 1: ship what exists
 
-- [ ] #683: `release.yml` calls Backend and Frontend CI instead of hand-copied jobs (PR #1044).
-- [ ] `scripts/fast-gate.sh` works on macOS, or fails loudly. It printed "nothing to check"
-  because `mapfile` needs bash 4, which is a false pass (PR #1042).
-- [ ] Unblock the `polity` → `develop` sync (#1021 is stale: behind, and red on the image
-  version sync and E2E) and cut a release. The static site is built and tested but only goes
+- [x] #683: `release.yml` calls Backend and Frontend CI instead of hand-copied jobs (#1044).
+  Not yet exercised: a release dispatch cannot run before a version bump reaches `main`.
+- [x] `scripts/fast-gate.sh` works on macOS, or fails loudly. It printed "nothing to check"
+  because `mapfile` needs bash 4, which is a false pass (#1042).
+- [x] The `polity` → `develop` sync (#1021, merged 2026-11-11): `develop` has everything
+  `polity` had. It was red on the image version sync because Microsoft re-pushed the
+  `v1.64.1-noble` tag after our pin; #1046 pinned the digest the registry serves now. That
+  check only asks the registry when a PR changes the pin, so the next re-pushed tag will
+  again show on a release sync and not before (a scheduled advisory run would catch it early:
+  Phase 6).
+- [ ] Cut a release: a version-bump PR into `polity` first (it has to ride the sync, and the
+  last sync went without one, so the bump needs another), then the sync, develop → main, and
+  the dispatch (see the `release` skill). The static site is built and tested but only goes
   live with a release: v0.2.0 predates it, so Pages serves the CI dashboard alone.
-- [ ] Decide the branch model: make `polity` the default branch, or drop `develop`. Scheduled
-  workflows run the default branch's copy, which is `develop`'s, 257 commits behind.
+- [x] Branch model: **kept as it is** (decided by the owner, 2026-11-11): `polity` is the
+  working branch, `develop` receives the syncs, `main` is the release. `develop` stays the
+  GitHub default branch, so scheduled workflows run its copy: that is why a sync has to land
+  before a workflow fix is live there.
 
 ## Phase 2: product basics
 
