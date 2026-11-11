@@ -110,6 +110,10 @@ behind the first instead of racing it. The queued one then fails in its
 ## Afterwards
 
 - **Confirm it landed:** `gh release list` and `git ls-remote --tags origin`.
+- **Update `CITATION.cff`** (`version` and `date-released`, the release day) in a PR to
+  polity: its date cannot be known before the dispatch, and nothing checks it against
+  `voter-app/package.json`, so GitHub's "Cite this repository" keeps the previous release
+  until it is done.
 - **The backend has no version file or tag.** The release version is
   frontend-only.
 - **The only deployment is the static site** (step 4): the Pages site at
