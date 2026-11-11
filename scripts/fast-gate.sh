@@ -21,15 +21,20 @@ set -uo pipefail
 # on a Mac it died on the first of them without failing: it printed "nothing to check" and
 # exited 0, a false pass. So it sticks to what bash 3.2 has, and these two helpers stand in.
 read_into() { # read_into <array>: fill the array from stdin, one element per line
-  local __name="$1" __line
-  eval "$__name=()"
-  while IFS= read -r __line; do eval "$__name+=(\"\$__line\")"; done
+  local __ri_name="$1" __ri_line
+  eval "$__ri_name=()"
+  # `|| [ -n ... ]` keeps a last line with no newline, as mapfile does.
+  while IFS= read -r __ri_line || [ -n "$__ri_line" ]; do eval "$__ri_name+=(\"\$__ri_line\")"; done
 }
-with_timeout() { # with_timeout <seconds> <command...>: no timeout tool, no timeout
+with_timeout() { # with_timeout <seconds> <command...>
   local secs="$1"; shift
   if command -v timeout >/dev/null; then timeout "$secs" "$@"
   elif command -v gtimeout >/dev/null; then gtimeout "$secs" "$@"
-  else "$@"; fi
+  else
+    # No timeout tool (stock macOS): at least never wait on a prompt, which is how a
+    # fetch hangs here. A stalled network still waits, up to git's and ssh's own limits.
+    GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes -o ConnectTimeout=10" "$@"
+  fi
 }
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,8 +47,16 @@ if ! MB=$(git merge-base HEAD "$BASE" 2>/dev/null); then
   echo "fast-gate: cannot find a merge-base with $BASE — nothing to compare against, skipping."
   exit 0
 fi
-read_into CHANGED < <(git diff --name-only --diff-filter=ACMR "$MB" HEAD)
-if [ "${#CHANGED[@]}" -eq 0 ]; then
+# Captured first: a process substitution would hide a failing `git diff` (a shallow clone, an
+# index lock) and read as "no changes", a false pass.
+if ! DIFF_OUT=$(git diff --name-only --diff-filter=ACMR "$MB" HEAD); then
+  echo "fast-gate: git diff against $BASE failed, so nothing was checked." >&2
+  exit 1
+fi
+read_into CHANGED <<< "$DIFF_OUT"
+# Every expansion of an array below sits behind a length check: under `set -u`, bash 3.2
+# aborts on "${empty[@]}", so keep it that way.
+if [ "${#CHANGED[@]}" -eq 0 ] || { [ "${#CHANGED[@]}" -eq 1 ] && [ -z "${CHANGED[0]}" ]; }; then
   echo "fast-gate: no committed changes vs $BASE."
   exit 0
 fi
