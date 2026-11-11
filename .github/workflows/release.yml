@@ -38,7 +38,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tagged: ${{ steps.version.outputs.tagged }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: voter-app/package.json
@@ -128,7 +128,7 @@ jobs:
 
     steps:
       - name: Checkout main # zizmor: ignore[artipacked] this job pushes the release tag with the checkout token
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -199,7 +199,7 @@ jobs:
       contents: write # the release asset
       actions: write # dispatching ci-dashboard.yml
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # engine.zip is built from the backend's own code and packages (build:static).

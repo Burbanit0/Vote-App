@@ -32,7 +32,7 @@ jobs:
       pull-requests: write # the sticky comments
     steps:
       # The default branch's copy of the comment script, not the PR's.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: scripts/sticky_comment.sh
