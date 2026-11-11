@@ -121,7 +121,7 @@ function useController() {
   // bail when nothing it reads changed; see moveCandidate/pinToPlayground below
   // for the same pattern, already established before this one.
   const moveYou = React.useCallback(
-    (x: number, y: number) => setYouPos((p) => ({ ...p, x, y })),
+    (x: number, y: number, z?: number) => setYouPos((p) => ({ ...p, x, y, z: z ?? p.z })),
     []
   );
 

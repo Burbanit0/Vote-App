@@ -5,8 +5,10 @@ import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 // LeaderScene3D — a dependency-free orbital 3-D view of the leader electorate.
 // Points live in the domain cube [-1,1]³; a yaw/pitch camera (dragged with the
 // mouse/touch) rotates them, an orthographic projection draws them to SVG with
-// depth cueing (nearer = larger, more opaque, drawn last). Read-only: editing
-// stays on the x–y map + z sliders, because depth can't be dragged unambiguously.
+// depth cueing (nearer = larger, more opaque, drawn last). The scene is a view:
+// candidates are edited on the x–y map + z sliders. The "you" marker is the exception —
+// dragging it moves it across the screen plane at its current depth (the one reading of
+// a 2-D pointer in 3-D that isn't ambiguous), and the z slider sets the depth.
 
 const SVG = 480;
 const CX = SVG / 2;
@@ -28,6 +30,30 @@ function rotate(p: Pt, yaw: number, pitch: number): R3 {
   const cp = Math.cos(pitch);
   const sp = Math.sin(pitch);
   return { x, y: p.y * cp - zr * sp, z: p.y * sp + zr * cp };
+}
+
+/** Inverse of `rotate`: the domain point that a camera-space point comes from. */
+function unrotate(r: R3, yaw: number, pitch: number): R3 {
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const y = r.y * cp + r.z * sp;
+  const zr = -r.y * sp + r.z * cp;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  return { x: r.x * cy - zr * sy, y, z: r.x * sy + zr * cy };
+}
+
+const clamp1 = (v: number): number => Math.max(-1, Math.min(1, v));
+
+/** A client position in the SVG's own units (the square viewBox is centred when letterboxed). */
+function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
+  const box = svg.getBoundingClientRect();
+  // 1 unit per px until the SVG is laid out (it has no size yet), rather than dividing by 0.
+  const k = Math.min(box.width, box.height) / SVG || 1;
+  return {
+    x: (clientX - box.left - (box.width - SVG * k) / 2) / k,
+    y: (clientY - box.top - (box.height - SVG * k) / 2) / k,
+  };
 }
 
 const sx = (r: R3): number => CX + r.x * SCALE;
@@ -93,9 +119,11 @@ export interface LeaderScene3DProps {
   candidates: NamedPt[];
   palette: string[];
   axisLabels?: string[];
-  /** Optional "you" marker (the sincere-vote module) — read-only here; the
-   *  x/y/z sliders drive it, since depth can't be dragged unambiguously. */
+  /** Optional "you" marker (the sincere-vote module). */
   you?: Pt | null;
+  /** Makes "you" draggable: called with the new position as the marker is dragged across
+   *  the screen plane (its depth along the view is kept). Without it, the marker is fixed. */
+  onMoveYou?: (x: number, y: number, z: number) => void;
   /** Optional host-owned camera: read on mount, written on every change, so the
    *  viewpoint is kept when the scene is unmounted and mounted again. */
   cameraRef?: React.MutableRefObject<SceneCamera | null>;
@@ -113,6 +141,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   palette,
   axisLabels = ['x', 'y', 'z'],
   you,
+  onMoveYou,
   cameraRef,
   winner,
   condorcet,
@@ -131,6 +160,13 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     Object.assign(saved, { yaw, pitch, spin });
   }, [saved, yaw, pitch, spin]);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  // Dragging "you": where the pointer grabbed the marker (SVG units) and the depth it keeps.
+  const dragYou = useRef<{
+    dx: number;
+    dy: number;
+    z: number;
+    move: (x: number, y: number, z: number) => void;
+  } | null>(null);
 
   // Auto-rotate until the user grabs it.
   useEffect(() => {
@@ -150,6 +186,19 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   // Pointer orbit.
   useEffect(() => {
     const move = (cx: number, cy: number) => {
+      const grab = dragYou.current;
+      if (grab) {
+        // The SVG is mounted for as long as a drag that started on it can run.
+        const at = svgPoint(svgRef.current as SVGSVGElement, cx, cy);
+        // Same view depth, new screen position → back to domain coordinates.
+        const p = unrotate(
+          { x: (at.x - grab.dx - CX) / SCALE, y: (CY - (at.y - grab.dy)) / SCALE, z: grab.z },
+          saved.yaw,
+          saved.pitch
+        );
+        grab.move(clamp1(p.x), clamp1(p.y), clamp1(p.z));
+        return;
+      }
       const d = drag.current;
       if (!d) return;
       // Capture the delta BEFORE updating the ref — the setState updaters run
@@ -163,9 +212,10 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
     const onUp = () => {
       drag.current = null;
+      dragYou.current = null;
     };
     const onTM = (e: TouchEvent) => {
-      if (!drag.current || !e.touches[0]) return;
+      if ((!drag.current && !dragYou.current) || !e.touches[0]) return;
       e.preventDefault();
       move(e.touches[0].clientX, e.touches[0].clientY);
     };
@@ -180,7 +230,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
       svg?.removeEventListener('touchmove', onTM);
       svg?.removeEventListener('touchend', onUp);
     };
-  }, []);
+  }, [saved]);
 
   const startDrag = (cx: number, cy: number) => {
     drag.current = { x: cx, y: cy };
@@ -210,10 +260,22 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   const origin = rotate({ x: 0, y: 0, z: 0 }, yaw, pitch);
   const youR = you ? rotate(you, yaw, pitch) : null;
 
+  // Grab "you": remember where on the marker the pointer landed so it doesn't jump. The
+  // press also reaches the SVG's own handler, which freezes the camera (so the screen plane
+  // stays put) — and `move` serves a "you" drag before it would orbit.
+  const startDragYou = (move: NonNullable<typeof onMoveYou>, cx: number, cy: number) => {
+    const at = svgPoint(svgRef.current as SVGSVGElement, cx, cy);
+    const here = youR as R3; // only called from the marker, which renders when youR is set
+    dragYou.current = { dx: at.x - sx(here), dy: at.y - sy(here), z: here.z, move };
+    setSpin(false);
+  };
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{t('scene.drag')}</span>
+        <span>
+          {onMoveYou && you ? `${t('scene.drag')} · ${t('scene.dragYou')}` : t('scene.drag')}
+        </span>
         <button
           type="button"
           data-testid="scene-spin"
@@ -359,9 +421,23 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
           })}
         </g>
 
-        {/* "You" marker (sincere-vote module) — read-only; the sliders drive it. */}
+        {/* "You" marker (sincere-vote module) — draggable across the screen plane when the
+            host gives onMoveYou; the z slider sets its depth. */}
         {youR && (
-          <g data-testid="you-marker-3d">
+          <g
+            data-testid="you-marker-3d"
+            style={onMoveYou ? { cursor: 'grab' } : undefined}
+            onMouseDown={
+              onMoveYou ? (e) => startDragYou(onMoveYou, e.clientX, e.clientY) : undefined
+            }
+            onTouchStart={
+              onMoveYou
+                ? (e) =>
+                    e.touches[0] &&
+                    startDragYou(onMoveYou, e.touches[0].clientX, e.touches[0].clientY)
+                : undefined
+            }
+          >
             {(() => {
               const cx = sx(youR);
               const cy = sy(youR);
@@ -369,6 +445,8 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
               const s = 5 + tdepth * 4;
               return (
                 <>
+                  {/* A wider invisible target than the diamond, so it is easy to grab. */}
+                  {onMoveYou && <circle cx={cx} cy={cy} r={16} fill="transparent" />}
                   <rect
                     x={cx - s}
                     y={cy - s}

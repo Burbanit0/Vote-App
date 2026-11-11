@@ -1,6 +1,7 @@
 import { test, expect, type Page } from './coverageFixtures';
 
-// The 3-D electorate. The orbital scene is read-only and draws the electorate; what
+// The 3-D electorate. The orbital scene draws the electorate ("you" is the one marker
+// that can be dragged); what
 // changing the view or a parameter does to it is the contract here: the elected
 // candidate and the Condorcet winner are ringed in the scene, the lens overlays live on
 // the x–y plane, and the camera survives a trip to that plane.
@@ -60,6 +61,34 @@ test.describe('Playground — 3D scene', () => {
     await page.locator('[data-testid="view-3d"]').click();
     await expect(scene).toBeVisible();
     expect(await cx()).toBe(orbited);
+    expect(crashes).toEqual([]);
+  });
+
+  test('"you" can be dragged in the scene, and the camera stays where it was', async ({ page }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    await page.locator('[data-testid="moment-strategy"]').click();
+    await page.locator('[data-testid="scene-spin"]').click(); // pause the auto-spin
+    const marker = page.locator('[data-testid="you-marker-3d"]');
+    await expect(marker).toBeVisible();
+    const where = async () => {
+      const b = (await marker.locator('rect').boundingBox())!;
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
+    const cand = () =>
+      page.locator('[data-testid="scene-candidate-0"] circle').first().getAttribute('cx');
+    const [from, candBefore] = [await where(), await cand()];
+
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 60, from.y - 40, { steps: 6 });
+    await page.mouse.up();
+
+    const to = await where();
+    expect(to.x).toBeGreaterThan(from.x + 40); // it followed the pointer…
+    expect(to.y).toBeLessThan(from.y - 25);
+    expect(await cand()).toBe(candBefore); // …and the camera did not orbit.
     expect(crashes).toEqual([]);
   });
 });

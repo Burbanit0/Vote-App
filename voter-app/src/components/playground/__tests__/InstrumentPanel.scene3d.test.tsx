@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -23,7 +23,7 @@ vi.mock('../../../services/profileApi', () => ({
   }),
 }));
 
-import { PlaygroundProvider } from '../PlaygroundController';
+import { PlaygroundProvider, useJourneyCtx, useInstrumentCtx } from '../PlaygroundController';
 import InstrumentPanel from '../InstrumentPanel';
 import {
   useElectionStore,
@@ -89,5 +89,35 @@ describe('InstrumentPanel → 3D scene', () => {
     fireEvent.change(screen.getByTestId('z-slider-0'), { target: { value: '0.9' } });
     await waitFor(() => expect(place()).not.toBe(before));
     expect(screen.getByTestId('z-slider-0')).toHaveValue('0.9');
+  });
+
+  it('dragging "you" in the scene moves the controller\'s you, depth included', async () => {
+    let youPos: { x: number; y: number; z?: number } | null = null;
+    const Probe = () => {
+      const { setActiveMoment } = useJourneyCtx();
+      useEffect(() => setActiveMoment('strategy'), [setActiveMoment]); // "you" shows on Stratégie
+      youPos = useInstrumentCtx().youPos;
+      return null;
+    };
+    render(
+      <PlaygroundProvider>
+        <Probe />
+        <InstrumentPanel forceShowRuleUi />
+      </PlaygroundProvider>
+    );
+    const marker = await screen.findByTestId('you-marker-3d');
+    fireEvent.click(screen.getByTestId('scene-spin')); // a still camera
+    const svg = screen.getByTestId('scene-3d');
+    svg.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 480, height: 480, right: 480, bottom: 480 }) as DOMRect;
+    const start = { ...youPos! };
+    const body = marker.querySelector('rect')!;
+    const at = { x: Number(body.getAttribute('x')) + 5, y: Number(body.getAttribute('y')) + 5 };
+    fireEvent.mouseDown(marker, { clientX: at.x, clientY: at.y });
+    fireEvent.mouseMove(window, { clientX: at.x + 60, clientY: at.y - 45 });
+    fireEvent.mouseUp(window);
+    await waitFor(() => expect(youPos).not.toEqual(start));
+    // Depth is part of the move: a screen-plane drag on a rotated camera changes z as well as x.
+    expect(youPos!.z).not.toBe(start.z);
   });
 });

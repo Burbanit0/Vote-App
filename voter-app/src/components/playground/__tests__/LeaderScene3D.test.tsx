@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import LeaderScene3D from '../LeaderScene3D';
+import LeaderScene3D, { type SceneCamera } from '../LeaderScene3D';
 import { sampleVoters, type NamedPt } from '../../../lib/playgroundVoting';
 
 const CANDS: NamedPt[] = [
@@ -95,6 +95,148 @@ describe('LeaderScene3D', () => {
     expect(screen.getByTestId('scene-candidate-0')).toContainElement(
       screen.getByTestId('scene-winner')
     );
+  });
+
+  describe('dragging "you"', () => {
+    const YOU = { x: 0.2, y: -0.1, z: 0.3 };
+    // The SVG's drawn size in jsdom is zero; give it the viewBox's own (480 px, so 1 px = 1 unit).
+    const sizeSvg = () =>
+      vi.spyOn(screen.getByTestId('scene-3d'), 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        width: 480,
+        height: 480,
+        right: 480,
+        bottom: 480,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+    const mount = (onMoveYou?: (x: number, y: number, z: number) => void, sized = true) => {
+      const cameraRef = { current: null as SceneCamera | null };
+      render(
+        <LeaderScene3D
+          voters={sampleVoters(40, 7, 'random', 3)}
+          candidates={CANDS}
+          palette={PALETTE}
+          you={YOU}
+          onMoveYou={onMoveYou}
+          cameraRef={cameraRef}
+        />
+      );
+      fireEvent.click(screen.getByTestId('scene-spin')); // a still camera
+      if (sized) sizeSvg();
+      return cameraRef;
+    };
+    // Where a domain point lands in camera space (mirrors the scene's own projection).
+    const view = (p: { x: number; y: number; z: number }, cam: SceneCamera) => {
+      const { yaw, pitch } = cam;
+      const x = p.x * Math.cos(yaw) + p.z * Math.sin(yaw);
+      const zr = -p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
+      return {
+        x,
+        y: p.y * Math.cos(pitch) - zr * Math.sin(pitch),
+        z: p.y * Math.sin(pitch) + zr * Math.cos(pitch),
+      };
+    };
+    const centre = () => {
+      const r = screen.getByTestId('you-marker-3d').querySelector('rect')!;
+      return { x: Number(r.getAttribute('x')) + 5, y: Number(r.getAttribute('y')) + 5 };
+    };
+
+    it('moves across the screen plane and keeps its depth', () => {
+      const onMoveYou = vi.fn();
+      const cameraRef = mount(onMoveYou);
+      const cam = { ...cameraRef.current! };
+      const before = view(YOU, cam);
+      const at = centre();
+      // Grab the diamond, then drag 30 px right and 15 px down.
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: at.x, clientY: at.y });
+      fireEvent.mouseMove(window, { clientX: at.x + 30, clientY: at.y + 15 });
+      fireEvent.mouseUp(window);
+      expect(onMoveYou).toHaveBeenCalled();
+      const [x, y, z] = onMoveYou.mock.calls.at(-1)!;
+      const after = view({ x, y, z }, cam);
+      expect(after.x).toBeCloseTo(before.x + 30 / 150, 1);
+      expect(after.y).toBeCloseTo(before.y - 15 / 150, 1);
+      expect(after.z).toBeCloseTo(before.z, 1);
+    });
+
+    it('does not orbit the camera while it is dragged', () => {
+      const cameraRef = mount(vi.fn());
+      const { yaw, pitch } = cameraRef.current!;
+      const at = centre();
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: at.x, clientY: at.y });
+      fireEvent.mouseMove(window, { clientX: at.x + 60, clientY: at.y + 40 });
+      fireEvent.mouseUp(window);
+      expect(cameraRef.current).toMatchObject({ yaw, pitch });
+    });
+
+    it('stays inside the domain cube', () => {
+      const onMoveYou = vi.fn();
+      mount(onMoveYou);
+      const at = centre();
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: at.x, clientY: at.y });
+      fireEvent.mouseMove(window, { clientX: at.x + 4000, clientY: at.y - 4000 });
+      for (const v of onMoveYou.mock.calls.at(-1)!) expect(Math.abs(v)).toBeLessThanOrEqual(1);
+    });
+
+    it('still works before the SVG is laid out, at one pixel per unit', () => {
+      const onMoveYou = vi.fn();
+      mount(onMoveYou, false);
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: 240, clientY: 240 });
+      fireEvent.mouseMove(window, { clientX: 270, clientY: 240 });
+      const [x, y, z] = onMoveYou.mock.calls.at(-1)!;
+      expect([x, y, z].every(Number.isFinite)).toBe(true);
+    });
+
+    it('stops following the pointer once released', () => {
+      const onMoveYou = vi.fn();
+      mount(onMoveYou);
+      const at = centre();
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: at.x, clientY: at.y });
+      fireEvent.mouseUp(window);
+      fireEvent.mouseMove(window, { clientX: at.x + 50, clientY: at.y });
+      expect(onMoveYou).not.toHaveBeenCalled();
+    });
+
+    it('follows a finger the same way', () => {
+      const onMoveYou = vi.fn();
+      mount(onMoveYou);
+      const at = centre();
+      const marker = screen.getByTestId('you-marker-3d');
+      fireEvent.touchStart(marker, { touches: [{ clientX: at.x, clientY: at.y }] });
+      fireEvent.touchMove(screen.getByTestId('scene-3d'), {
+        touches: [{ clientX: at.x + 30, clientY: at.y }],
+      });
+      expect(onMoveYou).toHaveBeenCalledTimes(1);
+      fireEvent.touchEnd(screen.getByTestId('scene-3d'));
+    });
+
+    it('ignores a touch move that is not a drag, or has no finger', () => {
+      const onMoveYou = vi.fn();
+      mount(onMoveYou);
+      const svg = screen.getByTestId('scene-3d');
+      fireEvent.touchMove(svg, { touches: [{ clientX: 300, clientY: 240 }] }); // no drag yet
+      const at = centre();
+      fireEvent.touchStart(screen.getByTestId('you-marker-3d'), {
+        touches: [{ clientX: at.x, clientY: at.y }],
+      });
+      fireEvent.touchMove(svg, { touches: [] }); // a drag, but no finger
+      expect(onMoveYou).not.toHaveBeenCalled();
+      fireEvent.touchEnd(svg);
+    });
+
+    it('is fixed when the host gives no handler: the drag orbits the camera instead', () => {
+      const cameraRef = mount();
+      const { yaw } = cameraRef.current!;
+      const at = centre();
+      expect(screen.getByTestId('scene-3d')).not.toHaveTextContent('Drag the diamond');
+      fireEvent.mouseDown(screen.getByTestId('you-marker-3d'), { clientX: at.x, clientY: at.y });
+      fireEvent.mouseMove(window, { clientX: at.x + 40, clientY: at.y });
+      fireEvent.mouseUp(window);
+      expect(cameraRef.current!.yaw).not.toBeCloseTo(yaw, 3);
+    });
   });
 
   it('follows the electorate and the candidates when they change', () => {
