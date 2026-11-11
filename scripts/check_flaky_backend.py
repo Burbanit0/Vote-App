@@ -58,7 +58,8 @@ def _run_once(run_index: int, test_path: str, xml_path: Path) -> tuple[dict[str,
             test_path,
             # -o addopts= drops pyproject.toml's coverage gate (irrelevant here,
             # and --cov-fail-under would abort a run early) but ALSO its
-            # --ignore of the slow Schemathesis contract-fuzzing file and its
+            # --ignore of the slow Schemathesis contract-fuzzing file (and the benchmark
+            # suite, see below) and its
             # `-n auto` xdist parallelization -- both restored explicitly
             # below, or 3 runs of the full suite take ~3x as long as they
             # need to (each ~1000s sequential-with-Schemathesis instead of
@@ -66,6 +67,11 @@ def _run_once(run_index: int, test_path: str, xml_path: Path) -> tuple[dict[str,
             "-o",
             "addopts=",
             "--ignore=api/tests/test_schema_contract.py",
+            # Also restored: the pytest-benchmark suite cannot run under xdist, so its 28
+            # tests failed on EVERY run, and a test that fails every time is never
+            # "flaky" -- the script's own definition hid them (#681). They run as their
+            # own blocking step in Backend CI and in release.yml.
+            "--ignore=api/tests/test_engine_benchmarks.py",
             "-n",
             "auto",
             f"--junit-xml={xml_path}",
