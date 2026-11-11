@@ -3,10 +3,11 @@
 > Where each part of the project stands and what comes next. One page, updated at
 > the end of each phase of [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md) and whenever
 > the next steps change. Last update: **2026-11-11**: the static site's workflow edits are in
-> (#937) but the site is **not live**: no release has been cut since v0.2.0 (2026-09-27), and
-> `polity` is now 257 commits ahead of `develop`. A four-part audit and the open issues are
-> folded into [`PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md); its Phases 0
-> and 1 (housekeeping, then ship what exists) are under way. Earlier: W6 built (#914–#924),
+> (#937) but the site is **not live**: no release has been cut since v0.2.0 (2026-09-27).
+> `develop` has everything `polity` had as of 2026-11-11 (the sync #1021). A four-part audit
+> and the open issues are folded into
+> [`PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md); its Phases 0 and 1
+> (housekeeping, then ship what exists) are done except the release itself. Earlier: W6 built (#914–#924),
 > the preprint drafted (#913), the W6 spike's two bugs fixed (#910, #911).
 
 ## The three parts
@@ -27,13 +28,15 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
 
 ## Next 3 steps
 
-1. **The first release with the static site.** The workflow edits are in; what is missing is
-   the release. Unblock the `polity` → `develop` sync (#1021 is stale and red), cut it, then
-   check https://burbanit0.github.io/Vote-App/ (today it serves the CI dashboard only), a
-   deep link such as `/polity?citizen=3`, and the dashboard at `/ci/`.
-2. **The branch model.** `develop` is the GitHub default, so scheduled workflows run its
-   copy; decide whether `polity` becomes the default or `develop` goes
-   ([plan, Phase 1](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-1-ship-what-exists)).
+1. **The first release with the static site.** The workflow edits are in and the sync is
+   done; what is missing is the release: a version-bump PR into `polity`, another sync,
+   develop → main, the dispatch (the `release` skill). Then check
+   https://burbanit0.github.io/Vote-App/ (today it serves the CI dashboard only), a deep link
+   such as `/polity?citizen=3`, and the dashboard at `/ci/`. The release gate is the new
+   `workflow_call` one (#1044), not yet run.
+2. **Ties, #926** ([Phase 3](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-3-correctness)):
+   the ranked rules' tie-breaks on both engines, one parity-fixture regeneration, a
+   high-risk path.
 3. **Product basics** ([Phase 2](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-2-product-basics)):
    a candidate editor, a shareable scenario link, and the "Vous" marker made to count.
    Closing `PLAN_BEYOND_CI`: W3.5 (class mode) waits for the teacher outreach, and the
