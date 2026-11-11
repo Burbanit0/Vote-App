@@ -17,17 +17,32 @@
 
 set -uo pipefail
 
+# macOS ships bash 3.2 and no `timeout`. This script used `mapfile` (bash 4) and `timeout`, and
+# on a Mac it died on the first of them without failing: it printed "nothing to check" and
+# exited 0, a false pass. So it sticks to what bash 3.2 has, and these two helpers stand in.
+read_into() { # read_into <array>: fill the array from stdin, one element per line
+  local __name="$1" __line
+  eval "$__name=()"
+  while IFS= read -r __line; do eval "$__name+=(\"\$__line\")"; done
+}
+with_timeout() { # with_timeout <seconds> <command...>: no timeout tool, no timeout
+  local secs="$1"; shift
+  if command -v timeout >/dev/null; then timeout "$secs" "$@"
+  elif command -v gtimeout >/dev/null; then gtimeout "$secs" "$@"
+  else "$@"; fi
+}
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 BASE="${1:-origin/polity}"
 
 # Best effort: a stale base only widens the diff, it never hides a change.
-timeout 20 git fetch -q origin "${BASE#origin/}" 2>/dev/null || true
+with_timeout 20 git fetch -q origin "${BASE#origin/}" 2>/dev/null || true
 if ! MB=$(git merge-base HEAD "$BASE" 2>/dev/null); then
   echo "fast-gate: cannot find a merge-base with $BASE — nothing to compare against, skipping."
   exit 0
 fi
-mapfile -t CHANGED < <(git diff --name-only --diff-filter=ACMR "$MB" HEAD)
+read_into CHANGED < <(git diff --name-only --diff-filter=ACMR "$MB" HEAD)
 if [ "${#CHANGED[@]}" -eq 0 ]; then
   echo "fast-gate: no committed changes vs $BASE."
   exit 0
@@ -43,13 +58,13 @@ run() { # run <label> <command...>
 skip() { echo "── $1: SKIPPED ($2)"; SUMMARY+=("SKIPPED  $1 — $2"); }
 pick() { printf '%s\n' "${CHANGED[@]}" | grep -E "$1" || true; }
 
-mapfile -t PY < <(pick '^fast_api_voter/.*\.py$')
-mapfile -t PY_API < <(pick '^fast_api_voter/api/.*\.py$')
-mapfile -t TS < <(pick '^voter-app/.*\.(ts|tsx|js|jsx|mjs)$')
-mapfile -t ENGINE < <(pick '^(fast_api_voter/api/engine/utils/simulation_(ranked|score)_utils\.py|voter-app/src/lib/playgroundVoting\.ts|fast_api_voter/scripts/gen_engine_parity\.py)$')
-mapfile -t NPM < <(pick '^(voter-app/package(-lock)?\.json|\.github/npm-audit-allowlist\.json)$')
+read_into PY < <(pick '^fast_api_voter/.*\.py$')
+read_into PY_API < <(pick '^fast_api_voter/api/.*\.py$')
+read_into TS < <(pick '^voter-app/.*\.(ts|tsx|js|jsx|mjs)$')
+read_into ENGINE < <(pick '^(fast_api_voter/api/engine/utils/simulation_(ranked|score)_utils\.py|voter-app/src/lib/playgroundVoting\.ts|fast_api_voter/scripts/gen_engine_parity\.py)$')
+read_into NPM < <(pick '^(voter-app/package(-lock)?\.json|\.github/npm-audit-allowlist\.json)$')
 # Every change, deletions included (CHANGED leaves them out): removing a workflow moves the counts.
-mapfile -t CI_FACTS < <(git diff --name-only "$MB" HEAD | grep -E '^(CONTRIBUTING\.md|\.claude/skills/voter-ci/SKILL\.md|scripts/(ci_facts|check_ci_health)\.py|scripts/setup-branch-protection\.sh|\.github/workflows/[^/]+\.ya?ml)$' || true)
+read_into CI_FACTS < <(git diff --name-only "$MB" HEAD | grep -E '^(CONTRIBUTING\.md|\.claude/skills/voter-ci/SKILL\.md|scripts/(ci_facts|check_ci_health)\.py|scripts/setup-branch-protection\.sh|\.github/workflows/[^/]+\.ya?ml)$' || true)
 
 # The backend sections need an interpreter at the version the repo targets
 # (mypy.ini's python_version): an older one with fastapi installed passed the
@@ -100,7 +115,7 @@ if [ "${#PY_API[@]}" -gt 0 ]; then
       fi
     done
     if [ "${#TESTS[@]}" -gt 0 ]; then
-      mapfile -t TESTS < <(printf '%s\n' "${TESTS[@]}" | sort -u)
+      read_into TESTS < <(printf '%s\n' "${TESTS[@]}" | sort -u)
       run "pytest (${#TESTS[@]} related test files)" bash -c 'cd fast_api_voter && python3 -m pytest -o addopts="" -x -q "$@"' _ "${TESTS[@]}"
     fi
   fi
