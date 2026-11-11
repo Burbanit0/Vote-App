@@ -30,19 +30,22 @@ against the code before it went in, but a size or a cost marked *(est.)* is an e
 
 ## Phase 0: housekeeping
 
+A box is ticked when the change is on `polity`; "PR" means open and not merged yet.
+
 - [ ] Close #690, #691, #694: all three are fixed on `polity` (checked 2026-11-11).
-- [x] #682: `precision = 2`.
-- [x] #681: the flaky check ignores the benchmark suite.
-- [x] #833: two pinned actions carried the wrong version comment.
-- [x] The live diagnostics refetch on every input the request sends (turnout, the composed
-  electorate and a candidate's depth were missing from the key; the hook now has a test).
-- [x] This page and `docs/STATUS.md`.
+- [ ] #682: `precision = 2` (PR #1041).
+- [ ] #681: the flaky check ignores the benchmark suite (PR #1041).
+- [ ] #833: two pinned actions carried the wrong version comment (PR #1041).
+- [ ] The live diagnostics refetch on every input the request sends: turnout, the composed
+  electorate and a candidate's depth were missing from the key (PR #1043, with the hook's
+  first test).
+- [x] This page and `docs/STATUS.md` (this PR).
 
 ## Phase 1: ship what exists
 
-- [ ] #683: `release.yml` calls Backend and Frontend CI instead of hand-copied jobs.
-- [ ] `scripts/fast-gate.sh` works on macOS, or fails loudly. Today it prints "nothing to
-  check" because `mapfile` needs bash 4, which is a false pass.
+- [ ] #683: `release.yml` calls Backend and Frontend CI instead of hand-copied jobs (PR #1044).
+- [ ] `scripts/fast-gate.sh` works on macOS, or fails loudly. It printed "nothing to check"
+  because `mapfile` needs bash 4, which is a false pass (PR #1042).
 - [ ] Unblock the `polity` → `develop` sync (#1021 is stale: behind, and red on the image
   version sync and E2E) and cut a release. The static site is built and tested but only goes
   live with a release: v0.2.0 predates it, so Pages serves the CI dashboard alone.
