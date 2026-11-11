@@ -67,7 +67,7 @@ jobs:
     outputs:
       history: ${{ steps.history.outputs.exists }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: polity
           persist-credentials: false
@@ -110,7 +110,7 @@ jobs:
       contents: write # the ci-data branch
     steps:
       # Only git runs here; the checkout is for its remote and credentials.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: polity
           persist-credentials: true # pushes ci-data below
@@ -155,7 +155,7 @@ jobs:
     permissions:
       contents: read # the releases' assets
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: polity
           persist-credentials: false
@@ -214,7 +214,7 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: polity
           persist-credentials: false
