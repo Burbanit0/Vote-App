@@ -34,7 +34,7 @@ jobs:
       actions: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -50,6 +50,6 @@ jobs:
           path: results.sarif
           retention-days: 7
 
-      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v3 (matches audit.yml's pin)
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1 (matches audit.yml's pin)
         with:
           sarif_file: results.sarif
