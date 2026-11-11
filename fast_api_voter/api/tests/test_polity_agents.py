@@ -328,7 +328,7 @@ def test_a_president_is_seated_only_with_a_pledge_and_a_stated_position() -> Non
     assert _seated_president(state(bare)) is None  # holds the office, has promised and said nothing
     assert _seated_president(state(_president(office=Office.PRESIDENT, pledged_platform=pledge))) is None
     assert _seated_president(state(_president(office=Office.PRESIDENT, revealed_position=stated))) is None
-    assert _seated_president(state(_president())) is None  # pledge and position, no office
+    assert _seated_president(state(_president(pledged_platform=pledge, revealed_position=stated))) is None  # no office
     full = _president(office=Office.PRESIDENT, pledged_platform=pledge, revealed_position=stated)
     assert _seated_president(state(full)) == (full, pledge, stated)
 

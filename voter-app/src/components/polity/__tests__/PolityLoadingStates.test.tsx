@@ -4,16 +4,18 @@ import MacroCurvesPanel from '../MacroCurvesPanel';
 import PopulationMap from '../PopulationMap';
 import RunFacts from '../RunFacts';
 import TickPlayer from '../TickPlayer';
+import type { PolityCtx } from '../PolityController';
 import { runOverview } from '../../../test/polityApi';
 
 // The panels are all mounted under the page before a run has loaded (a slow or failed request):
 // each must render nothing then, not throw or show half a panel. The page-level tests only ever
 // see a loaded run, so this feeds the panels a context directly.
 
-const ctx = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const ctx = vi.hoisted(() => ({ current: {} as unknown as PolityCtx }));
 vi.mock('../PolityController', () => ({ usePolityCtx: () => ctx.current }));
 
-const base = {
+// Typed, so a field added to the context breaks this file's build instead of leaving a stale stub.
+const base: PolityCtx = {
   runs: undefined,
   runsLoading: true,
   runsError: undefined,
@@ -25,7 +27,7 @@ const base = {
   overviewError: undefined,
   tick: 0,
   setTick: vi.fn(),
-  lens: 'party',
+  lens: 'activity',
   setLens: vi.fn(),
   citizen: null,
   setCitizen: vi.fn(),
@@ -55,7 +57,7 @@ describe('RunFacts for a run the list does not carry', () => {
     // overview: the facts show what the overview says, and "—" for the engine.
     ctx.current = {
       ...base,
-      overview: runOverview('gone'),
+      overview: runOverview('gone') as unknown as PolityCtx['overview'], // the fixture is loosely typed
       run: undefined,
       overviewLoading: false,
     };

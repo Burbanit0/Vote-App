@@ -50,4 +50,13 @@ describe('PolityController, before a run has loaded', () => {
     act(() => seen.ctx?.setTick(7));
     await waitFor(() => expect(new URLSearchParams(spy.search()).get('tick')).toBe('0'));
   });
+
+  it('clamps a requested tick to the last tick once the run has loaded', async () => {
+    const seen = renderController('/polity');
+    await waitFor(() => expect(seen.ctx?.overview).toBeDefined());
+    const last = seen.ctx!.overview!.last_tick;
+    expect(last).toBeGreaterThan(0);
+    act(() => seen.ctx?.setTick(last + 50));
+    await waitFor(() => expect(new URLSearchParams(spy.search()).get('tick')).toBe(String(last)));
+  });
 });

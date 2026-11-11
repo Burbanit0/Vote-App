@@ -75,6 +75,9 @@ const MacroCurvesPanel: React.FC = () => {
   if (!overview) return null;
 
   const { standings, elections } = overview;
+  // A winner's story opens beside the map. Takes the winner as an argument so the `winner == null`
+  // branch in the table below narrows it, which a closure over the row would not.
+  const openStory = (winner: number) => () => setCitizen(winner);
   const pressure = pressureRows(standings);
   const jump = (state: { activeLabel?: string | number } | null) => {
     const target = clickedTick(state);
@@ -182,8 +185,7 @@ const MacroCurvesPanel: React.FC = () => {
                         type="button"
                         className="underline-offset-2 hover:underline"
                         aria-label={t('map.select', { id: e.winner })}
-                        // Narrowed by the `e.winner == null` branch above; a closure loses that.
-                        onClick={() => setCitizen(e.winner as number)}
+                        onClick={openStory(e.winner)}
                       >
                         {e.winner}
                       </button>
