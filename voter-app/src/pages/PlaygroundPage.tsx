@@ -1,6 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent } from '@/components/ui/card';
+import { Crown, Landmark } from 'lucide-react';
+import { CardContent } from '@/components/ui/card';
+import { Segmented } from '@/components/ui/segmented';
+import { FoldedCorner, RiseWords } from '@/components/ui/slip';
 import { cn } from '@/lib/utils';
 import { useMetaTags } from '../hooks/useMetaTags';
 import {
@@ -35,46 +38,29 @@ const MOMENT_PANELS = {
   bilan: BilanMoment,
 } as const;
 
-// Segmented hardware-style switch for the leader/assembly duality.
+// The leader/assembly duality: the segmented switch the homepage's rule picker uses.
 const ModeSwitch: React.FC = () => {
   const { mode, setMode } = useStoreCtx();
   const { t } = useTranslation('playground');
   return (
-    <div
-      data-testid="mode-toggle"
-      role="radiogroup"
-      aria-label={t('mode.leader')}
-      className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 p-0.5 text-sm shadow-inner"
-    >
-      {(
-        [
-          ['leader', '👑', t('mode.leader')],
-          ['parliament', '🏛', t('mode.assembly')],
-        ] as const
-      ).map(([id, icon, label]) => (
-        <button
-          key={id}
-          type="button"
-          role="radio"
-          aria-checked={mode === id}
-          data-testid={`mode-toggle-${id}`}
-          onClick={() => {
-            track('mode_toggled', { mode: id });
-            setMode(id);
-          }}
-          className={cn(
-            'rounded-full px-3.5 py-1.5 font-medium transition-all',
-            mode === id
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <span className="mr-1" aria-hidden>
-            {icon}
-          </span>
-          {label}
-        </button>
-      ))}
+    <div data-testid="mode-toggle" className="w-full max-w-xs shrink-0">
+      <Segmented
+        label={t('mode.leader')}
+        value={mode}
+        onChange={(id) => {
+          track('mode_toggled', { mode: id });
+          setMode(id);
+        }}
+        options={[
+          { value: 'leader', label: t('mode.leader'), icon: Crown, testid: 'mode-toggle-leader' },
+          {
+            value: 'parliament',
+            label: t('mode.assembly'),
+            icon: Landmark,
+            testid: 'mode-toggle-parliament',
+          },
+        ]}
+      />
     </div>
   );
 };
@@ -86,17 +72,24 @@ const PlaygroundShell: React.FC = () => {
   const Panel = activeMoment !== 'campaign' ? MOMENT_PANELS[activeMoment] : null;
 
   return (
-    <div data-testid="playground-page" data-touch className="w-full px-4 py-4">
+    <div
+      data-testid="playground-page"
+      data-touch
+      className="mx-auto w-full max-w-[1600px] px-4 pt-8 pb-12 sm:px-6"
+    >
       {/* ── Masthead ── */}
-      <header className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-primary">
-            {t('masthead.kicker')}
-          </p>
-          <h1 className="mt-0.5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t('masthead.title')}
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+        <div className="flex max-w-3xl flex-col gap-3">
+          <p className="home-up text-[15px] font-bold text-primary">{t('masthead.kicker')}</p>
+          <h1 className="font-display text-[clamp(40px,4.6vw,68px)] leading-[0.9] font-extrabold">
+            <RiseWords text={t('masthead.title')} delay={80} />
           </h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t('masthead.subtitle')}</p>
+          <p
+            className="home-up text-base text-muted-foreground"
+            style={{ animationDelay: '200ms' }}
+          >
+            {t('masthead.subtitle')}
+          </p>
         </div>
         <ModeSwitch />
       </header>
@@ -123,28 +116,29 @@ const PlaygroundShell: React.FC = () => {
                 : 'lg:grid-cols-[21rem_1fr]'
             )}
           >
-            <Card
-              className="h-fit overflow-hidden border-primary/25"
+            {/* The moment's controls, on a slip with its corner folded over (drawn, not cut,
+                so their popovers are never clipped); a new moment is laid down by the sweep. */}
+            <div
+              key={activeMoment}
+              className="bench-wipe relative h-fit border border-border bg-card"
               data-testid={`moment-${activeMoment}-panel`}
             >
-              {/* Panel header = the instrument's chrome strip, tuned to match the
-                  scope's telemetry bars; the round step badge echoes the rail. */}
-              <div className="flex items-center gap-2.5 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary font-mono text-sm font-semibold text-primary-foreground ring-2 ring-primary/20">
+              <FoldedCorner size={24} />
+              <div className="flex items-center gap-3 border-b border-border py-3.5 pr-9 pl-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm font-semibold text-primary-foreground">
                   {meta.n}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-display text-base font-semibold leading-tight">
+                  <p className="font-display text-[24px] leading-none font-extrabold">
                     {t(`moments.${activeMoment}.label`)}
                   </p>
-                  <p className="truncate text-[0.7rem] text-muted-foreground">
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
                     {t(`moments.${activeMoment}.hint`)}
                   </p>
                 </div>
               </div>
               <CardContent className="flex flex-col gap-4 p-4">{Panel && <Panel />}</CardContent>
-            </Card>
-
+            </div>
             <InstrumentPanel />
           </div>
         )}

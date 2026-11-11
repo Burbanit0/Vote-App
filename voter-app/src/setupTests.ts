@@ -41,6 +41,19 @@ if (typeof window !== 'undefined' && !window.ResizeObserver) {
   };
 }
 
+// …and IntersectionObserver (the homepage's ballot box starts filling when it comes
+// into view). A no-op: tests that need an intersection install their own.
+if (typeof window !== 'undefined' && !window.IntersectionObserver) {
+  window.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+}
+
 // Initialize i18next so components using useTranslation() work in tests.
 // jsdom's navigator.language is 'en-US', so the detector resolves to English;
 // `en` is now code-split (lazy), so we await both bundles here before any test

@@ -43,6 +43,13 @@
   --bs-primary: #0e7068;
   --bs-primary-bg-subtle: #d3e6e3;
   --bs-table-bg: transparent;
+
+  /* Homepage "Bureau de vote": the envelope you vote with holds the instrument; the
+     stamp's violet is spent only when a result is decided. */
+  --envelope: #d7dee6;
+  --ballot-stamp: #5b3a9e;
+  /* "It holds / it worked": Carol's green, for the success notes and buttons. */
+  --ok: #1e7a45;
 }
 
 /* Dark mode rides the existing toggle (useUIStore sets data-bs-theme on <html>). */
@@ -77,6 +84,10 @@
   --bs-primary: #2bb3a3;
   --bs-primary-bg-subtle: #0c2a27;
   --bs-table-bg: transparent;
+
+  --envelope: #1d2938;
+  --ballot-stamp: #b9a2f0;
+  --ok: #4cc38a;
 }
 
 /* Map the CSS variables to Tailwind color/​radius utilities (bg-primary,
@@ -101,6 +112,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-envelope: var(--envelope);
+  --color-ballot-stamp: var(--ballot-stamp);
+  --color-ok: var(--ok);
 
   /* Brand palette (COLORS.brand) */
   --color-brand: #005cab;
@@ -110,10 +124,15 @@
   /* Event accent — a bascule / flip / alert moment (the one "stamp" colour). */
   --color-stamp: #e07a3f;
 
-  /* Type identity — Space Grotesk (display) · Inter (body) · Plex Mono (data). */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* Type identity — Big Shoulders (display) · Atkinson Hyperlegible Next (body) ·
+     Atkinson Hyperlegible Mono (data). The display face is condensed: the fallback is
+     a narrow system sans so headings don't reflow wider while it loads. */
+  --font-sans: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Big Shoulders', 'Arial Narrow', ui-sans-serif, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* `tracking-tight` (29 headings) was tuned for Space Grotesk; set that tight, the
+     condensed Big Shoulders runs its letters together. */
+  --tracking-tight: 0.005em;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -121,7 +140,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ── Base type: Inter everywhere, Space Grotesk for headings/display ───────── */
+/* ── Base type: Atkinson everywhere, Big Shoulders for headings/display ────── */
 @layer base {
   /* A playing story's narration sticks under the navbar below lg (StoryPlayer, at most
      40svh): keep focused and scrolled-to content below it, not hidden under it. */
@@ -138,45 +157,172 @@
     background: var(--background);
     color: var(--foreground);
   }
+  /* Native sliders and boxes in the petrol accent, not the browser's blue: many fiches
+     use the bare elements rather than the form-controls primitives. */
+  input[type='range'],
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--primary);
+  }
   h1,
   h2,
   h3,
   h4,
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.011em;
+    letter-spacing: 0.005em;
   }
 }
 
-/* Homepage hero — the winner readout "pops" each time the rule changes it. */
-@keyframes hero-pop {
+/* The navbar's current page: its bar grows in from the centre as the page arrives. */
+@keyframes nav-bar {
   from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    transform: scaleX(0);
   }
 }
-.hero-pop {
-  animation: hero-pop 0.34s cubic-bezier(0.2, 0.7, 0.2, 1);
+.nav-active::after {
+  animation: nav-bar 0.48s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-pop {
+  .nav-active::after {
     animation: none;
   }
 }
 
-/* /decouvrir "dépouillement" — the hand-count. Tally rows reveal left-to-right
-   as if being counted; a runoff sends the eliminated pile's strokes drifting up
-   toward the survivor. */
-@keyframes tally-sweep {
+/* Homepage, "Bureau de vote" motion (the design canvas's Motion board): lines rise out
+   of their own masks, content settles in, and the "Elected" stamp lands with an ink
+   bleed. Curves: settle cubic-bezier(.2,.7,.2,1); durations 240 / 480 / 900 ms. */
+@keyframes home-rise {
   from {
-    clip-path: inset(0 100% 0 0);
+    transform: translateY(108%);
+  }
+}
+@keyframes home-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+@keyframes home-ink {
+  0% {
+    transform: rotate(-7deg) scale(1.9);
+    opacity: 0;
+  }
+  58% {
+    transform: rotate(-7deg) scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-7deg) scale(1);
+  }
+}
+@keyframes home-bleed {
+  from {
+    transform: rotate(-7deg) scale(0.96);
+    opacity: 0.5;
   }
   to {
-    clip-path: inset(0 0 0 0);
+    transform: rotate(-7deg) scale(1.45);
+    opacity: 0;
+  }
+}
+.home-rise {
+  animation: home-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.home-up {
+  animation: home-up 0.48s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.home-stamp {
+  transform: rotate(-7deg);
+  animation: home-ink 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) 0.14s both;
+}
+.home-bleed {
+  transform: rotate(-7deg);
+  opacity: 0;
+  animation: home-bleed 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
+}
+/* The count's stamp is an SVG group: scale it around its own centre. */
+.home-svg-stamp {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: home-ink 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-rise,
+  .home-up,
+  .home-stamp,
+  .home-bleed,
+  .home-svg-stamp {
+    animation: none;
+  }
+  /* The homepage's inline transitions too (the rolling counts, the voters' colour
+     wave, the rule pill, the story rows): values change at once. */
+  [data-home] *,
+  [data-home] *::before,
+  [data-home] *::after {
+    transition: none !important;
+  }
+}
+
+/* Homepage hero — the Aceternity decorations (components/ui/spotlight-new,
+   hero-highlight). Upstream drives both from JS (motion); as CSS they run on
+   the compositor and cost no main-thread work per frame. */
+@keyframes spotlight-drift {
+  50% {
+    transform: translateX(var(--drift));
+  }
+}
+.spotlight-drift {
+  animation: spotlight-drift 7s ease-in-out infinite;
+}
+@keyframes highlight-sweep {
+  from {
+    background-size: 0% 100%;
+  }
+}
+.highlight-sweep {
+  animation: highlight-sweep 2s linear 0.5s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-drift,
+  .highlight-sweep {
+    animation: none;
+  }
+}
+
+/* /decouvrir — the homepage's motion carried over (the design canvas's Motion board):
+   the starting slip unfolds from its corner (the slip wipe), the twelve friends'
+   ballots drop and settle, each tally stroke is drawn by hand, four uprights then the
+   strike, and a runoff sends the eliminated pile's strokes drifting toward the
+   survivor. A section marked data-reveal holds its entrances paused until useReveal
+   marks it data-shown, the first time it comes into view. */
+[data-reveal]:not([data-shown]) * {
+  animation-play-state: paused !important;
+}
+@keyframes slip-unfold {
+  from {
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0, 0 0);
+  }
+}
+@keyframes ballot-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-56px) rotate(var(--tilt));
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(5px) rotate(calc(var(--tilt) * -0.25));
+  }
+  66% {
+    transform: translateY(-3px) rotate(calc(var(--tilt) * 0.1));
+  }
+  84% {
+    transform: translateY(1px) rotate(0deg);
+  }
+}
+@keyframes stroke-draw {
+  from {
+    stroke-dashoffset: 1;
   }
 }
 @keyframes tally-migrate {
@@ -189,15 +335,82 @@
     opacity: 0;
   }
 }
-.tally-sweep-anim {
-  animation: tally-sweep 0.52s ease-out both;
+/* A bench changing fiche: the new one is laid down by a slanted sweep, the slip's edge.
+   `backwards`, not `both`: once done it leaves no clip-path, so nothing inside is cut. */
+@keyframes bench-wipe {
+  from {
+    clip-path: polygon(0 0, 0 0, -12% 100%, 0 100%);
+  }
+  to {
+    clip-path: polygon(0 0, 112% 0, 100% 100%, 0 100%);
+  }
+}
+.bench-wipe {
+  animation: bench-wipe 0.6s cubic-bezier(0.65, 0, 0.35, 1) backwards;
+}
+.slip-unfold {
+  animation: slip-unfold 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.ballot-drop {
+  animation: ballot-drop 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* On an SVG path or line drawn with pathLength="1". */
+.stroke-draw {
+  stroke-dasharray: 1;
+  animation: stroke-draw 0.24s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .tally-migrate-anim {
   animation: tally-migrate 0.64s ease-in forwards;
 }
+/* The loaders (ui/tally.tsx): a tally counted in a loop. `--tally-t` runs 0 → 1 over a
+   cycle; stroke `--i` of `--tally-n` is drawn over its own slice of the first
+   `--tally-draw` of it, so the strokes come in order, four uprights then the strike, and
+   the count holds, then fades before starting again. Registered so it interpolates; at
+   rest (reduced motion) it is 1: the count complete and still. A browser without
+   @property (Safari < 16.4, Firefox < 128) flips it 0 → 1 halfway: the count blinks
+   instead of being drawn, still a working loader. */
+@property --tally-t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@keyframes tally-loop {
+  0% {
+    --tally-t: 0;
+    opacity: 1;
+  }
+  84% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0;
+  }
+  100% {
+    --tally-t: 1;
+    opacity: 0;
+  }
+}
+.tally-loop {
+  animation: tally-loop var(--tally-cycle, 1.25s) linear infinite;
+}
+/* In px, not bare numbers: Chromium and Firefox drop a unitless calc() here (WebKit alone
+   takes it). With pathLength="1", 1px is the whole stroke; the 2px gap keeps the next
+   dash past the end, so an undrawn stroke leaves no round-cap dot there. */
+.tally-loop-stroke {
+  stroke-dasharray: 1px 2px;
+  stroke-dashoffset: clamp(
+    0px,
+    (var(--i) + 1 - var(--tally-t, 1) * var(--tally-n) / var(--tally-draw)) * 1px,
+    1px
+  );
+}
 @media (prefers-reduced-motion: reduce) {
-  .tally-sweep-anim,
-  .tally-migrate-anim {
+  .slip-unfold,
+  .bench-wipe,
+  .ballot-drop,
+  .stroke-draw,
+  .tally-migrate-anim,
+  .tally-loop {
     animation: none;
   }
 }

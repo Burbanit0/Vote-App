@@ -564,9 +564,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
             className="rounded-md border border-border px-3 py-2 text-xs"
             title={t('parliament.congruenceTitle')}
           >
-            <p className="font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('parliament.congruenceHead')}
-            </p>
+            <p className="font-semibold text-muted-foreground">{t('parliament.congruenceHead')}</p>
             <p className="mt-1 tabular-nums">
               {t('parliament.gapLine')} <strong>{result.congruence.assembly_gap.toFixed(2)}</strong>
               {result.congruence.governing_gap !== null && (
@@ -581,7 +579,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
           <div data-testid="mirror-bars" className="rounded-md border border-border px-3 py-2">
             <p
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              className="text-xs font-semibold text-muted-foreground"
               title={t('parliament.mirrorTitle')}
             >
               {t('parliament.mirrorHead')}

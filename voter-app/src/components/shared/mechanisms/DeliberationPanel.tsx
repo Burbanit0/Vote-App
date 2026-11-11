@@ -59,10 +59,10 @@ interface DelibData {
 // ── Network options ───────────────────────────────────────────────────────────
 
 const NETWORK_OPTIONS = [
-  { value: 'complete', icon: '🌐', labelKey: 'delib.networkComplete' },
-  { value: 'bridge', icon: '🌉', labelKey: 'delib.networkBridge' },
-  { value: 'random', icon: '🎲', labelKey: 'delib.networkRandom' },
-  { value: 'echo_chamber', icon: '📣', labelKey: 'delib.networkEcho' },
+  { value: 'complete', labelKey: 'delib.networkComplete' },
+  { value: 'bridge', labelKey: 'delib.networkBridge' },
+  { value: 'random', labelKey: 'delib.networkRandom' },
+  { value: 'echo_chamber', labelKey: 'delib.networkEcho' },
 ] as const;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ const DeliberationPanel: React.FC = () => {
                 data-testid={`network-${opt.value}`}
                 onClick={() => setNetwork(opt.value)}
               >
-                {opt.icon} {t(opt.labelKey)}
+                {t(opt.labelKey)}
               </Button>
             ))}
           </div>
@@ -321,7 +321,7 @@ const DeliberationPanel: React.FC = () => {
           {/* Network effect note */}
           {data.network_effect && (
             <Alert variant="info" style={{ fontSize: '0.8rem' }} data-testid="network-effect-alert">
-              <strong>🌐 {t('delib.networkEffect')}</strong> {data.network_effect}
+              <strong>{t('delib.networkEffect')}</strong> {data.network_effect}
             </Alert>
           )}
 

@@ -124,9 +124,7 @@ const ElectorateComposer: React.FC = () => {
     <div data-testid="electorate-composer" className="flex flex-col gap-3">
       {/* Sample size, seed, ideology — apply to BOTH modes (shared with the Lab). */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('composer.sample')}
-        </p>
+        <p className="text-xs font-semibold text-muted-foreground">{t('composer.sample')}</p>
         <label className="flex items-center gap-2 text-xs">
           <span className="w-44 shrink-0 text-muted-foreground">
             {t('composer.numVoters', { n: config.num_voters })}

@@ -26,9 +26,7 @@ const ValuesLabPanel: React.FC = () => {
     <div className="flex flex-col gap-3">
       <div data-testid="lijphart-dial-block" className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('bilan.sensibility')}
-          </span>
+          <span className="font-semibold text-muted-foreground">{t('bilan.sensibility')}</span>
           <button
             type="button"
             data-testid="lens-granular-toggle"

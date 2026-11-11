@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import Navbar from './Navbar';
+import { switchLanguage } from '../i18n';
 import { useTheme, useExpertMode, usePlainLanguage } from '../stores/useUIStore';
 
 vi.mock('../stores/useUIStore', () => ({
@@ -31,6 +32,15 @@ describe('Navbar', () => {
       plainLanguage: false,
       setPlainLanguage: vi.fn(),
     });
+  });
+
+  it('closes the phone menu when the brand is followed', () => {
+    renderNavbar();
+    const toggle = screen.getByTestId('navbar-toggle');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByText('Vote Lab'));
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('renders the Vote Lab brand', () => {
@@ -103,5 +113,70 @@ describe('Navbar', () => {
   it('shows the settings dropdown toggle', () => {
     renderNavbar();
     expect(screen.getByText(/settings/i)).toBeInTheDocument();
+  });
+
+  describe('the settings menu', () => {
+    const open = () => fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+
+    it('switches the theme with a two-way choice, and ignores a click on the current one', () => {
+      const toggleTheme = vi.fn();
+      (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme });
+      renderNavbar();
+      open();
+      expect(screen.getByTestId('theme-light')).toHaveAttribute('aria-checked', 'true');
+      fireEvent.click(screen.getByTestId('theme-light'));
+      expect(toggleTheme).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId('theme-dark'));
+      expect(toggleTheme).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the dark theme as chosen when it is', () => {
+      (useTheme as jest.Mock).mockReturnValue({ theme: 'dark', toggleTheme: vi.fn() });
+      renderNavbar();
+      open();
+      expect(screen.getByTestId('theme-dark')).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('switches the language, each named in itself', () => {
+      renderNavbar();
+      open();
+      expect(screen.getByTestId('lang-en')).toHaveAttribute('aria-checked', 'true');
+      fireEvent.click(screen.getByTestId('lang-fr'));
+      expect(switchLanguage).toHaveBeenCalledWith('fr');
+    });
+
+    it('switches between the beginner and the expert level', () => {
+      const setExpertMode = vi.fn();
+      (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode });
+      const { unmount } = renderNavbar();
+      open();
+      fireEvent.click(screen.getByTestId('level-expert'));
+      expect(setExpertMode).toHaveBeenCalledWith(true);
+      unmount();
+      (useExpertMode as jest.Mock).mockReturnValue({ expertMode: true, setExpertMode });
+      renderNavbar();
+      open();
+      fireEvent.click(screen.getByTestId('level-beginner'));
+      expect(setExpertMode).toHaveBeenLastCalledWith(false);
+    });
+
+    it('turns plain language on and off with a switch', () => {
+      const setPlainLanguage = vi.fn();
+      (usePlainLanguage as jest.Mock).mockReturnValue({ plainLanguage: false, setPlainLanguage });
+      const { unmount } = renderNavbar();
+      open();
+      const sw = screen.getByRole('switch', { name: /plain language/i });
+      expect(sw).toHaveAttribute('aria-checked', 'false');
+      fireEvent.click(sw);
+      expect(setPlainLanguage).toHaveBeenCalledWith(true);
+      unmount();
+      (usePlainLanguage as jest.Mock).mockReturnValue({ plainLanguage: true, setPlainLanguage });
+      renderNavbar();
+      open();
+      expect(screen.getByRole('switch', { name: /plain language/i })).toHaveAttribute(
+        'aria-checked',
+        'true'
+      );
+    });
   });
 });

@@ -15,10 +15,21 @@ const pseudo: TranslationKeys = {
     expert: '⟦Éxpért~~~⟧',
     beginner: '⟦Débútáñt~~~⟧',
     plain: '⟦Sáñs~~ járgóñ~~~⟧',
-    lightModeTip: '⟦Módé~~ çláír~~⟧',
-    darkModeTip: '⟦Módé~~ sómbré~~~⟧',
+    theme: '⟦Thèmé~~⟧',
+    light: '⟦Cláír~~⟧',
+    dark: '⟦Sómbré~~~⟧',
+    language: '⟦Láñgúé~~~⟧',
+    level: '⟦Nívéáú~~~⟧',
     toggleLabel: '⟦Méñú~~ dé~ ñávígátíóñ~~~~⟧',
     reportBug: '⟦Sígñálér~~~ úñ~ búg~~⟧',
+  },
+  notFound: {
+    title: '⟦Cé~ búllétíñ~~~ ñ’ést~~ pás~~ dáñs~~ l’úrñé.~~~⟧',
+    message:
+      '⟦Cétté~~ págé~~ ñ’éxísté~~~ pás,~~ óú~ plús~~ :~ éllé~~ á~ péút-êtré~~~~ été~~ dépláçéé.~~~~⟧',
+    stamp: '⟦Núl~~⟧',
+    home: '⟦Rétóúr~~~ à~ l’áççúéíl~~~~⟧',
+    playground: '⟦Óúvrír~~~ l’íñstrúméñt~~~~~⟧',
   },
   discover: {
     eyebrow: '⟦Cómpréñdré~~~~ éñ~ 3~ míñútés~~~⟧',
@@ -35,7 +46,7 @@ const pseudo: TranslationKeys = {
       '⟦Pérsóññé~~~ ñé~ çháñgé~~~ d’ávís~~~ :~ çé~ sóñt~~ lés~~ mêmés~~ dóúzé~~ búllétíñs~~~~ tóút~~ dú~ lóñg.~~ Séúlé~~ lá~ fáçóñ~~ dé~ lés~~ çómptér~~~ çháñgé~~~ —~ ét~ lé~ váíñqúéúr~~~~ ávéç~~ éllé.~~ Clíqúéz~~~ úñé~~ règlé.~~~⟧',
     friends: '⟦{{n}} ámís~~⟧',
     approveHint:
-      '⟦À~ l’áppróbátíóñ,~~~~~ çháçúñ~~~ çóçhé~~ plúsíéúrs~~~~ réstós~~~ (lés~~ ✓),~~ pás~~ úñ~ séúl.~~ Régléz~~~ çómbíéñ~~~ çí-déssóús~~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ bóúgér.~~~⟧',
+      '⟦À~ l’áppróbátíóñ,~~~~~ çháçúñ~~~ çóçhé~~ plúsíéúrs~~~~ réstós~~~ (lés~~ ✓),~~ pás~~ úñ~ séúl.~~ Régléz~~~ çómbíéñ~~~ çí-déssús~~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ bóúgér.~~~⟧',
     winnerLabel: '⟦Váíñqúéúr~~~~⟧',
     stamp: '⟦Élú~~⟧',
     approve: {
@@ -50,7 +61,7 @@ const pseudo: TranslationKeys = {
       plurality:
         '⟦Cháçúñ~~~ pósé~~ sóñ~~ búllétíñ~~~ súr~~ sóñ~~ séúl~~ préféré.~~~ Lé~ plús~~ dé~ búllétíñs~~~~ l’émpórté.~~~~⟧',
       tr1: '⟦Prémíér~~~ tóúr~~ :~ óñ~ çómpté~~~ lés~~ prémíérs~~~ çhóíx.~~~ Pérsóññé~~~ ñ’áttéíñt~~~~ lá~ májóríté~~~ (7~ súr~~ 12)~~ —~ lés~~ déúx~~ prémíérs~~~ réstéñt~~~ éñ~ líçé.~~⟧',
-      tr2: '⟦Séçóñd~~~ tóúr~~ :~ lé~ dérñíér~~~ ést~~ élímíñé~~~ ét~ sés~~ búllétíñs~~~~ réjóígñéñt~~~~ léúr~~ séçóñd~~~ çhóíx~~ (éñ~~ óráñgé).~~~ Lé~ Súshí~~ pássé~~ lá~ májóríté~~~ ét~ l’émpórté.~~~~⟧',
+      tr2: '⟦Séçóñd~~~ tóúr~~ :~ lé~ dérñíér~~~ ést~~ élímíñé~~~ ét~ sés~~ búllétíñs~~~~ réjóígñéñt~~~~ léúr~~ séçóñd~~~ çhóíx,~~~ dáñs~~ léúr~~ çóúléúr.~~~ Lé~ Súshí~~ pássé~~ lá~ májóríté~~~ ét~ l’émpórté.~~~~⟧',
       ap_one:
         '⟦Cháçúñ~~~ ñé~ çóçhé~~ qúé~~ sóñ~~ préféré~~~ :~ ç’ést~~ éxáçtéméñt~~~~ lá~ plúrálíté.~~~~ Pízzá~~ répássé~~~ éñ~ têté.~~⟧',
       ap_some:
@@ -68,7 +79,6 @@ const pseudo: TranslationKeys = {
       condorcet:
         '⟦Lé~ Tháï~~ bát~~ lá~ Pízzá~~ éñ~ dúél,~~ ét~ bát~~ áússí~~ lé~ Súshí~~ :~ ç’ést~~ lé~ çómprómís~~~~ qúé~~ lá~ májóríté~~~ préfèré~~~ à~ çháqúé~~~ ádvérsáíré.~~~~⟧',
     },
-    famKicker: '⟦Lá~ çárté~~⟧',
     famTitle: '⟦Tróís~~ gráñdés~~~ fáçóñs~~~ d’éxprímér~~~~ úñ~ çhóíx.~~~⟧',
     fam: {
       rank: {
@@ -87,7 +97,6 @@ const pseudo: TranslationKeys = {
         ex: '⟦Vóté~~ pár~~ áppróbátíóñ~~~~⟧',
       },
     },
-    playKicker: '⟦À~ vóús~~⟧',
     playTitle: '⟦Máíñtéñáñt,~~~~ vóyéz-lé~~~ súr~~ úñ~ vráí~~ éléçtórát.~~~~⟧',
     playBody:
       '⟦Lé~ réstáúráñt~~~~ ñ’étáít~~~ qú’úñ~~ ápérçú.~~~ Dáñs~~ l’íñstrúméñt,~~~~~ dépláçéz~~~ lés~~ çáñdídáts,~~~~ çháñgéz~~~ lá~ règlé,~~~ ét~ régárdéz~~~ lé~ váíñqúéúr~~~~ básçúlér~~~ súr~~ dés~~ míllíérs~~~ d’éléçtéúrs.~~~~~⟧',
@@ -279,31 +288,85 @@ const pseudo: TranslationKeys = {
     },
   },
   home: {
-    eyebrow: '⟦Vóté~~ Láb~~ ·~ lábórátóíré~~~~ dé~ théóríé~~~ dú~ vóté~~⟧',
     h1Line1: '⟦Lá~ méthódé~~~ déçídé,~~~⟧',
     h1Line2: '⟦pás~~ séúléméñt~~~~ lés~~ éléçtéúrs.~~~~⟧',
     heroLede:
-      '⟦Mêmés~~ búllétíñs,~~~~ áútré~~ règlé,~~~ áútré~~ gágñáñt.~~~ Cháñgéz~~~ lá~ règlé~~ çí-çóñtré~~~~ —~ lé~ váíñqúéúr~~~~ básçúlé~~~ sóús~~ vós~~ yéúx.~~⟧',
+      '⟦Mêmés~~ búllétíñs,~~~~ áútré~~ règlé,~~~ áútré~~ gágñáñt.~~~ Cháñgéz~~~ lá~ règlé~~ súr~~ lá~ féúíllé~~~ dé~ dépóúílléméñt~~~~~ ét~ régárdéz~~~ qúí~~ ést~~ élú.~~⟧',
+    ctaDiscover: '⟦Déçóúvrír~~~~ éñ~ 3~ míñútés~~~⟧',
     ctaOpen: '⟦Óúvrír~~~ l’íñstrúméñt~~~~~⟧',
-    ctaDiscover: '⟦Déçóúvrír~~~~⟧',
-    discoverTag: '⟦3~ míñ~~⟧',
-    discoverBannerLead: '⟦Nóúvéáú~~~ íçí~~ ?~⟧',
-    discoverBannerText: '⟦Cómpréñéz~~~~ lé~ vóté~~ éñ~ 3~ míñútés.~~~⟧',
-    reassure: '⟦Grátúít~~~ ·~ sáñs~~ çómpté~~~ ·~ 29~ méthódés~~~ ·~ FR~ /~ ÉN~⟧',
-    heroInstrLabel: '⟦Cárté~~ ídéólógíqúé~~~~ —~ démó~~⟧',
-    rulePick: '⟦Chóísísséz~~~~ lá~ règlé~~⟧',
-    heroWinner: '⟦Váíñqúéúr~~~~⟧',
-    heroFlip: '⟦↔~ básçúlé~~~⟧',
-    heroWhy: '⟦Cómpréñdré~~~~ póúrqúóí~~~⟧',
-    heroCapPlurality: '⟦Lá~ gáúçhé~~~ sé~ dívísé~~~ :~ Bób~~ gágñé~~ ávéç~~ úñé~~ míñóríté.~~~~⟧',
-    heroCapRunoff: '⟦Áú~ séçóñd~~~ tóúr,~~ lá~ gáúçhé~~~ sé~ répórté~~~ súr~~ Álíçé.~~~⟧',
-    heroCapApproval: '⟦Lárgéméñt~~~~ áppróúvéé,~~~~ Cáról~~ fáít~~ çóñséñsús.~~~~⟧',
-    journeyKicker: '⟦Lé~ párçóúrs~~~⟧',
-    journeyLede:
-      '⟦Dú~ plús~~ símplé~~~ áú~ plús~~ çómpléxé~~~ —~ çháqúé~~~ témps~~ állúmé~~~ úñ~ réglágé~~~ dé~ plús~~ súr~~ lé~ mêmé~~ áppáréíl.~~~~⟧',
+    reassure:
+      '⟦Grátúít,~~~ sáñs~~ çómpté,~~~ 29~ méthódés,~~~~ éñ~ fráñçáís~~~ ét~ éñ~ áñgláís.~~~⟧',
+    mapLabel:
+      '⟦Cárté~~ ídéólógíqúé~~~~ :~ {{n}} éléçtéúrs~~~~ áútóúr~~~ d’Álíçé,~~~ Cáról~~ ét~ Bób.~~ {{rule}} élít~~ {{winner}}.~⟧',
+    rulePick: '⟦Règlé~~ dé~ dépóúílléméñt~~~~~⟧',
+    sheet: '⟦Féúíllé~~~ dé~ dépóúílléméñt~~~~~⟧',
+    voters: '⟦{{n}} éléçtéúrs~~~~⟧',
+    out: '⟦Élímíñéé~~~ áú~ prémíér~~~ tóúr~~⟧',
+    elected: '⟦Élú~~⟧',
+    electedName: '⟦Élú~~ :~ {{name}}⟧',
+    notePlurality:
+      '⟦Lá~ gáúçhé~~~ sé~ dívísé,~~~ ét~ Bób~~ gágñé~~ ávéç~~ {{bob}} éléçtéúrs~~~~ súr~~ {{n}}.~⟧',
+    noteRunoff:
+      '⟦Cáról~~ ést~~ élímíñéé~~~ áú~ prémíér~~~ tóúr,~~ ét~ présqúé~~~ tóús~~ sés~~ éléçtéúrs~~~~ sé~ répórtéñt~~~~ súr~~ Álíçé~~ :~ {{alice}} çóñtré~~~ {{bob}}.~⟧',
+    noteApproval:
+      '⟦Cháçúñ~~~ áppróúvé~~~ tóús~~ çéúx~~ qú’íl~~ péút~~ áççéptér.~~~~ Lés~~ póíñts~~~ vérts~~ áppróúvéñt~~~~ Cáról~~ :~ {{carol}} súr~~ {{n}}.~⟧',
+    methodsTitle: '⟦Mêmés~~ {{n}} búllétíñs,~~~~ {{m}} fáçóñs~~~ dé~ çómptér~~~⟧',
+    methodsNote:
+      '⟦Cháqúé~~~ búllétíñ~~~ ést~~ úñé~~ méthódé,~~~ à~ lá~ çóúléúr~~~ dú~ çáñdídát~~~ qú’éllé~~~ élít.~~⟧',
+    methodsElects: '⟦{{rule}} élít~~ {{name}}.~⟧',
+    introVoters: '⟦éléçtéúrs,~~~~ úñ~ búllétíñ~~~ çháçúñ~~~⟧',
+    sections: '⟦Séçtíóñs~~~ dé~ lá~ págé~~⟧',
+    sectionTop: '⟦Háút~~ dé~ págé~~⟧',
+    sectionCount: '⟦Lé~ dépóúílléméñt~~~~~⟧',
+    sectionMoments: '⟦Cíñq~~ témps~~⟧',
+    sectionStories: '⟦Hístóírés~~~~⟧',
+    sectionTurn: '⟦À~ vóús~~⟧',
+    countTitle: '⟦Lé~ dépóúílléméñt~~~~~⟧',
+    cap0Title: '⟦Úñ~ éléçtórát.~~~~⟧',
+    cap0Text:
+      '⟦Céñt~~ éléçtéúrs,~~~~ tróís~~ çáñdídáts,~~~~ úñé~~ úrñé.~~ Fáítés~~~ défílér,~~~ óú~ láñçéz~~~ lá~ léçtúré,~~~ póúr~~ súívré~~~ lé~ dépóúílléméñt.~~~~~⟧',
+    cap1Title: '⟦Tóút~~ lé~ móñdé~~ vóté.~~⟧',
+    cap1Text: '⟦Úñ~ éléçtéúr,~~~~ úñ~ búllétíñ.~~~~ Régárdéz~~~ lé~ çómptéúr~~~ dé~ l’úrñé.~~~⟧',
+    cap2Title: '⟦Lé~ sçrútíñ~~~ májórítáíré~~~~ çómpté~~~ lés~~ prémíérs~~~ çhóíx.~~~⟧',
+    cap2Text:
+      '⟦Lá~ gáúçhé~~~ sé~ dívísé~~~ éñtré~~ Álíçé~~ ét~ Cáról~~ :~ Bób~~ gágñé~~ ávéç~~ {{bob}} vóíx~~ súr~~ {{n}}.~⟧',
+    cap3Title: '⟦Lé~ séçóñd~~~ tóúr~~ dépláçé~~~ lés~~ búllétíñs~~~~ dé~ Cáról.~~~⟧',
+    cap3Text:
+      '⟦Cáról~~ ést~~ élímíñéé.~~~~ Sés~~ éléçtéúrs~~~~ çhóísísséñt~~~~ éñtré~~ lés~~ déúx~~ fíñálístés,~~~~ ét~ Álíçé~~ bát~~ Bób~~ {{alice}} à~ {{bob}}.~⟧',
+    cap4Title: '⟦L’áppróbátíóñ~~~~~ láíssé~~~ çóçhér~~~ plúsíéúrs~~~~ ñóms.~~⟧',
+    cap4Text:
+      '⟦Cháçúñ~~~ áppróúvé~~~ tóús~~ çéúx~~ qú’íl~~ péút~~ áççéptér~~~ :~ çháqúé~~~ zóñé~~ réúñít~~~ lés~~ áppróbátíóñs~~~~~ d’úñ~~ çáñdídát.~~~~ Céllé~~ dé~ Cáról,~~~ áú~ çéñtré,~~~ éñ~ çómpté~~~ {{carol}}.~⟧',
+    cap5Title: '⟦Mêmés~~ éléçtéúrs,~~~~ tróís~~ élús.~~⟧',
+    cap5Text:
+      '⟦Lé~ sçrútíñ~~~ májórítáíré~~~~ á~ élú~~ Bób,~~ lé~ séçóñd~~~ tóúr~~ Álíçé,~~~ l’áppróbátíóñ~~~~~ Cáról.~~~ À~ çháqúé~~~ fóís,~~ ç’ést~~ lá~ règlé~~ qúí~~ á~ déçídé.~~~⟧',
+    tickIntro: '⟦Débút~~⟧',
+    tickVotes: '⟦Lé~ vóté~~⟧',
+    tickPlurality: '⟦Májórítáíré~~~~⟧',
+    tickRunoff: '⟦Séçóñd~~~ tóúr~~⟧',
+    tickApproval: '⟦Áppróbátíóñ~~~~⟧',
+    tickVerdict: '⟦Bíláñ~~⟧',
+    tickLabel: '⟦Dépóúílléméñt,~~~~~ étápé~~ {{n}} :~ {{name}}⟧',
+    stage0: '⟦{{n}} éléçtéúrs~~~~ súr~~ úñé~~ çárté,~~~ áváñt~~ lé~ vóté~~⟧',
+    stage1: '⟦{{n}} búllétíñs~~~~ dáñs~~ l’úrñé~~~⟧',
+    stage2: '⟦Sçrútíñ~~~ májórítáíré~~~~ :~ Bób~~ élú~~ ávéç~~ {{bob}} vóíx~~⟧',
+    stage3: '⟦Séçóñd~~~ tóúr~~ :~ Álíçé~~ élúé,~~ {{alice}} çóñtré~~~ {{bob}}⟧',
+    stage4: '⟦Áppróbátíóñ~~~~ :~ Cáról~~ élúé~~ ávéç~~ {{carol}} áppróbátíóñs~~~~~⟧',
+    stage5: '⟦Tróís~~ règlés,~~~ tróís~~ élús~~⟧',
+    play: '⟦Láñçér~~~ lé~ dépóúílléméñt~~~~~⟧',
+    pause: '⟦Méttré~~~ éñ~ páúsé~~⟧',
+    momentsTitle: '⟦Cíñq~~ témps~~ dáñs~~ l’íñstrúméñt~~~~~⟧',
+    momentsLede: '⟦Cháqúé~~~ témps~~ ést~~ úñé~~ qúéstíóñ~~~ póséé~~ áú~ mêmé~~ éléçtórát.~~~~⟧',
+    storiesTitle: '⟦Hístóírés~~~~⟧',
+    storiesLede:
+      '⟦Dés~~ párçóúrs~~~ gúídés~~~ óù~ úñ~ párádóxé~~~ sé~ pródúít~~~ sóús~~ vós~~ yéúx.~~⟧',
+    turnTitle: '⟦À~ vóús.~~⟧',
+    turnLede:
+      '⟦Dépláçéz~~~ lés~~ éléçtéúrs,~~~~ çháñgéz~~~ lá~ règlé,~~~ ét~ vóyéz~~ qúí~~ ést~~ élú.~~⟧',
+    turnLab:
+      '⟦Óú~ éxplóréz~~~ lé~ Lábórátóíré~~~~ :~ 63~ fíçhés~~~ súr~~ çé~ qúé~~ lé~ Pláygróúñd~~~~ éffléúré.~~~~⟧',
+    boxLabel: '⟦Úñé~~ úrñé~~ tráñspáréñté~~~~~ qúí~~ sé~ rémplít~~~ dé~ {{n}} búllétíñs~~~~⟧',
     footMore: '⟦Állér~~ plús~~ lóíñ~~⟧',
-    ctaLab: '⟦Déçóúvrír~~~~ lé~ Láb~~ →~⟧',
-    labLede: '⟦63~ fíçhés~~~ —~ éxplóréz~~~ çé~ qúé~~ lé~ Pláygróúñd~~~~ éffléúré.~~~~⟧',
+    licence: '⟦Vóté~~ Láb~~ ést~~ úñ~ lógíçíél~~~ líbré,~~~ sóús~~ líçéñçé~~~ MÍT.~~⟧',
   },
   simulation: {
     recalculating: '⟦Réçálçúl…~~~~⟧',
@@ -370,7 +433,7 @@ const pseudo: TranslationKeys = {
   },
   crisis: {
     blankWins:
-      '⟦🚨~ Vóté~~ bláñç~~ víçtóríéúx~~~~ —~ sçéñáríós~~~~ çóñstítútíóññéls~~~~~~ díspóñíblés~~~~⟧',
+      '⟦Vóté~~ bláñç~~ víçtóríéúx~~~~ —~ sçéñáríós~~~~ çóñstítútíóññéls~~~~~~ díspóñíblés~~~~⟧',
     blankNotDecisive: '⟦✓~ Vóté~~ bláñç~~ ñóñ~~ déçísíf~~~⟧',
     blanksVoted: '⟦{{pct}}%~ dés~~ éléçtéúrs~~~~ óñt~~ vóté~~ bláñç~~⟧',
     pageTitle: '⟦Símúlátéúr~~~~ dé~ çrísé~~ çóñstítútíóññéllé~~~~~~⟧',
@@ -384,9 +447,9 @@ const pseudo: TranslationKeys = {
     blankNotWon:
       "⟦Lé~ vóté~~ bláñç~~ ñ'á~~ pás~~ gágñé~~ dáñs~~ çétté~~ çóñfígúrátíóñ.~~~~~ Áúgméñtéz~~~~ lé~ táúx~~ d'íñsátísfáçtíóñ~~~~~~ óú~ rédúíséz~~~ l'óffré~~~ pólítíqúé~~~~ póúr~~ déçléñçhér~~~~ úñ~ sçéñáríó~~~ dé~ çrísé.~~~⟧",
     errSimFailed: '⟦Símúlátíóñ~~~~ éçhóúéé.~~~ Vérífíéz~~~ qúé~~ lé~ báçkéñd~~~ ést~~ démárré.~~~⟧',
-    tabA: '⟦🗳️~~ Á~ —~ Nóúvéllé~~~ éléçtíóñ~~~⟧',
-    tabB: '⟦⏱️~ B~ —~ Góúvérñéméñt~~~~~ próvísóíré~~~~⟧',
-    tabC: '⟦🏛️~~ C~ —~ Díssólútíóñ~~~~ própórtíóññéllé~~~~~~⟧',
+    tabA: '⟦Á~ —~ Nóúvéllé~~~ éléçtíóñ~~~⟧',
+    tabB: '⟦B~ —~ Góúvérñéméñt~~~~~ próvísóíré~~~~⟧',
+    tabC: '⟦C~ —~ Díssólútíóñ~~~~ própórtíóññéllé~~~~~~⟧',
     scenarioADesc:
       "⟦Lé~ vóté~~ bláñç~~ próvóqúé~~~ úñé~~ ñóúvéllé~~~ éléçtíóñ.~~~~ Lés~~ çáñdídáts~~~~ áyáñt~~ pérdú~~ fáçé~~ áú~ bláñç~~ dóívéñt~~~ <stróñg>módífíér~~~~~~ léúr~~ pósítíóñ~~~ ídéólógíqúé~~~~ d'áú~~ móíñs~~ 8%</stróñg>~~~~ póúr~~ sé~ répréséñtér.~~~~~⟧",
     scenarioAEditors: '⟦Cáñdídáts~~~~ dú~ 2èmé~~ tóúr~~⟧',
@@ -400,7 +463,7 @@ const pseudo: TranslationKeys = {
     round2: '⟦2èmé~~ tóúr~~⟧',
     newWinner: '⟦✓~ Nóúvéáú~~~ váíñqúéúr~~~~⟧',
     same: '⟦Ídéñtíqúé~~~~⟧',
-    analysis: '⟦📋~ Áñálysé~~~ :~⟧',
+    analysis: '⟦Áñálysé~~~ :~⟧',
     scenarioBDesc:
       "⟦Úñ~ góúvérñéméñt~~~~~ próvísóíré~~~~ ést~~ mís~~ éñ~ pláçé~~ lé~ témps~~ dé~ prépárér~~~ úñé~~ ñóúvéllé~~~ éléçtíóñ.~~~~ Péñdáñt~~~ çé~ déláí,~~~ l'éléçtórát~~~~ péút~~ dérívér~~~ légèréméñt~~~~ súr~~ l'áxé~~ ídéólógíqúé.~~~~~⟧",
     scenarioBDuration: '⟦Dúréé~~ dú~ góúvérñéméñt~~~~~ próvísóíré~~~~⟧',
@@ -456,7 +519,7 @@ const pseudo: TranslationKeys = {
     pinnedTitle: '⟦Pértúrbátíóñs~~~~~ áçtívés~~~⟧',
     pinnedClearAll: '⟦Tóút~~ rétírér~~~⟧',
     pinHint:
-      '⟦📌~ Cóñfígúré~~~~ úñé~~ pértúrbátíóñ~~~~~ ét~ çlíqúé~~~ súr~~ "Épíñglér~~~~ à~ lá~ vúé~~ çéñtrálé"~~~~ póúr~~ lá~ vóír~~ íçí~~ éñ~ pérmáñéñçé~~~~⟧',
+      '⟦Cóñfígúré~~~~ úñé~~ pértúrbátíóñ~~~~~ ét~ çlíqúé~~~ súr~~ "Épíñglér~~~~ à~ lá~ vúé~~ çéñtrálé"~~~~ póúr~~ lá~ vóír~~ íçí~~ éñ~ pérmáñéñçé~~~~⟧',
     methodsChanged: '⟦méthódés~~~ çháñgéñt~~~ dé~ váíñqúéúr~~~~⟧',
     winnerStable: '⟦Váíñqúéúr~~~~ stáblé~~~⟧',
     perturbationsCompared: '⟦pértúrbátíóñ(s)~~~~~~ çómpáréé(s)~~~~⟧',
@@ -492,7 +555,7 @@ const pseudo: TranslationKeys = {
     method: '⟦Méthódé~~~⟧',
     candidates: '⟦Cáñdídáts~~~~⟧',
     electorate: '⟦Éléçtórát~~~~⟧',
-    blankBadge: '⟦⬜~ Vóté~~ Bláñç~~⟧',
+    blankBadge: '⟦Vóté~~ Bláñç~~⟧',
     changed: '⟦Cháñgéméñt~~~~ ?~⟧',
     tie: '⟦Égálíté~~~ (áúçúñ~~~ váíñqúéúr)~~~~⟧',
   },
@@ -712,8 +775,8 @@ const pseudo: TranslationKeys = {
     worstMethod: '⟦Régrét~~~ máxímál~~~⟧',
     regretCount: '⟦{{n}}/~{{total}} méthódés~~~⟧',
     consensusLabel: '⟦✓~ Lárgé~~ çóñséñsús~~~~⟧',
-    moderateLabel: '⟦⚠~ Dívérgéñçé~~~~ módéréé~~~⟧',
-    strongLabel: '⟦🚨~ Fórté~~ dívérgéñçé~~~~⟧',
+    moderateLabel: '⟦Dívérgéñçé~~~~ módéréé~~~⟧',
+    strongLabel: '⟦Fórté~~ dívérgéñçé~~~~⟧',
   },
   radar: {
     axisEquity: '⟦Éqúíté~~~⟧',
@@ -897,7 +960,7 @@ const pseudo: TranslationKeys = {
     lowRegret: '⟦Régrét~~~ fáíblé~~~⟧',
     trendNote:
       '⟦Téñdáñçé~~~ :~ −~{{slope}}pp~ dé~ táúx~~ Cóñdórçét~~~~ pár~~ úñíté~~ dé~ pólárísátíóñ~~~~~⟧',
-    threshold: '⟦⚠~ P≥~{{p}} :~ CW~ ábséñt~~~ dáñs~~ {{pct}}%~ dés~~ çás~~⟧',
+    threshold: '⟦P≥~{{p}} :~ CW~ ábséñt~~~ dáñs~~ {{pct}}%~ dés~~ çás~~⟧',
   },
   hotelling: {
     prompt:
@@ -947,7 +1010,7 @@ const pseudo: TranslationKeys = {
     index: '⟦Íñdíçé~~~ dé~ gérrymáñdéríñg~~~~~⟧',
     distortion: '⟦Dístórsíóñ~~~~⟧',
     pedagogicalGerry:
-      '⟦⚠~ Ávéç~~ çé~ déçóúpágé,~~~~ {{winner}} rémpórté~~~ {{seatPct}}%~ dés~~ síègés~~~ ávéç~~ séúléméñt~~~~ {{votePct}}%~ dés~~ vóíx~~ (íñdíçé~~~ dé~ gérrymáñdéríñg~~~~~ :~ {{index}}%).~~⟧',
+      '⟦Ávéç~~ çé~ déçóúpágé,~~~~ {{winner}} rémpórté~~~ {{seatPct}}%~ dés~~ síègés~~~ ávéç~~ séúléméñt~~~~ {{votePct}}%~ dés~~ vóíx~~ (íñdíçé~~~ dé~ gérrymáñdéríñg~~~~~ :~ {{index}}%).~~⟧',
     pedagogicalTie:
       "⟦Áúçúñ~~ pártí~~ ñé~ dómíñé~~~ éñ~ síègés~~~ (~{{tied}} à~ égálíté)~~~ :~ íl~ ñ'y~~ á~ pás~~ dé~ pártí~~ dóñt~~ çómpárér~~~ lá~ párt~~ dé~ síègés~~~ à~ sá~ párt~~ dé~ vóíx.~~⟧",
     pedagogicalFair:
@@ -1292,7 +1355,7 @@ const pseudo: TranslationKeys = {
     winner: '⟦Váíñqúéúr~~~~⟧',
     metric: '⟦Métríqúé~~~⟧',
     consensus: '⟦✓~ Lés~~ 3~ ássémbléés~~~~ déçídéñt~~~ páréíl~~~⟧',
-    noConsensus: '⟦⚠~ Déçísíóñs~~~~ dívérgéñtés~~~~⟧',
+    noConsensus: '⟦Déçísíóñs~~~~ dívérgéñtés~~~~⟧',
     examplesTitle: '⟦Éxémplés~~~ hístóríqúés~~~~⟧',
     noteTitle: '⟦Nóté~~ :~⟧',
   },
@@ -1329,7 +1392,7 @@ const pseudo: TranslationKeys = {
     preset: '⟦Prófíl~~~ prédéfíñí~~~~⟧',
     biasedWinner: '⟦Váíñqúéúr~~~~ (éléçtórát~~~~ éfféçtíf)~~~~⟧',
     correctedWinner: '⟦Váíñqúéúr~~~~ (sí~~ tóús~~ vótáíéñt)~~~~⟧',
-    winnerChanged: '⟦⚠~ Lé~ résúltát~~~ séráít~~~ dífféréñt~~~~ sí~ tóús~~ vótáíéñt~~~⟧',
+    winnerChanged: '⟦Lé~ résúltát~~~ séráít~~~ dífféréñt~~~~ sí~ tóús~~ vótáíéñt~~~⟧',
     drift: '⟦Dérívé~~~ ídéólógíqúé~~~~⟧',
     turnout: '⟦Pártíçípátíóñ~~~~~ éfféçtívé~~~~⟧',
     ideologyTitle:
@@ -1401,7 +1464,7 @@ const pseudo: TranslationKeys = {
     candidateSelect: '⟦Cáñdídát~~~ séñsíblé~~~ (shy)~~⟧',
     pollWinner: '⟦Prédít~~~ pár~~ sóñdágés~~~⟧',
     realWinner: '⟦Résúltát~~~ réél~~⟧',
-    pollsWrong: '⟦⚠~ Lés~~ sóñdágés~~~ sé~ sóñt~~ trómpés~~~ !~⟧',
+    pollsWrong: '⟦Lés~~ sóñdágés~~~ sé~ sóñt~~ trómpés~~~ !~⟧',
     shyLabel: '⟦Cáñdídát~~~ másqúé~~~⟧',
     barTitle: '⟦Sóñdágés~~~ (móyéññé)~~~~ vs~ Résúltát~~~ réél~~ pár~~ çáñdídát~~~⟧',
     poll: '⟦Sóñdágé~~~⟧',
@@ -1511,7 +1574,7 @@ const pseudo: TranslationKeys = {
     run: '⟦Símúlér~~~⟧',
     error: '⟦Érréúr~~~ lórs~~ dé~ lá~ símúlátíóñ.~~~~⟧',
     seed: '⟦Sééd~~⟧',
-    paradoxExists: '⟦⚡~ Párádóxé~~~ détéçté~~~⟧',
+    paradoxExists: '⟦Párádóxé~~~ détéçté~~~⟧',
     noParadox: '⟦✓~ Pás~~ dé~ párádóxé~~~⟧',
     frequency: '⟦Fréqúéñçé~~~~ dú~ párádóxé~~~⟧',
     vizTitle: '⟦Cóñflít~~~ éñtré~~ Párétó~~~ ét~ Líbérté~~~ íñdívídúéllé~~~~~⟧',
@@ -1553,7 +1616,7 @@ const pseudo: TranslationKeys = {
     analyze: '⟦Áñálysér~~~⟧',
     error: '⟦Érréúr~~~ lórs~~ dé~ lá~ símúlátíóñ.~~~~⟧',
     method: '⟦Méthódé~~~ dé~ vóté~~⟧',
-    manipulable: '⟦⚠~ Máñípúláblé~~~~⟧',
+    manipulable: '⟦Máñípúláblé~~~~⟧',
     notManipulable: '⟦✓~ Nóñ~~ máñípúláblé~~~~⟧',
     manipulators: '⟦máñípúlátéúrs~~~~~⟧',
     sincereWinner: '⟦Váíñqúéúr~~~~ síñçèré~~~⟧',
@@ -1700,8 +1763,8 @@ const pseudo: TranslationKeys = {
     global: '⟦Glóbál~~~⟧',
     status: '⟦Státút~~~⟧',
     filter_all: '⟦Tóútés~~~⟧',
-    filter_consensus: '⟦🟢~ Cóñséñsús~~~~⟧',
-    filter_polarizing: '⟦🔴~ Pólárísáñts~~~~⟧',
+    filter_consensus: '⟦Cóñséñsús~~~~⟧',
+    filter_polarizing: '⟦Pólárísáñts~~~~⟧',
     taiwanTitle: '⟦Éxémplés~~~ Táíwáñ~~~ 2015~~ (vTáíwáñ)~~~~⟧',
     noteTitle: '⟦Nóté~~ :~⟧',
   },
@@ -1882,16 +1945,16 @@ const pseudo: TranslationKeys = {
     colEffLoss: '⟦Pérté~~ éffíçáçíté~~~~⟧',
     colTyranny: '⟦Íñdíçé~~~ tyráññíé~~~⟧',
     safeguardsTitle: '⟦Gárdé-fóús~~~~ íñstítútíóññéls~~~~~~ rééls~~⟧',
-    safeguard_constitution_title: '⟦🇫🇷~~ Cóñstítútíóñ~~~~~ fráñçáísé~~~~⟧',
+    safeguard_constitution_title: '⟦Cóñstítútíóñ~~~~~ fráñçáísé~~~~⟧',
     safeguard_constitution_desc:
       '⟦Dróíts~~~ ñóñ-dérógéáblés~~~~~~ sóústráíts~~~~ áú~ vóté~~ —~ áúçúñé~~~ májóríté~~~ ñé~ péút~~ légáléméñt~~~~ lés~~ súpprímér.~~~~⟧',
-    safeguard_scotus_title: '⟦🇺🇸~~ Cóúr~~ súprêmé~~~ dés~~ Étáts-Úñís~~~~⟧',
+    safeguard_scotus_title: '⟦Cóúr~~ súprêmé~~~ dés~~ Étáts-Úñís~~~~⟧',
     safeguard_scotus_desc:
       '⟦9~ júgés~~ ñómmés~~~ à~ víé~~ prótègéñt~~~~ lés~~ dróíts~~~ fóñdáméñtáúx~~~~~ çóñtré~~~ lés~~ májórítés~~~~ témpóráírés.~~~~~⟧',
-    safeguard_eu_title: "⟦🇪🇺~~ Cóñséíl~~~ dé~ l'Úñíóñ~~~ éúrópééññé~~~~⟧",
+    safeguard_eu_title: "⟦Cóñséíl~~~ dé~ l'Úñíóñ~~~ éúrópééññé~~~~⟧",
     safeguard_eu_desc:
       '⟦Úñáñímíté~~~~ réqúísé~~~ póúr~~ lá~ físçálíté,~~~~ lés~~ tráítés~~~ ét~ lés~~ dróíts~~~ fóñdáméñtáúx~~~~~ —~ çháqúé~~~ Étát~~ péút~~ blóqúér.~~~⟧',
-    safeguard_senate_title: '⟦🏛~ Séñát~~ /~ Chámbré~~~ háúté~~⟧',
+    safeguard_senate_title: '⟦Séñát~~ /~ Chámbré~~~ háúté~~⟧',
     safeguard_senate_desc:
       '⟦Répréséñtátíóñ~~~~~ dés~~ míñórítés~~~~ géógráphíqúés~~~~~ prótègé~~~ çóñtré~~~ lá~ tyráññíé~~~ dés~~ gráñdés~~~ métrópólés.~~~~⟧',
     noteTitle: '⟦Nóté~~ pédágógíqúé~~~~ :~⟧',
@@ -1913,7 +1976,7 @@ const pseudo: TranslationKeys = {
     condorcetExists: '⟦Váíñqúéúr~~~~ dé~ Cóñdórçét~~~~⟧',
     noCW: '⟦Áúçúñ~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~⟧',
     verdictRousseau: '⟦✓~ Vólóñté~~~ géñérálé~~~ róbústé~~~⟧',
-    verdictMixed: '⟦⚠~ Vólóñté~~~ çóñtéstéé~~~~⟧',
+    verdictMixed: '⟦Vólóñté~~~ çóñtéstéé~~~~⟧',
     verdictSchumpeter: '⟦✗~ Púr~~ ártéfáçt~~~ próçédúrál~~~~⟧',
     uniqueWinnersTitle: '⟦Váíñqúéúrs~~~~ póssíblés~~~~⟧',
     gridTitle: '⟦Résúltáts~~~~ sélóñ~~ lá~ próçédúré~~~~⟧',
@@ -1963,7 +2026,7 @@ const pseudo: TranslationKeys = {
     seed: '⟦Sééd~~⟧',
     selectAll: '⟦Tóút~~ séléçtíóññér~~~~~⟧',
     selectNone: '⟦Tóút~~ déséléçtíóññér~~~~~⟧',
-    mostFragile: '⟦🔴~ Plús~~ frágílé~~~⟧',
+    mostFragile: '⟦Plús~~ frágílé~~~⟧',
     variance: '⟦Váríáñçé~~~⟧',
     winnerChanged: '⟦Váíñqúéúr~~~~ çháñgé~~~⟧',
     winnerStable: '⟦Váíñqúéúr~~~~ stáblé~~~⟧',
@@ -1971,7 +2034,7 @@ const pseudo: TranslationKeys = {
     distribution: '⟦Dístríbútíóñ~~~~~⟧',
     baselineWinner: '⟦Váíñqúéúr~~~~ dé~ básé~~⟧',
     robust: '⟦✓~ Résúltát~~~ róbústé~~~⟧',
-    fragile: '⟦⚡~ Résúltát~~~ frágílé~~~⟧',
+    fragile: '⟦Résúltát~~~ frágílé~~~⟧',
     mostFragileLabel: '⟦Hypóthèsé~~~~ lá~ plús~~ frágílé~~~⟧',
     fragilityTitle: '⟦Frágílíté~~~~ pár~~ hypóthèsé~~~~⟧',
     varianceTitle: "⟦Váríáñçé~~~ dú~ résúltát~~~ sélóñ~~ l'hypóthèsé~~~~ réláxéé~~~⟧",
@@ -2187,9 +2250,9 @@ const pseudo: TranslationKeys = {
     method_voter_suppression: '⟦Súppréssíóñ~~~~ dú~ vóté~~⟧',
     intensity: '⟦Íñtéñsíté~~~~ dú~ báçkslídíñg~~~~⟧',
     guardrailsTitle: '⟦Gárdé-fóús~~~~ íñstítútíóññéls~~~~~~⟧',
-    guardrail_constitutional_court: '⟦🏛~ Cóúr~~ çóñstítútíóññéllé~~~~~~⟧',
-    guardrail_opposition_media: '⟦📰~ Médíás~~~ íñdépéñdáñts~~~~~⟧',
-    guardrail_international_pressure: '⟦🌍~ Préssíóñ~~~ íñtérñátíóñálé~~~~~⟧',
+    guardrail_constitutional_court: '⟦Cóúr~~ çóñstítútíóññéllé~~~~~~⟧',
+    guardrail_opposition_media: '⟦Médíás~~~ íñdépéñdáñts~~~~~⟧',
+    guardrail_international_pressure: '⟦Préssíóñ~~~ íñtérñátíóñálé~~~~~⟧',
     guardrail_supermajority_required: '⟦⅔~ Súpér-májóríté~~~~~ réqúísé~~~⟧',
     finalQuality: '⟦Qúálíté~~~ démóçrátíqúé~~~~~ fíñálé~~~⟧',
     statusHealthy: '⟦Démóçrátíé~~~~ sáíñé~~⟧',

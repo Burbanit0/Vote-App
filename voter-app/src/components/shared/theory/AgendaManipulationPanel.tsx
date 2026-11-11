@@ -188,7 +188,7 @@ const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t
         style={{ background: '#e8f5e9', border: '1px solid #c8e6c9' }}
       >
         <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-          🏆 {t('agenda.result')}: <span style={{ color: '#198754' }}>{result}</span>
+          {t('agenda.result')}: <span style={{ color: '#198754' }}>{result}</span>
         </span>
       </div>
       <div className="text-muted-foreground mt-1" style={{ fontSize: '0.7rem' }}>
@@ -340,7 +340,7 @@ const AgendaManipulationPanel: React.FC = () => {
                   data-testid="btn-make-target-win"
                   onClick={() => animateTo('for_target')}
                 >
-                  🎯 {t('agenda.makeTargetWin', { target })}
+                  {t('agenda.makeTargetWin', { target })}
                 </Button>
                 <Button
                   size="sm"
@@ -348,7 +348,7 @@ const AgendaManipulationPanel: React.FC = () => {
                   data-testid="btn-neutral"
                   onClick={() => animateTo('neutral')}
                 >
-                  ⚖️ {t('agenda.neutral')}
+                  {t('agenda.neutral')}
                 </Button>
               </div>
             </Col>
@@ -397,7 +397,7 @@ const AgendaManipulationPanel: React.FC = () => {
                 style={{ fontSize: '0.78rem' }}
                 data-testid="full-manipulation-alert"
               >
-                ⚡ {t('agenda.fullManipulation')}
+                {t('agenda.fullManipulation')}
               </Alert>
             )}
           </div>

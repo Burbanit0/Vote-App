@@ -112,11 +112,13 @@ WORKERS = 8
 
 def _load_citizens(path: Path) -> tuple[list[Citizen], list[Party]]:
     """Real citizens and parties from a finished run's checkpoint: the probes need the spread of
-    a lived-in population (a generated one has no party history and no drift)."""
+    a lived-in population (a generated one has no party history and no drift). The parties load
+    as established (no founding tick): the probes measure the founding decision, not the
+    founding lock (ADR-018, amendment 2026-10-21), so no prompt here mentions it."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     return (
         [_citizen_from_dict(c) for c in payload["citizens"]],
-        [_party_from_dict(p) for p in payload["parties"]],
+        [dataclasses.replace(_party_from_dict(p), founded_tick=None) for p in payload["parties"]],
     )
 
 
@@ -181,7 +183,7 @@ def _forum_turn(
         citizen, system_prompt=_paraphrase(forum_system_prompt(citizen, config), pairs), config=config, client=client,
         user_prompt=forum_user_prompt(
             tick=5, member=False, feed="", memory="", roll=roll,
-            stand=stand_line(citizen, population, parties, config),
+            stand=stand_line(citizen, population, parties, config, 5),
         ),
     ).turn
 

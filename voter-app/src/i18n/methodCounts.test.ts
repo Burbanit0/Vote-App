@@ -18,8 +18,8 @@ describe('method and fiche counts shown to users', () => {
   it('the home page states the real counts', () => {
     expect(fr.home.reassure).toContain(`${methods} méthodes`);
     expect(en.home.reassure).toContain(`${methods} methods`);
-    expect(fr.home.labLede).toContain(`${fiches} fiches`);
-    expect(en.home.labLede).toContain(`${fiches} fiches`);
+    expect(fr.home.turnLab).toContain(`${fiches} fiches`);
+    expect(en.home.turnLab).toContain(`${fiches} fiches`);
   });
 
   it('the meta tags and the PWA manifest state the real method count', () => {

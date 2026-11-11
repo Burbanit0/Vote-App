@@ -203,11 +203,11 @@ def candidacy_p500(config: PolityConfig) -> list[Case]:
     })
 
 
-def _vote_scenario(config: PolityConfig) -> tuple[list[Citizen], list[Citizen], dict[int, Any]]:
+def _vote_scenario(config: PolityConfig, seed: int | None = None) -> tuple[list[Citizen], list[Citizen], dict[int, Any]]:
     """check_logprob_blank_calibration.py's electorate: 300 citizens, five parties, each
     party's most ambitious member nominated; truth is each voter's sincere first choice."""
-    citizens = _population(config, 300)
-    parties = _with_parties(config, citizens)
+    citizens = _population(config, 300, seed)
+    parties = _with_parties(config, citizens, seed)
     everyone = {c.citizen_id for c in citizens}
     nominees = sorted_candidates(
         [n for p in parties if (n := select_party_nominee_from_declared(p.party_id, citizens, everyone)) is not None]
@@ -234,8 +234,8 @@ def _balanced(voters: list[Citizen], truth: dict[int, Any], per_class: int, skip
     return sorted(blank + ranked, key=lambda c: c.citizen_id)
 
 
-def _vote_cases(config: PolityConfig, family: str, per_class: int, skip: int) -> list[Case]:
-    voters, nominees, truth = _vote_scenario(config)
+def _vote_cases(config: PolityConfig, family: str, per_class: int, skip: int, seed: int | None = None) -> list[Case]:
+    voters, nominees, truth = _vote_scenario(config, seed)
     chosen = _balanced(voters, truth, per_class, skip)
     requests = capture(lambda client: cast_votes(chosen, nominees, config, client))
     return cases_from(requests, family, lambda r: {
@@ -252,10 +252,10 @@ def vote_first_choice(config: PolityConfig) -> list[Case]:
     return _vote_cases(config, "vote_first_choice", per_class=20, skip=8)
 
 
-def _pressure_scene(config: PolityConfig) -> tuple[Citizen, list[Citizen], dict[int, float]]:
+def _pressure_scene(config: PolityConfig, seed: int | None = None) -> tuple[Citizen, list[Citizen], dict[int, float]]:
     """check_pressure_calibration_matrix.py's scene: a president pledged at the centre who drifted
     +0.3 on every issue, and 300 citizens with their gap to that president."""
-    citizens = _population(config, 300)
+    citizens = _population(config, 300, seed)
     issues = config.citizens.issue_count
     holder = Citizen(citizen_id=10_000, issue_positions=(0.5,) * issues, issue_priorities=(1 / issues,) * issues,
                      blank_threshold=0.5, ambition_score=0.5)
@@ -541,6 +541,56 @@ EMOTION_FAMILIES: dict[str, Callable[[PolityConfig], list[Case]]] = {
 """ADR-012's prerequisite bank. A bank of its own, so the frozen bank every earlier session
 answered stays unchanged. It carries `pressure_act` exactly as the frozen bank renders it, so one
 session answers both halves of the comparison."""
+
+
+PRESSURE_ORDER_SEEDS = (42, 2, 4, 5, 6, 8)
+VOTE_ORDER_SEEDS = (42, 4, 5, 8)
+"""The populations the order bank (ADR-030) draws its ground truth from, one scene each, so a 10-point change
+in accuracy shows over noise (144 and 160 units, against 24 and 40 in the frozen bank). Only populations with
+both classes full are used: 12 citizens far below their tolerance (seeds 1, 3, 9, 12 have fewer), and 28
+sincere blank ballots, 8 left to the logprob gate (seeds 1-3 have fewer)."""
+
+
+def pressure_act_wide(config: PolityConfig) -> list[Case]:
+    """`pressure_act` over every PRESSURE_ORDER_SEEDS population: 12 citizens far below their tolerance and
+    12 far above it in each."""
+    cases = []
+    for seed in PRESSURE_ORDER_SEEDS:
+        holder, citizens, gaps = _pressure_scene(config, seed)
+        consulted, should_act = _unambiguous(citizens, gaps)
+        cases += cases_from(_pressure_requests(consulted, holder, gaps, config), "pressure_act_wide", lambda r: {
+            "kind": "truth", "truth": {str(cid): should_act[cid] for cid in r.unit_ids}, "match": "acts",
+        })
+    return cases
+
+
+def vote_first_choice_wide(config: PolityConfig) -> list[Case]:
+    """`vote_first_choice` (20 blank and 20 ranked sincere ballots, past the logprob gate's voters) over every
+    VOTE_ORDER_SEEDS population. vote_cast thinks, so this family costs most of a session."""
+    return [case for seed in VOTE_ORDER_SEEDS for case in _vote_cases(config, "vote_first_choice_wide", 20, 8, seed)]
+
+
+ORDER_FAMILIES: dict[str, Callable[[PolityConfig], list[Case]]] = {
+    LOGPROB_GATE_FAMILY: logprob_gate,
+    "candidacy_p500": candidacy_p500,
+    "pressure_act_wide": pressure_act_wide,
+    "vote_first_choice_wide": vote_first_choice_wide,
+    "response_sweep": response_sweep,
+    "coalition_diagonal": coalition_diagonal,
+    "reaction_scandal": reaction_scandal,
+    "chamber_poles": chamber_poles,
+    "nomination_permutation": nomination_permutation,
+}
+"""ADR-030's bank: what scripts/check_schema_order.py runs every candidate field order on. `positioning_poles`
+is left out: 9 of its 10 answers change between two sessions sent the same bytes (EXP-025), so it cannot show
+an order effect, and it is the costliest family."""
+
+
+def generate_order_bank(config: PolityConfig) -> CaseBank:
+    cases = [case for family in ORDER_FAMILIES.values() for case in family(config)]
+    reference = {"provider": config.llm.provider, "model": config.llm.model, "seed": config.run.seed,
+                 "max_batch_size": config.llm.max_batch_size, "bank": "order"}
+    return CaseBank(reference=reference, cases=tuple(cases))
 
 
 def generate_emotions_bank(config: PolityConfig) -> CaseBank:

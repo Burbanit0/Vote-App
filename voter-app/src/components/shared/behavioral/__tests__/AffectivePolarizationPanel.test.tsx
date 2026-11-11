@@ -140,7 +140,7 @@ describe('AffectivePolarizationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const badge = screen.getByTestId('winner-changed-badge');
-      expect(badge.className).toContain('bg-[#dc3545]');
+      expect(badge.className).toContain('bg-destructive/15');
     });
     vi.runAllTimers();
   });
@@ -151,7 +151,7 @@ describe('AffectivePolarizationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const badge = screen.getByTestId('winner-changed-badge');
-      expect(badge.className).toContain('bg-[#198754]');
+      expect(badge.className).toContain('bg-ok/15');
     });
     vi.runAllTimers();
   });

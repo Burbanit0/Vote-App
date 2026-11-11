@@ -58,10 +58,10 @@ const MomentRail: React.FC<MomentRailProps> = ({ active, onSelect }) => {
               data-testid={`moment-${m.id}`}
               onClick={() => onSelect(m.id)}
               className={cn(
-                'group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all',
+                'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors motion-reduce:transition-none',
                 on
-                  ? 'border border-primary/30 bg-card shadow-sm'
-                  : 'border border-transparent hover:bg-muted/50'
+                  ? 'bg-card after:absolute after:inset-x-3 after:-bottom-1 after:h-[3px] after:rounded-full after:bg-primary'
+                  : 'hover:bg-muted/60'
               )}
             >
               <span
@@ -78,10 +78,8 @@ const MomentRail: React.FC<MomentRailProps> = ({ active, onSelect }) => {
               </span>
               <span
                 className={cn(
-                  'min-w-0 truncate text-sm transition-colors',
-                  on
-                    ? 'font-display font-semibold text-foreground'
-                    : 'font-medium text-muted-foreground group-hover:text-foreground'
+                  'min-w-0 truncate text-[15px] font-semibold transition-colors motion-reduce:transition-none',
+                  on ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
                 )}
               >
                 {t(`moments.${m.id}.label`)}

@@ -52,7 +52,7 @@ const EquilibriumModule: React.FC<{ voters: Pt[]; candidates: NamedPt[] }> = ({
 
           {shifted.length > 0 && (
             <div data-testid="equilibrium-shifted" className="flex flex-col gap-1">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                 {t('equilibrium.shiftedHead')}
               </p>
               {shifted.map((v) => (
@@ -75,7 +75,7 @@ const EquilibriumModule: React.FC<{ voters: Pt[]; candidates: NamedPt[] }> = ({
 
           {cycles.length > 0 && (
             <div data-testid="equilibrium-cycles" className="flex flex-col gap-1">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400">
                 {t('equilibrium.cycleHead')}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -94,7 +94,7 @@ const EquilibriumModule: React.FC<{ voters: Pt[]; candidates: NamedPt[] }> = ({
 
           {stable.length > 0 && (
             <div data-testid="equilibrium-stable" className="flex flex-col gap-1">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">
+              <p className="text-xs font-semibold text-green-700 dark:text-green-400">
                 {t('equilibrium.stableHead')}
               </p>
               <div className="flex flex-wrap gap-1.5">

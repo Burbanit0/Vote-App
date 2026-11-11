@@ -94,9 +94,9 @@ test.describe('Navigation — the five real surfaces', () => {
     await settled(page, '/');
     await expect(page.locator('html')).toHaveAttribute('data-bs-theme', 'light');
 
-    // The theme switch lives inside the ⚙ Préférences dropdown, not the navbar.
+    // The theme choice lives inside the Préférences (settings) menu, not the navbar.
     await page.locator('#user-settings-dropdown').click();
-    await page.getByRole('button', { name: /mode sombre|dark mode/i }).click();
+    await page.getByTestId('theme-dark').click();
     await expect(page.locator('html')).toHaveAttribute('data-bs-theme', 'dark');
 
     await page.reload();

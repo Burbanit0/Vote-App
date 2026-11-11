@@ -11,7 +11,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: frontend build (Vite → /voter-app/build) ───────────────────────
-FROM node:26-slim AS frontend
+FROM node:26-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS frontend
 WORKDIR /voter-app
 # Install exactly what the committed lockfile pins (same as CI's `npm ci`);
 # .npmrc carries engine-strict.
@@ -24,7 +24,9 @@ COPY voter-app/ ./
 RUN npx vite build
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
-FROM python:3.14-slim AS runtime
+# Base images are pinned by digest (Scorecard); Dependabot's docker entry bumps
+# them, after its 7-day cooldown.
+FROM python:3.14-slim@sha256:c2aca8207dfb68e7d20fecb7fad7e145c5d79d2ff36712d416c144130606d71d AS runtime
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
 WORKDIR /app
 
@@ -32,7 +34,10 @@ WORKDIR /app
 # Binary wheels only — every pin ships one, so no compiler is needed, and a
 # future pin without a wheel fails the build loudly instead of compiling.
 COPY fast_api_voter/requirements.lock.txt .
-RUN pip install --no-cache-dir --only-binary=:all: -r requirements.lock.txt
+# pip itself is removed afterwards: it bundles its own copies of urllib3,
+# msgpack and setuptools that Trivy flags, and nothing needs pip at runtime.
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.lock.txt \
+    && pip uninstall -y pip
 
 # Backend code, then the built frontend.
 COPY --chown=app:app fast_api_voter/ /app/

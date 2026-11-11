@@ -214,11 +214,11 @@ const ResultGrid: React.FC<{
 // ── Philosophers section ──────────────────────────────────────────────────────
 
 const PHILOSOPHERS = [
-  { key: 'rousseau', icon: '📜', year: '1762', color: '#198754' },
-  { key: 'arrow', icon: '🔢', year: '1951', color: '#dc3545' },
-  { key: 'schumpeter', icon: '🏭', year: '1942', color: '#fd7e14' },
-  { key: 'sen', icon: '⚖️', year: '1999', color: '#0d6efd' },
-  { key: 'rawls', icon: '🎭', year: '1971', color: '#6f42c1' },
+  { key: 'rousseau', year: '1762', color: '#198754' },
+  { key: 'arrow', year: '1951', color: '#dc3545' },
+  { key: 'schumpeter', year: '1942', color: '#fd7e14' },
+  { key: 'sen', year: '1999', color: '#0d6efd' },
+  { key: 'rawls', year: '1971', color: '#6f42c1' },
 ];
 
 const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }> = ({
@@ -240,7 +240,7 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
         </Badge>
       </div>
       <Row className="g-2">
-        {PHILOSOPHERS.map(({ key, icon, year, color }) => (
+        {PHILOSOPHERS.map(({ key, year, color }) => (
           <Col key={key} xs={12} md={6}>
             <div
               role="button"
@@ -262,7 +262,6 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
               data-testid={`philo-card-${key}`}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '1rem' }}>{icon}</span>
                 <strong style={{ color }}>{t(`will.philo_${key}`)}</strong>
                 <span className="text-muted-foreground ml-auto" style={{ fontSize: '0.65rem' }}>
                   {year}
@@ -337,7 +336,7 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
     <div>
       <div className="mb-2">
         <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-          🔬 {t('lab.fromElectionLab')}
+          {t('lab.fromElectionLab')}
         </Badge>
       </div>
       {error && (

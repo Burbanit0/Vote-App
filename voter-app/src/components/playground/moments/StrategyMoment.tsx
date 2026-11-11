@@ -71,9 +71,7 @@ const StrategyMoment: React.FC = () => {
           data-testid="tactic-panel"
           className="flex flex-col gap-2 rounded-md border border-border p-3"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('strategy.tacticTitle')}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground">{t('strategy.tacticTitle')}</p>
           <Field label={t('strategy.tacticLabel')} htmlFor="pg-tactic">
             <select
               id="pg-tactic"
@@ -140,7 +138,7 @@ const StrategyMoment: React.FC = () => {
 
       {/* ── Participation (absorbed from Électorat) ── */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-xs font-semibold text-muted-foreground">
           {t('electorate.participationTitle')}
         </p>
         <Field label={t('electorate.abstentionModelLabel')} htmlFor="pg-turnout">
@@ -191,9 +189,7 @@ const StrategyMoment: React.FC = () => {
       {/* ── Vote blanc (en direct) — a live lever, not just the Lab's abstract fiche ── */}
       {mode === 'leader' && (
         <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('strategy.blankTitle')}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground">{t('strategy.blankTitle')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input
               data-testid="blank-toggle"
@@ -296,9 +292,7 @@ const StrategyMoment: React.FC = () => {
           data-testid="manip-hardness"
           className="rounded-md border border-border px-2.5 py-2 text-[0.7rem]"
         >
-          <p className="font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('strategy.manipTitle')}
-          </p>
+          <p className="font-semibold text-muted-foreground">{t('strategy.manipTitle')}</p>
           <p className="mt-1">
             {t('strategy.manipPrinciple')}{' '}
             <strong

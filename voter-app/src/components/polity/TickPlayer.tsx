@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PLAYER_SPEEDS, keyTarget, type PlayerSpeed } from '../../lib/polity/playerClock';
 import { simulatedDate } from '../../lib/polity/ticks';
@@ -55,37 +56,43 @@ const TickPlayer: React.FC = () => {
       role="toolbar"
       aria-label={t('player.label')}
       onKeyDown={onKeyDown}
-      className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2"
+      // In the envelope tray, as the homepage's count and its scrubber are.
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-envelope px-4 py-3"
     >
       <div className="flex items-center gap-1">
         <button
           type="button"
           data-testid="player-step-back"
           aria-label={t('player.stepBack')}
-          className="rounded border border-border px-2 py-1 text-sm disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-card text-foreground disabled:opacity-40"
           disabled={tick <= 0}
           onClick={() => setTick(tick - 1)}
         >
-          ◀
+          <ChevronLeft aria-hidden className="h-4 w-4" />
         </button>
         <button
           type="button"
           data-testid="player-toggle"
           aria-pressed={playing}
-          className="min-w-[4.5rem] rounded border border-primary px-3 py-1 text-sm font-semibold text-primary"
+          className="flex h-9 min-w-[6rem] items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
           onClick={toggle}
         >
+          {playing ? (
+            <Pause aria-hidden className="h-4 w-4" />
+          ) : (
+            <Play aria-hidden className="h-4 w-4" />
+          )}
           {playing ? t('player.pause') : t('player.play')}
         </button>
         <button
           type="button"
           data-testid="player-step-forward"
           aria-label={t('player.stepForward')}
-          className="rounded border border-border px-2 py-1 text-sm disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-card text-foreground disabled:opacity-40"
           disabled={tick >= lastTick}
           onClick={() => setTick(tick + 1)}
         >
-          ▶
+          <ChevronRight aria-hidden className="h-4 w-4" />
         </button>
       </div>
       <input
@@ -93,22 +100,22 @@ const TickPlayer: React.FC = () => {
         data-testid="player-slider"
         aria-label={t('player.slider')}
         aria-valuetext={dateLabel}
-        className="min-w-[10rem] flex-1 accent-[var(--bs-primary)]"
+        className="min-w-[10rem] flex-1"
         min={0}
         max={lastTick}
         step={1}
         value={tick}
         onChange={(e) => setTick(Number(e.target.value))}
       />
-      <span data-testid="player-position" className="font-mono text-xs tabular-nums">
+      <span data-testid="player-position" className="font-mono text-sm font-semibold tabular-nums">
         {t('player.position', { year: date.year, quarter: date.quarter, tick, last: lastTick })}
       </span>
-      <label className="flex items-center gap-1 text-xs" htmlFor="player-speed">
+      <label className="flex items-center gap-1.5 text-sm" htmlFor="player-speed">
         {t('player.speed')}
         <select
           id="player-speed"
           data-testid="player-speed"
-          className="rounded border border-border bg-background px-1 py-0.5"
+          className="rounded-lg border border-border bg-card px-2 py-1"
           value={speed}
           onChange={(e) => setSpeed(Number(e.target.value) as PlayerSpeed)}
         >
@@ -119,7 +126,7 @@ const TickPlayer: React.FC = () => {
           ))}
         </select>
       </label>
-      <p className="w-full text-[0.68rem] text-muted-foreground">{t('player.keys')}</p>
+      <p className="w-full text-xs text-muted-foreground">{t('player.keys')}</p>
     </div>
   );
 };

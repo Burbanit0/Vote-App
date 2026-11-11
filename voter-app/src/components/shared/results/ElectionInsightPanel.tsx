@@ -105,7 +105,7 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
         className="flex flex-row items-center justify-between p-6 py-2"
         style={{ background: variantBg }}
       >
-        <strong className="text-[0.88rem]">🔍 {t('insight.title')}</strong>
+        <strong className="text-[0.88rem]">{t('insight.title')}</strong>
         <div className="flex items-center gap-2">
           <Badge variant={variant} className="text-[0.72rem]">
             {agreementLabel(result.inter_method_agreement, t)}

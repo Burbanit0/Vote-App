@@ -176,7 +176,7 @@ describe('VoteStepAnimator', () => {
     fireEvent.click(screen.getByRole('button', { name: /Suivant|Next/i }));
     // The IRV round 3 payload is a bare winner, so the chart gives way to the
     // trophy readout.
-    expect(screen.getByText(/🏆 Alice/)).toBeInTheDocument();
+    expect(screen.getByTestId('vote-winner')).toHaveTextContent('Alice');
   });
 
   it('shows an IRV dead tie as a tie, not a winner', async () => {
@@ -191,7 +191,7 @@ describe('VoteStepAnimator', () => {
     await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /Suivant|Next/i }));
     expect(screen.getByTestId('irv-dead-tie')).toHaveTextContent(/Tie \(no winner\)|Égalité/);
-    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('vote-winner')).not.toBeInTheDocument();
   });
 
   it('plurality: greens the winner and announces them', async () => {
@@ -205,7 +205,7 @@ describe('VoteStepAnimator', () => {
     const fills = screen.getAllByTestId('bar-cell').map((c) => c.getAttribute('data-fill'));
     expect(fills[0]).toBe(GREEN); // Alice, the winner
     expect(fills[1]).not.toBe(GREEN); // Bob
-    expect(screen.getByText(/🏆 Alice/)).toBeInTheDocument();
+    expect(screen.getByTestId('vote-winner')).toHaveTextContent('Alice');
   });
 
   it('borda: the winner is only greened on the last step', async () => {
@@ -219,10 +219,10 @@ describe('VoteStepAnimator', () => {
     });
     render(<VoteStepAnimator />);
     await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
-    expect(screen.queryByText(/🏆 Alice/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('vote-winner')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('bar-cell')[0]).toHaveAttribute('data-fill', FIRST_CANDIDATE);
     fireEvent.click(screen.getByRole('button', { name: /Suivant|Next/i }));
-    expect(screen.getByText(/🏆 Alice/)).toBeInTheDocument();
+    expect(screen.getByTestId('vote-winner')).toHaveTextContent('Alice');
     expect(screen.getAllByTestId('bar-cell')[0]).toHaveAttribute('data-fill', GREEN);
   });
 
@@ -239,7 +239,7 @@ describe('VoteStepAnimator', () => {
     // Alice and Bob clear 50%, Carol does not -- approval colours every bar
     // green or red, so counting is unambiguous here.
     expect(fills).toEqual([GREEN, GREEN, RED]);
-    expect(screen.getByText(/🏆 Alice/)).toBeInTheDocument();
+    expect(screen.getByTestId('vote-winner')).toHaveTextContent('Alice');
   });
 
   it('renders Schulze heatmap headers when method is schulze', async () => {

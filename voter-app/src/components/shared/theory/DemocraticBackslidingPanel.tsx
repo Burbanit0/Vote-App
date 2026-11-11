@@ -3,6 +3,7 @@
  * Based on democratic backsliding research (Levitsky & Ziblatt, 2018).
  */
 import React, { useState } from 'react';
+import { Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -280,7 +281,7 @@ const DemocraticBackslidingPanel: React.FC = () => {
         data-testid="guardrails-panel"
       >
         <div className="font-semibold mb-2" style={{ fontSize: '0.82rem' }}>
-          🛡 {t('backsliding.guardrailsTitle')}
+          {t('backsliding.guardrailsTitle')}
         </div>
         <Row className="g-2">
           {GUARDRAILS.map((gr) => (
@@ -323,7 +324,7 @@ const DemocraticBackslidingPanel: React.FC = () => {
           {/* ── Autocracy warning ── */}
           {data.autocracy_reached && (
             <Alert variant="danger" className="py-2 mb-3" data-testid="autocracy-alert">
-              🚨 {t('backsliding.autocracyReached', { n: data.autocracy_at_election })}
+              {t('backsliding.autocracyReached', { n: data.autocracy_at_election })}
             </Alert>
           )}
 
@@ -473,12 +474,13 @@ const DemocraticBackslidingPanel: React.FC = () => {
                     <QualityBar value={q} />
                     {e.guardrails_triggered.length > 0 && (
                       <div style={{ fontSize: '0.6rem', color: '#198754', marginTop: 2 }}>
-                        🛡×{e.guardrails_triggered.length}
+                        <Shield aria-hidden className="inline h-3.5 w-3.5 align-[-2px]" />×
+                        {e.guardrails_triggered.length}
                       </div>
                     )}
                     {e.point_of_no_return && (
                       <div style={{ fontSize: '0.6rem', color: '#dc3545', fontWeight: 700 }}>
-                        ⚠ {t('backsliding.pnr')}
+                        {t('backsliding.pnr')}
                       </div>
                     )}
                   </div>

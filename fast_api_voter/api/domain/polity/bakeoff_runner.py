@@ -44,7 +44,9 @@ from api.domain.polity.llm_logprob_instrumentation import (
 )
 from api.domain.polity.llm_behavior_engine import truncation_limit
 from api.domain.polity.llm_replay import UnrecordedRequestError
+from api.domain.polity.llm_client import WIRE_ORDER
 from api.domain.polity.llm_schemas import vote_cast_json_schema
+from api.domain.polity.schema_order import RULES, rule_table
 from api.domain.polity.run_polity_simulation import _warm_up_llm_client
 
 RESULTS_FILENAME = "results.jsonl"
@@ -168,6 +170,8 @@ class BakeoffArm:
 
     schema: Callable[[Case, dict[str, Any]], dict[str, Any]] | None = None
     request: Callable[[Case], dict[str, Any]] | None = None
+    wire_order: Mapping[str, Sequence[str]] | None = None
+    """`VllmJsonClient.wire_order` for this arm (ADR-030); None sends production's `WIRE_ORDER`."""
     restore: Callable[[str], str] | None = None
     """What the model returned, put back into the bank's field names before it is decoded. An arm
     that renames fields reads no logprobs: the tokens are the model's, not the restored text's."""
@@ -178,6 +182,8 @@ ARMS: dict[str, BakeoffArm] = {
     "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
     "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
     "thinking_sampling": BakeoffArm(request=_thinking_sampling),
+    "alphabetical_order": BakeoffArm(wire_order={}),  # every object A-Z: the bytes sent before ADR-030
+    **{f"order_{rule}": BakeoffArm(wire_order=rule_table(rule)) for rule in RULES},
     "neutral_wording": BakeoffArm(request=_neutral_wording),
     "reason_first": BakeoffArm(schema=_motif_arm_schema("reason_first"), restore=_restore_motif("reason_first")),
     "answer_first": BakeoffArm(schema=_motif_arm_schema("answer_first"), restore=_restore_motif("answer_first")),
@@ -361,6 +367,12 @@ def request_resolver(arm: str | None) -> Callable[[Case], dict[str, Any]]:
     return request_arm if request_arm is not None else (lambda case: {})
 
 
+def wire_order_for(arm: str | None) -> Mapping[str, Sequence[str]]:
+    """The wire order a session with `arm` sends: the arm's own table, or production's WIRE_ORDER."""
+    chosen = ARMS[arm].wire_order if arm is not None else None
+    return WIRE_ORDER if chosen is None else chosen
+
+
 def run_session(
     bank: CaseBank,
     client: LlmClientProtocol,
@@ -376,9 +388,13 @@ def run_session(
     """One model's session. `client` is the model's own (or a replay); `config.llm`
     names the model, so token budgets follow its profile. `arm` names an entry of ARMS."""
     session_dir.mkdir(parents=True, exist_ok=True)
-    (session_dir / SESSION_FILENAME).write_text(
-        json.dumps({**metadata, "bank_sha256": bank.content_sha256, "arm": arm}, indent=2, sort_keys=True)
-    )
+    # Every session states its wire order, so a client reused after another arm's session is not left on it, and
+    # records it, so bakeoff_order.decide knows what a control sent even after WIRE_ORDER changes.
+    wire_order = wire_order_for(arm)
+    client.wire_order = wire_order  # type: ignore[attr-defined]
+    (session_dir / SESSION_FILENAME).write_text(json.dumps(
+        {**metadata, "bank_sha256": bank.content_sha256, "arm": arm,
+         "wire_order": dict(wire_order)}, indent=2, sort_keys=True))  # each order a JSON list
     schema_for = schema_resolver(bank, arm)
     request_for = request_resolver(arm)
     restore = restorer_for(arm)

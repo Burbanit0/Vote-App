@@ -20,9 +20,9 @@ const LensSelector: React.FC = () => {
     <div
       role="radiogroup"
       aria-label={t('map.lensLabel')}
-      className="flex flex-wrap items-center gap-1 text-xs"
+      className="flex flex-wrap items-center gap-1.5 text-sm"
     >
-      <span className="text-muted-foreground">{t('map.lensLabel')}</span>
+      <span className="mr-1 font-semibold text-muted-foreground">{t('map.lensLabel')}</span>
       {POLITY_LENSES.map((id) => (
         <button
           key={id}
@@ -33,8 +33,10 @@ const LensSelector: React.FC = () => {
           // A run that journals no ballot has nothing to show under the vote lens.
           disabled={id === 'vote' && noBallots}
           title={id === 'vote' && noBallots ? t('map.noVotesNote') : undefined}
-          className={`rounded border px-2 py-0.5 disabled:opacity-40 ${
-            lens === id ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+          className={`rounded-full border px-3 py-1 transition-colors disabled:opacity-40 motion-reduce:transition-none ${
+            lens === id
+              ? 'border-primary bg-primary font-semibold text-primary-foreground'
+              : 'border-border bg-card text-foreground hover:border-primary/50'
           }`}
           onClick={() => setLens(id)}
         >

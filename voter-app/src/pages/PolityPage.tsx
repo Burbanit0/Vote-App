@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
+import { RiseWords } from '@/components/ui/slip';
 import { PolityProvider, usePolityCtx } from '../components/polity/PolityController';
 import RunPicker from '../components/polity/RunPicker';
 import RunFacts from '../components/polity/RunFacts';
@@ -19,15 +20,28 @@ const Status: React.FC<{ testId: string; children: React.ReactNode; busy?: boole
   testId,
   children,
   busy = false,
+}) =>
+  busy ? (
+    <TallyLoader data-testid={testId} className="justify-start py-6" label={children} />
+  ) : (
+    <p
+      data-testid={testId}
+      role="alert"
+      className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+    >
+      {children}
+    </p>
+  );
+
+/** A block of the run view, coming in after the one above it, as the homepage's sections do. */
+const Rise: React.FC<{ at: number; className?: string; children: React.ReactNode }> = ({
+  at,
+  className,
+  children,
 }) => (
-  <p
-    data-testid={testId}
-    role={busy ? 'status' : 'alert'}
-    className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
-  >
-    {busy && <Spinner size="sm" />}
+  <div className={`home-up ${className ?? ''}`} style={{ animationDelay: `${at * 80}ms` }}>
     {children}
-  </p>
+  </div>
 );
 
 const PolityBody: React.FC = () => {
@@ -73,14 +87,20 @@ const PolityBody: React.FC = () => {
     );
   }
   return (
-    <div className="flex flex-col gap-3">
-      <RunFacts />
-      <TickPlayer />
-      <InstitutionalTimeline />
+    <div className="flex flex-col gap-6">
+      <Rise at={0}>
+        <RunFacts />
+      </Rise>
+      <Rise at={1}>
+        <TickPlayer />
+      </Rise>
+      <Rise at={2}>
+        <InstitutionalTimeline />
+      </Rise>
       {/* On a wide screen the selected citizen's story sits beside the map, in a column of its
           own that stays in view and scrolls by itself; it is always there, so selecting
           someone never resizes the map. */}
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <Rise at={3} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <PopulationMap />
         <div className="lg:sticky lg:top-14 lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto">
           {/* A citizen is only read from the URL once a run is shown, so the run key is set here. */}
@@ -89,14 +109,16 @@ const PolityBody: React.FC = () => {
           ) : (
             <p
               data-testid="polity-biography-hint"
-              className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground"
+              className="rounded-2xl border border-dashed border-border px-4 py-4 text-sm text-muted-foreground"
             >
               {t('biography.hint')}
             </p>
           )}
         </div>
-      </div>
-      <MacroCurves />
+      </Rise>
+      <Rise at={4}>
+        <MacroCurves />
+      </Rise>
     </div>
   );
 };
@@ -104,16 +126,19 @@ const PolityBody: React.FC = () => {
 const PolityShell: React.FC = () => {
   const { t } = useTranslation('polity');
   return (
-    <div data-testid="polity-page" className="w-full px-4 py-4">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-primary">
-            {t('masthead.kicker')}
-          </p>
-          <h1 className="mt-0.5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {t('masthead.title')}
+    <div
+      data-testid="polity-page"
+      className="mx-auto w-full max-w-[1600px] px-4 pt-12 pb-16 sm:px-6"
+    >
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
+        <div className="flex max-w-3xl flex-col gap-4">
+          <p className="home-up text-[15px] font-bold text-primary">{t('masthead.kicker')}</p>
+          <h1 className="font-display text-[clamp(48px,5.6vw,88px)] leading-[0.9] font-extrabold">
+            <RiseWords text={t('masthead.title')} delay={80} />
           </h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t('masthead.subtitle')}</p>
+          <p className="home-up text-lg text-muted-foreground" style={{ animationDelay: '200ms' }}>
+            {t('masthead.subtitle')}
+          </p>
         </div>
         <RunPicker />
       </header>

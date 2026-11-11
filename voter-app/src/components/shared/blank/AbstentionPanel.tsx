@@ -333,7 +333,7 @@ const AbstentionPanel: React.FC = () => {
             onClick={() => run(demob, influence, numRounds)}
             disabled={loading}
           >
-            {loading ? <Spinner size="sm" /> : `📉 ${t('abstention.run')}`}
+            {loading ? <Spinner size="sm" /> : t('abstention.run')}
           </Button>
         </Col>
       </Row>
@@ -355,7 +355,7 @@ const AbstentionPanel: React.FC = () => {
           >
             {differs ? (
               <span style={{ color: '#dc3545', fontWeight: 600 }}>
-                ⚠ {t('abstention.winnerChanged')}
+                {t('abstention.winnerChanged')}
                 {' — '}
                 <span className="text-muted-foreground font-normal" style={{ fontSize: '0.85rem' }}>
                   {t('abstention.sincere')}: <strong>{data.sincere_winner}</strong>

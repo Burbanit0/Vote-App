@@ -124,7 +124,7 @@ from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick
 from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
-from api.domain.polity.config import PolityConfig, PolityConfigError, amended, broken_rule, validate_config
+from api.domain.polity.config import EventsConfig, PolityConfig, PolityConfigError, amended, broken_rule, validate_config
 from api.domain.polity.constitution import (
     Proposal,
     amend,
@@ -144,6 +144,7 @@ from api.domain.polity.events import (
     ForumPost,
     PartyDissolved,
     PartyFounded,
+    PartyRepositioned,
     VoteIntentionPoll,
     CampaignPositioning,
     CandidacyConsidered,
@@ -167,6 +168,7 @@ from api.domain.polity.events import (
     EmotionsUpdated,
     EngagementUpdated,
     CampaignRun,
+    CitizenReplaced,
     ExtraLegalAct,
     Event,
     LegislativeResult,
@@ -189,8 +191,11 @@ from api.domain.polity.events import (
     ScandalOccurred,
     SnapElectionTriggered,
     SortitionRotation,
+    TiesRewired,
     VoteCast,
 )
+from api.domain.polity.demography import replace_generation
+from api.domain.polity.leaders import reposition
 from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale, update_engagement
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
@@ -248,7 +253,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import ActingLeaderTurn, AmendingLeaderTurn, CampaigningNomineeTurn, AmendmentBallot, ForumTurn, LeaderTurn, PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import is_cohabitation, mobilization_rate
-from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, shift_stance
+from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, current_factors, shift_stance
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
@@ -256,6 +261,8 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     candidate_label,
     apply_party_move,
+    founding_lock_ticks,
+    locked_parties,
     assign_party_affiliation,
     dissolve_small_parties,
     first_choices,
@@ -280,7 +287,7 @@ from api.domain.polity.simple_rules import (
     vacate_office,
     without_blank,
 )
-from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+from api.domain.polity.social_graph import SocialGraph, generate_social_graph, graph_edges, mean_gap, rewire
 from api.domain.polity.tick_state import PendingRerun, TickState
 
 _logger = logging.getLogger(__name__)
@@ -639,17 +646,17 @@ def run_simulation(
 
     _write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-    # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
-    # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
-    # None whenever social_graph.enabled is off (the shipped default) --
-    # every reader below treats None as "no graph" and behaves identically
-    # to pre-v6-Lot-3 code. Regenerated identically on resume too (never
-    # restored from the checkpoint) -- see checkpoint.py's own docstring.
+    # v6 Lot 2/3 (§5): generated once from the config. None whenever
+    # social_graph.enabled is off (the shipped default) -- every reader below
+    # treats None as "no graph" and behaves identically to pre-v6-Lot-3 code.
+    # A fixed graph is regenerated identically on resume (never restored from
+    # the checkpoint); one that rewires (ADR-036) lives in `state.graph`, is
+    # checkpointed, and the loop below swaps it in as it moves.
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
     # S4.3: the latent model the population was drawn from, and the graph as edge arrays --
-    # like the graph, regenerated from the config on resume, never checkpointed.
+    # regenerated from the config on resume, never checkpointed (the edge arrays follow `graph`, see above).
     latent: LatentStructure | None = None
     edges: NeighbourEdges | None = None
     if config.dynamics.enabled:
@@ -704,7 +711,11 @@ def run_simulation(
         ) as client,
     ):
         journal.tap = memory.observe if memory is not None else None
+        if config.social_graph.evolving and state.graph is None:  # ADR-036: a new run starts from the generated ties
+            state.graph = graph
         for tick in range(first_tick, clock.total_ticks + 1):
+            if state.graph is not None and state.graph is not graph:  # the ties moved (or were restored): read them as they stand
+                graph, edges = state.graph, NeighbourEdges.from_graph(state.graph)
             tick_start_time = time.monotonic()
             # Publishes "tick N is being computed" before any phase runs, so a
             # reader can distinguish an in-flight tick from a finished one --
@@ -716,7 +727,7 @@ def run_simulation(
             context = TickContext(
                 tick=tick, config=in_force(config, state.constitution), journal=journal, client=client, clock=clock, graph=graph,
                 snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
-                memory=memory,
+                memory=memory, crowd=client if config.llm.crowd else None,
             )
             for phase in TICK_PHASES:
                 phase(context, state)
@@ -782,8 +793,20 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
         # static population, so a static run draws and checkpoints exactly as before.
         dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
+        # ADR-035: its own stream, seeded off the run's seed and a constant so it shares no state with the others.
+        demography_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 35])) if config.citizens.replacement_per_year > 0 else None
+        ),
+        # ADR-036: likewise its own stream, drawn from only when the ties rewire.
+        rewiring_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 36])) if config.social_graph.evolving else None
+        ),
         regime_rng=np.random.default_rng(config.run.seed) if config.regime.enabled else None,
         campaign_rng=np.random.default_rng(config.run.seed) if config.campaign.salience_step > 0 else None,
+        # ADR-040: its own stream, whenever leaders move (only hunters and explorers draw from it).
+        leaders_rng=(
+            np.random.default_rng(np.random.SeedSequence([config.run.seed, 40])) if config.parties.leader_rule != "sticker" else None
+        ),
         # S4.2: policy starts at the population's per-issue median, a neutral origin.
         legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
@@ -813,6 +836,7 @@ class TickContext:
     config: PolityConfig
     journal: Journal
     client: LlmClientProtocol | None
+    """The model, for the agents' turns (ADR-014); None on the deterministic engine."""
     clock: InstitutionalClock
     graph: SocialGraph | None
     snapshots_path: Path
@@ -826,6 +850,9 @@ class TickContext:
     """ADR-014: what agents remember, a view over the journal kept across ticks."""
     agenda_moves: list[PositionShift] | None = None
     """The president agent's bill this tick (empty: none); None leaves the agenda to the formula."""
+    crowd: LlmClientProtocol | None = None
+    """The model, for the crowd's batch decisions: `client` while llm.crowd, else None, and the
+    rules decide for the crowd (plan-scenarios-v1 step 2)."""
 
 
 def _phase_constitution(context: TickContext, state: TickState) -> None:
@@ -939,7 +966,7 @@ def _apply_stance_shift(context: TickContext, citizen: Citizen, turn: ForumTurn 
         return -1, 0.0
     assert context.latent is not None  # validate_config: stance_step needs dynamics.enabled
     logit = step if turn.shift_direction == "high" else -step
-    shift_stance(citizen, context.latent, turn.shift_issue, logit)
+    shift_stance(citizen, context.latent, turn.shift_issue, logit, context.config.dynamics.anchor_follow)
     return turn.shift_issue, logit
 
 
@@ -965,7 +992,7 @@ def _phase_forum(context: TickContext, state: TickState) -> None:
                 tick=context.tick, member=cid in members, memory=memory.recall(cid),
                 feed=memory.feed(cid, frozenset(neighbours.get(cid, ())) | (members if cid in members else frozenset())),
                 roll=roll,
-                stand=stand_line(citizen, state.citizens, state.parties, config) if config.agents.party_moves else "",
+                stand=stand_line(citizen, state.citizens, state.parties, config, context.tick) if config.agents.party_moves else "",
             ),
         )
 
@@ -987,7 +1014,11 @@ def _apply_party_move(context: TickContext, state: TickState, citizen: Citizen, 
     config = context.config
     if turn is None or not config.agents.party_moves:
         return ""
-    move = apply_party_move(citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties)
+    # recomputed before every move, so a party founded earlier this tick is locked too
+    locked = locked_parties(state.parties, context.tick, founding_lock_ticks(config.parties, config.run.ticks_per_year))
+    move = apply_party_move(
+        citizen, turn.party_move, turn.party_id, state.citizens, state.parties, config.parties, context.tick, locked,
+    )
     if move:
         _journal_party_changes(context, state, citizen, move)
     return move
@@ -1045,7 +1076,7 @@ def _resolve_refusal(context: TickContext, state: TickState) -> bool:
         or context.election not in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
     ):
         return False
-    level = approval(state.citizens, holder, config.vote, _term_policy_record(state.legislature))
+    level = approval(state.citizens, holder, config.vote, _term_record(state, config))
     probability, success = refusal_succeeds(level, config.regime, state.regime_rng)
     context.journal.write_event(
         tick=context.tick, citizen_id=holder.citizen_id,
@@ -1060,7 +1091,7 @@ def _resolve_refusal(context: TickContext, state: TickState) -> bool:
 
 
 def _phase_presidential_election(context: TickContext, state: TickState) -> None:
-    tick, config, client = context.tick, context.config, context.client
+    tick, config, client = context.tick, context.config, context.crowd  # the crowd's model; the nominees' turns take context.client
     if _resolve_refusal(context, state):
         return
     # While a rerun is pending, the fixed presidential calendar is SUSPENDED, not
@@ -1095,7 +1126,8 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         counted: list[list[str]] = []
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
-            policy=_term_policy_record(legislature), ballots_out=counted, campaign_rng=state.campaign_rng,
+            policy=_term_record(state, config), ballots_out=counted, campaign_rng=state.campaign_rng,
+            agent_client=context.client,
         )
         _keep_ballots(state, config, counted)
         state.staggered_declared_cids = None
@@ -1119,7 +1151,7 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
         legislature = state.legislature
         seats, votes = _hold_legislative_election(
             state.citizens, state.parties, context.config, context.journal, context.tick,
-            governing=_governing_record(state.citizens, legislature),
+            governing=_governing_record(state.citizens, legislature, state.economy_x),
         )
         answers: dict[tuple[int, int], LeaderAnswer] = {}
         talks: Callable[..., Any] = _run_coalition_negotiation
@@ -1127,7 +1159,9 @@ def _phase_legislative_election(context: TickContext, state: TickState) -> None:
             assert context.memory is not None  # agents.coalition builds the memory
             talks = partial(negotiate_leaders, citizens=state.citizens, memory=context.memory, tick=context.tick, answers=answers)
         coalition = _form_and_journal_coalition(
-            state.parties, seats, votes, context.config, context.journal, context.tick, context.client, talks, answers,
+            state.parties, seats, votes, context.config, context.journal, context.tick,
+            context.client if context.config.agents.coalition else context.crowd,  # the leaders' talks are agent turns
+            talks, answers,
         )
         if legislature is not None:
             legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
@@ -1142,16 +1176,30 @@ def _term_policy_record(legislature: Legislature | None) -> PolicyRecord | None:
     return PolicyRecord(then=legislature.policy_at_term_start, now=legislature.policy)
 
 
-def _governing_record(citizens: list[Citizen], legislature: Legislature | None) -> GoverningRecord | None:
+def _term_record(state: TickState, config: PolityConfig) -> PolicyRecord | None:
+    """What a vote or an approval judges the sitting president on: the policy their term presided over (S4.2,
+    while legislation runs) and, with vote.economic_voting, the economy as it stands (ADR-034). None when
+    neither is judged."""
+    record = _term_policy_record(state.legislature)
+    if not config.vote.economic_voting:
+        return record
+    if record is None:
+        return PolicyRecord(then=(), now=(), economy=state.economy_x)
+    return dataclasses.replace(record, economy=state.economy_x)
+
+
+def _governing_record(citizens: list[Citizen], legislature: Legislature | None, economy: float = 0.0) -> GoverningRecord | None:
     """S4.2: the parties a legislative election judges -- the coalition the last one formed,
-    or the president's party when none did -- and the policy since that election."""
+    or the president's party when none did -- the policy since that election and (ADR-034) the economy."""
     if legislature is None or legislature.policy_at_assembly_start is None:
         return None
     president_parties = {c.party_affiliation for c in current_office_holders(citizens, Office.PRESIDENT) if c.party_affiliation is not None}
     parties = frozenset(legislature.coalition) if legislature.coalition else frozenset(president_parties)
     if not parties:
         return None
-    return GoverningRecord(parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy))
+    return GoverningRecord(
+        parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy, economy=economy),
+    )
 
 
 def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
@@ -1160,7 +1208,7 @@ def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
         return
     if context.clock.is_sortition_rotation(context.tick):
         _run_sortition_rotation(state.citizens, config, context.journal, context.tick, state.sortition_rng)
-    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
+    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.crowd)
 
 
 def _phase_legislation(context: TickContext, state: TickState) -> None:
@@ -1343,7 +1391,7 @@ def _proposer_line(context: TickContext, state: TickState, proposal: Proposal) -
     president, config = state.citizens[proposal.proposer], context.config
     return ballot_proposer_text(
         president, proposal, article_value(config, proposal.article),
-        approval=approval(state.citizens, president, config.vote, _term_policy_record(state.legislature)),
+        approval=approval(state.citizens, president, config.vote, _term_record(state, config)),
         ticks_left=ticks_to_election(context.tick, president.term_end_tick),
         lame_duck=is_term_limited(president, config.institutions.president_term_limit),
     )
@@ -1385,7 +1433,7 @@ def _president_briefing(
     stakes_open = config.agents.amendment_stakes and proposal_closed(state.constitution, members) is None
     return PresidentBriefing(
         tick=context.tick, ticks_per_year=config.run.ticks_per_year, context=_response_context(president, config, context.tick),
-        approval=approval(state.citizens, president, config.vote, _term_policy_record(legislature)),
+        approval=approval(state.citizens, president, config.vote, _term_record(state, config)),
         agenda_closed=agenda_closed,
         policy=legislature.policy if legislature is not None else None,
         public_median=population_median(state.citizens),
@@ -1393,8 +1441,8 @@ def _president_briefing(
         pledge=pledge, stated=stated,
         constitution=constitution_text(config, state.constitution, members) if config.agents.amendments else None,
         stakes=stakes_text(
-            config, president, ballots_today(state, president, config), legislature,
-            barred=is_term_limited(president, config.institutions.president_term_limit),
+            config, president, stakes_ballots(state, president, config), legislature,
+            barred=is_term_limited(president, config.institutions.president_term_limit), forward=config.agents.forward_stakes,
         ) if stakes_open else None,
     )
 
@@ -1463,18 +1511,86 @@ def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
     step = apply_dynamics(state.citizens, context.latent, context.edges, context.config.dynamics, state.dynamics_rng)
     context.journal.write_event(
         tick=context.tick,
-        event=OpinionDynamicsStep(mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced),
+        event=OpinionDynamicsStep(
+            mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced,
+            **({"radicalised": step.radicalised} if context.config.dynamics.radical_step > 0 else {}),
+        ),
         citizen_id=None,
     )
+    _turn_over_generation(context, state)
+    _rewire_ties(context, state)
+
+
+def _phase_party_positions(context: TickContext, state: TickState) -> None:
+    """ADR-040: at the end of each year, every party's leader moves its platform by the run's rule, from the year's
+    views; last in the tick, so the next year's ballots read the new platforms."""
+    parties = context.config.parties
+    if state.leaders_rng is None or (context.tick + 1) % context.config.run.ticks_per_year or not state.parties:
+        return
+    state.parties, moves = reposition(state.parties, state.citizens, parties.leader_rule, parties.leader_step, state.leaders_rng)
+    for move, party in zip(moves, state.parties):
+        context.journal.write_event(
+            tick=context.tick,
+            event=PartyRepositioned(party_id=move.party_id, rule=move.rule, share=move.share, shift=move.shift, platform=list(party.platform)),
+            citizen_id=None,
+        )
+
+
+def _rewire_ties(context: TickContext, state: TickState) -> None:
+    """ADR-036: after the views moved and the generation turned over, a share of the ties moves toward like views."""
+    config = context.config
+    if state.rewiring_rng is None or state.graph is None or config.social_graph.rewire_per_year <= 0:
+        return
+    assert context.latent is not None
+    factors = current_factors(state.citizens, context.latent)
+    state.graph, moved = rewire(
+        state.graph, factors, config.social_graph.rewire_per_year / config.run.ticks_per_year,
+        config.social_graph.homophily, state.rewiring_rng,
+    )
+    context.journal.write_event(
+        tick=context.tick, event=TiesRewired(moved=moved, ties=len(graph_edges(state.graph)), mean_gap=mean_gap(state.graph, factors)),
+        citizen_id=None,
+    )
+
+
+def _turn_over_generation(context: TickContext, state: TickState) -> None:
+    """ADR-035: after the views have moved, a small share of ordinary citizens is replaced by newcomers."""
+    config = context.config
+    if state.demography_rng is None or config.citizens.replacement_per_year <= 0:
+        return
+    assert context.latent is not None
+    replacements = replace_generation(
+        state.citizens, context.latent, context.graph, state.parties, config.citizens, config.run.ticks_per_year,
+        state.demography_rng, _counted_on(state),
+    )
+    gone = {r.citizen_id for r in replacements}
+    for citizen in state.citizens:  # what the run keyed by id belongs to the person who left
+        citizen.petition_signers -= gone
+    state.mobilized_last_tick = {cid: target for cid, target in state.mobilized_last_tick.items() if cid not in gone}
+    for r in replacements:
+        context.journal.write_event(
+            tick=context.tick, event=CitizenReplaced(party_id=r.party_id, circle=r.circle), citizen_id=r.citizen_id,
+        )
+
+
+def _counted_on(state: TickState) -> frozenset[int]:
+    """The citizens an election in progress still counts on: those who declared and those barred or re-running."""
+    pending = state.pending_rerun
+    counted = set(state.staggered_declared_cids or ())
+    if pending is not None:
+        counted |= pending.barred_candidate_ids
+        if pending.incumbent_id is not None:
+            counted.add(pending.incumbent_id)
+    return frozenset(counted)
 
 
 def _phase_accountability(context: TickContext, state: TickState) -> None:
     assert context.exogenous is not None  # _phase_exogenous_events runs earlier in TICK_PHASES
     context.president_before_accountability = current_office_holders(state.citizens, Office.PRESIDENT)
     state.mobilized_last_tick = _run_accountability_phase(
-        state.citizens, context.config, context.journal, context.tick, context.client,
+        state.citizens, context.config, context.journal, context.tick, context.crowd,
         exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
-        policy=_term_policy_record(state.legislature),
+        policy=_term_record(state, context.config),
     )
 
 
@@ -1536,13 +1652,14 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_accountability,
     _phase_snap_election,
     _phase_opinion_dynamics,
+    _phase_party_positions,
 )
 """One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
 value on TickContext for a later phase of the same tick -- the order is load-bearing:
 exogenous events before accountability (which reads them), elections before the
 chamber and accountability, legislation after the chamber (a bill meets this tick's assembly,
 president and chamber), emotions just before accountability (which reads them), the
-snap-election check, then opinion dynamics last. Phases call the module's
+snap-election check, then opinion dynamics and, at the end of a year, the party leaders' moves (ADR-040) last. Phases call the module's
 named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
 crash-and-resume tests that patch those names still interrupt a real tick."""
 
@@ -1675,6 +1792,12 @@ class ExogenousEventsOutcome:
     shock_crossed: bool
 
 
+def _scripted_crises(events: EventsConfig, tick: int) -> tuple[bool, float]:
+    """ADR-034: whether a scandal is scripted at `tick`, and the total economic impulse scripted there."""
+    here = [e for e in events.scripted if e.tick == tick]
+    return any(e.kind == "scandal" for e in here), sum(e.magnitude for e in here if e.kind == "economic_shock")
+
+
 def _run_exogenous_events(
     citizens: list[Citizen],
     config: PolityConfig,
@@ -1695,7 +1818,8 @@ def _run_exogenous_events(
     a reason to skip the draw itself, matching v4's own "vacancy is a
     first-class state" precedent. `target` is null on a vacancy, mirroring
     election_invalidated's own explicit citizen_id=None precedent."""
-    scandal_fired = scandal_arrival(rng, config.events)
+    scripted_scandal, scripted_shock = _scripted_crises(config.events, tick)  # ADR-034: the scenario's own, on top of the draws
+    scandal_fired = scandal_arrival(rng, config.events) or scripted_scandal
     scandal_target: int | None = None
     if scandal_fired:
         holders = current_office_holders(citizens, Office.PRESIDENT)
@@ -1708,7 +1832,7 @@ def _run_exogenous_events(
             citizen_id=scandal_target,
         )
 
-    economy_x = economic_shock_step(economy_x, rng, config.events)
+    economy_x = economic_shock_step(economy_x, rng, config.events) + scripted_shock
     # Explicit re-check of economic_shock_enabled, not just the value
     # comparison (mirrors mandate_deviation_recorded's own redundant
     # config.mandate.enabled check): with economic_shock_enabled=False,
@@ -1742,7 +1866,11 @@ def _declare_nominees(
     llm_client: LlmClientProtocol | None,
     barred_candidate_ids: frozenset[int] = frozenset(),
     campaign_rng: np.random.Generator | None = None,
+    agent_client: LlmClientProtocol | None = None,
 ) -> list[Citizen]:
+    """`llm_client` is the crowd's model (candidacy, nomination, positioning); `agent_client` the
+    agents' (the nominees' campaign turns, ADR-014). They are the same client unless llm.crowd is
+    off, when the rules declare and nominate and the model only campaigns."""
     if llm_client is not None:
         # The LLM path applies the same two gates to its declared set, just before
         # nomination (_eligible_declared_cids), and keeps `citizens` whole for
@@ -1773,6 +1901,8 @@ def _declare_nominees(
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
+    if config.agents.nominees and agent_client is not None:
+        _campaign_turns(nominees, citizens, config, journal, tick, agent_client, campaign_rng)
     return nominees
 
 
@@ -2144,6 +2274,12 @@ def _counted(ballots: list[list[str]], config: PolityConfig) -> list[list[str]]:
     return ballots if config.institutions.blank_vote_enabled else without_blank(ballots)
 
 
+def stakes_ballots(state: TickState, president: Citizen, config: PolityConfig) -> list[list[str]] | None:
+    """The ballots the president's voting-method stakes count: today's (ADR-027), or with `agents.forward_stakes`
+    off the last election's as cast (ADR-026, OBS-048's arm)."""
+    return ballots_today(state, president, config) if config.agents.forward_stakes else state.last_ballots
+
+
 def ballots_today(state: TickState, president: Citizen | None, config: PolityConfig) -> list[list[str]] | None:
     """ADR-027: the ballots the citizens would cast today if the last election's candidates stood again, each on
     the platform declare_candidacy would give them -- the utility vote (vote.mode "utility", the exploration
@@ -2154,7 +2290,7 @@ def ballots_today(state: TickState, president: Citizen | None, config: PolityCon
     if not candidates:
         return None
     incumbent = _judged_incumbent(
-        state.citizens, president.citizen_id if president else None, config, _term_policy_record(state.legislature),
+        state.citizens, president.citizen_id if president else None, config, _term_record(state, config),
     )
     cast = [utility_ballot(voter, candidates, config.vote, incumbent=incumbent) for voter in state.citizens]
     ballots = [ballot for ballot in cast if ballot is not None]
@@ -2287,7 +2423,9 @@ def _hold_presidential_election(
     policy: PolicyRecord | None = None,
     ballots_out: list[list[str]] | None = None,
     campaign_rng: np.random.Generator | None = None,
+    agent_client: LlmClientProtocol | None = None,
 ) -> PendingRerun | None:
+    # `agent_client`: the nominees' campaign turns when the crowd's `llm_client` is off (llm.crowd).
     # `ballots_out` (ADR-020): when given, receives the ballots this election cast (as cast: the Blank
     # still on them when `blank_vote_enabled` is false, which only the tally drops).
     # `staggered` (S4.4): this election's campaign already declared, nominated and
@@ -2331,7 +2469,7 @@ def _hold_presidential_election(
     else:
         nominees = _declare_nominees(
             citizens, parties, config, journal, tick, llm_client,
-            barred_candidate_ids=barred_ids, campaign_rng=campaign_rng,
+            barred_candidate_ids=barred_ids, campaign_rng=campaign_rng, agent_client=agent_client,
         )
         nominee_ids = {c.citizen_id for c in nominees}
         standing_rupture_candidates = sorted(
@@ -2509,10 +2647,10 @@ def _hold_legislative_election(
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
     voters = _voters(citizens)
-    retrospection, margin = config.vote.policy_retrospection, config.vote.strategic_margin
-    sincere = [choose_party(voter, parties, governing, retrospection) for voter in voters]
+    retrospection, margin, economic = config.vote.policy_retrospection, config.vote.strategic_margin, config.vote.economic_voting
+    sincere = [choose_party(voter, parties, governing, retrospection, economic) for voter in voters]
     choices = strategic_choices(
-        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection,
+        voters, parties, sincere, margin, config.institutions.electoral_threshold, governing, retrospection, economic,
     )
     for choice in choices:
         if choice is None:

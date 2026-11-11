@@ -184,7 +184,7 @@ describe('AdaptiveVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
-      const warnings = document.querySelectorAll('.bg-amber-100');
+      const warnings = document.querySelectorAll('.border-l-stamp');
       expect(warnings.length).toBeGreaterThan(0);
     });
     act(() => {

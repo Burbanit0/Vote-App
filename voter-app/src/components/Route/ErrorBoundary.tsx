@@ -12,6 +12,9 @@
  * also forward to Sentry / Glitchtip without changing the component API.
  */
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Check, Copy, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Slip } from '@/components/ui/slip';
 
 interface Props {
   children: ReactNode;
@@ -80,104 +83,71 @@ class ErrorBoundary extends Component<Props, State> {
     const isDev = process.env.NODE_ENV !== 'production';
     const { error, info, copied } = this.state;
 
+    // A spoiled ballot, like the 404: a slip stamped in violet, the page's own buttons.
     return (
-      <div
-        role="alert"
-        data-testid="error-boundary"
-        style={{
-          maxWidth: 720,
-          margin: '2rem auto',
-          padding: '1.5rem',
-          border: '1px solid #f5c2c7',
-          borderRadius: 12,
-          background: '#fff5f5',
-          fontFamily: 'system-ui, sans-serif',
-        }}
-      >
-        <h2 style={{ marginTop: 0, color: '#842029' }}>⚠ Une erreur est survenue</h2>
-        <p style={{ color: '#495057' }}>
-          La page que vous consultiez a planté. Vos données ne sont pas perdues — le projet est
-          jeune, ce genre d&apos;erreur arrive. Vous pouvez :
-        </p>
-        <ul style={{ color: '#495057' }}>
-          <li>
-            <strong>Réessayer</strong> — recharge le composant en place
-          </li>
-          <li>
-            <strong>Retour à l&apos;accueil</strong> — recharge complètement l&apos;app
-          </li>
-          <li>
-            <strong>Copier le détail</strong> — pour le coller dans une issue GitHub
-          </li>
-        </ul>
+      <div role="alert" data-testid="error-boundary" className="mx-auto max-w-3xl px-4 py-14">
+        <Slip fold={28} className="px-6 py-6 sm:px-8 sm:py-8">
+          <span className="home-stamp inline-block rounded border-[2.5px] border-ballot-stamp px-2.5 pt-px pb-0.5 font-display text-[19px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase">
+            Nul
+          </span>
+          <h2 className="mt-4 font-display text-[36px] leading-none font-extrabold sm:text-[44px]">
+            Une erreur est survenue
+          </h2>
+          <p className="mt-3 text-base text-muted-foreground">
+            La page que vous consultiez a planté. Vos données ne sont pas perdues — le projet est
+            jeune, ce genre d&apos;erreur arrive. Vous pouvez :
+          </p>
+          <ul className="mt-2 list-disc pl-5 text-base text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Réessayer</strong> — recharge le composant en
+              place
+            </li>
+            <li>
+              <strong className="text-foreground">Retour à l&apos;accueil</strong> — recharge
+              complètement l&apos;app
+            </li>
+            <li>
+              <strong className="text-foreground">Copier le détail</strong> — pour le coller dans
+              une issue GitHub
+            </li>
+          </ul>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: '1rem' }}>
-          <button
-            onClick={this.handleRetry}
-            style={btn('#0d6efd')}
-            data-testid="error-boundary-retry"
-          >
-            ↻ Réessayer
-          </button>
-          <button
-            onClick={this.handleGoHome}
-            style={btn('#6c757d')}
-            data-testid="error-boundary-home"
-          >
-            🏠 Retour à l&apos;accueil
-          </button>
-          <button
-            onClick={this.handleCopy}
-            style={btn(copied ? '#198754' : '#495057')}
-            data-testid="error-boundary-copy"
-          >
-            {copied ? '✓ Copié' : '📋 Copier le détail'}
-          </button>
-        </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button variant="primary" onClick={this.handleRetry} data-testid="error-boundary-retry">
+              <RotateCcw aria-hidden className="h-4 w-4" /> Réessayer
+            </Button>
+            <Button variant="outline" onClick={this.handleGoHome} data-testid="error-boundary-home">
+              Retour à l&apos;accueil
+            </Button>
+            <Button variant="outline" onClick={this.handleCopy} data-testid="error-boundary-copy">
+              {copied ? (
+                <Check aria-hidden className="h-4 w-4 text-ok" />
+              ) : (
+                <Copy aria-hidden className="h-4 w-4" />
+              )}
+              {copied ? 'Copié' : 'Copier le détail'}
+            </Button>
+          </div>
 
-        {/* Dev-only: show the stack inline so we never ship blind */}
-        {isDev && error && (
-          <details open style={{ marginTop: '1.5rem' }} data-testid="error-boundary-details">
-            <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#842029' }}>
-              Détail (visible en dev uniquement)
-            </summary>
-            <pre style={preStyle}>
-              {error.name}: {error.message}
-              {'\n\n'}
-              {error.stack}
-              {info?.componentStack && '\n\nComponent stack:'}
-              {info?.componentStack}
-            </pre>
-          </details>
-        )}
+          {/* Dev-only: show the stack inline so we never ship blind */}
+          {isDev && error && (
+            <details open className="mt-6" data-testid="error-boundary-details">
+              <summary className="cursor-pointer font-semibold text-destructive">
+                Détail (visible en dev uniquement)
+              </summary>
+              <pre className="mt-2 overflow-x-auto rounded-lg bg-foreground p-3 text-xs break-words whitespace-pre-wrap text-background">
+                {error.name}: {error.message}
+                {'\n\n'}
+                {error.stack}
+                {info?.componentStack && '\n\nComponent stack:'}
+                {info?.componentStack}
+              </pre>
+            </details>
+          )}
+        </Slip>
       </div>
     );
   }
 }
-
-function btn(bg: string): React.CSSProperties {
-  return {
-    background: bg,
-    color: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    padding: '8px 14px',
-    fontSize: '0.9rem',
-    cursor: 'pointer',
-    transition: 'background 0.15s',
-  };
-}
-
-const preStyle: React.CSSProperties = {
-  marginTop: '0.5rem',
-  padding: '0.75rem',
-  background: '#212529',
-  color: '#f8f9fa',
-  borderRadius: 6,
-  fontSize: '0.78rem',
-  overflowX: 'auto',
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-};
 
 export default ErrorBoundary;

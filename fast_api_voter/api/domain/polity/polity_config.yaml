@@ -129,6 +129,11 @@ parties:
   birth_enabled: false        # [ADR-018] un citoyen-agent peut-il fonder un parti (intention `found`) ?
   death_enabled: false        # [ADR-018] un parti sous la moitié de founding_ratio est-il dissous ?
   founding_ratio: 0.05        # [ADR-018] part des citoyens qui doivent cofonder un parti (article)
+  founding_lock_years: 1.0    # [ADR-018, OBS-052] durée après sa fondation pendant laquelle les membres d'un parti ne peuvent ni fonder ni être entraînés dans une autre fondation (0 : pas de verrou)
+  leader_rule: sticker        # [ADR-040] comment les chefs de parti déplacent leur programme, une fois par an :
+                              #   sticker (ne bouge pas), aggregator (vers ses partisans), hunter (garde son
+                              #   cap tant que ses intentions de vote montent), explorer (sonde autour de lui)
+  leader_step: 0.0            # [ADR-040] distance parcourue par an (euclidienne sur les enjeux, de 0 à 1)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
@@ -187,13 +192,19 @@ citizens:
                               #      scalaire par citoyen, pas encore un
                               #      persona (§9 différé, voir Lot 1 v4)
   static_population: true     # [v0] pas de mortalité/natalité (D1 de l'audit)
+  replacement_per_year: 0.0   # [ADR-035] part des citoyens ordinaires remplacés chaque année, sur place
+                              #   (même id, mêmes liens, même résidu d'enjeux ; le reste est neuf) ;
+                              #   hors élus et chambre ; requiert static_population: false et dynamics
+  newcomer_spread: 0.5        # [ADR-035] écart-type, par facteur latent, entre un nouveau venu et la
+                              #   moyenne de son cercle (ses liens sociaux)
   memory_window_terms: 2      # [v1] mémoire rétrospective (mandat courant + 1)
 
 # =============================================================================
 # CANDIDATURE (§2.3, §2.4 — contradiction C1 résolue ici)
 # =============================================================================
 candidacy:
-  ambition_threshold: 0.30            # [v0] seuil du chemin dominant
+  ambition_threshold: 0.30            # [v0] seuil du chemin dominant — du moteur déterministe SEULEMENT : avec llm.enabled le modèle décide
+                                      #      (ambition_score et soutien perçu, sans seuil) et ce seuil ne sert que de repli par lot si les appels du modèle échouent (ADR-002, amendement 2026-10-21 ; OBS-011)
   # CALIBRÉ le 2026-08-29 (ADR-002 clos). Valeur précédente : 0.7, qui ne
   # rendait éligible que 0,03 citoyen sur 100 — 39 graines sur 40 ne
   # produisaient AUCUN candidat et aucune élection n'était tenue.
@@ -286,6 +297,10 @@ vote:
   valence: 0.0                  # poids de la valence (aucune source encore : 0)
   turnout_cost: 0.0             # abstention si le meilleur candidat vaut le vote
                                 #   blanc à moins de ce coût près (OBS-042)
+  economic_voting: 0.0          # [ADR-034] poids de x(t), l'économie au moment du scrutin, sur
+                                #   le sortant (et les partis au pouvoir) : bonne conjoncture (x > 0)
+                                #   récompense, mauvaise punit, pareil pour tous ; requiert
+                                #   events.economic_shock_enabled
   policy_retrospection: 0.0     # S4.2 (ADR-009) : poids du chemin parcouru par la
                                 #   politique vers l'électeur pendant le mandat —
                                 #   sur le sortant jugé et, aux législatives, sur
@@ -328,6 +343,16 @@ dynamics:
   drift_std: 0.0                # écart-type du pas idiosyncratique, par facteur
                                 # Neutres tant que la calibration de l'ADR-012
                                 # (stabilité de panel) n'a pas tourné.
+  radical_step: 0.0             # [ADR-033] pas, par mise à jour, d'un citoyen en colère contre le
+                                #   président, loin de lui dans l'espace latent, x colère x saillance
+                                #   que les événements lui ont laissée (elle ne décroît qu'à chaque
+                                #   événement) ; requiert emotions, events, susceptibility < 1.
+                                #   Nul par défaut : seul le profil scenario le règle
+  anger_narrows_bound: 0.0      # [ADR-033] à colère 1, la confiance bornée vaut (1 - ceci) x
+                                #   confidence_bound : un citoyen en colère n'écoute que les siens
+  anchor_follow: 0.0            # [ADR-032 D] part d'un déplacement de position pris au forum
+                                #   (agents.stance_step) qui déplace aussi l'ancre du citoyen : la
+                                #   position prise est en partie gardée ; requiert susceptibility < 1
 
 emotions:
   enabled: false                # requiert awakening.enabled
@@ -492,6 +517,10 @@ events:
                                 #      / campaign.max_positioning_delta ne
                                 #      sont PAS réutilisés : séparabilité
                                 #      analytique (v4 Lot 6)
+  scripted: []                 # [ADR-034] crises nommées par le scénario, en plus des tirages
+                                #      (qui restent faits : un calendrier ne déplace pas le
+                                #      flux aléatoire) : {tick: 12, kind: scandal} ou
+                                #      {tick: 20, kind: economic_shock, magnitude: -0.6}
 
 # =============================================================================
 # RÉSEAU SOCIAL (§5)
@@ -501,15 +530,22 @@ social_graph:
   topology: watts_strogatz    # [v6] watts_strogatz | erdos_renyi | barabasi_albert
   mean_degree: 8              # [v6]
   rewiring_prob: 0.1          # [v6]
-  evolving: false             # [v6] homophilie évolutive — parsé et REJETÉ
-                               #      si true (Lot 1) ; le point ouvert lui-
-                               #      même reste ouvert (§5)
+  evolving: false             # [ADR-036] les liens bougent : chaque année une part rewire_per_year
+                               #      d'entre eux est tirée (d'autant plus que les deux citoyens
+                               #      s'éloignent) et un bout se lie à quelqu'un d'autre (d'autant
+                               #      plus que ses vues sont proches) ; requiert dynamics.enabled
+  rewire_per_year: 0.0        # [ADR-036] part des liens rebattus chaque année (si evolving)
+  homophily: 0.0              # [ADR-036] force des deux attractions ; 0 : rebattage au hasard
 
 # =============================================================================
 # COUCHE LLM (§3, §12) — inactive avant v2
 # =============================================================================
 llm:
   enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
+  crowd: true                 # [plan-scenarios-v1 étape 2] true = le modèle décide pour la foule
+                              #      (les neuf décisions par lots) ; false = les règles décident
+                              #      pour la foule et le modèle ne joue que les agents (ADR-014) ;
+                              #      exige vote.mode: utility
   provider: vllm              # [v2] ollama | vllm | api ("api" épelable,
                               #      non implémenté — hors périmètre §12)
                               #      BASCULE vers vllm dès v4 (§15bis.6) :
@@ -716,6 +752,9 @@ agents:
                               #   Exige agents.president et sortition_chamber.enabled.
   amendment_stakes: false     # ADR-026 : le président voit ce que les dernières élections auraient donné
                               #   sous d'autres règles (chaque mode de scrutin, chaque répartition des sièges)
+  forward_stakes: true        # ADR-027 : ces enjeux comptent les bulletins d'aujourd'hui (false : ceux de la
+                              #   dernière élection, tels qu'exprimés -- un bras d'OBS-048)
+  ambition_goal: true         # ADR-028 : le but du président suit son ambition (false : le but unique de D8)
   forum: false                # true = la chambre tirée au sort et les citoyens qui viennent de lancer
                               #   une pétition (8 ticks) postent ou se taisent, chacun dans un tour,
                               #   et lisent leurs voisins, le président et (pour la chambre) leurs

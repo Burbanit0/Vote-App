@@ -144,13 +144,20 @@ def _retrospective_term(voter: Citizen, candidate: Citizen, vote: VoteConfig, in
     if incumbent is None:
         return 0.0
     if candidate.citizen_id == incumbent.citizen_id:
-        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent)
+        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent)
     if incumbent.party is not None and candidate.party_affiliation == incumbent.party:
         return (
             vote.approval * vote.approval_party_carryover * incumbent.record
-            + vote.approval_party_carryover * _policy_term(voter, vote, incumbent)
+            + vote.approval_party_carryover * (_policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent))
         )
     return 0.0
+
+
+def _economy_term(vote: VoteConfig, incumbent: IncumbentRecord) -> float:
+    """ADR-034: 0.0 exactly unless both an economy record and a nonzero weight exist; the same for every voter."""
+    if incumbent.policy is None or not vote.economic_voting:
+        return 0.0
+    return vote.economic_voting * incumbent.policy.economy
 
 
 def _policy_term(voter: Citizen, vote: VoteConfig, incumbent: IncumbentRecord) -> float:
@@ -315,14 +322,37 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
-def cofounders(founder: Citizen, citizens: list[Citizen], parties: list[Party]) -> list[Citizen]:
+def founding_lock_ticks(config: PartiesConfig, ticks_per_year: int) -> int:
+    """`founding_lock_years` in whole ticks, rounded up (rounded to 9 places first, so 0.7 years
+    of 10 ticks is 7 ticks, not 8)."""
+    return math.ceil(round(config.founding_lock_years * ticks_per_year, 9))
+
+
+def locked_parties(parties: list[Party], tick: int, lock_ticks: int) -> dict[int, int]:
+    """party_id -> the first tick it is no longer locked, for the parties founded at most
+    `lock_ticks - 1` ticks before `tick` (ADR-018, amendment 2026-10-21). Their members can neither
+    found nor be swept into a founding, so the next founding cannot empty a party (OBS-052). The
+    lock follows the party: a member who leaves it is free again."""
+    return {
+        p.party_id: p.founded_tick + lock_ticks
+        for p in parties
+        if p.founded_tick is not None and 0 <= tick - p.founded_tick < lock_ticks
+    }
+
+
+def cofounders(
+    founder: Citizen, citizens: list[Citizen], parties: list[Party], locked: Collection[int] = (),
+) -> list[Citizen]:
     """The founder and everyone who would sign for their positions (the ballot-access signature
-    rule) and stands nearer to them than to their own party's platform. Public because a forum
-    turn is told how many it has (agents.stand_line): founding turns on this count, so a citizen
-    who cannot see it cannot judge the move the kernel is about to refuse."""
+    rule) and stands nearer to them than to their own party's platform, bar the members of a
+    `locked` party. Public because a forum turn is told how many it has (agents.stand_line):
+    founding turns on this count, so a citizen who cannot see it cannot judge the move the
+    kernel is about to refuse."""
     platforms = {p.party_id: p.platform for p in parties}
 
     def defects(other: Citizen) -> bool:
+        if other.party_affiliation in locked:
+            return False
         if weighted_distance(other, founder.issue_positions) > other.blank_threshold:
             return False
         own = platforms.get(other.party_affiliation) if other.party_affiliation is not None else None
@@ -338,14 +368,17 @@ def _join(citizen: Citizen, party_id: int, parties: list[Party]) -> str:
     return f"join {party_id}"
 
 
-def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig) -> str:
-    if not config.birth_enabled:
+def _found(
+    citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int,
+    locked: Collection[int],
+) -> str:
+    if not config.birth_enabled or citizen.party_affiliation in locked:
         return ""
-    founders = cofounders(citizen, citizens, parties)
+    founders = cofounders(citizen, citizens, parties, locked)
     if len(founders) < config.founding_ratio * len(citizens):
         return ""
     new_id = 1 + max(p.party_id for p in parties)
-    parties.append(Party(party_id=new_id, platform=citizen.issue_positions))
+    parties.append(Party(party_id=new_id, platform=citizen.issue_positions, founded_tick=tick))
     for founder in founders:
         founder.party_affiliation = new_id
     return f"found {new_id}"
@@ -353,18 +386,20 @@ def _found(citizen: Citizen, citizens: list[Citizen], parties: list[Party], conf
 
 def apply_party_move(
     citizen: Citizen, move: Literal["none", "join", "leave", "found"], party_id: int,
-    citizens: list[Citizen], parties: list[Party], config: PartiesConfig,
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int, locked: Collection[int],
 ) -> str:
     """Apply one citizen's membership move to `citizens` and `parties`, and say what happened
     ("join 2", "leave", "found 5") -- "" when the kernel refused it. Founding needs
-    `birth_enabled` and co-founders (the founder counts) for at least `founding_ratio` of the
-    citizens; the new party's platform is the founder's own positions."""
+    `birth_enabled`, a founder outside the `locked` parties (locked_parties) and co-founders
+    (the founder counts, the members of a locked party do not) for at least `founding_ratio` of
+    the citizens; the new party's platform is the founder's own positions, founded at `tick`.
+    Joining and leaving are never locked."""
     if move == "join":
         return _join(citizen, party_id, parties)
     if move == "leave" and citizen.party_affiliation is not None:
         citizen.party_affiliation = None
         return "leave"
-    return _found(citizen, citizens, parties, config) if move == "found" else ""
+    return _found(citizen, citizens, parties, config, tick, locked) if move == "found" else ""
 
 
 def _reassign(citizens: list[Citizen], parties: list[Party], gone: set[int]) -> None:
@@ -393,14 +428,19 @@ def dissolve_small_parties(
 
 @dataclass(frozen=True)
 class PolicyRecord:
-    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now."""
+    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now; and (ADR-034) the
+    economy's x(t) at the election, which every voter judges the same. `then` and `now` are empty when no
+    legislation runs and only the economy is judged."""
 
     then: tuple[float, ...]
     now: tuple[float, ...]
+    economy: float = 0.0
 
 
 def policy_gain(voter: Citizen, record: PolicyRecord) -> float:
-    """How much closer policy came to the voter over the term (negative: farther)."""
+    """How much closer policy came to the voter over the term (negative: farther); 0 with no policy record."""
+    if not record.then:
+        return 0.0
     return weighted_distance(voter, record.then) - weighted_distance(voter, record.now)
 
 
@@ -414,6 +454,7 @@ class GoverningRecord:
 
 def choose_party(
     voter: Citizen, parties: list[Party], governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    economic: float = 0.0,
 ) -> int | None:
     """Party-list analogue of build_ranking's vote rule (A5), for the
     legislative election (assembly_mode: party_list): nearest party
@@ -425,17 +466,19 @@ def choose_party(
     parties' utility (minus the distance) gains retrospection x policy_gain, and the voter
     picks the highest utility -- blank when even that falls below minus their tolerance.
     At zero it is the nearest-platform rule above, exactly."""
-    utility = _party_utilities(voter, parties, governing, retrospection)
+    utility = _party_utilities(voter, parties, governing, retrospection, economic)
     best = min(parties, key=lambda p: (-utility[p.party_id], p.party_id))
     return None if utility[best.party_id] < -voter.blank_threshold else best.party_id
 
 
 def _party_utilities(
-    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float,
+    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float, economic: float = 0.0,
 ) -> dict[int, float]:
-    """Minus the weighted distance, plus retrospection x policy_gain for a governing party: the one
-    utility choose_party and strategic_party both rank by (at zero weight, minus the distance exactly)."""
+    """Minus the weighted distance, plus retrospection x policy_gain and (ADR-034) economic x the economy for a
+    governing party: the one utility choose_party and strategic_party both rank by (at zero weights, minus the
+    distance exactly)."""
     gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
+    gain += economic * governing.policy.economy if governing is not None and economic else 0.0
     in_power = governing.parties if governing is not None else frozenset()
     return {
         party.party_id: -weighted_distance(voter, party.platform) + (gain if party.party_id in in_power else 0.0)
@@ -453,7 +496,7 @@ def viable_parties(choices: Sequence[int | None], threshold: float) -> frozenset
 
 def strategic_party(
     voter: Citizen, parties: list[Party], sincere: int | None, viable: frozenset[int], margin: float,
-    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
 ) -> int | None:
     """ADR-024, the wasted vote (Cox 1997): a voter whose sincere party falls below the threshold in the
     sincere vote votes instead for the best party above it, when that costs at most `margin` in utility (the
@@ -461,7 +504,7 @@ def strategic_party(
     above the threshold or a margin of 0 leaves the sincere choice."""
     if margin <= 0 or sincere is None or sincere in viable or not viable:
         return sincere
-    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection)
+    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection, economic)
     best = max(viable & utility.keys(), key=lambda party_id: (utility[party_id], -party_id))
     worth_it = utility[sincere] - utility[best] <= margin and utility[best] >= -voter.blank_threshold
     return best if worth_it else sincere
@@ -469,14 +512,14 @@ def strategic_party(
 
 def strategic_choices(
     voters: Sequence[Citizen], parties: list[Party], sincere: Sequence[int | None], margin: float, threshold: float,
-    governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
 ) -> list[int | None]:
     """ADR-024 over an electorate: the sincere vote is the poll, and each voter it strands may desert.
     At margin 0, the sincere vote."""
     if margin <= 0:
         return list(sincere)
     viable = viable_parties(sincere, threshold)
-    return [strategic_party(v, parties, s, viable, margin, governing, retrospection) for v, s in zip(voters, sincere)]
+    return [strategic_party(v, parties, s, viable, margin, governing, retrospection, economic) for v, s in zip(voters, sincere)]
 
 
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────

@@ -136,7 +136,7 @@ const RealElectionPanel: React.FC = () => {
 
         <table className="mt-1 w-full border-collapse text-xs">
           <thead>
-            <tr className="text-[0.6rem] uppercase tracking-wide text-muted-foreground">
+            <tr className="text-[0.6rem] text-muted-foreground">
               <th className="py-1 text-left font-medium" />
               <th className="py-1 text-right font-medium">{t('approvalExperiment.colApproval')}</th>
               <th className="py-1 text-right font-medium">{t('approvalExperiment.colOfficial')}</th>

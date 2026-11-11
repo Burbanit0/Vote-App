@@ -1,7 +1,8 @@
 import React from 'react';
-import { RotateCcw, Check } from 'lucide-react';
+import { RotateCcw, Check, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { TallyGate, gatesOf } from '@/components/ui/tally';
 import { voteFrames, type Frame, type TallyFrame } from '../../lib/discoverVoteAnim';
 import type { Rule } from '../../lib/playgroundVoting';
 
@@ -13,15 +14,17 @@ import type { Rule } from '../../lib/playgroundVoting';
 //
 // The move that carries the runoff: an eliminated pile does not blink to zero and
 // re-appear as an abstract number. Its ballots travel into the survivor's pile and
-// stay there marked in terracotta with the eliminated option's face — so the
-// winning pile reads as "our ballots + the ones that came over," which is exactly
+// stay there in the eliminated option's colour, with its icon — so the winning
+// pile reads as "our ballots + the ones that came over," which is exactly
 // what a redistribution is. The final frame flags the leading pile so "the biggest
 // pile wins" is shown, not asserted. Honours prefers-reduced-motion (jumps to the
 // final still, nothing in flight).
 
-interface Food {
-  emoji: string;
+/** A restaurant: its icon and its colour, which its strokes are counted in. */
+export interface Food {
+  Icon: LucideIcon;
   name: string;
+  color: string;
 }
 const STEP_MS = 1600;
 
@@ -29,52 +32,54 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
-// A count as groups of five: 12 → [5,5,2].
-const gatesOf = (n: number): number[] =>
-  Array.from({ length: Math.ceil(n / 5) }, (_, i) => Math.min(5, n - i * 5));
+/** The pause between two strokes of the count, in ms. */
+const STROKE_MS = 45;
 
-// One tally gate: up to four uprights, the fifth a diagonal slash across them.
-const Gate: React.FC<{ k: number }> = ({ k }) => {
-  const xs = [3, 8, 13, 18];
-  return (
-    <svg
-      viewBox="0 0 22 20"
-      className="h-5 w-[22px] shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      aria-hidden
-    >
-      {xs.slice(0, Math.min(k, 4)).map((x, i) => (
-        <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} />
-      ))}
-      {k === 5 && <line x1={0.5} y1={17.5} x2={21} y2={2.5} />}
-    </svg>
-  );
-};
+// One tally gate (ui/tally.tsx). Animated, each stroke is drawn in turn from `delayMs`,
+// as a hand counting would.
+const Gate: React.FC<{ k: number; delayMs?: number }> = ({ k, delayMs }) => (
+  <TallyGate
+    k={k}
+    className="h-5 w-[22px]"
+    strokeProps={
+      delayMs == null
+        ? undefined
+        : (i) => ({
+            pathLength: 1,
+            className: 'stroke-draw',
+            style: { animationDelay: `${delayMs + i * STROKE_MS}ms` },
+          })
+    }
+  />
+);
 
-// A run of strokes. Animated: sweeps in left-to-right (a hand laying them down);
-// migrating: drifts off as the pile empties; still: the reduced-motion fallback.
-const Strokes: React.FC<{
+// A run of strokes. Animated: drawn one by one (a hand laying them down); migrating:
+// drifts off as the pile empties; still: the reduced-motion fallback.
+export const Strokes: React.FC<{
   n: number;
   animated: boolean;
   migrating?: boolean;
   delayMs?: number;
   className?: string;
 }> = ({ n, animated, migrating, delayMs = 0, className }) => (
-  <span
-    className={cn(
-      'flex items-center gap-1',
-      animated && (migrating ? 'tally-migrate-anim' : 'tally-sweep-anim'),
-      className
-    )}
-    style={animated ? { animationDelay: `${delayMs}ms` } : undefined}
-  >
+  <span className={cn('flex items-center gap-1', migrating && 'tally-migrate-anim', className)}>
     {gatesOf(n).map((k, i) => (
-      <Gate key={i} k={k} />
+      <Gate
+        key={i}
+        k={k}
+        delayMs={animated && !migrating ? delayMs + i * 5 * STROKE_MS : undefined}
+      />
     ))}
   </span>
+);
+
+export const FoodIcon: React.FC<{ food: Food }> = ({ food }) => (
+  <food.Icon
+    aria-hidden
+    className="h-4 w-4 shrink-0"
+    strokeWidth={1.75}
+    style={{ color: food.color }}
+  />
 );
 
 const DiscoverVoteAnimation: React.FC<{
@@ -150,31 +155,25 @@ const DiscoverVoteAnimation: React.FC<{
                     wins && 'font-semibold'
                   )}
                 >
-                  <span aria-hidden>{foods[b.food].emoji}</span>
+                  <FoodIcon food={foods[b.food]} />
                   {foods[b.food].name}
                 </span>
 
                 <span className="relative flex h-6 flex-1 items-center gap-1.5 overflow-visible">
                   {own > 0 && (
-                    <Strokes
-                      n={own}
-                      animated={animate}
-                      delayMs={row * 90}
-                      className="text-primary"
-                    />
+                    <span style={{ color: foods[b.food].color }}>
+                      <Strokes n={own} animated={animate} delayMs={row * 90} />
+                    </span>
                   )}
-                  {/* Ballots that came over from the eliminated option: terracotta,
-                      tagged with its face, laid down after the pile's own strokes. */}
+                  {/* Ballots that came over from the eliminated option keep its colour
+                      and its icon, laid down after the pile's own strokes. */}
                   {b.received ? (
                     <span
-                      className="flex items-center gap-1 text-[var(--color-stamp)]"
+                      className="flex items-center gap-1"
+                      style={{ color: b.from != null ? foods[b.from].color : undefined }}
                       title={b.from != null ? foods[b.from].name : undefined}
                     >
-                      {b.from != null && (
-                        <span aria-hidden className="text-sm leading-none">
-                          {foods[b.from].emoji}
-                        </span>
-                      )}
+                      {b.from != null && <FoodIcon food={foods[b.from]} />}
                       <Strokes n={b.received} animated={animate} delayMs={row * 90 + 560} />
                     </span>
                   ) : null}
@@ -190,11 +189,16 @@ const DiscoverVoteAnimation: React.FC<{
                 </span>
 
                 {wins && <Check aria-hidden className="h-4 w-4 shrink-0 text-primary" />}
+                {/* The total is written once its strokes are down. */}
                 <span
                   className={cn(
                     'w-6 text-right font-mono text-sm tabular-nums',
+                    animate && 'home-up',
                     wins ? 'font-bold text-primary' : 'font-semibold text-foreground'
                   )}
+                  style={{
+                    animationDelay: `${row * 90 + (b.received ? 560 + b.received * STROKE_MS : own * STROKE_MS)}ms`,
+                  }}
                 >
                   {b.value}
                 </span>
@@ -222,9 +226,7 @@ const DiscoverVoteAnimation: React.FC<{
                     {d.leftVotes}
                   </span>
                   <Strokes n={d.leftVotes} animated={animate} delayMs={row * 120} />
-                  <span aria-hidden className="text-base">
-                    {foods[d.left].emoji}
-                  </span>
+                  <FoodIcon food={foods[d.left]} />
                 </span>
                 <span className="h-8 w-px shrink-0 bg-border" />
                 <span
@@ -233,9 +235,7 @@ const DiscoverVoteAnimation: React.FC<{
                     leftWins ? 'text-muted-foreground' : 'text-primary'
                   )}
                 >
-                  <span aria-hidden className="text-base">
-                    {foods[d.right].emoji}
-                  </span>
+                  <FoodIcon food={foods[d.right]} />
                   <Strokes n={d.rightVotes} animated={animate} delayMs={row * 120} />
                   <span className="font-mono text-sm font-semibold tabular-nums">
                     {d.rightVotes}

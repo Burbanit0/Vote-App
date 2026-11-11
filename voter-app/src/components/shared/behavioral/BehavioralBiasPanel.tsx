@@ -5,6 +5,7 @@
  *   3. Primacy effect / ballot-order bias (Krosnick 1991)
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -171,7 +172,13 @@ const SensitivityTable: React.FC<SensitivityTableProps> = ({ data, candidateName
               </td>
               <td style={{ fontSize: '0.78rem' }}>
                 {changed ? (
-                  <span style={{ color: '#dc3545' }}>⚠ {t('behavioral.changed')}</span>
+                  <span className="text-destructive">
+                    <TriangleAlert
+                      aria-hidden
+                      className="inline h-3.5 w-3.5 align-[-2px] text-stamp"
+                    />{' '}
+                    {t('behavioral.changed')}
+                  </span>
                 ) : (
                   <span style={{ color: '#198754' }}>✓ {t('behavioral.stable')}</span>
                 )}

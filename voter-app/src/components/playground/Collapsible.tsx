@@ -40,8 +40,8 @@ const Collapsible: React.FC<CollapsibleProps> = ({
     <div
       data-testid={testid}
       className={cn(
-        'overflow-hidden rounded-md border transition-colors',
-        open ? 'border-primary/25' : 'border-border'
+        'overflow-hidden rounded-xl border bg-card transition-colors motion-reduce:transition-none',
+        open ? 'border-primary/40' : 'border-border'
       )}
     >
       <button
@@ -57,25 +57,25 @@ const Collapsible: React.FC<CollapsibleProps> = ({
           })
         }
         className={cn(
-          'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium transition-colors',
-          open ? 'bg-muted/40' : 'hover:bg-accent/50'
+          'flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[15px] font-semibold transition-colors motion-reduce:transition-none',
+          open ? 'bg-muted/50' : 'hover:bg-muted/60'
         )}
       >
         <span className="flex items-center gap-2">
           <ChevronRight
             aria-hidden
             className={cn(
-              'h-3.5 w-3.5 shrink-0 transition-transform',
+              'h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none',
               open ? 'rotate-90 text-primary' : 'text-muted-foreground'
             )}
           />
           {title}
         </span>
         {subtitle && !open && (
-          <span className="truncate text-xs font-normal text-muted-foreground">{subtitle}</span>
+          <span className="truncate text-sm font-normal text-muted-foreground">{subtitle}</span>
         )}
       </button>
-      {open && <div className="border-t border-primary/15 p-3">{children}</div>}
+      {open && <div className="border-t border-border p-4">{children}</div>}
     </div>
   );
 };

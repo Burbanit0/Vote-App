@@ -84,6 +84,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import logging
 import shutil
 import signal
@@ -91,6 +92,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
+from collections.abc import Callable, Sequence
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -137,6 +139,7 @@ def _flagship_config(
     base_url: str | None = None,
     threshold: float | None = None,
     freeze_amendments: bool = False,
+    without: Sequence[str] = (),
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -224,10 +227,6 @@ def _flagship_config(
     if engine == "llm":
         llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
         config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, turnout_cost=LLM_TURNOUT_COST))
-        if vote_mode is not None:
-            # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of
-            # ballots only; `llm` has it cast every ballot, as every run before S4.1 did.
-            config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
         if provider is not None:
             # Baseline A/B only (plan Phase 0): the shipped default is the
             # single source of truth for which provider production uses --
@@ -247,11 +246,23 @@ def _flagship_config(
             # switch would otherwise be another model's.
             llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
-    config = _exploration_config(config) if profile == "exploration" else config
-    return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments)
+    config = PROFILES[profile](config)
+    if engine == "llm" and vote_mode is not None:
+        # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of ballots only;
+        # `llm` has it cast every ballot, as every run before S4.1 did. A flag outranks the profile, so a
+        # contradiction (the scenario profile and --vote-mode llm) reaches validate_config and is refused
+        # there instead of being silently rewritten.
+        config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
+    return _experiment_overrides(config, threshold=threshold, freeze_amendments=freeze_amendments, without=without)
 
 
-def _experiment_overrides(config: PolityConfig, *, threshold: float | None, freeze_amendments: bool) -> PolityConfig:
+WITHOUT = {"forward-stakes": "forward_stakes", "ambition-goal": "ambition_goal"}
+"""OBS-048's arms: a mechanism `--without` turns off, and the agents switch that does it."""
+
+
+def _experiment_overrides(
+    config: PolityConfig, *, threshold: float | None, freeze_amendments: bool, without: Sequence[str] = (),
+) -> PolityConfig:
     """PLAN_BEYOND_CI W2.1's two knobs, applied after the profile, which sets amendments and
     regime from llm.enabled and would otherwise overwrite them. `threshold` is the seat bar
     under test. `freeze_amendments` keeps it there: the chamber can no longer amend the
@@ -274,7 +285,50 @@ def _experiment_overrides(config: PolityConfig, *, threshold: float | None, free
             regime=dataclasses.replace(config.regime, enabled=False),
             constitution=dataclasses.replace(config.constitution, referendum="never", scripted=()),
         )
+    for name in without:  # OBS-048's arms; checked after the freeze, which would leave them nothing to turn off
+        if name not in WITHOUT:
+            raise ValueError(f"--without {name!r}: one of {sorted(WITHOUT)}")
+        if not (config.agents.amendment_stakes if name == "forward-stakes" else config.agents.president):
+            raise ValueError(f"--without {name}: nothing to turn off -- it needs the "
+                             f"{'amendment stakes' if name == 'forward-stakes' else 'president agent'} (the exploration profile, unfrozen)")
+        config = dataclasses.replace(config, agents=dataclasses.replace(config.agents, **{WITHOUT[name]: False}))
     return config
+
+
+def _scenario_config(config: PolityConfig) -> PolityConfig:
+    """plan-scenarios-v1 step 2: the exploration profile with the crowd by rule and the model playing
+    the agents only (llm.crowd off: the utility ballot, the ambition rule for candidacy, the
+    deterministic pressure rule, form_coalition unless the leaders negotiate, no chamber shifts),
+    the forum capped at 10 speakers a tick (it was 60% of an exploration run's model time), and
+    views that move: drift 0.18 (ADR-032's random-walk arm; 0.02, ADR-012's smallest, left a four-year
+    panel correlation of 0.996, citizens who never change their minds; 0.18 puts it at 0.88, inside
+    ADR-012's D1 band of 0.70 to 0.90), ADR-033's radicalisation (once events have shaken the polity, angry citizens
+    step away from the president; anger narrows what they listen to), and ADR-034's economic voting (voters
+    weigh the economy at the election, so good and bad times move the incumbent's approval and the vote; a
+    scenario's own crises go in `events.scripted`) at 0.3, not ADR-034's 1.0: the term is the same for every
+    voter, and at 1.0 it swung whole blocs between elections (mean legislative volatility 0.36, inside the
+    band in 35% of runs, on ADR-038's 60-point sample; ADR-038 takes the largest weight that keeps two thirds of the runs inside it), voters who abstain when
+    their best candidate is within 0.02 of the blank ballot on the deterministic engine (ADR-039: at 0 nobody abstained
+    out of indifference, and turnout sat above the band's 0.85 in 42% of runs; the model engine keeps LLM_TURNOUT_COST), and ADR-035's generational replacement (3% of the citizens
+    a year are replaced by newcomers drawn around their circle, spread 0.35: over thirty years the spread of
+    positions grows by 83% instead of 133%, and the ten-seed labels go from 0.47 to 1.36 bits, measured with economic voting
+    at 1.0 and the version-2 labels; see the ADR). On the deterministic engine it is
+    the exploration profile plus those."""
+    explored = _exploration_config(config)
+    return dataclasses.replace(
+        explored,
+        llm=dataclasses.replace(explored.llm, crowd=False),
+        vote=dataclasses.replace(
+            # ADR-039: the twin's cost; the model engine keeps its own (LLM_TURNOUT_COST, a decision of its own)
+            explored.vote, mode="utility", economic_voting=0.3,
+            turnout_cost=explored.vote.turnout_cost if explored.llm.enabled else 0.02,
+        ),
+        agents=dataclasses.replace(explored.agents, forum_size=10),
+        dynamics=dataclasses.replace(explored.dynamics, drift_std=0.18, radical_step=0.5, anger_narrows_bound=0.3),
+        citizens=dataclasses.replace(
+            explored.citizens, static_population=False, replacement_per_year=0.03, newcomer_spread=0.35
+        ),
+    )
 
 
 def _exploration_config(config: PolityConfig) -> PolityConfig:
@@ -325,6 +379,14 @@ def _exploration_config(config: PolityConfig) -> PolityConfig:
             config.campaign, salience_step=0.15 if config.llm.enabled else 0.0, max_reached=12 if config.llm.enabled else 0,
         ),
     )
+
+
+PROFILES: dict[str, Callable[[PolityConfig], PolityConfig]] = {
+    "flagship": lambda config: config,
+    "exploration": _exploration_config,
+    "scenario": _scenario_config,
+}
+"""--profile: what each profile does to the flagship config. run_polity_seed_sweep.py reads the keys."""
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -533,6 +595,7 @@ def run_flagship(
     base_url: str | None = None,
     threshold: float | None = None,
     freeze_amendments: bool = False,
+    without: Sequence[str] = (),
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -552,6 +615,7 @@ def run_flagship(
         base_url=base_url,
         threshold=threshold,
         freeze_amendments=freeze_amendments,
+        without=without,
     )
     validate_config(config)
 
@@ -759,10 +823,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--profile",
-        choices=("flagship", "exploration"),
+        choices=tuple(PROFILES),
         default="flagship",
         help="exploration: the flagship plus the agency roadmap's mechanisms that ship off "
-             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate",
+             "(plan-polity-agency-roadmap.md, D4), turned on without their calibration gate; "
+             "scenario: exploration with the crowd by rule, the model for the agents only, the forum "
+             "capped at 10 and drifting views (plan-scenarios-v1 step 2)",
     )
     parser.add_argument(
         "--threshold", type=float, default=None,
@@ -771,6 +837,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--freeze-amendments", action="store_true",
         help="no amendment, regime act or method referendum, so the run keeps the rules it starts with (W2.1)",
+    )
+    parser.add_argument(
+        "--without", action="append", choices=sorted(WITHOUT), default=[],
+        help="turn one mechanism off, for an arm that isolates the other (OBS-048); repeatable",
     )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
@@ -801,6 +871,12 @@ def main(argv: list[str] | None = None) -> int:
     # in .claude/hooks/notify_run_digest.py, not here.
     signal.signal(signal.SIGTERM, _raise_terminated)
 
+    # An LLM run keeps its prompts unless the caller opted out (POLITY_LOG_PROMPTS=0): the sidecar is small
+    # (12-15 MB for a 30-year p500 run, about half its call log), does not touch any request hash, and without
+    # it a decision cannot be re-scored or re-sent (OBS-053, decision_audit.py).
+    if args.engine == "llm":
+        os.environ.setdefault("POLITY_LOG_PROMPTS", "1")
+
     run_flagship(
         engine=args.engine,
         years=args.years,
@@ -823,6 +899,7 @@ def main(argv: list[str] | None = None) -> int:
         base_url=args.base_url,
         threshold=args.threshold,
         freeze_amendments=args.freeze_amendments,
+        without=args.without,
     )
     return 0
 

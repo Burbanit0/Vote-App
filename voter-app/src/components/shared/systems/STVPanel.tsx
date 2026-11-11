@@ -285,7 +285,7 @@ const STVPanel: React.FC = () => {
             onClick={run}
             disabled={loading || !enoughCandidates}
           >
-            {loading ? <Spinner size="sm" /> : `🔄 ${t('stv.run')}`}
+            {loading ? <Spinner size="sm" /> : t('stv.run')}
           </Button>
         </Col>
       </Row>

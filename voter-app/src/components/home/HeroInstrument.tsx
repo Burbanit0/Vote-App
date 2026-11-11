@@ -1,317 +1,340 @@
-import React from 'react';
-import { Link } from 'react-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Instrument } from '@/components/ui/instrument';
+import { useReducedMotion } from '@/hooks/useMediaQuery';
+import { useFrameLoop } from '@/hooks/useFrameLoop';
+import { EASE, approach } from '@/lib/home/motion';
+import { HERO_DRAW } from '@/lib/home/handover';
+import { ENGINE_RULE } from '@/lib/home/methods';
+import {
+  CANDIDATES,
+  RULES,
+  RUNOFF_CHOICE,
+  TALLY,
+  VOTERS,
+  countsByName,
+  type RuleId,
+} from '@/lib/home/scenario';
 
-// HeroInstrument — the homepage's thesis, made live. A fixed electorate and three
-// candidates; switching the counting rule flips the WINNER on the same ballots
-// (the spoiler → runoff → consensus story). Self-contained (a ~deterministic
-// gaussian electorate + three tiny tallies) so the landing page stays light and
-// never depends on the backend. It IS the doorway: the full version is /playground.
+// HeroInstrument — the homepage's thesis, made live: one electorate on a map and its
+// tally sheet. Switching the counting rule re-colours the voters in a wave from the
+// new winner, redraws the tally marks, rolls the counts and stamps the winner. The
+// electorate and its tallies live in lib/home/scenario.ts, shared with the count
+// further down the page, so both always agree.
 
-type V = { x: number; y: number };
-interface Cand {
-  name: string;
-  x: number;
-  y: number;
-  color: string;
+const NOTE_KEY: Record<RuleId, string> = {
+  plurality: 'home.notePlurality',
+  runoff: 'home.noteRunoff',
+  approval: 'home.noteApproval',
+};
+const N = VOTERS.length;
+const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const GREY = 'var(--muted-foreground)';
+/** Map units the dot and candidate layers drift with the pointer (≈ 2 and 4 px). */
+const PARALLAX = [0.35, 0.75];
+
+function dotColor(rule: RuleId, i: number): string {
+  if (rule === 'runoff') return CANDIDATES[RUNOFF_CHOICE[i]].color;
+  if (rule === 'approval')
+    return VOTERS[i].approves.includes(TALLY.approval.winner)
+      ? CANDIDATES[TALLY.approval.winner].color
+      : GREY;
+  return CANDIDATES[VOTERS[i].first].color;
 }
 
-const CANDIDATES: Cand[] = [
-  { name: 'Alice', x: -0.6, y: 0.12, color: '#2563eb' },
-  { name: 'Carol', x: -0.18, y: -0.16, color: '#16a34a' },
-  { name: 'Bob', x: 0.55, y: 0.0, color: '#dc2626' },
-];
-
-// Deterministic electorate: three clusters (left bloc split by a centre-left
-// spoiler, right bloc) — the configuration that makes the rule decide.
-function mulberry32(seed: number) {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+const TallyMarks: React.FC<{ n: number; color: string }> = ({ n, color }) => {
+  const stroke = {
+    stroke: color,
+    strokeWidth: 1.5,
+    strokeLinecap: 'round' as const,
+    strokeDasharray: '1 1',
   };
-}
-const clamp1 = (v: number) => Math.max(-0.98, Math.min(0.98, v));
-
-function buildVoters(): V[] {
-  const r = mulberry32(7);
-  const gauss = () => {
-    const u = 1 - r();
-    const v = r();
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  };
-  const clusters = [
-    { n: 58, mx: -0.6, my: 0.12, s: 0.13 },
-    { n: 30, mx: -0.18, my: -0.16, s: 0.12 },
-    { n: 72, mx: 0.55, my: 0.0, s: 0.16 },
-  ];
-  const out: V[] = [];
-  for (const c of clusters)
-    for (let i = 0; i < c.n; i++)
-      out.push({ x: clamp1(c.mx + gauss() * c.s), y: clamp1(c.my + gauss() * c.s) });
-  return out;
-}
-const VOTERS = buildVoters();
-
-const dist2 = (a: V, b: { x: number; y: number }) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
-const firstChoice = (v: V): number => {
-  let bi = 0;
-  let bd = Infinity;
-  CANDIDATES.forEach((c, i) => {
-    const d = dist2(v, c);
-    if (d < bd) {
-      bd = d;
-      bi = i;
-    }
-  });
-  return bi;
-};
-const FIRST = VOTERS.map(firstChoice);
-
-type RuleId = 'plurality' | 'runoff' | 'approval';
-
-// Each rule returns its per-candidate score (share of voters, 0..1) + the winner.
-function tally(rule: RuleId): { scores: number[]; winner: number } {
-  const n = VOTERS.length;
-  if (rule === 'plurality') {
-    const c = [0, 0, 0];
-    FIRST.forEach((i) => (c[i] += 1));
-    return { scores: c.map((x) => x / n), winner: c.indexOf(Math.max(...c)) };
-  }
-  if (rule === 'runoff') {
-    const fc = [0, 0, 0];
-    FIRST.forEach((i) => (fc[i] += 1));
-    const [a, b] = [0, 1, 2].sort((p, q) => fc[q] - fc[p]);
-    let av = 0;
-    let bv = 0;
-    VOTERS.forEach((v) => (dist2(v, CANDIDATES[a]) < dist2(v, CANDIDATES[b]) ? av++ : bv++));
-    const scores = [0, 0, 0];
-    scores[a] = av / n;
-    scores[b] = bv / n;
-    return { scores, winner: av >= bv ? a : b };
-  }
-  // approval: approve every candidate within reach of your position. The radius
-  // lets the centrist (Carol) be acceptable across the spectrum — approval's
-  // signature pull toward broad consensus.
-  const R2 = 0.75 ** 2;
-  const c = [0, 0, 0];
-  VOTERS.forEach((v) => CANDIDATES.forEach((cd, i) => dist2(v, cd) <= R2 && (c[i] += 1)));
-  return { scores: c.map((x) => x / n), winner: c.indexOf(Math.max(...c)) };
-}
-
-const RULES: RuleId[] = ['plurality', 'runoff', 'approval'];
-const RULE_KEY: Record<RuleId, string> = {
-  plurality: 'rules.plurality',
-  runoff: 'rules.two_round',
-  approval: 'rules.approval',
-};
-const CAP_KEY: Record<RuleId, string> = {
-  plurality: 'home.heroCapPlurality',
-  runoff: 'home.heroCapRunoff',
-  approval: 'home.heroCapApproval',
+  return (
+    <>
+      {Array.from({ length: Math.floor(n / 5) }, (_, g) => (
+        <svg key={`g${g}`} width="20" height="16" viewBox="0 0 20 16" aria-hidden="true">
+          {['M3 2v12', 'M7 2v12', 'M11 2v12', 'M15 2v12', 'M1 12L18 4'].map((d) => (
+            <path key={d} d={d} pathLength={1} style={stroke} />
+          ))}
+        </svg>
+      ))}
+      {Array.from({ length: n % 5 }, (_, r) => (
+        <svg key={`r${r}`} width="4" height="16" viewBox="0 0 4 16" aria-hidden="true">
+          <path d="M2 2v12" pathLength={1} style={stroke} />
+        </svg>
+      ))}
+    </>
+  );
 };
 
-const toX = (x: number) => ((x + 1) / 2) * 100;
-const toY = (y: number) => ((1 - y) / 2) * 100;
+/** A two-column counter whose digits roll to the new value. */
+const Odometer: React.FC<{ value: number; row: number }> = ({ value, row }) => (
+  <span aria-hidden="true" className="flex leading-[1.2]">
+    {[Math.floor(value / 10) % 10, value % 10].map((d, col) => (
+      <span key={col} className="block h-[1.2em] overflow-hidden">
+        <span
+          className="flex flex-col"
+          style={{
+            transform: `translateY(${-d * 1.2}em)`,
+            transition: `transform 480ms ${EASE.settle} ${col * 60 + row * 40}ms`,
+          }}
+        >
+          {DIGITS.map((n) => (
+            <span key={n} className="block h-[1.2em]">
+              {n}
+            </span>
+          ))}
+        </span>
+      </span>
+    ))}
+  </span>
+);
 
-const HeroInstrument: React.FC = () => {
+/** Controlled: the page holds the rule, so the method strip below can echo it. */
+const HeroInstrument: React.FC<{ rule: RuleId; onRule: (rule: RuleId) => void }> = ({
+  rule,
+  onRule,
+}) => {
   const { t } = useTranslation();
   const { t: tp } = useTranslation('playground');
-  const [rule, setRule] = React.useState<RuleId>('plurality');
+  const reduce = useReducedMotion();
+  // Bumped by each rule change, so the redraw runs on a change and never on mount.
+  const [changes, setChanges] = useState(0);
+  const tally = TALLY[rule];
+  const win = CANDIDATES[tally.winner];
+  const ri = RULES.indexOf(rule);
 
-  const { scores, winner } = React.useMemo(() => tally(rule), [rule]);
-  const pluralityWinner = React.useMemo(() => tally('plurality').winner, []);
-  const flipped = winner !== pluralityWinner;
-  const win = CANDIDATES[winner];
+  const sheet = useRef<HTMLDivElement>(null);
+  const tray = useRef<HTMLDivElement>(null);
+  const layers = useRef<(SVGGElement | null)[]>([]);
+  const pointer = useRef({ tx: 0, ty: 0, x: 0, y: 0 });
+
+  const dots = useMemo(() => {
+    const w = CANDIDATES[tally.winner];
+    return VOTERS.map((v, i) => ({
+      x: v.x * HERO_DRAW.w,
+      y: v.y * HERO_DRAW.h,
+      fill: dotColor(rule, i),
+      delay: `${Math.round((Math.hypot(v.x - w.x, v.y - w.y) / 0.8) * 420)}ms`,
+    }));
+  }, [rule, tally.winner]);
+
+  useEffect(() => {
+    if (changes === 0 || reduce) return;
+    sheet.current!.querySelectorAll('[data-tally]').forEach((row) =>
+      row.querySelectorAll('path').forEach((p, i) =>
+        p.animate?.([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], {
+          duration: 140,
+          delay: 80 + i * 7,
+          easing: EASE.settle,
+          fill: 'backwards',
+        })
+      )
+    );
+    // The stamp lands: the tray takes the knock.
+    tray.current!.animate?.(
+      [{ transform: 'none' }, { transform: 'translateY(2px)' }, { transform: 'none' }],
+      { duration: 200, delay: 230, easing: 'ease-out' }
+    );
+  }, [changes, reduce]);
+
+  const kick = useFrameLoop(() => {
+    const p = pointer.current;
+    p.x = approach(p.x, p.tx, 0.08, 0.002);
+    p.y = approach(p.y, p.ty, 0.08, 0.002);
+    layers.current.forEach((g, i) =>
+      g!.setAttribute(
+        'transform',
+        `translate(${(p.x * PARALLAX[i]).toFixed(3)} ${(p.y * PARALLAX[i]).toFixed(3)})`
+      )
+    );
+    return p.x !== p.tx || p.y !== p.ty;
+  });
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || reduce) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    pointer.current.tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+    pointer.current.ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
+    kick();
+  };
+  const onPointerLeave = () => {
+    pointer.current.tx = 0;
+    pointer.current.ty = 0;
+    kick();
+  };
+
+  const pick = (r: RuleId) => {
+    if (r === rule) return;
+    setChanges((c) => c + 1);
+    onRule(r);
+  };
 
   return (
-    <Instrument
-      label={t('home.heroInstrLabel')}
-      readout={<span className="text-[0.62rem]">158 · 3 · {VOTERS.length > 0 ? '2D' : ''}</span>}
-      className="w-full"
+    <div
+      ref={tray}
+      data-testid="hero-instrument"
+      className="flex w-full max-w-[560px] min-w-0 flex-col gap-3.5 rounded-2xl bg-envelope p-4 [@media(max-height:960px)]:max-w-[500px]"
+      // The tray clears away as the page hands its map over to the count (HandoverMap).
+      data-handover-out
+      style={{ opacity: 'calc(1 - var(--handover, 0) * 1.6)' }}
     >
-      <div className="flex flex-col gap-2">
-        {/* The screen: ideology map */}
+      <div data-testid="hero-map" onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
         <svg
-          viewBox="0 0 100 100"
-          className="w-full max-h-[27vh] rounded bg-background"
+          viewBox={`0 0 ${HERO_DRAW.w} ${HERO_DRAW.h}`}
           role="img"
-          aria-label={`${t('home.heroInstrLabel')} — ${win.name}`}
+          aria-label={t('home.mapLabel', {
+            n: N,
+            rule: tp(`rules.${ENGINE_RULE[rule]}`),
+            winner: win.name,
+          })}
+          className="block h-auto w-full border border-border bg-card"
+          // The map itself leaves at once: from here the flying copy carries it.
+          data-handover-from
+          style={{
+            borderRadius: HERO_DRAW.radius,
+            opacity: 'clamp(0, calc(1 - var(--handover, 0) * 10000), 1)',
+          }}
         >
-          {/* faint grid */}
-          {[20, 40, 60, 80].map((p) => (
-            <g key={p} stroke="currentColor" className="text-border" strokeWidth={0.2}>
-              <line x1={p} y1={0} x2={p} y2={100} />
-              <line x1={0} y1={p} x2={100} y2={p} />
-            </g>
-          ))}
-          {/* axes */}
-          <line
-            x1={50}
-            y1={0}
-            x2={50}
-            y2={100}
-            stroke="currentColor"
-            className="text-border"
-            strokeWidth={0.5}
-          />
-          <line
-            x1={0}
-            y1={50}
-            x2={100}
-            y2={50}
-            stroke="currentColor"
-            className="text-border"
-            strokeWidth={0.5}
-          />
-
-          {/* voters coloured by their first choice (the spatial blocs) */}
-          {VOTERS.map((v, i) => (
-            <circle
-              key={i}
-              cx={toX(v.x)}
-              cy={toY(v.y)}
-              r={0.85}
-              fill={CANDIDATES[FIRST[i]].color}
-              opacity={0.5}
-            />
-          ))}
-
-          {/* candidates; the winner under the active rule gets a ring */}
-          {CANDIDATES.map((c, i) => {
-            const cx = toX(c.x);
-            const cy = toY(c.y);
-            return (
+          <g className="stroke-border" strokeWidth={0.4}>
+            <line x1={0} y1={HERO_DRAW.h / 2} x2={HERO_DRAW.w} y2={HERO_DRAW.h / 2} />
+            <line x1={HERO_DRAW.w / 2} y1={0} x2={HERO_DRAW.w / 2} y2={HERO_DRAW.h} />
+          </g>
+          <g
+            ref={(el) => {
+              layers.current[0] = el;
+            }}
+          >
+            {dots.map((d, i) => (
+              <circle
+                key={i}
+                data-voter
+                cx={d.x}
+                cy={d.y}
+                r={HERO_DRAW.voterR}
+                opacity={0.6}
+                style={{ fill: d.fill, transition: `fill 480ms ${EASE.settle} ${d.delay}` }}
+              />
+            ))}
+          </g>
+          <g
+            ref={(el) => {
+              layers.current[1] = el;
+            }}
+          >
+            {CANDIDATES.map((c) => (
               <g key={c.name}>
-                {i === winner && (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={6}
-                    fill="none"
-                    stroke={c.color}
-                    strokeWidth={1}
-                    strokeDasharray="2 1.5"
-                    style={{ transition: 'cx 300ms, cy 300ms' }}
-                  />
-                )}
-                <circle cx={cx} cy={cy} r={3.2} fill={c.color} stroke="#fff" strokeWidth={1} />
+                <circle
+                  cx={c.x * HERO_DRAW.w}
+                  cy={c.y * HERO_DRAW.h}
+                  r={HERO_DRAW.candR}
+                  fill={c.color}
+                  className="stroke-card"
+                  strokeWidth={0.8}
+                />
                 <text
-                  x={cx}
-                  y={cy - 5}
+                  x={c.x * HERO_DRAW.w}
+                  y={c.y * HERO_DRAW.h - HERO_DRAW.labelDy}
                   textAnchor="middle"
-                  fontSize={4.4}
+                  fontSize={HERO_DRAW.label}
                   fontWeight={700}
-                  fill="currentColor"
+                  className="fill-foreground"
                 >
                   {c.name}
                 </text>
               </g>
-            );
-          })}
+            ))}
+          </g>
         </svg>
+      </div>
 
-        {/* Rule selector */}
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
-            {t('home.rulePick')}
-          </span>
-          <div
-            role="radiogroup"
-            aria-label={t('home.rulePick')}
-            className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-muted/40 p-0.5"
+      <div
+        role="radiogroup"
+        aria-label={t('home.rulePick')}
+        className="relative flex gap-1 rounded-[10px] bg-foreground/10 p-1"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1 left-1 w-[calc((100%-16px)/3)] rounded-[7px] bg-primary"
+          style={{
+            transform: `translateX(calc(${ri * 100}% + ${ri * 4}px))`,
+            transition: `transform 300ms ${EASE.settle}`,
+          }}
+        />
+        {RULES.map((r) => (
+          <button
+            key={r}
+            type="button"
+            role="radio"
+            aria-checked={rule === r}
+            data-testid={`hero-rule-${r}`}
+            onClick={() => pick(r)}
+            className={cn(
+              'relative min-h-11 flex-1 rounded-[7px] px-2 text-[15px] font-bold transition-colors',
+              rule === r ? 'text-primary-foreground' : 'text-foreground'
+            )}
           >
-            {RULES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                role="radio"
-                aria-checked={rule === r}
-                data-testid={`hero-rule-${r}`}
-                onClick={() => setRule(r)}
+            {tp(`rules.${ENGINE_RULE[r]}`)}
+          </button>
+        ))}
+      </div>
+
+      <div ref={sheet} className="flex flex-col gap-2 rounded-[10px] bg-card px-4 pt-3.5 pb-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-sans text-base font-bold tracking-normal">{t('home.sheet')}</h2>
+          <span className="text-sm text-muted-foreground">{t('home.voters', { n: N })}</span>
+        </div>
+        {CANDIDATES.map((c, i) => {
+          const out = tally.out === i;
+          return (
+            <div
+              key={c.name}
+              className="relative grid min-h-[34px] grid-cols-[64px_minmax(0,1fr)_40px] items-center gap-3 border-t border-border"
+            >
+              <span className="flex items-center gap-2 text-[15px] font-bold">
+                <span className="h-[9px] w-[9px] rounded-full" style={{ background: c.color }} />
+                {c.name}
+              </span>
+              <div data-tally className="flex flex-wrap items-center gap-x-[5px] gap-y-0.5">
+                <TallyMarks n={tally.counts[i]} color={c.color} />
+                {out && (
+                  <span className="home-up text-sm text-muted-foreground">{t('home.out')}</span>
+                )}
+              </div>
+              <span
                 className={cn(
-                  'flex min-h-8 items-center justify-center truncate rounded-md px-2 text-xs font-medium transition-colors',
-                  rule === r
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  'flex justify-end font-mono text-[15px] font-semibold transition-opacity',
+                  out && 'opacity-0'
                 )}
               >
-                {tp(RULE_KEY[r])}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Winner readout + per-candidate tally */}
-        <div className="rounded-lg border border-border bg-card p-2">
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
-              {t('home.heroWinner')}
-            </span>
-            {flipped && (
-              <span className="rounded bg-[var(--color-stamp)]/15 px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide text-[#9a4513]">
-                {t('home.heroFlip')}
+                <span className="sr-only">{tally.counts[i]}</span>
+                <Odometer value={tally.counts[i]} row={i} />
               </span>
-            )}
-          </div>
-          <div key={win.name} aria-live="polite" className="hero-pop flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: win.color }} />
-            <span
-              data-testid="hero-winner"
-              className="font-display text-xl font-bold leading-none"
-              style={{ color: win.color }}
-            >
-              {win.name}
-            </span>
-          </div>
-
-          <div className="mt-1.5 flex flex-col gap-0.5">
-            {CANDIDATES.map((c, i) => (
-              <div key={c.name} className="flex items-center gap-2 text-[0.7rem]">
-                <span className="w-10 shrink-0 text-muted-foreground">{c.name}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.round(scores[i] * 100)}%`,
-                      background: c.color,
-                      opacity: i === winner ? 1 : 0.45,
-                      transition: 'width 300ms ease',
-                    }}
+              {tally.winner === i && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="home-bleed absolute top-[3px] right-[52px] h-7 w-[92px] rounded border-[2.5px] border-ballot-stamp"
                   />
-                </div>
-                <span className="w-7 text-right font-mono tabular-nums text-muted-foreground">
-                  {Math.round(scores[i] * 100)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-1 text-[0.72rem] leading-snug text-muted-foreground">
-            {t(CAP_KEY[rule])}
-          </p>
-        </div>
-
-        {/* Doorway: this teaser is the hook; /decouvrir is where the mechanism is
-            explained step by step. A separate link (not the whole card) so the
-            rule buttons above stay independently clickable. */}
-        <Link
-          to="/decouvrir"
-          className="group flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 text-[0.72rem] font-semibold text-primary transition-colors hover:bg-primary/10"
-        >
-          {t('home.heroWhy')}
-          <ArrowRight
-            aria-hidden
-            className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
-          />
-        </Link>
+                  <span
+                    aria-hidden="true"
+                    className="home-stamp absolute top-[3px] right-[52px] rounded border-[2.5px] border-ballot-stamp bg-card/80 px-2.5 pt-px pb-0.5 font-display text-[19px] leading-[1.2] font-extrabold tracking-[0.08em] text-ballot-stamp uppercase"
+                  >
+                    {t('home.elected')}
+                  </span>
+                </>
+              )}
+            </div>
+          );
+        })}
+        <p className="mt-0.5 text-[15px] text-muted-foreground">
+          {t(NOTE_KEY[rule], { n: N, ...countsByName(rule) })}
+        </p>
+        <p data-testid="hero-winner" aria-live="polite" className="sr-only">
+          {t('home.electedName', { name: win.name })}
+        </p>
       </div>
-    </Instrument>
+    </div>
   );
 };
 

@@ -167,8 +167,13 @@ const InstitutionalTimeline: React.FC = () => {
   };
 
   return (
-    <section data-testid="polity-timeline" className="rounded-md border border-border px-3 py-2">
-      <h2 className="mb-1 font-display text-sm font-semibold">{t('timeline.title')}</h2>
+    <section
+      data-testid="polity-timeline"
+      className="rounded-2xl border border-border bg-card px-4 py-4 sm:px-5"
+    >
+      <h2 className="mb-3 font-display text-[26px] leading-none font-extrabold">
+        {t('timeline.title')}
+      </h2>
       <div className="flex gap-2">
         <ul
           className="shrink-0 pt-3 text-right text-[0.66rem] text-muted-foreground"

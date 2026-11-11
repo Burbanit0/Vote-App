@@ -27,9 +27,12 @@ from api.domain.polity.agents import (
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.journal import JournalEvent
 from api.domain.polity.llm_schemas import ForumTurn
-from api.domain.polity.parties import initialize_parties
+from api.domain.polity.checkpoint import _party_from_dict, _party_to_dict
+from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import run_simulation
-from api.domain.polity.simple_rules import apply_party_move, assign_party_affiliation, cofounders, dissolve_small_parties
+from api.domain.polity.simple_rules import (
+    apply_party_move, assign_party_affiliation, cofounders, dissolve_small_parties, founding_lock_ticks, locked_parties,
+)
 from api.tests.test_polity_agents import _AgentFakeClient, _agent_run_config, _president, _ScriptedClient
 
 _CONFIG = load_config()
@@ -208,19 +211,76 @@ def test_a_citizen_joins_leaves_and_founds() -> None:
     parties_cfg = dataclasses.replace(_CONFIG.parties, birth_enabled=True)
     citizen = citizens[0]
     other = next(p.party_id for p in parties if p.party_id != citizen.party_affiliation)
-    assert apply_party_move(citizen, "join", 99, citizens, parties, parties_cfg) == ""
-    assert apply_party_move(citizen, "join", citizen.party_affiliation, citizens, parties, parties_cfg) == ""
-    assert apply_party_move(citizen, "join", other, citizens, parties, parties_cfg) == f"join {other}" and citizen.party_affiliation == other
-    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg) == "leave" and citizen.party_affiliation is None
-    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg) == ""
-    assert apply_party_move(citizen, "none", -1, citizens, parties, parties_cfg) == ""
+    assert apply_party_move(citizen, "join", 99, citizens, parties, parties_cfg, 0, ()) == ""
+    assert apply_party_move(citizen, "join", citizen.party_affiliation, citizens, parties, parties_cfg, 0, ()) == ""
+    assert apply_party_move(citizen, "join", other, citizens, parties, parties_cfg, 0, ()) == f"join {other}" and citizen.party_affiliation == other
+    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg, 0, ()) == "leave" and citizen.party_affiliation is None
+    assert apply_party_move(citizen, "leave", -1, citizens, parties, parties_cfg, 0, ()) == ""
+    assert apply_party_move(citizen, "none", -1, citizens, parties, parties_cfg, 0, ()) == ""
 
-    assert apply_party_move(citizen, "found", -1, citizens, parties, _CONFIG.parties) == ""  # birth is off
-    assert apply_party_move(citizen, "found", -1, citizens, parties, dataclasses.replace(parties_cfg, founding_ratio=1.0)) == ""
+    assert apply_party_move(citizen, "found", -1, citizens, parties, _CONFIG.parties, 0, ()) == ""  # birth is off
+    assert apply_party_move(citizen, "found", -1, citizens, parties, dataclasses.replace(parties_cfg, founding_ratio=1.0), 0, ()) == ""
     assert len(parties) == 5
-    founder = next(c for c in citizens if c.party_affiliation is not None and apply_party_move(c, "found", -1, citizens, parties, parties_cfg))
+    founder = next(c for c in citizens if c.party_affiliation is not None and apply_party_move(c, "found", -1, citizens, parties, parties_cfg, 0, ()))
     assert parties[-1].party_id == 5 and parties[-1].platform == founder.issue_positions and founder.party_affiliation == 5
     assert _size(citizens, 5) >= 0.05 * len(citizens)
+
+
+def test_a_party_in_its_founding_lock_keeps_its_members_and_its_founder() -> None:
+    # OBS-052: on the 8B, a founder re-founded their own party every tick, each founding emptying the last
+    citizens, parties = _polity()
+    parties_cfg = dataclasses.replace(_CONFIG.parties, birth_enabled=True)
+    founder = next(c for c in citizens if apply_party_move(c, "found", -1, citizens, parties, parties_cfg, 4, ()))
+    new = parties[-1]
+    assert new.founded_tick == 4 and founder.party_affiliation == new.party_id
+    assert locked_parties(parties, 4, 4) == {new.party_id: 8} == locked_parties(parties, 7, 4)
+    assert locked_parties(parties, 8, 4) == {} and locked_parties(parties, 5, 0) == {}  # a year; 0 is off
+    assert locked_parties(parties, 3, 4) == {}  # a party founded after `tick` (a later checkpoint) is not locked
+    locked = locked_parties(parties, 5, 4)
+    assert apply_party_move(founder, "found", -1, citizens, parties, parties_cfg, 5, locked) == "" and parties[-1] is new
+    member = next(c for c in citizens if c.party_affiliation == new.party_id and c is not founder)
+    assert apply_party_move(member, "leave", -1, citizens, parties, parties_cfg, 5, locked) == "leave"  # leaving is free
+
+
+def test_the_lock_length_is_whole_ticks_without_float_drift() -> None:
+    def lock(years: float, per_year: int) -> int:
+        return founding_lock_ticks(dataclasses.replace(_CONFIG.parties, founding_lock_years=years), per_year)
+
+    assert lock(1.0, 4) == 4 and lock(0.7, 10) == 7 and lock(0.3, 4) == 2 and lock(0.0, 4) == 0
+
+
+def test_a_locked_party_s_members_are_not_brought_into_another_founding() -> None:
+    citizens, parties = _polity()
+    first = parties[0].party_id
+    parties[0] = dataclasses.replace(parties[0], founded_tick=2)
+    founder = next(
+        c for c in citizens
+        if c.party_affiliation != first and any(o.party_affiliation == first for o in cofounders(c, citizens, parties)[1:])
+    )
+    locked = locked_parties(parties, 3, 4)
+    assert locked == {first: 6}
+    assert all(o.party_affiliation != first for o in cofounders(founder, citizens, parties, locked)[1:])
+    assert len(cofounders(founder, citizens, parties, locked)) < len(cofounders(founder, citizens, parties))
+
+
+def test_a_member_of_a_locked_party_is_told_until_when() -> None:
+    citizens, parties = _polity()
+    config = _forum(_CONFIG)
+    citizen = citizens[0]
+    i = next(i for i, p in enumerate(parties) if p.party_id == citizen.party_affiliation)
+    parties[i] = dataclasses.replace(parties[i], founded_tick=2)
+    lock = founding_lock_ticks(config.parties, config.run.ticks_per_year)
+    told = stand_line(citizen, citizens, parties, config, 3)
+    assert f"Your party {citizen.party_affiliation} was founded at tick 2: until tick {2 + lock}" in told
+    assert "can neither found a party nor be brought into one" in told
+    assert "was founded at tick" not in stand_line(citizen, citizens, parties, config, 2 + lock)  # the lock is over
+
+
+def test_a_founded_party_s_tick_survives_a_checkpoint_and_a_starting_party_writes_none() -> None:
+    assert _party_to_dict(Party(party_id=1, platform=(0.5,))) == {"party_id": 1, "platform": [0.5]}  # unchanged bytes
+    founded = Party(party_id=6, platform=(0.25, 0.75), founded_tick=9)
+    assert _party_to_dict(founded)["founded_tick"] == 9 and _party_from_dict(_party_to_dict(founded)) == founded
+    assert _party_from_dict({"party_id": 1, "platform": [0.5]}).founded_tick is None  # a checkpoint from before
 
 
 def test_a_party_too_small_to_keep_is_dissolved_and_its_members_go_to_the_nearest() -> None:
@@ -239,6 +299,36 @@ def test_a_party_too_small_to_keep_is_dissolved_and_its_members_go_to_the_neares
     assert all(c.party_affiliation is None or c.party_affiliation in {p.party_id for p in parties} for c in citizens)
     lone, rest = parties[:1], [c for c in citizens if c.party_affiliation is not None]
     assert dissolve_small_parties(rest[:1], lone, dataclasses.replace(config, founding_ratio=0.3)) == []  # the last party stays
+
+
+def test_the_engine_refuses_a_founder_who_founds_again_the_next_tick() -> None:
+    # OBS-052, as the 8B did it: the founder's positions drift toward their own members, so founding again at
+    # the new positions takes those members along and empties the party founded a tick ago
+    def scene(lock_years: float) -> tuple[Any, Any, Any, list[Any], int]:
+        citizens, parties = _polity()
+        config = dataclasses.replace(
+            _forum(_CONFIG), agents=dataclasses.replace(_forum(_CONFIG).agents, party_moves=True),
+            parties=dataclasses.replace(_CONFIG.parties, birth_enabled=True, death_enabled=True, founding_lock_years=lock_years),
+        )
+        written: list[Any] = []
+        context = SimpleNamespace(config=config, tick=0, journal=SimpleNamespace(write_event=lambda **kw: written.append(kw["event"])))
+        state = SimpleNamespace(citizens=citizens, parties=parties, legislature=None)
+        founder = next(c for c in citizens if engine._apply_party_move(context, state, c, found))
+        party = parties[-1].party_id
+        members = [c for c in citizens if c.party_affiliation == party and c is not founder]
+        centre = [sum(m.issue_positions[i] for m in members) / len(members) for i in range(len(founder.issue_positions))]
+        founder.issue_positions = tuple(x + 0.5 * (c - x) for x, c in zip(founder.issue_positions, centre))
+        context.tick = 1
+        return context, state, founder, written, party
+
+    found = ForumTurn(rationale="", post="", note_to_self="", shift_issue=-1, shift_direction="none", party_move="found", party_id=-1)
+    context, state, founder, written, party = scene(0.0)  # no lock: the run of OBS-052
+    assert engine._apply_party_move(context, state, founder, found).startswith("found ")
+    assert ("PartyDissolved", party) in [(type(e).__name__, getattr(e, "party_id", None)) for e in written]
+    context, state, founder, written, party = scene(1.0)  # the shipped lock
+    count = len(state.parties)
+    assert engine._apply_party_move(context, state, founder, found) == "" and len(state.parties) == count
+    assert party in {p.party_id for p in state.parties} and founder.party_affiliation == party
 
 
 def test_party_moves_need_the_forum_and_show_the_parties() -> None:
@@ -279,7 +369,7 @@ def test_each_party_move_is_given_its_consequence_and_none_of_them_advice() -> N
 def test_a_citizen_is_told_how_many_would_co_found_with_them_and_how_many_the_rule_needs() -> None:
     citizens, parties = _polity()
     config = _forum(_CONFIG)
-    line = stand_line(citizens[0], citizens, parties, config)
+    line = stand_line(citizens[0], citizens, parties, config, 3)
     backing = len(cofounders(citizens[0], citizens, parties))
     assert f"{backing} of the {len(citizens)} citizens stand nearer" in line
     assert f"founding a party needs {math.ceil(config.parties.founding_ratio * len(citizens))}" in line

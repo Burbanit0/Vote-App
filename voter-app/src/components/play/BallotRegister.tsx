@@ -76,7 +76,7 @@ const BallotRegister: React.FC<{
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b border-border">
-                  <th className="px-2 py-1.5 text-left font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                  <th className="px-2 py-1.5 text-left text-sm font-bold text-muted-foreground">
                     {t('play.register.ballot')}
                   </th>
                   {candidates.map((c, i) => (

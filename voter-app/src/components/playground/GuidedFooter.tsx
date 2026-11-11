@@ -23,7 +23,7 @@ const GuidedFooter: React.FC = () => {
   return (
     <div
       data-testid="guided-footer"
-      className="mt-6 flex flex-col gap-2 rounded-lg border border-primary/15 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-8 flex flex-col gap-2 rounded-2xl bg-envelope px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <Button
         data-testid="guided-prev"
@@ -49,7 +49,7 @@ const GuidedFooter: React.FC = () => {
               />
             ))}
           </span>
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="text-sm font-bold text-muted-foreground">
             {t('guided.moment', { n: current.n, total: MOMENTS.length })}
           </span>
         </div>

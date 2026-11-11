@@ -26,9 +26,7 @@ const MethodGallery: React.FC = () => {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-          {t('gallery.eyebrow')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('gallery.eyebrow')}</p>
         <h2 className="font-display text-lg font-bold tracking-tight">{t('gallery.title')}</h2>
         <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{t('gallery.intro')}</p>
       </div>

@@ -29,7 +29,7 @@ const WinnerExplanation: React.FC<{
         className
       )}
     >
-      <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
+      <p className="text-sm font-bold text-muted-foreground">
         {ruleLabel ? t('explain.kickerRule', { rule: ruleLabel, ...raw }) : t('explain.kicker')}
       </p>
       <p className="mt-0.5 text-sm leading-relaxed text-foreground">

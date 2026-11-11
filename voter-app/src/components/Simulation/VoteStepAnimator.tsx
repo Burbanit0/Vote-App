@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Trophy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Select } from '@/components/ui/form-controls';
-import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 import {
   Bar,
   BarChart,
@@ -111,14 +112,19 @@ function PercentBars<T extends PercentRow>({
   );
 }
 
-/** The "🏆 <winner> — winner" line under a finished chart. */
+/** The trophy + "<winner> — winner" line under a finished chart. */
 const WinnerLine: React.FC<{ winner: string; t: (k: string) => string; className?: string }> = ({
   winner,
   t,
   className = 'mt-1',
 }) => (
-  <div className={`text-center ${className}`} style={{ fontSize: '0.78rem', color: C.green }}>
-    🏆 {winner} — {t('animation.winner')}
+  <div
+    data-testid="vote-winner"
+    className={`text-center ${className}`}
+    style={{ fontSize: '0.78rem', color: C.green }}
+  >
+    <Trophy aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-primary" /> {winner} —{' '}
+    {t('animation.winner')}
   </div>
 );
 
@@ -140,7 +146,12 @@ const IRVChart: React.FC<{
   if (round.winner) {
     return (
       <div className="text-center py-4">
-        <div style={{ fontSize: '1.4rem', fontWeight: 700, color: C.green }}>🏆 {round.winner}</div>
+        <div
+          data-testid="vote-winner"
+          style={{ fontSize: '1.4rem', fontWeight: 700, color: C.green }}
+        >
+          <Trophy aria-hidden className="inline h-5 w-5 align-[-2px] text-primary" /> {round.winner}
+        </div>
         <div className="text-muted-foreground text-sm mt-1">{t('animation.winner')}</div>
       </div>
     );
@@ -701,12 +712,7 @@ const VoteStepAnimator: React.FC<Props> = ({
       </CardHeader>
 
       <CardBody style={{ minHeight: 220 }}>
-        {loading && (
-          <div className="flex items-center justify-center py-5">
-            <Spinner size="sm" className="me-2" />
-            <span className="text-muted-foreground text-sm">{t('animation.loading')}</span>
-          </div>
-        )}
+        {loading && <TallyLoader className="py-5" label={t('animation.loading')} />}
         {error && <div className="text-[#dc3545] text-sm">{error}</div>}
         {!loading && !error && renderStep()}
       </CardBody>

@@ -201,7 +201,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, num
       {/* The candidates and the electorate come from the Lab's shared config. */}
       <div className="mb-2">
         <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-          🔬 {t('lab.fromElectionLab')}
+          {t('lab.fromElectionLab')}
         </Badge>
       </div>
 
@@ -351,7 +351,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, num
                 style={{ fontSize: '0.75rem' }}
                 data-testid="winner-changed-alert"
               >
-                ⚠️ {t('identity.winnerChanged')}
+                {t('identity.winnerChanged')}
               </Alert>
             )}
           </div>

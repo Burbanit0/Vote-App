@@ -38,7 +38,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tagged: ${{ steps.version.outputs.tagged }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: voter-app/package.json
@@ -86,60 +86,29 @@ jobs:
           echo "Releasing ${VERSION}"
 
   # ── 1. CI — tests must pass before any release ─────────────────────────────
+  # The same workflows a PR runs, called on the dispatched commit (#683). They used to be
+  # hand-kept copies that drifted (the first dispatch, v0.2.0, died in the backend one), and
+  # they only ran at release time, so the next drift would again show up on release day.
+  # main has no push-time CI worth the name (the paths filter finds nothing to test after a
+  # merge), so these are the only tests that run against the exact commit that gets tagged.
+  # The callee skips what only makes sense on a PR (diff-cover, the Codecov upload, the paths
+  # filter). `id-token: write` is only here because a called workflow may not ask for more
+  # than its caller grants, and its Codecov job (not run for a release) declares it.
   ci-frontend:
     name: Tests frontend
     needs: version
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: voter-app/package-lock.json
-      - run: npm ci
-        working-directory: ./voter-app
-      # test:coverage enforces the coverage thresholds; build runs tsc and the
-      # 1 MB size-limit, neither of which vitest or the e2e build checks.
-      - run: npm run test:coverage && npm run build
-        working-directory: ./voter-app
-        env:
-          CI: 'true'
+    uses: ./.github/workflows/frontend-ci-cd-pipeline.yml
+    permissions:
+      contents: read
+      id-token: write
 
   ci-backend:
     name: Tests backend
     needs: version
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
-      # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
-      # Same install and pytest steps as backend-ci-cd-pipeline.yml (hand-kept in
-      # sync: the first real dispatch, v0.2.0, died here collecting the
-      # hypothesis/schemathesis/z3 modules because this job installed only
-      # requirements.txt + pytest). Run from fast_api_voter/: pyproject's
-      # --ignore paths resolve against the cwd.
-      - run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
-      - run: python -m pytest api/tests -v -n auto
-        working-directory: fast_api_voter
-        env:
-          APP_ENV: testing
-      - name: Engine perf ceilings (pytest-benchmark)
-        run: python -m pytest api/tests/test_engine_benchmarks.py -v -o addopts=""
-        working-directory: fast_api_voter
+    uses: ./.github/workflows/backend-ci-cd-pipeline.yml
+    permissions:
+      contents: read
+      id-token: write
 
   # E2E (Playwright) gates every PR too (CLAUDE.md), but pushes to main skip
   # it, so the release re-runs it on the exact commit it tags.
@@ -159,7 +128,7 @@ jobs:
 
     steps:
       - name: Checkout main # zizmor: ignore[artipacked] this job pushes the release tag with the checkout token
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -230,22 +199,22 @@ jobs:
       contents: write # the release asset
       actions: write # dispatching ci-dashboard.yml
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # engine.zip is built from the backend's own code and packages (build:static).
       # No caches in a job that publishes (zizmor's cache-poisoning audit).
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
       - name: Install the backend's runtime packages
         run: uv pip install --system -r fast_api_voter/requirements.lock.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
       - name: Install frontend dependencies
         run: npm ci
         working-directory: ./voter-app

@@ -27,7 +27,7 @@ const SCENARIOS = [
   { id: 'france2002', flag: '🇫🇷', name: 'France 2002', phenomenon: 'Paradoxe de Condorcet' },
   { id: 'usa1992', flag: '🇺🇸', name: 'USA 1992', phenomenon: 'Effet spoiler' },
   { id: 'germany2021', flag: '🇩🇪', name: 'Allemagne 2021', phenomenon: 'Fragmentation' },
-  { id: 'condorcet_cycle', flag: '📐', name: 'Cycle de Condorcet', phenomenon: 'Intransitivité' },
+  { id: 'condorcet_cycle', flag: '↻', name: 'Cycle de Condorcet', phenomenon: 'Intransitivité' },
 ] as const;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -423,13 +423,13 @@ const HistoricalReplay: React.FC = () => {
             >
               <Row className="g-2">
                 <Col xs={6}>
-                  <div className="font-semibold mb-1">🏛 {t('replay.realResult')}</div>
+                  <div className="font-semibold mb-1">{t('replay.realResult')}</div>
                   <Badge variant="secondary" style={{ fontSize: '0.8rem' }}>
                     {data.scenario.real_winner}
                   </Badge>
                 </Col>
                 <Col xs={6}>
-                  <div className="font-semibold mb-1">🔬 {t('replay.simResult')}</div>
+                  <div className="font-semibold mb-1">{t('replay.simResult')}</div>
                   <Badge
                     variant={differs ? 'danger' : 'success'}
                     data-testid="result-badge"
@@ -456,7 +456,7 @@ const HistoricalReplay: React.FC = () => {
                     data-testid="divergence-badge"
                     style={{ fontSize: '0.72rem' }}
                   >
-                    ⚠ {t('replay.differs')}
+                    {t('replay.differs')}
                   </Badge>
                 )}
               </div>

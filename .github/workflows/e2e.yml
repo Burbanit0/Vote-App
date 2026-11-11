@@ -28,7 +28,9 @@ permissions:
 
 # A newer push to the same branch cancels the previous e2e run.
 concurrency:
-  group: e2e-${{ github.ref }}
+  # The event keeps a release's run (called from release.yml) out of the group of a push or PR
+  # run on the same ref, which would cancel it.
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -40,7 +42,7 @@ jobs:
     outputs:
       relevant: ${{ steps.filter.outputs.relevant == 'true' || steps.backend.outputs.runtime == 'true' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -82,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Dependabot's `docker` ecosystem only parses `Dockerfile`s — it has no
@@ -196,7 +198,7 @@ jobs:
     # Playwright runs it as root. --user 1001 is the runner's uid: Firefox will not start as
     # root under a $HOME owned by another user, and the workspace stays the runner's.
     container:
-      image: &playwright-image mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      image: &playwright-image mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
       options: --ipc=host --user 1001
     defaults:
       run:
@@ -212,17 +214,17 @@ jobs:
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       # ── Python / Flask backend ────────────────────────────────────────────────
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
       # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
@@ -253,7 +255,7 @@ jobs:
       # from the image, so no browser cache and no `playwright install`.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -296,14 +298,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       # merge-reports comes with @playwright/test, so the locked install.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -398,7 +400,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -417,10 +419,10 @@ jobs:
       # provides the real one uv installs into) — even though the container
       # image ships its own python3.12, pinning 3.14 here keeps the backend's
       # runtime identical to every other job that runs it.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'

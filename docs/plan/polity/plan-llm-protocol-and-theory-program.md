@@ -493,8 +493,8 @@ Only after the above; listed so they are not lost:
   §3.A.1's natural complement for restoring population variance.
 - **Conviction voting** — flagged as a fourth competing recall mechanism that
   would need to route through `écart(t)`; explicitly undecided.
-- **Static-only social graph** — `evolving: true` is parsed then rejected at
-  config load; homophily has never been tested.
+- **Static-only social graph** — ADR-036 builds homophilous rewiring (`social_graph.evolving`), off by
+  default; the scenario profile still uses a fixed graph.
 
 ---
 

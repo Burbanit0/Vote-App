@@ -245,6 +245,7 @@ const pgPseudo: PlaygroundKeys = {
     pauseSpin: '⟦⏸~ rótátíóñ~~~⟧',
     playSpin: '⟦▶~ rótátíóñ~~~⟧',
     aria: '⟦Vúé~~ 3D~ dé~ l’éléçtórát~~~~⟧',
+    winner: '⟦Váíñqúéúr~~~~⟧',
   },
   timeline: {
     thesisAt: '⟦Áú~⟧',
@@ -306,7 +307,7 @@ const pgPseudo: PlaygroundKeys = {
     resetJ0: '⟦↺~ J0~⟧',
     pinTitle:
       '⟦Répórté~~~ lés~~ pósítíóñs~~~~ áçtúéllés~~~~ dés~~ çáñdídáts~~~~ dáñs~~ lé~ pláygróúñd~~~~ çómmé~~ ñóúvél~~~ étát~~ dé~ dépárt.~~~ C’ést~~ lá~ séúlé~~ áçtíóñ~~~ qúí~~ módífíé~~~ lé~ pláygróúñd.~~~~⟧',
-    pin: '⟦📌~ Épíñglér~~~ dáñs~~ lé~ pláygróúñd~~~~⟧',
+    pin: '⟦Épíñglér~~~ dáñs~~ lé~ pláygróúñd~~~~⟧',
     pinned: '⟦✓~ Pósítíóñs~~~~ répórtéés~~~~ dáñs~~ lé~ pláygróúñd~~~~ (J~{{day}}).~⟧',
     mapAria:
       '⟦Cárté~~ ídéólógíqúé~~~~ —~ lés~~ çáñdídáts~~~~ dérívéñt~~~ áú~ çóúrs~~ dé~ lá~ çámpágñé~~~⟧',
@@ -319,82 +320,82 @@ const pgPseudo: PlaygroundKeys = {
     mechanisms: {
       intro:
         '⟦D’áútrés~~~ méçáñísmés~~~~ dé~ déçísíóñ~~~ çólléçtívé~~~~ qúé~~ l’éléçtíóñ~~~~ çlássíqúé~~~~ —~ çháçúñ~~~ súr~~ lé~ mêmé~~ éléçtórát,~~~~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      jury: '⟦⚖️~ Théórèmé~~~ dú~ júry~~ (Cóñdórçét)~~~~⟧',
-      nota: '⟦🚫~ Vóté~~ NÓTÁ~~ (áúçúñ~~~ dés~~ çáñdídáts)~~~~⟧',
-      liquid: '⟦💧~ Démóçrátíé~~~~ líqúídé~~~ (délégátíóñ)~~~~~⟧',
-      sortition: '⟦🎲~ Sórtítíóñ~~~~ (tírágé~~~ áú~ sórt)~~⟧',
-      deliberation: '⟦🗣️~~ Délíbérátíóñ~~~~~ púís~~ vóté~~⟧',
-      conviction: '⟦🪙~ Vóté~~ pár~~ çóñvíçtíóñ~~~~⟧',
-      epistocracy: '⟦🎓~ Épístóçrátíé~~~~~ (vóté~~ póñdéré~~~ pár~~ çómpétéñçé)~~~~⟧',
-      identity: '⟦🪪~ Vóté~~ ídéñtítáíré~~~~⟧',
+      jury: '⟦Théórèmé~~~ dú~ júry~~ (Cóñdórçét)~~~~⟧',
+      nota: '⟦Vóté~~ NÓTÁ~~ (áúçúñ~~~ dés~~ çáñdídáts)~~~~⟧',
+      liquid: '⟦Démóçrátíé~~~~ líqúídé~~~ (délégátíóñ)~~~~~⟧',
+      sortition: '⟦Sórtítíóñ~~~~ (tírágé~~~ áú~ sórt)~~⟧',
+      deliberation: '⟦Délíbérátíóñ~~~~~ púís~~ vóté~~⟧',
+      conviction: '⟦Vóté~~ pár~~ çóñvíçtíóñ~~~~⟧',
+      epistocracy: '⟦Épístóçrátíé~~~~~ (vóté~~ póñdéré~~~ pár~~ çómpétéñçé)~~~~⟧',
+      identity: '⟦Vóté~~ ídéñtítáíré~~~~⟧',
     },
     analysis: {
       intro:
         '⟦Mésúrés~~~ çómpárátívés~~~~~ ápprófóñdíés~~~~~ súr~~ lé~ mêmé~~ éléçtórát~~~~ —~ dístríbútíóñs,~~~~~ régrét,~~~ máñípúlábílíté,~~~~~~ vólóñté~~~ çólléçtívé.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      montecarlo: '⟦🎲~ Móñté-Cárló~~~~ (dístríbútíóñs)~~~~~~⟧',
-      manipulability: '⟦🕵~ Máñípúlábílíté~~~~~ (pár~~ méthódé)~~~⟧',
-      manipulation: '⟦🎯~ Áñálysé~~~ dé~ máñípúlátíóñ~~~~~⟧',
-      collective: '⟦🤝~ Vólóñté~~~ çólléçtívé~~~~⟧',
-      assumptions: '⟦🧪~ Tést~~ dés~~ hypóthèsés~~~~⟧',
-      combined: '⟦🧮~ Éfféts~~~ çómbíñés~~~ (fáçtóríél)~~~~⟧',
+      montecarlo: '⟦Móñté-Cárló~~~~ (dístríbútíóñs)~~~~~~⟧',
+      manipulability: '⟦Máñípúlábílíté~~~~~ (pár~~ méthódé)~~~⟧',
+      manipulation: '⟦Áñálysé~~~ dé~ máñípúlátíóñ~~~~~⟧',
+      collective: '⟦Vólóñté~~~ çólléçtívé~~~~⟧',
+      assumptions: '⟦Tést~~ dés~~ hypóthèsés~~~~⟧',
+      combined: '⟦Éfféts~~~ çómbíñés~~~ (fáçtóríél)~~~~⟧',
     },
     results: {
       intro:
         '⟦Lé~ résúltát~~~ «~ brút~~ »~ dé~ l’éléçtíóñ~~~~ súr~~ l’éléçtórát~~~~ pártágé~~~ :~ lá~ táblé~~ dé~ tóútés~~~ lés~~ méthódés~~~ ét~ lé~ dépóúílléméñt~~~~~ áñímé.~~~⟧',
-      table: '⟦📋~ Résúltáts~~~~ çómpléts~~~ (tóútés~~~ méthódés)~~~~⟧',
-      animation: '⟦🎬~ Dépóúílléméñt~~~~~ áñímé~~⟧',
+      table: '⟦Résúltáts~~~~ çómpléts~~~ (tóútés~~~ méthódés)~~~~⟧',
+      animation: '⟦Dépóúílléméñt~~~~~ áñímé~~⟧',
     },
     systems: {
       intro:
         '⟦Systèmés~~~ éléçtóráúx~~~~ ét~ géógráphíé~~~~ :~ síègés,~~~ çóálítíóñs,~~~~ çírçóñsçríptíóñs,~~~~~~ búllétíñ.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      coalition: '⟦🤝~ Cóálítíóñs~~~~⟧',
-      multiwinner: '⟦🪑~ Múltíwíññér~~~~ (STV/SPÁV/Phrágméñ)~~~~~~~⟧',
-      districts: '⟦🗺️~~ Círçóñsçríptíóñs~~~~~~⟧',
-      gerrymander: '⟦✂️~ Chárçútágé~~~~ (gérrymáñdér)~~~~~⟧',
-      stv: '⟦🔁~ Vóté~~ úñíqúé~~~ tráñsféráblé~~~~~ (STV)~~⟧',
-      ballot: '⟦📋~ Cómpléxíté~~~~ dú~ búllétíñ~~~⟧',
-      pipeline: '⟦🎬~ Pípélíñé~~~ d’éléçtíóñ~~~~ (áñímátíóñ)~~~~⟧',
+      coalition: '⟦Cóálítíóñs~~~~⟧',
+      multiwinner: '⟦Múltíwíññér~~~~ (STV/SPÁV/Phrágméñ)~~~~~~~⟧',
+      districts: '⟦Círçóñsçríptíóñs~~~~~~⟧',
+      gerrymander: '⟦Chárçútágé~~~~ (gérrymáñdér)~~~~~⟧',
+      stv: '⟦Vóté~~ úñíqúé~~~ tráñsféráblé~~~~~ (STV)~~⟧',
+      ballot: '⟦Cómpléxíté~~~~ dú~ búllétíñ~~~⟧',
+      pipeline: '⟦Pípélíñé~~~ d’éléçtíóñ~~~~ (áñímátíóñ)~~~~⟧',
     },
     campaign: {
       intro:
         '⟦Lé~ sçrúbbér~~~ çí-déssús~~~~ móñtré~~~ úñé~~ trájéçtóíré~~~~ (lés~~ çáñdídáts~~~~ dérívéñt~~~ vérs~~ l’éléçtéúr~~~~ médíáñ).~~~ Cés~~ qúátré~~~ étápés~~~ l’ápprófóñdísséñt~~~~~~ :~ l’éqúílíbré~~~~ vísé,~~ l’éffét~~~ dés~~ sóñdágés,~~~~ l’ímpáçt~~~ dé~ lá~ pólárísátíóñ,~~~~~ púís~~ l’évólútíóñ~~~~ dú~ systèmé~~~ dé~ pártís~~~ súr~~ plúsíéúrs~~~~ éléçtíóñs.~~~~⟧',
-      hotelling: '⟦①~ 📐~ Vérs~~ qúél~~ éqúílíbré~~~~ ?~ (Hótéllíñg-Dówñs)~~~~~~⟧',
-      campaign: '⟦②~ 📣~ Éffét~~ dés~~ sóñdágés~~~ (séñsíbílíté~~~~~ dé~ çámpágñé)~~~~⟧',
-      polarization: '⟦③~ ↔️~ Éléçtórát~~~~ pólárísé~~~ (qúálíté~~~ dú~ résúltát)~~~~⟧',
-      party: '⟦④~ 🏳️~~ Évólútíóñ~~~~ dés~~ pártís~~~ (Dúvérgér~~~~ súr~~ lá~ dúréé)~~~⟧',
+      hotelling: '⟦①~ Vérs~~ qúél~~ éqúílíbré~~~~ ?~ (Hótéllíñg-Dówñs)~~~~~~⟧',
+      campaign: '⟦②~ Éffét~~ dés~~ sóñdágés~~~ (séñsíbílíté~~~~~ dé~ çámpágñé)~~~~⟧',
+      polarization: '⟦③~ Éléçtórát~~~~ pólárísé~~~ (qúálíté~~~ dú~ résúltát)~~~~⟧',
+      party: '⟦④~ Évólútíóñ~~~~ dés~~ pártís~~~ (Dúvérgér~~~~ súr~~ lá~ dúréé)~~~⟧',
     },
     theory: {
       intro:
         '⟦Lés~~ párádóxés~~~~ dú~ çhóíx~~ sóçíál~~~ ét~ lá~ théóríé~~~ démóçrátíqúé~~~~~ —~ lés~~ límítés~~~ fórméllés~~~~ qúé~~ tóúté~~ règlé~~ dé~ vóté~~ dóít~~ áffróñtér.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      arrow: '⟦🏛️~~ Théórèmé~~~ d’ímpóssíbílíté~~~~~~ d’Árrów~~~ (1951)~~~⟧',
-      sen: '⟦🔓~ Párádóxé~~~ dé~ Séñ~~ (líbérál~~~ párétíéñ)~~~~⟧',
-      judgment: '⟦🧩~ Ágrégátíóñ~~~~ dé~ júgéméñts~~~~ (dílémmé~~~ dísçúrsíf)~~~~⟧',
-      agenda: '⟦🎚️~~ Máñípúlátíóñ~~~~~ d’ágéñdá~~~ (MçKélvéy)~~~~⟧',
-      tyranny: '⟦👥~ Tyráññíé~~~ dé~ lá~ májóríté~~~⟧',
-      apportionment: '⟦🧮~ Áppórtíóññéméñt~~~~~~ (Bálíñskí-Yóúñg)~~~~~~⟧',
-      power: '⟦⚖️~ Íñdíçés~~~ dé~ póúvóír~~~ (Shápléy-Shúbík,~~~~~~ Báñzháf)~~~⟧',
-      backsliding: '⟦📉~ Réçúl~~ démóçrátíqúé~~~~~ (Lévítsky-Zíblátt)~~~~~~~⟧',
+      arrow: '⟦Théórèmé~~~ d’ímpóssíbílíté~~~~~~ d’Árrów~~~ (1951)~~~⟧',
+      sen: '⟦Párádóxé~~~ dé~ Séñ~~ (líbérál~~~ párétíéñ)~~~~⟧',
+      judgment: '⟦Ágrégátíóñ~~~~ dé~ júgéméñts~~~~ (dílémmé~~~ dísçúrsíf)~~~~⟧',
+      agenda: '⟦Máñípúlátíóñ~~~~~ d’ágéñdá~~~ (MçKélvéy)~~~~⟧',
+      tyranny: '⟦Tyráññíé~~~ dé~ lá~ májóríté~~~⟧',
+      apportionment: '⟦Áppórtíóññéméñt~~~~~~ (Bálíñskí-Yóúñg)~~~~~~⟧',
+      power: '⟦Íñdíçés~~~ dé~ póúvóír~~~ (Shápléy-Shúbík,~~~~~~ Báñzháf)~~~⟧',
+      backsliding: '⟦Réçúl~~ démóçrátíqúé~~~~~ (Lévítsky-Zíblátt)~~~~~~~⟧',
       intergen: '⟦⏳~ Répréséñtátíóñ~~~~~ íñtérgéñérátíóññéllé~~~~~~~⟧',
-      polis: '⟦🗣️~~ Pól.ís~~~ (çlústéríñg~~~~ délíbérátíf)~~~~~⟧',
+      polis: '⟦Pól.ís~~~ (çlústéríñg~~~~ délíbérátíf)~~~~~⟧',
     },
     breal: {
       intro:
         '⟦Lé~ résúltát~~~ dú~ pláygróúñd~~~~ súppósé~~~ dés~~ éléçtéúrs~~~~ ídéáúx.~~~ Íçí,~~ lé~ çómpórtéméñt~~~~~ réél~~ défórmé~~~ úñ~ mêmé~~ sçrútíñ~~~ —~ bíáís~~ d’órdré,~~~ vóté~~ tímídé,~~~ súrçhárgé~~~~ dé~ çhóíx,~~~ pártíçípátíóñ~~~~~ dífféréñtíéllé,~~~~~~ pólárísátíóñ~~~~~ áfféçtívé.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      biases: '⟦📊~ Bíáís~~ dé~ vóté~~ (órdré,~~~ áñçrágé)~~~⟧',
-      shyvoter: '⟦🤐~ Éléçtéúr~~~ tímídé~~~ (éffét~~~ Brádléy)~~~⟧',
-      overload: '⟦🤯~ Súrçhárgé~~~~ dé~ çhóíx~~⟧',
-      compulsory: '⟦🗳️~~ Vóté~~ óblígátóíré~~~~⟧',
-      demographic: '⟦👥~ Pártíçípátíóñ~~~~~ pár~~ démógráphíé~~~~⟧',
-      affective: '⟦🔥~ Pólárísátíóñ~~~~~ áfféçtívé~~~~⟧',
+      biases: '⟦Bíáís~~ dé~ vóté~~ (órdré,~~~ áñçrágé)~~~⟧',
+      shyvoter: '⟦Éléçtéúr~~~ tímídé~~~ (éffét~~~ Brádléy)~~~⟧',
+      overload: '⟦Súrçhárgé~~~~ dé~ çhóíx~~⟧',
+      compulsory: '⟦Vóté~~ óblígátóíré~~~~⟧',
+      demographic: '⟦Pártíçípátíóñ~~~~~ pár~~ démógráphíé~~~~⟧',
+      affective: '⟦Pólárísátíóñ~~~~~ áfféçtívé~~~~⟧',
     },
     tdyn: {
       intro:
         '⟦Lés~~ phéñómèñés~~~~ qúí~~ sé~ déplóíéñt~~~~ dáñs~~ lé~ témps~~ —~ súr~~ plúsíéúrs~~~~ tóúrs~~ óú~ pár~~ éffét~~ dé~ séqúéñçé.~~~~ Cháçúñ~~~ párt~~ dú~ mêmé~~ éléçtórát~~~~ (étát~~ J0)~~ ét~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
-      adaptive: '⟦⚙️~ Vóté~~ ádáptátíf~~~~ (táçtíqúé~~~~ súr~~ dúréé)~~~⟧',
-      replay: '⟦🕰️~~ Réjéú~~ hístóríqúé~~~~⟧',
-      primary: '⟦🥇~ Prímáírés~~~~⟧',
-      cascade: '⟦🌊~ Cásçádé~~~ d’íñfórmátíóñ~~~~~⟧',
-      fatigue: '⟦😮‍💨~~ Fátígúé~~~ éléçtórálé~~~~⟧',
+      adaptive: '⟦Vóté~~ ádáptátíf~~~~ (táçtíqúé~~~~ súr~~ dúréé)~~~⟧',
+      replay: '⟦Réjéú~~ hístóríqúé~~~~⟧',
+      primary: '⟦Prímáírés~~~~⟧',
+      cascade: '⟦Cásçádé~~~ d’íñfórmátíóñ~~~~~⟧',
+      fatigue: '⟦Fátígúé~~~ éléçtórálé~~~~⟧',
     },
   },
   canvas: {
@@ -406,7 +407,7 @@ const pgPseudo: PlaygroundKeys = {
     lensManipulation: '⟦Máñípúlátíóñ~~~~~⟧',
     lensProbability: '⟦Próbábílíté~~~~⟧',
     lensCriteria: '⟦Crítèrés~~~⟧',
-    view3d: '⟦🧊~ Vúé~~ 3D~⟧',
+    view3d: '⟦Vúé~~ 3D~⟧',
     viewPlane: '⟦▦~ Pláñ~~ x–y~~ (édítíóñ)~~~~⟧',
     svgAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ élíré~~ úñ~ dírígéáñt~~~~⟧',
     summaryVoters_one: '⟦{{count}} éléçtéúr.~~~~⟧',
@@ -449,14 +450,14 @@ const pgPseudo: PlaygroundKeys = {
       '⟦Pláñ~~ x–y~~ (régléz~~~ z~ áú~ çúrséúr)~~~ ;~ lé~ çálçúl~~~ dú~ váíñqúéúr~~~~ ést~~ bíéñ~~ éñ~ 3-D,~~ máís~~ l’óvérláy~~~~ ñ’ést~~ qú’úñé~~~ tráñçhé~~~ z=0.~~⟧',
   },
   electorate: {
-    composeTitle: '⟦🧭~ Cómpósér~~~ l’éléçtórát~~~~⟧',
+    composeTitle: '⟦Cómpósér~~~ l’éléçtórát~~~~⟧',
     composeSubComposed: '⟦{{count}} çómmúñáútés~~~~ ·~ méláñgé~~~⟧',
     composeSubSimple: '⟦gáússíéñ~~~ símplé~~~⟧',
     startLabel: '⟦Póíñt~~ dé~ dépárt~~~⟧',
     startModels: '⟦Módèlés~~~ théóríqúés~~~~⟧',
     startElections: '⟦Íñspírés~~~ d’éléçtíóñs~~~~⟧',
     summary: '⟦{{points}} {{pointWord}} ·~ {{voters}} éléçtéúrs~~~~ ·~ {{ideology}}⟧',
-    advancedTitle: '⟦⚙~ Réglágés~~~ áváñçés~~~⟧',
+    advancedTitle: '⟦Réglágés~~~ áváñçés~~~⟧',
     advancedSubtitle:
       '⟦díméñsíóñs,~~~~ sóúrçé,~~~ váléñçé,~~~ çómpórtéméñt,~~~~~ pártíçípátíóñ~~~~~⟧',
     dimsLabel: '⟦Díméñsíóñs~~~~ dé~ l’éspáçé~~~⟧',
@@ -501,7 +502,7 @@ const pgPseudo: PlaygroundKeys = {
     turnoutAbstentions: '⟦(~{{count}} ábstéñtíóñs)~~~~~⟧',
     downsNote:
       '⟦Ábstéñtíóñ~~~~ dé~ Dówñs~~ :~ álíéñátíóñ~~~~ (mêmé~~ lé~ méílléúr~~~ çhóíx~~ ést~~ tróp~~ lóíñ)~~ óú~ íñdífféréñçé~~~~~ (pás~~ d’éçárt~~~ ñét~~ éñtré~~ lés~~ déúx~~ prémíérs).~~~~⟧',
-    abstentionAnchorTitle: '⟦🔬~ Ábstéñtíóñ~~~~ dífféréñtíéllé~~~~~ (áñálysé)~~~~⟧',
+    abstentionAnchorTitle: '⟦Ábstéñtíóñ~~~~ dífféréñtíéllé~~~~~ (áñálysé)~~~~⟧',
     abstentionAnchorSub: '⟦dístríbútíóñ~~~~~ çómplèté~~~⟧',
   },
   method: {
@@ -534,12 +535,12 @@ const pgPseudo: PlaygroundKeys = {
     expressiveness: '⟦Éxpréssívíté~~~~~⟧',
     cognitiveLoad: '⟦Chárgé~~~ çógñítívé~~~~⟧',
     flips_one:
-      '⟦⚠~ À~ règlé~~ égálé,~~~ çé~ búllétíñ~~~ çháñgé~~~ lé~ váíñqúéúr~~~~ póúr~~ {{count}} méthódé~~~ :~ {{list}}.~⟧',
+      '⟦À~ règlé~~ égálé,~~~ çé~ búllétíñ~~~ çháñgé~~~ lé~ váíñqúéúr~~~~ póúr~~ {{count}} méthódé~~~ :~ {{list}}.~⟧',
     flips_other:
-      '⟦⚠~ À~ règlé~~ égálé,~~~ çé~ búllétíñ~~~ çháñgé~~~ lé~ váíñqúéúr~~~~ póúr~~ {{count}} méthódés~~~ :~ {{list}}.~⟧',
+      '⟦À~ règlé~~ égálé,~~~ çé~ búllétíñ~~~ çháñgé~~~ lé~ váíñqúéúr~~~~ póúr~~ {{count}} méthódés~~~ :~ {{list}}.~⟧',
     incompatible:
       '⟦{{count}} méthódés~~~ éxçlúés~~~ (l’íñfórmátíóñ~~~~~ dú~ búllétíñ~~~ ñé~ pérmét~~~ pás~~ dé~ lés~~ dépóúíllér~~~~ hóññêtéméñt).~~~~~⟧',
-    blankAnchorTitle: '⟦🔬~ Dívérgéñçé~~~~ dú~ vóté~~ bláñç~~ (áñálysé)~~~~⟧',
+    blankAnchorTitle: '⟦Dívérgéñçé~~~~ dú~ vóté~~ bláñç~~ (áñálysé)~~~~⟧',
     blankAnchorSub: '⟦règlé~~ dú~ bláñç~~⟧',
     assemblyTitle: '⟦Ássémbléé~~~~⟧',
     structureLabel: '⟦Strúçtúré~~~~⟧',
@@ -575,12 +576,12 @@ const pgPseudo: PlaygroundKeys = {
       '⟦{{pct}} %~ dés~~ éléçtéúrs~~~~ ábáñdóññéñt~~~~ léúr~~ fávórí~~~ póúr~~ lé~ vóté~~ útílé.~~~⟧',
     leaderOnly:
       '⟦L’áñálysé~~~~ strátégíqúé~~~~ détáílléé~~~~ ést~~ díspóñíblé~~~~ éñ~ módé~~ Dírígéáñt.~~~~⟧',
-    sincereTitle: '⟦🗳️~~ Vóté~~ síñçèré~~~ óú~ vóté~~ útílé~~ ?~⟧',
+    sincereTitle: '⟦Vóté~~ síñçèré~~~ óú~ vóté~~ útílé~~ ?~⟧',
     sincereHint:
       '⟦Vótré~~ çóñvíçtíóñ,~~~~ méthódé~~~ pár~~ méthódé~~~ —~ glísséz~~~ lé~ lósáñgé~~~ «~ Vóús~~ »~ súr~~ lá~ çárté.~~~⟧',
-    vulnTitle: '⟦⚡~ Vúlñérábílíté~~~~~ strátégíqúé~~~~ (Gíbbárd–Sáttérthwáíté)~~~~~~~~~⟧',
+    vulnTitle: '⟦Vúlñérábílíté~~~~~ strátégíqúé~~~~ (Gíbbárd–Sáttérthwáíté)~~~~~~~~~⟧',
     vulnSub: '⟦à~ lá~ démáñdé~~~ ·~ léñt~~⟧',
-    equilibriumTitle: '⟦♟~ Éqúílíbré~~~~ strátégíqúé~~~~ (jéú~~ ítéré)~~~⟧',
+    equilibriumTitle: '⟦Éqúílíbré~~~~ strátégíqúé~~~~ (jéú~~ ítéré)~~~⟧',
     equilibriumSub: '⟦à~ lá~ démáñdé~~~ ·~ tóús~~ lés~~ çámps~~ jóúéñt~~~⟧',
     manipTitle: '⟦Máñípúlátíóñ~~~~~ :~ príñçípé~~~ vs~ prátíqúé~~~⟧',
     manipPrinciple:
@@ -653,7 +654,7 @@ const pgPseudo: PlaygroundKeys = {
       right_cons: '⟦Dróíté~~~ ·~ çóñsérvátéúr~~~~~⟧',
     },
     unavailable:
-      '⟦⚠~ Hémíçyçlé~~~~ íñdíspóñíblé~~~~~ :~ lé~ çálçúl~~~ dé~ l’ássémbléé~~~~ ñ’á~~ pás~~ ábóútí.~~~ Sí~ vóús~~ véñéz~~ dé~ méttré~~~ à~ jóúr,~~ rédémárréz~~~~ lé~ sérvéúr~~~ báçkéñd~~~ (úvíçórñ)~~~~ póúr~~ qú’íl~~ préññé~~~ lé~ ñóúvéáú~~~ sçhémá.~~~⟧',
+      '⟦Hémíçyçlé~~~~ íñdíspóñíblé~~~~~ :~ lé~ çálçúl~~~ dé~ l’ássémbléé~~~~ ñ’á~~ pás~~ ábóútí.~~~ Sí~ vóús~~ véñéz~~ dé~ méttré~~~ à~ jóúr,~~ rédémárréz~~~~ lé~ sérvéúr~~~ báçkéñd~~~ (úvíçórñ)~~~~ póúr~~ qú’íl~~ préññé~~~ lé~ ñóúvéáú~~~ sçhémá.~~~⟧',
     mapAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ pártís~~~ ét~ térrítóírés~~~~⟧',
     partyAria:
       '⟦{{name}} —~ glíssér-dépósér,~~~~~~ óú~ flèçhés~~~ póúr~~ dépláçér~~~ (Máj~~ póúr~~ úñ~ pás~~ plús~~ lárgé)~~~⟧',
@@ -694,7 +695,7 @@ const pgPseudo: PlaygroundKeys = {
     coalitionSpan: '⟦ ·~ étéñdúé~~~ ídéólógíqúé~~~~ {{span}}⟧',
   },
   noshow: {
-    title: '⟦🚷~ Párádóxé~~~ dú~ ñóñ-vótáñt~~~~ (éxémplé~~~ —~ sçrútíñ~~~ à~ déúx~~ tóúrs)~~~⟧',
+    title: '⟦Párádóxé~~~ dú~ ñóñ-vótáñt~~~~ (éxémplé~~~ —~ sçrútíñ~~~ à~ déúx~~ tóúrs)~~~⟧',
     intro:
       '⟦34~ éléçtéúrs,~~~~ 3~ çáñdídáts.~~~~ Lés~~ pártísáñs~~~~ dé~ C~ lés~~ çlásséñt~~~ C~ ▸~ Á~ ▸~ B.~ Fáítés-éñ~~~~ ábstéñír~~~ qúélqúés-úñs~~~~~ :~ óbsérvéz~~~ lé~ váíñqúéúr.~~~~⟧',
     abstainers: '⟦Pártísáñs~~~~ dé~ C~ qúí~~ s’ábstíéññéñt~~~~~ :~ {{n}}⟧',
@@ -866,7 +867,7 @@ const pgPseudo: PlaygroundKeys = {
     },
   },
   realElection: {
-    title: '⟦🗳~ Épréúvé~~~ dú~ réél~~ :~ dé~ vráís~~ sçrútíñs~~~⟧',
+    title: '⟦Épréúvé~~~ dú~ réél~~ :~ dé~ vráís~~ sçrútíñs~~~⟧',
     pick: '⟦Sçrútíñ~~~⟧',
     headlinePre: '⟦Súr~~ lés~~ mêmés~~ búllétíñs,~~~~⟧',
     headlineEnd: '⟦váíñqúéúrs~~~~ dífféréñts~~~~ sélóñ~~ lá~ séúlé~~ méthódé.~~~⟧',
@@ -883,7 +884,7 @@ const pgPseudo: PlaygroundKeys = {
       '⟦Áppróbátíóñ~~~~ :~ Báújárd~~~ ét~ ál.~~ (ráñgévótíñg.órg/Fráñçé2017).~~~~~~~~~~~ Óffíçíél~~~ :~ Míñístèré~~~~ dé~ l’Íñtéríéúr.~~~~~⟧',
   },
   lexique: {
-    title: '⟦📖~ Léxíqúé~~~⟧',
+    title: '⟦Léxíqúé~~~⟧',
     intro:
       '⟦Cháqúé~~~ ñótíóñ~~~ éñ~ úñé~~ phrásé~~~ símplé~~~ —~ ét~ úñ~ líéñ~~ póúr~~ lá~ vóír~~ à~ l’œúvré.~~~⟧',
     search: '⟦Chérçhér~~~ úñ~ térmé…~~~⟧',
@@ -892,7 +893,7 @@ const pgPseudo: PlaygroundKeys = {
     count: '⟦{{n}} térmés~~~⟧',
   },
   blankVote: {
-    title: '⟦⬜~ Vóté~~ bláñç~~ —~ ét~ áprès~~ ?~⟧',
+    title: '⟦Vóté~~ bláñç~~ —~ ét~ áprès~~ ?~⟧',
     act1Kicker: '⟦1~ —~ Óñ~ péút~~ vótér~~ bláñç~~⟧',
     act1Title: '⟦Tróís~~ síléñçés,~~~~ pás~~ úñ~ séúl~~⟧',
     act1Lede:
@@ -988,7 +989,7 @@ const pgPseudo: PlaygroundKeys = {
   },
   atlas: {
     kicker: '⟦Átlás~~⟧',
-    title: '⟦🌍~ Átlás~~ dés~~ régímés~~~ éléçtóráúx~~~~⟧',
+    title: '⟦Átlás~~ dés~~ régímés~~~ éléçtóráúx~~~~⟧',
     intro:
       '⟦Úñ~ glóbé~~ qúí~~ tóúrñé~~~ :~ çháqúé~~~ démóçrátíé~~~~ à~ sá~ pláçé,~~~ çólóréé~~~ pár~~ sá~ méthódé~~~ dé~ vóté~~ —~ óú~ pár~~ çé~ qú’éllé~~~ fáít~~ dú~ vóté~~ bláñç.~~~ Fáís-lé~~~ tóúrñér,~~~ óú~ áttrápé-lé~~~~ póúr~~ l’óríéñtér,~~~~ púís~~ çlíqúé~~~ úñ~ páys.~~⟧',
     colorBy: '⟦Cólórér~~~ pár~~ :~⟧',
@@ -1011,7 +1012,6 @@ const pgPseudo: PlaygroundKeys = {
     },
   },
   curiosity: {
-    kicker: '⟦Pár~~ çúríósíté~~~~⟧',
     title: '⟦Pár~~ óù~ çómméñçér~~~~ ?~ Súís~~ tá~ qúéstíóñ.~~~~⟧',
     sub: '⟦Cháqúé~~~ qúéstíóñ~~~ óúvré~~ l’hístóíré~~~~ qúí~~ y~ répóñd,~~~ dáñs~~ l’íñstrúméñt.~~~~~⟧',
     q: {
@@ -1076,7 +1076,7 @@ const pgPseudo: PlaygroundKeys = {
     seed: '⟦Gráíñé~~~ :~ {{seed}}⟧',
     rerollTitle:
       '⟦Tíré~~ úñ~ ñóúvél~~~ éléçtórát~~~~ (mêmés~~~ réglágés,~~~~ áútré~~ éçháñtíllóñ).~~~~~⟧',
-    reroll: '⟦🎲~ Ré-tírér~~~⟧',
+    reroll: '⟦Ré-tírér~~~⟧',
     ideoTitle:
       '⟦Fórmé~~ dú~ ñúágé~~ gáússíéñ~~~ éñ~ módé~~ símplé~~~ (lé~~ módé~~ çómpósé~~~ lá~ rémpláçé~~~ pár~~ lés~~ çómmúñáútés).~~~~~⟧',
     ideoLabel: '⟦Ídéólógíé~~~~ (módé~~ símplé)~~~⟧',
@@ -1130,7 +1130,7 @@ const pgPseudo: PlaygroundKeys = {
     headlinePre: '⟦À~ vótré~~ pláçé,~~~⟧',
     headlineMid: '⟦/~{{total}} méthódés~~~ réçómpéñséñt~~~~~ lá~ çóñvíçtíóñ~~~~ ;~⟧',
     headlineEnd: '⟦vóús~~ póússéñt~~~ áú~ vóté~~ strátégíqúé.~~~~~⟧',
-    temptingHead: '⟦⚠~ Vóús~~ séríéz~~~ téñté~~ dé~ tráhír~~~ vótré~~ fávórí~~~⟧',
+    temptingHead: '⟦Vóús~~ séríéz~~~ téñté~~ dé~ tráhír~~~ vótré~~ fávórí~~~⟧',
     temptSincere: '⟦síñçèré~~~ →~ {{winner}} ;~ máís~~ vótéz~~⟧',
     safeHead: '⟦✓~ Vótér~~ síñçèréméñt~~~~ ést~~ vótré~~ méílléúré~~~~ répóñsé~~~⟧',
     elects: '⟦Élít~~ {{winner}}⟧',
@@ -1155,7 +1155,7 @@ const pgPseudo: PlaygroundKeys = {
     headlinePre: '⟦Sóús~~ jéú~~ strátégíqúé,~~~~~⟧',
     headlineEnd:
       '⟦méthódés~~~ çháñgéñt~~~ dé~ váíñqúéúr~~~~ (~{{groups}} blóçs~~ dé~ préféréñçé).~~~~~⟧',
-    shiftedHead: '⟦⚠~ Lá~ strátégíé~~~~ dépláçé~~~ lé~ váíñqúéúr~~~~⟧',
+    shiftedHead: '⟦Lá~ strátégíé~~~~ dépláçé~~~ lé~ váíñqúéúr~~~~⟧',
     afterPasses: '⟦(áprès~~~ {{n}} tóúrs)~~~⟧',
     cycleHead: '⟦∞~ Áúçúñ~~ éqúílíbré~~~~ (lé~~ jéú~~ çyçlé)~~~⟧',
     cycleTitle:
@@ -1165,7 +1165,7 @@ const pgPseudo: PlaygroundKeys = {
     note: '⟦Méílléúré~~~~ répóñsé~~~ ítéréé~~~ («~ ítérátívé~~~~ vótíñg~~~ »,~ Méír~~ ét~ ál.),~~ mêmés~~ strátégíés~~~~ qúé~~ çí-déssús~~~~ (çómprómís,~~~~ éñtérréméñt).~~~~~ Úñ~ váíñqúéúr~~~~ qúí~~ sé~ dépláçé~~~ óú~ úñ~ çyçlé~~ sígñálé~~~ úñé~~ méthódé~~~ frágílé~~~ áú~ jéú~~ strátégíqúé~~~~ súr~~ çét~~ éléçtórát~~~~ ;~ çóñvéñtíóñ,~~~~ pás~~ théórèmé.~~~~⟧',
   },
   structural: {
-    title: '⟦⚖~ Éqúítés~~~ strúçtúréllés~~~~~⟧',
+    title: '⟦Éqúítés~~~ strúçtúréllés~~~~~⟧',
     malTitle:
       '⟦0~ =~ çírçóñsçríptíóñs~~~~~~ dé~ pópúlátíóñ~~~~ égálé~~ ;~ 1~ =~ fórtéméñt~~~~ íñégálés~~~ (≈~ 4:1).~~⟧',
     mal: '⟦Máláppórtíóññéméñt~~~~~~~⟧',
@@ -1200,7 +1200,7 @@ const pgPseudo: PlaygroundKeys = {
   issues: {
     yes: '⟦Óúí~~⟧',
     no: '⟦Nóñ~~⟧',
-    title: '⟦🗳~ Éñjéúx~~~ &~ gróúpágé~~~ (Óstrógórskí)~~~~~⟧',
+    title: '⟦Éñjéúx~~~ &~ gróúpágé~~~ (Óstrógórskí)~~~~~⟧',
     issuesLabel: '⟦Éñjéúx~~~⟧',
     analyze: '⟦▶~ Áñálysér~~~⟧',
     demoTitle:
@@ -1208,7 +1208,7 @@ const pgPseudo: PlaygroundKeys = {
     demo: '⟦Párádóxé~~~ çóñstrúít~~~~⟧',
     intro:
       '⟦Élíré~~ úñ~ prógrámmé~~~~ gróúpé~~~ lés~~ éñjéúx~~~ ;~ lés~~ májórítés~~~~ éñjéú~~ pár~~ éñjéú~~ péúvéñt~~~ díré~~ l’íñvérsé.~~~~ Módé~~ spátíál~~~ :~ çháqúé~~~ éñjéú~~ ést~~ úñé~~ lígñé~~ dé~ pártágé~~~ dú~ pláñ~~ (çóñvéñtíóñ~~~~ déçláréé,~~~~ mêmé~~ gráíñé~~~ =~ mêmés~~ éñjéúx).~~~⟧',
-    paradoxPrefix: '⟦⚠~ Párádóxé~~~ d’Óstrógórskí~~~~~ :~ ⟧',
+    paradoxPrefix: '⟦Párádóxé~~~ d’Óstrógórskí~~~~~ :~ ⟧',
     divergeOn_one:
       '⟦rémpórté~~~ lé~ vóté~~ pár~~ prógrámmé,~~~~ máís~~ lá~ májóríté~~~ lé~ désávóúé~~~ súr~~ {{count}}/~{{num}} éñjéú.~~~⟧',
     divergeOn_other:
@@ -1247,6 +1247,7 @@ const pgPseudo: PlaygroundKeys = {
   },
   strip: {
     under: '⟦Ávéç~~ {{rule}} :~⟧',
+    stamp: '⟦Élú~~⟧',
     noFixedWinner: '⟦pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
     noFixedWinnerTitle:
       '⟦Úñ~ vóté~~ áú~ sórt~~ tíré~~ úñ~ búllétíñ~~~ áú~ hásárd~~~ :~ çháqúé~~~ çáñdídát~~~ gágñé~~ ávéç~~ lá~ párt~~ dés~~ éléçtéúrs~~~~ qúí~~ lé~ pláçéñt~~~ éñ~ têté.~~⟧',
@@ -1266,7 +1267,7 @@ const pgPseudo: PlaygroundKeys = {
     paradox: '⟦párádóxé~~~ {{pct}} %~⟧',
     paradoxTitle:
       '⟦Párt~~ dés~~ éléçtóráts~~~~ ré-éçháñtíllóññés~~~~~~ sáñs~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ úñ~ táúx~~ élévé~~ sígñálé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dés~~ hypóthèsés.~~~~⟧',
-    shake: '⟦🎲~ Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
+    shake: '⟦Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
     shakeTitle:
       "⟦Ré-éçháñtíllóññé~~~~~~ l'éléçtórát~~~~ 60~ fóís~~ (mêmés~~~ hypóthèsés,~~~~ ñóúvéáúx~~~ tírágés)~~~ —~ sépáré~~~ úñé~~ própríété~~~~ strúçtúréllé~~~~~ d'úñ~~ réglágé~~~ çhóísí.~~~⟧",
     shakeHint:
@@ -1277,11 +1278,11 @@ const pgPseudo: PlaygroundKeys = {
     shakeCITitle: '⟦Íñtérvállé~~~~ dé~ çóñfíáñçé~~~~ à~ 95~ %~ (Wílsóñ)~~~ :~ {{lo}}–~{{hi}} %~⟧',
     shakeCIFooter:
       '⟦Bárré~~ pléíñé~~~ =~ éstímátíóñ~~~~ ;~ vóílé~~ =~ íñtérvállé~~~~ dé~ çóñfíáñçé~~~~ à~ 95~ %~ (Wílsóñ,~~~ ñ~ =~ {{n}}).~ Plús~~ dé~ tírágés~~~ =~ íñtérvállé~~~~ plús~~ sérré.~~~⟧',
-    democracyTitle: '⟦🗺~ Cárté~~ dés~~ démóçrátíés~~~~ (Líjphárt)~~~~⟧',
+    democracyTitle: '⟦Cárté~~ dés~~ démóçrátíés~~~~ (Líjphárt)~~~~⟧',
     democracySub: '⟦májórítáíré~~~~ ↔~ çóñséñsús~~~~⟧',
     democracyComputing: '⟦Cálçúl~~~ éñ~ çóúrs…~~~⟧',
-    issuesTitle: '⟦🗳~ Éñjéúx~~~ &~ gróúpágé~~~ (Óstrógórskí)~~~~~⟧',
-    structuralTitle: '⟦⚖~ Éqúítés~~~ strúçtúréllés~~~~~⟧',
+    issuesTitle: '⟦Éñjéúx~~~ &~ gróúpágé~~~ (Óstrógórskí)~~~~~⟧',
+    structuralTitle: '⟦Éqúítés~~~ strúçtúréllés~~~~~⟧',
   },
   rules: {
     plurality: '⟦Plúrálíté~~~~ (1~ tóúr)~~⟧',
@@ -1528,7 +1529,7 @@ const pgPseudo: PlaygroundKeys = {
     },
   },
   gallery: {
-    eyebrow: '⟦À~ DÉCÓÚVRÍR~~~~⟧',
+    eyebrow: '⟦À~ déçóúvrír~~~~⟧',
     title: '⟦Gáléríé~~~ dés~~ méthódés~~~⟧',
     intro:
       '⟦Tóútés~~~ lés~~ méthódés~~~ dé~ vóté~~ súr~~ úñé~~ mêmé~~ págé~~ —~ lés~~ plús~~ çóúráñtés~~~~ d’ábórd,~~~ púís~~ lés~~ plús~~ spéçífíqúés.~~~~~ Cháçúñé~~~ ávéç~~ úñé~~ áñálógíé~~~ dé~ lá~ víé~~ çóúráñté,~~~~ lé~ váíñqúéúr~~~~ súr~~ vótré~~ éléçtórát~~~~ áçtúél,~~~ ét~ úñé~~ áñímátíóñ~~~~ pás~~ à~ pás~~ dé~ sóñ~~ dépóúílléméñt.~~~~~⟧',
@@ -1536,7 +1537,7 @@ const pgPseudo: PlaygroundKeys = {
     liveWinner: '⟦Váíñqúéúr~~~~ ávéç~~ vótré~~ éléçtórát~~~~ áçtúél~~~⟧',
   },
   duel: {
-    eyebrow: '⟦FÁCÉ-À-FÁCÉ~~~~⟧',
+    eyebrow: '⟦Fáçé-à-fáçé~~~~⟧',
     title: '⟦Cómpárér~~~ déúx~~ méthódés~~~⟧',
     intro:
       '⟦Déúx~~ méthódés,~~~~ lés~~ mêmés~~ búllétíñs,~~~~ dépóúíllés~~~~ çôté~~ à~ çôté.~~ Chóísísséz~~~~ úñé~~ règlé~~ dé~ çháqúé~~~ çôté~~ ét~ régárdéz~~~ lé~ déçómpté~~~ :~ lé~ váíñqúéúr~~~~ dépéñd-íl~~~~ dé~ lá~ méthódé~~~ ?~⟧',
@@ -1549,7 +1550,7 @@ const pgPseudo: PlaygroundKeys = {
     needCandidates: '⟦Ájóútéz~~~ áú~ móíñs~~ déúx~~ çáñdídáts~~~~ dáñs~~ lé~ Pláygróúñd.~~~~⟧',
   },
   lab: {
-    eyebrow: '⟦VÓTÉ~~ LÁB~~ ·~ ÁNÁLYSÉS~~~ ÁVÁNCÉÉS~~~⟧',
+    eyebrow: '⟦Vóté~~ Láb~~ ·~ áñálysés~~~ áváñçéés~~~⟧',
     title: '⟦Lábórátóíré~~~~⟧',
     intro:
       "⟦Óútíls~~~ d'éxplórátíóñ~~~~~ ápprófóñdíé~~~~ —~ párádóxés,~~~~ théóríé~~~ dú~ çhóíx~~ sóçíál,~~~ méçáñísmés~~~~ áltérñátífs,~~~~~ dyñámíqúés~~~~ témpóréllés.~~~~~ Cóñfígúréz~~~~ d'ábórd~~~ úñé~~ éléçtíóñ~~~ dáñs~~ lé~ Pláygróúñd,~~~~ púís~~ éxplóréz~~~ íçí.~~⟧",
@@ -1557,56 +1558,56 @@ const pgPseudo: PlaygroundKeys = {
     instrumentHint:
       '⟦Cétté~~ çárté~~ résté~~ lá~ mêmé~~ póúr~~ tóútés~~~ lés~~ séçtíóñs~~~ çí-çóñtré~~~~ —~ çháñgéz~~~ lá~ règlé,~~~ l’éléçtórát~~~~ óú~ lá~ léñtíllé~~~ íçí,~~ lés~~ áñálysés~~~ sé~ méttéñt~~~ à~ jóúr.~~⟧',
     mechanisms: {
-      title: '⟦⚙️~ Próçédúrés~~~~ dé~ déçísíóñ~~~ áltérñátívés~~~~~⟧',
+      title: '⟦Próçédúrés~~~~ dé~ déçísíóñ~~~ áltérñátívés~~~~~⟧',
       subtitle: '⟦júry,~~ NÓTÁ,~~ démóçrátíé~~~~ líqúídé,~~~ sórtítíóñ…~~~~⟧',
     },
     systems: {
-      title: '⟦🏛~ Systèmés~~~ éléçtóráúx~~~~ &~ çírçóñsçríptíóñs~~~~~~⟧',
+      title: '⟦Systèmés~~~ éléçtóráúx~~~~ &~ çírçóñsçríptíóñs~~~~~~⟧',
       subtitle: '⟦çóálítíóñs,~~~~ STV,~~ çhárçútágé,~~~~ pípélíñé…~~~~⟧',
     },
     campaign: {
-      title: '⟦🎬~ Trájéçtóírés~~~~~ dé~ çámpágñé~~~⟧',
+      title: '⟦Trájéçtóírés~~~~~ dé~ çámpágñé~~~⟧',
       subtitle: '⟦Hótéllíñg,~~~~ sóñdágés,~~~~ pólárísátíóñ,~~~~~ dyñámíqúé~~~~ dés~~ pártís~~~⟧',
     },
     temporal: {
-      title: '⟦🔁~ Méçáñísmés~~~~ témpóréls~~~~⟧',
+      title: '⟦Méçáñísmés~~~~ témpóréls~~~~⟧',
       subtitle:
         '⟦vóté~~ ádáptátíf,~~~~ répláy~~~ hístóríqúé,~~~~ prímáírés,~~~~ çásçádé,~~~ fátígúé~~~⟧',
     },
     behavioral: {
-      title: '⟦🧠~ Réálísmé~~~ çómpórtéméñtál~~~~~⟧',
+      title: '⟦Réálísmé~~~ çómpórtéméñtál~~~~~⟧',
       subtitle:
         '⟦bíáís,~~~ éléçtéúr~~~ tímídé,~~~ súrçhárgé,~~~~ vóté~~ óblígátóíré,~~~~~ pólárísátíóñ~~~~~ áfféçtívé~~~~⟧',
     },
     analysis: {
-      title: '⟦🔬~ Áñálysé~~~ ápprófóñdíé~~~~⟧',
+      title: '⟦Áñálysé~~~ ápprófóñdíé~~~~⟧',
       subtitle:
         '⟦Móñté-Cárló,~~~~~ máñípúlábílíté,~~~~~~ vólóñté~~~ çólléçtívé,~~~~ éfféts~~~ çómbíñés~~~⟧',
     },
     theory: {
-      title: '⟦📚~ Théóríé~~~ &~ párádóxés~~~~ dú~ çhóíx~~ sóçíál~~~⟧',
+      title: '⟦Théóríé~~~ &~ párádóxés~~~~ dú~ çhóíx~~ sóçíál~~~⟧',
       subtitle: '⟦Séñ,~~ júgéméñt,~~~~ ágéñdá,~~~ tyráññíé,~~~~ áppórtíóññéméñt,~~~~~~ Pól.ís~~~⟧',
     },
     blank: {
-      title: '⟦⬜~ Vóté~~ bláñç~~ &~ ábstéñtíóñ~~~~⟧',
+      title: '⟦Vóté~~ bláñç~~ &~ ábstéñtíóñ~~~~⟧',
       subtitle:
         '⟦ñé~ pás~~ çhóísír,~~~ réfúsér~~~ l’óffré~~~ —~ ét~ çé~ qúé~~ lá~ règlé~~ éñ~ fáít~~⟧',
     },
     results: {
-      title: '⟦📋~ Résúltáts~~~~ çómpléts~~~⟧',
+      title: '⟦Résúltáts~~~~ çómpléts~~~⟧',
       subtitle: '⟦dépóúílléméñt~~~~~ détáíllé,~~~~ áñímátíóñ~~~~ dú~ çómptágé~~~⟧',
     },
     ballot: {
-      title: '⟦🗳️~~ Búllétíñ~~~ dé~ vóté~~ (éxpréssíóñ)~~~~~⟧',
+      title: '⟦Búllétíñ~~~ dé~ vóté~~ (éxpréssíóñ)~~~~~⟧',
       subtitle: '⟦typé~~ dé~ búllétíñ,~~~~ éxpréssívíté,~~~~~ çhárgé~~~ çógñítívé~~~~⟧',
     },
     strategy: {
-      title: '⟦🎯~ Áñálysé~~~ strátégíqúé~~~~ ápprófóñdíé~~~~⟧',
+      title: '⟦Áñálysé~~~ strátégíqúé~~~~ ápprófóñdíé~~~~⟧',
       subtitle:
         '⟦síñçéríté,~~~~ vúlñérábílíté~~~~~ Gíbbárd–Sáttérthwáíté,~~~~~~~~ éqúílíbré~~~~ ítéré~~⟧',
     },
     values: {
-      title: '⟦⚖️~ Váléúrs~~~ &~ séñsíbílíté~~~~⟧',
+      title: '⟦Váléúrs~~~ &~ séñsíbílíté~~~~⟧',
       subtitle: '⟦çádráñ~~~ Líjphárt,~~~~ fróñtíèré~~~~ dé~ Párétó~~~⟧',
     },
     groups: {
