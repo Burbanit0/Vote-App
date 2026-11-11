@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-11-01T15:03:18Z",
+  "generated_at": "2026-11-09T18:41:11Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-11-01T01:57:32Z",
+      "last_run_at": "2026-11-09T12:52:52Z",
       "recent_conclusions": [
         "success",
         "success",
-        "failure",
-        "failure",
-        "failure"
+        "success",
+        "success",
+        "success"
       ],
       "consecutive_failures": 0,
       "status": "healthy",
@@ -19,7 +19,7 @@
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-11-01T02:08:29Z",
+      "last_run_at": "2026-11-09T14:15:43Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -34,9 +34,8 @@
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-11-01T02:08:29Z",
+      "last_run_at": "2026-11-09T01:30:39Z",
       "recent_conclusions": [
-        "success",
         "success",
         "success",
         "success",
@@ -49,7 +48,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-11-01T10:21:46Z",
+      "last_run_at": "2026-11-09T11:22:12Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +63,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-11-01T09:40:53Z",
+      "last_run_at": "2026-11-09T10:17:26Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +78,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-27T13:24:00Z",
+      "last_run_at": "2026-11-08T14:34:41Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -94,11 +93,11 @@
     "audit.yml": {
       "display_name": "Security Audit",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-10-26T12:31:33Z",
+      "last_run_at": "2026-11-09T15:39:22Z",
       "recent_conclusions": [
         "success",
-        "failure",
-        "failure",
+        "success",
+        "success",
         "failure",
         "failure"
       ],
