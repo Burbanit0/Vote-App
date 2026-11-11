@@ -28,7 +28,9 @@ permissions:
 
 # A newer push to the same branch cancels the previous e2e run.
 concurrency:
-  group: e2e-${{ github.ref }}
+  # The event keeps a release's run (called from release.yml) out of the group of a push or PR
+  # run on the same ref, which would cancel it.
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
