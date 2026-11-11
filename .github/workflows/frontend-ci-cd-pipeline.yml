@@ -15,7 +15,9 @@ on:
     branches: [develop, main, polity, polity-ui]
   # Called from release.yml as the release gate (#683): the release tests the commit it tags
   # with the very jobs a PR runs, instead of a hand-kept copy that drifted (v0.2.0 died in it).
-  # A called workflow sees its caller's event (workflow_dispatch) and ref.
+  # A called workflow sees its caller's event (workflow_dispatch) and ref. "Called for a
+  # release" is spelled `event is neither pull_request nor push` in `changes`, `test`, the
+  # coverage upload and `codecov`: change them together.
   workflow_call:
 
 concurrency:
@@ -174,7 +176,7 @@ jobs:
       # exists, so a later failing gate (diff-cover, build) still gets its
       # Codecov comment.
       - name: Keep the coverage report for the Codecov upload
-        if: ${{ !cancelled() && hashFiles('voter-app/coverage/lcov.info') != '' }}
+        if: ${{ !cancelled() && hashFiles('voter-app/coverage/lcov.info') != '' && (github.event_name == 'pull_request' || github.event_name == 'push') }}
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

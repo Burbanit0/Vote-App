@@ -71,16 +71,26 @@ made it fail. It also can't pass the exact-commit check once `main` has moved.
 
 ## What happens automatically
 
-1. The gates re-run on the tagged commit:
-   - `ci-frontend`: `npm run test:coverage && npm run build`, which covers the
-     coverage thresholds, tsc and the 1 MB size-limit.
-   - `ci-backend`: the dev lockfile install, `pytest api/tests -n auto` from
-     `fast_api_voter/`, and the engine perf ceilings.
+1. The gates re-run on the tagged commit, by calling the same workflows a PR runs
+   (#683; they used to be hand-kept copies that drifted):
+   - `ci-frontend`: all of Frontend CI: lint, type coverage, dependency-cruiser,
+     the npm audit gate, licences, the tests with their coverage thresholds, and
+     the build (tsc, the 1 MB size-limit).
+   - `ci-backend`: all of Backend CI: the lockfile freshness check, ruff, import
+     layering, bandit, pip-audit, licences, mypy, the tests with coverage, the LLM
+     harness tests and the engine perf ceilings.
    - `e2e`: the full `e2e.yml`, including visual regression.
 
-   Nothing else tests this commit. Backend and Frontend CI skip their test jobs
-   on pushes to `main`, because their paths filter sees no change. See #683 for
-   making the release job reuse them instead of copying them.
+   Nothing else tests this commit: Backend and Frontend CI skip their test jobs on
+   pushes to `main`, because their paths filter sees no change. When called for a
+   release they skip only what needs a PR (the paths filter, diff-cover, the
+   Codecov upload) and run everything else.
+
+   Because the release now runs the advisory gates too (`pip-audit`, `npm run
+   audit:gate`), a CVE published after the last PR can fail a release that no
+   commit caused. Fix it the way a PR would (a bump, or a dated entry in
+   `.github/npm-audit-allowlist.json`), carried polity -> develop -> main, then
+   dispatch again.
 2. Then `main` is tagged `vX.Y.Z` from `voter-app/package.json`, and only
    the tag is pushed. The `version` job checked it before CI started: above
    the latest tag, not already released. A tag on this commit with no GitHub
