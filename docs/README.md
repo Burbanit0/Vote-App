@@ -60,6 +60,7 @@ Every plan's first lines say its status: **live** (being executed or maintained)
 | [`vote-app/PLAN_SOLIDITE_TECHNIQUE.md`](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) | [`polity/observations.md`](plan/polity/observations.md), the OBS log |
 | [`vote-app/PLAN_SURFACE_EXTERIEURE.md`](plan/vote-app/PLAN_SURFACE_EXTERIEURE.md) | [`polity/fit-for-inference.md`](plan/polity/fit-for-inference.md) |
 | [`vote-app/LISTING_ORDER_TIES.md`](plan/vote-app/LISTING_ORDER_TIES.md) | [`polity/polity-run-explorer.md`](plan/polity/polity-run-explorer.md), [`polity/tech-radar.md`](plan/polity/tech-radar.md) |
+| [`vote-app/PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md), the audit's plan for the app (Polity excluded) | |
 | [`polity/plan-rented-gpu-runs.md`](plan/polity/plan-rented-gpu-runs.md), the rented-GPU runbook and first 27B probes | |
 | [`polity/plan-scenarios-v1.md`](plan/polity/plan-scenarios-v1.md), from a world to an instrument: trajectories, archetypes, the divergence test | |
 
