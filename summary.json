@@ -480,6 +480,31 @@
   },
   {
    "branches": [
+    "chore/sync-polity-into-develop-2026-11-01"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Playwright/Docker image version sync",
+    "lines": [
+     "##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v1.64.1-noble serves, so Docker would run another browser than the tag says. Pin mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f, then regenerate the visual baselines in that image (voter-app/scripts/test-visual-docker.sh --update-snapshots) and review the PNG diff.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1021
+    ],
+    "sha": "cc23c1b24f49d0addb16d48c56004738823c997e",
+    "step": "Assert @playwright/test matches the Playwright image pin",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035727711"
+   },
+   "last_seen": "2026-11-11T14:09:15Z",
+   "signature": "code: ##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v#.#-noble serves, so Docker would run another browser than the tag s",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "feat/polity-atlas-live-compare",
     "feat/polity-field-order-arms"
    ],
@@ -583,31 +608,6 @@
    "signature": "code: #\t            with pytest.raises(urllib.error.HTTPError) as error:",
    "workflows": [
     "Backend CI"
-   ]
-  },
-  {
-   "branches": [
-    "chore/sync-polity-into-develop-2026-11-01"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Playwright/Docker image version sync",
-    "lines": [
-     "##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v1.64.1-noble serves, so Docker would run another browser than the tag says. Pin mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f, then regenerate the visual baselines in that image (voter-app/scripts/test-visual-docker.sh --update-snapshots) and review the PNG diff.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     1021
-    ],
-    "sha": "c1126c949d06c7d465977241c3e7e4ba4ad7e769",
-    "step": "Assert @playwright/test matches the Playwright image pin",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41336717726"
-   },
-   "last_seen": "2026-11-01T18:27:30Z",
-   "signature": "code: ##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v#.#-noble serves, so Docker would run another browser than the tag s",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -889,10 +889,10 @@
  ],
  "failures_by_category": {
   "advisory": 3,
-  "code": 114,
+  "code": 115,
   "test-flaky": 17
  },
- "generated_at": "2026-11-11T14:06:09Z",
+ "generated_at": "2026-11-11T14:10:04Z",
  "grid": {
   "Backend CI": {
    "2026-10-12": {
@@ -1158,7 +1158,7 @@
     "success": 9
    },
    "2026-11-11": {
-    "success": 17
+    "success": 18
    }
   },
   "CI Health Watchdog": {
@@ -1581,7 +1581,7 @@
    },
    "2026-11-11": {
     "cancelled": 1,
-    "success": 4
+    "success": 5
    }
   },
   "Generated Artifacts Contract": {
@@ -1739,7 +1739,7 @@
     "skipped": 3
    },
    "2026-11-11": {
-    "skipped": 15,
+    "skipped": 16,
     "success": 4
    }
   },
@@ -1933,7 +1933,7 @@
     "success": 1
    },
    "2026-11-11": {
-    "success": 5
+    "success": 6
    }
   },
   "Workflow Lint": {
@@ -2132,9 +2132,9 @@
     "success": 7
    },
    "2026-11-11": {
-    "cancelled": 15,
-    "skipped": 55,
-    "success": 33
+    "cancelled": 20,
+    "skipped": 61,
+    "success": 36
    }
   },
   "zizmor online": {
@@ -2194,9 +2194,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-11T13:58:15Z",
+   "created_at": "2026-11-11T14:02:59Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43033974996"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43034727451"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2236,9 +2236,9 @@
   "Frontend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-11T13:48:35Z",
+   "created_at": "2026-11-11T14:07:32Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43032488207"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035456717"
   },
   "Generated Artifacts Contract": {
    "branch": "polity",
@@ -2250,9 +2250,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-11T13:57:11Z",
+   "created_at": "2026-11-11T14:09:36Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43033815412"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035782988"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -2278,9 +2278,9 @@
   "Security Audit": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-11T13:48:35Z",
+   "created_at": "2026-11-11T14:07:32Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43032488363"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035456728"
   },
   "Workflow Lint": {
    "branch": "polity",
@@ -2292,9 +2292,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-11T14:08:03Z",
+   "created_at": "2026-11-11T14:12:07Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035537576"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43036185466"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2304,7 +2304,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035456999"
   }
  },
- "runs": 6946,
+ "runs": 6976,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2411,12 +2411,12 @@
     "2026-11-08": 22.0,
     "2026-11-09": 14,
     "2026-11-10": 12,
-    "2026-11-11": 17.5
+    "2026-11-11": 16
    },
    "p50_s": 11,
    "p95_s": 70,
    "queue_p50_s": 0,
-   "runs": 238
+   "runs": 239
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -2450,12 +2450,12 @@
     "2026-11-08": 270,
     "2026-11-09": 257.0,
     "2026-11-10": 241,
-    "2026-11-11": 294
+    "2026-11-11": 308.5
    },
    "p50_s": 371,
    "p95_s": 564,
    "queue_p50_s": 0,
-   "runs": 513
+   "runs": 514
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2486,12 +2486,12 @@
     "2026-11-08": 16,
     "2026-11-09": 19.5,
     "2026-11-10": 13,
-    "2026-11-11": 16.5
+    "2026-11-11": 16
    },
    "p50_s": 12,
    "p95_s": 71,
    "queue_p50_s": 0,
-   "runs": 230
+   "runs": 231
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2582,12 +2582,12 @@
     "2026-11-08": 14,
     "2026-11-09": 11,
     "2026-11-10": 12,
-    "2026-11-11": 15
+    "2026-11-11": 19.0
    },
    "p50_s": 12,
    "p95_s": 92,
    "queue_p50_s": 0,
-   "runs": 226
+   "runs": 227
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -2714,12 +2714,12 @@
     "2026-11-08": 42,
     "2026-11-09": 117.5,
     "2026-11-10": 10,
-    "2026-11-11": 281
+    "2026-11-11": 276.5
    },
    "p50_s": 13,
    "p95_s": 393,
    "queue_p50_s": 0,
-   "runs": 313
+   "runs": 314
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -2788,12 +2788,12 @@
     "2026-11-08": 37.5,
     "2026-11-09": 17.0,
     "2026-11-10": 25,
-    "2026-11-11": 26.0
+    "2026-11-11": 26
    },
    "p50_s": 20,
    "p95_s": 105,
    "queue_p50_s": 0,
-   "runs": 312
+   "runs": 313
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2856,12 +2856,12 @@
     "2026-11-08": 76,
     "2026-11-09": 27,
     "2026-11-10": 85,
-    "2026-11-11": 73
+    "2026-11-11": 72.5
    },
    "p50_s": 45,
    "p95_s": 218,
    "queue_p50_s": 0,
-   "runs": 225
+   "runs": 226
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -2920,12 +2920,12 @@
     "2026-11-08": 192,
     "2026-11-09": 210,
     "2026-11-10": 180,
-    "2026-11-11": 190.5
+    "2026-11-11": 179.5
    },
    "p50_s": 167,
    "p95_s": 324,
    "queue_p50_s": 0,
-   "runs": 296
+   "runs": 298
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -2957,12 +2957,12 @@
     "2026-11-08": 30,
     "2026-11-09": 22.5,
     "2026-11-10": 11.5,
-    "2026-11-11": 40
+    "2026-11-11": 38.5
    },
    "p50_s": 12,
    "p95_s": 81,
    "queue_p50_s": 0,
-   "runs": 320
+   "runs": 321
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -2996,12 +2996,12 @@
     "2026-11-08": 27,
     "2026-11-09": 28.0,
     "2026-11-10": 28,
-    "2026-11-11": 27
+    "2026-11-11": 26.5
    },
    "p50_s": 28,
    "p95_s": 56,
    "queue_p50_s": 0,
-   "runs": 779
+   "runs": 782
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3149,9 +3149,9 @@
     },
     "Frontend CI": {
      "conclusion": "success",
-     "created_at": "2026-11-11T13:48:35Z",
-     "sha": "216f644d1d077bc31761f1b12348faa8d60f330e",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43032488207"
+     "created_at": "2026-11-11T14:07:32Z",
+     "sha": "f1fbd90a05767683e4af3661351997b7594a169d",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035456717"
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
@@ -3173,9 +3173,9 @@
     },
     "Security Audit": {
      "conclusion": "success",
-     "created_at": "2026-11-11T13:48:35Z",
-     "sha": "216f644d1d077bc31761f1b12348faa8d60f330e",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43032488363"
+     "created_at": "2026-11-11T14:07:32Z",
+     "sha": "f1fbd90a05767683e4af3661351997b7594a169d",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43035456728"
     },
     "Workflow Lint": {
      "conclusion": "success",
