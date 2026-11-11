@@ -48,7 +48,10 @@ omit = ["api/tests/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-precision = 0
+# Two decimals: with 0, coverage rounds the total BEFORE comparing it to fail_under, so
+# 89.5% would pass a 90 floor (and pytest-cov's `--cov-fail-under=90` in addopts, which
+# reads the same rounded total, would too). #682.
+precision = 2
 fail_under = 90
 
 # Linting (replaces flake8 as of Lot 1 of PLAN_SOLIDITE_TECHNIQUE.md — same
