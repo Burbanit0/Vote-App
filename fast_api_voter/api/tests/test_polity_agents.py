@@ -31,7 +31,7 @@ from api.domain.polity.agents import (
     turn_words,
     validate_turn,
 )
-from api.domain.polity.citizen import Citizen
+from api.domain.polity.citizen import Citizen, Office
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity import run_polity_simulation as engine
 from api.domain.polity.journal import Journal, JournalEvent
@@ -41,7 +41,9 @@ from api.domain.polity.llm_client import LlmResponseError
 from api.domain.polity.llm_schemas import IssueTarget, LeaderTurn, PositionShift
 from api.domain.polity.parties import Party
 from api.domain.polity.run_frames import load_run_frames
-from api.domain.polity.run_polity_simulation import _agenda_closed, _agent_bill, _phase_leaders, _turn_moves, run_simulation
+from api.domain.polity.run_polity_simulation import (
+    _agenda_closed, _agent_bill, _phase_leaders, _seated_president, _turn_moves, run_simulation,
+)
 from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient
 from api.tests.polity_golden import golden_config
 
@@ -317,6 +319,18 @@ def test_an_agent_bill_that_changes_nothing_is_no_bill() -> None:
 
 def test_a_failed_turn_moves_nothing_and_leaves_the_agenda_to_the_formula() -> None:
     assert _turn_moves(None, (0.5,) * _N, Legislature(policy=(0.5,) * _N), None, _CONFIG) == ([], None)
+
+
+def test_a_president_is_seated_only_with_a_pledge_and_a_stated_position() -> None:
+    pledge, stated = (0.1,) * _N, (0.3,) * _N
+    state = lambda *citizens: SimpleNamespace(citizens=list(citizens))  # noqa: E731
+    bare = _president(office=Office.PRESIDENT)
+    assert _seated_president(state(bare)) is None  # holds the office, has promised and said nothing
+    assert _seated_president(state(_president(office=Office.PRESIDENT, pledged_platform=pledge))) is None
+    assert _seated_president(state(_president(office=Office.PRESIDENT, revealed_position=stated))) is None
+    assert _seated_president(state(_president())) is None  # pledge and position, no office
+    full = _president(office=Office.PRESIDENT, pledged_platform=pledge, revealed_position=stated)
+    assert _seated_president(state(full)) == (full, pledge, stated)
 
 
 def test_no_turn_is_asked_without_a_seated_president() -> None:

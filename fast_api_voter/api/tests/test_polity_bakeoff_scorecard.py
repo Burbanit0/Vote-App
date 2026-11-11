@@ -110,6 +110,21 @@ def test_invalid_answers_count_as_wrong_and_unread_gates_are_unmeasured() -> Non
     assert scored["gates"]["logprob"]["passed"] is None and scored["gates"]["think"] is None
 
 
+def test_a_permutation_pair_scores_only_the_answers_and_renderings_that_exist() -> None:
+    """A rendering with no result, and a party that gave no position, are left out rather than
+    counted as picks or as a disagreement."""
+    original, _ = NOMINATION
+    # Only the original rendering was answered, and only party 0 named a position (the third of 3: the last listed).
+    scored = sc.score_permutation(NOMINATION, {original.case_id: {"answers": {"0": 3}}})
+    assert scored["last_listed_position"]["successes"] == 1 and scored["last_listed_position"]["trials"] == 1
+    # Nothing to compare: one rendering answered, so no pair, and so no rate.
+    assert scored["same_candidate"]["trials"] == 0 and scored["same_candidate"]["rate"] is None
+    assert scored["same_listed_position"]["trials"] == 0
+    # Neither rendering answered at all: nothing is counted.
+    empty = sc.score_permutation(NOMINATION, {})
+    assert empty["last_listed_position"]["trials"] == 0 and empty["same_candidate"]["trials"] == 0
+
+
 def test_paired_tests_compare_every_model_with_the_control_and_all_of_them_together() -> None:
     control = _session("control", _control_results())
     assert sc.compare_sessions(BANK, [control], "control") == {}
