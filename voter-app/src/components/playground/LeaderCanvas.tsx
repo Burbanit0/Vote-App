@@ -17,7 +17,7 @@ import {
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
-import LeaderScene3D from './LeaderScene3D';
+import LeaderScene3D, { type SceneCamera } from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
 import {
@@ -40,6 +40,44 @@ import NoShowParadox from './NoShowParadox';
 export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
 const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
+
+/** Index of the candidate called `name`, or null when there is none or the name is shared. */
+function indexOfUniqueName(candidates: NamedPt[], name: string | null | undefined): number | null {
+  if (name == null) return null;
+  const at = candidates.findIndex((c) => c.name === name);
+  return at >= 0 && !candidates.some((c, i) => i !== at && c.name === name) ? at : null;
+}
+
+/** `index` when the scene may mark it (a real index and `show`), else null. */
+function markedIndex(show: boolean, index: number | null): number | null {
+  return show && index != null && index >= 0 ? index : null;
+}
+
+/**
+ * Index of the candidate the scene rings: the strategic winner when voters aren't sincere
+ * (same as the readout), else the rule's winner; none for a lottery rule. Nothing is ringed
+ * before a method is chosen (showRuleUi false hides the readout), and a name shared by two
+ * candidates can't say which one won — better no ring than a wrong one.
+ */
+function sceneWinnerIndex(o: {
+  showRuleUi: boolean;
+  rule: Rule;
+  behavior: Behavior;
+  strategicOutcome: StrategicOutcome | null | undefined;
+  candidates: NamedPt[];
+  winner: string | null;
+}): number | null {
+  if (!o.showRuleUi || !hasFixedWinner(o.rule)) return null;
+  if (o.behavior !== 'sincere' && o.strategicOutcome) {
+    return markedIndex(true, o.strategicOutcome.strategicWinner);
+  }
+  return indexOfUniqueName(o.candidates, o.winner);
+}
+
+/** The win-region and probability grids only paint the x–y map, so the 3-D scene skips them. */
+function mapIsHidden(show3d: boolean, lens: Lens): boolean {
+  return show3d && (lens === 'winner' || lens === 'probability');
+}
 
 const PROB_HUE = '#4f46e5';
 
@@ -148,6 +186,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const [scene3d, setScene3d] = useState(true);
   const [replayOpen, setReplayOpen] = useState(false);
   const show3d = dims === 3 && scene3d;
+  // The orbit camera outlives the scene: toggling to the plane to edit (which unmounts
+  // the scene) must not throw away the viewpoint. A ref, not state — the camera moves
+  // every animation frame and must not re-render this heavy component.
+  const sceneCamera = useRef<SceneCamera | null>(null);
 
   // y maps to the plane in 2/3-D, to the centre line in 1-D.
   const cyOf = (p: Pt): number => (dims === 1 ? CENTER : toSvg(p.y, 'y'));
@@ -164,6 +206,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // extra work at first paint). The probability lens reads the random-ballot
   // lottery; the win-region lens reads the current rule.
   useEffect(() => {
+    // The scene draws the electorate only: the win-region and probability grids paint the
+    // hidden x–y map, so skip them while it is hidden (they recompute when the plane
+    // returns). Manipulation and criteria also feed panels shown under the scene.
+    if (mapIsHidden(show3d, lens)) return;
     let alive = true;
     const timer = setTimeout(() => {
       if (!alive) return;
@@ -181,7 +227,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       alive = false;
       clearTimeout(timer);
     };
-  }, [gridVoters, candidates, rule, dims, lens, manipShare, manipTactic]);
+  }, [gridVoters, candidates, rule, dims, lens, show3d, manipShare, manipTactic]);
 
   // Manipulation summary (the Gibbard-Satterthwaite boundary, inline): how many
   // voters this rule tempts vs random ballot's guaranteed zero.
@@ -194,10 +240,13 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   }, [lens, manipField]);
 
   // Condorcet winner of the current electorate (criteria lens marks it on the map).
+  // Counted on every voter, not the thinned grid sample: the rule's winner is, so the
+  // two must not disagree through sampling noise alone. Ranking is O(n·m log m) —
+  // cheap; the cap exists for the O(n²)/grid work.
   const cwIndex = useMemo(() => {
     if (lens !== 'criteria' || candidates.length === 0) return -1;
-    return condorcetFromRanks(computeRanks(gridVoters, candidates), candidates.length);
-  }, [lens, gridVoters, candidates]);
+    return condorcetFromRanks(computeRanks(voters, candidates), candidates.length);
+  }, [lens, voters, candidates]);
 
   // Current field's lottery (existing candidates' first-preference shares).
   const lotteryShares = useMemo(
@@ -249,6 +298,14 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
         }
       : null;
+  const winnerIdx = sceneWinnerIndex({
+    showRuleUi,
+    rule,
+    behavior,
+    strategicOutcome,
+    candidates,
+    winner,
+  });
   // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
   // first-choice share, then the winner the readout shows.
   const summaryId = React.useId();
@@ -407,7 +464,16 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       )}
 
       {show3d && (
-        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
+        <LeaderScene3D
+          voters={voters}
+          candidates={candidates}
+          palette={PALETTE}
+          you={youMarker}
+          cameraRef={sceneCamera}
+          winner={winnerIdx}
+          condorcet={markedIndex(showRuleUi, cwIndex)}
+          describedBy={summaryId}
+        />
       )}
 
       {/* hidden: read once, as the map's description, not again in reading order. */}
@@ -425,7 +491,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
-        {showRuleUi && lens === 'winner' && (
+        {showRuleUi && !show3d && lens === 'winner' && (
           <g data-testid="winregion" opacity={0.28}>
             {region &&
               region.cells.map((widx, k) => {
@@ -448,7 +514,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
         {/* Probability lens — random-ballot win-probability heatmap of a new
             entrant: opacity ∝ its lottery chance (first-preference basin). */}
-        {lens === 'probability' && probRegion && (
+        {lens === 'probability' && !show3d && probRegion && (
           <g data-testid="problens">
             {(() => {
               const maxV = Math.max(...probRegion.cells, 1e-6);
@@ -911,13 +977,15 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             {c.name}
           </span>
         ))}
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: ENTRY_COLOR }}
-          />
-          {t('canvas.entrantZone')}
-        </span>
+        {!show3d && (
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ background: ENTRY_COLOR }}
+            />
+            {t('canvas.entrantZone')}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {lens === 'manipulation' && t('canvas.capManip')}
