@@ -1204,6 +1204,7 @@ const pgFr = {
     announce: '{{rule}} : victoire de {{name}}',
     announceStrategic: '{{rule}}, votes stratégiques : victoire de {{name}}',
     announceNone: '{{rule}} : pas de vainqueur fixe',
+    flip: 'Le vainqueur vient de changer : {{from}} → {{to}}.',
   },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',

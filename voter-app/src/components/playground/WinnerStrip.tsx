@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES, hasFixedWinner, winnersByRule, groupByWinner } from '../../lib/scorecard';
 import { candidateColor, textTone } from '../../lib/palette';
+import { computeRanks, computeScores } from '../../lib/playgroundVoting';
+import { buildTraceFromBallots } from '../../lib/voteTrace';
+import { explainWinner } from '../../lib/explainWinner';
+import { nextFlip, type Flip, type WinnerMark } from '../../lib/winnerFlip';
 import { isSpatialSource } from '../../stores/useElectionStore';
 import {
   useStoreCtx,
@@ -33,21 +37,67 @@ const WinnerStrip: React.FC = () => {
     () => LEADER_RULES.filter((r) => r !== leaderRule && hasFixedWinner(r) && enabledRules.has(r)),
     [leaderRule, enabledRules]
   );
+  // The expressed ballots, ranked and scored once: the winners and the reason below read the same.
+  const ballots = React.useMemo(
+    () =>
+      shown
+        ? {
+            ranks: computeRanks(expressedVoters, leaderCandidates),
+            scores: computeScores(expressedVoters, leaderCandidates),
+          }
+        : undefined,
+    [shown, expressedVoters, leaderCandidates]
+  );
   const winners = React.useMemo(
     () =>
-      shown ? winnersByRule(expressedVoters, leaderCandidates, [leaderRule, ...otherRules]) : {},
-    [shown, expressedVoters, leaderCandidates, leaderRule, otherRules]
+      shown
+        ? winnersByRule(expressedVoters, leaderCandidates, [leaderRule, ...otherRules], ballots)
+        : {},
+    [shown, expressedVoters, leaderCandidates, leaderRule, otherRules, ballots]
   );
 
   const sincere = winners[leaderRule];
-  if (!shown || (sincere == null && hasFixedWinner(leaderRule))) return null;
   // The map's readout shows the strategic winner when voters are strategic; mirror it.
-  const current =
-    behavior !== 'sincere' && strategicOutcome ? strategicOutcome.strategicWinner : sincere;
+  const strategic = behavior !== 'sincere' && strategicOutcome != null;
+  const current = strategic ? strategicOutcome.strategicWinner : sincere;
+  const currentName = current == null ? undefined : leaderCandidates[current]?.name;
+
+  // Why the winner wins, in the words of the map's method. Sincere votes only: a strategic
+  // winner is not the one these ballots elect, and a sentence about the sincere tally would
+  // name the wrong reasons.
+  const why = React.useMemo(() => {
+    if (!ballots || strategic || sincere == null || !hasFixedWinner(leaderRule)) return null;
+    const trace = buildTraceFromBallots(
+      leaderCandidates,
+      ballots.ranks,
+      ballots.scores,
+      leaderRule
+    );
+    return explainWinner(trace, leaderCandidates);
+  }, [ballots, strategic, sincere, leaderRule, leaderCandidates]);
+
+  // "The winner just changed": read off the displayed winner, under the same method and the same
+  // field of candidates (see winnerFlip). An effect, because it compares with the previous render.
+  const namesKey = leaderCandidates.map((c) => c.name).join('\u0000');
+  const mark: WinnerMark | null = React.useMemo(
+    () =>
+      currentName === undefined || !hasFixedWinner(leaderRule)
+        ? null
+        : { rule: leaderRule, names: namesKey.split('\u0000'), winner: currentName },
+    [leaderRule, namesKey, currentName]
+  );
+  const previous = React.useRef<WinnerMark | null>(null);
+  const [flip, setFlip] = React.useState<Flip | null>(null);
+  React.useEffect(() => {
+    const before = previous.current;
+    previous.current = mark;
+    setFlip((f) => nextFlip(before, mark, f));
+  }, [mark]);
+
+  if (!shown || (sincere == null && hasFixedWinner(leaderRule))) return null;
   const groups = groupByWinner(winners, otherRules);
   // Names are text, not HTML: React escapes them, so i18next must not (PLAN_BEYOND_CI W3.3).
   const raw = { interpolation: { escapeValue: false } };
-  const strategic = behavior !== 'sincere' && strategicOutcome != null;
   const announceKey = strategic ? 'strip.announceStrategic' : 'strip.announce';
   const announced =
     hasFixedWinner(leaderRule) && current != null
@@ -109,6 +159,16 @@ const WinnerStrip: React.FC = () => {
           )}
           {behavior !== 'sincere' && ` ${t('strip.sincere')}`}
         </span>
+      )}
+      {why && (
+        <p data-testid="winner-why" className="m-0 basis-full text-[0.8rem] text-muted-foreground">
+          {t(why.key, { ...why.params, ...raw })}
+        </p>
+      )}
+      {flip && (
+        <p data-testid="winner-flip" className="m-0 basis-full text-[0.8rem] font-bold">
+          {t('strip.flip', { ...flip, ...raw })}
+        </p>
       )}
     </div>
   );
