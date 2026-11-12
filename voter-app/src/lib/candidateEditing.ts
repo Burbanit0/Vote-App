@@ -23,10 +23,9 @@ export function nameProblem(raw: string, others: readonly string[]): NameProblem
 /** "Candidate 4": the first `${base} ${n}` nobody has yet, counting up from the next free number. */
 export function nextName(base: string, existing: readonly string[]): string {
   const taken = new Set(existing);
-  for (let n = existing.length + 1; ; n++) {
-    const name = `${base} ${n}`;
-    if (!taken.has(name)) return name;
-  }
+  let n = existing.length + 1;
+  while (taken.has(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
 }
 
 type Place = { x: number; y: number; z: number };

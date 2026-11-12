@@ -56,6 +56,13 @@ describe('nextName', () => {
     expect(nextName('Candidate', ['Alice', 'Bob', 'Carol'])).toBe('Candidate 4');
   });
   it('skips a number somebody already took', () => {
+    // Three names, so the next number is 4, and "Candidate 4" is taken: it moves on to 5.
+    expect(nextName('Candidate', ['A', 'B', 'Candidate 4'])).toBe('Candidate 5');
+    expect(nextName('Candidate', ['Candidate 2', 'Candidate 3', 'Candidate 4'])).toBe(
+      'Candidate 5'
+    );
+  });
+  it('keeps the first number when it is free, even if a later one is taken', () => {
     expect(nextName('Candidate', ['A', 'B', 'Candidate 3'])).toBe('Candidate 4');
   });
 });
