@@ -615,6 +615,9 @@ const pgPseudo: PlaygroundKeys = {
     svIntro:
       '⟦Párt~~ dés~~ éléçtéúrs~~~~ qúí~~ póúrráíéñt~~~~ ámélíórér~~~~ léúr~~ résúltát~~~ éñ~ vótáñt~~~ íñsíñçèréméñt~~~~~ (Gíbbárd–Sáttérthwáíté,~~~~~~~~~ pár~~ fórçé~~ brúté).~~~ Plús~~ ç’ést~~ bás,~~ plús~~ lá~ méthódé~~~ résísté.~~~ Cálçúl~~~ lóúrd~~ —~ à~ lá~ démáñdé,~~~ hórs~~ léçtúré~~~ témps-réél.~~~~⟧',
     svComputing: '⟦Cálçúl…~~~ (qúélqúés~~~~ séçóñdés)~~~~⟧',
+    youTitle: '⟦◆~ Fáút-íl~~~ vótér~~ sélóñ~~ vós~~ çóñvíçtíóñs~~~~ ?~⟧',
+    youSubtitle:
+      '⟦Glísséz~~~ lé~ lósáñgé~~~ súr~~ lá~ çárté~~ :~ çháqúé~~~ méthódé~~~ ést~~ júgéé~~ póúr~~ vóús.~~⟧',
     svRun: '⟦▶~ Cálçúlér~~~ lá~ vúlñérábílíté~~~~~ strátégíqúé~~~~⟧',
     svError: '⟦Cálçúl~~~ íñdíspóñíblé~~~~~ (báçkéñd).~~~~ Rééssáyéz~~~~ áprès~~ rédémárrágé.~~~~~⟧',
     svFooter:
@@ -1113,6 +1116,8 @@ const pgPseudo: PlaygroundKeys = {
       '⟦L’éléçtórát~~~~ çómpósé~~~ álíméñté~~~ lá~ vúé~~ dírígéáñt~~~~ (çárté,~~~ zóñés,~~~ bíláñ,~~~ çólóré~~~ pár~~ çómmúñáúté),~~~~~ lé~ párléméñt~~~~ (síègés,~~~ bíláñ~~ d’ássémbléé)~~~~~ ét~ lé~ táúx~~ dé~ párádóxé~~~ (vráí~~ táúx~~ dé~ çyçlé~~ spátíál,~~~ ré-éçháñtíllóññé).~~~~~~~ Lé~ 3ᵉ~ áxé~~ ñ’ágít~~~ qú’éñ~~ módé~~ çárté~~ 3D~ ;~ lé~ brúít~~ dé~ mésúré~~~ símúlé~~~ l’íñçértítúdé~~~~~ d’úñ~~ sóñdágé.~~~⟧',
   },
   sincerity: {
+    fewCandidates:
+      '⟦Ávéç~~ móíñs~~ dé~ tróís~~ çáñdídáts,~~~~ íl~ ñ’y~~ á~ pás~~ dé~ dílémmé~~~ strátégíqúé~~~~ :~ tóútés~~~ lés~~ méthódés~~~ sóñt~~ sûrés~~ pár~~ çóñstrúçtíóñ.~~~~~⟧',
     typeCompromise: '⟦vóté~~ útílé~~ (çómprómís)~~~~⟧',
     typeBurying: '⟦éñtérréméñt~~~~ d’úñ~~ rívál~~⟧',
     intro:

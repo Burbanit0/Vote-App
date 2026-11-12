@@ -6,7 +6,9 @@ import { Field, selectCls } from '../playgroundFields';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { BLANK_LENSES } from '../../../lib/blankVote';
 import Collapsible from '../Collapsible';
+import { isSpatialSource } from '../../../stores/useElectionStore';
 import StrategicModule from '../StrategicModule';
+import SincerityModule from '../SincerityModule';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -31,6 +33,10 @@ const StrategyMoment: React.FC = () => {
     manipDetail,
     strategicOutcome,
     leaderCandidates,
+    dims,
+    youPos,
+    setYouPos,
+    prefSource,
   } = usePlaygroundCtx();
 
   const strat =
@@ -331,6 +337,26 @@ const StrategyMoment: React.FC = () => {
             {manipDetail.hard.backfired ? t('strategy.exampleIrvBackfire') : ''}.
           </p>
         </div>
+      )}
+
+      {/* ── "You": the diamond on the map is a voter of your own. Collapsed like the other heavy
+          panels (nothing mounts at first paint); once open it judges every method for the position
+          you drag the diamond to, or set with the sliders. The same state the Lab's sincerity fiche
+          reads. ── */}
+      {mode === 'leader' && isSpatialSource(prefSource) && (
+        <Collapsible
+          title={t('strategy.youTitle')}
+          subtitle={t('strategy.youSubtitle')}
+          testid="module-sincerity"
+        >
+          <SincerityModule
+            voters={votingVoters}
+            candidates={leaderCandidates}
+            dims={dims}
+            you={youPos}
+            onYouChange={setYouPos}
+          />
+        </Collapsible>
       )}
 
       {/* ── Per-method strategy signals (on-demand, backend): manipulability rate,

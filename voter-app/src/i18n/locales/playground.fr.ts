@@ -581,6 +581,8 @@ const pgFr = {
     svIntro:
       'Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul lourd — à la demande, hors lecture temps-réel.',
     svComputing: 'Calcul… (quelques secondes)',
+    youTitle: '◆ Faut-il voter selon vos convictions ?',
+    youSubtitle: 'Glissez le losange sur la carte : chaque méthode est jugée pour vous.',
     svRun: '▶ Calculer la vulnérabilité stratégique',
     svError: 'Calcul indisponible (backend). Réessayez après redémarrage.',
     svFooter: 'Barre = part d’électeurs avec un mensonge profitable (0 % = aucun n’y gagne).',
@@ -1039,6 +1041,8 @@ const pgFr = {
       'L’électorat composé alimente la vue dirigeant (carte, zones, bilan, coloré par communauté), le parlement (sièges, bilan d’assemblée) et le taux de paradoxe (vrai taux de cycle spatial, ré-échantillonné). Le 3ᵉ axe n’agit qu’en mode carte 3D ; le bruit de mesure simule l’incertitude d’un sondage.',
   },
   sincerity: {
+    fewCandidates:
+      'Avec moins de trois candidats, il n’y a pas de dilemme stratégique : toutes les méthodes sont sûres par construction.',
     typeCompromise: 'vote utile (compromis)',
     typeBurying: 'enterrement d’un rival',
     intro:
