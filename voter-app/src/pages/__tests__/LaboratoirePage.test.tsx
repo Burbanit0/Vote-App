@@ -67,7 +67,7 @@ vi.mock('../../services/profileApi', () => ({
   }),
 }));
 
-import { MemoryRouter, Routes, Route } from 'react-router';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import LaboratoirePage from '../LaboratoirePage';
 import { LAB_FAMILIES } from '../../components/lab/labCatalog';
 import {
@@ -161,10 +161,139 @@ describe('LaboratoirePage — the bench', () => {
   });
 
   it('deep-links: ?exp= selects the fiche AND its family; &vsElec= opens the electorate comparison', () => {
-    renderLab('/laboratoire?exp=thy-sen&vsElec=polarized');
-    expect(screen.getByTestId('lab-family-theory')).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByTestId('chip-thy-sen')).toHaveAttribute('aria-pressed', 'true');
+    // A fiche that reads the electorate's composition (the values lab), so it has a second column.
+    renderLab('/laboratoire?exp=lab-values&vsElec=polarized');
+    expect(screen.getByTestId('lab-family-rules')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('chip-lab-values')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
+  });
+
+  describe('Compare is offered where it changes something', () => {
+    it('on a fiche that reads the electorate: the button, and the electorate it reads', () => {
+      renderLab('/laboratoire?exp=lab-matrix');
+      expect(screen.getByTestId('lab-compare')).toBeInTheDocument();
+      const label = screen.getByTestId('lab-elec-label-primary');
+      expect(label).toHaveAttribute('data-reads-electorate', 'true');
+      expect(label).toHaveTextContent('Current electorate');
+    });
+
+    it('on a fiche that ignores it: no button, and the label says why', () => {
+      renderLab('/laboratoire?exp=thy-sen');
+      expect(screen.queryByTestId('lab-compare')).not.toBeInTheDocument();
+      const label = screen.getByTestId('lab-elec-label-primary');
+      expect(label).toHaveAttribute('data-reads-electorate', 'false');
+      expect(label).toHaveTextContent('Same on any electorate mix');
+      expect(label).toHaveAttribute('title', expect.stringMatching(/comparing electorates/));
+    });
+
+    it('ignores a stale &vsElec= on such a fiche: the two columns would be the same', () => {
+      renderLab('/laboratoire?exp=thy-sen&vsElec=polarized');
+      expect(screen.getByTestId('chip-thy-sen')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('lab-elec-picker')).not.toBeInTheDocument();
+    });
+
+    it('closes the second column when the bench moves to a fiche that ignores the electorate', () => {
+      renderLab('/laboratoire?exp=lab-values&vsElec=polarized');
+      expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('lab-family-theory'));
+      fireEvent.click(screen.getByTestId('chip-thy-sen'));
+      expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('lab-compare')).not.toBeInTheDocument();
+    });
+
+    it('and leaves no stale &vsElec= in the link of a fiche that ignores the electorate', () => {
+      let search = '';
+      const Probe: React.FC = () => {
+        search = useLocation().search;
+        return null;
+      };
+      render(
+        <MemoryRouter initialEntries={['/laboratoire?exp=lab-values&vsElec=polarized']}>
+          <Routes>
+            <Route
+              path="/laboratoire"
+              element={
+                <>
+                  <LaboratoirePage />
+                  <Probe />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      );
+      expect(search).toContain('vsElec=polarized');
+      fireEvent.click(screen.getByTestId('lab-family-theory'));
+      fireEvent.click(screen.getByTestId('chip-thy-sen'));
+      expect(search).toBe('?exp=thy-sen');
+    });
+
+    it('keeps the second column when the bench moves to another fiche that reads it', () => {
+      renderLab('/laboratoire?exp=lab-values&vsElec=polarized');
+      fireEvent.click(screen.getByTestId('lab-family-methods'));
+      fireEvent.click(screen.getByTestId('chip-lab-matrix'));
+      expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
+    });
+  });
+
+  describe('search', () => {
+    const search = (q: string) =>
+      fireEvent.change(screen.getByTestId('lab-search'), { target: { value: q } });
+
+    it('looks across every family at once, and stands in for the catalogue while it holds words', () => {
+      renderLab();
+      // The methods catalogue is open: the jury fiche (systems family) is not offered...
+      expect(screen.queryByTestId('chip-mech-jury')).not.toBeInTheDocument();
+      search('jury');
+      // ...until the search finds it, wherever it lives.
+      expect(screen.getByTestId('lab-search-results')).toBeInTheDocument();
+      expect(screen.getByTestId('chip-mech-jury')).toBeInTheDocument();
+      expect(screen.queryByTestId('chip-lab-matrix')).not.toBeInTheDocument();
+      expect(screen.getByTestId('lab-search-count')).toHaveTextContent(/fiche/);
+    });
+
+    it('says so when nothing matches, with what was typed', () => {
+      renderLab();
+      search('zzzz');
+      expect(screen.getByTestId('lab-search-empty')).toHaveTextContent('No fiche matches “zzzz”.');
+      expect(screen.queryByTestId('lab-search-results')?.querySelector('button')).toBeNull();
+    });
+
+    it('matches on the group and family names too, not only the fiche title', () => {
+      renderLab();
+      search('abstention');
+      // "Blank vote & abstention" is a family: every fiche in it is a result.
+      expect(screen.getByTestId('chip-thy-blank')).toBeInTheDocument();
+      expect(screen.getByTestId('chip-blank-divergence')).toBeInTheDocument();
+    });
+
+    it('a result opens its fiche and brings its family along; closing the search lands on it', () => {
+      renderLab();
+      search('jury');
+      fireEvent.click(screen.getByTestId('chip-mech-jury'));
+      expect(screen.getByTestId('lab-family-systems')).toHaveAttribute('aria-checked', 'true');
+      // Escape in the box clears it, and the catalogue of that family is back, fiche pressed.
+      fireEvent.keyDown(screen.getByTestId('lab-search'), { key: 'Escape' });
+      expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chip-mech-jury')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('picking a family clears the search', () => {
+      renderLab();
+      search('jury');
+      fireEvent.click(screen.getByTestId('lab-family-theory'));
+      expect(screen.getByTestId('lab-search')).toHaveValue('');
+      expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chip-thy-sen')).toBeInTheDocument();
+    });
+
+    it('a blank box is no search: the family catalogue stays', () => {
+      renderLab();
+      search('   ');
+      expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chip-lab-matrix')).toBeInTheDocument();
+    });
   });
 
   it('an unknown ?exp= falls back to the matrix instead of a blank bench', () => {

@@ -1466,6 +1466,13 @@ const pgEn: PlaygroundKeys = {
     comparePick: 'Compare the same fiche on:',
     compareStop: 'Close the comparison',
     elecCurrent: 'Current electorate',
+    elecIndependent: 'Same on any electorate mix',
+    elecIndependentTitle:
+      'This fiche runs on the candidates, the number of voters and the ideology preset, not on the electorate you compose, so comparing electorates would change nothing here.',
+    search: 'Search the fiches…',
+    searchResults_one: '{{count}} fiche matches',
+    searchResults_other: '{{count}} fiches match',
+    searchEmpty: 'No fiche matches “{{q}}”.',
     matrix: {
       title: 'Method comparison',
       colMethod: 'Method',

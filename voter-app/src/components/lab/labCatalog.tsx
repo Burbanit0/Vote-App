@@ -228,6 +228,11 @@ export interface LabExperiment {
   /** The panel renders its own full header (matrix, gallery) — the bench then
    *  shows only the kicker + actions instead of doubling the title. */
   ownHeader?: boolean;
+  /** The fiche's result depends on the electorate's composition (the voters the playground draws
+   *  from its communities). "Compare an electorate" swaps exactly that, so it is offered only
+   *  here: every other fiche runs on the candidates, the voter count and the ideology preset,
+   *  which the comparison leaves alone. Locked to the code by labCatalog.electorate.test.ts. */
+  readsElectorate: boolean;
 }
 
 export interface LabGroup {
@@ -247,6 +252,21 @@ export interface LabFamily {
   groups: LabGroup[];
 }
 
+/** The fiches that read the composed electorate: through the playground's contexts (the voters it
+ *  draws, `useInstrumentCtx`/`useStoreCtx`) or through the request built from `playground.electorate`. */
+const READS_ELECTORATE: ReadonlySet<string> = new Set([
+  'lab-duel',
+  'lab-matrix',
+  'lab-gallery',
+  'lab-ballot',
+  'lab-values',
+  'strat-sincerity',
+  'strat-vuln',
+  'strat-equilibrium',
+  'anchor-vse',
+  'thy-blank',
+]);
+
 // A lazyWithPreload'd panel carries its own `preload`, so `exp` reads it off the
 // component. The wrapper bodies above feed a panel its props and are not lazy
 // themselves, so they name the module whose chunk to warm instead. Either way
@@ -257,7 +277,13 @@ const exp = (
   titleKey: string,
   Body: React.ComponentType & { preload?: () => unknown },
   preload = Body.preload as () => unknown
-): LabExperiment => ({ id, titleKey, Body, preload });
+): LabExperiment => ({
+  id,
+  titleKey,
+  Body,
+  preload,
+  readsElectorate: READS_ELECTORATE.has(id),
+});
 
 export const LAB_FAMILIES: LabFamily[] = [
   {
