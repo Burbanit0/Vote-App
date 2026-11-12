@@ -790,6 +790,24 @@ def test_vllm_complete_with_logprobs_parses_content_and_token_logprobs():
     assert tokens == [TokenLogprob(token="yes", logprob=-0.04, alternatives={"yes": -0.04, "no": -3.26})]
 
 
+def test_vllm_complete_with_logprobs_skips_a_malformed_alternative_and_keeps_the_rest():
+    # A server that returns a half-formed alternative (not an object, no token, a non-numeric
+    # logprob) must not lose the well-formed ones or the chosen token.
+    entry = {
+        "token": "yes",
+        "logprob": -0.04,
+        "top_logprobs": [
+            "not an object",
+            {"logprob": -1.0},                       # no token
+            {"token": "maybe", "logprob": "high"},   # logprob is not a number
+            {"token": "no", "logprob": -3.26},
+        ],
+    }
+    client = _vllm_client(lambda request: _logprobs_response("length", "yes", [entry]))
+    _content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert tokens == [TokenLogprob(token="yes", logprob=-0.04, alternatives={"no": -3.26, "yes": -0.04})]
+
+
 def test_vllm_complete_with_logprobs_accepts_finish_reason_length():
     # The expected, common case here -- see _extract_content_and_logprobs's
     # own docstring for why this differs from complete_json's strict 'stop'.

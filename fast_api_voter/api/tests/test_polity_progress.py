@@ -196,6 +196,19 @@ def test_llm_disabled_never_counts_reaction_to_events_own_unconditional_codebook
     assert tracker.decisions_by_type == {}
 
 
+def test_llm_disabled_with_no_journal_yet_is_a_quiet_no_op(tmp_path):
+    # A tick that ran before anything was journaled: the file does not exist. With the LLM off there is
+    # nothing to tally and no position to track, so the call must neither fail nor invent a count.
+    tracker = ProgressTracker(
+        run_id="r1", total_ticks=10, ticks_per_year=4, progress_path=tmp_path / "progress.json", llm_enabled=False,
+    )
+    tracker.record_tick(
+        tick=0, tick_duration=1.0, wall_clock_elapsed=1.0, journal_path=tmp_path / "absent.jsonl", checkpoint_tick=0,
+    )
+    assert tracker.decisions_by_type == {}
+    assert (tmp_path / "progress.json").exists()
+
+
 def test_llm_enabled_true_still_counts_normally(tmp_path):
     # The default (llm_enabled=True) must stay exactly as it was before this
     # gate was added -- every earlier test in this file already exercises
