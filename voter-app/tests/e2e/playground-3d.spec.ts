@@ -1,10 +1,9 @@
 import { test, expect, type Page } from './coverageFixtures';
 
-// The 3-D electorate. The orbital scene draws the electorate ("you" is the one marker
-// that can be dragged); what
-// changing the view or a parameter does to it is the contract here: the elected
-// candidate and the Condorcet winner are ringed in the scene, the lens overlays live on
-// the x–y plane, and the camera survives a trip to that plane.
+// The 3-D electorate. The orbital scene draws the electorate ("you" is the one marker that
+// can be dragged); what changing the view or a parameter does to it is the contract here:
+// the elected candidate and the Condorcet winner are ringed in the scene, the lens overlays
+// live on the x–y plane, and the camera survives a trip to that plane.
 
 async function openScene(page: Page) {
   await page.goto('/playground');
@@ -76,8 +75,11 @@ test.describe('Playground — 3D scene', () => {
       const b = (await marker.locator('rect').boundingBox())!;
       return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
     };
-    const cand = () =>
-      page.locator('[data-testid="scene-candidate-0"] circle').first().getAttribute('cx');
+    // Where a candidate is drawn: yaw moves it sideways, pitch moves it up and down.
+    const cand = async () => {
+      const circle = page.locator('[data-testid="scene-candidate-0"] circle').first();
+      return [await circle.getAttribute('cx'), await circle.getAttribute('cy')];
+    };
     const [from, candBefore] = [await where(), await cand()];
 
     await page.mouse.move(from.x, from.y);
@@ -88,7 +90,7 @@ test.describe('Playground — 3D scene', () => {
     const to = await where();
     expect(to.x).toBeGreaterThan(from.x + 40); // it followed the pointer…
     expect(to.y).toBeLessThan(from.y - 25);
-    expect(await cand()).toBe(candBefore); // …and the camera did not orbit.
+    expect(await cand()).toEqual(candBefore); // …and the camera did not orbit (yaw or pitch).
     expect(crashes).toEqual([]);
   });
 });

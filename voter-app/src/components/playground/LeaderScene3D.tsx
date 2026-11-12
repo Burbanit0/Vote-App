@@ -160,11 +160,14 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     Object.assign(saved, { yaw, pitch, spin });
   }, [saved, yaw, pitch, spin]);
   const drag = useRef<{ x: number; y: number } | null>(null);
-  // Dragging "you": where the pointer grabbed the marker (SVG units) and the depth it keeps.
+  // Dragging "you": where the pointer grabbed the marker (SVG units), the depth it keeps, and the
+  // camera it was grabbed under (a spin frame that lands after the press must not shift it).
   const dragYou = useRef<{
     dx: number;
     dy: number;
     z: number;
+    yaw: number;
+    pitch: number;
     move: (x: number, y: number, z: number) => void;
   } | null>(null);
 
@@ -193,8 +196,8 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         // Same view depth, new screen position → back to domain coordinates.
         const p = unrotate(
           { x: (at.x - grab.dx - CX) / SCALE, y: (CY - (at.y - grab.dy)) / SCALE, z: grab.z },
-          saved.yaw,
-          saved.pitch
+          grab.yaw,
+          grab.pitch
         );
         grab.move(clamp1(p.x), clamp1(p.y), clamp1(p.z));
         return;
@@ -209,7 +212,11 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
       setYaw((y) => y + dx * 0.01);
       setPitch((p) => Math.max(-1.4, Math.min(1.4, p + dy * 0.01)));
     };
-    const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
+    const onMM = (e: MouseEvent) => {
+      // A release outside the window never reaches us: without a button held, the drag is over.
+      if (dragYou.current && e.buttons === 0) dragYou.current = null;
+      move(e.clientX, e.clientY);
+    };
     const onUp = () => {
       drag.current = null;
       dragYou.current = null;
@@ -224,13 +231,15 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     window.addEventListener('mouseup', onUp);
     svg?.addEventListener('touchmove', onTM, { passive: false });
     svg?.addEventListener('touchend', onUp);
+    svg?.addEventListener('touchcancel', onUp);
     return () => {
       window.removeEventListener('mousemove', onMM);
       window.removeEventListener('mouseup', onUp);
       svg?.removeEventListener('touchmove', onTM);
       svg?.removeEventListener('touchend', onUp);
+      svg?.removeEventListener('touchcancel', onUp);
     };
-  }, [saved]);
+  }, []);
 
   const startDrag = (cx: number, cy: number) => {
     drag.current = { x: cx, y: cy };
@@ -266,7 +275,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   const startDragYou = (move: NonNullable<typeof onMoveYou>, cx: number, cy: number) => {
     const at = svgPoint(svgRef.current as SVGSVGElement, cx, cy);
     const here = youR as R3; // only called from the marker, which renders when youR is set
-    dragYou.current = { dx: at.x - sx(here), dy: at.y - sy(here), z: here.z, move };
+    dragYou.current = { dx: at.x - sx(here), dy: at.y - sy(here), z: here.z, yaw, pitch, move };
     setSpin(false);
   };
 
@@ -428,7 +437,10 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
             data-testid="you-marker-3d"
             style={onMoveYou ? { cursor: 'grab' } : undefined}
             onMouseDown={
-              onMoveYou ? (e) => startDragYou(onMoveYou, e.clientX, e.clientY) : undefined
+              onMoveYou
+                ? // The primary button only: a right-click opens a menu and never sends a mouseup.
+                  (e) => e.button === 0 && startDragYou(onMoveYou, e.clientX, e.clientY)
+                : undefined
             }
             onTouchStart={
               onMoveYou

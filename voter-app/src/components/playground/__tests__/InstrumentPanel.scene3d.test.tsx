@@ -114,10 +114,34 @@ describe('InstrumentPanel → 3D scene', () => {
     const body = marker.querySelector('rect')!;
     const at = { x: Number(body.getAttribute('x')) + 5, y: Number(body.getAttribute('y')) + 5 };
     fireEvent.mouseDown(marker, { clientX: at.x, clientY: at.y });
-    fireEvent.mouseMove(window, { clientX: at.x + 60, clientY: at.y - 45 });
+    fireEvent.mouseMove(window, { buttons: 1, clientX: at.x + 60, clientY: at.y - 45 });
     fireEvent.mouseUp(window);
     await waitFor(() => expect(youPos).not.toEqual(start));
     // Depth is part of the move: a screen-plane drag on a rotated camera changes z as well as x.
     expect(youPos!.z).not.toBe(start.z);
+  });
+
+  it('dragging "you" on the x–y plane leaves the depth set in the scene alone', async () => {
+    let ctx: ReturnType<typeof useInstrumentCtx> | null = null;
+    const Probe = () => {
+      const { setActiveMoment } = useJourneyCtx();
+      useEffect(() => setActiveMoment('strategy'), [setActiveMoment]);
+      ctx = useInstrumentCtx();
+      return null;
+    };
+    render(
+      <PlaygroundProvider>
+        <Probe />
+        <InstrumentPanel forceShowRuleUi />
+      </PlaygroundProvider>
+    );
+    await screen.findByTestId('you-marker-3d');
+    act(() => ctx!.setYouPos({ x: -0.5, y: 0, z: 0.6 })); // a depth set in the 3D scene
+    fireEvent.click(screen.getByTestId('view-plane'));
+    const marker = await screen.findByTestId('you-marker');
+    fireEvent.mouseDown(marker);
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 200 });
+    await waitFor(() => expect(ctx!.youPos.x).not.toBeCloseTo(-0.5));
+    expect(ctx!.youPos.z).toBeCloseTo(0.6);
   });
 });
