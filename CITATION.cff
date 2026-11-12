@@ -8,8 +8,8 @@ authors:
   - alias: Burbanit0
 repository-code: "https://github.com/Burbanit0/Vote-App"
 license: MIT
-version: 0.2.0
-date-released: "2026-09-27"
+version: 0.3.0
+date-released: "2026-11-12"
 keywords:
   - social choice
   - voting methods
