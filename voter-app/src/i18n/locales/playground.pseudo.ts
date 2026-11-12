@@ -1648,8 +1648,8 @@ const pgPseudo: PlaygroundKeys = {
     compareStop: '⟦Férmér~~~ lá~ çómpáráísóñ~~~~⟧',
     elecCurrent: '⟦Éléçtórát~~~~ áçtúél~~~⟧',
     elecIndependent: '⟦Ídéñtíqúé~~~~ qúél~~ qúé~~ sóít~~ l’éléçtórát~~~~⟧',
-    elecIndependentTitle:
-      '⟦Cétté~~ fíçhé~~ tóúrñé~~~ súr~~ lés~~ çáñdídáts,~~~~ lé~ ñómbré~~~ d’éléçtéúrs~~~~ ét~ lé~ préréglágé~~~~ d’ídéólógíé,~~~~~ pás~~ súr~~ l’éléçtórát~~~~ çómpósé~~~ :~ çómpárér~~~ dés~~ éléçtóráts~~~~ ñé~ çháñgéráít~~~~ ríéñ~~ íçí.~~⟧',
+    elecIndependentNote:
+      '⟦Tóúrñé~~~ súr~~ lés~~ çáñdídáts,~~~~ lé~ ñómbré~~~ d’éléçtéúrs~~~~ ét~ lé~ préréglágé~~~~ d’ídéólógíé,~~~~~ pás~~ súr~~ l’éléçtórát~~~~ çómpósé~~~ :~ çómpárér~~~ dés~~ éléçtóráts~~~~ ñé~ çháñgéráít~~~~ ríéñ~~ íçí.~~⟧',
     search: '⟦Chérçhér~~~ úñé~~ fíçhé…~~~⟧',
     searchResults_one: '⟦{{count}} fíçhé~~ çórréspóñd~~~~⟧',
     searchResults_other: '⟦{{count}} fíçhés~~~ çórréspóñdéñt~~~~~⟧',

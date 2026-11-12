@@ -1490,8 +1490,8 @@ const pgFr = {
     compareStop: 'Fermer la comparaison',
     elecCurrent: 'Électorat actuel',
     elecIndependent: 'Identique quel que soit l’électorat',
-    elecIndependentTitle:
-      'Cette fiche tourne sur les candidats, le nombre d’électeurs et le préréglage d’idéologie, pas sur l’électorat composé : comparer des électorats ne changerait rien ici.',
+    elecIndependentNote:
+      'Tourne sur les candidats, le nombre d’électeurs et le préréglage d’idéologie, pas sur l’électorat composé : comparer des électorats ne changerait rien ici.',
     search: 'Chercher une fiche…',
     searchResults_one: '{{count}} fiche correspond',
     searchResults_other: '{{count}} fiches correspondent',

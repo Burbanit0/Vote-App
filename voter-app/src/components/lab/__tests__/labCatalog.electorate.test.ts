@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ALL_EXPERIMENTS } from '../labCatalog';
+import { ALL_EXPERIMENTS, READS_ELECTORATE } from '../labCatalog';
 
 // "Compare an electorate" swaps ONE thing under a fiche: the voters the playground draws from its
 // communities (`playground.electorate`); the candidates, the voter count, the ideology preset and
@@ -109,6 +109,11 @@ describe('readsElectorate matches what each fiche reads', () => {
       .map((e) => e.id)
       .sort();
     expect(flagged).toEqual(scanned);
+  });
+
+  it('names only fiches that exist (a typo in the set would flag nothing)', () => {
+    const known = new Set(ALL_EXPERIMENTS.map((e) => e.id));
+    expect([...READS_ELECTORATE].filter((id) => !known.has(id))).toEqual([]);
   });
 
   it('is a minority: most fiches run on the candidates and the ideology preset alone', () => {

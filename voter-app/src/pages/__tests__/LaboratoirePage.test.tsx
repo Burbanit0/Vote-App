@@ -172,18 +172,37 @@ describe('LaboratoirePage — the bench', () => {
     it('on a fiche that reads the electorate: the button, and the electorate it reads', () => {
       renderLab('/laboratoire?exp=lab-matrix');
       expect(screen.getByTestId('lab-compare')).toBeInTheDocument();
-      const label = screen.getByTestId('lab-elec-label-primary');
-      expect(label).toHaveAttribute('data-reads-electorate', 'true');
-      expect(label).toHaveTextContent('Current electorate');
+      expect(screen.getByTestId('lab-elec-label-primary')).toHaveTextContent('Current electorate');
+      expect(screen.queryByTestId('lab-elec-note')).not.toBeInTheDocument();
     });
 
     it('on a fiche that ignores it: no button, and the label says why', () => {
       renderLab('/laboratoire?exp=thy-sen');
       expect(screen.queryByTestId('lab-compare')).not.toBeInTheDocument();
-      const label = screen.getByTestId('lab-elec-label-primary');
-      expect(label).toHaveAttribute('data-reads-electorate', 'false');
-      expect(label).toHaveTextContent('Same on any electorate mix');
-      expect(label).toHaveAttribute('title', expect.stringMatching(/comparing electorates/));
+      expect(screen.getByTestId('lab-elec-label-primary')).toHaveTextContent(
+        'Same on any electorate mix'
+      );
+      // The reason is text on the page, not a tooltip a keyboard or a phone never shows.
+      expect(screen.getByTestId('lab-elec-note')).toHaveTextContent(/comparing electorates/);
+    });
+
+    it('reports a content error from such a fiche without naming an electorate it does not read', () => {
+      renderLab('/laboratoire?exp=thy-sen');
+      const where = new URL(
+        screen.getByTestId('report-content-error').getAttribute('href')!
+      ).searchParams.get('where');
+      expect(where).toBe('lab:thy-sen @ electorate-independent');
+    });
+
+    it('forgets an armed picker when the bench moves on: it does not come back by itself', () => {
+      renderLab('/laboratoire?exp=lab-matrix');
+      fireEvent.click(screen.getByTestId('lab-compare'));
+      expect(screen.getByTestId('lab-elec-picker')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('lab-family-theory'));
+      fireEvent.click(screen.getByTestId('chip-thy-sen'));
+      fireEvent.click(screen.getByTestId('lab-family-methods'));
+      fireEvent.click(screen.getByTestId('chip-lab-matrix'));
+      expect(screen.queryByTestId('lab-elec-picker')).not.toBeInTheDocument();
     });
 
     it('ignores a stale &vsElec= on such a fiche: the two columns would be the same', () => {
@@ -257,6 +276,8 @@ describe('LaboratoirePage — the bench', () => {
       renderLab();
       search('zzzz');
       expect(screen.getByTestId('lab-search-empty')).toHaveTextContent('No fiche matches “zzzz”.');
+      // Said aloud too: the live region carries it, not only the visible line.
+      expect(screen.getByTestId('lab-search-count')).toHaveTextContent('No fiche matches “zzzz”.');
       expect(screen.queryByTestId('lab-search-results')?.querySelector('button')).toBeNull();
     });
 
@@ -272,10 +293,10 @@ describe('LaboratoirePage — the bench', () => {
       renderLab();
       search('jury');
       fireEvent.click(screen.getByTestId('chip-mech-jury'));
-      expect(screen.getByTestId('lab-family-systems')).toHaveAttribute('aria-checked', 'true');
-      // Escape in the box clears it, and the catalogue of that family is back, fiche pressed.
+      // Escape in the box clears it, and the catalogue of the fiche's family is back, fiche pressed.
       fireEvent.keyDown(screen.getByTestId('lab-search'), { key: 'Escape' });
       expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
+      expect(screen.getByTestId('lab-family-systems')).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByTestId('chip-mech-jury')).toHaveAttribute('aria-pressed', 'true');
     });
 
@@ -286,6 +307,28 @@ describe('LaboratoirePage — the bench', () => {
       expect(screen.getByTestId('lab-search')).toHaveValue('');
       expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
       expect(screen.getByTestId('chip-thy-sen')).toBeInTheDocument();
+    });
+
+    it('while results stand in for the catalogue, no family is shown as the one being read', () => {
+      renderLab();
+      expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
+      search('jury');
+      for (const f of LAB_FAMILIES) {
+        expect(screen.getByTestId(`lab-family-${f.id}`)).toHaveAttribute('aria-checked', 'false');
+      }
+    });
+
+    it('names the family of each result, where several families sit together', () => {
+      renderLab();
+      search('jury');
+      expect(screen.getByTestId('chip-mech-jury')).toHaveTextContent('Systems & mechanisms');
+    });
+
+    it('a lone accent is no search', () => {
+      renderLab();
+      search('\u0301');
+      expect(screen.queryByTestId('lab-search-results')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chip-lab-matrix')).toBeInTheDocument();
     });
 
     it('a blank box is no search: the family catalogue stays', () => {

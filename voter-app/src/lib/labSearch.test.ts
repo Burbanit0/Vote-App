@@ -1,10 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { fold, matchesQuery } from './labSearch';
+import { fold, hasWords, matchesQuery } from './labSearch';
 
 describe('fold', () => {
   it('lower-cases and takes the accents off', () => {
     expect(fold('Électorat À Vous')).toBe('electorat a vous');
     expect(fold('Chevènement')).toBe('chevenement');
+  });
+});
+
+describe('fold, ligatures', () => {
+  it('spells them out, so "oeuvre" finds "œuvre"', () => {
+    expect(fold('Cœur, œuvre, Æsop, Straße')).toBe('coeur, oeuvre, aesop, strasse');
+    expect(matchesQuery('Une œuvre', 'oeuvre')).toBe(true);
+  });
+});
+
+describe('hasWords', () => {
+  it('is false for a blank, and for a lone accent (nothing left once accents are taken off)', () => {
+    expect(hasWords('')).toBe(false);
+    expect(hasWords('   ')).toBe(false);
+    expect(hasWords('\u0301')).toBe(false);
+  });
+
+  it('is true as soon as one word is left', () => {
+    expect(hasWords(' jury ')).toBe(true);
+    expect(hasWords('é')).toBe(true);
   });
 });
 

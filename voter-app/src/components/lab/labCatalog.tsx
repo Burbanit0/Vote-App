@@ -254,7 +254,7 @@ export interface LabFamily {
 
 /** The fiches that read the composed electorate: through the playground's contexts (the voters it
  *  draws, `useInstrumentCtx`/`useStoreCtx`) or through the request built from `playground.electorate`. */
-const READS_ELECTORATE: ReadonlySet<string> = new Set([
+export const READS_ELECTORATE: ReadonlySet<string> = new Set([
   'lab-duel',
   'lab-matrix',
   'lab-gallery',
