@@ -50,7 +50,23 @@ test.describe('Playground — 3D scene', () => {
     await page.mouse.up();
     const cx = () =>
       page.locator('[data-testid="scene-candidate-0"] circle').first().getAttribute('cx');
-    const orbited = await cx();
+    // The last orbit move renders on a later frame than the mouse-up. Read the position only once it
+    // has stopped changing: reading at once could catch the frame before it, and the camera that
+    // comes back from the x–y plane is the final one (a ~1 in 20 flake on a loaded runner).
+    const afterFrames = () =>
+      page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done()))
+          )
+      );
+    let orbited = await cx();
+    for (let i = 0; i < 30; i++) {
+      await afterFrames();
+      const next = await cx();
+      if (next === orbited) break;
+      orbited = next;
+    }
 
     await page.locator('[data-testid="view-plane"]').click();
     await expect(scene).toBeHidden();
