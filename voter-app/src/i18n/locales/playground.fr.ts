@@ -581,6 +581,8 @@ const pgFr = {
     svIntro:
       'Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul lourd — à la demande, hors lecture temps-réel.',
     svComputing: 'Calcul… (quelques secondes)',
+    youTitle: '◆ Faut-il voter selon vos convictions ?',
+    youSubtitle: 'Glissez le losange sur la carte : chaque méthode est jugée pour vous.',
     svRun: '▶ Calculer la vulnérabilité stratégique',
     svError: 'Calcul indisponible (backend). Réessayez après redémarrage.',
     svFooter: 'Barre = part d’électeurs avec un mensonge profitable (0 % = aucun n’y gagne).',

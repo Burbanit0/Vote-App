@@ -571,6 +571,8 @@ const pgEn: PlaygroundKeys = {
     svIntro:
       'Share of voters who could improve their outcome by voting insincerely (Gibbard–Satterthwaite, brute force). The lower, the more resistant the method. Heavy compute — on demand, outside the real-time read-out.',
     svComputing: 'Computing… (a few seconds)',
+    youTitle: '◆ Should you vote by conviction?',
+    youSubtitle: 'Drag the diamond on the map: each method is judged for you.',
     svRun: '▶ Compute strategic vulnerability',
     svError: 'Compute unavailable (backend). Retry after a restart.',
     svFooter: 'Bar = share of voters with a profitable lie (0 % = nobody gains).',

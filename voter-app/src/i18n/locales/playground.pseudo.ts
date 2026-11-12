@@ -615,6 +615,9 @@ const pgPseudo: PlaygroundKeys = {
     svIntro:
       '⟦Párt~~ dés~~ éléçtéúrs~~~~ qúí~~ póúrráíéñt~~~~ ámélíórér~~~~ léúr~~ résúltát~~~ éñ~ vótáñt~~~ íñsíñçèréméñt~~~~~ (Gíbbárd–Sáttérthwáíté,~~~~~~~~~ pár~~ fórçé~~ brúté).~~~ Plús~~ ç’ést~~ bás,~~ plús~~ lá~ méthódé~~~ résísté.~~~ Cálçúl~~~ lóúrd~~ —~ à~ lá~ démáñdé,~~~ hórs~~ léçtúré~~~ témps-réél.~~~~⟧',
     svComputing: '⟦Cálçúl…~~~ (qúélqúés~~~~ séçóñdés)~~~~⟧',
+    youTitle: '⟦◆~ Fáút-íl~~~ vótér~~ sélóñ~~ vós~~ çóñvíçtíóñs~~~~ ?~⟧',
+    youSubtitle:
+      '⟦Glísséz~~~ lé~ lósáñgé~~~ súr~~ lá~ çárté~~ :~ çháqúé~~~ méthódé~~~ ést~~ júgéé~~ póúr~~ vóús.~~⟧',
     svRun: '⟦▶~ Cálçúlér~~~ lá~ vúlñérábílíté~~~~~ strátégíqúé~~~~⟧',
     svError: '⟦Cálçúl~~~ íñdíspóñíblé~~~~~ (báçkéñd).~~~~ Rééssáyéz~~~~ áprès~~ rédémárrágé.~~~~~⟧',
     svFooter:

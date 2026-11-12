@@ -100,6 +100,30 @@ test.describe('Playground — Stratégie', () => {
     }
   });
 
+  test('the "Vous" panel judges the methods for the diamond, and follows it', async ({ page }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    // Closed at first paint (the form-lock), then one click.
+    await expect(page.locator('[data-testid="sincerity-module"]')).toHaveCount(0);
+    await page.locator('[data-testid="module-sincerity-toggle"]').click();
+    await expect(page.locator('[data-testid="sincerity-headline"]')).toBeVisible();
+
+    // Drag the diamond on the map: the panel's slider reads the same position.
+    const slider = page.locator('[data-testid="sincerity-you-x"]');
+    const before = await slider.inputValue();
+    const marker = page.locator('[data-testid="you-marker"]');
+    await expect(marker).toBeVisible();
+    const box = (await marker.boundingBox())!;
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 140, from.y, { steps: 8 });
+    await page.mouse.up();
+    expect(await slider.inputValue()).not.toBe(before);
+    expect(crashes).toEqual([]);
+  });
+
   test('the strategic-vulnerability module runs and lists methods', async ({ page }) => {
     await page.locator('[data-testid="module-strategic-toggle"]').click();
     await page.locator('[data-testid="strategic-run"]').click();
