@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { useElection } from '../stores/useElectionStore';
+import { hasSavedConfig, useElection } from '../stores/useElectionStore';
+import { homeExampleCandidates } from '../lib/home/carry';
 import HeroInstrument from '../components/home/HeroInstrument';
 import HomeEntrance from '../components/home/HomeEntrance';
 import CountStory from '../components/home/CountStory';
@@ -38,7 +39,7 @@ const rise = (entered: boolean, delayMs: number): React.CSSProperties => ({
 const HomePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { applyScenario } = useElection();
+  const { setConfig } = useElection();
   const [entered, setEntered] = useState(false);
   const onEntered = useCallback(() => setEntered(true), []);
   // The tally sheet's rule: the hero's instrument sets it, the method strip echoes it.
@@ -49,11 +50,12 @@ const HomePage: React.FC = () => {
     description: t('home.heroLede'),
   });
 
-  // Seed the spoiler electorate (the hero's story) then open the instrument.
+  // Open the instrument on the example the page has just taught. Only for a visitor with nothing
+  // saved: a returning one finds their own candidates, not ours.
   const openInstrument = useCallback(() => {
-    applyScenario('france2002');
+    if (!hasSavedConfig()) setConfig({ candidates: homeExampleCandidates() });
     navigate('/playground');
-  }, [applyScenario, navigate]);
+  }, [setConfig, navigate]);
 
   return (
     <div data-style="tailwind" data-home>
@@ -103,7 +105,7 @@ const HomePage: React.FC = () => {
               <Button size="lg" variant="primary" asChild>
                 <Link to="/decouvrir">{t('home.ctaDiscover')}</Link>
               </Button>
-              <Button size="lg" variant="outline" onClick={openInstrument}>
+              <Button size="lg" variant="outline" data-testid="home-open" onClick={openInstrument}>
                 {t('home.ctaOpen')}
               </Button>
             </div>

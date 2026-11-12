@@ -637,6 +637,15 @@ function loadConfig(): ElectionConfig {
   }
 }
 
+/** Whether this browser already holds a saved election config: a returning visitor's own work. */
+export function hasSavedConfig(): boolean {
+  try {
+    return localStorage.getItem(LS_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 // ── Debounced persistence ────────────────────────────────────────────────────
 //
 // The in-memory `set()` in every action below is always synchronous — the UI
