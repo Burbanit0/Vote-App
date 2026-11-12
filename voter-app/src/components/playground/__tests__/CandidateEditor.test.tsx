@@ -139,7 +139,11 @@ describe('CandidateEditor', () => {
       expect(nameInput(0)).toHaveAttribute('aria-invalid', 'true');
       fireEvent.blur(nameInput(0));
       expect(names()).toEqual(['Alice', 'Bob', 'Carol']);
-      expect(nameInput(0).value).toBe('Alice'); // reverted
+      // Left as typed, with its reason still showing: not silently put back.
+      expect(nameInput(0).value).toBe('Bob');
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      fireEvent.keyDown(nameInput(0), { key: 'Escape' });
+      expect(nameInput(0).value).toBe('Alice');
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
@@ -150,6 +154,7 @@ describe('CandidateEditor', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('A name is needed.');
       fireEvent.blur(nameInput(2));
       expect(names()[2]).toBe('Carol');
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
 
     it('refuses a name past 64 characters, and tells the limit', () => {
@@ -159,6 +164,29 @@ describe('CandidateEditor', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('At most 64 characters.');
       fireEvent.blur(nameInput(0));
       expect(names()[0]).toBe('Alice');
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    it('fixing a refused name clears the reason and commits it', () => {
+      mount();
+      open();
+      type(0, 'Bob');
+      type(0, 'Bobby');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      fireEvent.blur(nameInput(0));
+      expect(names()[0]).toBe('Bobby');
+    });
+
+    it('does not take Enter that confirms an IME composition for the end of the name', () => {
+      mount();
+      open();
+      act(() => nameInput(0).focus());
+      type(0, 'Zé');
+      fireEvent.keyDown(nameInput(0), { key: 'Enter', isComposing: true });
+      expect(nameInput(0)).toHaveFocus();
+      expect(names()[0]).toBe('Alice');
+      fireEvent.keyDown(nameInput(0), { key: 'Enter' });
+      expect(nameInput(0)).not.toHaveFocus();
     });
 
     it('Escape puts the old name back', () => {
@@ -197,6 +225,73 @@ describe('CandidateEditor', () => {
       );
       await waitFor(() => expect(nameInput(1).value).toBe('Elsewhere'));
     });
+  });
+
+  describe('rows keep their identity', () => {
+    it("a removal leaves another row's half-typed name where it is", () => {
+      mount();
+      open();
+      type(2, 'draft in progress'); // not committed: no blur yet
+      fireEvent.click(screen.getByTestId('candidate-remove-0'));
+      expect(names()).toEqual(['Bob', 'Carol']);
+      // Carol is row 1 now, and still has her own draft (an index key would have lost it).
+      expect(nameInput(1).value).toBe('draft in progress');
+      expect(nameInput(0).value).toBe('Bob');
+    });
+
+    it('a removal hands focus to a neighbouring name, not to the page', () => {
+      useElectionStore.setState({
+        config: {
+          ...DEFAULT_CONFIG,
+          candidates: [...DEFAULT_CONFIG.candidates, { name: 'Dana', x: 0.1, y: 0.1 }],
+        },
+      });
+      mount();
+      open();
+      fireEvent.click(screen.getByTestId('candidate-remove-3')); // the last of four
+      expect(nameInput(2)).toHaveFocus(); // the one before it
+      fireEvent.click(screen.getByTestId('candidate-remove-0')); // the first of three
+      expect(nameInput(0)).toHaveFocus(); // whoever is first now
+    });
+
+    it('committing a name does not remount the row: Tab from the name to the button keeps focus', () => {
+      mount();
+      open();
+      const remove = screen.getByTestId('candidate-remove-0');
+      act(() => nameInput(0).focus());
+      type(0, 'Zed');
+      act(() => remove.focus()); // blur on the name commits it
+      expect(names()[0]).toBe('Zed');
+      expect(screen.getByTestId('candidate-remove-0')).toBe(remove); // the same node
+      expect(remove).toHaveFocus();
+    });
+
+    it('a list changed from outside (a preset) starts again with the new names', async () => {
+      mount();
+      open();
+      type(0, 'half-typed');
+      act(() =>
+        useElectionStore.setState({
+          config: {
+            ...DEFAULT_CONFIG,
+            candidates: [
+              { name: 'P', x: 0, y: 0 },
+              { name: 'Q', x: 1, y: 0 },
+            ],
+          },
+        })
+      );
+      await waitFor(() => expect([nameInput(0).value, nameInput(1).value]).toEqual(['P', 'Q']));
+      expect(screen.queryByTestId('candidate-name-2')).not.toBeInTheDocument();
+    });
+  });
+
+  it('a typed name reaches a screen reader as typed: R&D is not "R&amp;D"', () => {
+    mount();
+    open();
+    type(0, 'R&D <3');
+    fireEvent.blur(nameInput(0));
+    expect(screen.getByRole('button', { name: 'Remove R&D <3' })).toBeInTheDocument();
   });
 
   it('says parties, not candidates, for the assembly question', () => {

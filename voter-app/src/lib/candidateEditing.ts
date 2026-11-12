@@ -31,7 +31,8 @@ export function nextName(base: string, existing: readonly string[]): string {
 type Place = { x: number; y: number; z: number };
 
 // A coarse grid inside the domain cube, a little short of the walls: candidates sit there.
-const GRID = Array.from({ length: 13 }, (_, i) => -0.9 + i * 0.15);
+// Built from whole hundredths, so every value is an exact two-decimal one (-0.6, not -0.6000000000000001).
+const GRID = Array.from({ length: 13 }, (_, i) => (-90 + i * 15) / 100);
 
 /** Squared distance between two points, over the first `dims` axes only. */
 function distanceSq(a: Place, b: Place, dims: 1 | 2 | 3): number {
@@ -87,8 +88,11 @@ function withBias(
 }
 
 /** The config patch that appends `newcomer` (see `placeNewcomer`). */
-export function addCandidate(config: ElectionConfig, newcomer: ElectionCandidate): Patch {
-  return withBias(config, [...config.candidates, newcomer], (bias) => bias);
+export function addCandidate(
+  config: ElectionConfig,
+  newcomer: ElectionCandidate
+): Pick<ElectionConfig, 'candidates'> {
+  return { candidates: [...config.candidates, newcomer] };
 }
 
 /** The config patch that drops the candidate at `index`. */
@@ -112,9 +116,12 @@ export function renameCandidate(config: ElectionConfig, index: number, name: str
     config,
     config.candidates.map((c, i) => (i === index ? { ...c, name: next } : c)),
     (bias) => {
+      // Whatever sat under the new name belonged to nobody (names are unique): never inherit it.
       if (old in bias) {
         bias[next] = bias[old];
         delete bias[old];
+      } else {
+        delete bias[next];
       }
       return bias;
     }

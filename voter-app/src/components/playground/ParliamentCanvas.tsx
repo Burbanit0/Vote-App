@@ -153,7 +153,18 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIdx = useRef<number | null>(null);
-  const [coalition, setCoalition] = useState<Set<string>>(new Set());
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // The coalition is kept by party NAME. A party renamed or removed elsewhere (the candidate editor)
+  // leaves a name that no party carries: it must not count (status line, seats, span), and must not
+  // come back selected if a later party takes that name.
+  const partyNames = useMemo(() => new Set(parties.map((p) => p.name)), [parties]);
+  const coalition = useMemo(
+    () => new Set([...picked].filter((name) => partyNames.has(name))),
+    [picked, partyNames]
+  );
+  useEffect(() => {
+    if (coalition.size !== picked.size) setPicked(coalition);
+  }, [coalition, picked]);
 
   // Unified mouse + touch drag (same self-contained pattern as LeaderCanvas).
   useEffect(() => {
@@ -249,7 +260,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
 
   const toggleCoalition = (name: string) => {
-    setCoalition((prev) => {
+    setPicked((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);

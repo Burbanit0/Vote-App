@@ -90,6 +90,15 @@ describe('placeNewcomer', () => {
     expect(p.z).toBeLessThan(0);
   });
 
+  it('places on exact two-decimal values, not on accumulated float noise', () => {
+    for (const dims of [1, 2, 3] as const) {
+      for (const field of [DEFAULT_CONFIG.candidates, [{ name: 'L', x: -0.9, y: -0.3 }]]) {
+        const p = placeNewcomer(field, dims);
+        for (const v of [p.x, p.y, p.z]) expect(Number(v.toFixed(2))).toBe(v);
+      }
+    }
+  });
+
   it('is deterministic, and survives an empty field', () => {
     expect(placeNewcomer(DEFAULT_CONFIG.candidates, 2)).toEqual(
       placeNewcomer(DEFAULT_CONFIG.candidates, 2)
@@ -99,6 +108,11 @@ describe('placeNewcomer', () => {
 });
 
 describe('config patches', () => {
+  it('addCandidate touches the candidates and nothing else', () => {
+    const patch = addCandidate(config({ Bob: 0.1 }), { name: 'Dana', x: 0.1, y: 0.2 });
+    expect(Object.keys(patch)).toEqual(['candidates']);
+  });
+
   it('addCandidate appends and leaves the others alone', () => {
     const patch = addCandidate(config(), { name: 'Dana', x: 0.1, y: 0.2 });
     expect(patch.candidates.map((c) => c.name)).toEqual(['Alice', 'Bob', 'Carol', 'Dana']);
@@ -130,6 +144,12 @@ describe('config patches', () => {
 
   it('renameCandidate leaves a bias map with no entry for it untouched', () => {
     const patch = renameCandidate(config({ Alice: 0.4 }), 1, 'Robert');
+    expect(patch.information_model.media_bias).toEqual({ Alice: 0.4 });
+  });
+
+  it('renameCandidate never inherits an orphan entry that sat under the new name', () => {
+    // 'Zed' is nobody's: a candidate renamed to it, with no bias of its own, must not pick it up.
+    const patch = renameCandidate(config({ Zed: 0.9, Alice: 0.4 }), 1, 'Zed');
     expect(patch.information_model.media_bias).toEqual({ Alice: 0.4 });
   });
 

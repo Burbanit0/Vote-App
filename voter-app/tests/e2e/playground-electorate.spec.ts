@@ -192,4 +192,16 @@ test.describe('Playground — Électorat', () => {
     expect(await winnerFromMethodMoment(page)).not.toBe('');
     expect(crashes).toEqual([]);
   });
+
+  test('a name typed and left with a click elsewhere is kept (no Enter needed)', async ({
+    page,
+  }) => {
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await page.locator('[data-testid="candidate-name-0"]').fill('Zed');
+    // Leave by clicking another moment: the field blurs first, which commits the name.
+    await page.locator('[data-testid="moment-method"]').click();
+    await page.locator('[data-testid="moment-electorate"]').click();
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-name-0"]')).toHaveValue('Zed');
+  });
 });
