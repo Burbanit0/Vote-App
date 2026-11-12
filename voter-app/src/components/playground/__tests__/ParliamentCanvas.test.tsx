@@ -186,6 +186,35 @@ describe('ParliamentCanvas', () => {
     expect(screen.getByTestId('votes-seats-bars')).toHaveTextContent('Gauche');
   });
 
+  it('forgets a party that was renamed or removed: it no longer counts, nor comes back', () => {
+    const rest = (r: AssemblyResult | null = RESULT) => ({
+      voters: sampleVoters(150, 42, 'random'),
+      result: r,
+      loading: false,
+      onMoveParty: vi.fn(),
+    });
+    const { rerender } = render(<ParliamentCanvas parties={PARTIES} {...rest()} />);
+    fireEvent.click(screen.getByTestId('coalition-toggle-Gauche'));
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('35');
+    // The party is renamed (the result follows a moment later, as it does in the app): the old name
+    // is gone, so the coalition is empty again.
+    const rename = (from: string, to: string) => ({
+      parties: PARTIES.map((p) => (p.name === from ? { ...p, name: to } : p)),
+      result: {
+        ...RESULT,
+        parties: RESULT.parties.map((p) => (p.name === from ? { ...p, name: to } : p)),
+      },
+    });
+    const zed = rename('Gauche', 'Zed');
+    rerender(<ParliamentCanvas parties={zed.parties} {...rest(zed.result)} />);
+    expect(screen.queryByTestId('coalition-toggle-Gauche')).not.toBeInTheDocument();
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('Click parties');
+    // ... and a party that later takes the old name does not arrive selected.
+    rerender(<ParliamentCanvas parties={PARTIES} {...rest(RESULT)} />);
+    expect(screen.getByTestId('coalition-toggle-Gauche')).toBeInTheDocument();
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('Click parties');
+  });
+
   it('coalition builder sums seats and flags the majority', () => {
     setup();
     fireEvent.click(screen.getByTestId('coalition-toggle-Gauche'));

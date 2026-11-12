@@ -6,7 +6,9 @@ import { Field, selectCls } from '../playgroundFields';
 import Collapsible from '../Collapsible';
 import ScenarioInfo from '../ScenarioInfo';
 import ElectorateComposer, { IDEOLOGY_LABEL_KEY } from '../ElectorateComposer';
+import CandidateEditor from '../CandidateEditor';
 import { isSpatialSource, type PrefSource } from '../../../stores/useElectionStore';
+import { MAX_CANDIDATES } from '../../../lib/candidateEditing';
 
 // Preference sources, grouped: spatial (candidates placed in the space, draggable
 // map) vs statistical cultures (no geometry — the map becomes a read-only biplot).
@@ -100,6 +102,18 @@ const ElectorateMoment: React.FC = () => {
             : config.ideology,
         })}
       </div>
+
+      {/* ── The candidates themselves: rename, add, remove (collapsed, like the other panels) ── */}
+      <Collapsible
+        title={mode === 'leader' ? t('candidates.title') : t('candidates.titleParty')}
+        subtitle={t('candidates.subtitle', {
+          count: config.candidates.length,
+          max: MAX_CANDIDATES,
+        })}
+        testid="module-candidates"
+      >
+        <CandidateEditor />
+      </Collapsible>
 
       {/* ── Composer (core controls) ── */}
       <Collapsible

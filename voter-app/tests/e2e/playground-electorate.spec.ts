@@ -152,4 +152,56 @@ test.describe('Playground — Électorat', () => {
     // The spatial canvas is replaced by the profile map — never both.
     await expect(page.locator('[data-testid="leader-canvas"]')).toHaveCount(0);
   });
+
+  test('candidates can be added, renamed and removed, and the instrument follows', async ({
+    page,
+  }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    // Closed at first paint (the form-lock); one click, and the three candidates are listed.
+    // (Anchored on test ids: these tests run in French.)
+    await expect(page.locator('[data-testid="candidate-editor"]')).toHaveCount(0);
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-row-2"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toHaveCount(0);
+
+    // Add: a fourth row, and a fourth handle on the map.
+    await page.locator('[data-testid="candidate-add"]').click();
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-3"]')).toBeVisible();
+
+    // Rename (Enter commits): the map labels the candidate with the new name.
+    const name = page.locator('[data-testid="candidate-name-3"]');
+    await name.fill('Zed');
+    await name.press('Enter');
+    await expect(page.locator('[data-testid="leader-map"]')).toContainText('Zed');
+
+    // A name another candidate has is refused, and Escape takes it back.
+    await name.fill('Alice');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await name.press('Escape');
+    await expect(name).toHaveValue('Zed');
+
+    // Remove: back to three, and the handle is gone.
+    await page.locator('[data-testid="candidate-remove-3"]').click();
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="candidate-3"]')).toHaveCount(0);
+
+    // The instrument still elects someone with the edited field.
+    expect(await winnerFromMethodMoment(page)).not.toBe('');
+    expect(crashes).toEqual([]);
+  });
+
+  test('a name typed and left with a click elsewhere is kept (no Enter needed)', async ({
+    page,
+  }) => {
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await page.locator('[data-testid="candidate-name-0"]').fill('Zed');
+    // Leave by clicking another moment: the field blurs first, which commits the name.
+    await page.locator('[data-testid="moment-method"]').click();
+    await page.locator('[data-testid="moment-electorate"]').click();
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-name-0"]')).toHaveValue('Zed');
+  });
 });

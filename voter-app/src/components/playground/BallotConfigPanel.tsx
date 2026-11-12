@@ -18,6 +18,9 @@ const BallotConfigPanel: React.FC = () => {
   const { t } = useTranslation('playground');
   const { config, playground, setPlaygroundDeep } = useStoreCtx();
   const { result } = useScorecardCtx();
+  // The engine truncates at the candidate count at most: show that, not a stored 3 over a field of 2
+  // (a preset, or the candidate editor, can leave the stored value above the count).
+  const truncateAt = Math.min(playground.ballot.truncate_at, Math.max(1, config.candidates.length));
 
   return (
     <div className="flex flex-col gap-3">
@@ -37,10 +40,7 @@ const BallotConfigPanel: React.FC = () => {
         </select>
       </Field>
       {playground.ballot.type === 'rank_truncated' && (
-        <Field
-          label={t('method.truncateLabel', { n: playground.ballot.truncate_at })}
-          htmlFor="pg-truncate"
-        >
+        <Field label={t('method.truncateLabel', { n: truncateAt })} htmlFor="pg-truncate">
           <input
             id="pg-truncate"
             data-testid="ballot-truncate"
@@ -48,7 +48,7 @@ const BallotConfigPanel: React.FC = () => {
             min={1}
             max={Math.max(1, config.candidates.length)}
             step={1}
-            value={playground.ballot.truncate_at}
+            value={truncateAt}
             onChange={(e) => setPlaygroundDeep('ballot.truncate_at', Number(e.target.value))}
           />
         </Field>
