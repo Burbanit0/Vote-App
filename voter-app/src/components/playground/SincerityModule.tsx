@@ -112,7 +112,7 @@ const SincerityModule: React.FC<{
             />
           </label>
         )}
-        <p className="text-[0.7rem] text-muted-foreground">
+        <p data-testid="sincerity-order" className="text-[0.7rem] text-muted-foreground">
           {t('sincerity.sincereOrder')} <strong>{report.ranking.join(' ＞ ')}</strong>
         </p>
         <p className="text-[0.65rem] text-muted-foreground">
@@ -145,6 +145,14 @@ const SincerityModule: React.FC<{
         <strong className="text-amber-600 dark:text-amber-400">{tempting.length}</strong>{' '}
         {t('sincerity.headlineEnd')}
       </p>
+
+      {/* Under three candidates every method is "safe" by construction: say so, instead of letting
+          the headline read as a verdict on the methods. */}
+      {candidates.length < 3 && (
+        <p data-testid="sincerity-few" className="text-[0.7rem] text-muted-foreground">
+          {t('sincerity.fewCandidates')}
+        </p>
+      )}
 
       {/* Strategy-tempting methods */}
       {tempting.length > 0 && (

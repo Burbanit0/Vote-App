@@ -572,6 +572,8 @@ const pgEn: PlaygroundKeys = {
     svIntro:
       'Share of voters who could improve their outcome by voting insincerely (Gibbard–Satterthwaite, brute force). The lower, the more resistant the method. Heavy compute — on demand, outside the real-time read-out.',
     svComputing: 'Computing… (a few seconds)',
+    youTitle: '◆ Should you vote by conviction?',
+    youSubtitle: 'Drag the diamond on the map: each method is judged for you.',
     svRun: '▶ Compute strategic vulnerability',
     svError: 'Compute unavailable (backend). Retry after a restart.',
     svFooter: 'Bar = share of voters with a profitable lie (0 % = nobody gains).',
@@ -1019,6 +1021,8 @@ const pgEn: PlaygroundKeys = {
       'The composed electorate feeds the leader view (map, regions, verdict, coloured by community), the parliament (seats, assembly verdict) and the paradox rate (the true spatial cycle rate, resampled). The 3rd axis only acts in 3D map mode; measurement noise simulates polling uncertainty.',
   },
   sincerity: {
+    fewCandidates:
+      'With fewer than three candidates there is no strategic dilemma: every method is conviction-safe by construction.',
     typeCompromise: 'tactical vote (compromise)',
     typeBurying: 'burying a rival',
     intro:

@@ -54,6 +54,10 @@ export interface SincerityReport {
 
 const EPS = 1e-9;
 
+/** A voter's utility for a candidate: the rank engine's own, `-distance + valence`. Leaving the
+ *  valence out made the "sincere order" disagree with the map once Stokes valence was on. */
+const utilityOf = (voter: Pt, cand: NamedPt): number => -dist(voter, cand) + (cand.valence ?? 0);
+
 /**
  * Probe, rule by rule, whether your conviction bloc is tempted to vote
  * strategically. `blocShare` ∈ [0,1] sizes your bloc relative to the rest of the
@@ -67,7 +71,7 @@ export function sincerityProbe(
 ): SincerityReport {
   const m = cands.length;
   const names = cands.map((c) => c.name);
-  const util = cands.map((c) => -dist(youPos, c)); // higher = closer = better for you
+  const util = cands.map((c) => utilityOf(youPos, c)); // higher = better for you
   const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
   const rankingNames = ranking.map((i) => cands[i].name);
 
@@ -241,7 +245,7 @@ function probeVoter(
 ): VoterProbe {
   const names = cands.map((c) => c.name);
   const cardinal = baseScores !== undefined;
-  const util = cands.map((c) => -dist(you, c));
+  const util = cands.map((c) => utilityOf(you, c));
   const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
   const youScore = cardinal ? computeScores([you], cands)[0] : null;
 
