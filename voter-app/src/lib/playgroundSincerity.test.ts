@@ -29,6 +29,24 @@ describe('sincerityProbe and valence', () => {
     const withValence = CANDS.map((c) => (c.name === 'A' ? { ...c, valence: -2 } : c));
     expect(sincerityProbe(YOU, BLOC_SHARE, OTHERS, withValence).ranking).toEqual(['B', 'C', 'A']);
   });
+
+  it('the manipulation lens reads valence too: nobody is tempted by a lie that only looks good without it', () => {
+    // The spoiler electorate again (15 left, 25 centre, 35 right). A has a strong valence bonus:
+    // every voter likes A more than distance alone says. Without the bonus in the lens's own
+    // utility, the 25 centre voters were reported as tempted; with it, none is.
+    const cands: NamedPt[] = [
+      { name: 'A', x: -0.8, y: 0, valence: 1.5 },
+      { name: 'B', x: 0.0, y: 0 },
+      { name: 'C', x: 0.75, y: 0 },
+    ];
+    const voters: Pt[] = [
+      ...Array.from({ length: 15 }, () => ({ x: -0.85, y: 0 })),
+      ...Array.from({ length: 25 }, () => ({ x: 0.05, y: 0 })),
+      ...Array.from({ length: 35 }, () => ({ x: 0.78, y: 0 })),
+    ];
+    const centre = manipulationField(voters, cands, 'plurality', 0.2).slice(15, 40);
+    expect(centre.every((kind) => kind === null)).toBe(true);
+  });
 });
 
 describe('sincerityProbe', () => {
