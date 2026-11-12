@@ -1,9 +1,15 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import HomePage from './HomePage';
-import { ElectionProvider } from '../stores/useElectionStore';
+import {
+  ElectionProvider,
+  useElectionStore,
+  DEFAULT_CONFIG,
+  __flushPersistedStoreForTests,
+} from '../stores/useElectionStore';
+import { homeExampleCandidates } from '../lib/home/carry';
 import { STORIES } from '../lib/stories';
 
 // The homepage makes no API calls: the hero, the count and the box are self-contained,
@@ -22,6 +28,13 @@ function renderHome() {
   );
 }
 
+beforeEach(() => {
+  // A previous test's debounced write must land (and be wiped) before this one starts.
+  __flushPersistedStoreForTests();
+  localStorage.clear();
+  useElectionStore.setState({ config: { ...DEFAULT_CONFIG } });
+});
+
 describe('HomePage', () => {
   it('lands the thesis and offers the instrument at the top and at the end', () => {
     renderHome();
@@ -33,6 +46,67 @@ describe('HomePage', () => {
     renderHome();
     fireEvent.click(screen.getAllByRole('button', { name: /Open the instrument/i })[1]);
     expect(screen.getByText('playground')).toBeInTheDocument();
+  });
+
+  describe.each([
+    ['the top', 0],
+    ['the last call', 1],
+  ])('opening the instrument from %s', (_where, which) => {
+    const open = () =>
+      fireEvent.click(screen.getAllByRole('button', { name: /Open the instrument/i })[which]);
+    const names = () => useElectionStore.getState().config.candidates.map((c) => c.name);
+
+    it('on a first visit, carries the example the page just taught (not France 2002)', () => {
+      renderHome();
+      open();
+      expect(screen.getByText('playground')).toBeInTheDocument();
+      expect(useElectionStore.getState().config.candidates).toEqual(homeExampleCandidates());
+      expect(names()).toEqual(['Alice', 'Bob', 'Carol']);
+    });
+
+    const edited = {
+      ...DEFAULT_CONFIG,
+      candidates: [
+        { name: 'Ana', x: -0.9, y: 0.1 },
+        { name: 'Ben', x: 0.9, y: -0.1 },
+      ],
+    };
+
+    it('leaves a returning visitor’s saved candidates alone', () => {
+      localStorage.setItem('votelab_election_config', JSON.stringify(edited));
+      useElectionStore.setState({ config: edited });
+      renderHome();
+      open();
+      expect(screen.getByText('playground')).toBeInTheDocument();
+      expect(names()).toEqual(['Ana', 'Ben']);
+      // Nor does it rewrite what was saved.
+      __flushPersistedStoreForTests();
+      expect(JSON.parse(localStorage.getItem('votelab_election_config')!)).toEqual(edited);
+    });
+
+    it('keeps an edit whose write is still pending (nothing in storage yet)', () => {
+      // Mid-session, as in the app: the provider hydrated once at startup, the visitor edits,
+      // goes Home and clicks before the debounced write lands.
+      renderHome();
+      act(() => useElectionStore.setState({ config: edited }));
+      expect(localStorage.getItem('votelab_election_config')).toBeNull();
+      open();
+      expect(names()).toEqual(['Ana', 'Ben']);
+    });
+
+    it('carries the example when the saved value is unreadable (the store loaded the default)', () => {
+      localStorage.setItem('votelab_election_config', '{not json');
+      renderHome();
+      open();
+      expect(useElectionStore.getState().config.candidates).toEqual(homeExampleCandidates());
+    });
+
+    it('keeps a scenario the visitor picked: that is a choice too', () => {
+      renderHome();
+      act(() => useElectionStore.getState().applyScenario('france2002'));
+      open();
+      expect(names()).toHaveLength(8);
+    });
   });
 
   it('the hero instrument flips the winner when the rule changes (same ballots)', () => {
