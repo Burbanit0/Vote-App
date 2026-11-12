@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import fr from './locales/fr';
 import pgFr from './locales/playground.fr';
+import polityFr from './locales/polity.fr';
 
 // i18n lazy-loading (Phase 6 — UI modernisation).
 //
@@ -24,8 +25,13 @@ const pgLazyLoaders: Record<string, () => Promise<{ default: Record<string, unkn
   en: () => import('./locales/playground.en'),
   pseudo: () => import('./locales/playground.pseudo'),
 };
+// …and so is the run explorer's (the Polity page).
+const polityLazyLoaders: Record<string, () => Promise<{ default: Record<string, unknown> }>> = {
+  en: () => import('./locales/polity.en'),
+  pseudo: () => import('./locales/polity.pseudo'),
+};
 
-/** Ensure a language's bundles (translation + playground) are registered (no-op
+/** Ensure a language's bundles (translation, playground, polity) are registered (no-op
  *  for `fr` and for already-loaded languages). Safe to call repeatedly. */
 export async function loadLanguage(lng: string): Promise<void> {
   const base = lng.startsWith('en') ? 'en' : lng.startsWith('pseudo') ? 'pseudo' : 'fr';
@@ -38,6 +44,10 @@ export async function loadLanguage(lng: string): Promise<void> {
     const mod = await pgLazyLoaders[base]();
     i18n.addResourceBundle(base, 'playground', mod.default, true, true);
   }
+  if (!i18n.hasResourceBundle(base, 'polity') && polityLazyLoaders[base]) {
+    const mod = await polityLazyLoaders[base]();
+    i18n.addResourceBundle(base, 'polity', mod.default, true, true);
+  }
 }
 
 /** Load the target bundle, THEN switch — so the UI never flashes raw keys. */
@@ -45,6 +55,13 @@ export async function switchLanguage(lng: string): Promise<void> {
   await loadLanguage(lng);
   await i18n.changeLanguage(lng);
 }
+
+// index.html ships lang="fr"; without this a screen reader reads English with a French
+// voice. Registered before init, so the first switch is covered too. The pseudo-locale
+// is English underneath, and "pseudo" is not a valid language tag.
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng === 'pseudo' ? 'en' : lng;
+});
 
 const LANG_KEY = 'votelab_lang';
 
@@ -58,7 +75,7 @@ function savedLanguage(): string | null {
 
 const initPromise = i18n.use(initReactI18next).init({
   resources: {
-    fr: { translation: fr, playground: pgFr },
+    fr: { translation: fr, playground: pgFr, polity: polityFr },
   },
   fallbackLng: 'fr',
   supportedLngs: ['fr', 'en', 'pseudo'],

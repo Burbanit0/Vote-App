@@ -36,18 +36,53 @@ is a "no reason to pay for it" choice, not a compatibility workaround.
 """
 from __future__ import annotations
 
+import random
+
 from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from api.core.config import get_settings
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+
+class PrivateRandomIdGenerator(IdGenerator):
+    """Span and trace ids that never touch the process-wide `random` module,
+    which the SDK's default `RandomIdGenerator` draws from.
+
+    Every request opens a span once a real provider is installed (FastAPI
+    0.142 traces requests natively, on top of `instrument_app`), so the
+    default generator would draw from the shared `random` singleton on every
+    request: the very thing api/tests/test_no_global_rng.py forbids, because a
+    worker that still read it would then depend on the traffic around it.
+    `SystemRandom` reads os.urandom on each draw: no state to share, none to
+    duplicate across a fork, and the ids stay unpredictable."""
+
+    def __init__(self, rng: random.Random | None = None) -> None:
+        self._rng = rng if rng is not None else random.SystemRandom()
+
+    def _draw(self, bits: int, invalid: int) -> int:
+        value = self._rng.getrandbits(bits)
+        while value == invalid:
+            value = self._rng.getrandbits(bits)
+        return value
+
+    def generate_span_id(self) -> int:
+        return self._draw(64, trace.INVALID_SPAN_ID)
+
+    def generate_trace_id(self) -> int:
+        return self._draw(128, trace.INVALID_TRACE_ID)
+
+    def is_trace_id_random(self) -> bool:
+        # As RandomIdGenerator: the W3C `random-trace-id` flag stays set.
+        return True
 
 
 def configure_tracing() -> None:
@@ -67,7 +102,8 @@ def configure_tracing() -> None:
         return
 
     provider = TracerProvider(
-        resource=Resource.create({SERVICE_NAME: settings.otel_service_name})
+        resource=Resource.create({SERVICE_NAME: settings.otel_service_name}),
+        id_generator=PrivateRandomIdGenerator(),
     )
     # The HTTP exporter only auto-appends "/v1/traces" when it reads the
     # endpoint from the OTEL_EXPORTER_OTLP_ENDPOINT env var itself (verified

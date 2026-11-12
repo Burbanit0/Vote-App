@@ -197,7 +197,7 @@ describe('DeliberationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('polarization-badge');
-      expect(badge.className).toContain('bg-[#dc3545]');
+      expect(badge.className).toContain('bg-destructive/15');
     });
     vi.runAllTimers();
   });

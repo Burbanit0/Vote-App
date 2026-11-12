@@ -17,7 +17,10 @@ on:
     - cron: '7 8 * * *'  # daily, off-peak, distinct from every other cron in this repo
   workflow_dispatch: {}
   pull_request:
-    branches: [main, develop]
+    # polity too: "CI health check" is required there (setup-branch-protection.sh
+    # contexts_for). The snapshot it verifies still comes from develop, where the
+    # scheduled audit writes it.
+    branches: [main, develop, polity]
   push:
     branches: [develop]
 
@@ -52,11 +55,11 @@ jobs:
       # PAT scoped to only this repo, with Contents: read/write, Pull
       # requests: read/write, and Administration: read-only -- see the
       # voter-ci skill for how to (re)create and rotate it.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] this job pushes the snapshot branch with the checkout token
         with:
           ref: develop
           token: ${{ secrets.CI_HEALTH_PAT }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # GH_TOKEN also has to be the PAT here, not GITHUB_TOKEN: reading
@@ -70,6 +73,8 @@ jobs:
         id: audit
         env:
           GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
+          # Phase 3b: when set, the review gate must be pinned to this App id.
+          REVIEW_GATE_APP_ID: ${{ vars.REVIEW_GATE_APP_ID }}
         run: |
           # The default run shell is `bash -e`, without pipefail: a crash in
           # --update was masked by tee's exit 0, pr_needed never got written,
@@ -91,6 +96,7 @@ jobs:
       # a pull request" -- confirmed live (this job's first real run, 2026-
       # 09-13), regardless of which token pushes it. The only legitimate
       # path is the same one every other change in this repo takes: a PR.
+      # (release.yml no longer pushes to main either: it only pushes a tag.)
       # Only opened when scripts/check_ci_health.py --update's own
       # pr_needed decision says so (a real status change, or a heartbeat
       # refresh at most once a week) -- a raw `git diff` on the file would
@@ -153,8 +159,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # Bootstrap case: the PR that introduces this file has nothing on

@@ -8,6 +8,7 @@
  * And reveals which methods are most robust under polarized electorates.
  */
 import React, { useState } from 'react';
+import { Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
+import { TallyLoader } from '@/components/ui/tally';
 import {
   ScatterChart,
   Scatter,
@@ -277,7 +279,7 @@ const PolarizationPanel: React.FC = () => {
             onClick={() => run(selectedIdeologies, numSims)}
             disabled={loading}
           >
-            {loading ? <Spinner size="sm" /> : `📊 ${t('polarization.run')}`}
+            {loading ? <Spinner size="sm" /> : t('polarization.run')}
           </Button>
         </Col>
       </Row>
@@ -285,12 +287,7 @@ const PolarizationPanel: React.FC = () => {
       {error && <Alert variant="danger">{error}</Alert>}
       {!data && !loading && <Alert variant="info">{t('polarization.prompt')}</Alert>}
 
-      {loading && (
-        <div className="text-center py-4 text-muted-foreground">
-          <Spinner className="me-2" />
-          {t('polarization.computing')}
-        </div>
-      )}
+      {loading && <TallyLoader className="py-4" label={t('polarization.computing')} />}
 
       {data && !loading && (
         <>
@@ -437,7 +434,12 @@ const PolarizationPanel: React.FC = () => {
                         style={{ fontSize: '0.7rem' }}
                         data-testid={`best-badge-${r.ideology}`}
                       >
-                        {r.ideology}: 🏆 {listNames(r.best_method)}
+                        {r.ideology}:{' '}
+                        <Trophy
+                          aria-hidden
+                          className="inline h-3.5 w-3.5 align-[-2px] text-primary"
+                        />{' '}
+                        {listNames(r.best_method)}
                       </Badge>
                     )}
                   </React.Fragment>

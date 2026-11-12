@@ -8,13 +8,14 @@
  * exactly how it rotted for two months.
  */
 
-/** The five real surfaces — everything else is a redirect or the 404. */
+/** The six real surfaces — everything else is a redirect or the 404. */
 export const SURFACES = [
   '/',
   '/decouvrir',
   '/a-vous-de-jouer',
   '/playground',
   '/laboratoire',
+  '/polity',
 ] as const;
 
 export type Surface = (typeof SURFACES)[number];

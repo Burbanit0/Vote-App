@@ -4,16 +4,30 @@ Offline only: a FakeLlmClient stands in for OllamaJsonClient, no network.
 import dataclasses
 import json
 import math
+import time
 
 import pytest
 
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import EventType, VoteMotif
+from api.domain.polity.codebook import EventType, PartyNominationMotif, PressureAct, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    _CHAMBER_MAX_CHUNK_SIZE_OLLAMA,
+    _CHAMBER_MAX_CHUNK_SIZE_VLLM,
+    _CHAMBER_RETRY_SEED_BASE,
+    _CHAMBER_RETRY_TEMPERATURE,
+    _PRESSURE_CALIBRATED_CHUNK_SIZE,
+    _PRESSURE_RETRY_SEED_BASE,
+    _PRESSURE_RETRY_TEMPERATURE,
+    _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
+    _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
+    _VOTE_CAST_RETRY_SEED_BASE,
     _VOTE_CAST_RETRY_TEMPERATURE,
+    _chamber_chunk_size,
+    _dynamic_max_tokens,
+    _vote_cast_chunk_size,
     ChamberContext,
     PressureContext,
     ReactionContext,
@@ -22,25 +36,40 @@ from api.domain.polity.llm_behavior_engine import (
     apply_shifts,
     assemble_coalition,
     build_candidacy_system_prompt,
+    build_candidacy_system_prompt_toon,
+    build_candidacy_system_prompt_toon_calibrated,
     build_candidacy_user_prompt,
+    build_candidacy_user_prompt_toon,
     build_chamber_system_prompt,
     build_chamber_user_prompt,
     build_coalition_system_prompt,
+    build_coalition_system_prompt_calibrated,
     build_coalition_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    PRESSURE_HISTORY_SIGNAL,
+    PRESSURE_PERCENTILE_SIGNAL,
+    PRESSURE_PLEDGE_SIGNAL,
+    PRESSURE_EMOTION_SIGNALS,
+    PRESSURE_THRESHOLD_SIGNAL,
     build_pressure_system_prompt,
+    build_pressure_system_prompt_calibrated,
+    build_pressure_system_prompt_toon,
     build_pressure_user_prompt,
+    build_pressure_user_prompt_calibrated,
+    build_pressure_user_prompt_toon,
     build_reaction_system_prompt,
     build_reaction_user_prompt,
     build_response_system_prompt,
+    build_response_system_prompt_calibrated,
     build_response_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     chunk_voters,
+    run_chunks,
     clamped_dimensions,
     compute_max_tokens,
     decide_campaign_positioning,
@@ -79,6 +108,9 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     build_ranking,
     declare_candidacy,
+    decide_candidacy,
+    deterministic_pressure_action,
+    deterministic_reaction_to_event,
     form_coalition,
     sympathizer_ratio,
     weighted_distance,
@@ -158,6 +190,74 @@ def test_min_safe_batch_size_is_20():
     assert MIN_SAFE_BATCH_SIZE == 20
 
 
+# ── run_chunks (Phase 2, plan-flagship-30y-run.md) ──────────────────────────
+# The shared execution strategy behind every chunked decide_* entry point.
+# These test run_chunks itself in isolation, against plain callables, not
+# against a full decide_* + fake LLM client -- the per-entry-point tests
+# above/below already cover that integration; this covers the mechanism's own
+# two claims: order preservation under concurrency, and unchanged-code-path
+# behavior at workers=1.
+
+def test_run_chunks_workers_one_runs_sequentially_in_order():
+    order: list[int] = []
+
+    def worker(chunk):
+        order.append(chunk[0])
+        return chunk[0] * 10
+
+    result = run_chunks([[1], [2], [3]], worker, workers=1)
+
+    assert result == [10, 20, 30]
+    assert order == [1, 2, 3]  # sequential, not just order-preserving
+
+
+def test_run_chunks_workers_many_preserves_chunk_order_regardless_of_completion_order():
+    # Chunk 0 sleeps longest, chunk 2 shortest -- if run_chunks returned
+    # completion order rather than submission order, this would come back
+    # [2, 1, 0], not [0, 1, 2]. This is the exact property Phase 2's own
+    # determinism proof depends on (see run_chunks's own docstring).
+    delays = {0: 0.06, 1: 0.03, 2: 0.0}
+
+    def worker(chunk):
+        time.sleep(delays[chunk[0]])
+        return chunk[0]
+
+    result = run_chunks([[0], [1], [2]], worker, workers=3)
+
+    assert result == [0, 1, 2]
+
+
+def test_run_chunks_workers_many_actually_overlaps_in_wall_clock():
+    # Not just "doesn't crash with workers>1" -- proves real concurrency
+    # happened: 5 chunks x 0.05s each would take >=0.25s sequentially, and
+    # comfortably under that concurrently.
+    def worker(chunk):
+        time.sleep(0.05)
+        return chunk[0]
+
+    start = time.monotonic()
+    result = run_chunks([[i] for i in range(5)], worker, workers=5)
+    elapsed = time.monotonic() - start
+
+    assert result == [0, 1, 2, 3, 4]
+    assert elapsed < 0.2  # well under the 0.25s a sequential run would need
+
+
+def test_run_chunks_propagates_a_single_chunks_exception():
+    def worker(chunk):
+        if chunk[0] == 1:
+            raise LlmResponseError("boom")
+        return chunk[0]
+
+    with pytest.raises(LlmResponseError, match="boom"):
+        run_chunks([[0], [1], [2]], worker, workers=3)
+
+
+def test_run_chunks_empty_chunk_list_returns_empty():
+    assert run_chunks([], lambda chunk: chunk[0], workers=1) == []
+    assert run_chunks([], lambda chunk: chunk[0], workers=4) == []
+
+
 # ── truncation_limit ──────────────────────────────────────────────────────
 
 def test_truncation_limit_none_at_or_below_six():
@@ -184,14 +284,116 @@ def test_compute_max_tokens_has_a_floor_for_tiny_chunks():
     assert compute_max_tokens(0) == 1536
 
 
+# ── _vote_cast_chunk_size / _chamber_chunk_size / _dynamic_max_tokens
+# (2026-09-08, check_vllm_chunk_size_throughput_results.md) ──────────────
+
+def test_vote_cast_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _vote_cast_chunk_size(config) == _VOTE_CAST_MAX_CHUNK_SIZE_VLLM == 3
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _vote_cast_chunk_size(ollama_config) == _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+def test_chamber_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _chamber_chunk_size(config) == _CHAMBER_MAX_CHUNK_SIZE_VLLM == 5
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _chamber_chunk_size(ollama_config) == _CHAMBER_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+class _StubTokenCountingClient:
+    """Minimal LlmClientProtocol conformer for _dynamic_max_tokens's own
+    unit tests -- complete_json is never called (the function under test
+    only ever calls count_prompt_tokens), so it deliberately isn't
+    implemented; a test that reached it would fail loudly with an
+    AttributeError, which is the point."""
+
+    def __init__(self, prompt_tokens):
+        self._prompt_tokens = prompt_tokens
+        self.calls: list[tuple[str, str, bool]] = []
+
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        self.calls.append((system_prompt, user_prompt, think))
+        return self._prompt_tokens
+
+
+def test_dynamic_max_tokens_uses_the_flat_allowance_on_ollama_without_probing():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    client = _StubTokenCountingClient(prompt_tokens=999999)  # would blow any real ceiling if ever used
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == compute_max_tokens(3) + 12000
+    assert client.calls == []  # the ollama path never probes
+
+
+def test_dynamic_max_tokens_probes_and_maximizes_on_vllm():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = _StubTokenCountingClient(prompt_tokens=2000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="sys", user_prompt="usr", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == 16384 - 2000 - 300
+    assert client.calls == [("sys", "usr", True)]  # probed with the real prompt, think=True
+
+
+def test_dynamic_max_tokens_floor_wins_when_headroom_is_smaller():
+    # A prompt so large that 16384 - prompt_tokens - margin would fall
+    # below compute_max_tokens's own floor -- the floor must still win
+    # rather than requesting a max_tokens too small to hold the visible
+    # answer alone.
+    config = _config_with_llm_enabled()
+    client = _StubTokenCountingClient(prompt_tokens=16000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=5, flat_allowance=8000
+    )
+
+    assert result == compute_max_tokens(5)
+    assert compute_max_tokens(5) > 16384 - 16000 - 300  # confirms the floor branch was actually exercised
+
+
 # ── build_system_prompt / build_user_prompt ──────────────────────────────
 
-def test_system_prompt_enumerates_every_expected_cid():
+def test_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): the
+    # literal cid list moved to build_user_prompt's own `expected_cids`
+    # field so build_system_prompt's own output is identical across every
+    # chunk of the same election (prefix-cache continuity) -- the system
+    # prompt now REFERENCES that field by name instead of embedding the
+    # list itself. See test_user_prompt_carries_expected_cids_in_voter_order
+    # for where the literal list actually lives now.
     citizens = _population(3)
     candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
     prompt = build_system_prompt(citizens, candidates)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_system_prompt_is_identical_across_chunks_of_the_same_election():
+    # The direct pin for the prefix-cache fix's own premise: two DIFFERENT
+    # voter chunks of the same election must now produce the exact same
+    # system prompt (previously they diverged ~84% through, at the old
+    # embedded cid list -- see build_system_prompt's own correction note).
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    chunk_a = _population(3)
+    chunk_b = [_citizen(cid, (0.5,)) for cid in (100, 101, 102)]
+    assert build_system_prompt(chunk_a, candidates) == build_system_prompt(chunk_b, candidates)
+
+
+def test_user_prompt_carries_expected_cids_in_voter_order():
+    voters = _population(3)
+    candidates = [_candidate(10, (0.1,))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_system_prompt_describes_candidates_by_position_not_cid():
@@ -245,6 +447,27 @@ def test_user_prompt_distances_match_weighted_distance_exactly():
     assert got == expected
 
 
+def test_user_prompt_uses_coarser_precision_for_holistic_vectors_only():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): positions/
+    # priorities/platform are read holistically, never compared against a
+    # fine-grained threshold, so they drop to _PROMPT_VECTOR_PRECISION (2)
+    # decimals -- but distances/blank_threshold stay at full precision,
+    # since that pairing IS a razor-thin accept/reject comparison (the exact
+    # computation test_user_prompt_distances_match_weighted_distance_exactly
+    # pins above). Not yet live-verified against a real model call -- see
+    # that plan's own verification section.
+    voters = [_citizen(0, (0.123456, 0.789012), priorities=(0.333333, 0.666666))]
+    voters[0].blank_threshold = 0.123456
+    candidates = [_candidate(10, (0.111111, 0.222222))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+
+    voter = payload["voters"][0]
+    assert voter["positions"] == [0.12, 0.79]
+    assert voter["priorities"] == [0.33, 0.67]
+    assert voter["blank_threshold"] == 0.1235  # unchanged: 4 decimals
+    assert payload["candidates"][0]["platform"] == [0.11, 0.22]
+
+
 def test_user_prompt_distances_follow_the_same_position_order_as_candidates():
     voters = [_citizen(0, (0.5,))]
     a = _candidate(10, (0.9,))
@@ -288,6 +511,25 @@ def test_system_prompt_requires_every_acceptable_candidate_in_the_ranking():
     prompt = build_system_prompt(citizens, candidates)
     assert "CHAQUE candidat" in prompt
     assert "Ne te limite " in prompt
+
+
+def test_system_prompt_bounds_the_ranking_at_the_truncation_limit_above_six_candidates():
+    # 2026-09-10 correction (plan-flagship-30y-run.md Phase 7 Stage 3): the
+    # unconditional "CHAQUE candidat... Ne te limite JAMAIS" sentence above
+    # was, until this fix, sent even when truncate_at is not None --
+    # directly contradicting validate_decision's own truncation-limit
+    # rejection, and the dominant vote_cast failure mode at population 500
+    # (two election ticks, 494/500 and 476/500 fallback). This pins that the
+    # truncated branch states an explicit upper bound instead, so a later
+    # prompt tidy-up cannot silently reintroduce the unconditional wording
+    # for candidate_count > 6.
+    citizens = _population(2)
+    seven = [_candidate(i, (0.1,)) for i in range(7)]
+    prompt = build_system_prompt(citizens, seven)
+    assert "JUSQU'A 5" in prompt
+    assert "n'inclus JAMAIS plus de 5" in prompt
+    # the untruncated-case wording must NOT leak into the truncated prompt
+    assert "OBLIGATOIREMENT contenir CHAQUE candidat" not in prompt
 
 
 # ── validate_decision ─────────────────────────────────────────────────────
@@ -344,7 +586,18 @@ class FakeLlmClient:
             sum(w * (vx - px) ** 2 for vx, px, w in zip(voter.issue_positions, platform, voter.issue_priorities))
         )
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed on purpose: _dynamic_max_tokens's floor (compute_
+        # max_tokens's own return value, at most a few hundred tokens for
+        # any chunk size a test builds) never binds against this, so tests
+        # that don't care about the exact dynamic value stay unaffected --
+        # only test_decide_chamber_deliberation_uses_think_true_and_the_
+        # reasoning_token_allowance's own OLLAMA-provider variant asserts an
+        # exact max_tokens value, and that one pins the flat-allowance
+        # formula this probe is never reached for.
+        return 500
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [v["cid"] for v in payload["voters"]]
         self.calls.append(cids)
@@ -391,13 +644,16 @@ def test_cast_votes_matches_build_ranking_when_nobody_votes_blank():
 
 
 def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
-    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (1),
+    # cast_votes chunks at its own dedicated _vote_cast_chunk_size(config),
     # never config.llm.max_batch_size (a real v6b acceptance run found
-    # multi-voter batches collapse the model's per-voter distance reasoning,
-    # and even chunk_size=3 kept hitting finish_reason='length' under a
-    # widened token budget -- see cast_votes's own docstring). 7 voters at
-    # chunk size 1: 7 chunks of exactly 1 voter each, one client call per
-    # voter, in order.
+    # multi-voter batches collapse the model's per-voter distance reasoning
+    # on Ollama -- see cast_votes's own docstring; re-tested on vLLM
+    # 2026-09-08, does not reproduce, chunk raised to 3 on that provider,
+    # see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring). 7 voters at the
+    # shipped default (provider=vllm, chunk size 3): chunk_voters balances
+    # chunk sizes rather than greedily filling to the ceiling, so 7 voters
+    # come out as 3, 2, 2 -- boundaries still land mid-population, so order
+    # preservation across them is still meaningfully exercised.
     voters = _population(7, dims=1)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled(max_batch_size=25)
@@ -405,7 +661,7 @@ def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
 
     outcome = cast_votes(voters, candidates, config, client)
 
-    assert client.calls == [[0], [1], [2], [3], [4], [5], [6]]
+    assert client.calls == [[0, 1, 2], [3, 4], [5, 6]]
     assert len(outcome.ballots) == 7
     for ballot in outcome.ballots:
         assert BLANK_LABEL in ballot
@@ -471,6 +727,13 @@ def test_cast_votes_raises_for_intra_run_workers_above_one():
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
@@ -485,17 +748,42 @@ def test_cast_votes_raises_for_codebook_version_mismatch():
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
 
 
-def test_cast_votes_propagates_llm_response_error_on_count_mismatch():
+def test_cast_votes_falls_back_to_the_deterministic_ballot_on_count_mismatch():
+    # cast_votes no longer propagates LlmResponseError under ANY circumstance
+    # (2026-09-06, check_vllm_vote_cast_retry_is_inert_results.md) -- a real
+    # vLLM run crashed on exactly this exception type after its replay budget
+    # was exhausted, which this project's own standing priority for that run
+    # ("must not die mid-run") rules out. ShortClient answers the chunk
+    # containing voter 0 correctly and completely (proving the fallback
+    # doesn't over-fire on a chunk that was never actually misaligned) and
+    # answers every OTHER chunk with a bogus single cid=0 decision, which
+    # never matches that chunk's own expected cids -- misaligned, fallback.
+    # At the shipped default (provider=vllm, chunk size 3), voter 0's own
+    # chunk is [0, 1, 2] (20 voters chunk as 3,3,3,3,3,3,2): all three of
+    # those succeed normally, every other voter (3..19) falls back.
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
 
     class ShortClient:
-        def complete_json(self, **kwargs):
-            return json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+        def count_prompt_tokens(self, **kwargs):
+            return 500
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        cast_votes(voters, candidates, config, ShortClient())
+        def complete_json(self, **kwargs):
+            payload = json.loads(kwargs["user_prompt"])
+            cids = [v["cid"] for v in payload["voters"]]
+            if 0 in cids:
+                decisions = [{"cid": cid, "blank": 1, "ranking": [], "motif": 101} for cid in cids]
+            else:
+                decisions = [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]
+            return json.dumps({"decisions": decisions})
+
+    outcome = cast_votes(voters, candidates, config, ShortClient())
+
+    assert len(outcome.decisions) == len(voters)
+    for v in voters:
+        expected_fallback = None if v.citizen_id in (0, 1, 2) else True
+        assert outcome.llm_fallback.get(v.citizen_id) == expected_fallback
 
 
 # ── build_candidacy_system_prompt / build_candidacy_user_prompt ─────────────
@@ -516,29 +804,128 @@ def test_candidacy_user_prompt_carries_the_precomputed_support_signal():
     assert by_cid[2]["perceived_support"] == 0.9
 
 
+# ── build_candidacy_*_prompt_toon (§5.E, diagnostic-only) ────────────────────
+
+def test_candidacy_user_prompt_toon_encodes_the_same_values_as_the_json_version():
+    citizens = _population(3)
+    support = {0: 0.1234, 1: 0.5, 2: 0.9}
+    toon = build_candidacy_user_prompt_toon(citizens, support)
+    assert toon.splitlines()[0] == "citizens[3]{cid,ambition_score,perceived_support}:"
+    json_payload = json.loads(build_candidacy_user_prompt(citizens, support))
+    by_cid = {c["cid"]: c for c in json_payload["citizens"]}
+    for line in toon.splitlines()[1:]:
+        cid, ambition, perceived = line.split(",")
+        assert float(ambition) == by_cid[int(cid)]["ambition_score"]
+        assert float(perceived) == by_cid[int(cid)]["perceived_support"]
+
+
+def test_candidacy_system_prompt_toon_still_enumerates_every_expected_cid():
+    citizens = _population(3)
+    prompt = build_candidacy_system_prompt_toon(citizens)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_candidacy_system_prompt_toon_explains_the_format_with_a_worked_example():
+    prompt = build_candidacy_system_prompt_toon(_population(1))
+    assert "citizens[N]{cid,ambition_score,perceived_support}:" in prompt
+    assert "0,0.52,0.31" in prompt  # the worked example -- not just naming the format
+
+
+def test_candidacy_system_prompt_toon_differs_from_json_only_in_the_format_paragraph():
+    # Isolates the format change: everything else (motif table, expected-
+    # cid self-check) must survive unchanged for the A/B to attribute any
+    # quality difference to the format alone.
+    citizens = _population(3)
+    json_lines = set(build_candidacy_system_prompt(citizens).splitlines())
+    toon_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    assert json_lines - toon_lines == set()
+    assert json_lines <= toon_lines
+
+
+# ── build_candidacy_system_prompt_toon_calibrated (Track B3, 2026-09-11) ────
+
+def test_calibrated_candidacy_prompt_states_the_population_mean_ambition():
+    prompt = build_candidacy_system_prompt_toon_calibrated(_population(3), mean_ambition=0.2013)
+    assert "0.2013" in prompt
+
+
+def test_calibrated_candidacy_prompt_is_additive_not_a_replacement():
+    # Same "enumerate the full expected cid list verbatim + self-check" and
+    # same TOON worked example as the uncalibrated version -- only the
+    # population-mean sentence is new.
+    citizens = _population(3)
+    prompt = build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2)
+    assert "[0,1,2]" in prompt and "EXACTEMENT ces 3" in prompt
+    assert "citizens[N]{cid,ambition_score,perceived_support}:" in prompt
+    assert "0,0.52,0.31" in prompt  # the worked example, unchanged
+
+
+def test_calibrated_candidacy_prompt_differs_from_uncalibrated_only_in_the_added_sentence():
+    citizens = _population(3)
+    uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
+    assert uncalibrated_lines <= calibrated_lines
+    added = calibrated_lines - uncalibrated_lines
+    assert len(added) == 1
+    assert "0.2000" in next(iter(added))
+
+
+def test_calibrated_candidacy_prompt_states_no_prescribed_action():
+    # C4: the ADDED sentence must situate a score against the population,
+    # never tell the model what that should mean for the decision -- no
+    # threshold, no "declare only if above this". Scoped to the added
+    # sentence alone (not the whole prompt): the pre-existing motif table
+    # legitimately contains "ambition_threshold_met", which is a real motif
+    # code, not a prescribed rule this fix introduces.
+    citizens = _population(1)
+    uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
+    added_sentence = next(iter(calibrated_lines - uncalibrated_lines)).lower()
+    forbidden = ["seuil", "threshold", "si superieur", "si le score", "declare seulement", "ne te presente que"]
+    for term in forbidden:
+        assert term not in added_sentence
+
+
 # ── decide_candidacies (FakeCandidacyLlmClient) ──────────────────────────────
+
+def _parse_toon_citizens(user_prompt: str) -> list[dict[str, float]]:
+    """Minimal reader for encode_toon_array's own output shape
+    (`<key>[N]{f1,f2,...}:` + one comma-separated row per record) -- the
+    inverse this project never needed in production (§5.E is input-only,
+    llm_toon_encoding.py has no decoder), but a fake test client standing
+    in for "the model reads TOON" needs one to assert on what it received,
+    now that decide_candidacies sends TOON instead of JSON."""
+    header, *rows = user_prompt.splitlines()
+    fields = header.split("{", 1)[1].rstrip("}:").split(",")
+    records = []
+    for row in rows:
+        values = dict(zip(fields, row.split(","), strict=True))
+        records.append({"cid": int(values["cid"]), **{f: float(values[f]) for f in fields if f != "cid"}})
+    return records
+
 
 class FakeCandidacyLlmClient:
     """Declares whenever ambition_score >= 0.5, mirroring how a real model
-    would use the two signals build_candidacy_user_prompt actually sends --
-    lets tests assert on chunking/order/support-signal behavior without a
-    live model."""
+    would use the two signals build_candidacy_user_prompt_toon actually
+    sends -- lets tests assert on chunking/order/support-signal behavior
+    without a live model."""
 
     def __init__(self):
         self.calls: list[list[int]] = []
         self.received_support: dict[int, float] = {}
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-        payload = json.loads(user_prompt)
-        cids = [c["cid"] for c in payload["citizens"]]
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+        citizens = _parse_toon_citizens(user_prompt)
+        cids = [c["cid"] for c in citizens]
         self.calls.append(cids)
-        for c in payload["citizens"]:
+        for c in citizens:
             self.received_support[c["cid"]] = c["perceived_support"]
         decisions = [
             {"cid": c["cid"], "outcome": 1, "motif": 203}
             if c["ambition_score"] >= 0.5
             else {"cid": c["cid"], "outcome": 0, "motif": 201}
-            for c in payload["citizens"]
+            for c in citizens
         ]
         return json.dumps({"decisions": decisions})
 
@@ -604,6 +991,13 @@ def test_decide_candidacies_raises_for_dynamic_batch_sharding():
 def test_decide_candidacies_raises_for_intra_run_workers_above_one():
     citizens = _population(20)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
@@ -617,7 +1011,11 @@ def test_decide_candidacies_raises_for_codebook_version_mismatch():
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
 
 
-def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
+def test_decide_candidacies_falls_back_to_the_ambition_threshold_on_a_count_mismatch():
+    # The misalignment is still DETECTED (that part is unchanged); what
+    # changed on 2026-09-11 is what happens next. It used to propagate and
+    # kill the run; it now degrades to simple_rules.decide_candidacy -- the
+    # exact threshold dt=2 replaced -- for the affected chunk only.
     citizens = _population(20)
     config = _config_with_llm_enabled()
 
@@ -625,8 +1023,18 @@ def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "outcome": 0, "motif": 201}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_candidacies(citizens, config, ShortClient())
+    outcome = decide_candidacies(citizens, config, ShortClient())
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    # Not merely "some decision": the baseline's decision, per citizen.
+    by_cid = {d.cid: d for d in outcome.decisions}
+    for citizen in citizens:
+        expected = 1 if decide_candidacy(citizen, config.candidacy) else 0
+        assert by_cid[citizen.citizen_id].outcome == expected
+    # And only the two motifs a threshold can actually justify -- never 201
+    # (INSUFFICIENT_PERCEIVED_SUPPORT) or 205 (RISK_AVERSE_DEFERRAL), which
+    # require judgment the baseline has no input for.
+    assert {d.motif for d in outcome.decisions} <= {203, 204}
 
 
 # ── build_party_nomination_system_prompt / build_party_nomination_user_prompt ──
@@ -652,6 +1060,15 @@ def test_party_nomination_system_prompt_describes_candidates_by_position_not_cid
     assert "cid" in prompt
 
 
+def test_party_nomination_system_prompt_states_the_candidate_count_bound():
+    # Track C1 step C, 2026-09-11: the C2 fix for winner_position's per-party
+    # upper bound, never stated before (check_party_nomination_position_
+    # logprobs_results.md's own diagnosis, party 3/19 candidates -> 26).
+    contested = {0: [_citizen(0, (0.5,)), _citizen(1, (0.5,))]}
+    prompt = build_party_nomination_system_prompt(contested)
+    assert "candidate_count" in prompt
+
+
 def test_party_nomination_user_prompt_carries_signals_per_candidate():
     citizens = [_citizen_with_ambition(0, 0.8), _citizen_with_ambition(1, 0.2)]
     contested = {0: citizens}
@@ -668,6 +1085,21 @@ def test_party_nomination_user_prompt_carries_signals_per_candidate():
     assert by_cid[1]["perceived_support"] == 0.7
     assert by_cid[0]["position"] == 1  # sorted by citizen_id ascending, not input order
     assert by_cid[1]["position"] == 2
+
+
+def test_party_nomination_user_prompt_states_each_partys_own_candidate_count():
+    # Track C1 step C: candidate_count is per PARTY, not a single global N --
+    # two contested parties of different sizes must each carry their own.
+    contested = {
+        0: [_citizen(0, (0.5,)), _citizen(1, (0.5,))],
+        2: [_citizen(2, (0.5,)), _citizen(3, (0.5,)), _citizen(4, (0.5,))],
+    }
+    parties_by_id = {0: _party(0, (0.5,)), 2: _party(2, (0.5,))}
+    support = {0: 0.5, 1: 0.5, 2: 0.5, 3: 0.5, 4: 0.5}
+    payload = json.loads(build_party_nomination_user_prompt(contested, parties_by_id, support))
+    by_party = {p["party_id"]: p for p in payload["parties"]}
+    assert by_party[0]["candidate_count"] == 2
+    assert by_party[2]["candidate_count"] == 3
 
 
 def test_party_nomination_user_prompt_platform_distance_is_zero_at_the_platform():
@@ -707,7 +1139,7 @@ class FakePartyNominationLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         party_ids = [p["party_id"] for p in payload["parties"]]
         self.calls.append(party_ids)
@@ -768,6 +1200,76 @@ def test_decide_party_nominations_resolves_winner_position_back_to_the_right_cid
     assert outcome.decisions[0].motif == 206
 
 
+def test_decide_party_nominations_falls_back_to_deterministic_tiebreak_on_an_out_of_range_position():
+    # Live finding, 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3, population 500): an
+    # unguarded resolve_party_nomination_cid raised a raw IndexError and crashed the whole run the
+    # first time winner_position genuinely exceeded a party's own candidate count -- never
+    # exercised before at the shipped parties.initial_count=5 scale. This pins the fix: fall back
+    # to select_party_nominee_from_declared's own highest-ambition tiebreak instead of crashing.
+    class BadPositionClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            payload = json.loads(user_prompt)
+            decisions = [{"party_id": p["party_id"], "winner_position": 99, "motif": 206} for p in payload["parties"]]
+            return json.dumps({"decisions": decisions})
+
+    citizens = [_citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1), _citizen_with_ambition(2, 0.5)]
+    for c in citizens:
+        c.party_affiliation = 0
+    parties = [_party(0, (0.5,))]
+    config = _config_with_llm_enabled()
+
+    outcome = decide_party_nominations(citizens, parties, {0, 1, 2}, config, BadPositionClient())
+
+    assert outcome.winners == {0: 0}  # citizen 0 has the highest ambition_score
+    assert outcome.decisions[0].motif == 206  # HIGHEST_AMBITION -- the real classification, not a placeholder
+    assert outcome.decisions[0].winner_position == 1  # citizen 0's own real position, not the bogus 99
+
+
+def test_decide_party_nominations_per_party_retry_rescues_a_good_party_from_a_bad_batchmate():
+    # Track C1 steps A+B (2026-09-11, lets-build-a-solid-spicy-otter.md): before this fix, ANY
+    # decision failing validation sank the WHOLE tick's batch to the deterministic tiebreak, even
+    # for parties whose own answer was fine (Stage 3, population 500: 10/15 nominations fell back,
+    # i.e. every party on every election tick that had at least one bad answer among the five).
+    # This client answers out-of-range for party 1 whenever asked together with party 0 (2
+    # decisions requested), but answers correctly when asked about either party ALONE (1 decision
+    # requested) -- isolating exactly the scenario stage 2's per-party retry exists for.
+    class BatchDependentClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            payload = json.loads(user_prompt)
+            party_blocks = payload["parties"]
+            if len(party_blocks) == 2:
+                decisions = [
+                    {"party_id": 0, "winner_position": 1, "motif": 206},
+                    {"party_id": 1, "winner_position": 99, "motif": 206},  # out of range
+                ]
+            else:
+                decisions = [{"party_id": p["party_id"], "winner_position": 1, "motif": 206} for p in party_blocks]
+            return json.dumps({"decisions": decisions})
+
+    citizens = [
+        _citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1),
+        _citizen_with_ambition(2, 0.1), _citizen_with_ambition(3, 0.9),
+    ]
+    citizens[0].party_affiliation = 0
+    citizens[1].party_affiliation = 0
+    citizens[2].party_affiliation = 1
+    citizens[3].party_affiliation = 1
+    parties = [_party(0, (0.5,)), _party(1, (0.5,))]
+    config = _config_with_llm_enabled()
+
+    outcome = decide_party_nominations(citizens, parties, {0, 1, 2, 3}, config, BatchDependentClient())
+
+    # Neither party falls back: party 0 was already fine in the whole-batch attempt, party 1 is
+    # rescued by its own individual retry -- one bad batchmate no longer sinks a good one.
+    assert outcome.llm_fallback == {0: False, 1: False}
+    # winner_position=1 -> the first sorted (by citizen_id) candidate in each party. Party 1's
+    # winner (cid=2) is the LOWER-ambition contender -- the deterministic tiebreak would have
+    # picked cid=3 instead, so this value can only have come from the model's own retried answer,
+    # not an accidental match with what the fallback would have produced anyway.
+    assert outcome.winners == {0: 0, 1: 2}
+    assert {d.motif for d in outcome.decisions} == {206}  # both real LLM motifs, no HIGHEST_AMBITION fallback
+
+
 def test_decide_party_nominations_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(2)
     config = _config_with_llm_enabled()
@@ -787,6 +1289,13 @@ def test_decide_party_nominations_raises_for_dynamic_batch_sharding():
 def test_decide_party_nominations_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
@@ -800,7 +1309,7 @@ def test_decide_party_nominations_raises_for_codebook_version_mismatch():
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
 
 
-def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatch():
+def test_decide_party_nominations_falls_back_to_the_tiebreak_on_a_count_mismatch():
     citizens = [
         _citizen_with_ambition(0, 0.9),
         _citizen_with_ambition(1, 0.1),
@@ -819,8 +1328,26 @@ def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatc
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"party_id": 0, "winner_position": 1, "motif": 206}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())
+    outcome = decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())
+
+    # This decision type had a fallback since 2026-09-10, but it only wrapped
+    # validation/resolution -- an exhausted or misaligned BATCH still went
+    # uncaught and killed the run, a half-closed hole that read as closed.
+    # The LLM call moved inside the same try on 2026-09-11.
+    #
+    # Track C1 steps A+B (2026-09-11): the whole-batch attempt (both
+    # parties) still misaligns, since ShortClient always answers party 0's
+    # question regardless of what it is asked -- but stage 2's per-party
+    # retry then asks about party 0 ALONE, which ShortClient's canned
+    # response genuinely satisfies, so party 0 is rescued by its own
+    # individual retry while party 1 (whose question ShortClient can never
+    # answer) still falls back. One bad party no longer sinks the other.
+    assert outcome.llm_fallback == {0: False, 1: True}
+    # party 0: resolved from the LLM's own real answer (winner_position=1 ->
+    # the higher-ambition citizen 0, sorted first). party 1: the highest-
+    # ambition contender, which is what the tiebreak does.
+    assert outcome.winners == {0: 0, 1: 2}
+    assert {d.motif for d in outcome.decisions} == {206, int(PartyNominationMotif.HIGHEST_AMBITION)}
 
 
 # ── apply_shifts ──────────────────────────────────────────────────────────
@@ -988,7 +1515,7 @@ class FakePositioningLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [n["cid"] for n in payload["nominees"]]
         self.calls.append(cids)
@@ -1055,6 +1582,13 @@ def test_decide_campaign_positioning_raises_for_dynamic_batch_sharding():
 def test_decide_campaign_positioning_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
@@ -1068,7 +1602,10 @@ def test_decide_campaign_positioning_raises_for_codebook_version_mismatch():
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
 
 
-def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mismatch():
+def test_decide_campaign_positioning_falls_back_to_the_sincere_platform_on_a_count_mismatch():
+    # Degrades instead of killing the run (2026-09-11). The substituted answer
+    # is declare_candidacy's own pin: no shifts, so the resolved platform IS
+    # the sincere position -- "dt=5 did not run", not an invented strategy.
     citizens = _population(2)
     config = _config_with_llm_enabled()
 
@@ -1076,8 +1613,13 @@ def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mism
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 601}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+    outcome = decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    assert all(d.shifts == [] for d in outcome.decisions)
+    assert {d.motif for d in outcome.decisions} == {601}
+    for citizen in citizens:
+        assert outcome.platforms[citizen.citizen_id] == citizen.issue_positions
 
 
 # ── validate_response_decision (v4 Lot 6) ────────────────────────────────
@@ -1174,6 +1716,65 @@ def test_response_system_prompt_states_the_stance_motif_pairing_rule():
     assert "stance=3" in prompt and "308" in prompt
 
 
+# ── build_response_system_prompt_calibrated (Track B1, 2026-09-11) ──────
+
+def test_calibrated_response_prompt_states_mandate_dev_as_a_fixed_0_to_1_bound():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    # A mathematical certainty (pledge_weights always renormalizes to sum to
+    # 1; positions live in [0,1]) -- never derived from config, unlike street.
+    assert "dans [0, 1.0]" in prompt
+    assert "1.0 = ecart maximal geometriquement possible" in prompt
+
+
+def test_calibrated_response_prompt_derives_streets_ceiling_from_config_decay():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()  # shipped street_pressure.decay=0.85 -> 1/(1-0.85)=6.67
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    assert "6.67" in prompt
+
+    # Not hardcoded: a different decay must move the stated ceiling.
+    config_slow_decay = dataclasses.replace(
+        config, street_pressure=dataclasses.replace(config.street_pressure, decay=0.5)
+    )
+    prompt_slow = build_response_system_prompt_calibrated(holders, config_slow_decay)
+    assert "6.67" not in prompt_slow
+    assert "2.00" in prompt_slow  # 1/(1-0.5)
+
+
+def test_calibrated_response_prompt_is_additive_not_a_replacement():
+    # Track B1's own design note: unlike pressure_action's signal menu, this
+    # has no "zero signals" baseline to fall back to (both facts are always
+    # stated) -- but everything the uncalibrated prompt states must still be
+    # there: cid enumeration, numeric bounds, stance/motif tables and their
+    # pairing rule.
+    holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    assert "[0,1]" in prompt and "EXACTEMENT ces 2" in prompt
+    assert "3 ajustements" in prompt and "0.3" in prompt
+    assert "1 = CONCESSION" in prompt and "301 = MANDATE_DEVIATION_HIGH" in prompt
+    assert "stance=1" in prompt and "301" in prompt
+    assert "stance=3" in prompt and "308" in prompt
+
+
+def test_calibrated_response_prompt_states_no_prescribed_action():
+    # C4: the calibration sentences must describe what a number MEANS, never
+    # what to do about it. Checked directly against the two new sentences
+    # this builder adds, not a heuristic scan (which would also catch the
+    # pre-existing, unrelated null-handling sentences on the same fields).
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    mandate_dev_sentence = "distance dans [0, 1.0] : 0 = promesse parfaitement tenue"
+    street_sentence = "plafond realiste dans cette simulation est environ"
+    assert mandate_dev_sentence in prompt
+    assert street_sentence in prompt
+    for prescriptive in ("doit reagir", "devrait", "reponds par", "concede si", "alors stance"):
+        assert prescriptive not in prompt.lower()
+
+
 def test_response_user_prompt_carries_pledged_revealed_and_ctx():
     holder = _holder(0, (0.2, 0.4), revealed=(0.3, 0.4))
     contexts = {0: _response_context(0, legitimacy=0.6, mandate_dev=0.1, street=0.2, lame_duck=True, ticks_left=3)}
@@ -1221,7 +1822,7 @@ class FakeResponseLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [h["cid"] for h in payload["holders"]]
         self.calls.append(cids)
@@ -1285,6 +1886,42 @@ def test_decide_representative_response_leaves_pledged_platform_untouched():
     assert holder.pledged_platform == (0.2,)  # decide_representative_response never resolves a pledge
 
 
+def test_decide_representative_response_falls_back_to_silence_instead_of_dying(caplog):
+    # Live finding, 2026-09-11: a Stage 3 scale-probe run (2.5h of compute) was
+    # killed outright when the model returned two shifts on the SAME dimension --
+    # ResponseDecision's own _check_no_duplicate_dimensions rejected the batch and
+    # dt=6 had no fallback at all. Silence with no shifts is exactly what not
+    # running dt=6 means, so the holder simply does not move this tick.
+    holder = _holder(0, (0.2,), revealed=(0.4,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    class DuplicateDimensionClient:
+        def complete_json(self, **kwargs):
+            decision = {
+                "cid": 0, "stance": 1, "motif": 301,
+                "shifts": [{"dimension": 0, "delta": 0.1}, {"dimension": 0, "delta": 0.2}],
+            }
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_representative_response([holder], contexts, config, DuplicateDimensionClient())
+
+    assert [d.stance for d in outcome.decisions] == [3]  # SILENCE
+    assert outcome.decisions[0].shifts == []
+    assert outcome.positions[0] == (0.4,)  # unchanged: a silence moves nothing
+    assert outcome.llm_fallback == {0: True}  # provenance, not a real silence
+
+
+def test_decide_representative_response_marks_a_real_answer_as_not_a_fallback():
+    holder = _holder(0, (0.2,), revealed=(0.2,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    outcome = decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+    assert outcome.llm_fallback == {0: False}
+
+
 def test_decide_representative_response_raises_notimplementederror_for_unsupported_provider():
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
@@ -1307,6 +1944,13 @@ def test_decide_representative_response_raises_for_intra_run_workers_above_one()
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
@@ -1321,7 +1965,10 @@ def test_decide_representative_response_raises_for_codebook_version_mismatch():
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
 
 
-def test_decide_representative_response_propagates_llm_response_error_on_count_mismatch():
+def test_decide_representative_response_falls_back_rather_than_raising_on_a_misaligned_batch():
+    # Was "propagates LlmResponseError" until 2026-09-11. A misaligned batch is
+    # the same unrecoverable class as a schema violation, and dt=6 now treats
+    # both the same way every other must-not-die-mid-run entry point does.
     holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
     contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
     config = _config_with_llm_enabled()
@@ -1330,8 +1977,11 @@ def test_decide_representative_response_propagates_llm_response_error_on_count_m
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "stance": 3, "motif": 308}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_representative_response(holders, contexts, config, ShortClient())
+    outcome = decide_representative_response(holders, contexts, config, ShortClient())
+
+    assert [d.cid for d in outcome.decisions] == [0, 1]  # every holder still gets a decision
+    assert all(d.stance == 3 and not d.shifts for d in outcome.decisions)
+    assert outcome.llm_fallback == {0: True, 1: True}
 
 
 def test_decide_representative_response_ignores_a_later_street_pressure_mutation():
@@ -1414,12 +2064,32 @@ def test_validate_chamber_decision_uses_sortition_bounds_not_mandate_bounds():
 
 # ── build_chamber_system_prompt / build_chamber_user_prompt ─────────────
 
-def test_chamber_system_prompt_enumerates_every_expected_cid():
+def test_chamber_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): mirrors
+    # vote_cast's own fix -- the literal cid list moved to build_chamber_
+    # user_prompt's own `expected_cids` field so build_chamber_system_
+    # prompt's own output is identical across every chunk (prefix-cache
+    # continuity). See test_chamber_system_prompt_is_identical_across_
+    # chunks and test_chamber_user_prompt_carries_expected_cids.
     members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
     config = _config_with_llm_enabled()
     prompt = build_chamber_system_prompt(members, config)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_chamber_system_prompt_is_identical_across_different_chunks():
+    config = _config_with_llm_enabled()
+    chunk_a = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    chunk_b = [_member(50, (0.5,)), _member(51, (0.5,))]
+    assert build_chamber_system_prompt(chunk_a, config) == build_chamber_system_prompt(chunk_b, config)
+
+
+def test_chamber_user_prompt_carries_expected_cids_in_member_order():
+    members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    payload = json.loads(build_chamber_user_prompt(members, contexts))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_chamber_system_prompt_states_the_actual_numeric_bounds():
@@ -1436,6 +2106,21 @@ def test_chamber_system_prompt_carries_the_motif_table():
     prompt = build_chamber_system_prompt(members, config)
     assert "701 = SINCERE_POSITION" in prompt
     assert "702 = DELIBERATIVE_SHIFT" in prompt
+
+
+def test_chamber_system_prompt_disambiguates_the_identical_position_case():
+    # v6b Lot 5 correction: a live 270-call sweep found chamber_position==
+    # sincere_position (true at seating time and for as long as a member
+    # never picks motif=702) reliably triggers the model's own Mode A
+    # (unbounded reasoning, 7/270 landed exactly on the token ceiling,
+    # ~70-140x repeated "wait, maybe they differ" paragraphs) when left
+    # unaddressed. Regression guard for the disambiguating sentence itself,
+    # not the live behavior (see scripts/lot3_chamber_reliability_results.md
+    # for the live verification that resolved all 7 failing cases).
+    members = [_member(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_chamber_system_prompt(members, config)
+    assert "identique a sincere_position" in prompt
 
 
 def test_chamber_user_prompt_carries_sincere_and_chamber_positions_and_ctx():
@@ -1464,6 +2149,23 @@ def test_chamber_user_prompt_ctx_matches_the_journalled_ctx_payload():
     assert payload["members"][0]["ctx"] == context.to_payload()
 
 
+def test_chamber_user_prompt_uses_coarser_precision_for_position_vectors():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): sincere_
+    # position/chamber_position/priorities are read holistically ("should I
+    # adjust, roughly how much"), so they drop to _PROMPT_VECTOR_PRECISION
+    # (2) decimals -- unlike vote_cast's distances/blank_threshold, there is
+    # no fine-grained threshold comparison here to protect. `ctx` (to_payload,
+    # shared with the journal) is untouched -- see the test above. Not yet
+    # live-verified against a real model call -- see that plan's own
+    # verification section.
+    member = _member(0, (0.123456, 0.789012), chamber=(0.333333, 0.666666))
+    contexts = {0: _chamber_context(0)}
+    payload = json.loads(build_chamber_user_prompt([member], contexts))
+    block = payload["members"][0]
+    assert block["sincere_position"] == [0.12, 0.79]
+    assert block["chamber_position"] == [0.33, 0.67]
+
+
 # ── decide_chamber_deliberation (FakeChamberLlmClient, v6b Lot 3) ───────
 
 class FakeChamberLlmClient:
@@ -1476,7 +2178,13 @@ class FakeChamberLlmClient:
         self.think_values: list[bool] = []
         self.max_tokens_values: list[int] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See FakeLlmClient.count_prompt_tokens's own comment -- same
+        # rationale, small and fixed so it never binds against
+        # compute_max_tokens's own floor.
+        return 500
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [m["cid"] for m in payload["members"]]
         self.calls.append(cids)
@@ -1498,9 +2206,10 @@ def test_decide_chamber_deliberation_returns_empty_and_skips_the_client_when_no_
 
 
 def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_input_order():
-    # _CHAMBER_MAX_CHUNK_SIZE=1 means each member reaches the client as its
-    # own call -- the ordering guarantee (D-5) is now about CALL ORDER, not
-    # grouping within one call.
+    # At the shipped default (provider=vllm, _CHAMBER_MAX_CHUNK_SIZE_VLLM=5)
+    # 3 members fit in a single chunk/call -- the ordering guarantee (D-5)
+    # is about the order WITHIN that call's own cid list, since members are
+    # sorted by citizen_id before chunking regardless of input order.
     members = [_member(3, (0.5,)), _member(0, (0.5,)), _member(4, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -1508,30 +2217,36 @@ def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_i
 
     decide_chamber_deliberation(members, contexts, config, client)
 
-    assert client.calls == [[0], [3], [4]]
+    assert client.calls == [[0, 3, 4]]
 
 
-def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one_on_ollama():
     # A 30-member cohort (sortition_chamber.seats shipped) must reach the
-    # client as THIRTY calls of 1 -- this lot's own pre-flight spike found
-    # one call of 30 (and even a chunk of 15) silently drops all but the
-    # last 6 decisions, so decide_chamber_deliberation chunks at its own
-    # measured ceiling (_CHAMBER_MAX_CHUNK_SIZE), not config.llm.max_batch_
-    # size (25). Cut from an original 10 -- via a tried-and-DISPROVEN
-    # intermediate of 5 -- to 1 (vote_cast's own endpoint) after a real v6b
-    # acceptance run (2026-08-21/22, GPU) hit finish_reason='length' on a
-    # chunk_size=10 call, 3/3 attempts, all landing exactly on
-    # n_decoded=10136 -- the deterministic "hits the configured ceiling"
-    # signature (Mode B), not unbounded reasoning collapse (Mode A) --
-    # fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE's own history fixed an
-    # analogous overflow: cut the chunk size, not the budget. Halving to 5
-    # was tried first and reproduced the identical overflow on a different
-    # sub-chunk with zero margin; chunk_size=1 was validated directly
-    # against that same failing group before shipping -- see this
-    # constant's own docstring / scripts/lot3_chamber_reliability_results.md.
+    # client as THIRTY calls of 1 on Ollama -- this lot's own pre-flight
+    # spike found one call of 30 (and even a chunk of 15) silently drops
+    # all but the last 6 decisions, so decide_chamber_deliberation chunks
+    # at its own measured ceiling (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA), not
+    # config.llm.max_batch_size (25). Cut from an original 10 -- via a
+    # tried-and-DISPROVEN intermediate of 5 -- to 1 (vote_cast's own
+    # endpoint) after a real v6b acceptance run (2026-08-21/22, GPU) hit
+    # finish_reason='length' on a chunk_size=10 call, 3/3 attempts, all
+    # landing exactly on n_decoded=10136 -- the deterministic "hits the
+    # configured ceiling" signature (Mode B), not unbounded reasoning
+    # collapse (Mode A) -- fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE_
+    # OLLAMA's own history fixed an analogous overflow: cut the chunk size,
+    # not the budget. Halving to 5 was tried first and reproduced the
+    # identical overflow on a different sub-chunk with zero margin;
+    # chunk_size=1 was validated directly against that same failing group
+    # before shipping -- see this constant's own docstring /
+    # scripts/lot3_chamber_reliability_results.md. Explicitly pinned to
+    # provider=ollama: this whole history is Ollama-era and was never
+    # re-tested there -- see test_decide_chamber_deliberation_chunks_a_
+    # full_seats_sized_cohort_at_five_on_vllm below for the re-tested
+    # vLLM-era ceiling.
     members = [_member(i, (0.5,)) for i in range(30)]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1541,7 +2256,26 @@ def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
     assert sorted(cid for call in client.calls for cid in call) == list(range(30))
 
 
-def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_allowance():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_five_on_vllm():
+    # check_vllm_chunk_size_throughput_results.md (2026-09-08): raised to 5
+    # on vLLM once real ground-truth/throughput testing found chamber_
+    # deliberation's Ollama-era ceiling didn't transfer as a hard limit --
+    # see _CHAMBER_MAX_CHUNK_SIZE_VLLM's own docstring. 30 members chunk as
+    # six calls of exactly 5.
+    members = [_member(i, (0.5,)) for i in range(30)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert len(client.calls) == 6
+    assert [len(c) for c in client.calls] == [5] * 6
+    assert sorted(cid for call in client.calls for cid in call) == list(range(30))
+
+
+def test_decide_chamber_deliberation_uses_think_true_and_the_flat_reasoning_token_allowance_on_ollama():
     # v6b Lot 4 correction: a real acceptance run (2026-08-17, GPU) found a
     # specific 10-cid chunk that think=False reproducibly (8/8) dropped to
     # 4/10, well-formed JSON, not a truncation; think=True fixed that exact
@@ -1552,12 +2286,15 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     # corrected from an original 4000 after a real v6b acceptance run
     # (2026-08-20) hit finish_reason='length' on a chunk_size=10 call, 3/3,
     # deterministic budget exhaustion (not context truncation). 1 member
-    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE was itself later cut to 1
-    # (via a disproven intermediate of 5) for the identical reason, two
-    # calls up.
+    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE_OLLAMA was itself later cut to
+    # 1 (via a disproven intermediate of 5) for the identical reason, two
+    # calls up. Explicitly pinned to provider=ollama (2026-09-08): the flat
+    # allowance this test pins is now the OLLAMA-only formula --
+    # _dynamic_max_tokens replaced it on vLLM, see the companion test below.
     members = [_member(0, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1566,12 +2303,35 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     assert client.max_tokens_values == [compute_max_tokens(1) + 8000]
 
 
+def test_decide_chamber_deliberation_uses_the_dynamic_max_tokens_probe_on_vllm():
+    # _dynamic_max_tokens (2026-09-08, check_vllm_chunk_size_throughput_
+    # results.md): on vLLM, max_tokens is no longer the flat allowance the
+    # companion Ollama test above pins -- it's probed against the real
+    # prompt via count_prompt_tokens and maximized under the context
+    # ceiling. FakeChamberLlmClient.count_prompt_tokens returns a fixed 500
+    # (see its own comment), so the expected value is fully determined:
+    # max(compute_max_tokens(1), 16384 - 500 - 300).
+    members = [_member(0, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert client.think_values == [True]
+    assert client.max_tokens_values == [max(compute_max_tokens(1), 16384 - 500 - 300)]
+
+
 def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
     member = _member(0, (0.2, 0.2), chamber=(0.4, 0.2))  # already drifted from the sincere position
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             payload = json.loads(kwargs["user_prompt"])
             cid = payload["members"][0]["cid"]
@@ -1585,12 +2345,82 @@ def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position()
     assert outcome.positions[0] == expected
 
 
+def test_decide_chamber_deliberation_corrects_motif_702_with_empty_shifts_to_701():
+    # measured 2026-08-30 (plan-adversarial-framing-collapse.md): motif=702 (DELIBERATIVE_SHIFT)
+    # paired with an empty shifts list has no legitimate reading under the schema's own stated
+    # intent (702 IS "at least one adjustment") -- corrected to 701, tracked explicitly.
+    member = _member(0, (0.2,), chamber=(0.5,))  # already drifted -- the pole that measured this
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class IncoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, IncoherentClient())
+
+    assert outcome.decisions[0].motif == 701
+    assert outcome.motif_corrected == {0: True}
+    # the correction is a label fix only -- chamber_position is unaffected either way, since
+    # shifts was already empty.
+    assert outcome.positions[0] == (0.5,)
+
+
+def test_decide_chamber_deliberation_does_not_correct_a_coherent_702():
+    member = _member(0, (0.2,), chamber=(0.2,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class CoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, CoherentClient())
+
+    assert outcome.decisions[0].motif == 702
+    assert outcome.motif_corrected == {}  # absent, not False -- never flagged as corrected
+
+
+def test_decide_chamber_deliberation_does_not_correct_701_with_a_small_nonempty_shift():
+    # the OTHER incoherence direction (a small real shift labelled 701/sincere) -- already
+    # measured (scripts/lot3_chamber_reliability_results.md), never independently shown
+    # problematic for THIS narrower rule, and deliberately left untouched: it's a documented,
+    # accepted mismatch (ChamberDecision's own docstring), not the one this correction targets.
+    member = _member(0, (0.2,), chamber=(0.2,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class SmallShiftClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.05}], "motif": 701}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, SmallShiftClient())
+
+    assert outcome.decisions[0].motif == 701  # unchanged -- this rule never fires on motif=701
+    assert outcome.motif_corrected == {}
+
+
 def test_decide_chamber_deliberation_leaves_issue_positions_untouched():
     member = _member(0, (0.2,), chamber=(0.2,))
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1622,6 +2452,13 @@ def test_decide_chamber_deliberation_raises_for_intra_run_workers_above_one():
     member = _member(0, (0.5,))
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
@@ -1636,17 +2473,96 @@ def test_decide_chamber_deliberation_raises_for_codebook_version_mismatch():
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
 
 
-def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mismatch():
+def test_decide_chamber_deliberation_falls_back_to_the_deterministic_decision_on_count_mismatch():
+    # Renamed and re-asserted 2026-09-08, mirroring cast_votes's own
+    # identical fix (2026-09-06, check_vllm_vote_cast_retry_is_inert_
+    # results.md): decide_chamber_deliberation no longer propagates
+    # LlmResponseError under any circumstance -- a real Phase 7 smoke run
+    # crashed on exactly this exception type (a deterministic vLLM
+    # truncation, byte-identical retries could never recover from it), which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. Both members share one chunk at the shipped default (chunk
+    # size 5 >= 2 members), so a misalignment falls the whole chunk back to
+    # the deterministic sincere decision (motif=701, shifts=[]).
     members = [_member(0, (0.5,)), _member(1, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
 
     class ShortClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_chamber_deliberation(members, contexts, config, ShortClient())
+    outcome = decide_chamber_deliberation(members, contexts, config, ShortClient())
+
+    assert len(outcome.decisions) == 2
+    assert outcome.llm_fallback == {0: True, 1: True}
+    assert all(d.motif == 701 and d.shifts == [] for d in outcome.decisions)
+
+
+def test_decide_chamber_deliberation_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+
+    class _AlwaysBadClient:
+        def __init__(self):
+            self.calls = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            self.calls += 1
+            return "not valid json"  # never recovers
+
+    client = _AlwaysBadClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {0: True}
+    assert outcome.decisions[0].motif == 701
+    assert outcome.decisions[0].shifts == []
+
+
+def test_decide_chamber_deliberation_retries_at_a_varied_temperature_and_marks_it():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    good_raw = json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
+
+    class _FlakyClient:
+        def __init__(self):
+            self.calls = 0
+            self.temperatures: list[float | None] = []
+            self.seeds: list[int | None] = []
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True,
+                           temperature=None, seed=None, extra_body=None):
+            self.calls += 1
+            self.temperatures.append(temperature)
+            self.seeds.append(seed)
+            if self.calls == 1:
+                return "not valid json"
+            return good_raw
+
+    client = _FlakyClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 2
+    # First attempt: no override (preserves determinism). Retry: the local
+    # exception's own temperature and seed offset, never None.
+    assert client.temperatures == [None, _CHAMBER_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _CHAMBER_RETRY_SEED_BASE + 1]
+    assert outcome.retry_sampling_varied == {0: True}
+    assert outcome.llm_fallback == {}
 
 
 def test_decide_chamber_deliberation_uses_replay():
@@ -1658,6 +2574,9 @@ def test_decide_chamber_deliberation_uses_replay():
     class FlakyThenGoodClient:
         def __init__(self):
             self.attempts = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
 
         def complete_json(self, **kwargs):
             self.attempts += 1
@@ -1812,6 +2731,70 @@ def test_coalition_system_prompt_contains_no_coalition_theory_framing():
         assert term not in lowered
 
 
+# ── build_coalition_system_prompt_calibrated (Track B2, 2026-09-11) ─────
+
+def test_calibrated_coalition_prompt_states_the_mean_inter_party_distance():
+    # 3 seated parties (initiator + 2 responders) on a single dimension:
+    # 0.0, 0.3, 0.9. Pairwise distances: |0-0.3|=0.3, |0-0.9|=0.9,
+    # |0.3-0.9|=0.6 -- mean = (0.3+0.9+0.6)/3 = 0.6.
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "0.6000" in prompt
+
+
+def test_calibrated_coalition_prompt_includes_the_initiator_in_the_mean():
+    # Verifies the mean is over {initiator} | responders, not responders
+    # alone: with the initiator EXCLUDED the mean of a single pair (1, 2)
+    # would be a different, wrong number (0.6) than the true 3-party mean
+    # (0.6 coincidentally matches above; use an asymmetric case here so a
+    # bug that drops the initiator cannot pass by accident).
+    platforms = {0: (0.0,), 1: (1.0,), 2: (1.0,)}
+    # Correct (initiator included): pairs (0,1)=1.0, (0,2)=1.0, (1,2)=0.0 -> mean=0.6667
+    # Wrong (initiator excluded): only pair (1,2)=0.0 -> mean=0.0
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "0.6667" in prompt
+    assert "0.0000" not in prompt
+
+
+def test_calibrated_coalition_prompt_is_additive_not_a_replacement():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "[1,2]" in prompt and "EXACTEMENT ces 2 party_id" in prompt
+    assert "100" in prompt and "50.0" in prompt and "30" in prompt
+    assert "1 = JOIN" in prompt and "501 = IDEOLOGICAL_PROXIMITY" in prompt
+    assert "501" in prompt and "502" in prompt and "504" in prompt and "505" in prompt
+
+
+def test_calibrated_coalition_prompt_contains_no_coalition_theory_framing():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    forbidden = ["minimal", "minimale", "stable", "small coalition", "petite coalition", "prefer", "privilegie"]
+    lowered = prompt.lower()
+    for term in forbidden:
+        assert term not in lowered
+
+
+def test_calibrated_coalition_prompt_round_one_is_byte_identical_to_omitting_round_number():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    args = ([1, 2], 0, 30, 100, 50.0, platforms)
+    assert (
+        build_coalition_system_prompt_calibrated(*args, round_number=1)
+        == build_coalition_system_prompt_calibrated(*args)
+    )
+
+
 def test_coalition_user_prompt_carries_distance_seats_and_votes_per_responder():
     platforms = {0: (0.0,), 1: (0.3,)}
     seats = {0: 30, 1: 25}
@@ -1869,6 +2852,43 @@ def test_coalition_user_prompt_top_level_key_is_responders():
     assert "nominees" not in payload
 
 
+def test_coalition_system_prompt_round_one_is_byte_identical_to_omitting_round_number():
+    # v7 Lot 2's own parity requirement (plan-coalition-negotiation-v7.md
+    # §3): round 1 must reproduce the pre-v7 prompt exactly.
+    args = ([1, 2], 0, 30, 100, 50.0)
+    assert build_coalition_system_prompt(*args, round_number=1) == build_coalition_system_prompt(*args)
+
+
+def test_coalition_system_prompt_round_two_names_it_a_revision_round():
+    prompt = build_coalition_system_prompt([1], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0, round_number=2)
+    assert "tour 2" in prompt
+
+
+def test_coalition_user_prompt_round_one_is_byte_identical_to_omitting_prior_state():
+    platforms = {0: (0.0,), 1: (0.3,)}
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    args = ([1], 0, platforms, seats, votes, 100, 50.0)
+    assert build_coalition_user_prompt(*args, prior_decisions=None, provisional_coalition_seats=None) == build_coalition_user_prompt(*args)
+
+
+def test_coalition_user_prompt_round_two_carries_prior_decision_and_provisional_seats():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.6,)}
+    seats = {0: 30, 1: 25, 2: 20}
+    votes = {0: 30.0, 1: 25.0, 2: 20.0}
+    prior = {1: _coalition_decision(1, action=2, motif=504), 2: _coalition_decision(2, action=1, motif=501)}
+    payload = json.loads(
+        build_coalition_user_prompt(
+            [1, 2], 0, platforms, seats, votes, 100, 50.0,
+            prior_decisions=prior, provisional_coalition_seats=50,
+        )
+    )
+    assert payload["assembly"]["provisional_coalition_seats"] == 50
+    responders_by_id = {r["party_id"]: r for r in payload["responders"]}
+    assert responders_by_id[1]["prior_decision"] == {"action": 2, "motif": 504}
+    assert responders_by_id[2]["prior_decision"] == {"action": 1, "motif": 501}
+
+
 # ── decide_coalition (FakeCoalitionLlmClient) ────────────────────────────
 
 class FakeCoalitionLlmClient:
@@ -1879,7 +2899,7 @@ class FakeCoalitionLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         party_ids = [r["party_id"] for r in payload["responders"]]
         self.calls.append(party_ids)
@@ -1942,7 +2962,10 @@ def test_decide_coalition_sorts_responders_by_party_id_regardless_of_input_order
     seats = {3: 10, 0: 30, 1: 25, 2: 20}
     votes = {3: 10.0, 0: 30.0, 1: 25.0, 2: 20.0}
     parties = [Party(party_id=pid, platform=(round(pid * 0.1, 4),)) for pid in (3, 1, 0, 2)]  # deliberately out of order
+    # Pinned to one round -- this test is about ordering, not negotiation;
+    # see the coalition_decision _replay_cases entry for the same reasoning.
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=1))
     client = FakeCoalitionLlmClient()
 
     decide_coalition(parties, seats, votes, config, client)
@@ -1957,7 +2980,7 @@ def test_decide_coalition_resolves_a_mixed_join_leave_batch_into_the_right_coali
     config = _config_with_llm_enabled()
 
     class MixedClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"party_id": r["party_id"], "action": 2, "motif": 504} if r["party_id"] == 1
@@ -1980,7 +3003,7 @@ def test_decide_coalition_all_decline_returns_none_coalition():
     config = _config_with_llm_enabled()
 
     class AllDeclineClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
             return json.dumps({"decisions": decisions})
@@ -2012,6 +3035,13 @@ def test_decide_coalition_raises_for_intra_run_workers_above_one():
     seats = {0: 30, 1: 25}
     votes = {0: 30.0, 1: 25.0}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
@@ -2026,7 +3056,7 @@ def test_decide_coalition_raises_for_codebook_version_mismatch():
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
 
 
-def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
+def test_decide_coalition_aborts_gracefully_on_a_round_one_count_mismatch():
     seats = {0: 30, 1: 25, 2: 20}
     votes = {0: 30.0, 1: 25.0, 2: 20.0}
     parties = _parties_from_seats(seats)
@@ -2036,8 +3066,151 @@ def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"party_id": 1, "action": 1, "motif": 501}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_coalition(parties, seats, votes, config, ShortClient())
+    outcome = decide_coalition(parties, seats, votes, config, ShortClient())
+
+    assert outcome.aborted_at_round == 1
+    assert outcome.coalition is None
+    # Round 1 is the ONE case where `rounds` is empty and `decisions` is
+    # therefore [] rather than "the last round that DID complete" -- there
+    # wasn't one. Unguarded, this was an IndexError.
+    assert outcome.rounds == []
+    assert outcome.decisions == []
+
+
+def test_decide_coalition_round_one_llm_error_aborts_instead_of_killing_the_run():
+    # Round 1 used to `raise` here, making coalition_decision the last of the
+    # nine decision types able to end a multi-hour run on one bad batch
+    # (2026-09-11). It now takes the same exit a round >= 2 failure has taken
+    # since v7 Lot 2. This covers complete_json raising directly; ShortClient
+    # above covers the decode-time failure.
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class AlwaysFailsClient:
+        def complete_json(self, **kwargs):
+            raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
+
+    outcome = decide_coalition(parties, seats, votes, config, AlwaysFailsClient())
+
+    assert outcome.aborted_at_round == 1
+    assert outcome.coalition is None
+    # An abort is NOT a negotiated no-majority: the journal must be able to
+    # tell them apart, which is exactly what aborted_at_round is for.
+    assert outcome.initiator is not None
+
+
+def test_decide_coalition_aborts_gracefully_on_a_round_two_failure():
+    # Round >= 2 is the asymmetric case: caught, not propagated -- see
+    # decide_coalition's own docstring for why this is a deliberate
+    # divergence from round 1's (and every other decide_*'s) behavior.
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class FailsFromRoundTwoClient:
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            self.calls += 1
+            if self.calls > 1:
+                raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
+            payload = json.loads(user_prompt)
+            decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
+            return json.dumps({"decisions": decisions})
+
+    client = FailsFromRoundTwoClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert outcome.coalition is None
+    assert outcome.aborted_at_round == 2
+    assert len(outcome.rounds) == 1  # round 1's decisions were kept, not discarded
+    assert outcome.decisions == outcome.rounds[0]
+    assert client.calls == 2
+
+
+def test_decide_coalition_stops_early_on_a_fixed_point_before_the_hard_cap():
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+    # Cap well above what convergence actually needs, so an early stop here
+    # is unambiguously the fixed-point check firing, not the hard cap.
+    config = dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=5))
+
+    class ConvergesAtRoundThreeClient:
+        """Round 1 (no prior_decision yet): party 1 declines. Round >= 2
+        (prior_decision now present): everyone joins, including party 1
+        reconsidering -- exactly the conditional-reasoning case v7 exists
+        for. Round 3 repeats round 2's answer, so round 3 is a fixed point
+        even though round 1 != round 2."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            self.calls += 1
+            payload = json.loads(user_prompt)
+            decisions = []
+            for r in payload["responders"]:
+                if r.get("prior_decision") is None:
+                    action, motif = (2, 504) if r["party_id"] == 1 else (1, 501)
+                else:
+                    action, motif = 1, 501
+                decisions.append({"party_id": r["party_id"], "action": action, "motif": motif})
+            return json.dumps({"decisions": decisions})
+
+    client = ConvergesAtRoundThreeClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert client.calls == 3
+    assert len(outcome.rounds) == 3
+    assert outcome.aborted_at_round is None
+    # both responders end up joining by round 3, but assemble_coalition's own
+    # short-circuit (ascending distance to initiator, stop once majority is
+    # cleared) never needs party 2 once party 1's 25 seats alone push the
+    # 45-seat initiator past the 50-seat threshold (45+25=70>50) -- this
+    # assertion is about that existing, unchanged assembly logic, not v7.
+    assert outcome.coalition == [0, 1]
+    # round 1's own outcome is still visible in the transcript, distinct from the final answer
+    assert {d.party_id: d.action for d in outcome.rounds[0]} == {1: 2, 2: 1}
+
+
+def test_decide_coalition_stops_at_the_hard_cap_when_never_converging():
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()  # shipped default: coalition_max_negotiation_rounds=3
+
+    class NeverConvergesClient:
+        """Flips every responder's action relative to their own prior round
+        -- can never reach a fixed point by construction."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            self.calls += 1
+            payload = json.loads(user_prompt)
+            decisions = []
+            for r in payload["responders"]:
+                prior = r.get("prior_decision")
+                action, motif = (1, 501) if prior is None or prior["action"] == 2 else (2, 504)
+                decisions.append({"party_id": r["party_id"], "action": action, "motif": motif})
+            return json.dumps({"decisions": decisions})
+
+    client = NeverConvergesClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert client.calls == config.parties.coalition_max_negotiation_rounds == 3
+    assert len(outcome.rounds) == 3
+    assert outcome.aborted_at_round is None  # exhausting the cap is not a failure
+    # rounds alternate JOIN/LEAVE/JOIN by construction -- round 1 and round 3 agree, round 2 differs from both
+    assert outcome.rounds[0] != outcome.rounds[1]
+    assert outcome.rounds[1] != outcome.rounds[2]
 
 
 # ── menu_acts (v4 Lot 7) ──────────────────────────────────────────────────
@@ -2134,12 +3307,26 @@ def _pressure_citizen(cid, positions=(0.5,)):
     return _citizen(cid, positions)
 
 
-def test_pressure_system_prompt_enumerates_every_expected_cid():
+def test_pressure_system_prompt_references_expected_cids_by_name():
     consulted = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
     config = _config_with_llm_enabled()
     prompt = build_pressure_system_prompt(consulted, config)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_pressure_system_prompt_is_identical_across_different_chunks():
+    config = _config_with_llm_enabled()
+    chunk_a = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
+    chunk_b = [_pressure_citizen(50), _pressure_citizen(51)]
+    assert build_pressure_system_prompt(chunk_a, config) == build_pressure_system_prompt(chunk_b, config)
+
+
+def test_pressure_user_prompt_carries_expected_cids_in_consulted_order():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id) for c in consulted}
+    payload = json.loads(build_pressure_user_prompt(consulted, contexts))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_pressure_system_prompt_states_the_active_menu_only():
@@ -2173,6 +3360,20 @@ def test_pressure_system_prompt_states_toujours_null_when_the_graph_is_off():
     prompt = build_pressure_system_prompt(consulted, config)
     assert "toujours null" in prompt
     assert "voisinage social qui a deja mobilise" not in prompt
+
+
+def test_pressure_system_prompt_disambiguates_null_neighbors_acting_from_inactive():
+    # 2026-08-30, plan-pressure-action-resolution.md §1.4: the model was measured
+    # interpreting neighbors_acting=null as "neighbors are inactive" (a claim about their
+    # state) rather than "not tracked" (no information at all) -- a real context-
+    # understanding bug independent of the collapse investigation, polluting any
+    # reasoning read produced during tests. Pins the disambiguating sentence.
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    assert config.social_graph.enabled is False
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "n'existe pas du tout" in prompt
+    assert "ignorer" in prompt
 
 
 def test_pressure_system_prompt_explains_the_real_fraction_when_the_graph_is_on():
@@ -2238,6 +3439,212 @@ def test_pressure_context_to_payload_keeps_neighbors_acting_none():
     assert context.to_payload()["neighbors_acting"] is None
 
 
+# ── build_pressure_*_prompt_toon (§5.E, diagnostic-only) ─────────────────
+
+def _toon_pressure_context(cid, **overrides):
+    return _pressure_context(cid, available=(0, 4), **overrides)
+
+
+def test_pressure_user_prompt_toon_hoists_shared_facts_into_one_call_row():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {
+        0: _toon_pressure_context(0, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=0.08),
+        1: _toon_pressure_context(1, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=1.42),
+    }
+    toon = build_pressure_user_prompt_toon(citizens, contexts)
+    lines = toon.splitlines()
+    assert lines[0] == "call[1]{target,mandate_dev,ticks_to_election}:"
+    assert lines[1] == "7,0.15,12"
+    assert lines[2] == "pressure[2]{cid,self_gap}:"
+    assert lines[3] == "0,0.08"
+    assert lines[4] == "1,1.42"
+
+
+def test_pressure_user_prompt_toon_rejects_a_heterogeneous_target():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {
+        0: _toon_pressure_context(0, target=7),
+        1: _toon_pressure_context(1, target=8),  # different target -- not a call-level constant here
+    }
+    with pytest.raises(ValueError, match="call-level constants"):
+        build_pressure_user_prompt_toon(citizens, contexts)
+
+
+def test_pressure_user_prompt_toon_rejects_an_open_menu():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 1, 2, 3, 4))  # not the shipped closed menu
+    with pytest.raises(ValueError, match="closed menu"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_user_prompt_toon_rejects_an_open_petition():
+    citizen = _pressure_citizen(0)
+    context = _toon_pressure_context(0, petition_open=True)
+    with pytest.raises(ValueError, match="petition"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_user_prompt_toon_rejects_a_tracked_neighbors_acting():
+    citizen = _pressure_citizen(0)
+    context = _toon_pressure_context(0, neighbors_acting=0.3)
+    with pytest.raises(ValueError, match="neighbors_acting"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_system_prompt_toon_still_enumerates_every_expected_cid():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_toon(consulted, config)
+    assert "[0,1]" in prompt
+    assert "EXACTEMENT ces 2" in prompt
+
+
+def test_pressure_system_prompt_toon_explains_the_two_section_format():
+    prompt = build_pressure_system_prompt_toon([_pressure_citizen(0)], _config_with_llm_enabled())
+    assert "call[1]{target,mandate_dev,ticks_to_election}:" in prompt
+    assert "pressure[N]{cid,self_gap}:" in prompt
+    assert "7,0.15,12" in prompt  # the worked example
+
+
+def test_pressure_system_prompt_toon_differs_from_json_only_in_the_ctx_explanation():
+    # Isolates the format change: the menu constraint, legal-act table,
+    # motif table, and expected-cid self-check must survive unchanged.
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    json_lines = set(build_pressure_system_prompt(consulted, config).splitlines())
+    toon_lines = set(build_pressure_system_prompt_toon(consulted, config).splitlines())
+    shared = json_lines & toon_lines
+    assert "Motifs valides (code court obligatoire) :" in shared
+    assert any("CONTRAINTE ABSOLUE" in line for line in shared)
+
+
+# ── build_pressure_*_prompt_calibrated (polity-decision-contracts.md, diagnostic-only) ──
+
+def test_calibrated_user_prompt_with_no_signals_matches_the_unmodified_payload():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0, available=(0, 4)), 1: _pressure_context(1, available=(0, 4))}
+    assert build_pressure_user_prompt_calibrated(citizens, contexts, {}) == build_pressure_user_prompt(citizens, contexts)
+
+
+def test_calibrated_user_prompt_merges_one_signal_into_every_ctx_block():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0, available=(0, 4)), 1: _pressure_context(1, available=(0, 4))}
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        citizens, contexts, {"blank_threshold": {0: 0.31, 1: 0.72}}
+    ))
+    by_cid = {c["cid"]: c for c in payload["consulted"]}
+    assert by_cid[0]["ctx"]["blank_threshold"] == 0.31
+    assert by_cid[1]["ctx"]["blank_threshold"] == 0.72
+    # the unmodified fields are untouched
+    assert by_cid[0]["ctx"]["self_gap"] == _pressure_context(0).to_payload()["self_gap"]
+
+
+def test_calibrated_user_prompt_composes_several_signals_at_once():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        [citizen], {0: context},
+        {"blank_threshold": {0: 0.4}, "self_gap_prev_tick": {0: 0.9}},
+    ))
+    ctx = payload["consulted"][0]["ctx"]
+    assert ctx["blank_threshold"] == 0.4
+    assert ctx["self_gap_prev_tick"] == 0.9
+
+
+def test_calibrated_user_prompt_rounds_signal_values_to_four_decimals():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"blank_threshold": {0: 0.123456}}
+    ))
+    assert payload["consulted"][0]["ctx"]["blank_threshold"] == 0.1235
+
+
+def test_calibrated_user_prompt_iteration_order_of_signal_values_does_not_affect_output():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    a = build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"blank_threshold": {0: 0.4}, "self_gap_prev_tick": {0: 0.9}}
+    )
+    b = build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"self_gap_prev_tick": {0: 0.9}, "blank_threshold": {0: 0.4}}
+    )
+    assert a == b
+
+
+def test_calibrated_system_prompt_with_no_signals_matches_the_unmodified_prompt():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    assert build_pressure_system_prompt_calibrated(consulted, config, []) == build_pressure_system_prompt(consulted, config)
+
+
+def test_calibrated_system_prompt_appends_exactly_the_requested_signal_definitions():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_THRESHOLD_SIGNAL])
+    assert PRESSURE_THRESHOLD_SIGNAL.definition in prompt
+    assert PRESSURE_HISTORY_SIGNAL.definition not in prompt
+    assert PRESSURE_PERCENTILE_SIGNAL.definition not in prompt
+    assert PRESSURE_PLEDGE_SIGNAL.definition not in prompt
+
+
+def test_calibrated_system_prompt_composes_several_signals_in_the_given_order():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(
+        consulted, config, [PRESSURE_THRESHOLD_SIGNAL, PRESSURE_HISTORY_SIGNAL],
+    )
+    assert prompt.index(PRESSURE_THRESHOLD_SIGNAL.definition) < prompt.index(PRESSURE_HISTORY_SIGNAL.definition)
+
+
+def test_calibrated_system_prompt_references_expected_cids_by_name():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_PERCENTILE_SIGNAL])
+    assert "[0,1]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_calibrated_user_prompt_carries_expected_cids_in_consulted_order():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id) for c in consulted}
+    payload = json.loads(build_pressure_user_prompt_calibrated(consulted, contexts, {}))
+    assert payload["expected_cids"] == [0, 1]
+
+
+def test_calibrated_system_prompt_differs_from_baseline_only_by_the_signal_lines():
+    # Isolates the format change the same way the TOON tests do: every
+    # OTHER line (menu constraint, legal-act table, motif table,
+    # expected-cid self-check) must survive unchanged.
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    baseline_lines = set(build_pressure_system_prompt(consulted, config).splitlines())
+    calibrated_lines = set(
+        build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_THRESHOLD_SIGNAL]).splitlines()
+    )
+    assert baseline_lines <= calibrated_lines
+    added = calibrated_lines - baseline_lines
+    assert added == {line for line in PRESSURE_THRESHOLD_SIGNAL.definition.splitlines() if line}
+
+
+@pytest.mark.parametrize("signal", [
+    PRESSURE_THRESHOLD_SIGNAL, PRESSURE_HISTORY_SIGNAL, PRESSURE_PERCENTILE_SIGNAL, PRESSURE_PLEDGE_SIGNAL,
+    *PRESSURE_EMOTION_SIGNALS,
+])
+def test_every_calibration_signal_definition_contains_no_if_then_wording(signal):
+    # polity-decision-contracts.md's C4, enforced structurally rather than
+    # only by convention: none of these sentences may cross from
+    # describing a number into prescribing a reaction to it.
+    # Deliberately not a bare "si " check: French uses "si" in plenty of
+    # non-conditional, non-prescriptive phrasing too ("voir si la
+    # situation s'est degradee" describes what the number MEANS, it does
+    # not tell the model what to do). What must never appear is a
+    # conditional tied to a specific ACTION.
+    lowered = signal.definition.lower()
+    for banned in ("alors", "->", "=>", "act=0", "act=4", "doit repondre", "tu dois", "choisis "):
+        assert banned not in lowered, f"{signal.field}'s definition looks prescriptive: {signal.definition!r}"
+
+
 # ── decide_pressure_actions (FakePressureLlmClient, v4 Lot 7) ───────────
 
 class FakePressureLlmClient:
@@ -2247,7 +3654,7 @@ class FakePressureLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [c["cid"] for c in payload["consulted"]]
         self.calls.append(cids)
@@ -2289,12 +3696,16 @@ def test_decide_pressure_actions_sorts_by_citizen_id_regardless_of_input_order()
 
     decide_pressure_actions(citizens, contexts, config, client)
 
-    assert client.calls == [[0, 3, 4]]
+    # One call per citizen (_PRESSURE_CALIBRATED_CHUNK_SIZE=1, Phase E) -- order across those
+    # singleton calls is still the observable proof of the sort.
+    assert client.calls == [[0], [3], [4]]
 
 
-def test_decide_pressure_actions_calls_once_for_a_cohort_of_three():
-    # The case MIN_SAFE_BATCH_SIZE's default floor would have aborted --
-    # the concrete reason decide_pressure_actions passes min_batch_size=1.
+def test_decide_pressure_actions_calls_once_per_citizen_for_a_cohort_of_three():
+    # Phase E (polity-decision-contracts.md): _PRESSURE_CALIBRATED_CHUNK_SIZE=1 is the only batch
+    # size that ever cleared the quality bar, so every real cohort now makes one call per citizen
+    # regardless of config.llm.max_batch_size -- min_batch_size=1 is still what keeps chunk_voters
+    # from raising (a chunk of 1 would otherwise be below MIN_SAFE_BATCH_SIZE's default floor).
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_pressure_llm_enabled()
@@ -2302,11 +3713,16 @@ def test_decide_pressure_actions_calls_once_for_a_cohort_of_three():
 
     outcome = decide_pressure_actions(citizens, contexts, config, client)
 
-    assert client.calls == [[0, 1, 2]]
+    assert client.calls == [[0], [1], [2]]
     assert [d.cid for d in outcome.decisions] == [0, 1, 2]
 
 
-def test_decide_pressure_actions_chunks_a_large_cohort_at_max_batch_size():
+def test_decide_pressure_actions_ignores_max_batch_size_and_chunks_at_one():
+    # Renamed from "..._chunks_a_large_cohort_at_max_batch_size": that was true before Phase E,
+    # when this function chunked at config.llm.max_batch_size like every other chunk_voters caller.
+    # It no longer does -- _PRESSURE_CALIBRATED_CHUNK_SIZE=1 overrides max_batch_size=25 the same
+    # way _vote_cast_chunk_size/_chamber_chunk_size already override it for their own decision
+    # types, just without the provider branch (see that constant's own docstring for why).
     citizens = _pressure_population(60)
     contexts = _pressure_contexts(citizens)
     config = _config_with_pressure_llm_enabled(max_batch_size=25)
@@ -2314,9 +3730,36 @@ def test_decide_pressure_actions_chunks_a_large_cohort_at_max_batch_size():
 
     outcome = decide_pressure_actions(citizens, contexts, config, client)
 
-    assert len(client.calls) == 3
+    assert len(client.calls) == 60
+    assert all(len(call) == _PRESSURE_CALIBRATED_CHUNK_SIZE for call in client.calls)
     assert sorted(cid for call in client.calls for cid in call) == list(range(60))
     assert [d.cid for d in outcome.decisions] == list(range(60))
+
+
+def test_decide_pressure_actions_sends_blank_threshold_as_the_shipped_calibration_signal():
+    # Phase E's own wiring: production now calls build_pressure_*_prompt_calibrated with
+    # PRESSURE_THRESHOLD_SIGNAL, sourced from each citizen's own blank_threshold -- not the
+    # uncalibrated build_pressure_*_prompt pair decide_pressure_actions used before Phase E.
+    citizens = [_citizen(0, (0.5,), blank_threshold=0.37)]
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled()
+
+    class RecordingClient:
+        def __init__(self):
+            self.system_prompt = None
+            self.user_prompt = None
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            self.system_prompt = system_prompt
+            self.user_prompt = user_prompt
+            return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
+
+    client = RecordingClient()
+    decide_pressure_actions(citizens, contexts, config, client)
+
+    assert PRESSURE_THRESHOLD_SIGNAL.definition.splitlines()[0] in client.system_prompt
+    payload = json.loads(client.user_prompt)
+    assert payload["consulted"][0]["ctx"]["blank_threshold"] == 0.37
 
 
 def test_decide_pressure_actions_raises_notimplementederror_for_unsupported_provider():
@@ -2356,6 +3799,13 @@ def test_decide_pressure_actions_raises_for_intra_run_workers_above_one():
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
@@ -2370,17 +3820,41 @@ def test_decide_pressure_actions_raises_for_codebook_version_mismatch():
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
 
 
-def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch():
+def test_decide_pressure_actions_falls_back_to_the_deterministic_rule_on_a_count_mismatch():
+    # Phase E made every chunk a singleton (_PRESSURE_CALIBRATED_CHUNK_SIZE=1), so a fixed
+    # single-decision reply can no longer be used to fake a mismatch by returning too FEW
+    # decisions -- one decision is exactly what a singleton chunk expects, and an empty list fails
+    # PressureBatch's own min-length schema validation before the misalignment check ever runs. A
+    # cid that can never match any real chunk's own expected_cids still reliably misaligns,
+    # regardless of chunk size.
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
 
-    class ShortClient:
+    class WrongCidClient:
         def complete_json(self, **kwargs):
-            return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
+            return json.dumps({"decisions": [{"cid": 999, "target": 205, "act": 3, "motif": 301}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_pressure_actions(citizens, contexts, config, ShortClient())
+    outcome = decide_pressure_actions(citizens, contexts, config, WrongCidClient())
+
+    # Degrades instead of killing the run (2026-09-11), to the §11.4 baseline
+    # this decision type exists to be compared AGAINST -- which is exactly why
+    # llm_fallback has to be readable: a run that silently substituted the
+    # rigid-preference arm into the free-arbitration arm would be comparing
+    # the palier against itself.
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    by_cid = {d.cid: d for d in outcome.decisions}
+    for citizen in citizens:
+        context = contexts[citizen.citizen_id]
+        expected = deterministic_pressure_action(
+            citizen,
+            context.self_gap,
+            config.pressure_menu,
+            can_sign=int(PressureAct.SIGN_PETITION) in context.available,
+            can_launch=int(PressureAct.LAUNCH_PETITION) in context.available,
+        )
+        assert by_cid[citizen.citizen_id].act == int(expected)
+        assert by_cid[citizen.citizen_id].target == context.target
 
 
 # ── validate_reaction_decision (v5 Lot 4, §8) ────────────────────────────
@@ -2525,7 +3999,7 @@ class FakeReactionLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [r["cid"] for r in payload["reactors"]]
         self.calls.append(cids)
@@ -2628,6 +4102,13 @@ def test_decide_reaction_to_event_raises_for_intra_run_workers_above_one():
     citizens = _reaction_population(25)
     contexts = _reaction_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
@@ -2642,7 +4123,12 @@ def test_decide_reaction_to_event_raises_for_codebook_version_mismatch():
         decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
 
 
-def test_decide_reaction_to_event_propagates_llm_response_error_on_count_mismatch():
+def test_decide_reaction_to_event_falls_back_to_the_flat_delta_on_a_count_mismatch():
+    # Degrades instead of killing the run (2026-09-11). The baseline takes no
+    # Citizen at all, so every citizen in the chunk necessarily gets the SAME
+    # delta -- which is also the content-blind-collapse signature this
+    # project's diagnostics hunt for, hence llm_fallback: a fallback must not
+    # be readable as evidence of the defect it is not.
     citizens = _reaction_population(25)
     contexts = _reaction_contexts(citizens)
     config = _config_with_llm_enabled()
@@ -2651,8 +4137,12 @@ def test_decide_reaction_to_event_propagates_llm_response_error_on_count_mismatc
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "salience_delta": 0.1, "motif": 401}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, ShortClient(), target=205)
+    outcome = decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, ShortClient(), target=205)
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    expected = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
+    assert {d.salience_delta for d in outcome.decisions} == {expected}
+    assert {d.motif for d in outcome.decisions} == {401}  # SCANDAL's grounding motif, never 402
 
 
 # ── _complete_and_decode_with_replay / llm.max_batch_replays (v4 Lot 8) ──
@@ -2664,12 +4154,13 @@ class _FlakyClient:
     model. Records every (system_prompt, user_prompt) pair, so a test can
     assert the retried request is byte-identical to the original --
     "byte-identical" refers to the PROMPTS specifically; cast_votes's own
-    retry_temperature (a local, deliberate exception, see llm_behavior_
-    engine._VOTE_CAST_RETRY_TEMPERATURE) means the full request is not
-    byte-identical for that one entry point, covered by its own dedicated
-    test below. Also accepts and records `temperature` (defaulting like
-    the real client's own `complete_json`) so a caller opting into
-    retry_temperature doesn't raise a TypeError against this fake."""
+    retry_temperature/retry_seed_base (a local, deliberate exception, see
+    llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_
+    SEED_BASE) means the full request is not byte-identical for that one
+    entry point, covered by its own dedicated test below. Also accepts and
+    records `temperature`/`seed` (defaulting like the real client's own
+    `complete_json`) so a caller opting into either retry override doesn't
+    raise a TypeError against this fake."""
 
     def __init__(self, fail_times, good_raw):
         self.fail_times = fail_times
@@ -2677,11 +4168,24 @@ class _FlakyClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Deliberately does NOT increment self.calls -- every test using
+        # this fake asserts self.calls against complete_json's own retry
+        # count specifically, and _dynamic_max_tokens's probe is a separate
+        # call outside _complete_and_decode_with_replay's retry loop (see
+        # that function's own docstring on why: the prompt cannot change
+        # between retries, so probing once per chunk is correct).
+        return 500
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             return "not valid json"
         return self.good_raw
@@ -2703,11 +4207,20 @@ class _FlakyResponseClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See _FlakyClient.count_prompt_tokens's own comment -- same
+        # rationale.
+        return 500
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
         return self.good_raw
@@ -2717,7 +4230,9 @@ class _AlwaysTransportFailingClient:
     def __init__(self):
         self.calls = 0
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
+    ):
         self.calls += 1
         raise LlmTransportError("connection refused")
 
@@ -2783,6 +4298,12 @@ def _replay_cases():
         {"decisions": [{"cid": c.citizen_id, "salience_delta": 0.1, "motif": 401} for c in reaction_citizens]}
     )
 
+    chamber_members = [_member(0, (0.5,))]
+    chamber_contexts_ = {m.citizen_id: _chamber_context(m.citizen_id) for m in chamber_members}
+    chamber_good = json.dumps(
+        {"decisions": [{"cid": m.citizen_id, "shifts": [], "motif": 701} for m in chamber_members]}
+    )
+
     return [
         ("vote_cast", lambda config, client: cast_votes(voters, vote_candidates, config, client), vote_good),
         ("candidacy_considered", lambda config, client: decide_candidacies(candidacy_citizens, config, client), candidacy_good),
@@ -2808,7 +4329,17 @@ def _replay_cases():
         ),
         (
             "coalition_decision",
-            lambda config, client: decide_coalition(coalition_parties, coalition_seats, coalition_votes, config, client),
+            # Pinned to a single round: this test is about
+            # _complete_and_decode_with_replay's generic retry behavior,
+            # not v7's multi-round negotiation -- at the shipped default
+            # (3 rounds), a converged FlakyClient would trigger a SECOND
+            # round (to check for a fixed point) and inflate client.calls
+            # beyond what this shared, parametrized test expects.
+            lambda config, client: decide_coalition(
+                coalition_parties, coalition_seats, coalition_votes,
+                dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=1)),
+                client,
+            ),
             coalition_good,
         ),
         (
@@ -2818,19 +4349,56 @@ def _replay_cases():
             ),
             reaction_good,
         ),
+        (
+            # Added 2026-09-11. dt=11 has had its own fallback since 2026-09-08
+            # but was never in this matrix, so the parametrized invariants
+            # below covered eight of the nine decision types while reading as
+            # if they covered all of them. One member, which is one chunk at
+            # either provider's chunk size.
+            "chamber_deliberation",
+            lambda config, client: decide_chamber_deliberation(
+                chamber_members, chamber_contexts_, config, client
+            ),
+            chamber_good,
+        ),
     ]
 
 
+def _assert_degraded(label, outcome):
+    """THE invariant, as of 2026-09-11: no decision type kills the run on an
+    unrecoverable batch -- all nine degrade to something deterministic and
+    say so in their own provenance field.
+
+    This function used to be its own inverse. The three tests below were
+    written to assert that an exhausted batch PROPAGATES LlmResponseError, and
+    grew an exclusion list (_FALLS_BACK_INSTEAD_OF_PROPAGATING) as entry points
+    were fixed one crash at a time. That list reached all nine, so the
+    exclusion mechanism is gone and the assertion is inverted: what is pinned
+    now is that nothing propagates.
+
+    Eight types degrade by substituting their own §11.4 deterministic
+    baseline and flagging it in `llm_fallback`. coalition_decision is the one
+    exception and deliberately so: it has no per-decision fallback, it aborts
+    the negotiation (`aborted_at_round`), which is a real institutional
+    outcome rather than a substituted decision -- see
+    _run_coalition_negotiation's own except block for why that asymmetry is
+    intentional and what it costs."""
+    if label == "coalition_decision":
+        assert outcome.aborted_at_round is not None, "an exhausted coalition batch must abort, not raise"
+        return
+    assert outcome.llm_fallback, f"{label} must report its fallback in llm_fallback"
+    assert all(outcome.llm_fallback.values())
+
+
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
-def test_max_batch_replays_zero_propagates_on_the_first_failure(label, call, good_raw):
-    # Today's exact behavior, now explicitly pinned for every entry point --
-    # the shipped default (0) must never retry.
+def test_max_batch_replays_zero_degrades_on_the_first_failure(label, call, good_raw):
+    # The shipped default (0) must never retry -- and must not die either.
     config = _config_with_llm_enabled()
     assert config.llm.max_batch_replays == 0
     client = _FlakyClient(fail_times=1, good_raw=good_raw)
-    with pytest.raises(LlmResponseError):
-        call(config, client)
+    outcome = call(config, client)  # must not raise
     assert client.calls == 1
+    _assert_degraded(label, outcome)
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -2849,13 +4417,13 @@ def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
-def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call, good_raw):
+def test_max_batch_replays_degrades_once_the_budget_is_exhausted(label, call, good_raw):
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
     client = _FlakyClient(fail_times=99, good_raw=good_raw)  # never recovers
-    with pytest.raises(LlmResponseError):
-        call(config, client)
-    assert client.calls == 3  # 1 original + 2 replays, then give up
+    outcome = call(config, client)  # must not raise
+    assert client.calls == 3  # 1 original + 2 replays, then degrade instead of dying
+    _assert_degraded(label, outcome)
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -2877,16 +4445,17 @@ def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, cal
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
-def test_max_batch_replays_zero_propagates_a_complete_json_raised_error_on_the_first_attempt(label, call, good_raw):
-    # Before the fix, this error skipped the retry loop entirely and
-    # propagated silently (no WARNING logged) regardless of `replays` --
-    # this pins the shipped default's own behavior post-fix.
+def test_max_batch_replays_zero_degrades_on_a_complete_json_raised_error(label, call, good_raw):
+    # The _FlakyResponseClient branch -- complete_json itself raises (e.g. a
+    # truncated generation), rather than the response decoding badly. Both
+    # reach the same degradation path; this is the branch _FlakyClient never
+    # covers.
     config = _config_with_llm_enabled()
     assert config.llm.max_batch_replays == 0
     client = _FlakyResponseClient(fail_times=1, good_raw=good_raw)
-    with pytest.raises(LlmResponseError):
-        call(config, client)
+    outcome = call(config, client)  # must not raise
     assert client.calls == 1
+    _assert_degraded(label, outcome)
 
 
 def test_max_batch_replays_never_catches_a_transport_error():
@@ -2898,6 +4467,75 @@ def test_max_batch_replays_never_catches_a_transport_error():
     with pytest.raises(LlmTransportError):
         decide_pressure_actions([citizen], contexts, config, client)
     assert client.calls == 1  # the client itself owns transport-level retries, not this layer
+
+
+# ── cast_votes's own deterministic fallback (2026-09-06) -- the FIRST of the
+# nine to get one, and for two years the only one. A real vLLM run crashed
+# with the replay budget exhausted for one voter
+# (check_vllm_vote_cast_retry_is_inert_results.md); cast_votes falls back to
+# simple_rules.build_ranking for that voter instead of raising, under EVERY
+# replay budget including 0 -- the fallback is a separate, zero-LLM-cost
+# mechanism, not itself a replay, so it is not gated by how many replays were
+# configured. The parametrized tests above now assert that shape for all nine
+# (see _assert_degraded); these keep cast_votes's own finer-grained
+# assertions, which the generic ones cannot make. ────────────────────────
+
+def test_cast_votes_falls_back_instead_of_propagating_when_replays_is_zero():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    assert config.llm.max_batch_replays == 0
+    client = _FlakyClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1  # no retry spent -- replays=0 means no LLM-side recovery attempt
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+    assert outcome.ballots == [build_ranking(voters[0], candidates)]
+
+
+def test_cast_votes_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=99, good_raw="ignored, never reached")  # never recovers
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_falls_back_on_a_complete_json_raised_error_too():
+    # The _FlakyResponseClient branch (complete_json itself raises, e.g. a
+    # truncated generation) -- same fallback, not just the decode-failure one.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    client = _FlakyResponseClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_still_recovers_normally_when_a_retry_succeeds():
+    # The fallback must not shadow the ordinary, already-working recovery
+    # path -- a retry that actually succeeds is used as-is, no fallback.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    good_raw = json.dumps({"decisions": [{"cid": voters[0].citizen_id, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 2
+    assert outcome.llm_fallback == {}
+    assert outcome.retry_sampling_varied == {voters[0].citizen_id: True}
 
 
 # ── retry_temperature / retry_sampling_varied -- cast_votes's own local,
@@ -2933,8 +4571,9 @@ def test_cast_votes_retries_at_a_varied_temperature_and_marks_it():
 
     assert client.calls == 2
     # First attempt: no override (preserves determinism). Retry: the local
-    # exception's own temperature, never None.
+    # exception's own temperature and seed offset, never None.
     assert client.temperatures == [None, _VOTE_CAST_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _VOTE_CAST_RETRY_SEED_BASE + 1]
     assert outcome.retry_sampling_varied == {0: True}
 
 
@@ -2960,11 +4599,18 @@ def test_cast_votes_retry_sampling_varied_defaults_to_an_empty_dict_when_unset()
     assert outcome.retry_sampling_varied.get(999, False) is False
 
 
-def test_other_decide_entry_points_never_send_a_temperature_override_even_when_replayed():
-    # The negative case for every OTHER decision type: retry_temperature
-    # defaults to None at every call site except cast_votes's own, so a
-    # replay never sends a temperature override for them -- byte-identical
-    # retries, unchanged since v4 Lot 8.
+def test_every_decide_entry_point_varies_sampling_on_a_retry_but_never_on_the_first_attempt():
+    # This test used to assert the exact opposite ("no other entry point opts
+    # into retry_temperature"), and that was the bug: at temperature=0 against
+    # a pinned seed, a replay re-sent a byte-identical request and got a
+    # byte-identical failure back, so max_batch_replays bought nothing at all
+    # for six of the nine types -- it just spent the same failure three times
+    # before dying. Proven on the 2026-09-11 Stage 3 post-mortem by replaying
+    # the dead run's own recorded prompt. All nine now vary sampling.
+    #
+    # The FIRST attempt must still be untouched (temperature=None, seed=None):
+    # that is what keeps a successful run byte-identical and replayable. Only
+    # a genuine retry deviates.
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
     citizen = _pressure_citizen(0)
@@ -2975,4 +4621,31 @@ def test_other_decide_entry_points_never_send_a_temperature_override_even_when_r
     decide_pressure_actions([citizen], contexts, config, client)
 
     assert client.calls == 2
-    assert client.temperatures == [None, None]
+    assert client.temperatures == [None, _PRESSURE_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _PRESSURE_RETRY_SEED_BASE + 1]
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_no_entry_point_overrides_sampling_on_a_successful_first_attempt(label, call, good_raw):
+    # The determinism guarantee, pinned for all nine: a run where nothing
+    # fails sends temperature=None/seed=None on every call, so the journal
+    # stays byte-identical across replays of the same seed. The retry
+    # exception above must never leak into the ordinary path.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=0, good_raw=good_raw)
+
+    call(config, client)
+
+    assert client.temperatures == [None] * client.calls
+    assert client.seeds == [None] * client.calls
+
+
+def test_toon_pressure_call_constants_rejects_a_null_ticks_to_election():
+    from types import SimpleNamespace
+
+    from api.domain.polity.llm_behavior_engine import _toon_pressure_call_constants
+
+    ctx = SimpleNamespace(target=1, mandate_dev=0.2, ticks_to_election=None)
+    with pytest.raises(ValueError, match="null ticks_to_election"):
+        _toon_pressure_call_constants([ctx, ctx])

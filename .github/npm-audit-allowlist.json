@@ -1,0 +1,3 @@
+{
+  "_comment": "Time-boxed exceptions to the npm advisory gate (voter-app/scripts/check-npm-audit.mjs; also fed to dependency-review.yml's allow-ghsas). Key: the GHSA id. Each entry needs `until` (a real YYYY-MM-DD, at most 90 days ahead; the gate fails once it passes), `reason` (why it is acceptable until then) and `nodes` (the node_modules install paths that were reviewed, copied from `npm audit --json`; the advisory appearing anywhere else fails the gate again). Prefer fixing the lockfile; add an entry only in a reviewed PR, and delete it in the PR that fixes the dependency."
+}

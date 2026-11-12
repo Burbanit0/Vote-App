@@ -52,6 +52,16 @@ function parseDump(text: string): ElectorateDump | null {
   }
 }
 
+/** The simple-mode ideologies and their label keys (also the Électorat summary's). */
+export const IDEOLOGY_LABEL_KEY: Record<
+  string,
+  'composer.ideoRandom' | 'composer.ideoCentrist' | 'composer.ideoPolarized'
+> = {
+  random: 'composer.ideoRandom',
+  centrist: 'composer.ideoCentrist',
+  polarized: 'composer.ideoPolarized',
+};
+
 const ElectorateComposer: React.FC = () => {
   const { t } = useTranslation('playground');
   const {
@@ -67,11 +77,10 @@ const ElectorateComposer: React.FC = () => {
   const composed = e.mode === 'composed';
   const dims = playground.space.dims;
 
-  const IDEOLOGIES: { value: string; label: string }[] = [
-    { value: 'random', label: t('composer.ideoRandom') },
-    { value: 'centrist', label: t('composer.ideoCentrist') },
-    { value: 'polarized', label: t('composer.ideoPolarized') },
-  ];
+  const IDEOLOGIES = Object.entries(IDEOLOGY_LABEL_KEY).map(([value, key]) => ({
+    value,
+    label: t(key),
+  }));
 
   const [imp, setImp] = React.useState('');
   const [impErr, setImpErr] = React.useState(false);
@@ -115,9 +124,7 @@ const ElectorateComposer: React.FC = () => {
     <div data-testid="electorate-composer" className="flex flex-col gap-3">
       {/* Sample size, seed, ideology — apply to BOTH modes (shared with the Lab). */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('composer.sample')}
-        </p>
+        <p className="text-xs font-semibold text-muted-foreground">{t('composer.sample')}</p>
         <label className="flex items-center gap-2 text-xs">
           <span className="w-44 shrink-0 text-muted-foreground">
             {t('composer.numVoters', { n: config.num_voters })}

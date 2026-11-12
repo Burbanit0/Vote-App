@@ -821,8 +821,8 @@ export const STORIES: Story[] = [
   },
 
   // ── Parliament 2 — one vote, three parliaments ─────────────────────────────
-  // PR: Gallagher .028, 3.4 % wasted · FPTP: Centre 35 % of votes → 41 % of
-  // seats, Verts 19 % → 9 %, 30.5 % wasted, Gallagher .097 · MMP: top-up seats
+  // PR: Gallagher .028, 3.4 % wasted · FPTP: Centre 35 % of votes → 44 % of
+  // seats, Verts 19 % → 9 %, 30.5 % wasted, Gallagher .102 · MMP: top-up seats
   // restore proportionality (Gallagher .028) while keeping local members.
   {
     id: 'structures',

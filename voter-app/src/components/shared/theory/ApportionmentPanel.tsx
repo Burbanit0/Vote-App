@@ -1,7 +1,7 @@
 /**
  * ApportionmentPanel — demonstrates Balinski-Young impossibility theorem (1982):
- * no apportionment method can simultaneously satisfy quota rule, house monotonicity
- * (no Alabama paradox) and population monotonicity.
+ * with 4+ parties, no apportionment method satisfies both the quota rule and
+ * population monotonicity (house monotonicity alone is compatible with quota).
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -190,7 +190,7 @@ const ApportionmentPanel: React.FC = () => {
           {/* Alabama paradox slider demo */}
           <div className="mb-3" data-testid="alabama-demo">
             <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
-              🎚 {t('appor.alabamaDemo')}
+              {t('appor.alabamaDemo')}
             </div>
             <div className="flex items-center gap-3">
               <Range
@@ -213,7 +213,7 @@ const ApportionmentPanel: React.FC = () => {
                 style={{ fontSize: '0.78rem' }}
                 data-testid="alabama-alert"
               >
-                ⚡ {t('appor.alabamaDetected', { n: sliderN })}
+                {t('appor.alabamaDetected', { n: sliderN })}
               </Alert>
             )}
           </div>
@@ -283,7 +283,7 @@ const ApportionmentPanel: React.FC = () => {
 
           {/* Balinski-Young impossibility */}
           <Alert variant="danger" style={{ fontSize: '0.8rem' }} data-testid="impossibility-alert">
-            <strong>🔒 {t('appor.impossibilityTitle')}</strong> {data.balinski_young_summary}
+            <strong>{t('appor.impossibilityTitle')}</strong> {data.balinski_young_summary}
           </Alert>
 
           {/* Country comparison */}

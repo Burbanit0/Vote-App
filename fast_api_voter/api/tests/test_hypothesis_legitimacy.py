@@ -10,6 +10,7 @@ mirror the domain: strength/pressures/deviation are fractions in [0, 1]
 (mandate_strength's own return type), decay and the three ecart weights are
 config-authored fractions in [0, 1].
 """
+import pytest
 from hypothesis import given, settings, strategies as st
 
 from api.domain.polity.config import LegitimacyConfig
@@ -35,6 +36,7 @@ _tick = st.tuples(_fraction, _fraction, _fraction, _fraction)  # strength, petit
 _sequences = st.lists(_tick, min_size=1, max_size=50)
 
 
+@pytest.mark.behavior("CIT-01")
 @settings(max_examples=200, deadline=None)
 @given(config=_configs, petition_weight=_fraction, street_weight=_fraction, ticks=_sequences)
 def test_legitimacy_stays_in_bounds_over_any_tick_sequence(

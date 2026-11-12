@@ -10,6 +10,7 @@
 
 # production
 /build
+/build-static
 
 # misc
 .DS_Store
@@ -27,9 +28,13 @@ yarn-error.log*
 
 # Playwright test reports + per-failure artifacts (traces, screenshots)
 /playwright-report
+# e2e shards' blob reports (CI's e2e.yml; `--shard=N/2 --reporter=blob` locally)
+/blob-report
+/all-blob-reports
 /playwright-report-visual
 /test-results
 
 # Stryker mutation testing (working copy + HTML report)
 /.stryker-tmp
+/.stryker-diff-tmp
 /reports

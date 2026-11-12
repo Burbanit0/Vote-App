@@ -13,6 +13,7 @@ from api.domain.polity.llm_client import (
     LlmResponseError,
     LlmTransportError,
     OllamaJsonClient,
+    TokenLogprob,
     VllmJsonClient,
     build_json_client,
     decode_candidacy_batch,
@@ -89,6 +90,28 @@ def test_temperature_override_replaces_the_configured_value_for_that_call_only()
     client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
 
     assert [c["temperature"] for c in captured] == [0.0, 0.3, 0.0]
+
+
+def test_seed_override_replaces_the_configured_value_for_that_call_only():
+    # cast_votes's own retry_seed_base (llm_behavior_engine._VOTE_CAST_
+    # RETRY_SEED_BASE), added 2026-09-06 alongside retry_temperature --
+    # see check_vllm_vote_cast_retry_is_inert_results.md for why
+    # retry_temperature alone was not enough on VllmJsonClient. Mirrors the
+    # temperature-override test above: reaches the body, call-scoped only.
+    captured = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, seed=900_000_002
+    )
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+
+    assert [c["seed"] for c in captured] == [42, 900_000_002, 42]
 
 
 def test_nested_ref_schema_is_dereferenced_before_sending():
@@ -185,6 +208,40 @@ def test_missing_choices_raises_response_error():
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
 
 
+# ── OllamaJsonClient.count_prompt_tokens (2026-09-08) -- UNVERIFIED against
+# a live server, unlike VllmJsonClient's own version below; see that
+# method's own docstring. Same request/response shape either way, so the
+# same offline coverage discipline applies.
+
+def test_count_prompt_tokens_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 123}, "choices": []})
+
+    client = _client(handler)
+    tokens = client.count_prompt_tokens(system_prompt="sys", user_prompt="usr")
+
+    assert tokens == 123
+    assert captured["url"] == f"{BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["stream"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert "response_format" not in body  # the schema constrains generation, not the prompt -- see docstring
+
+
+def test_count_prompt_tokens_missing_usage_raises_response_error():
+    client = _client(lambda request: httpx.Response(200, json={"choices": []}))
+    with pytest.raises(LlmResponseError, match="prompt_tokens"):
+        client.count_prompt_tokens(system_prompt="s", user_prompt="u")
+
+
 # ── OllamaJsonClient, think=False (native /api/chat path) ────────────────
 # No prior offline coverage of this path existed (only the think=True
 # OpenAI-compat path above was tested without a live server) -- these
@@ -247,6 +304,22 @@ def test_temperature_override_reaches_the_native_path_too():
     )
 
     assert captured["body"]["options"] == {"temperature": 0.3, "seed": 42, "num_predict": 64}
+
+
+def test_seed_override_reaches_the_native_path_too():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64,
+        think=False, seed=900_000_002,
+    )
+
+    assert captured["body"]["options"] == {"temperature": 0.0, "seed": 900_000_002, "num_predict": 64}
 
 
 def test_native_done_reason_not_stop_raises_without_retry():
@@ -398,6 +471,27 @@ def test_vllm_temperature_override_replaces_the_configured_value():
     )
 
     assert captured["body"]["temperature"] == 0.3
+
+
+def test_vllm_seed_override_replaces_the_configured_value():
+    # UNLIKE OllamaJsonClient (see the seed-override test above, and this
+    # module's own docstring on Ollama's non-reproducibility), VllmJsonClient's
+    # seed IS normally a strong lock at temperature=0 -- this override is
+    # exactly what cast_votes's retry_seed_base needs to actually vary a
+    # retry rather than reproducing it. See check_vllm_vote_cast_retry_is_
+    # inert_results.md.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, seed=900_000_002
+    )
+
+    assert captured["body"]["seed"] == 900_000_002
 
 
 def test_vllm_think_true_sets_enable_thinking_true():
@@ -584,11 +678,289 @@ def test_vllm_missing_choices_raises_response_error():
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
 
 
+# ── VllmJsonClient.count_prompt_tokens (2026-09-08, check_vllm_chunk_size_
+# throughput_results.md) -- llm_behavior_engine._dynamic_max_tokens's own
+# probe, VERIFIED live (unlike OllamaJsonClient's own version above); see
+# that method's own docstring for the measured claim.
+
+def test_vllm_count_prompt_tokens_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 2335}, "choices": []})
+
+    client = _vllm_client(handler)
+    tokens = client.count_prompt_tokens(system_prompt="sys", user_prompt="usr", think=True)
+
+    assert tokens == 2335
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["stream"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}
+    assert "response_format" not in body
+
+
+def test_vllm_count_prompt_tokens_sends_enable_thinking_false_when_asked():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 1}, "choices": []})
+
+    client = _vllm_client(handler)
+    client.count_prompt_tokens(system_prompt="s", user_prompt="u", think=False)
+
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_vllm_count_prompt_tokens_missing_usage_raises_response_error():
+    client = _vllm_client(lambda request: httpx.Response(200, json={"choices": []}))
+    with pytest.raises(LlmResponseError, match="prompt_tokens"):
+        client.count_prompt_tokens(system_prompt="s", user_prompt="u")
+
+
+# ── VllmJsonClient.complete_with_logprobs (2026-09-09, plan-llm-protocol-
+# and-theory-program.md §5.C) -- a diagnostic capability, not wired into any
+# decide_* entry point. Mock response shape mirrors a real live probe
+# (2026-09-09, GPU): P(yes)=0.962 vs P(no)=0.038 for a trivial forced choice.
+
+def _logprobs_response(finish_reason: str, content: str, token_entries: list[dict]) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "finish_reason": finish_reason,
+                    "message": {"content": content},
+                    "logprobs": {"content": token_entries},
+                }
+            ]
+        },
+    )
+
+
+def _token_entry(token: str, logprob: float, alternatives: list[tuple[str, float]]) -> dict:
+    return {
+        "token": token,
+        "logprob": logprob,
+        "top_logprobs": [{"token": t, "logprob": lp} for t, lp in alternatives],
+    }
+
+
+def test_vllm_complete_with_logprobs_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("length", "yes", [_token_entry("yes", -0.04, [("yes", -0.04), ("no", -3.26)])])
+
+    client = _vllm_client(handler)
+    client.complete_with_logprobs(system_prompt="sys", user_prompt="usr", max_tokens=1, top_logprobs=5)
+
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["logprobs"] is True
+    assert body["top_logprobs"] == 5
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    # think defaults to False here, unlike complete_json/count_prompt_tokens -- see the method's own docstring
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "response_format" not in body
+
+
+def test_vllm_complete_with_logprobs_parses_content_and_token_logprobs():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response("length", "yes", [_token_entry("yes", -0.04, [("yes", -0.04), ("no", -3.26)])])
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+    assert content == "yes"
+    assert tokens == [TokenLogprob(token="yes", logprob=-0.04, alternatives={"yes": -0.04, "no": -3.26})]
+
+
+def test_vllm_complete_with_logprobs_skips_a_malformed_alternative_and_keeps_the_rest():
+    # A server that returns a half-formed alternative (not an object, no token, a non-numeric
+    # logprob) must not lose the well-formed ones or the chosen token.
+    entry = {
+        "token": "yes",
+        "logprob": -0.04,
+        "top_logprobs": [
+            "not an object",
+            {"logprob": -1.0},                       # no token
+            {"token": "maybe", "logprob": "high"},   # logprob is not a number
+            {"token": "no", "logprob": -3.26},
+        ],
+    }
+    client = _vllm_client(lambda request: _logprobs_response("length", "yes", [entry]))
+    _content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert tokens == [TokenLogprob(token="yes", logprob=-0.04, alternatives={"no": -3.26, "yes": -0.04})]
+
+
+def test_vllm_complete_with_logprobs_accepts_finish_reason_length():
+    # The expected, common case here -- see _extract_content_and_logprobs's
+    # own docstring for why this differs from complete_json's strict 'stop'.
+    client = _vllm_client(lambda request: _logprobs_response(
+        "length", "a", [_token_entry("a", -0.01, [("a", -0.01)])]
+    ))
+    content, _tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert content == "a"
+
+
+def test_vllm_complete_with_logprobs_rejects_an_unexpected_finish_reason():
+    client = _vllm_client(lambda request: _logprobs_response(
+        "content_filter", "a", [_token_entry("a", -0.01, [("a", -0.01)])]
+    ))
+    with pytest.raises(LlmResponseError, match="finish_reason"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
+def test_vllm_complete_with_logprobs_rejects_a_malformed_token_entry():
+    client = _vllm_client(lambda request: _logprobs_response("stop", "a", [{"token": "a"}]))
+    with pytest.raises(LlmResponseError, match="malformed logprobs.content entry"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
+def test_vllm_complete_with_logprobs_missing_logprobs_raises():
+    client = _vllm_client(lambda request: httpx.Response(
+        200, json={"choices": [{"finish_reason": "stop", "message": {"content": "a"}}]}
+    ))
+    with pytest.raises(LlmResponseError, match="logprobs"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
+def test_vllm_complete_with_logprobs_alternatives_always_include_the_chosen_token():
+    # Edge case: if the server ever omitted the chosen token from its own
+    # top_logprobs list, the alternatives dict must still carry it --
+    # _extract_content_and_logprobs's own setdefault, not assumed server
+    # behavior.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response("length", "z", [_token_entry("z", -0.5, [("other", -1.0)])])
+
+    client = _vllm_client(handler)
+    _content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert tokens[0].alternatives == {"other": -1.0, "z": -0.5}
+
+
+def test_vllm_complete_with_logprobs_multiple_tokens_in_order():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response(
+            "length", "no way",
+            [
+                _token_entry("no", -0.1, [("no", -0.1), ("yes", -2.3)]),
+                _token_entry(" way", -0.2, [(" way", -0.2)]),
+            ],
+        )
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=2)
+    assert content == "no way"
+    assert [t.token for t in tokens] == ["no", " way"]
+
+
+# ── VllmJsonClient.complete_json_with_logprobs (2026-09-10, plan-llm-
+# protocol-and-theory-program.md §5.C) -- complete_json's own request shape
+# (response_format/xgrammar) plus complete_with_logprobs's own logprobs
+# reading, attacking complete_with_logprobs's own "NOT yet verified against
+# a real production, xgrammar-constrained decision schema" gap.
+
+def test_vllm_complete_json_with_logprobs_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    schema = {"type": "object", "properties": {"decisions": {"type": "array"}}}
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(
+        system_prompt="sys", user_prompt="usr", json_schema=schema, max_tokens=64, top_logprobs=7,
+    )
+
+    body = captured["body"]
+    assert body["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": schema},
+    }
+    assert body["logprobs"] is True
+    assert body["top_logprobs"] == 7
+    # think defaults to True here, unlike complete_with_logprobs's own False
+    # default -- this method exists specifically to exercise the real
+    # production shape, where every current decide_* caller sends think=True.
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+def test_vllm_complete_json_with_logprobs_think_is_overridable():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(
+        system_prompt="s", user_prompt="u", json_schema={"type": "object"}, max_tokens=8, think=False,
+    )
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_vllm_complete_json_with_logprobs_dereferences_nested_refs():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["schema"] = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    schema = {
+        "$defs": {"Inner": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+        "type": "object",
+        "properties": {"item": {"$ref": "#/$defs/Inner"}},
+    }
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=8)
+
+    assert "$defs" not in captured["schema"]
+    assert captured["schema"]["properties"]["item"] == {"type": "object", "properties": {"x": {"type": "integer"}}}
+
+
+def test_vllm_complete_json_with_logprobs_returns_content_and_tokens():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response(
+            "stop", '{"decisions":[{"cid":1,"blank":0}]}',
+            [_token_entry('{"decisions":[{"cid":1,"blank":', -0.0, [('{"decisions":[{"cid":1,"blank":', -0.0)]),
+             _token_entry("0", -0.02, [("0", -0.02), ("1", -3.1)]),
+             _token_entry("}]}", -0.0, [("}]}", -0.0)])],
+        )
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_json_with_logprobs(
+        system_prompt="s", user_prompt="u", json_schema={"type": "object"}, max_tokens=32,
+    )
+    assert content == '{"decisions":[{"cid":1,"blank":0}]}'
+    assert [t.token for t in tokens] == ['{"decisions":[{"cid":1,"blank":', "0", "}]}"]
+
+
 # ── build_json_client (provider dispatch) ─────────────────────────────────
+
+# Both dispatch tests name their provider explicitly rather than leaning on
+# whichever one the shipped config happens to default to -- the ollama one
+# used to rely on that and broke when the default moved to vllm (2026-09-06).
 
 def test_build_json_client_returns_an_ollama_client_for_the_ollama_provider():
     config = load_config()
-    with build_json_client(config.llm, seed=42) as client:
+    llm = dataclasses.replace(config.llm, provider="ollama")
+    with build_json_client(llm, seed=42) as client:
         assert isinstance(client, OllamaJsonClient)
 
 
@@ -1075,3 +1447,76 @@ def test_decode_coalition_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_coalition_decision(party_id=0)]})
     decisions = decode_coalition_batch(raw, expected_party_ids=[0])
     assert decisions[0].party_id == 0
+
+
+def _decision_fields(schema: dict, table: dict | None = None) -> list[str]:
+    """The decision object's field names, in the order they appear in the bytes sent."""
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)  # json.loads keeps the order of the bytes
+        sent.extend(body["response_format"]["json_schema"]["schema"]["properties"]["decisions"]["items"]["properties"])
+        return _ok_response("{}")
+
+    client = _vllm_client(handler)
+    if table is not None:
+        client.wire_order = table
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=8)
+    return sent
+
+
+def test_vllm_sends_a_decision_in_the_order_its_wire_order_lists_and_every_other_object_alphabetically():
+    # ADR-030 / EXP-025: the model writes an object's fields in the order they are sent, and that order changes
+    # its answers, so it is a table chosen by scripts/check_schema_order.py; an unlisted object goes out A-Z.
+    from api.domain.polity import llm_schemas as S
+
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, {}) == ["act", "cid", "motif", "target"]  # the bytes before ADR-030
+    declared = {"PressureDecision": ("cid", "target", "act", "motif")}
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, declared) == ["cid", "target", "act", "motif"]
+    assert _decision_fields(S.PRESSURE_JSON_SCHEMA, {"PressureDecision": ("target", "gone")}) == ["target", "act", "cid", "motif"]
+    assert _decision_fields(S.VOTE_CAST_JSON_SCHEMA, declared) == ["blank", "cid", "motif", "ranking"]  # not listed
+
+
+def test_wire_order_is_pinned_and_names_each_class_fields_exactly():
+    from api.domain.polity import llm_schemas
+    from api.domain.polity.llm_client import WIRE_ORDER
+
+    message = "a field order is part of the prompt (ADR-030): change WIRE_ORDER only from scripts/check_schema_order.py's verdict"
+    assert dict(WIRE_ORDER) == {  # the pin: update it together with check_schema_order_results.md
+        "PressureDecision": ("cid", "target", "act", "motif"),
+        "CandidacyDecision": ("cid", "outcome", "motif"),
+        "VoteCastDecision": ("cid", "blank", "motif", "ranking"),
+        "ResponseDecision": ("cid", "stance", "shifts", "motif"),
+    }, message
+    for title, order in WIRE_ORDER.items():
+        assert sorted(order) == sorted(getattr(llm_schemas, title).model_fields), (title, message)
+
+
+def test_an_object_wire_order_does_not_list_goes_out_alphabetically_nested_or_not():
+    from api.domain.polity import llm_schemas as S
+
+    sent: list[dict] = []
+    client = _vllm_client(lambda request: (sent.append(json.loads(request.content)), _ok_response("{}"))[1])
+    client.wire_order = {"ResponseDecision": ("cid", "motif", "stance", "shifts")}
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=S.RESPONSE_JSON_SCHEMA, max_tokens=8)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=S.LEADER_TURN_JSON_SCHEMA, max_tokens=8)
+    decision = sent[0]["response_format"]["json_schema"]["schema"]["properties"]["decisions"]["items"]
+    assert list(decision["properties"]) == ["cid", "motif", "stance", "shifts"]
+    assert list(decision["properties"]["shifts"]["items"]["properties"]) == ["delta", "dimension"]  # PositionShift: A-Z
+    turn = list(sent[1]["response_format"]["json_schema"]["schema"]["properties"])
+    assert turn == sorted(turn)  # the agents' turns: A-Z, as before ADR-030
+
+
+def test_canonical_sorts_every_dict_but_the_fields_of_a_listed_object_including_inside_lists_and_tuples():
+    from api.domain.polity.llm_client import _canonical
+
+    listed = {"title": "Listed", "type": "object", "properties": {"z": {"title": "Z", "b": 1, "a": 2}, "a": {}}}
+    body = {"messages": [{"role": "r", "content": "c"}], "b": ({"y": 1, "a": 2},), "schema": listed, "a": 1}
+    out = _canonical(body, {"Listed": ("z", "a")})
+    assert list(out) == ["a", "b", "messages", "schema"]
+    assert list(out["messages"][0]) == ["content", "role"]  # nested in a list
+    assert list(out["b"][0]) == ["a", "y"]  # nested in a tuple, which json.dumps writes as a list
+    assert list(out["schema"]) == ["properties", "title", "type"]  # the listed object's own keys stay sorted
+    assert list(out["schema"]["properties"]) == ["z", "a"]  # its fields follow the table
+    assert list(out["schema"]["properties"]["z"]) == ["a", "b", "title"]  # and each field's schema stays sorted
+    assert list(_canonical(listed, {})["properties"]) == ["a", "z"]

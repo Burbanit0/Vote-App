@@ -1,5 +1,7 @@
 # Plan — La surface extérieure
 
+> **status:** live — §2.D (a "busy" state, tied to publishing) and §2.K (the two polity rank-F functions, sequenced by the polity work) are open; §2.A and §2.E are done; §2.B's general guard, §2.F, §2.G and §2.I moved to PLAN_BEYOND_CI. (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Origine** : audit demandé le 2026-09-16, après la clôture de
 > `PLAN_CI_STRUCTURAL_GAPS.md` (7 catégories à 5/5). La question posée était
 > « la CI est solide, quoi d'autre ? ». État vérifié **en direct** : six
@@ -20,11 +22,10 @@
 > - `PLAN_UX_ACCESSIBILITE.md` — **les 7 phases sont construites** (vérifié :
 >   `feat/play-analytics` … `feat/analogies-motion`, toutes présentes dans
 >   `git log --all`). Ce plan reprend là où celui-là s'arrête.
-> - `PLAN_METHODES_HISTOIRES_ATLAS.md` — **à moitié fait** (3 chantiers sur
->   6 : `promote-extra-rules`, `stories-batch`, `blank-in-electorate`
->   construits ; `method-coverage-audit`, `blank-engine-live`,
->   `blank-stories` non). Les items restants sont repris en §2.L, pas
->   réécrits.
+> - `PLAN_METHODES_HISTOIRES_ATLAS.md` — **à moitié fait** à la date de ce
+>   plan (3 chantiers sur 6). Depuis, il est **terminé** (C.1–C.4 fusionnés,
+>   PR #101, #102, #114 ; seul le D.4 optionnel reste). Les items repris en
+>   §2.L ne sont donc plus ouverts.
 
 ---
 
@@ -131,7 +132,7 @@ correctement bornée (10/min sur `/simulate`, 5/min sur `/compare`,
 `ge=`/`le=` ; Kemeny-Young n'est pas NP-dur ici (`_KY_EXACT_CAP = 10`) ; CORS
 est en liste blanche, pas `*`.
 
-### 2.B 🔴 Deux affirmations fausses dans le contenu pédagogique
+### 2.B 🟢 Deux affirmations fausses dans le contenu pédagogique
 
 Pour une app qui **enseigne** la théorie du vote, c'est la classe de bug la
 plus grave — et les deux sont contredites par le `THEORY.md` du projet
@@ -167,6 +168,11 @@ fois ailleurs.
 
 **Effort** : S (les deux corrections) → M (le garde-fou) · **Priorité** :
 haute — c'est du contenu faux, publié, sur le cœur de métier.
+
+**Fait** (`c4d021d2`) : les deux corrections, plus un garde-fou limité au
+théorème de Moulin (`methodCriteria.test.ts`). Le garde-fou général (tableau
+contre THEORY.md et contre les tests du moteur) est repris par
+`docs/plan/PLAN_BEYOND_CI.md` W1.2, qui a trouvé d'autres cellules fausses.
 
 ### 2.C 🟢 Décision structurante : publier, ou dire qu'on ne publie pas
 

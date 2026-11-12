@@ -60,7 +60,7 @@ def sentry_events():
 @pytest.fixture
 def _raising_route():
     """Registers a route on the real app that always raises, so the test
-    exercises the exact code path api/main.py's `_unhandled_exception_handler`
+    exercises the exact code path api/core/errors.py's `unhandled_exception_handler`
     guards in production. Removed again after the test so it never leaks into
     the running app or other tests."""
 

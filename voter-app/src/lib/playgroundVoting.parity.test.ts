@@ -110,7 +110,7 @@ function exhaustiveMismatchesFor<
   const out: string[] = [];
   scenarios.forEach((s, i) => {
     const expected = s.winners[rule];
-    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores);
+    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores, s.candidates);
     const got = idx >= 0 ? s.candidates[idx] : null;
     if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
   });
@@ -203,7 +203,7 @@ describe.each([
         const expected = s.winners[rule];
         if (expected == null) return;
         compared += 1;
-        const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
+        const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores, s.candidates)];
         if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
       });
       const minStrict = rule === 'maximin' ? MIN_STRICT_WINNERS_MAXIMIN : MIN_STRICT_WINNERS;
@@ -242,6 +242,11 @@ describe.each([
 //   maximin implementation compares a score against a fixed threshold, only
 //   against each other, so no rescale is needed here — contrast with the
 //   `/ 5` map below for majority_judgment.
+//
+//   Since #667 both engines draw a maximin tie by the same seeded lot over the tied
+//   names (tie_lot.py / tieLot.ts), so the raw winner IS now a shared rule and is
+//   asserted on every profile too; the history below is why the two checks after it
+//   were written first, and they still hold.
 //
 //   Maximin gets a DIFFERENT check shape than approval/majority_judgment,
 //   below — it is the one rule here whose own tie-break has no principled,
@@ -319,7 +324,7 @@ describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
   it('client always returns a genuine maximin winner (member of the analytically-true tied set)', () => {
     const violations: string[] = [];
     prepared.forEach((s, i) => {
-      const idx = ruleWinnerFromRanks(s.ranks, s.m, 'maximin', s.scores);
+      const idx = ruleWinnerFromRanks(s.ranks, s.m, 'maximin', s.scores, s.candidates);
       const got = s.candidates[idx];
       if (!s.maximinTiedWinners.includes(got)) {
         violations.push(
@@ -344,6 +349,10 @@ describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
     // vacuous (a real regression).
     expect(unambiguous.length).toBeGreaterThanOrEqual(2000);
     expect(exhaustiveMismatchesFor(unambiguous, 'maximin')).toEqual([]);
+  });
+
+  it('maximin matches the backend on EVERY profile, ties and all (the shared lot, #667)', () => {
+    expect(exhaustiveMismatchesFor(prepared, 'maximin')).toEqual([]);
   });
 });
 

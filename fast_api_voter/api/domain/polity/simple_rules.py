@@ -35,12 +35,16 @@ their pledged_platform.
 from __future__ import annotations
 
 import math
+from collections import Counter
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import EventType, PressureAct
-from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PartiesConfig, PressureMenuConfig, VoteConfig
 from api.domain.polity.parties import Party
 
 CANDIDATE_LABEL_PREFIX = "citizen_"
@@ -111,6 +115,142 @@ def build_ranking(
     return names[:within_tolerance] + [blank_label] + names[within_tolerance:]
 
 
+@dataclass(frozen=True)
+class IncumbentRecord:
+    """The president an election judges (S4.1's retrospective vote): the holder whose
+    term ends at this election, or the one a snap election replaces."""
+
+    citizen_id: int
+    party: int | None
+    record: float
+    """2 x legitimacy - 1, clamped to [-1, 1]: -1 for a president with no legitimacy left, +1 for one who kept it all."""
+    policy: PolicyRecord | None = None
+    """S4.2: the policy the president's term presided over, while legislation runs."""
+
+
+def incumbent_record(citizen: Citizen) -> IncumbentRecord:
+    return IncumbentRecord(
+        citizen_id=citizen.citizen_id, party=citizen.party_affiliation,
+        record=max(-1.0, min(1.0, 2 * citizen.legitimacy_capital - 1)),
+    )
+
+
+def _partisan_term(voter: Citizen, candidate: Citizen, vote: VoteConfig) -> float:
+    same_party = candidate.party_affiliation is not None and candidate.party_affiliation == voter.party_affiliation
+    return vote.partisanship if same_party else 0.0
+
+
+def _retrospective_term(voter: Citizen, candidate: Citizen, vote: VoteConfig, incumbent: IncumbentRecord | None) -> float:
+    if incumbent is None:
+        return 0.0
+    if candidate.citizen_id == incumbent.citizen_id:
+        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent)
+    if incumbent.party is not None and candidate.party_affiliation == incumbent.party:
+        return (
+            vote.approval * vote.approval_party_carryover * incumbent.record
+            + vote.approval_party_carryover * (_policy_term(voter, vote, incumbent) + _economy_term(vote, incumbent))
+        )
+    return 0.0
+
+
+def _economy_term(vote: VoteConfig, incumbent: IncumbentRecord) -> float:
+    """ADR-034: 0.0 exactly unless both an economy record and a nonzero weight exist; the same for every voter."""
+    if incumbent.policy is None or not vote.economic_voting:
+        return 0.0
+    return vote.economic_voting * incumbent.policy.economy
+
+
+def _policy_term(voter: Citizen, vote: VoteConfig, incumbent: IncumbentRecord) -> float:
+    """S4.2: 0.0 exactly unless both a policy record and a nonzero weight exist."""
+    if incumbent.policy is None or not vote.policy_retrospection:
+        return 0.0
+    return vote.policy_retrospection * policy_gain(voter, incumbent.policy)
+
+
+def candidate_utility(
+    voter: Citizen, candidate: Citizen, vote: VoteConfig,
+    incumbent: IncumbentRecord | None = None, valence: Mapping[int, float] | None = None,
+    platform: tuple[float, ...] | None = None,
+) -> float:
+    """S4.1 (ADR-011): minus the weighted distance, plus partisanship for the voter's own
+    party, plus the incumbent's record for the incumbent (and a share of it for their
+    party's candidate), plus valence. A term whose weight is zero is exactly 0.0, so with
+    every weight at zero this orders and compares as minus build_ranking's distance.
+    `platform` replaces the pledge as what the distance judges (approval judges conduct)."""
+    valence_term = vote.valence * valence.get(candidate.citizen_id, 0.0) if valence else 0.0
+    return (
+        -weighted_distance(voter, platform if platform is not None else _candidate_platform(candidate))
+        + _partisan_term(voter, candidate, vote)
+        + _retrospective_term(voter, candidate, vote, incumbent)
+        + valence_term
+    )
+
+
+def abstains(voter: Citizen, utilities: Sequence[float], turnout_cost: float) -> bool:
+    """Indifference abstention: the voter stays home when their best candidate is worth about
+    what a blank ballot is (minus their blank threshold) -- within the cost of turning out, either
+    way. Not against the runner-up: in a large field the two best are nearly always close, and
+    that rule kept most voters home for the field's size alone (OBS-042). A zero cost, or an empty
+    field, never keeps anyone home."""
+    if turnout_cost <= 0 or not utilities:
+        return False
+    return abs(max(utilities) + voter.blank_threshold) < turnout_cost
+
+
+def utility_ballot(
+    voter: Citizen, candidates: list[Citizen], vote: VoteConfig, *,
+    incumbent: IncumbentRecord | None = None, valence: Mapping[int, float] | None = None, blank_label: str = BLANK_LABEL,
+) -> list[str] | None:
+    """S4.1: build_ranking with utility in place of distance, or None for a voter who
+    abstains. Candidates whose utility reaches minus the voter's blank threshold rank above
+    blank, highest utility first, ties to the lowest citizen_id. With every weight in
+    `vote` at zero this returns exactly build_ranking's ballot (property-tested)."""
+    if not voter.engaged:
+        return None
+    scored = sorted(
+        ((candidate_utility(voter, c, vote, incumbent, valence), c) for c in candidates),
+        key=lambda item: (-item[0], item[1].citizen_id),
+    )
+    if abstains(voter, [utility for utility, _ in scored], vote.turnout_cost):
+        return None
+    names = [candidate_label(c) for _, c in scored]
+    acceptable = sum(1 for utility, _ in scored if utility >= -voter.blank_threshold)
+    return names[:acceptable] + [blank_label] + names[acceptable:]
+
+
+ABSTAIN = "abstain"
+
+
+@dataclass(frozen=True)
+class FirstChoices:
+    """A vote-intention poll: each candidate's share of first choices, and the shares that
+    would vote blank or stay home."""
+
+    shares: dict[int, float]
+    blank: float
+    abstain: float
+
+
+def first_choices(
+    citizens: Sequence[Citizen], candidates: list[Citizen], vote: VoteConfig, *, blank_enabled: bool,
+) -> FirstChoices:
+    """The poll a campaign sees: every citizen's utility ballot over the field, on the
+    platforms as they stand. The sitting president's record is left out -- the poll is taken
+    before the election decides whose record is judged. With the blank not a choice
+    (`blank_enabled` false) a citizen's first choice is their first candidate."""
+    tally: Counter[str] = Counter()
+    for citizen in citizens:
+        ballot = utility_ballot(citizen, candidates, vote)
+        if ballot is not None and not blank_enabled:
+            ballot = [label for label in ballot if label != BLANK_LABEL] or None  # an empty field: nobody to vote for
+        tally[ABSTAIN if ballot is None else ballot[0]] += 1
+    total = len(citizens)
+    return FirstChoices(
+        shares={c.citizen_id: tally[candidate_label(c)] / total for c in candidates},
+        blank=tally[BLANK_LABEL] / total, abstain=tally[ABSTAIN] / total,
+    )
+
+
 def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = BLANK_LABEL) -> bool:
     """v4 Lot 3 (§7.1's mandate_strength source): is `label` ranked above
     blank on this one ballot? Format-agnostic across both ballot builders:
@@ -133,6 +273,16 @@ def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = B
     if label not in ballot:
         return False
     return ballot.index(label) < ballot.index(blank_label)
+
+
+def without_blank(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> list[list[str]]:
+    """`ballots` as counted when the Blank is not a choice (`institutions.blank_vote_enabled:
+    false`): the blank dropped from every ranking, so a voter who finds no candidate acceptable
+    still ranks them, and the Blank cannot win. A ballot that held only the blank (an LLM
+    `blank=1`) counts for no one. The ballots themselves stay as cast: `mandate_strength` and
+    `approval` still read the blank as the voter's own acceptability line."""
+    stripped = [[label for label in ballot if label != blank_label] for ballot in ballots]
+    return [ballot for ballot in stripped if ballot]
 
 
 def blank_share(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> float:
@@ -172,18 +322,204 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
-def choose_party(voter: Citizen, parties: list[Party]) -> int | None:
+def founding_lock_ticks(config: PartiesConfig, ticks_per_year: int) -> int:
+    """`founding_lock_years` in whole ticks, rounded up (rounded to 9 places first, so 0.7 years
+    of 10 ticks is 7 ticks, not 8)."""
+    return math.ceil(round(config.founding_lock_years * ticks_per_year, 9))
+
+
+def locked_parties(parties: list[Party], tick: int, lock_ticks: int) -> dict[int, int]:
+    """party_id -> the first tick it is no longer locked, for the parties founded at most
+    `lock_ticks - 1` ticks before `tick` (ADR-018, amendment 2026-10-21). Their members can neither
+    found nor be swept into a founding, so the next founding cannot empty a party (OBS-052). The
+    lock follows the party: a member who leaves it is free again."""
+    return {
+        p.party_id: p.founded_tick + lock_ticks
+        for p in parties
+        if p.founded_tick is not None and 0 <= tick - p.founded_tick < lock_ticks
+    }
+
+
+def cofounders(
+    founder: Citizen, citizens: list[Citizen], parties: list[Party], locked: Collection[int] = (),
+) -> list[Citizen]:
+    """The founder and everyone who would sign for their positions (the ballot-access signature
+    rule) and stands nearer to them than to their own party's platform, bar the members of a
+    `locked` party. Public because a forum turn is told how many it has (agents.stand_line):
+    founding turns on this count, so a citizen who cannot see it cannot judge the move the
+    kernel is about to refuse."""
+    platforms = {p.party_id: p.platform for p in parties}
+
+    def defects(other: Citizen) -> bool:
+        if other.party_affiliation in locked:
+            return False
+        if weighted_distance(other, founder.issue_positions) > other.blank_threshold:
+            return False
+        own = platforms.get(other.party_affiliation) if other.party_affiliation is not None else None
+        return own is None or weighted_distance(other, founder.issue_positions) < weighted_distance(other, own)
+
+    return [founder, *(c for c in citizens if c.citizen_id != founder.citizen_id and defects(c))]
+
+
+def _join(citizen: Citizen, party_id: int, parties: list[Party]) -> str:
+    if party_id not in {p.party_id for p in parties} or party_id == citizen.party_affiliation:
+        return ""
+    citizen.party_affiliation = party_id
+    return f"join {party_id}"
+
+
+def _found(
+    citizen: Citizen, citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int,
+    locked: Collection[int],
+) -> str:
+    if not config.birth_enabled or citizen.party_affiliation in locked:
+        return ""
+    founders = cofounders(citizen, citizens, parties, locked)
+    if len(founders) < config.founding_ratio * len(citizens):
+        return ""
+    new_id = 1 + max(p.party_id for p in parties)
+    parties.append(Party(party_id=new_id, platform=citizen.issue_positions, founded_tick=tick))
+    for founder in founders:
+        founder.party_affiliation = new_id
+    return f"found {new_id}"
+
+
+def apply_party_move(
+    citizen: Citizen, move: Literal["none", "join", "leave", "found"], party_id: int,
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig, tick: int, locked: Collection[int],
+) -> str:
+    """Apply one citizen's membership move to `citizens` and `parties`, and say what happened
+    ("join 2", "leave", "found 5") -- "" when the kernel refused it. Founding needs
+    `birth_enabled`, a founder outside the `locked` parties (locked_parties) and co-founders
+    (the founder counts, the members of a locked party do not) for at least `founding_ratio` of
+    the citizens; the new party's platform is the founder's own positions, founded at `tick`.
+    Joining and leaving are never locked."""
+    if move == "join":
+        return _join(citizen, party_id, parties)
+    if move == "leave" and citizen.party_affiliation is not None:
+        citizen.party_affiliation = None
+        return "leave"
+    return _found(citizen, citizens, parties, config, tick, locked) if move == "found" else ""
+
+
+def _reassign(citizens: list[Citizen], parties: list[Party], gone: set[int]) -> None:
+    for c in citizens:
+        if c.party_affiliation in gone:
+            c.party_affiliation = assign_party_affiliation(c, parties)
+
+
+def dissolve_small_parties(
+    citizens: list[Citizen], parties: list[Party], config: PartiesConfig, seated: Collection[int] = (),
+) -> list[tuple[int, int]]:
+    """With `death_enabled`, drop every party below half the founding ratio of the citizens
+    (the gap to founding is what keeps a party from being founded and dissolved in turn), bar
+    the last party and any with seats in the assembly. Members go to the nearest party left;
+    independents stay independent. Returns (party_id, members) per dissolved party."""
+    if not config.death_enabled:
+        return []
+    size = Counter(c.party_affiliation for c in citizens)
+    floor = config.founding_ratio / 2 * len(citizens)
+    doomed = [p for p in parties if size[p.party_id] < floor and p.party_id not in seated][: len(parties) - 1]
+    gone = {p.party_id for p in doomed}
+    parties[:] = [p for p in parties if p.party_id not in gone]
+    _reassign(citizens, parties, gone)
+    return [(p.party_id, size[p.party_id]) for p in doomed]
+
+
+@dataclass(frozen=True)
+class PolicyRecord:
+    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now; and (ADR-034) the
+    economy's x(t) at the election, which every voter judges the same. `then` and `now` are empty when no
+    legislation runs and only the economy is judged."""
+
+    then: tuple[float, ...]
+    now: tuple[float, ...]
+    economy: float = 0.0
+
+
+def policy_gain(voter: Citizen, record: PolicyRecord) -> float:
+    """How much closer policy came to the voter over the term (negative: farther); 0 with no policy record."""
+    if not record.then:
+        return 0.0
+    return weighted_distance(voter, record.then) - weighted_distance(voter, record.now)
+
+
+@dataclass(frozen=True)
+class GoverningRecord:
+    """S4.2: the parties a legislative election judges, and the policy they presided over."""
+
+    parties: frozenset[int]
+    policy: PolicyRecord
+
+
+def choose_party(
+    voter: Citizen, parties: list[Party], governing: GoverningRecord | None = None, retrospection: float = 0.0,
+    economic: float = 0.0,
+) -> int | None:
     """Party-list analogue of build_ranking's vote rule (A5), for the
     legislative election (assembly_mode: party_list): nearest party
     platform by issue-priority-weighted distance, or blank (None) if even
     the nearest party is farther than the voter's own tolerance. Ties
-    broken by the lowest party_id."""
-    nearest = min(
-        parties, key=lambda p: (weighted_distance(voter, p.platform), p.party_id)
-    )
-    if weighted_distance(voter, nearest.platform) > voter.blank_threshold:
-        return None
-    return nearest.party_id
+    broken by the lowest party_id.
+
+    S4.2 (ADR-009): with a `governing` record and a nonzero `retrospection`, the governing
+    parties' utility (minus the distance) gains retrospection x policy_gain, and the voter
+    picks the highest utility -- blank when even that falls below minus their tolerance.
+    At zero it is the nearest-platform rule above, exactly."""
+    utility = _party_utilities(voter, parties, governing, retrospection, economic)
+    best = min(parties, key=lambda p: (-utility[p.party_id], p.party_id))
+    return None if utility[best.party_id] < -voter.blank_threshold else best.party_id
+
+
+def _party_utilities(
+    voter: Citizen, parties: Sequence[Party], governing: GoverningRecord | None, retrospection: float, economic: float = 0.0,
+) -> dict[int, float]:
+    """Minus the weighted distance, plus retrospection x policy_gain and (ADR-034) economic x the economy for a
+    governing party: the one utility choose_party and strategic_party both rank by (at zero weights, minus the
+    distance exactly)."""
+    gain = retrospection * policy_gain(voter, governing.policy) if governing is not None and retrospection else 0.0
+    gain += economic * governing.policy.economy if governing is not None and economic else 0.0
+    in_power = governing.parties if governing is not None else frozenset()
+    return {
+        party.party_id: -weighted_distance(voter, party.platform) + (gain if party.party_id in in_power else 0.0)
+        for party in parties
+    }
+
+
+def viable_parties(choices: Sequence[int | None], threshold: float) -> frozenset[int]:
+    """ADR-024's poll: the parties a vote clears the electoral threshold with, measured as allocate_seats
+    measures it -- a share of the votes cast for parties, blanks left out, and at least one vote."""
+    counts = Counter(choice for choice in choices if choice is not None)
+    total = sum(counts.values())
+    return frozenset(party for party, n in counts.items() if n / total >= threshold)
+
+
+def strategic_party(
+    voter: Citizen, parties: list[Party], sincere: int | None, viable: frozenset[int], margin: float,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
+) -> int | None:
+    """ADR-024, the wasted vote (Cox 1997): a voter whose sincere party falls below the threshold in the
+    sincere vote votes instead for the best party above it, when that costs at most `margin` in utility (the
+    utility choose_party maximises) and the party is still within their tolerance. A blank ballot, a party
+    above the threshold or a margin of 0 leaves the sincere choice."""
+    if margin <= 0 or sincere is None or sincere in viable or not viable:
+        return sincere
+    utility = _party_utilities(voter, [p for p in parties if p.party_id in viable | {sincere}], governing, retrospection, economic)
+    best = max(viable & utility.keys(), key=lambda party_id: (utility[party_id], -party_id))
+    worth_it = utility[sincere] - utility[best] <= margin and utility[best] >= -voter.blank_threshold
+    return best if worth_it else sincere
+
+
+def strategic_choices(
+    voters: Sequence[Citizen], parties: list[Party], sincere: Sequence[int | None], margin: float, threshold: float,
+    governing: GoverningRecord | None = None, retrospection: float = 0.0, economic: float = 0.0,
+) -> list[int | None]:
+    """ADR-024 over an electorate: the sincere vote is the poll, and each voter it strands may desert.
+    At margin 0, the sincere vote."""
+    if margin <= 0:
+        return list(sincere)
+    viable = viable_parties(sincere, threshold)
+    return [strategic_party(v, parties, s, viable, margin, governing, retrospection, economic) for v, s in zip(voters, sincere)]
 
 
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────
@@ -245,27 +581,40 @@ def ballot_access_signature_ratio(citizen: Citizen, population: list[Citizen]) -
 def attempt_rupture_candidacy(
     citizen: Citizen,
     population: list[Citizen],
+    parties: list[Party],
     config: CandidacyConfig,
     rng: np.random.Generator,
 ) -> bool:
     """Design doc §2.4 rare path: a citizen may declare independently of
-    perceived support, gated only by a flat per-tick draw
-    (rupture_base_probability) and a reduced signature bar
-    (rupture_signature_ratio) — never by ambition_score or by
+    perceived support, gated by a per-tick draw against a probability that
+    scales with the citizen's own ideological disagreement, plus a reduced
+    signature bar (rupture_signature_ratio) — never by ambition_score or by
     decide_candidacy. The RNG is always drawn from when the path is
     enabled (win or lose the coin flip) so draw order — and therefore
     reproducibility — never depends on the outcome.
 
-    The "quelle fonction de l'écart idéologique" question left open in the
-    design doc (§2.4, Points ouverts #1) is deliberately NOT answered here:
-    eligibility does not depend on ideological distance to any incumbent
-    or party — only on the flat probability already pinned in config. v1
-    ships the literal, minimal reading of the config; a distance-weighted
-    eligibility function is left to a later palier.
-    """
+    Resolves Points ouverts #1 ("quelle fonction de l'écart idéologique") --
+    see plan-rupture-candidacy-threshold.md: "écart" is weighted_distance
+    to the citizen's OWN affiliated party's platform (already in [0, 1] by
+    construction), not to an incumbent (would break this path's per-tick
+    temporal symmetry) or to the population centroid (measures absolute
+    extremity, not disaffection with the party system). party_affiliation
+    is always a concrete party_id here (assign_party_affiliation, called
+    once at population init, never returns None -- unlike choose_party,
+    a different function for legislative vote choice); a citizen who left their
+    party (ADR-018) is measured against the nearest platform. The distance modulates rupture_base_probability only,
+    never rupture_signature_ratio -- that bar is ADR-003's generic,
+    already-calibrated ballot-access filter, a distinct §2.3 concern from
+    this §2.4 probability. At distance 0 (perfectly represented by one's
+    own party) the multiplier is exactly 1.0, so a fully-aligned citizen's
+    probability is byte-identical to pre-this-change v1 behavior."""
     if not config.rupture_path_enabled:
         return False
-    if rng.random() >= config.rupture_base_probability:
+    disagreement = min(
+        weighted_distance(citizen, p.platform) for p in parties if citizen.party_affiliation in (None, p.party_id)
+    )
+    probability = config.rupture_base_probability * (1 + config.rupture_distance_multiplier * disagreement)
+    if rng.random() >= probability:
         return False
     return ballot_access_signature_ratio(citizen, population) >= config.rupture_signature_ratio
 
@@ -313,12 +662,16 @@ def vacate_office(citizen: Citizen) -> None:
     citizen.term_end_tick = None
 
 
-def declare_candidacy(citizen: Citizen) -> None:
+def declare_candidacy(citizen: Citizen, *, keep_record: bool = False) -> None:
     """v0 has no campaign strategizing: a candidate runs on their own
     sincere position. revealed_position is pinned equal to pledged_platform
     (design doc §7bis.5) — the deviation this enables is a v2+ LLM effect,
-    zero by construction here."""
+    zero by construction here. With `keep_record`, a former officeholder runs
+    on the position they held in office instead, so voters judge what they did."""
     citizen.role = Role.CANDIDATE
+    if keep_record and citizen.mandates_served > 0 and citizen.revealed_position is not None:
+        citizen.pledged_platform = citizen.revealed_position
+        return
     citizen.pledged_platform = citizen.issue_positions
     citizen.revealed_position = citizen.issue_positions
 
@@ -404,6 +757,7 @@ def deterministic_pressure_action(
     *,
     can_sign: bool = False,
     can_launch: bool = False,
+    tolerance_scale: float = 1.0,
 ) -> PressureAct:
     """v4 Lot 4/5, dt=10's §11.4 baseline for a citizen already past the
     awakening gate (accountability.select_consulted) -- this function never
@@ -440,8 +794,11 @@ def deterministic_pressure_action(
     can compare them. This rigid preference is the §11.4 BASELINE ONLY --
     Lot 7's LLM sees the whole menu and arbitrates freely; the contrast
     between a rigid preference and a free arbitration is what the palier
-    exists to measure."""
-    if gap < citizen.blank_threshold:
+    exists to measure.
+
+    `tolerance_scale` (S4.3, emotions.tolerance_scale) scales the blank threshold this
+    rule acts past: anger lowers it."""
+    if gap < citizen.blank_threshold * tolerance_scale:
         return PressureAct.NOTHING
     if menu.petition_enabled:
         if can_sign:

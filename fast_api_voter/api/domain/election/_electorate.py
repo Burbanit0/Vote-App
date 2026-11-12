@@ -141,6 +141,7 @@ def _run_methods_on_electorate(
     issues: list[str],
     blank_enabled: bool,
     blank_rule: BlankVoteRule,
+    seed: object = 0,
 ) -> Dict[str, Any]:
     """
     Run compare_all_methods and optionally apply blank-vote rule.
@@ -150,6 +151,7 @@ def _run_methods_on_electorate(
         voters, candidates, issues,
         blank_vote=blank_enabled,
         override_utilities=utilities,
+        seed=seed,
     )
     condorcet_winner = result.get("condorcet_winner")
     blank_pct        = result.get("blank_pct") or 0.0
@@ -180,6 +182,7 @@ def _snapshot_election_winners(
     issues:     list[str],
     blank_enabled: bool,
     blank_rule: BlankVoteRule,
+    seed: object = 0,
 ) -> Dict[str, Dict[str, Any]]:
     """Winner + vote share per method for one snapshot (a campaign day, a
     factor combination).
@@ -206,6 +209,7 @@ def _snapshot_election_winners(
         # be ~104 s against a 180 s worker timeout. Too load-bearing to leave to
         # a default in another module.
         compute_strategic=False,
+        seed=seed,
     )
     blank_pct = report.get("blank_pct") or 0.0
 

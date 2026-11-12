@@ -18,7 +18,8 @@ import { test, expect, type Page } from './coverageFixtures';
 // Regenerate by running LEADER_RULES through fieldWinnerName(sampleVoters(300, 42,
 // 'random', 2), DEFAULT_CONFIG.candidates, rule) if the default electorate or a
 // rule's algorithm changes.
-const EXPECTED_WINNER: Record<string, string> = {
+// null = no fixed winner: the lottery draws a ballot, so it never names one.
+const EXPECTED_WINNER: Record<string, string | null> = {
   plurality: 'Alice',
   two_round: 'Carol',
   irv: 'Carol',
@@ -28,7 +29,7 @@ const EXPECTED_WINNER: Record<string, string> = {
   star: 'Carol',
   majority_judgment: 'Carol',
   cumulative: 'Carol',
-  maximin: 'Alice',
+  maximin: 'Carol', // a tie on this electorate, drawn by lot since #667 (was the first-listed)
   nash: 'Carol',
   bucklin: 'Carol',
   coombs: 'Carol',
@@ -47,7 +48,7 @@ const EXPECTED_WINNER: Record<string, string> = {
   river: 'Carol',
   smith_irv: 'Carol',
   split_cycle: 'Carol',
-  random_ballot: 'Alice',
+  random_ballot: null,
 };
 
 async function methodMoment(page: Page) {
@@ -136,7 +137,14 @@ test.describe('Playground — Méthode', () => {
 
     for (const rule of values) {
       await select.selectOption(rule);
-      await expect(winner, `wrong winner under ${rule}`).toHaveText(EXPECTED_WINNER[rule]);
+      const expected = EXPECTED_WINNER[rule];
+      if (expected === null) {
+        await expect(
+          page.locator('[data-testid="field-winner"] [data-testid="no-fixed-winner"]')
+        ).toBeVisible();
+      } else {
+        await expect(winner, `wrong winner under ${rule}`).toHaveText(expected);
+      }
     }
     expect(crashes).toEqual([]);
   });

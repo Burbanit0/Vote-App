@@ -1,4 +1,5 @@
 import React from 'react';
+import { FlaskConical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Band } from '../../lib/scorecard';
 
@@ -11,7 +12,7 @@ export interface ScorecardAxis {
   label: string;
   hint: string;
   band: Band | null;
-  /** Lab tab key to drill into for this axis (renders a 🔬 button when set). */
+  /** Lab tab key to drill into for this axis (renders a flask button when set). */
   drillTab?: string;
 }
 
@@ -42,7 +43,7 @@ const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote, 
                   title={t('scorecard.drillTitle')}
                   aria-label={t('scorecard.drillAria', { label })}
                 >
-                  🔬
+                  <FlaskConical aria-hidden className="h-3.5 w-3.5" />
                 </button>
               )}
             </span>

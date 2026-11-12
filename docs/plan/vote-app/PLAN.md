@@ -1,5 +1,7 @@
 # PLAN.md — Step-up plan for Vote-App (playground + lab)
 
+> **status:** done — its six phase branches merged (PRs #58–#64). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 Self-contained execution plan. Six phases, one `feat/*` branch + one PR each.
 Written to be executed by an agent with no prior context on this repo.
 

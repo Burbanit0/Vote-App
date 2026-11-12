@@ -1,18 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInstrumentCtx } from '../playground/PlaygroundController';
-import { ruleWinner, RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
-import { LEADER_RULES } from '../../lib/scorecard';
+import type { Rule } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
+import { LEADER_RULES, hasFixedWinner, winnersByRule } from '../../lib/scorecard';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import {
   METHOD_CRITERIA,
-  METHOD_FAMILY,
-  FAMILY_ORDER,
+  METHOD_CRITERIA_ENTRIES,
   CRITERION_KEYS,
+  cite,
+  type CriterionBasis,
   type CriterionKey,
   type Satisfaction,
-  type MethodFamily,
 } from '../../data/methodCriteria';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import ReportContentError from '../shared/ui/ReportContentError';
+import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../data/methodFamily';
+import { candidateColor, textTone } from '../../lib/palette';
 
 // Only the compared methods (Tier A) — Tier B extras live in the method gallery.
 const RULES_BY_FAMILY: Record<MethodFamily, Rule[]> = FAMILY_ORDER.reduce(
@@ -39,6 +43,13 @@ const CELL: Record<Satisfaction, { symbol: string; cls: string }> = {
   },
 };
 
+// What a cell's verdict rests on (method_criteria.json's `basis`).
+const BASIS_KEY: Record<CriterionBasis, string> = {
+  'engine-tested': 'lab.matrix.basis.engineTested',
+  literature: 'lab.matrix.basis.literature',
+  variant: 'lab.matrix.basis.variant',
+};
+
 const FAMILY_HEADER_CLS: Record<MethodFamily, string> = {
   majoritarian: 'text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-950/60',
   ordinal: 'text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-950/60',
@@ -48,30 +59,20 @@ const FAMILY_HEADER_CLS: Record<MethodFamily, string> = {
 
 const MethodsMatrix: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { voters, leaderCandidates } = useInstrumentCtx();
+  const { ruleLabels } = useVotingLabels();
+  const { expressedVoters, leaderCandidates } = useInstrumentCtx();
 
-  // Live winners — one ruleWinner() call per rule on the current electorate
-  const liveWinners = useMemo<Record<Rule, number>>(() => {
-    if (!voters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return LEADER_RULES.reduce(
-      (acc, rule) => {
-        acc[rule] = ruleWinner(voters, leaderCandidates, rule);
-        return acc;
-      },
-      {} as Record<Rule, number>
-    );
-  }, [voters, leaderCandidates]);
-
-  const candidateColor = (idx: number) =>
-    CANDIDATE_COLORS_LIGHT[idx % CANDIDATE_COLORS_LIGHT.length];
+  // Live winners on the expressed ballots, as in the playground.
+  const liveWinners = useMemo(
+    () => winnersByRule(expressedVoters, leaderCandidates, LEADER_RULES),
+    [expressedVoters, leaderCandidates]
+  );
 
   return (
     <div className="rounded-xl border border-border bg-card">
       {/* ── Header ── */}
       <div className="border-b border-border px-4 py-3">
-        <p className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-primary">
-          {t('lab.eyebrow')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('lab.eyebrow')}</p>
         <h2 className="mt-0.5 font-display text-base font-bold tracking-tight">
           {t('lab.matrix.title')}
         </h2>
@@ -79,9 +80,7 @@ const MethodsMatrix: React.FC = () => {
 
       {/* ── Live winners row ── */}
       <div className="border-b border-border px-4 py-3">
-        <p className="mb-2 font-mono text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
-          {t('lab.matrix.liveRow')}
-        </p>
+        <p className="mb-2 text-sm font-bold text-muted-foreground">{t('lab.matrix.liveRow')}</p>
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           {FAMILY_ORDER.map((fam) => (
             <div key={fam} className="flex flex-col gap-1.5">
@@ -92,24 +91,28 @@ const MethodsMatrix: React.FC = () => {
               </span>
               <div className="flex flex-col gap-1">
                 {RULES_BY_FAMILY[fam].map((rule) => {
-                  const winIdx = liveWinners[rule] ?? 0;
-                  const winner = leaderCandidates[winIdx];
+                  const winIdx = liveWinners[rule] ?? -1;
+                  const winner = winIdx >= 0 ? leaderCandidates[winIdx] : undefined;
                   return (
                     <div key={rule} className="flex items-center gap-1.5">
                       <span className="w-36 shrink-0 text-[0.72rem] text-muted-foreground">
-                        {RULE_LABELS[rule]}
+                        {ruleLabels[rule]}
                       </span>
-                      {winner && (
-                        <span
-                          className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
-                          style={{
-                            color: candidateColor(winIdx),
-                            borderColor: candidateColor(winIdx) + '55',
-                            background: candidateColor(winIdx) + '12',
-                          }}
-                        >
-                          {winner.name}
-                        </span>
+                      {!hasFixedWinner(rule) ? (
+                        <NoFixedWinner className="text-[0.7rem] font-normal italic text-muted-foreground" />
+                      ) : (
+                        winner && (
+                          <span
+                            className="rounded border px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold"
+                            style={{
+                              color: textTone(candidateColor(winIdx)),
+                              borderColor: candidateColor(winIdx) + '55',
+                              background: candidateColor(winIdx) + '12',
+                            }}
+                          >
+                            {winner.name}
+                          </span>
+                        )
                       )}
                     </div>
                   );
@@ -120,18 +123,84 @@ const MethodsMatrix: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Static criteria grid ── */}
-      <div className="overflow-x-auto">
+      <CriteriaGrid />
+    </div>
+  );
+};
+
+/** One cell's text, for its tooltip and accessible name and for its open row alike: the
+ * heading (method, criterion, verdict) and what the verdict rests on (basis · source, or
+ * "to be confirmed" for a literature cell the expert review has yet to source). */
+function describeCell(
+  rule: Rule,
+  crit: CriterionKey,
+  label: string,
+  t: (key: string) => string
+): { heading: string; basis: string } {
+  const { verdict, basis, source } = METHOD_CRITERIA_ENTRIES[rule][crit];
+  const criterion = t(`lab.matrix.criteria.${crit}`);
+  const verdictText = t(`lab.matrix.${verdict}`);
+  const heading = `${label} — ${criterion}: ${verdictText}`;
+  const parts = [t(BASIS_KEY[basis])];
+  if (source) parts.push(`${t('lab.matrix.source')} ${cite(source)}`);
+  else if (basis === 'literature') parts.push(t('lab.matrix.unsourced'));
+  return { heading, basis: parts.join(' · ') };
+}
+
+/** The picked cell's row: what its verdict rests on, the registry's note, and a report link
+ * that names the cell. Sticky on the left, so a phone that scrolled the table right still
+ * shows it. */
+const CellSource: React.FC<{ rule: Rule; crit: CriterionKey; label: string }> = ({
+  rule,
+  crit,
+  label,
+}) => {
+  const { t } = useTranslation('playground');
+  const { heading, basis } = describeCell(rule, crit, label, t);
+  const { note } = METHOD_CRITERIA_ENTRIES[rule][crit];
+  return (
+    <div
+      id="matrix-cell-source"
+      data-testid="matrix-cell-source"
+      role="region"
+      aria-label={heading}
+      className="sticky left-0 mx-4 my-2 max-w-[calc(100vw-3rem)] rounded-md border border-border bg-muted/30 px-3 py-2 text-[0.72rem]"
+    >
+      <p className="font-semibold">{heading}</p>
+      <p className="mt-1">{basis}</p>
+      {note && (
+        <p className="mt-1 text-muted-foreground">
+          {t('lab.matrix.note')} <span lang="en">{note}</span>
+        </p>
+      )}
+      <div className="mt-1">
+        <ReportContentError where={`matrix:${rule}/${crit}`} />
+      </div>
+    </div>
+  );
+};
+
+/** The static criteria grid: it reads no live data, so a candidate drag (which re-renders
+ * MethodsMatrix through useInstrumentCtx) leaves it alone. */
+const CriteriaGrid: React.FC = React.memo(function CriteriaGrid() {
+  const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
+  // The cell whose basis and source open under its row (W1.4).
+  const [picked, setPicked] = useState<{ rule: Rule; crit: CriterionKey } | null>(null);
+
+  return (
+    <>
+      <div className="overflow-x-auto" data-touch>
         <table className="w-full border-collapse text-[0.72rem]">
           <thead>
             <tr className="border-b border-border">
-              <th className="w-36 py-2 pl-4 pr-2 text-left font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-                Méthode
+              <th className="w-36 py-2 pl-4 pr-2 text-left text-[0.6rem] text-muted-foreground">
+                {t('lab.matrix.colMethod')}
               </th>
               {CRITERION_KEYS.map((crit) => (
                 <th
                   key={crit}
-                  className="px-1 py-2 text-center font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground"
+                  className="px-1 py-2 text-center text-[0.6rem] text-muted-foreground"
                   title={t(`lab.matrix.criteria.${crit as CriterionKey}`)}
                 >
                   <span className="hidden sm:inline">
@@ -150,54 +219,73 @@ const MethodsMatrix: React.FC = () => {
                 <tr className={FAMILY_HEADER_CLS[fam]}>
                   <td
                     colSpan={CRITERION_KEYS.length + 1}
-                    className="py-1 pl-4 font-mono text-[0.6rem] font-semibold uppercase tracking-wider"
+                    className="py-1 pl-4 text-[0.6rem] font-semibold"
                   >
                     {t(FAMILY_LABEL_KEY[fam])}
                   </td>
                 </tr>
                 {RULES_BY_FAMILY[fam].map((rule, rowIdx) => (
-                  <tr
-                    key={rule}
-                    className={`border-b border-border/50 ${rowIdx % 2 === 0 ? '' : 'bg-muted/20'}`}
-                  >
-                    <td className="py-1.5 pl-4 pr-2 text-muted-foreground">{RULE_LABELS[rule]}</td>
-                    {CRITERION_KEYS.map((crit) => {
-                      const sat = METHOD_CRITERIA[rule][crit];
-                      const { symbol, cls } = CELL[sat];
-                      return (
-                        <td
-                          key={crit}
-                          className="px-1 py-1.5 text-center"
-                          title={`${RULE_LABELS[rule]} — ${t(`lab.matrix.criteria.${crit as CriterionKey}`)}: ${sat}`}
-                        >
-                          <span className={`inline-block rounded px-1 font-mono font-bold ${cls}`}>
-                            {symbol}
-                          </span>
+                  <React.Fragment key={rule}>
+                    <tr
+                      className={`border-b border-border/50 ${rowIdx % 2 === 0 ? '' : 'bg-muted/20'}`}
+                    >
+                      <td className="py-1.5 pl-4 pr-2 text-muted-foreground">{ruleLabels[rule]}</td>
+                      {CRITERION_KEYS.map((crit) => {
+                        const sat = METHOD_CRITERIA[rule][crit];
+                        const { symbol, cls } = CELL[sat];
+                        const isPicked = picked?.rule === rule && picked.crit === crit;
+                        const { heading, basis } = describeCell(rule, crit, ruleLabels[rule], t);
+                        const label = `${heading} · ${basis}`;
+                        return (
+                          <td key={crit} className="px-1 py-1.5 text-center">
+                            <button
+                              type="button"
+                              data-testid={`matrix-cell-${rule}-${crit}`}
+                              aria-expanded={isPicked}
+                              aria-controls={isPicked ? 'matrix-cell-source' : undefined}
+                              onClick={() => setPicked(isPicked ? null : { rule, crit })}
+                              title={label}
+                              aria-label={label}
+                              className={`inline-block rounded px-1 font-mono font-bold ${cls} ${isPicked ? 'ring-2 ring-primary' : ''}`}
+                            >
+                              {symbol}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {picked?.rule === rule && (
+                      <tr>
+                        <td colSpan={CRITERION_KEYS.length + 1}>
+                          <CellSource rule={rule} crit={picked.crit} label={ruleLabels[rule]} />
                         </td>
-                      );
-                    })}
-                  </tr>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </React.Fragment>
             ))}
           </tbody>
         </table>
         {/* Legend */}
-        <div className="flex gap-4 px-4 py-2 text-[0.68rem] text-muted-foreground">
+        <div className="flex flex-wrap gap-4 px-4 py-2 text-[0.68rem] text-muted-foreground">
           <span>
-            <span className={`font-mono font-bold ${CELL.yes.cls} rounded px-1`}>✓</span> Oui
+            <span className={`font-mono font-bold ${CELL.yes.cls} rounded px-1`}>✓</span>{' '}
+            {t('lab.matrix.yes')}
           </span>
           <span>
-            <span className={`font-mono font-bold ${CELL.no.cls} rounded px-1`}>✗</span> Non
+            <span className={`font-mono font-bold ${CELL.no.cls} rounded px-1`}>✗</span>{' '}
+            {t('lab.matrix.no')}
           </span>
           <span>
             <span className={`font-mono font-bold ${CELL.conditional.cls} rounded px-1`}>◐</span>{' '}
-            Conditionnel
+            {t('lab.matrix.conditional')}
           </span>
+          <span className="italic">{t('lab.matrix.cellHint')}</span>
         </div>
       </div>
-    </div>
+    </>
   );
-};
+});
 
 export default MethodsMatrix;

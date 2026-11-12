@@ -6,11 +6,22 @@ L0   = f(mandate strength)
 ```
 
 support(t) := (1-decay)*m is the roadmap's own resolution of the design
-doc's admitted gap (m = mandate_strength, fixed for a whole term). f is the
-identity (initial_legitimacy) -- the only choice under which update_legitimacy,
+doc's admitted gap (m = mandate_strength). f is the identity
+(initial_legitimacy) -- the only choice under which update_legitimacy,
 applied every tick with no special-casing (including the election tick
-itself), keeps L(t) == m for the whole term when ecart == 0: L(t-1)=m is
-already a fixed point of L(t) = decay*L(t-1) + (1-decay)*m.
+itself), keeps L(t) == m for a term with no petitions/mobilization/won
+confidence votes: L(t-1)=m is already a fixed point of
+L(t) = decay*L(t-1) + (1-decay)*m.
+
+`m` is NOT fixed for the whole term as originally shipped (v4) -- §7.1's own
+admitted gap ("support(t) reste a definir operationnellement ... bloquant
+pour v4", shipped without it regardless) is closed as of 2026-09-11: a WON
+confidence vote replaces the officeholder's own `mandate_strength` with that
+vote's `keep_ratio` (run_polity_simulation.py's own accountability phase,
+step 5), the freshest available measurement of the same quantity. `m` still
+starts, and stays, exactly at the election-time value for any term with no
+confidence vote -- this only ever revises it upward or downward toward a
+demonstrated result, never invents one.
 
 Maps onto §7bis.7's per-tick sequencing as steps 4 and 6 only:
 1. mandate_deviation                            -- Lot 2
@@ -32,8 +43,11 @@ mandate_deviation already exists, and the shipped default
 """
 from __future__ import annotations
 
-from api.domain.polity.config import LegitimacyConfig
-from api.domain.polity.simple_rules import ballot_ranks_above_blank
+from collections.abc import Sequence
+
+from api.domain.polity.citizen import Citizen
+from api.domain.polity.config import LegitimacyConfig, VoteConfig
+from api.domain.polity.simple_rules import IncumbentRecord, PolicyRecord, ballot_ranks_above_blank, candidate_utility
 
 
 def mandate_strength(ballots: list[list[str]], winner_label: str) -> float:
@@ -45,6 +59,21 @@ def mandate_strength(ballots: list[list[str]], winner_label: str) -> float:
         raise ValueError("mandate_strength requires at least one ballot")
     above = sum(1 for ballot in ballots if ballot_ranks_above_blank(ballot, winner_label))
     return above / len(ballots)
+
+
+def approval(
+    citizens: Sequence[Citizen], president: Citizen, vote: VoteConfig, policy: PolicyRecord | None = None,
+) -> float:
+    """support(t) measured between elections: the share of citizens whose utility ballot
+    would rank the president above blank, judged on their conduct in office (the revealed
+    position, not the pledge) and on the policy of their term. The record term is left
+    out -- the record is 2L-1, and L is what this feeds."""
+    judged = IncumbentRecord(citizen_id=president.citizen_id, party=president.party_affiliation, record=0.0, policy=policy)
+    approving = sum(
+        1 for voter in citizens
+        if candidate_utility(voter, president, vote, judged, platform=president.revealed_position) >= -voter.blank_threshold
+    )
+    return approving / len(citizens)
 
 
 def initial_legitimacy(strength: float) -> float:
@@ -75,9 +104,19 @@ def compose_ecart(
     )
 
 
+def support_strength(mandate: float, approval_share: float | None, config: LegitimacyConfig) -> float:
+    """m for update_legitimacy: the mandate, blended with approval by `approval_weight`
+    (0 is the mandate alone, as before approval existed)."""
+    if approval_share is None:
+        return mandate
+    return (1.0 - config.approval_weight) * mandate + config.approval_weight * approval_share
+
+
 def update_legitimacy(previous: float, strength: float, ecart: float, config: LegitimacyConfig) -> float:
-    """L(t) = decay*L(t-1) + (1-decay)*m - ecart(t), clamped to [0, 1]."""
-    updated = config.decay * previous + (1.0 - config.decay) * strength - ecart
+    """L(t) = decay*L(t-1) + (1-decay)*m - ecart(t), clamped to [0, 1]; with `pressure_like_support`
+    (ADR-025), L(t) = decay*L(t-1) + (1-decay)*(m - ecart(t)), so a steady pressure costs what it says."""
+    pressure = (1.0 - config.decay) * ecart if config.pressure_like_support else ecart
+    updated = config.decay * previous + (1.0 - config.decay) * strength - pressure
     return max(0.0, min(1.0, updated))
 
 

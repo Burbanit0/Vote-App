@@ -3,6 +3,7 @@
  * Shows how decision rules protect (or fail to protect) permanent minorities.
  */
 import React, { useState } from 'react';
+import { candidateColor } from '../../../lib/palette';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -59,14 +60,27 @@ interface TyrannyData {
 
 // ── Rule display helpers ───────────────────────────────────────────────────────
 
-const RULE_COLORS: Record<string, string> = {
-  simple_majority: '#dc3545',
-  supermajority_2_3: '#fd7e14',
-  supermajority_3_4: '#ffc107',
-  unanimous: '#198754',
-  qv: '#0d6efd',
-  mj: '#6f42c1',
-};
+/** Each rule's series colour in the charts, from the app's palette (its toggle is the legend). */
+const RULE_COLORS = Object.fromEntries(ALL_RULES.map((r, i) => [r, candidateColor(i)])) as Record<
+  Rule,
+  string
+>;
+
+/** The tyranny index's colour: high is a warning, middling a caution, low fine. */
+function tyrannyTone(index: number): string {
+  if (index > 0.8) return 'text-destructive';
+  if (index > 0.4) return 'text-stamp';
+  return 'text-ok';
+}
+
+/** A rule's colour key, as a dot beside its name. */
+const RuleDot: React.FC<{ rule: Rule; on?: boolean }> = ({ rule, on = true }) => (
+  <span
+    aria-hidden
+    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2"
+    style={{ borderColor: RULE_COLORS[rule], background: on ? RULE_COLORS[rule] : 'transparent' }}
+  />
+);
 
 // ── Radar data builder ────────────────────────────────────────────────────────
 
@@ -132,7 +146,7 @@ const MajorityTyrannyPanel: React.FC = () => {
         variant="danger"
         className="py-2 mb-3"
         data-testid="tocqueville-quote"
-        style={{ fontSize: '0.78rem', borderLeft: '4px solid #dc3545' }}
+        style={{ fontSize: '0.78rem' }}
       >
         <strong>{t('tyranny.hitlerQuoteTitle')}</strong> {t('tyranny.hitlerQuote')}
       </Alert>
@@ -202,7 +216,7 @@ const MajorityTyrannyPanel: React.FC = () => {
           />
         </Col>
         <Col xs="auto">
-          <Button variant="danger" onClick={run} disabled={loading} data-testid="run-btn">
+          <Button variant="primary" onClick={run} disabled={loading} data-testid="run-btn">
             {loading ? <Spinner size="sm" /> : t('tyranny.run')}
           </Button>
         </Col>
@@ -211,20 +225,21 @@ const MajorityTyrannyPanel: React.FC = () => {
       {/* ── Rule toggles ── */}
       <div className="flex flex-wrap gap-2 mb-3" data-testid="rule-toggles">
         {ALL_RULES.map((r) => (
-          <Badge
+          <button
             key={r}
-            variant={rules.includes(r) ? undefined : 'light'}
-            style={{
-              cursor: 'pointer',
-              fontSize: '0.72rem',
-              padding: '6px 10px',
-              background: rules.includes(r) ? RULE_COLORS[r] : undefined,
-            }}
+            type="button"
+            aria-pressed={rules.includes(r)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none ${
+              rules.includes(r)
+                ? 'border-foreground/30 bg-card font-semibold text-foreground'
+                : 'border-border bg-transparent text-muted-foreground'
+            }`}
             onClick={() => toggleRule(r)}
             data-testid={`rule-badge-${r}`}
           >
+            <RuleDot rule={r} on={rules.includes(r)} />
             {t(`tyranny.rule_${r}`)}
-          </Badge>
+          </button>
         ))}
       </div>
 
@@ -244,10 +259,10 @@ const MajorityTyrannyPanel: React.FC = () => {
           {/* ── Summary badges ── */}
           <div className="flex flex-wrap gap-2 mb-3" data-testid="summary-badges">
             <Badge variant="success" data-testid="best-protector-badge">
-              🛡 {t('tyranny.bestProtector')}: {t(`tyranny.rule_${data.best_protector}`)}
+              {t('tyranny.bestProtector')}: {t(`tyranny.rule_${data.best_protector}`)}
             </Badge>
             <Badge variant="warning" data-testid="least-efficient-badge">
-              ⚠ {t('tyranny.leastEfficient')}: {t(`tyranny.rule_${data.least_efficient}`)}
+              {t('tyranny.leastEfficient')}: {t(`tyranny.rule_${data.least_efficient}`)}
             </Badge>
           </div>
 
@@ -367,17 +382,12 @@ const MajorityTyrannyPanel: React.FC = () => {
                       return (
                         <tr
                           key={r}
-                          style={{ background: isBest ? '#d1e7dd' : undefined }}
+                          className={isBest ? 'bg-ok/10' : undefined}
                           data-testid={`row-${r}`}
                         >
                           <td>
-                            <span
-                              className="badge"
-                              style={{
-                                background: RULE_COLORS[r],
-                                fontSize: '0.68rem',
-                              }}
-                            >
+                            <span className="flex items-center gap-1.5 font-semibold">
+                              <RuleDot rule={r} />
                               {t(`tyranny.rule_${r}`)}
                             </span>
                           </td>
@@ -387,17 +397,7 @@ const MajorityTyrannyPanel: React.FC = () => {
                           <td>{res.total_welfare.toFixed(2)}</td>
                           <td>{Math.round(res.efficiency_loss * 100)}%</td>
                           <td>
-                            <span
-                              style={{
-                                color:
-                                  res.tyranny_index > 0.8
-                                    ? '#dc3545'
-                                    : res.tyranny_index > 0.4
-                                      ? '#fd7e14'
-                                      : '#198754',
-                                fontWeight: 700,
-                              }}
-                            >
+                            <span className={`font-bold ${tyrannyTone(res.tyranny_index)}`}>
                               {Math.round(res.tyranny_index * 100)}%
                             </span>
                           </td>
@@ -411,15 +411,15 @@ const MajorityTyrannyPanel: React.FC = () => {
 
           {/* ── Real-world safeguards ── */}
           <div
-            className="mt-3 border border-border rounded p-3"
+            className="mt-3 rounded-xl border border-border bg-muted/60 p-3"
             data-testid="safeguards-section"
-            style={{ background: '#f8f9fa', fontSize: '0.78rem' }}
+            style={{ fontSize: '0.78rem' }}
           >
             <div className="font-semibold mb-2">{t('tyranny.safeguardsTitle')}</div>
             <Row className="g-2">
               {(['constitution', 'scotus', 'eu', 'senate'] as const).map((k) => (
                 <Col key={k} xs={12} md={6}>
-                  <div className="border border-border rounded p-2" style={{ background: '#fff' }}>
+                  <div className="rounded-lg border border-border bg-card p-2">
                     <div className="font-semibold" style={{ fontSize: '0.75rem' }}>
                       {t(`tyranny.safeguard_${k}_title`)}
                     </div>

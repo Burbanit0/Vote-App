@@ -38,7 +38,7 @@ def main() -> None:
                 "engineParity.json is a GENERATED artifact (CLAUDE.md) — "
                 "never hand-edited, not even to fix a failing parity test. "
                 "Regenerate it instead: "
-                "python fast_api_voter/scripts/gen_engine_parity.py"
+                "PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py"
             ),
         }
     }))

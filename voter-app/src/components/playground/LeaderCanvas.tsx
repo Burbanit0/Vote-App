@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
-import { CANDIDATE_PALETTE, ENTRY_COLOR } from '../../lib/palette';
+import { CANDIDATE_PALETTE, ENTRY_COLOR, textTone } from '../../lib/palette';
 import {
   fieldWinnerName,
   winRegionGrid,
@@ -17,7 +17,7 @@ import {
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
-import LeaderScene3D from './LeaderScene3D';
+import LeaderScene3D, { type SceneCamera } from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
 import {
@@ -26,7 +26,9 @@ import {
   type Behavior,
   type StrategicOutcome,
 } from '../../lib/playgroundSincerity';
-import { condorcetFromRanks, LEADER_RULES } from '../../lib/scorecard';
+import { condorcetFromRanks, hasFixedWinner, LEADER_RULES } from '../../lib/scorecard';
+import { summarizeMap } from '../../lib/mapSummary';
+import NoFixedWinner from './NoFixedWinner';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 import NoShowParadox from './NoShowParadox';
 
@@ -38,6 +40,44 @@ import NoShowParadox from './NoShowParadox';
 export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
 const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
+
+/** Index of the candidate called `name`, or null when there is none or the name is shared. */
+function indexOfUniqueName(candidates: NamedPt[], name: string | null | undefined): number | null {
+  if (name == null) return null;
+  const at = candidates.findIndex((c) => c.name === name);
+  return at >= 0 && !candidates.some((c, i) => i !== at && c.name === name) ? at : null;
+}
+
+/** `index` when the scene may mark it (a real index and `show`), else null. */
+function markedIndex(show: boolean, index: number | null): number | null {
+  return show && index != null && index >= 0 ? index : null;
+}
+
+/**
+ * Index of the candidate the scene rings: the strategic winner when voters aren't sincere
+ * (same as the readout), else the rule's winner; none for a lottery rule. Nothing is ringed
+ * before a method is chosen (showRuleUi false hides the readout), and a name shared by two
+ * candidates can't say which one won — better no ring than a wrong one.
+ */
+function sceneWinnerIndex(o: {
+  showRuleUi: boolean;
+  rule: Rule;
+  behavior: Behavior;
+  strategicOutcome: StrategicOutcome | null | undefined;
+  candidates: NamedPt[];
+  winner: string | null;
+}): number | null {
+  if (!o.showRuleUi || !hasFixedWinner(o.rule)) return null;
+  if (o.behavior !== 'sincere' && o.strategicOutcome) {
+    return markedIndex(true, o.strategicOutcome.strategicWinner);
+  }
+  return indexOfUniqueName(o.candidates, o.winner);
+}
+
+/** The win-region and probability grids only paint the x–y map, so the 3-D scene skips them. */
+function mapIsHidden(show3d: boolean, lens: Lens): boolean {
+  return show3d && (lens === 'winner' || lens === 'probability');
+}
 
 const PROB_HUE = '#4f46e5';
 
@@ -146,6 +186,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const [scene3d, setScene3d] = useState(true);
   const [replayOpen, setReplayOpen] = useState(false);
   const show3d = dims === 3 && scene3d;
+  // The orbit camera outlives the scene: toggling to the plane to edit (which unmounts
+  // the scene) must not throw away the viewpoint. A ref, not state — the camera moves
+  // every animation frame and must not re-render this heavy component.
+  const sceneCamera = useRef<SceneCamera | null>(null);
 
   // y maps to the plane in 2/3-D, to the centre line in 1-D.
   const cyOf = (p: Pt): number => (dims === 1 ? CENTER : toSvg(p.y, 'y'));
@@ -162,6 +206,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // extra work at first paint). The probability lens reads the random-ballot
   // lottery; the win-region lens reads the current rule.
   useEffect(() => {
+    // The scene draws the electorate only: the win-region and probability grids paint the
+    // hidden x–y map, so skip them while it is hidden (they recompute when the plane
+    // returns). Manipulation and criteria also feed panels shown under the scene.
+    if (mapIsHidden(show3d, lens)) return;
     let alive = true;
     const timer = setTimeout(() => {
       if (!alive) return;
@@ -179,7 +227,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       alive = false;
       clearTimeout(timer);
     };
-  }, [gridVoters, candidates, rule, dims, lens, manipShare, manipTactic]);
+  }, [gridVoters, candidates, rule, dims, lens, show3d, manipShare, manipTactic]);
 
   // Manipulation summary (the Gibbard-Satterthwaite boundary, inline): how many
   // voters this rule tempts vs random ballot's guaranteed zero.
@@ -192,10 +240,13 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   }, [lens, manipField]);
 
   // Condorcet winner of the current electorate (criteria lens marks it on the map).
+  // Counted on every voter, not the thinned grid sample: the rule's winner is, so the
+  // two must not disagree through sampling noise alone. Ranking is O(n·m log m) —
+  // cheap; the cap exists for the O(n²)/grid work.
   const cwIndex = useMemo(() => {
     if (lens !== 'criteria' || candidates.length === 0) return -1;
-    return condorcetFromRanks(computeRanks(gridVoters, candidates), candidates.length);
-  }, [lens, gridVoters, candidates]);
+    return condorcetFromRanks(computeRanks(voters, candidates), candidates.length);
+  }, [lens, voters, candidates]);
 
   // Current field's lottery (existing candidates' first-preference shares).
   const lotteryShares = useMemo(
@@ -247,6 +298,36 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
         }
       : null;
+  const winnerIdx = sceneWinnerIndex({
+    showRuleUi,
+    rule,
+    behavior,
+    strategicOutcome,
+    candidates,
+    winner,
+  });
+  // The map in words, for a screen reader (PLAN_BEYOND_CI W3.6): each candidate's place and
+  // first-choice share, then the winner the readout shows.
+  const summaryId = React.useId();
+  // Ranked once the candidates hold still (300 ms), not on every drag frame.
+  const [settled, setSettled] = useState(candidates);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(candidates), 300);
+    return () => clearTimeout(id);
+  }, [candidates]);
+  const summary = useMemo(() => {
+    const raw = { interpolation: { escapeValue: false } };
+    const shown = strat?.stratName ?? winner;
+    return [
+      t('canvas.summaryVoters', { count: voters.length }),
+      ...summarizeMap(voters, settled, dims).map((c) =>
+        t('canvas.summaryCandidate', { ...c, pct: c.firstChoicePct, ...raw })
+      ),
+      hasFixedWinner(rule)
+        ? t('canvas.summaryWinner', { rule: ruleLabels[rule], name: shown ?? '—', ...raw })
+        : t('canvas.summaryNoWinner', { rule: ruleLabels[rule], ...raw }),
+    ].join(' ');
+  }, [voters, settled, dims, rule, ruleLabels, winner, strat?.stratName, t]);
   const mx = median(voters.map((v) => v.x));
   const my = median(voters.map((v) => v.y));
   const cellW = PLOT / GRID_N;
@@ -282,7 +363,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </select>
             </label>
             <div className="flex items-center gap-2">
-              {strat ? (
+              {!hasFixedWinner(rule) && (
+                <span data-testid="field-winner" className="text-sm">
+                  {t('canvas.winnerLabel')} <NoFixedWinner />
+                </span>
+              )}
+              {hasFixedWinner(rule) && strat && (
                 <span data-testid="field-winner" className="flex items-center gap-1 text-sm">
                   {t('canvas.winnerLabel')}
                   {strat.flipped ? (
@@ -297,7 +383,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                     <strong>{strat.stratName ?? winner ?? '—'}</strong>
                   )}
                 </span>
-              ) : (
+              )}
+              {hasFixedWinner(rule) && !strat && (
                 <span data-testid="field-winner" className="text-sm">
                   {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
                 </span>
@@ -312,7 +399,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               </button>
             </div>
           </div>
-          {sampleAtSeed && baseSeed != null && (
+          {sampleAtSeed && baseSeed != null && hasFixedWinner(rule) && (
             <WinnerRobustness
               sampleAtSeed={sampleAtSeed}
               candidates={candidates}
@@ -328,9 +415,11 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             data-testid="lens-switch"
             role="radiogroup"
             aria-label={t('canvas.viewLabel')}
-            className="flex items-center gap-1 text-xs"
+            className="flex flex-wrap items-center gap-1.5 text-sm"
           >
-            <span className="text-muted-foreground">{t('canvas.viewLabel')}</span>
+            <span className="mr-1 font-semibold text-muted-foreground">
+              {t('canvas.viewLabel')}
+            </span>
             {LENS_IDS.map((id) => (
               <button
                 key={id}
@@ -338,10 +427,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 role="radio"
                 aria-checked={lens === id}
                 data-testid={`lens-${id}`}
-                className={`rounded border px-2 py-0.5 ${
+                className={`rounded-full border px-3 py-1 transition-colors motion-reduce:transition-none ${
                   lens === id
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
+                    ? 'border-primary bg-primary font-semibold text-primary-foreground'
+                    : 'border-border bg-card text-foreground hover:border-primary/50'
                 }`}
                 onClick={() => onLensChange?.(id)}
               >
@@ -375,19 +464,34 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       )}
 
       {show3d && (
-        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
+        <LeaderScene3D
+          voters={voters}
+          candidates={candidates}
+          palette={PALETTE}
+          you={youMarker}
+          cameraRef={sceneCamera}
+          winner={winnerIdx}
+          condorcet={markedIndex(showRuleUi, cwIndex)}
+          describedBy={summaryId}
+        />
       )}
 
+      {/* hidden: read once, as the map's description, not again in reading order. */}
+      <p id={summaryId} data-testid="leader-map-summary" hidden>
+        {summary}
+      </p>
       <svg
         ref={svgRef}
+        data-testid="leader-map"
         viewBox={`0 0 ${SVG} ${SVG}`}
         role="group"
         aria-label={t('canvas.svgAria')}
+        aria-describedby={summaryId}
         className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
-        {showRuleUi && lens === 'winner' && (
+        {showRuleUi && !show3d && lens === 'winner' && (
           <g data-testid="winregion" opacity={0.28}>
             {region &&
               region.cells.map((widx, k) => {
@@ -410,7 +514,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
         {/* Probability lens — random-ballot win-probability heatmap of a new
             entrant: opacity ∝ its lottery chance (first-preference basin). */}
-        {lens === 'probability' && probRegion && (
+        {lens === 'probability' && !show3d && probRegion && (
           <g data-testid="problens">
             {(() => {
               const maxV = Math.max(...probRegion.cells, 1e-6);
@@ -532,6 +636,39 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               y2={toSvg(my, 'y') + 8}
               stroke="#111827"
               strokeWidth={1}
+            />
+          )}
+        </g>
+
+        {/* Finger-sized hit areas on a phone (W3.6): 40 of 480 units, 44 px or more down to a
+            290-px-wide map. One layer under every dot, so a dot drawn later never covers
+            another's hit area: touching a dot grabs that dot. */}
+        <g>
+          {candidates.map((cand, i) => (
+            <circle
+              key={`${cand.name}-${i}`}
+              data-testid={`candidate-${i}-hit`}
+              className="touch-hit"
+              cx={toSvg(cand.x, 'x')}
+              cy={cyOf(cand)}
+              r={40}
+              fill="transparent"
+              onTouchStart={() => {
+                draggingIdx.current = i;
+              }}
+            />
+          ))}
+          {youMarker && (
+            <circle
+              data-testid="you-marker-hit"
+              className="touch-hit"
+              cx={toSvg(youMarker.x, 'x')}
+              cy={cyOf(youMarker)}
+              r={40}
+              fill="transparent"
+              onTouchStart={() => {
+                draggingYou.current = true;
+              }}
             />
           )}
         </g>
@@ -772,7 +909,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <div key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {c.name}
               </span>
@@ -807,7 +944,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <label key={i} className="flex items-center gap-2 text-xs">
               <span
                 className="w-20 shrink-0 truncate"
-                style={{ color: PALETTE[i % PALETTE.length] }}
+                style={{ color: textTone(PALETTE[i % PALETTE.length]) }}
               >
                 {cand.name}
               </span>
@@ -840,13 +977,15 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             {c.name}
           </span>
         ))}
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ background: ENTRY_COLOR }}
-          />
-          {t('canvas.entrantZone')}
-        </span>
+        {!show3d && (
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ background: ENTRY_COLOR }}
+            />
+            {t('canvas.entrantZone')}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {lens === 'manipulation' && t('canvas.capManip')}

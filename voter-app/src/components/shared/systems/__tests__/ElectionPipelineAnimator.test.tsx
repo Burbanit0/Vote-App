@@ -92,6 +92,14 @@ describe('ElectionPipelineAnimator', () => {
     });
   });
 
+  it('marks a step the panel has no icon for with a dot', async () => {
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'recount']));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
+    await waitFor(() => expect(screen.getByTestId('pipeline-step-recount')).toHaveTextContent('●'));
+    expect(screen.getByTestId('pipeline-step-base')).not.toHaveTextContent('●');
+  });
+
   it('shows SVG scatter after pipeline loads', async () => {
     apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     const { container } = renderPanel();

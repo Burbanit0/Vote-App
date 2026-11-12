@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Trophy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
@@ -242,7 +243,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
           {/* Final winner badge */}
           {finalWinner && !isRunning && view !== 'methods-race' && (
             <Badge variant="success" style={{ fontSize: '0.72rem' }}>
-              🏆 {t('simulation.raceFinalWinner', { winner: finalWinner })}
+              {t('simulation.raceFinalWinner', { winner: finalWinner })}
             </Badge>
           )}
         </div>
@@ -320,7 +321,15 @@ const MonteCarloRaceChart: React.FC<Props> = ({
                     }}
                   />
                   {cand}
-                  {!isRunning && finalWinner === cand && ' 🏆'}
+                  {!isRunning && finalWinner === cand && (
+                    <>
+                      {' '}
+                      <Trophy
+                        aria-hidden
+                        className="inline h-3.5 w-3.5 align-[-2px] text-primary"
+                      />
+                    </>
+                  )}
                 </span>
               ))}
             </div>

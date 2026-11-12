@@ -1,6 +1,13 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router';
-import { Spinner } from '@/components/ui/spinner';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+  useLocation,
+  useNavigationType,
+} from 'react-router';
+import { TallyLoader } from '@/components/ui/tally';
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
@@ -15,6 +22,7 @@ const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
 const DecouvrirPage = React.lazy(() => import('./pages/DecouvrirPage'));
 const AVousDeJouerPage = React.lazy(() => import('./pages/AVousDeJouerPage'));
+const PolityPage = React.lazy(() => import('./pages/PolityPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 import { useTheme } from './stores/useUIStore';
@@ -25,17 +33,30 @@ import OfflineBanner from './components/shared/ui/OfflineBanner';
 import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
-  <div className="flex justify-center items-center py-5" data-testid="route-fallback">
-    <Spinner role="status" size="sm" className="me-2" />
-    <span className="text-muted-foreground text-sm">Chargement…</span>
-  </div>
+  <TallyLoader data-testid="route-fallback" className="py-5" label="Chargement…" />
 );
+
+// <BrowserRouter> restores no scroll position: a <Link> to another page kept the old
+// offset, so a phone tapping a story at the bottom of /decouvrir landed mid-page,
+// far from the story. Reset on a path change; back/forward (POP) keeps the browser's.
+export const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+  const navType = useNavigationType();
+  React.useEffect(() => {
+    if (navType !== 'POP') window.scrollTo(0, 0);
+    // Keyed on the path alone: a replace that keeps the path (a Lab fiche chip, the
+    // Polity tick slider writing the query) changes navType and must not jump.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+  return null;
+};
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
 
   return (
     <div className="App" data-bs-theme={theme}>
+      <ScrollToTop />
       <OfflineBanner />
       <Navbar />
       <ErrorBoundary>
@@ -47,6 +68,7 @@ const AppContent: React.FC = () => {
             <Route path="/a-vous-de-jouer" element={<AVousDeJouerPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
+            <Route path="/polity" element={<PolityPage />} />
 
             {/* Retired routes — the table lives in routes.ts, which the e2e
                 suite reads too, so a redirect can never go untested. */}
@@ -68,7 +90,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <ElectionProvider>
-    <Router>
+    <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       <AppContent />
     </Router>
   </ElectionProvider>

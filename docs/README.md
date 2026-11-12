@@ -1,35 +1,98 @@
-# Les surfaces de documentation
+# Documentation surfaces
 
-Vote-App a plusieurs supports qui se chevauchaient mal avant ce document
-(Lot 0.1 du [plan de solidité technique](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
-Chacun a un rôle et un rythme distincts — la confusion entre eux, plus qu'un
-manque de discipline, est ce qui les faisait dériver.
+Vote-App has several documentation surfaces, and they used to overlap badly
+(Lot 0.1 of the [technical solidity plan](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
+Each one has its own job and its own rhythm. Mixing them up, more than any lack
+of discipline, is what made them drift.
 
-| Surface | Rôle | Rythme | Existe ? |
-|---|---|---|---|
-| `docs/journal/JOURNAL_DE_BORD.md` | Chronologie narrative, par session de travail : ce qui a avancé, les blocages, les décisions, les prochaines étapes. | Par session (`/log-session`) | ✅ |
-| `docs/exploration/EXP-*.md` | Par expérience/outil essayé : verdict (adopté/rejeté/suspendu) + ce que ça a réellement trouvé et coûté. | Par expérience close (`/log-experiment`) | ✅ (ce lot) |
-| `docs/exploration/README.md` | Index de tous les verdicts — le livrable partageable du projet. | Mis à jour à chaque expérience close | ✅ (ce lot) |
-| `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity + application — ADR-004 à 007, Lot 0.6) |
-| `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity uniquement — `scripts/git_commit_capture.py` se garde sur le nom du worktree) | ✅ (Lot 0.5, tier 1 ; script générique sur `develop`, activation via `pre-commit install --hook-type post-commit`) |
-| Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
-| `docs/plan/vote-app/CODE_AUDIT.md` | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
+| Surface | Job | Rhythm |
+|---|---|---|
+| [`docs/overview/`](overview/README.md) | **The map.** Architecture and functional diagrams, why each piece is built the way it is, open questions, and the [glossary](overview/glossary.md). For anyone new, researchers included. | When the architecture changes |
+| [`docs/HISTORY.md`](HISTORY.md) | **How the project got here**, era by era: what was built, what was decided and why, what was reversed. Built from the journal. | When an era closes |
+| [`docs/STATUS.md`](STATUS.md) | **Start here.** Where each part stands, the next 3 steps, the open questions. One page. | At the end of each plan phase, and whenever the next steps change |
+| `docs/plan/` | Plans. The current one is [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md). Each plan's first lines say its status; [Plans](#plans) below lists them all. | Per plan |
+| `docs/exploration/EXP-*.md` | One file per tool or method tried: the verdict (adopted, rejected or suspended), plus what it actually found and cost. | Per closed experiment (`/log-experiment`) |
+| `docs/exploration/README.md` | Index of every verdict. | Each time an experiment closes |
+| `docs/adr/` | Binding architecture decisions, with the alternatives that were rejected. Indexed in [`adr/README.md`](adr/README.md). | Rarely |
+| `docs/spec/behaviors.md` | Polity's behaviour catalogue: each invariant, with the test that locks it (`@pytest.mark.behavior`). | With the code |
+| `docs/journal/commits.jsonl` | Generated machine trace of every commit, for archaeology. | Per commit, in the polity worktree only (`scripts/git_commit_capture.py`); enable it once per clone with `pre-commit install --hook-type post-commit` |
+| `…/run/<run>/digest.json` + `digest.jsonl` | Machine trace of a simulation run: outcome (finished, crashed or interrupted), ticks reached, counts of every event type per year, population impact. Generated, never written by hand. | At **every** run end, crashes and interruptions included (`api/domain/polity/run_digest.py`) |
+| `…/run/<run>/progress.json` | Live state of a running run: the completed tick **and the one in progress**, decisions by type, fallbacks, and an **LLM heartbeat** (`last_llm_response_at`). The only surface that answers "is this run alive?"; read it with `fast_api_voter/scripts/check_run_liveness.py`. | Per tick **and** on every LLM response (throttled to 5 s) |
+| `…/run/<run>/TIMELINE.md` | The readable story of a run: what this simulated society went through, and what the population did. Written from the digest, never from raw logs. Stories meant for outside readers are copied to [`docs/runs/`](runs/README.md). | Per finished run (`/log-run` → `run-narrator` sub-agent) |
+| `…/run/<run>/engine_atlas.html` | The polity engine, explained on one page: the modules and the order of a tick, every mechanic (what it reads, decides and writes, its knobs, its code), and that run replayed tick by tick. Built by `fast_api_voter/scripts/build_engine_atlas.py --run <run dir>` from `scripts/engine_atlas/content.json`; a test keeps its code references true. | When you build it, for any recorded run |
+| `docs/claude-memory/` | A versioned snapshot of the coding agent's memory: pitfalls reloaded each session. The live memory sits outside the repo; this copy is resynced by hand and can lag. | When a lesson is worth keeping |
+| `docs/plan/vote-app/CODE_AUDIT.md` | Dated health check of the code (2026-08-20 to 2026-09-13), with the commands to replay it. Kept as history. | — |
+| [`docs/journal/JOURNAL_DE_BORD.md`](journal/JOURNAL_DE_BORD.md) | A narrative log per work session, in French: what moved, what blocked, what was decided and why, what comes next (older and reconstructed history in `docs/journal/archive/`). Retired 2026-10-08, reopened 2026-10-12 (PLAN_BEYOND_CI D7). | Per work session (`/log-session` → `journal-writer` sub-agent) |
 
-## Comment choisir la bonne surface
+## Which surface?
 
-- **Je viens de finir une session de travail, je veux qu'on se souvienne de ce
-  qui s'est passé** → `/log-session` → `docs/journal/JOURNAL_DE_BORD.md`.
-- **J'ai essayé un outil / une méthode et je veux garder trace du verdict**
-  → `/log-experiment` → `docs/exploration/EXP-*.md`, indexé dans
+- **What's the state of things, and what's next?** → `docs/STATUS.md`.
+- **A work session ended and its story is worth keeping** → `/log-session` →
+  an entry in `docs/journal/JOURNAL_DE_BORD.md`, proposed before it is written.
+- **I tried a tool or a method and want to keep the verdict** →
+  `/log-experiment` → `docs/exploration/EXP-*.md`, indexed in
   `docs/exploration/README.md`.
-- **Une décision structurante a été prise, avec des alternatives écartées, et
-  elle doit rester compréhensible dans un an** → un ADR dans `docs/adr/`.
-- **Je veux savoir où en est la qualité du code, dans l'ensemble** →
-  `docs/plan/vote-app/CODE_AUDIT.md`.
+- **A structural decision was taken, alternatives were rejected, and it must
+  still make sense in a year** → an ADR in `docs/adr/`.
+- **A simulation run just finished (or died) and I want to know what
+  happened** → `/log-run` → `TIMELINE.md` next to the run's `events.jsonl`,
+  written from its `digest.json`.
+- **How does the simulation engine work, mechanic by mechanic?** → build the
+  engine atlas for any run: `python scripts/build_engine_atlas.py --run <run dir>`
+  (from `fast_api_voter/`), then open `<run dir>/engine_atlas.html`. To follow
+  runs live and compare two: `python scripts/build_engine_atlas.py --serve <runs root>`
+  (a picker over every run under the root, re-read as it is written, A against B).
+- **How healthy is the code overall?** → today's numbers are the CI ratchets
+  (`.github/quality-baseline.json`); `docs/plan/vote-app/CODE_AUDIT.md` is the dated
+  baseline they started from.
 
-## Ce que ce document n'est pas
+## Plans
 
-Ce n'est pas un journal de plus : il ne raconte rien lui-même, il pointe vers
-la bonne surface. S'il faut le mettre à jour à chaque session, c'est le signe
-qu'une nouvelle surface a été ajoutée et doit être documentée ici — pas qu'il
-doit devenir narratif.
+Every plan's first lines say its status: **live** (being executed or maintained),
+**reference** (consulted, not executed), **done**, **superseded** (by another plan), or
+**history** (a record, not a plan to follow).
+
+| Live | Reference |
+|---|---|
+| [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md), the current plan | [`polity/polity-simulation-design-v2.md`](plan/polity/polity-simulation-design-v2.md), the authority on intent |
+| [`polity/plan-polity-agency-roadmap.md`](plan/polity/plan-polity-agency-roadmap.md) | [`polity/polity-llm-reference.md`](plan/polity/polity-llm-reference.md), what the simulator does today |
+| [`polity/plan-polity-build-order.md`](plan/polity/plan-polity-build-order.md) | [`polity/polity-decision-contracts.md`](plan/polity/polity-decision-contracts.md) |
+| [`vote-app/PLAN_SOLIDITE_TECHNIQUE.md`](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) | [`polity/observations.md`](plan/polity/observations.md), the OBS log |
+| [`vote-app/PLAN_SURFACE_EXTERIEURE.md`](plan/vote-app/PLAN_SURFACE_EXTERIEURE.md) | [`polity/fit-for-inference.md`](plan/polity/fit-for-inference.md) |
+| [`vote-app/LISTING_ORDER_TIES.md`](plan/vote-app/LISTING_ORDER_TIES.md) | [`polity/polity-run-explorer.md`](plan/polity/polity-run-explorer.md), [`polity/tech-radar.md`](plan/polity/tech-radar.md) |
+| [`vote-app/PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md), the audit's plan for the app (Polity excluded) | |
+| [`polity/plan-rented-gpu-runs.md`](plan/polity/plan-rented-gpu-runs.md), the rented-GPU runbook and first 27B probes | |
+| [`polity/plan-scenarios-v1.md`](plan/polity/plan-scenarios-v1.md), from a world to an instrument: trajectories, archetypes, the divergence test | |
+
+- **Done (16):** `vote-app/` PLAN, PLAN_A_VOUS_DE_JOUER, PLAN_CI_STRUCTURAL_GAPS,
+  PLAN_METHODES_HISTOIRES_ATLAS, PLAN_REMEDIATION_CI_CD, PLAN_UX_ACCESSIBILITE,
+  prompt-mutation-testing; `polity/` DEMARRAGE-polity-v0, dev-plan-v0-worktree,
+  plan-calibration-ambition, plan-coalition-negotiation-v7,
+  plan-distribution-positions-seeds, plan-full-run, plan-llm-decision-audit-sampling,
+  plan-rupture-candidacy-threshold, plan-vllm-switch-readiness.
+- **Superseded (1):** `polity/plan-flagship-30y-run.md` (by plan-full-run).
+- **History (10):** `vote-app/` CODE_AUDIT, RETROSPECTIVE, cihardeningplanv2;
+  `polity/` audit-precision-plan, plan-adversarial-framing-collapse,
+  plan-decision-quality-validation, plan-llm-protocol-and-theory-program,
+  plan-pressure-action-remediation, plan-pressure-action-resolution,
+  synthese-programme-llm-2026-09-10.
+
+A "done" plan can still name what it left open; its status line says so
+(plan-full-run, plan-distribution-positions-seeds, PLAN_CI_STRUCTURAL_GAPS).
+
+Finished plans stay where they are (moving them would break their links); their status
+line says what they are.
+
+## Language
+
+New docs are written in English (decided 2026-10-08, `PLAN_BEYOND_CI.md` D3).
+A living doc moves to English when it is next rewritten; a small fix keeps the
+doc's current language rather than mixing two in one paragraph. Finished plans stay in the
+language they were written in. THEORY.md and GUIDE_UTILISATEUR.md are
+user-facing French reference and stay French for now.
+
+## What this file is not
+
+It is not one more log. It tells nothing by itself; it points to the right
+surface. If it has to change every session, that means a new surface was added
+and belongs here, not that this file should turn narrative.

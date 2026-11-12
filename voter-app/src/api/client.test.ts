@@ -73,3 +73,36 @@ describe('apiClient', () => {
     expect(error).toEqual({ detail: 'bad' });
   });
 });
+
+describe('the static build (VITE_ENGINE=browser)', () => {
+  afterEach(() => {
+    vi.doUnmock('./browserEngine');
+    vi.unstubAllGlobals();
+  });
+
+  it('answers through the engine worker, never the network', async () => {
+    const started = vi.fn();
+    vi.stubGlobal(
+      'Worker',
+      class {
+        constructor(url: URL, options: WorkerOptions) {
+          started(String(url), options);
+        }
+      }
+    );
+    vi.doMock('./browserEngine', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('./browserEngine')>()),
+      ENGINE_IN_BROWSER: true,
+      createBrowserFetch: (makeWorker: () => Worker) => {
+        makeWorker();
+        return async () => jsonResponse(200, { winner: 'Bob' });
+      },
+    }));
+    const { apiPost } = await freshClient();
+    expect(await apiPost('/api/v2/election/stv', {})).toEqual({ winner: 'Bob' });
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(started).toHaveBeenCalledWith(expect.stringContaining('engine.worker'), {
+      type: 'module',
+    });
+  });
+});

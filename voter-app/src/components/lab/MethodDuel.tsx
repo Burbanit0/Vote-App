@@ -5,18 +5,17 @@ import { useInstrumentCtx } from '../playground/PlaygroundController';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { useVoteReplay, SPEEDS } from '../../hooks/useVoteReplay';
 import ReplayStage from '../playground/ReplayStage';
-import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, EXTRA_RULES, hasFixedWinner } from '../../lib/scorecard';
+import NoFixedWinner from '../playground/NoFixedWinner';
 import { sampleVoters } from '../../lib/voteTrace';
 import { ruleWinner, type Rule, type Pt, type NamedPt } from '../../lib/playgroundVoting';
-import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
+import { candidateColor as candColor, textTone } from '../../lib/palette';
 
 // MethodDuel — the face-à-face. Two voting methods, each on its OWN rule but the
 // SAME sampled ballots, counted side by side so the app's thesis is literal: does
 // the winner depend on the method? The winner shown is the engine's verdict on the
 // shared sample (so it agrees with the dépouillement animating below it), and the
 // verdict line names whether the two methods agree.
-
-const candColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
 
 const RuleSelect: React.FC<{
   value: Rule;
@@ -80,15 +79,13 @@ const DuelSide: React.FC<{
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-muted-foreground">
-          {t('duel.winner')}
-        </span>
+        <span className="text-sm font-bold text-muted-foreground">{t('duel.winner')}</span>
         {winner ? (
           <span
             data-testid={`duel-winner-${side}`}
             className="rounded border px-1.5 py-0.5 font-mono text-xs font-bold"
             style={{
-              color: candColor(winnerIdx),
+              color: textTone(candColor(winnerIdx)),
               borderColor: `${candColor(winnerIdx)}55`,
               background: `${candColor(winnerIdx)}12`,
             }}
@@ -96,7 +93,9 @@ const DuelSide: React.FC<{
             {winner.name}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">
+            {hasFixedWinner(rule) ? '—' : <NoFixedWinner className="font-normal italic" />}
+          </span>
         )}
       </div>
 
@@ -129,11 +128,11 @@ const MethodDuel: React.FC = () => {
   );
   const ready = sample.length > 0 && leaderCandidates.length >= 2;
   const winA = useMemo(
-    () => (ready ? ruleWinner(sample, leaderCandidates, left) : -1),
+    () => (ready && hasFixedWinner(left) ? ruleWinner(sample, leaderCandidates, left) : -1),
     [ready, sample, leaderCandidates, left]
   );
   const winB = useMemo(
-    () => (ready ? ruleWinner(sample, leaderCandidates, right) : -1),
+    () => (ready && hasFixedWinner(right) ? ruleWinner(sample, leaderCandidates, right) : -1),
     [ready, sample, leaderCandidates, right]
   );
   const differ = winA >= 0 && winB >= 0 && winA !== winB;
@@ -141,9 +140,7 @@ const MethodDuel: React.FC = () => {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-primary">
-          {t('duel.eyebrow')}
-        </p>
+        <p className="text-sm font-bold text-primary">{t('duel.eyebrow')}</p>
         <h2 className="font-display text-lg font-bold tracking-tight">{t('duel.title')}</h2>
         <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{t('duel.intro')}</p>
       </div>

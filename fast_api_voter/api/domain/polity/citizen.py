@@ -9,12 +9,16 @@ transitions themselves live in simple_rules.py (Lot 6).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
 
 from api.domain.polity.config import CitizensConfig
+
+
+ACTIVE, DISENGAGED, EXITED = "active", "disengaged", "exited"
 
 
 class Role(str, Enum):
@@ -60,6 +64,11 @@ class Citizen:
     # (§7bis.5) activate in v4. In v0, revealed_position is always pinned
     # equal to pledged_platform the moment a candidacy is declared.
     mandates_served: int = 0
+    # Of mandates_served, the terms won with less than half a term left (a snap win near the calendar's
+    # next election): they do not count against the term limit (OBS-041, close to the US 22nd Amendment's
+    # rule for a successor). mandates_served itself stays every presidency won, which is what "a former
+    # officeholder" reads (declare_candidacy's keep_record).
+    short_terms: int = 0
     pledged_platform: tuple[float, ...] | None = None
     revealed_position: tuple[float, ...] | None = None
     # v4 Lot 2: same "add now to avoid a schema migration later" precedent as the
@@ -123,6 +132,27 @@ class Citizen:
     # post-mortem-legibility precedent as pledged_platform/revealed_position).
     # Never drawn by generate_population.
     chamber_position: tuple[float, ...] | None = None
+    # S4.3 (ADR-012): None while untracked -- dynamics.enabled / emotions.enabled off, the
+    # shipped control arm -- so a static run's checkpoints and snapshots are unchanged.
+    # latent_factors is where this citizen's two latent factors have moved to (their
+    # starting values live in LatentStructure, regenerated from the seed); the three
+    # emotions are each in [0, 1].
+    latent_factors: tuple[float, ...] | None = None
+    # ADR-035: where this citizen's views are drawn back to (Friedkin-Johnsen's anchor) when it is not the
+    # one LatentStructure drew at the start: a newcomer's, set when a generation replaces their slot, or (ADR-032 D,
+    # dynamics.anchor_follow > 0) a citizen's whose forum stance shift moved it. None for everyone else, whose
+    # anchor is the structure's row for their id. So it marks a newcomer only while anchor_follow is 0.
+    anchor_factors: tuple[float, ...] | None = None
+    anger: float | None = None
+    anxiety: float | None = None
+    enthusiasm: float | None = None
+    # ADR-021: None while untracked (emotions.disengage_anger 0), which reads as "active".
+    engagement: str | None = None
+
+    @property
+    def engaged(self) -> bool:
+        """Votes and signs petitions: neither disengaged nor exited."""
+        return self.engagement in (None, ACTIVE)
 
 
 # plan-distribution-positions-seeds.md, Phase 1 (2026-08-25): position_dist
@@ -146,6 +176,42 @@ _FACTOR_STRUCTURE_LOADING_STD = 1.0
 _FACTOR_STRUCTURE_NOISE_STD = 0.3
 
 
+@dataclass(frozen=True)
+class LatentStructure:
+    """A factor_structure population's latent model: position(i, j) =
+    sigmoid(factors(i) . loadings(j) + residuals(i, j)). `anchors` are every citizen's
+    initial factors, row i for citizen_id i. S4.3 moves the factors and keeps loadings and
+    residuals, so a citizen's issues stay correlated the way they were drawn."""
+
+    loadings: np.ndarray
+    """(issue_count, 2)"""
+    anchors: np.ndarray
+    """(population_size, 2)"""
+    residuals: np.ndarray
+    """(population_size, issue_count)"""
+
+    def positions(self, factors: np.ndarray, citizen_ids: Sequence[int] | None = None) -> np.ndarray:
+        """Issue positions for factors of shape (population_size, 2), or of one row per citizen_id given."""
+        raw = factors @ self.loadings.T + (self.residuals if citizen_ids is None else self.residuals[list(citizen_ids)])
+        result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
+        return result
+
+
+def _generate_latent_structure(rng: np.random.Generator, n: int, k: int) -> LatentStructure:
+    loadings = rng.normal(0.0, _FACTOR_STRUCTURE_LOADING_STD, size=(k, _FACTOR_STRUCTURE_N_FACTORS))
+    factors = rng.normal(0.0, _FACTOR_STRUCTURE_FACTOR_STD, size=(n, _FACTOR_STRUCTURE_N_FACTORS))
+    noise = rng.normal(0.0, _FACTOR_STRUCTURE_NOISE_STD, size=(n, k))
+    return LatentStructure(loadings=loadings, anchors=factors, residuals=noise)
+
+
+def latent_structure(config: CitizensConfig, population_size: int, seed: int) -> LatentStructure:
+    """The latent model generate_population drew its positions from, redrawn from the same
+    seed: generate_population draws it first, so a fresh generator reproduces it exactly."""
+    if config.position_dist != "factor_structure":
+        raise ValueError(f"citizens.position_dist {config.position_dist!r} has no latent structure")
+    return _generate_latent_structure(np.random.default_rng(seed), population_size, config.issue_count)
+
+
 def _generate_factor_structure_positions(rng: np.random.Generator, n: int, k: int) -> np.ndarray:
     """Low-rank factor model, sigmoid-squashed into (0, 1): position(i, j) =
     sigmoid(factors(i) . loadings(j) + noise(i, j)). loadings are drawn once
@@ -159,12 +225,8 @@ def _generate_factor_structure_positions(rng: np.random.Generator, n: int, k: in
     not artificially collapsed into a false consensus). Sigmoid, not clipping:
     compresses smoothly into the open interval, no artificial mass exactly at
     0 or 1 the way clipping a Gaussian would produce."""
-    loadings = rng.normal(0.0, _FACTOR_STRUCTURE_LOADING_STD, size=(k, _FACTOR_STRUCTURE_N_FACTORS))
-    factors = rng.normal(0.0, _FACTOR_STRUCTURE_FACTOR_STD, size=(n, _FACTOR_STRUCTURE_N_FACTORS))
-    noise = rng.normal(0.0, _FACTOR_STRUCTURE_NOISE_STD, size=(n, k))
-    raw = factors @ loadings.T + noise
-    result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
-    return result
+    structure = _generate_latent_structure(rng, n, k)
+    return structure.positions(structure.anchors)
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

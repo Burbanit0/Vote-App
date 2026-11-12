@@ -3,6 +3,7 @@
  * Simulates how voter competence distribution affects collective decision quality.
  */
 import React, { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -265,7 +266,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
           epistocracy parameters are set here. */}
       <div className="mb-2">
         <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-          🔬 {t('lab.fromElectionLab')}
+          {t('lab.fromElectionLab')}
         </Badge>
       </div>
       <Row className="g-2 mb-2 items-end">
@@ -404,7 +405,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
           {/* ── Democracy below random warning ── */}
           {data.voter_competence_stats.biased_mean < 0.5 && (
             <Alert variant="danger" className="py-2" data-testid="below-random-alert">
-              ⚠️{' '}
+              <TriangleAlert aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-stamp" />{' '}
               {t('episto.belowRandom', {
                 pct: Math.round(data.voter_competence_stats.biased_mean * 100),
               })}
@@ -414,12 +415,12 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
           {/* ── Democracy vs Expert badges ── */}
           <div className="flex flex-wrap gap-2 mb-3" data-testid="comparison-badges">
             <Badge variant="danger" style={{ fontSize: '0.72rem' }}>
-              🗳 {t('episto.democracyRegret')}:{' '}
+              {t('episto.democracyRegret')}:{' '}
               {Math.round(data.democracy_vs_expert.democracy_regret * 100)}%
             </Badge>
             <Badge variant="info" style={{ fontSize: '0.72rem' }}>
-              🎓 {t('episto.expertRegret')}:{' '}
-              {Math.round(data.democracy_vs_expert.expert_regret * 100)}%
+              {t('episto.expertRegret')}: {Math.round(data.democracy_vs_expert.expert_regret * 100)}
+              %
             </Badge>
             <Badge variant="success" style={{ fontSize: '0.72rem' }}>
               ✓ {t('episto.omniscient')}: 0%
@@ -592,7 +593,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
                 className="border border-border rounded p-2"
                 style={{ background: '#fff3cd', fontSize: '0.74rem' }}
               >
-                <div className="font-semibold mb-1">⚠ {t('episto.forTitle')}</div>
+                <div className="font-semibold mb-1">{t('episto.forTitle')}</div>
                 <ul className="mb-0" style={{ paddingLeft: 14 }}>
                   <li>{t('episto.for1')}</li>
                   <li>{t('episto.for2')}</li>

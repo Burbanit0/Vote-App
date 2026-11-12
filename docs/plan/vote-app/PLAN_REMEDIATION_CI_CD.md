@@ -1,5 +1,7 @@
 # Plan — Remédiation CI/CD post-PLAN_SOLIDITE_TECHNIQUE
 
+> **status:** done — its six items are closed (2026-09-14). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 > **Origine** : audit CI/CD complet demandé le 2026-09-13, à la clôture de
 > `PLAN_SOLIDITE_TECHNIQUE.md`. État vérifié **en direct** (API GitHub via
 > `gh`, lecture réelle des workflows, `gh run list` sur les 40-100 derniers

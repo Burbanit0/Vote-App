@@ -16,8 +16,9 @@ memory:
   --update   Queries the real GitHub Actions run history for each watched
              workflow (never-PR-gated: mutation-testing.yml,
              schemathesis.yml, atheris-fuzzing.yml, flaky-check-backend.yml,
-             dast.yml, scorecard.yml) plus develop's live branch-protection
-             settings, and writes a snapshot to .github/ci-health.json.
+             dast.yml, scorecard.yml; and audit.yml, on its scheduled runs
+             alone) plus the live branch-protection settings of develop,
+             polity and main (PROTECTED_BRANCHES), and writes a snapshot to .github/ci-health.json.
              Run on a schedule (see ci-health.yml), never on a PR -- it's
              the thing being watched, not the watcher. Also decides (and
              prints, and writes to $GITHUB_OUTPUT as `pr_needed` when that
@@ -35,8 +36,8 @@ memory:
                    failure mode this exists to catch, so its own silence
                    must be loud), or
                (b) any watched workflow is unhealthy/inert/never-run, or
-               (c) develop's branch protection has drifted from the setup
-                   script,
+               (c) develop's, polity's or main's branch protection has
+                   drifted from the setup script,
              unless a live, unexpired entry in .github/ci-health-snoozes.json
              covers it.
 
@@ -71,6 +72,24 @@ SETUP_BRANCH_PROTECTION = REPO_ROOT / "scripts" / "setup-branch-protection.sh"
 
 OWNER_REPO = "Burbanit0/Vote-App"
 BRANCH = "develop"
+# Branches whose protection is checked for drift, keyed by the snapshot field
+# that records it ("branch_protection" stays develop's, so an older snapshot
+# still reads the same).
+PROTECTED_BRANCHES = {
+    "branch_protection": "develop",
+    "branch_protection_polity": "polity",
+    "branch_protection_main": "main",
+}
+# The setup-script function that protects each branch (its strict flag is read
+# from that function's body).
+PROTECT_FUNCTIONS = {
+    "develop": "protect_develop",
+    "polity": "protect_polity_branch",
+    "polity-ui": "protect_polity_branch",
+    "main": "protect_main",
+}
+# Branches whose runs count for a watched workflow's health.
+RUN_BRANCHES = ("develop", "polity")
 
 # Deliberate curation, not auto-discovery: these are the workflows that
 # never run on pull_request (so a red run gates nobody, and rot is
@@ -78,7 +97,10 @@ BRANCH = "develop"
 # their own signal (mutation score, contract fuzzing, coverage-guided
 # fuzzing, flake hunting, DAST, supply-chain scorecard). Required-check
 # workflows (Backend CI, Frontend CI, E2E, ...) self-heal: a human is
-# blocked until they're green, so they don't belong on this list.
+# blocked until they're green, so they don't belong on this list. audit.yml
+# is the exception that proves the rule: its push and PR runs are required and
+# self-heal, but its weekly full-history scan is a schedule-only signal of the
+# kind above, so it is watched on that alone (SCHEDULE_ONLY_WORKFLOWS).
 WATCHED_WORKFLOWS = [
     "mutation-testing.yml",
     "schemathesis.yml",
@@ -86,7 +108,14 @@ WATCHED_WORKFLOWS = [
     "flaky-check-backend.yml",
     "dast.yml",
     "scorecard.yml",
+    "audit.yml",
 ]
+
+# Workflows judged on their scheduled runs alone. audit.yml also runs on every
+# push and PR, and those scan only the new commits: green, they buried the
+# weekly full-history Secret Scan failing four Mondays running (2026-09-14 to
+# 10-05) with nothing watching it.
+SCHEDULE_ONLY_WORKFLOWS = frozenset({"audit.yml"})
 
 # How many of the most recent *completed, non-cancelled* runs to look at
 # when deciding whether a workflow is failing consistently rather than
@@ -171,16 +200,25 @@ def workflow_display_name(workflow_file: str) -> str:
 
 def query_workflow_health(workflow_file: str) -> dict[str, Any]:
     expected_hours = derive_expected_hours(workflow_file)
-    runs = _run_gh_json(
-        [
-            "run",
-            "list",
-            f"--workflow={workflow_file}",
-            f"--branch={BRANCH}",
-            "--limit=8",
-            "--json=databaseId,status,conclusion,createdAt,event",
-        ]
-    )
+    # Both branches: scheduled runs report develop (the default branch they fire
+    # from) though they test polity, and pushes to polity run the deep tests too.
+    seen: dict[int, dict[str, Any]] = {}
+    schedule_only = workflow_file in SCHEDULE_ONLY_WORKFLOWS
+    # A scheduled run always reports the default branch it fires from.
+    for branch in (BRANCH,) if schedule_only else RUN_BRANCHES:
+        for run in _run_gh_json(
+            [
+                "run",
+                "list",
+                f"--workflow={workflow_file}",
+                f"--branch={branch}",
+                "--limit=8",
+                "--json=databaseId,status,conclusion,createdAt,event",
+                *(["--event=schedule"] if schedule_only else []),
+            ]
+        ):
+            seen[run["databaseId"]] = run
+    runs = sorted(seen.values(), key=lambda r: r["createdAt"], reverse=True)[:8]
     display_name = workflow_display_name(workflow_file)
 
     if not runs:
@@ -229,33 +267,62 @@ def query_workflow_health(workflow_file: str) -> dict[str, Any]:
     }
 
 
-def parse_setup_script_expectations() -> tuple[list[str], bool]:
-    """Extract develop's expected required-contexts list and strict flag
-    from setup-branch-protection.sh -- the authoritative source, not a
-    second hand-copied list that could itself drift (same reasoning as
-    .mergify.yml's comment on branch-protection duplication)."""
-    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
-
-    contexts_match = re.search(r"REQUIRED_CONTEXTS='(\[.*?\])'", text, re.DOTALL)
-    required_contexts = json.loads(contexts_match.group(1)) if contexts_match else []
-
-    develop_fn_match = re.search(
-        r"protect_develop\(\)\s*\{(.*?)\n\}", text, re.DOTALL
+def parse_setup_script_expectations(branch: str = "develop") -> tuple[list[str], bool]:
+    """A branch's expected required contexts and strict flag, from
+    setup-branch-protection.sh itself -- the authoritative source, not a second
+    hand-copied list that could drift (same reasoning as .mergify.yml's comment
+    on branch-protection duplication). The contexts come from the script's own
+    `--print-contexts`, which touches nothing; the strict flag from the
+    function that protects the branch."""
+    result = subprocess.run(
+        ["bash", str(SETUP_BRANCH_PROTECTION), "--print-contexts", branch],
+        capture_output=True, text=True, check=True,
     )
-    develop_fn_body = develop_fn_match.group(1) if develop_fn_match else ""
+    required_contexts = json.loads(result.stdout)
+
+    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
+    fn = PROTECT_FUNCTIONS.get(branch)
+    fn_match = re.search(rf"{fn}\(\)\s*\{{(.*?)\n\}}", text, re.DOTALL) if fn else None
+    if fn_match is None:
+        # Fail loudly: a silent default would expect the wrong strict flag.
+        raise ValueError(f"no protect function for {branch} in setup-branch-protection.sh")
+    fn_body = fn_match.group(1)
     # The JSON is embedded in a bash double-quoted string, so its own quotes
     # are backslash-escaped in the raw file text (\"strict\": true) -- match
     # loosely rather than requiring literal unescaped quotes.
-    expected_strict = bool(re.search(r'\\?"strict\\?"\s*:\s*true', develop_fn_body))
+    expected_strict = bool(re.search(r'\\?"strict\\?"\s*:\s*true', fn_body))
 
     return required_contexts, expected_strict
 
 
-def check_branch_protection_drift() -> dict[str, Any]:
-    expected_contexts, expected_strict = parse_setup_script_expectations()
+def review_gate_name() -> str:
+    """The review gate's context name, read from setup-branch-protection.sh
+    (`REVIEW_GATE="..."`), so a rename there can't silently switch off the pin
+    check below. Phase 3b: when the repository variable REVIEW_GATE_APP_ID is
+    set (ci-health.yml passes it in), protection must require this context
+    from that GitHub App, as `REVIEW_GATE_APP_ID=<id> setup-branch-protection.sh`
+    applies it: an unpinned gate accepts a status of the same name from any
+    workflow's GITHUB_TOKEN."""
+    text = SETUP_BRANCH_PROTECTION.read_text(encoding="utf-8")
+    match = re.search(r'^REVIEW_GATE="([^"]+)"', text, re.MULTILINE)
+    if match is None:
+        raise ValueError("no REVIEW_GATE= line in setup-branch-protection.sh")
+    return match.group(1)
+
+
+def check_branch_protection_drift(branch: str = BRANCH) -> dict[str, Any]:
+    try:
+        expected_contexts, expected_strict = parse_setup_script_expectations(branch)
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError, ValueError) as exc:
+        reason = getattr(exc, "stderr", None) or str(exc)
+        sys.stderr.write(f"setup-branch-protection.sh --print-contexts {branch}: {reason}\n")
+        return {
+            "status": "unhealthy",
+            "detail": f"could not read the expected contexts for {branch}: {str(reason).strip()}",
+        }
     try:
         live = _run_gh_json(
-            ["api", f"repos/{OWNER_REPO}/branches/{BRANCH}/protection"]
+            ["api", f"repos/{OWNER_REPO}/branches/{branch}/protection"]
         )
     except subprocess.CalledProcessError as exc:
         return {
@@ -264,9 +331,8 @@ def check_branch_protection_drift() -> dict[str, Any]:
         }
 
     live_strict = bool(live.get("required_status_checks", {}).get("strict", False))
-    live_contexts = sorted(
-        c["context"] for c in live.get("required_status_checks", {}).get("checks", [])
-    )
+    live_checks = live.get("required_status_checks", {}).get("checks", [])
+    live_contexts = sorted(c["context"] for c in live_checks)
     expected_sorted = sorted(expected_contexts)
 
     problems = []
@@ -280,6 +346,16 @@ def check_branch_protection_drift() -> dict[str, Any]:
         problems.append(f"missing live required contexts: {sorted(missing)}")
     if extra:
         problems.append(f"unexpected live required contexts: {sorted(extra)}")
+    expected_app = "".join(os.environ.get("REVIEW_GATE_APP_ID", "").split())
+    if expected_app:
+        gate = review_gate_name()
+        if gate in expected_contexts:
+            live_app = next((c.get("app_id") for c in live_checks if c["context"] == gate), None)
+            if str(live_app) != expected_app:
+                problems.append(
+                    f"{gate!r} is required from app_id {live_app} live, "
+                    f"{expected_app} expected (REVIEW_GATE_APP_ID): any workflow can satisfy it"
+                )
 
     if problems:
         return {"status": "drifted", "detail": "; ".join(problems)}
@@ -302,7 +378,7 @@ def _meaningfully_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
 
     return _strip_timestamps(old.get("workflows", {})) != _strip_timestamps(
         new.get("workflows", {})
-    ) or old.get("branch_protection") != new.get("branch_protection")
+    ) or any(old.get(key) != new.get(key) for key in PROTECTED_BRANCHES)
 
 
 def _heartbeat_overdue(old: dict[str, Any]) -> bool:
@@ -323,12 +399,13 @@ def cmd_update(_: argparse.Namespace) -> int:
             old_snapshot = None
 
     workflows = {wf: query_workflow_health(wf) for wf in WATCHED_WORKFLOWS}
-    branch_protection = check_branch_protection_drift()
+    protections = {key: check_branch_protection_drift(branch)
+                   for key, branch in PROTECTED_BRANCHES.items()}
 
     snapshot = {
         "generated_at": _now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "workflows": workflows,
-        "branch_protection": branch_protection,
+        **protections,
     }
 
     if old_snapshot is None:
@@ -347,8 +424,9 @@ def cmd_update(_: argparse.Namespace) -> int:
         for wf, info in workflows.items()
         if info["status"] != "healthy"
     ]
-    if branch_protection["status"] != "healthy":
-        unhealthy.append(f"branch-protection ({branch_protection['detail']})")
+    for key, branch in PROTECTED_BRANCHES.items():
+        if protections[key]["status"] != "healthy":
+            unhealthy.append(f"branch-protection on {branch} ({protections[key]['detail']})")
 
     print(f"Wrote {SNAPSHOT_PATH.relative_to(REPO_ROOT)}")
     if unhealthy:
@@ -418,10 +496,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
         else:
             problems.append(f"{line}{f' [{why}]' if why else ''}")
 
-    bp = snapshot.get("branch_protection", {})
-    if bp.get("status") != "healthy":
-        snoozed, why = _is_snoozed("branch-protection", snoozes)
-        line = f"branch protection on {BRANCH}: {bp.get('status')} -- {bp.get('detail')}"
+    for key, branch in PROTECTED_BRANCHES.items():
+        if key not in snapshot and key != "branch_protection":
+            continue  # a snapshot written before this branch was checked
+        bp = snapshot.get(key, {})
+        if bp.get("status") == "healthy":
+            continue
+        # develop keeps the original snooze key, so existing snoozes still apply.
+        snoozed, why = _is_snoozed(
+            "branch-protection" if branch == BRANCH else f"branch-protection-{branch}", snoozes)
+        line = f"branch protection on {branch}: {bp.get('status')} -- {bp.get('detail')}"
         if snoozed:
             notes.append(f"{line} [{why}]")
         else:

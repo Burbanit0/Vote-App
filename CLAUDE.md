@@ -21,13 +21,18 @@ npx vitest run             # unit tests
 npm run lint               # eslint . --ext .js,.jsx,.ts,.tsx  (0 errors is gating)
 npx prettier --config .prettierrc --write <files>
 npm run build              # tsc --noEmit && vite build && size-limit (1 MB brotli budget)
-npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile
+npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile + static (needs Python)
 ```
 
-**The e2e suite is a gate on every PR** (`.github/workflows/e2e.yml`), not just at
-release. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
+**The e2e suite is a required gate** (`.github/workflows/e2e.yml`), not just at release.
+It runs on every PR that touches `voter-app/**`, `e2e.yml` itself, or the backend's
+runtime code (`fast_api_voter/**` minus `scripts/`, `api/tests/` and `*.md`), in two shards; the required
+"Playwright E2E" is the aggregator job that merges their reports. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
-starts the frontend itself.
+starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
+serves exactly the committed fixture run (`fast_api_voter/polity_fixtures/`).
+The `static` project's setup (`tests/e2e/static.setup.ts`) builds the static site and runs
+the backend's routers under CPython: `PYTHON` (default `python3`) must have its packages.
 
 Two rules keep it from rotting the way it did before (5 specs frozen against a
 UI that had moved on for two months):
@@ -47,6 +52,19 @@ python -m pytest <paths> -o addopts="" -q   # -o addopts="" disables the coverag
                                             # gate from pyproject for a quick run
 mypy api/                                    # strict, must stay clean
 ```
+
+`scripts/fast-gate.sh <base>` runs the relevant subset of all of the above on a branch's
+changed files (the push guard runs it before every `git push`). A `SKIPPED` section is not a
+pass: it means the tool could not run here (missing deps, or a `python3`/`python` older than
+`mypy.ini`'s `python_version`), and CI is then the only check, so say so under **Not verified**.
+A PR touching `.github/workflows/` or `.claude/hooks/` must also pass the required
+`Workflow lint` (actionlint + `zizmor --offline` + `python3 -m unittest discover -s
+.claude/hooks/tests`).
+
+A test that checks an invariant of `docs/spec/behaviors.md` carries
+`@pytest.mark.behavior("<ID>")`; `api/tests/test_behavior_catalogue.py` keeps the catalogue
+and the markers in step. Finished experiment scripts live in `fast_api_voter/scripts/archive/`
+(see its README): not imported, type-checked or import-smoked.
 
 `-o addopts=""` only skips coverage for the quick local run — full coverage is
 still enforced by `ci-local/` and GitHub CI, so never use this flag to judge
@@ -118,22 +136,57 @@ libs in `src/lib/` with a thin component each.
   and the type; `playground.en.ts` must mirror it key-for-key — tsc enforces this).
 - **Tests run in English** (jsdom). Assert EN strings, not FR.
 
+## Definition of done
+
+A change is done when it does **what was asked**, not when it compiles and CI is green.
+Before opening a PR:
+
+- Run `/code-review high` once and handle its findings (see Workflow below).
+- Run `/verify "<the original request, verbatim>"`. It runs `scripts/fast-gate.sh`, then
+  the `spec-checker` agent, which sees only the request and the diff, never your summary.
+  A `FAIL` (something asked is missing) means no PR yet.
+- Fill the PR template's `## Request` (verbatim), `## Acceptance criteria` and
+  `## Evidence` (commands actually run and their output) sections.
+- The **Not verified** line is mandatory: say what you did not check and why. "nothing" only
+  when true. An unverified claim stated as done is worse than a gap stated plainly.
+
 ## Workflow (mandated)
 
-- One branch per step, **from `develop`**, named for what it does: `feat/*`,
-  `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never commit features directly
-  to `develop`; never rewrite already-pushed `develop` history.
-- Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
-  releases.
+- **`polity` is the working branch** (since the 2026-09-27 convergence, #671/#674/#675,
+  `develop` and `polity` were identical). One branch per step, **from `polity`**,
+  named for what it does: `feat/*`, `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never
+  commit features directly to `polity` or `develop`; never rewrite their pushed
+  history.
+- Open a PR per step against `polity`. Merge with `--no-ff`. `develop` only receives
+  release syncs (`chore/sync-polity-into-develop-<date>`, a real merge commit), and
+  `develop → main` is the release (see the `release` skill).
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
-- **Run `/code-review max` on the branch *before opening* a PR that touches the
-  voting engine** (`simulation_ranked_utils.py`, `simulation_score_utils.py`,
-  `playgroundVoting.ts`) or any other high-blast-radius surface (auth-adjacent
-  config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
-  `develop`'s Mergify queue auto-merges the moment required checks go green, often
+- **Run `/code-review high` on the branch *before opening* any PR**, once (the
+  owner's call, 2026-10-07: one `high` pass everywhere, the voting engine included,
+  in place of `max` on engine PRs only). Each finding is a claim, not an order:
+  check it against the code (and a test, when it says something breaks) before
+  changing anything, fix the real ones, and say in the PR which you left and why.
+  It matters most on the voting engine (`simulation_ranked_utils.py`,
+  `simulation_score_utils.py`, `playgroundVoting.ts`) and other high-blast-radius
+  surfaces (auth-adjacent config, CI/CD workflows, the parity/axiom test harnesses).
+  Release syncs (`chore/sync-polity-into-develop-*`, develop → main) are exempt:
+  every PR they carry was reviewed on its own, and their check is the tree
+  comparison against the source branch. Run it before opening, not "before merging":
+  the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
   been) raced and skipped entirely. It runs locally on the branch's diff and needs
-  no PR or GitHub remote, so there's no reason to wait for one.
-  It exists and is underused — standard CI gates catch regressions in what's
-  already tested, not a subtly-wrong new rule implementation or a logic error a
-  human reviewer would have caught.
+  no PR or GitHub remote, so there's no reason to wait for one. Standard CI gates
+  catch regressions in what's already tested, not a logic error in new code (a
+  subtly-wrong rule, a workflow condition, a hook) that a human reviewer would
+  have caught.
+- PRs touching the high-risk paths listed in
+  `.mergify.yml`, or that weaken the test suite (fewer tests in the changed test
+  files, or an added skip/only/xfail: `scripts/check_test_integrity.py`, which
+  `scripts/fast-gate.sh` also reports before a push), are held until the owner comments `/reviewed <sha>`
+  (`human-review.yml` binds that approval to the commit and releases the required
+  `High-risk review gate` status). A regenerated test oracle (parity fixture, golden,
+  OpenAPI contract, baselines, snapshots) passes its own check by design, so
+  `scripts/oracle_diff_report.py` spells out what it changed (winners by rule, moved values)
+  in the gate's run summary and in fast-gate: say it in the PR too. **Never post
+  `/reviewed`, add a `reviewed` label, set a `human-review` or `High-risk review gate` status, or merge a PR
+  yourself** — that approval is the owner's alone.

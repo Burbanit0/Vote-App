@@ -45,9 +45,7 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
       className="flex flex-col gap-2 rounded-md border border-border p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('issues.title')}
-        </span>
+        <span className="text-xs font-semibold text-muted-foreground">{t('issues.title')}</span>
         <div className="flex items-center gap-2 text-xs">
           <label className="flex items-center gap-1 text-muted-foreground">
             {t('issues.issuesLabel')}
@@ -106,7 +104,7 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
 
           {/* Issue matrix: referendum majority vs elected platform */}
           <div data-testid="issues-matrix" className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="w-20 shrink-0" />
               <span className="flex-1">{t('issues.yesShare')}</span>
               <span className="w-24 text-center">{t('issues.majorityCol')}</span>

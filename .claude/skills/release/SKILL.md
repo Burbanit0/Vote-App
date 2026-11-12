@@ -3,80 +3,120 @@ name: release
 description: Checklist for a develop → main release via the "Release Vote Lab" GitHub Actions workflow — what to check before dispatching it, how to dispatch it, and what needs manual follow-up afterward. Use when preparing, dispatching, or following up on a Vote-App release.
 ---
 
-# release — develop → main checklist
+# release — polity → develop → main checklist
 
-Releases are infrequent and human-triggered, never automatic. As of
-2026-09-11 `main` is 750+ commits behind `develop`
-(`git log origin/develop..origin/main --oneline`), no git tag exists on this
-repo yet, and `voter-app/package.json`'s version has never moved past its
-default `0.1.0` — the automated tag/bump mechanism below is real but
-genuinely unexercised. Verify each step actually happens rather than assuming
-prior runs proved it out.
+Releases are infrequent and human-triggered, never automatic. The first real
+one was **v0.2.0 (2026-09-27)**, after two tries: #669 merged, the dispatch
+died in the workflow's own backend gate (fixed by #672), then #673 and a fresh
+dispatch tagged it.
+
+`polity` is the working branch (#676). `develop` only receives release syncs,
+so a release has three hops: polity → develop → main → tag.
 
 ## Before dispatching
 
-- [ ] `develop` is green — check the four required checks on `develop`'s
-      latest push in the Actions tab (Backend CI, Frontend CI, Playwright
-      E2E, Generated Artifacts Contract).
-- [ ] Know what's shipping: `git log origin/main..origin/develop --oneline`
-      lists everything this release will bring in.
-- [ ] Open a PR from `develop` into `main` (past convention: title
-      `Release: <one-line summary>`, see merged PRs #57/#67/#70) and merge
-      it. `branch-policy.yml` enforces that `develop` is the only allowed
-      source for a PR into `main`. **Watch for a conflict on
-      `voter-app/package.json`'s `version` field** once this workflow has run
-      at least once: the release job's version-bump commit (below) lands only
-      on `main` and is never merged back into `develop`, so a future
-      develop→main PR could show a diff there — take `develop`'s value, the
-      release workflow bumps it again regardless.
+- [ ] **Bump the version in a PR to polity first.** `main` is protected (PRs
+      only), so the release job no longer commits a bump: it releases whatever
+      `voter-app/package.json` says on `main`, and refuses a version that is
+      already tagged on another commit. Branch `chore/release-vX.Y.Z` from
+      polity, run `npm version X.Y.Z --no-git-tag-version` in `voter-app/`
+      with an explicit version above the latest tag
+      (`git ls-remote --tags origin 'v*'`; not `patch`/`minor`, which count
+      from polity's own value and polity was left at 0.1.0 while v0.2.0
+      shipped), and merge it like any PR before the sync below. The release
+      job refuses a version that is not above the latest tag, before CI runs.
+- [ ] **Sync polity into develop.** Cut `chore/sync-polity-into-develop-<date>`
+      from `origin/develop`, merge `origin/polity` (a real merge commit), and
+      open a PR into `develop`. Its diff-cover gate measures every polity line
+      that develop lacks, so an untested polity branch fails here even though
+      it passed on polity (#674 needed five tests for that reason).
+- [ ] `develop` is green: Backend CI, Frontend CI, Playwright E2E, Generated
+      Artifacts Contract on its latest push.
+- [ ] Know what's shipping: `git log --first-parent origin/main..origin/develop --oneline`.
+- [ ] **Open the develop → main PR.** `branch-policy.yml` allows only `develop`
+      as the source, and, like every PR, it needs a **Conventional Commits title**. Use
+      `chore(release): <summary>`; the old `Release: …` form is rejected.
+- [ ] **Expect red checks on it, and know which ones matter.** diff-cover
+      compares against `main`. When `main` is far behind, it re-counts code that
+      already passed diff-cover on its way into develop (#669: 55 lines). Scorecard
+      can list alerts that were there before. `main` requires the base checks
+      (`develop`'s minus the review gate and Workflow lint, which don't run on
+      PRs to `main`), but `enforce_admins` is off, so the owner can merge over
+      a red check after confirming it is one of these, never a real regression.
+- [ ] **Merge it by hand.** Mergify's queue only covers PRs into `develop` and
+      `polity`. A PR into `main` gets the `dequeued` label and sits there.
+- [ ] **Version field:** the PR's `voter-app/package.json` must carry the new
+      version. v0.2.0's bump commit was pushed straight to `main`, which says
+      0.2.0 while polity and develop say 0.1.0, so the first release after this
+      change may conflict there: keep the new, higher version.
+- [ ] **Hold the next polity → develop sync until the tag exists.** The
+      develop → main PR's head is `develop` itself, so anything merged into
+      develop first ships with it.
 
 ## Dispatching
 
 ```bash
-gh workflow run release.yml --ref main -f version_type=patch   # or minor / major
+gh workflow run release.yml --ref main   # optional: -f release_notes='...'
 ```
 
-Or via the UI: Actions → "🚀 Release Vote Lab" → Run workflow → pick
-`patch`/`minor`/`major`, optionally fill `release_notes` (GitHub
-auto-generates its own changelog from commits if left blank). Dispatch
-against `main`, **after** the develop→main PR above has merged: the
-workflow's `release` job checks out `main` explicitly no matter which ref you
-dispatch from, and it does **not** merge `develop` itself — it only bumps,
-tags, and pushes whatever is already sitting on `main`.
+Dispatch **after** the develop → main PR has merged, with `--ref main`. The
+`release` job requires `main` to be **exactly** the commit the run tested.
+Ancestry isn't enough, and anything else fails the job before any tag or
+push. This also makes a dry run safe: dispatching on a feature branch runs the
+gates, then stops at that check.
+
+**After a failed run, dispatch a fresh one; never use "Re-run".** A re-run
+replays the workflow file from the failed run's commit, including whatever bug
+made it fail. It also can't pass the exact-commit check once `main` has moved.
 
 ## What happens automatically
 
-1. `ci-frontend` (`npm test`), `ci-backend` (`pytest`), and `e2e` (the full
-   `e2e.yml`, Playwright included) all re-run and must pass before anything
-   is tagged.
-2. Only then: `voter-app/package.json`'s version is bumped
-   (`npm version <type> --no-git-tag-version`), committed
-   (`chore: bump to vX.Y.Z [skip ci]`), tagged (`vX.Y.Z`), and pushed to
-   `main`.
+1. The gates re-run on the tagged commit, by calling the same workflows a PR runs
+   (#683; they used to be hand-kept copies that drifted):
+   - `ci-frontend`: all of Frontend CI: lint, type coverage, dependency-cruiser,
+     the npm audit gate, licences, the tests with their coverage thresholds, and
+     the build (tsc, the 1 MB size-limit).
+   - `ci-backend`: all of Backend CI: the lockfile freshness check, ruff, import
+     layering, bandit, pip-audit, licences, mypy, the tests with coverage, the LLM
+     harness tests and the engine perf ceilings.
+   - `e2e`: the full `e2e.yml`, including visual regression.
+
+   Nothing else tests this commit: Backend and Frontend CI skip their test jobs on
+   pushes to `main`, because their paths filter sees no change. When called for a
+   release they skip only what needs a PR (the paths filter, diff-cover, the
+   Codecov upload) and run everything else.
+
+   Because the release now runs the advisory gates too (`pip-audit`, `npm run
+   audit:gate`), a CVE published after the last PR can fail a release that no
+   commit caused. Fix it the way a PR would (a bump, or a dated entry in
+   `.github/npm-audit-allowlist.json`), carried polity -> develop -> main, then
+   dispatch again.
+2. Then `main` is tagged `vX.Y.Z` from `voter-app/package.json`, and only
+   the tag is pushed. The `version` job checked it before CI started: above
+   the latest tag, not already released. A tag on this commit with no GitHub
+   Release (a dispatch whose release step failed) is reused by a fresh
+   dispatch, which then creates the release.
 3. A GitHub Release is created from that tag (`generate_release_notes: true`,
    `make_latest: true`).
+4. The `static-site` job builds the app with the engine in Pyodide
+   (`npm run build:static`), attaches it to the release as `static-site.zip`, then
+   dispatches `ci-dashboard.yml`, which deploys the one GitHub Pages site (the
+   newest release's app at the root, the CI dashboard under `ci/`).
 
-`concurrency` on this workflow is `cancel-in-progress: false` on purpose — a
-second accidental dispatch queues behind the first instead of racing it
-mid-tag-push.
+`concurrency` is `cancel-in-progress: false`, so a second dispatch queues
+behind the first instead of racing it. The queued one then fails in its
+`version` job, before any CI: that version is already released.
 
-## What needs manual follow-up
+## Afterwards
 
-- **The backend has no version file or tag** — nothing under
-  `fast_api_voter/` is bumped; the release version is a frontend-only concept
-  in this workflow.
-- **No deployment step exists** in `release.yml` or anywhere else in
-  `.github/workflows/` — creating the tag and GitHub Release *is* the entire
-  release. Shipping it anywhere is a separate, unautomated action if one is
-  needed.
-- **Confirm it actually landed**: `gh release list` and `git tag -l` should
-  show the new tag; if the `release` job never ran, check that `ci-frontend`/
-  `ci-backend`/`e2e` all actually passed first — they gate it.
-- **A first real release wakes up several currently-dormant scheduled
-  workflows**: `mutation-testing.yml`, `schemathesis.yml`,
-  `flaky-check-backend.yml`, and `atheris-fuzzing.yml` all resolve their
-  `schedule`/`workflow_dispatch` triggers against the **default branch**
-  (`main`); while `main` sits hundreds of commits behind `develop` those
-  triggers are configured but inert. Once a release brings `main` current,
-  don't be surprised if one of their next cron runs reports a real finding
-  that had no prior chance to surface.
+- **Confirm it landed:** `gh release list` and `git ls-remote --tags origin`.
+- **Update `CITATION.cff`** (`version` and `date-released`, the release day) in a PR to
+  polity: its date cannot be known before the dispatch, and nothing checks it against
+  `voter-app/package.json`, so GitHub's "Cite this repository" keeps the previous release
+  until it is done.
+- **The backend has no version file or tag.** The release version is
+  frontend-only.
+- **The only deployment is the static site** (step 4): the Pages site at
+  `https://burbanit0.github.io/Vote-App/`. There is no server to deploy; the tag,
+  the GitHub Release and that site are the whole release.
+- **Then run the polity → develop sync you held back** (see Before dispatching).

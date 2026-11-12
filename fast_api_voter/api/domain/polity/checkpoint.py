@@ -1,0 +1,393 @@
+"""
+api.domain.polity.checkpoint — per-tick state snapshot for a resumable run
+(Phase 3, plan-flagship-30y-run.md).
+
+Exists because `run_simulation()`'s own tick loop holds every piece of live
+state (citizens, parties, 4 RNG streams, `economy_x`, `pending_rerun`,
+`mobilized_last_tick`) in local variables -- a crash at hour 60 of a
+multi-day sequential run (Phase 2's own conclusion: the flagship runs
+sequential, not concurrent) forfeits everything with no durability. This
+module is the pure (de)serialization layer; `run_simulation()` itself owns
+WHEN to call it (once per completed tick) and how to splice the restored
+state back into its own loop.
+
+**Deliberately NOT snapshotted, and why**: a fixed `graph` (the social-graph
+structure) and `InstitutionalClock` are both pure functions of
+`(config, population_size, seed)` with zero mid-run mutation; `InstitutionalClock.from_config`
+takes config alone, holds no state. Regenerating either from the resumed config
+reproduces them exactly; snapshotting them would be pure duplication with its own
+resync risk. The exception is a graph that rewires (`social_graph.evolving`, ADR-036):
+its ties depend on the views of the citizens year after year, so they ARE state and
+are snapshotted, as `graph_edges`, only for such a run.
+
+**What is snapshotted** is `tick_state.TickState` whole (S3.4), plus the run id,
+config hash, tick and next event id. The file's JSON keys are unchanged from before
+TickState existed, so a checkpoint written by older code still resumes.
+`STATE_PAYLOAD_KEYS` maps every TickState field to its key, and a test fails when a
+field is added without one.
+"""
+from __future__ import annotations
+
+import dataclasses
+import hashlib
+import json
+import os
+from pathlib import Path
+from typing import Any, Mapping
+
+import numpy as np
+
+from api.domain.polity.citizen import Citizen, Office, Role
+from api.domain.polity.config import PolityConfig
+from api.domain.polity.constitution import Constitution, Proposal
+from api.domain.polity.legislation import Bill, Legislature
+from api.domain.polity.parties import Party
+from api.domain.polity.social_graph import SocialGraph, graph_edges, graph_from_edges
+from api.domain.polity.tick_state import PendingRerun, TickState
+
+
+@dataclasses.dataclass(frozen=True)
+class Checkpoint:
+    """Everything `run_simulation()` needs to splice back into its own tick
+    loop and continue from `tick + 1`. `tick` is the last FULLY COMPLETED
+    tick -- every field here reflects state as it stood at that tick's end,
+    before any of `tick + 1`'s own phases ran. `next_event_id` is the
+    journal's own `Journal.next_event_id` at that same moment, i.e. exactly
+    how many events `events.jsonl` should hold once truncated
+    (`journal.truncate_journal`) before a resumed `Journal` reopens it."""
+
+    run_id: str
+    config_hash: str
+    tick: int
+    next_event_id: int
+    state: TickState
+
+
+def config_hash(config: PolityConfig) -> str:
+    """A resume must run against the SAME simulation rules it crashed under
+    -- population_size, seed, every institutional parameter, all of it.
+    Excludes `raw` (a duplicate view of everything else already hashed) and
+    `journal.output_dir` (a filesystem path, not a simulation parameter --
+    resuming into a relocated run directory is legitimate). Anything else
+    differing between the crashed run's config and the resume attempt's own
+    config is exactly the class of mistake this hash exists to catch loudly,
+    at resume time, rather than silently producing a run that is neither the
+    old config nor the new one."""
+    payload = dataclasses.asdict(config)
+    payload.pop("raw", None)
+    payload["journal"].pop("output_dir", None)
+    canonical = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _citizen_to_dict(citizen: Citizen) -> dict[str, Any]:
+    # `vars(citizen).copy()`, not `dataclasses.asdict(citizen)` -- measured
+    # 303x faster (3.2ms vs 0.011ms per 100-citizen pass) at population 100,
+    # and the difference is NOT negligible here: this runs every tick, and a
+    # flagship run's own per-tick GPU cost (283-1069s+, Phase 0/Phase 2's own
+    # measurements) makes a checkpoint's cost irrelevant there either way --
+    # but the same code path also runs on every polity test that calls
+    # run_simulation, many of them for 120 ticks at population ~100, where
+    # asdict's cost was NOT irrelevant (measured: +86s across the polity
+    # suite, 37s -> 123s, entirely attributable to this one call). `asdict`
+    # is slow here because its generic recursive implementation deep-copies
+    # every field defensively, work `Citizen` (a flat dataclass -- no
+    # dataclass-typed fields to recurse into) never needed. `vars()` returns
+    # the instance's own `__dict__` directly; `.copy()` is required before
+    # this function mutates a key (`petition_signers`, the one field
+    # `json.dumps` cannot encode natively) so the citizen's own live state
+    # is never touched. `role`/`office` need no conversion at all -- both
+    # are `str, Enum` subclasses, which `json.dumps` already encodes as
+    # their plain string value with no help; explicitly calling `.value`
+    # would be correct but is pure overhead this rewrite deliberately drops.
+    data = vars(citizen).copy()
+    data["petition_signers"] = sorted(citizen.petition_signers)
+    for key in _UNTRACKED_UNLESS_SET:  # S4.3: absent while untracked, as before they existed
+        if data[key] is None:
+            del data[key]
+    return data
+
+
+_UNTRACKED_UNLESS_SET = ("latent_factors", "anchor_factors", "anger", "anxiety", "enthusiasm", "engagement")
+
+
+def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
+    data = dict(data)
+    data["role"] = Role(data["role"])
+    data["office"] = Office(data["office"])
+    data["petition_signers"] = frozenset(data["petition_signers"])
+    data["issue_positions"] = tuple(data["issue_positions"])
+    data["issue_priorities"] = tuple(data["issue_priorities"])
+    if data["pledged_platform"] is not None:
+        data["pledged_platform"] = tuple(data["pledged_platform"])
+    if data["revealed_position"] is not None:
+        data["revealed_position"] = tuple(data["revealed_position"])
+    if data["chamber_position"] is not None:
+        data["chamber_position"] = tuple(data["chamber_position"])
+    for key in ("latent_factors", "anchor_factors"):
+        if data.get(key) is not None:
+            data[key] = tuple(data[key])
+    return Citizen(**data)
+
+
+def _party_to_dict(party: Party) -> dict[str, Any]:
+    data: dict[str, Any] = {"party_id": party.party_id, "platform": list(party.platform)}
+    if party.founded_tick is not None:  # only founded parties carry it: a run that never founds checkpoints as before
+        data["founded_tick"] = party.founded_tick
+    if party.heading is not None:  # ADR-040: only a hunter keeps a heading and the share it last read
+        data["heading"], data["last_share"] = list(party.heading), party.last_share
+    return data
+
+
+def _party_from_dict(data: dict[str, Any]) -> Party:
+    heading = data.get("heading")
+    return Party(
+        party_id=data["party_id"], platform=tuple(data["platform"]), founded_tick=data.get("founded_tick"),
+        heading=None if heading is None else tuple(heading), last_share=data.get("last_share"),
+    )
+
+
+STATE_PAYLOAD_KEYS: dict[str, str] = {
+    "citizens": "citizens",
+    "parties": "parties",
+    "rupture_rng": "rupture_rng_state",
+    "events_rng": "events_rng_state",
+    "sortition_rng": "sortition_rng_state",
+    "pending_rerun": "pending_rerun",
+    "staggered_declared_cids": "staggered_declared_cids",
+    "economy_x": "economy_x",
+    "mobilized_last_tick": "mobilized_last_tick",
+    "dynamics_rng": "dynamics_rng_state",
+    "demography_rng": "demography_rng_state",
+    "rewiring_rng": "rewiring_rng_state",
+    "graph": "graph_edges",
+    "regime_rng": "regime_rng_state",
+    "campaign_rng": "campaign_rng_state",
+    "leaders_rng": "leaders_rng_state",
+    "refusal_declared": "refusal_declared",
+    "legislature": "legislature",
+    "constitution": "constitution",
+    "last_ballots": "last_ballots",
+}
+"""TickState field -> checkpoint JSON key."""
+
+
+def _pending_to_dict(pending: PendingRerun | None) -> dict[str, Any] | None:
+    if pending is None:
+        return None
+    return {
+        "attempt": pending.attempt,
+        "next_tick": pending.next_tick,
+        "barred_candidate_ids": sorted(pending.barred_candidate_ids),
+        # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
+        **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
+    }
+
+
+def _state_to_payload(state: TickState) -> dict[str, Any]:
+    return {
+        "citizens": [_citizen_to_dict(c) for c in state.citizens],
+        "parties": [_party_to_dict(p) for p in state.parties],
+        "rupture_rng_state": state.rupture_rng.bit_generator.state,
+        "events_rng_state": state.events_rng.bit_generator.state,
+        "sortition_rng_state": state.sortition_rng.bit_generator.state,
+        "pending_rerun": _pending_to_dict(state.pending_rerun),
+        "staggered_declared_cids": (
+            sorted(state.staggered_declared_cids) if state.staggered_declared_cids is not None else None
+        ),
+        "economy_x": state.economy_x,
+        "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
+        # S4.3 and ADR-035: written only for a dynamic run, and for one whose generations turn over, so a
+        # static run's checkpoint is unchanged.
+        **_set_only(
+            dynamics_rng_state=None if state.dynamics_rng is None else state.dynamics_rng.bit_generator.state,
+            demography_rng_state=None if state.demography_rng is None else state.demography_rng.bit_generator.state,
+        ),
+        **_rewiring_payload(state),
+        # ADR-022: likewise only for a regime run, and the declaration only while one stands.
+        **_regime_payload(state),
+        # S4.2: likewise only for a legislating run.
+        **({"legislature": _legislature_to_dict(state.legislature)} if state.legislature is not None else {}),
+        # ADR-015: likewise only once the constitution was amended or an amendment proposed.
+        **({"constitution": _constitution_to_dict(state.constitution)} if state.constitution is not None else {}),
+        # ADR-020: likewise only once an election left ballots to keep.
+        **_set_only(last_ballots=state.last_ballots),
+    }
+
+
+def _restore_optional(payload: Mapping[str, Any], key: str) -> np.random.Generator | None:
+    """A stream written only by the runs that use it (ADR-022, ADR-023), so absent from every
+    checkpoint taken before it existed."""
+    return restore_rng(payload[key]) if key in payload else None
+
+
+def _regime_payload(state: TickState) -> dict[str, Any]:
+    regime, campaign, leaders = state.regime_rng, state.campaign_rng, state.leaders_rng
+    return _set_only(
+        regime_rng_state=None if regime is None else regime.bit_generator.state,
+        campaign_rng_state=None if campaign is None else campaign.bit_generator.state,
+        leaders_rng_state=None if leaders is None else leaders.bit_generator.state,  # ADR-040
+        refusal_declared=True if state.refusal_declared else None,
+    )
+
+
+def _set_only(**fields: Any) -> dict[str, Any]:
+    return {key: value for key, value in fields.items() if value is not None}
+
+
+def _rewiring_payload(state: TickState) -> dict[str, Any]:
+    """ADR-036: a rewiring run's stream and its ties, once each as (low, high) pairs: its graph is state, not a function
+    of the config. Nothing for a run whose ties stay put."""
+    return _set_only(
+        rewiring_rng_state=None if state.rewiring_rng is None else state.rewiring_rng.bit_generator.state,
+        graph_edges=None if state.graph is None else graph_edges(state.graph),
+    )
+
+
+def _restore_graph(payload: Mapping[str, Any]) -> SocialGraph | None:
+    """ADR-036: the ties a rewiring run had, or None. A checkpoint with the ties but not their stream, or the reverse,
+    would freeze or restart them, so it is refused as damaged."""
+    if ("graph_edges" in payload) != ("rewiring_rng_state" in payload):
+        raise ValueError("checkpoint carries the social ties or their random stream but not both (ADR-036): it is damaged")
+    return graph_from_edges(len(payload["citizens"]), map(tuple, payload["graph_edges"])) if "graph_edges" in payload else None
+
+
+def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
+    pending = payload["pending_rerun"]
+    declared = payload.get("staggered_declared_cids")  # absent from checkpoints written before Track E
+    return TickState(
+        citizens=[_citizen_from_dict(c) for c in payload["citizens"]],
+        parties=[_party_from_dict(p) for p in payload["parties"]],
+        rupture_rng=restore_rng(payload["rupture_rng_state"]),
+        events_rng=restore_rng(payload["events_rng_state"]),
+        sortition_rng=restore_rng(payload["sortition_rng_state"]),
+        pending_rerun=None if pending is None else PendingRerun(
+            attempt=pending["attempt"],
+            next_tick=pending["next_tick"],
+            barred_candidate_ids=frozenset(pending["barred_candidate_ids"]),
+            incumbent_id=pending.get("incumbent_id"),
+        ),
+        staggered_declared_cids=set(declared) if declared is not None else None,
+        economy_x=payload["economy_x"],
+        mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
+        dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
+        demography_rng=_restore_optional(payload, "demography_rng_state"),
+        rewiring_rng=_restore_optional(payload, "rewiring_rng_state"),
+        graph=_restore_graph(payload),
+        regime_rng=_restore_optional(payload, "regime_rng_state"),
+        campaign_rng=_restore_optional(payload, "campaign_rng_state"),
+        leaders_rng=_restore_optional(payload, "leaders_rng_state"),
+        refusal_declared=payload.get("refusal_declared", False),
+        legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
+        constitution=_constitution_from_dict(payload["constitution"]) if "constitution" in payload else None,
+        last_ballots=payload.get("last_ballots"),
+    )
+
+
+def _constitution_to_dict(constitution: Constitution) -> dict[str, Any]:
+    return {
+        "version": constitution.version, "values": dict(constitution.values),
+        **({"pending": dataclasses.asdict(constitution.pending)} if constitution.pending is not None else {}),
+    }
+
+
+def _constitution_from_dict(data: Mapping[str, Any]) -> Constitution:
+    pending = data.get("pending")
+    return Constitution(version=data["version"], values=data["values"], pending=None if pending is None else Proposal(**pending))
+
+
+def _optional_tuple(values: list[Any] | None) -> tuple[Any, ...] | None:
+    return None if values is None else tuple(values)
+
+
+def _legislature_to_dict(legislature: Legislature) -> dict[str, Any]:
+    data = dataclasses.asdict(legislature)
+    if legislature.seats is not None:
+        data["seats"] = {str(k): v for k, v in legislature.seats.items()}
+    if legislature.votes is not None:
+        data["votes"] = {str(k): v for k, v in legislature.votes.items()}
+    return data
+
+
+def _legislature_from_dict(data: Mapping[str, Any]) -> Legislature:
+    bill = data["suspended"]
+    return Legislature(
+        policy=tuple(data["policy"]),
+        seats=None if data["seats"] is None else {int(k): v for k, v in data["seats"].items()},
+        votes=None if data.get("votes") is None else {int(k): v for k, v in data["votes"].items()},
+        votes_tick=data.get("votes_tick"),
+        coalition=_optional_tuple(data["coalition"]),
+        policy_at_term_start=_optional_tuple(data["policy_at_term_start"]),
+        policy_at_assembly_start=_optional_tuple(data["policy_at_assembly_start"]),
+        suspended=None if bill is None else Bill(
+            bill_id=bill["bill_id"], agenda_setter=bill["agenda_setter"], proposer=bill["proposer"],
+            dimensions=tuple(bill["dimensions"]), proposal=tuple(bill["proposal"]), returns_at_tick=bill["returns_at_tick"],
+        ),
+        bills_drafted=data["bills_drafted"],
+        bills_enacted=data["bills_enacted"],
+    )
+
+
+def save_checkpoint(
+    path: Path,
+    *,
+    run_id: str,
+    config: PolityConfig,
+    tick: int,
+    next_event_id: int,
+    state: TickState,
+) -> None:
+    """Atomic write (temp file + `os.replace`, same discipline `run_
+    polity_flagship.py`'s own convention docs elsewhere in this project use
+    for progress files) -- a process killed mid-write must never leave a
+    half-written, unparseable `checkpoint.json` that a later resume attempt
+    would load as valid JSON's evil twin (a truncated file that happens to
+    still parse, silently missing fields). `os.replace` is atomic on both
+    POSIX and Windows for same-filesystem renames, which a `.tmp` sibling in
+    the same directory always is.
+
+    RNG state (`generator.bit_generator.state`) is a plain dict of Python
+    ints -- `json` round-trips arbitrary-precision Python ints exactly, no
+    truncation risk even for PCG64's 128-bit state words."""
+    payload = {
+        "run_id": run_id,
+        "config_hash": config_hash(config),
+        "tick": tick,
+        "next_event_id": next_event_id,
+        **_state_to_payload(state),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def load_checkpoint(path: Path) -> Checkpoint:
+    """Raises FileNotFoundError (via `Path.read_text`'s own default
+    behavior) if `path` doesn't exist -- `run_simulation`'s own `resume=True`
+    caller is expected to let that propagate rather than silently starting
+    fresh, since a resume attempt with no checkpoint to resume from is a
+    caller error, not a legitimate first-run case (that's `resume=False`)."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return Checkpoint(
+        run_id=payload["run_id"],
+        config_hash=payload["config_hash"],
+        tick=payload["tick"],
+        next_event_id=payload["next_event_id"],
+        state=_state_from_payload(payload),
+    )
+
+
+def restore_rng(state: dict[str, Any]) -> np.random.Generator:
+    """The seed passed to `default_rng` here is thrown away the instant
+    `bit_generator.state` is overwritten -- it exists only because
+    `default_rng` requires *some* seed to construct a generator at all, not
+    because it contributes anything to the restored stream's actual
+    position. Restoring `state` (captured from the live generator's own
+    `bit_generator.state`) reproduces the exact draw position the crashed
+    run's stream was at, which a fresh `default_rng(original_seed)` would
+    NOT -- that would restart the stream from its beginning, replaying
+    draws the crashed run already consumed and diverging from here on."""
+    rng = np.random.default_rng(0)
+    rng.bit_generator.state = state
+    return rng

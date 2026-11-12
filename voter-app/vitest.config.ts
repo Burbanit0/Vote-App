@@ -37,7 +37,9 @@ export default defineConfig({
     coverage: {
       // provider: 'v8' (runtime coverage, no source transform).
       provider: 'v8',
-      reporter: ['text', 'lcov', 'html'],
+      // cobertura: for diff-cover's --branch-coverage (CI), which reads branch
+      // data from Cobertura XML only; lcov stays for Codecov and local tooling.
+      reporter: ['text', 'lcov', 'html', 'cobertura'],
       // NO `include`: never scan/instrument untested files (that uncovered-file
       // pass, `?vitest-uncovered-coverage=true`, was a rolldown-parser crash on
       // Linux). Coverage reflects only files exercised by tests — essentially the

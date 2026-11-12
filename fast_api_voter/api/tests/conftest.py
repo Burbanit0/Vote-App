@@ -14,18 +14,15 @@ for real per-IP abuse, not a fast local test run.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
 from api.core.ratelimit import limiter
 from api.main import app
 
-# A spatial trio: Alice left-ish, Bob right-ish, Carol near the centre.
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.route_bodies import CANDS  # noqa: F401  (the tests import it from here)
 
 
 @pytest.fixture
@@ -38,3 +35,51 @@ def _reset_rate_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+@pytest.fixture(scope="session")
+def flagship() -> Any:
+    """scripts/run_polity_flagship.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_flagship.py"
+    spec = importlib.util.spec_from_file_location("run_polity_flagship", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["run_polity_flagship"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="session")
+def seed_sweep() -> Any:
+    """scripts/run_polity_seed_sweep.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_seed_sweep.py"
+    spec = importlib.util.spec_from_file_location("run_polity_seed_sweep", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["run_polity_seed_sweep"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="session")
+def neutrality() -> Any:
+    """scripts/check_agent_prompt_neutrality.py, imported once as a module (it is a script, not a package)."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "check_agent_prompt_neutrality.py"
+    spec = importlib.util.spec_from_file_location("check_agent_prompt_neutrality", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["check_agent_prompt_neutrality"] = module
+    spec.loader.exec_module(module)
+    return module

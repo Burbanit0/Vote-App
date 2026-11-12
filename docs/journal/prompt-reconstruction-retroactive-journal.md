@@ -1,5 +1,9 @@
 # Prompt — Reconstruction rétroactive du journal de bord
 
+> **History.** The prompt used to seed the journal in 2026-08. The journal was retired on
+> 2026-10-08 and reopened on 2026-10-12 (`docs/plan/PLAN_BEYOND_CI.md`, D7); backfilling a
+> gap now uses the `journal-writer` agent's own reconstruction mode, not this prompt.
+
 > À utiliser une seule fois, avec Claude Code, à la racine du repo
 > Vote-App, après avoir installé `journal-writer.md` (agent) et
 > `log-session.md` (commande /log-session). Sert à peupler `docs/journal/JOURNAL_DE_BORD.md` avec

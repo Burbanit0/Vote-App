@@ -34,6 +34,19 @@ test.describe('Laboratoire — rail, catalogue, bench', () => {
     }
   });
 
+  test('a criteria-matrix cell opens its basis, its source and a report link', async ({ page }) => {
+    // The matrix is the default fiche. Each cell rests on the registry (PLAN_BEYOND_CI W1.4).
+    const cell = page.getByTestId('matrix-cell-plurality-strategy_proof');
+    await cell.click();
+    await expect(cell).toHaveAttribute('aria-expanded', 'true');
+    const source = page.getByTestId('matrix-cell-source');
+    await expect(source).toContainText('Gibbard (1973)');
+    await expect(source.getByTestId('report-content-error')).toHaveAttribute(
+      'href',
+      /where=matrix%3Aplurality%2Fstrategy_proof/
+    );
+  });
+
   test('picking a fiche in the catalogue loads it on the bench', async ({ page }) => {
     const chips = page.locator('[data-testid^="chip-"]');
     const target = chips.nth(1);

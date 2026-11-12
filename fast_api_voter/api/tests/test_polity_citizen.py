@@ -36,6 +36,7 @@ def _factor_structure_config():
     return config.__class__(**{**config.__dict__, "position_dist": "factor_structure"})
 
 
+@pytest.mark.behavior("DET-04")
 def test_same_seed_produces_field_for_field_identical_populations():
     config = _citizens_config()
     pop_a = generate_population(config, population_size=50, seed=42)
@@ -50,6 +51,7 @@ def test_different_seed_produces_a_different_population():
     assert pop_a != pop_b
 
 
+@pytest.mark.behavior("CIT-03")
 def test_population_shape_and_invariants():
     config = _citizens_config()
     pop = generate_population(config, population_size=100, seed=1)

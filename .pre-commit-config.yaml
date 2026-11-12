@@ -106,10 +106,10 @@ repos:
   - repo: local
     hooks:
       - id: npm-audit
-        name: npm audit (high+ CVEs)
+        name: npm audit gate (high+ CVEs, dated allowlist)
         language: system
-        entry: bash -c 'cd voter-app && npm audit --audit-level=high'
-        files: voter-app/package(-lock)?\.json$
+        entry: bash -c 'cd voter-app && npm run audit:gate'
+        files: (voter-app/package(-lock)?\.json|\.github/npm-audit-allowlist\.json)$
         pass_filenames: false
 
 # ── Pre-push hooks (slower — run only before git push) ────────────────────────

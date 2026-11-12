@@ -1,0 +1,244 @@
+name: CI Dashboard
+
+# Hourly, and after each CI run on polity or develop: collect every completed workflow run (scripts/ci_dashboard/collect.py),
+# keep the history on the unprotected `ci-data` branch (runs.jsonl, 30 days),
+# and publish the repo's one GitHub Pages site: the public app (the newest release's
+# static-site.zip, attached by release.yml) at its root, with this dashboard
+# (ci-dashboard/index.html + summary.json) under ci/. Disabling this workflow stops
+# the app's deploys too.
+#
+# Schedules only fire from the default branch (develop), so this starts after
+# the next polity -> develop sync. The page and the quality baselines it shows
+# come from polity, the working branch.
+#
+# One-time setup by the owner: Settings -> Pages -> Source: "GitHub Actions".
+# Pushes made with GITHUB_TOKEN start no workflow, so writing `ci-data` here
+# cannot loop.
+
+on: # zizmor: ignore[dangerous-triggers] reads run metadata via the API, never checks out or runs the triggering code
+  # GitHub drops schedule events under load (the hourly slot fired once in its
+  # first seven hours), so a finished CI run on polity or develop also starts a
+  # collection. The names must match each workflow's `name:` exactly: a test
+  # (scripts/tests/test_ci_dashboard_collect.py) locks them to the files.
+  workflow_run:
+    workflows:
+      - Backend CI
+      - Frontend CI
+      - E2E Tests
+      - Security Audit
+      - Generated Artifacts Contract
+      - Mutation Testing
+      - Coverage-Guided Fuzzing (atheris)
+      - DAST — ZAP Baseline
+      - Schemathesis Contract Fuzzing
+      - Backend Flaky Test Hunt
+      - CI Health Watchdog
+      - Workflow Lint
+    types: [completed]
+    branches: [polity, develop]
+  schedule:
+    - cron: "17 * * * *"
+    - cron: "47 6 * * 1" # Mondays: also rebuild the "CI weekly report" issue
+  workflow_dispatch:
+    inputs:
+      weekly:
+        description: Also rebuild the "CI weekly report" issue
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-dashboard
+  cancel-in-progress: false
+
+jobs:
+  # The collector runs repository code with an API token, so it gets a
+  # read-only one and no git credentials. Writing ci-data is a separate job
+  # that runs no repository code: it only commits the collector's output.
+  collect:
+    name: Collect run history
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read # run listings and job logs
+    outputs:
+      history: ${{ steps.history.outputs.exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: polity
+          persist-credentials: false
+      # Only a branch that does not exist (ls-remote exit 2) is a first run.
+      # Any other failure stops here: starting from an empty history would
+      # push a truncated runs.jsonl over the real one.
+      - name: Check out the ci-data history (created on first run)
+        id: history
+        run: |
+          set -euo pipefail
+          rc=0; git ls-remote --exit-code --heads origin ci-data > /dev/null || rc=$?
+          case "$rc" in
+            0) git fetch --quiet --depth 1 origin ci-data
+               git worktree add data FETCH_HEAD
+               echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            2) mkdir data
+               echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::git ls-remote failed ($rc); not collecting onto an empty history"; exit 1 ;;
+          esac
+      - name: Collect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python3 scripts/ci_dashboard/collect.py --data data --days 30 --repo "$REPO"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-data
+          path: |
+            data/runs.jsonl
+            data/summary.json
+          if-no-files-found: error
+          retention-days: 7 # long enough to re-run a failed persist job
+
+  persist:
+    name: Commit the history to ci-data
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # the ci-data branch
+    steps:
+      # Only git runs here; the checkout is for its remote and credentials.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: polity
+          persist-credentials: true # pushes ci-data below
+      - name: Check out the ci-data branch (created on first run)
+        env:
+          HISTORY: ${{ needs.collect.outputs.history }}
+        run: |
+          set -euo pipefail
+          if [ "$HISTORY" = true ]; then
+            git fetch --quiet --depth 1 origin ci-data
+            git worktree add data FETCH_HEAD
+            git -C data switch -c ci-data
+          else
+            git worktree add --orphan -b ci-data data
+          fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ci-data
+          path: data
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          cd data
+          git add runs.jsonl summary.json
+          if git diff --cached --quiet; then echo "No change."; exit 0; fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "ci-data: collect $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push --quiet origin ci-data
+
+  # A repo has one Pages site, and each deploy replaces all of it: it is the app (the
+  # static build, PLAN_BEYOND_CI W6) with this dashboard under ci/. The app is the newest
+  # release's static-site.zip, which release.yml attaches; while a new release is still
+  # building, that is the previous one, so the app never drops out. Before any release
+  # carries one, the dashboard alone, at the root as before. Its own job: a failed release
+  # lookup stops the deploy, not the history or the weekly report.
+  site:
+    name: Assemble the site
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # the releases' assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: polity
+          persist-credentials: false
+          sparse-checkout: ci-dashboard
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ci-data # this run's collection
+          path: data
+      - name: Assemble the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/site"
+          mkdir -p "$site"
+          tag=$(gh api "repos/$REPO/releases" \
+            --jq '[.[] | select(any(.assets[]; .name == "static-site.zip"))][0].tag_name // ""')
+          if [ -n "$tag" ]; then
+            gh release download "$tag" --repo "$REPO" --pattern static-site.zip --dir "$RUNNER_TEMP"
+            unzip -q "$RUNNER_TEMP/static-site.zip" -d "$site"
+            echo "The app: $tag's static-site.zip."
+          else
+            echo "::warning::No release carries static-site.zip yet: publishing the dashboard alone."
+            cp ci-dashboard/index.html data/summary.json "$site/"
+          fi
+          # After the app, so the dashboard is what ci/ holds.
+          mkdir -p "$site/ci"
+          cp ci-dashboard/index.html data/summary.json "$site/ci/"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: [site, persist] # the page never shows data ci-data lacks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  weekly-report:
+    name: Rebuild the CI weekly report issue
+    needs: [collect, persist]
+    if: github.event.schedule == '47 6 * * 1' || inputs.weekly
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: polity
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ci-data # this run's collection, the one persist just committed
+          path: ${{ runner.temp }}/data
+      - name: Write the report and edit the issue in place
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DASHBOARD: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ci/
+        run: |
+          set -euo pipefail
+          python3 scripts/ci_dashboard/weekly_report.py --data "$RUNNER_TEMP/data" \
+            --dashboard "$DASHBOARD" > "$RUNNER_TEMP/report.md"
+          gh label create ci-weekly-report --repo "$REPO" --color 5319e7 \
+            --description "The CI weekly report (ci-dashboard.yml)" 2>/dev/null || true
+          number=$(gh issue list --repo "$REPO" --label ci-weekly-report --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/report.md" > /dev/null
+            echo "Updated #$number."
+          else
+            gh issue create --repo "$REPO" --title "CI weekly report" --label ci-weekly-report \
+              --body-file "$RUNNER_TEMP/report.md"
+          fi

@@ -9,7 +9,7 @@ import pytest
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import EventType, PressureAct
-from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig, load_config
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -27,11 +27,14 @@ from api.domain.polity.simple_rules import (
     declare_candidacy,
     deterministic_pressure_action,
     deterministic_reaction_to_event,
+    FirstChoices,
+    first_choices,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
     sympathizer_ratio,
     vacate_office,
+    without_blank,
 )
 
 
@@ -50,12 +53,18 @@ def _citizen(citizen_id, positions, priorities=None, blank_threshold=0.5, ambiti
 
 _CANDIDACY_CONFIG = CandidacyConfig(
     ambition_threshold=0.7,
-    independent_signature_ratio=0.01,
     rupture_path_enabled=False,
     rupture_base_probability=0.001,
+    rupture_distance_multiplier=0.0,
     rupture_signature_ratio=0.005,
     max_candidates_hard_cap=20,
 )
+
+# Single party whose platform is irrelevant to every pre-existing test below
+# (_CANDIDACY_CONFIG's rupture_distance_multiplier=0.0 zeroes the distance
+# term regardless of its value) -- exists only so attempt_rupture_candidacy's
+# party_affiliation -> platform lookup has something to resolve.
+_ONE_PARTY = [Party(party_id=0, platform=(0.5,))]
 
 
 # ── candidate_label / citizen_id_from_label round-trip ──────────────────────
@@ -124,11 +133,11 @@ def test_decide_candidacy_ignores_the_rupture_path_flag():
 
 def test_attempt_rupture_candidacy_disabled_never_triggers_and_never_draws():
     config = CandidacyConfig(**{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": False})
-    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
     population = [citizen]
     rng = np.random.default_rng(0)
     for _ in range(5):
-        assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+        assert attempt_rupture_candidacy(citizen, population, _ONE_PARTY, config, rng) is False
     # No draw consumed: an untouched rng of the same seed gives the same
     # first value as this one, which was never advanced.
     assert rng.random() == np.random.default_rng(0).random()
@@ -138,10 +147,10 @@ def test_attempt_rupture_candidacy_never_triggers_when_probability_is_zero():
     config = CandidacyConfig(
         **{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": True, "rupture_base_probability": 0.0}
     )
-    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
     population = [citizen]
     rng = np.random.default_rng(0)
-    assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+    assert attempt_rupture_candidacy(citizen, population, _ONE_PARTY, config, rng) is False
 
 
 def test_attempt_rupture_candidacy_requires_the_signature_bar():
@@ -153,12 +162,12 @@ def test_attempt_rupture_candidacy_requires_the_signature_bar():
             "rupture_signature_ratio": 0.5,
         }
     )
-    citizen = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.01)
+    citizen = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.01, party_affiliation=0)
     # Only the citizen themself is a sympathizer (distance 0); everyone
     # else is far outside their own tolerance of citizen's position.
     population = [citizen] + [_citizen(i, (1.0,), priorities=(1.0,), blank_threshold=0.01) for i in range(2, 6)]
     rng = np.random.default_rng(0)
-    assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+    assert attempt_rupture_candidacy(citizen, population, _ONE_PARTY, config, rng) is False
 
 
 def test_attempt_rupture_candidacy_succeeds_when_probability_and_signature_bar_clear():
@@ -170,11 +179,11 @@ def test_attempt_rupture_candidacy_succeeds_when_probability_and_signature_bar_c
             "rupture_signature_ratio": 0.5,
         }
     )
-    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
     # Everyone tolerates everyone (blank_threshold=1.0 spans the whole space).
     population = [citizen] + [_citizen(i, (0.0,), priorities=(1.0,), blank_threshold=1.0) for i in range(2, 6)]
     rng = np.random.default_rng(0)
-    assert attempt_rupture_candidacy(citizen, population, config, rng) is True
+    assert attempt_rupture_candidacy(citizen, population, _ONE_PARTY, config, rng) is True
 
 
 # ── ballot_access_signature_ratio (ADR-003 fix) ──────────────────────────
@@ -213,11 +222,64 @@ def test_attempt_rupture_candidacy_rejects_a_fully_isolated_citizen_at_the_shipp
     config = CandidacyConfig(
         **{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": True, "rupture_base_probability": 1.0}
     )
-    isolated = _citizen(1, (0.0,), blank_threshold=0.0)
+    isolated = _citizen(1, (0.0,), blank_threshold=0.0, party_affiliation=0)
     others = [_citizen(i, (1.0,), blank_threshold=0.0) for i in range(2, 102)]
     population = [isolated] + others
     rng = np.random.default_rng(0)
-    assert attempt_rupture_candidacy(isolated, population, config, rng) is False
+    assert attempt_rupture_candidacy(isolated, population, _ONE_PARTY, config, rng) is False
+
+
+# ── rupture_distance_multiplier (Points ouverts #1, plan-rupture-candidacy-
+#    threshold.md) ────────────────────────────────────────────────────────
+
+def test_attempt_rupture_candidacy_probability_unchanged_at_zero_distance():
+    # A citizen sitting exactly on their own affiliated party's platform has
+    # weighted_distance 0 -- the multiplier term (1 + k*0) == 1 regardless of
+    # k, so the effective probability must match a config with the
+    # multiplier off (0.0) exactly: distance-0 behavior is byte-identical to
+    # pre-this-change v1, whatever k is.
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
+    on_platform = [Party(party_id=0, platform=(0.5,))]
+    population = [citizen]
+    base = dict(
+        _CANDIDACY_CONFIG.__dict__,
+        rupture_path_enabled=True,
+        rupture_base_probability=0.3,
+        rupture_signature_ratio=0.0,
+    )
+    multiplier_off = CandidacyConfig(**{**base, "rupture_distance_multiplier": 0.0})
+    multiplier_on_but_no_distance = CandidacyConfig(**{**base, "rupture_distance_multiplier": 2.0})
+    result_off = attempt_rupture_candidacy(citizen, population, on_platform, multiplier_off, np.random.default_rng(0))
+    result_on = attempt_rupture_candidacy(
+        citizen, population, on_platform, multiplier_on_but_no_distance, np.random.default_rng(0)
+    )
+    assert result_off == result_on
+
+
+def test_attempt_rupture_candidacy_probability_scales_up_with_distance_to_affiliated_party():
+    # np.random.default_rng(0).random() draws 0.6369616873214543 first.
+    # base=0.3 alone: 0.3 <= draw, coin flip lost. At maximal distance (1.0,
+    # single dimension, priority 1.0) with multiplier=2.0: effective
+    # probability = 0.3 * (1 + 2*1.0) = 0.9 > draw, coin flip won. Same seed,
+    # same base probability -- only the citizen's distance to their own
+    # party changes, which must be what flips the outcome.
+    aligned = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
+    disagreeing = _citizen(2, (0.0,), priorities=(1.0,), blank_threshold=1.0, party_affiliation=0)
+    far_party = [Party(party_id=0, platform=(1.0,))]
+    config = CandidacyConfig(
+        **{
+            **_CANDIDACY_CONFIG.__dict__,
+            "rupture_path_enabled": True,
+            "rupture_base_probability": 0.3,
+            "rupture_distance_multiplier": 2.0,
+            "rupture_signature_ratio": 0.0,
+        }
+    )
+    on_platform = [Party(party_id=0, platform=(0.0,))]  # aligned's own party: distance 0
+    assert attempt_rupture_candidacy(aligned, [aligned], on_platform, config, np.random.default_rng(0)) is False
+    assert (
+        attempt_rupture_candidacy(disagreeing, [disagreeing], far_party, config, np.random.default_rng(0)) is True
+    )
 
 
 # ── select_party_nominee ──────────────────────────────────────────────────
@@ -291,6 +353,15 @@ def test_declare_candidacy_pins_revealed_position_to_pledged_platform():
     assert citizen.role == Role.CANDIDATE
     assert citizen.pledged_platform == (0.2, 0.8)
     assert citizen.revealed_position == citizen.pledged_platform
+
+
+def test_declare_candidacy_keeping_the_record_runs_a_former_president_on_their_conduct():
+    former = _citizen(1, (0.2, 0.8), mandates_served=1, revealed_position=(0.6, 0.4))
+    newcomer = _citizen(2, (0.2, 0.8), revealed_position=(0.6, 0.4))
+    declare_candidacy(former, keep_record=True)
+    declare_candidacy(newcomer, keep_record=True)
+    assert (former.pledged_platform, former.revealed_position) == ((0.6, 0.4), (0.6, 0.4))
+    assert (newcomer.pledged_platform, newcomer.revealed_position) == ((0.2, 0.8), (0.2, 0.8))
 
 
 # ── vacate_office ─────────────────────────────────────────────────────────
@@ -498,6 +569,7 @@ def test_electoral_only_at_or_above_blank_threshold_is_wait_for_election():
     assert deterministic_pressure_action(citizen, gap=0.9, menu=_ELECTORAL_ONLY_MENU) == PressureAct.WAIT_FOR_ELECTION
 
 
+@pytest.mark.behavior("CIT-09")
 def test_electoral_only_never_returns_a_petition_or_mobilize_act():
     for gap in (0.0, 0.1, 0.3, 0.5, 0.9, 1.0):
         citizen = _citizen(1, (0.5,), blank_threshold=0.3)
@@ -656,3 +728,18 @@ def test_deterministic_reaction_to_event_economic_shock_uses_absolute_magnitude(
     positive = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.5)
     negative = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=-0.5)
     assert positive == pytest.approx(negative)
+
+
+def test_without_blank_drops_the_blank_from_every_ranking_and_discards_a_ballot_left_empty():
+    ballots = [["c1", BLANK_LABEL, "c2"], [BLANK_LABEL, "c2", "c1"], [BLANK_LABEL], ["c2", "c1", BLANK_LABEL]]
+    assert without_blank(ballots) == [["c1", "c2"], ["c2", "c1"], ["c2", "c1"]]
+    assert ballots[0] == ["c1", BLANK_LABEL, "c2"]  # the cast ballots are left as cast
+
+
+def test_the_poll_reads_a_voters_first_candidate_when_the_blank_is_not_a_choice():
+    voters = [_citizen(i, (0.0,), blank_threshold=0.0) for i in range(4)]  # every candidate is beyond their tolerance
+    candidate = _citizen(10, (0.9,), blank_threshold=0.5)
+    declare_candidacy(candidate)
+    vote = load_config().vote
+    assert first_choices(voters, [candidate], vote, blank_enabled=True).blank == 1.0
+    assert first_choices(voters, [candidate], vote, blank_enabled=False) == FirstChoices(shares={10: 1.0}, blank=0.0, abstain=0.0)

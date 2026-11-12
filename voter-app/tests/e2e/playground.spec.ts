@@ -58,6 +58,20 @@ test.describe('Playground — the instrument', () => {
     await expect(winner).not.toBeEmpty();
   });
 
+  test('the winner strip names a winner on every moment, the same as the map', async ({ page }) => {
+    const strip = page.locator('[data-testid="winner-strip-current"] strong');
+    for (const moment of ['electorate', 'method', 'strategy', 'campaign', 'bilan']) {
+      await page.locator(`[data-testid="moment-${moment}"]`).click();
+      await expect(strip, `no winner on ${moment}`).not.toBeEmpty();
+    }
+    await page.locator('[data-testid="moment-method"]').click();
+    const field = page.locator('[data-testid="field-winner"] strong').first();
+    await expect(strip).toHaveText((await field.textContent()) ?? '');
+
+    await page.locator('[data-testid="mode-toggle-parliament"]').click();
+    await expect(page.locator('[data-testid="winner-strip"]')).toHaveCount(0);
+  });
+
   test('the Bilan moment reports which methods elect whom', async ({ page }) => {
     await page.locator('[data-testid="moment-bilan"]').click();
     await expect(page.locator('[data-testid="bilan-verdict"]')).toBeVisible();

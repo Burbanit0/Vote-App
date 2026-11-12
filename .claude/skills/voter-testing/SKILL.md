@@ -208,7 +208,7 @@ CLAUDE.md states the rule; this is what it looks like in a real spec.
 
   ```ts
   export const ANCHORS: Record<Surface, string> = {
-    '/': '[data-tour="hero"]',
+    '/': '[data-testid="home-hero"]',
     '/playground': '[data-testid="playground-page"]',
     '/laboratoire': '[data-testid="lab-family-rail"]',
     // ...

@@ -46,9 +46,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
       {/* Weights (not rendered while the identity dial drives them) */}
       {granular && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('values.weightsTitle')}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground">{t('values.weightsTitle')}</p>
           {axisKeys.map((k) => (
             <label key={k} className="flex items-center gap-2 text-xs">
               <span className="w-36 shrink-0 truncate text-muted-foreground" title={axisLabels[k]}>

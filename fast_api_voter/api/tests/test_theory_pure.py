@@ -25,6 +25,8 @@ _democratic_backsliding_worker.
 """
 from __future__ import annotations
 
+from typing import Any, Dict
+
 import pytest
 
 from api.domain.theory.workers import (

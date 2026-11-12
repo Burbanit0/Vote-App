@@ -16,6 +16,7 @@
     "voter-app/src/**/*.test.ts",
     "voter-app/src/**/*.test.tsx",
     "**/i18n/locales/**",
-    "**/__fixtures__/**"
+    "**/__fixtures__/**",
+    "voter-app/src/data/method_criteria.json"
   ]
 }

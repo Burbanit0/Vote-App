@@ -17,9 +17,7 @@ const GuessPrompt: React.FC<{
   const { t } = useTranslation();
   return (
     <section data-testid="play-guess" className="rounded-lg border border-dashed border-border p-3">
-      <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-        {t('play.guess.kicker')}
-      </p>
+      <p className="text-[15px] font-bold text-primary">{t('play.guess.kicker')}</p>
       <p className="mt-0.5 text-sm text-muted-foreground">{t('play.guess.prompt')}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {candidates.map((c, i) => (

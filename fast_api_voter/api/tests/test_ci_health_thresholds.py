@@ -101,7 +101,7 @@ def _update_output(watchdog, monkeypatch, tmp_path, age_hours):
     snapshot.write_text(json.dumps({
         "generated_at": _iso(age_hours),
         "workflows": {wf: dict(healthy) for wf in watchdog.WATCHED_WORKFLOWS},
-        "branch_protection": {"status": "healthy", "detail": ""},
+        **{key: {"status": "healthy", "detail": ""} for key in watchdog.PROTECTED_BRANCHES},
     }))
     output = tmp_path / "github_output"
     output.unlink(missing_ok=True)  # cmd_update appends; one decision per call
@@ -110,7 +110,7 @@ def _update_output(watchdog, monkeypatch, tmp_path, age_hours):
     monkeypatch.setattr(watchdog, "SNAPSHOT_PATH", snapshot)
     monkeypatch.setattr(watchdog, "query_workflow_health", lambda wf: dict(healthy))
     monkeypatch.setattr(watchdog, "check_branch_protection_drift",
-                        lambda: {"status": "healthy", "detail": ""})
+                        lambda branch: {"status": "healthy", "detail": ""})
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
     assert watchdog.cmd_update(argparse.Namespace()) == 0
     return output.read_text().strip()
@@ -137,3 +137,184 @@ def test_a_dead_audit_is_still_caught(watchdog, verify):
     assert verify(watchdog.AUDIT_STALE_HOURS - 1) == 0
     assert verify(watchdog.AUDIT_STALE_HOURS + 1) == 1
     assert verify(2 * watchdog.HEARTBEAT_MAX_DAYS * 24) == 1
+
+
+def test_the_review_gate_develop_requires_is_expected_not_drift(watchdog):
+    """protect_develop() appends `High-risk review gate` to the shared context list
+    (setup-branch-protection.sh); the drift check read REQUIRED_CONTEXTS alone, so
+    the correctly applied protection would have reported as drifted and turned
+    "CI health check" red on every PR to develop and main."""
+    contexts, strict = watchdog.parse_setup_script_expectations()
+    assert strict
+    assert "High-risk review gate" in contexts
+    assert contexts.count("High-risk review gate") == 1
+    assert "CI health check" in contexts  # the shared list is still there
+
+
+def test_each_branch_expects_what_the_setup_script_applies(watchdog):
+    """Read through the script's own --print-contexts: polity requires the CI
+    health check (ci-health.yml runs on PRs to it), polity-ui can't; polity and
+    develop require Workflow lint."""
+    develop, _ = watchdog.parse_setup_script_expectations("develop")
+    polity, strict = watchdog.parse_setup_script_expectations("polity")
+    polity_ui, _ = watchdog.parse_setup_script_expectations("polity-ui")
+    assert strict
+    assert sorted(polity) == sorted(develop)
+    assert "CI health check" in polity and "High-risk review gate" in polity
+    assert "CI health check" not in polity_ui
+    # Workflow lint runs on PRs to polity and develop only (workflow-lint.yml).
+    assert "Workflow lint" in polity and "Workflow lint" in develop
+    assert "Workflow lint" not in polity_ui
+
+
+def _verify_with(watchdog, monkeypatch, tmp_path, protections, snoozes=None):
+    monkeypatch.setattr(watchdog, "_now", lambda: NOW)
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text(json.dumps({"generated_at": _iso(1), "workflows": {}, **protections}))
+    snooze_file = tmp_path / "snoozes.json"
+    snooze_file.write_text(json.dumps(snoozes or {}))
+    monkeypatch.setattr(sys, "argv", [
+        "check_ci_health.py", "--verify", "--snapshot", str(snapshot), "--snoozes", str(snooze_file),
+    ])
+    return watchdog.main()
+
+
+def test_polity_drift_fails_the_check_and_has_its_own_snooze(watchdog, monkeypatch, tmp_path):
+    healthy = {"status": "healthy", "detail": ""}
+    drifted = {"status": "drifted", "detail": "missing live required contexts: ['CI health check']"}
+    both = {"branch_protection": healthy, "branch_protection_polity": drifted}
+    assert _verify_with(watchdog, monkeypatch, tmp_path, both) == 1
+    # develop's snooze key does not cover polity, polity's does.
+    snooze = {"until": "2026-10-01", "reason": "x"}
+    assert _verify_with(watchdog, monkeypatch, tmp_path, both, {"branch-protection": snooze | {"until": "2026-12-31"}}) == 1
+    assert _verify_with(watchdog, monkeypatch, tmp_path, both, {"branch-protection-polity": snooze | {"until": "2026-12-31"}}) == 0
+
+
+def test_main_is_checked_without_strict_and_has_its_own_snooze(watchdog, monkeypatch, tmp_path):
+    """main's protection is checked too: the same base contexts as develop
+    minus the review gate and Workflow lint (they never run on PRs to main),
+    and strict off (protect_main explains why). Drift fails the check, and
+    only main's own snooze key silences it."""
+    develop, _ = watchdog.parse_setup_script_expectations("develop")
+    main, strict = watchdog.parse_setup_script_expectations("main")
+    assert not strict
+    assert sorted(main) == sorted(c for c in develop if c not in {"High-risk review gate", "Workflow lint"})
+    healthy = {"status": "healthy", "detail": ""}
+    drifted = {"status": "drifted", "detail": "missing live required contexts: ['Playwright E2E']"}
+    snap = {"branch_protection": healthy, "branch_protection_polity": healthy,
+            "branch_protection_main": drifted}
+    assert _verify_with(watchdog, monkeypatch, tmp_path, snap) == 1
+    snooze = {"until": "2026-12-31", "reason": "x"}
+    assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection": snooze}) == 1
+    assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection-polity": snooze}) == 1
+    assert _verify_with(watchdog, monkeypatch, tmp_path, snap, {"branch-protection-main": snooze}) == 0
+
+
+def test_a_branch_without_a_protect_function_is_an_error_not_a_guess(watchdog, monkeypatch):
+    """A branch the map doesn't know must not inherit another branch's strict flag."""
+    monkeypatch.delitem(watchdog.PROTECT_FUNCTIONS, "main")
+    with pytest.raises(ValueError, match="no protect function for main"):
+        watchdog.parse_setup_script_expectations("main")
+    assert watchdog.check_branch_protection_drift("main")["status"] == "unhealthy"
+
+
+@pytest.mark.parametrize(
+    ("app_var", "branch", "live_app", "expected"),
+    [
+        ("", "polity", -1, "healthy"),  # no App configured: any source, as before
+        ("424242", "polity", 424242, "healthy"),  # pinned to the configured App
+        ("424242", "polity", -1, "drifted"),  # App configured, gate left unpinned
+        ("424242", "develop", 15368, "drifted"),  # pinned to another app (Actions)
+        ("424242", "main", None, "healthy"),  # main never requires the gate
+        (" 424242\n", "polity", 424242, "healthy"),  # a pasted variable's whitespace
+    ],
+)
+def test_the_review_gate_must_be_pinned_to_the_configured_app(
+    watchdog, monkeypatch, app_var, branch, live_app, expected
+):
+    """Phase 3b: with REVIEW_GATE_APP_ID set, an unpinned (or wrongly pinned)
+    gate is drift, since any workflow's GITHUB_TOKEN could then satisfy it."""
+    assert watchdog.review_gate_name() == "High-risk review gate"  # read from the script
+    contexts, strict = watchdog.parse_setup_script_expectations(branch)
+    checks = [
+        {"context": c, "app_id": live_app if c == watchdog.review_gate_name() else -1} for c in contexts
+    ]
+    live = {"required_status_checks": {"strict": strict, "checks": checks}}
+    monkeypatch.setattr(watchdog, "_run_gh_json", lambda _args: live)
+    monkeypatch.setenv("REVIEW_GATE_APP_ID", app_var)
+    result = watchdog.check_branch_protection_drift(branch)
+    assert result["status"] == expected, result
+    if expected == "drifted":
+        assert "REVIEW_GATE_APP_ID" in result["detail"]
+
+
+def test_a_snapshot_from_before_polity_was_checked_still_verifies(watchdog, monkeypatch, tmp_path):
+    """PRs read develop's snapshot, which predates this check until the next audit."""
+    assert _verify_with(watchdog, monkeypatch, tmp_path, {"branch_protection": {"status": "healthy"}}) == 0
+
+
+def test_runs_from_both_branches_count_once_each(watchdog, monkeypatch):
+    """Scheduled deep-test runs report develop; pushes to polity report polity."""
+    monkeypatch.setattr(watchdog, "_now", lambda: NOW)
+    runs = {
+        "develop": [{"databaseId": 1, "status": "completed", "conclusion": "failure", "createdAt": _iso(30), "event": "schedule"}],
+        "polity": [{"databaseId": 2, "status": "completed", "conclusion": "failure", "createdAt": _iso(2), "event": "push"},
+                   {"databaseId": 1, "status": "completed", "conclusion": "failure", "createdAt": _iso(30), "event": "schedule"}],
+    }
+    monkeypatch.setattr(watchdog, "_run_gh_json",
+                        lambda args: runs[next(a for a in args if a.startswith("--branch=")).split("=", 1)[1]])
+    health = watchdog.query_workflow_health("flaky-check-backend.yml")
+    assert health["recent_conclusions"] == ["failure", "failure"]
+    assert health["status"] == "unhealthy"
+
+
+def test_the_security_audit_is_judged_on_its_scheduled_runs_alone(watchdog, monkeypatch):
+    """audit.yml runs on every push and PR, which scan only new commits; their
+    green buried the weekly full-history Secret Scan failing four Mondays
+    running. Its runs are queried with --event=schedule, the others' are not."""
+    monkeypatch.setattr(watchdog, "_now", lambda: NOW)
+    queried: list[list[str]] = []
+    scheduled = [{"databaseId": 1, "status": "completed", "conclusion": "failure", "createdAt": _iso(24), "event": "schedule"},
+                 {"databaseId": 2, "status": "completed", "conclusion": "failure", "createdAt": _iso(192), "event": "schedule"}]
+    pushes = [{"databaseId": 3, "status": "completed", "conclusion": "success", "createdAt": _iso(1), "event": "push"}]
+
+    def fake_gh(args):
+        queried.append(args)
+        return scheduled if "--event=schedule" in args else pushes + scheduled
+
+    monkeypatch.setattr(watchdog, "_run_gh_json", fake_gh)
+    health = watchdog.query_workflow_health("audit.yml")
+    assert health["status"] == "unhealthy"
+    assert health["expected_cadence_hours"] == 24 * 7
+    assert all("--event=schedule" in args for args in queried)
+    assert {a for args in queried for a in args if a.startswith("--branch=")} == {f"--branch={watchdog.BRANCH}"}
+
+    queried.clear()
+    watchdog.query_workflow_health("dast.yml")
+    assert not any("--event=schedule" in args for args in queried)
+
+
+def test_an_unreadable_expectation_is_reported_not_crashed(watchdog, monkeypatch, tmp_path):
+    """--update must still write the snapshot (workflow health included) when the
+    setup script can't print a branch's contexts, e.g. jq missing."""
+    broken = tmp_path / "setup.sh"
+    broken.write_text("echo 'jq: command not found' >&2; exit 127\n")
+    monkeypatch.setattr(watchdog, "SETUP_BRANCH_PROTECTION", broken)
+    result = watchdog.check_branch_protection_drift("polity")
+    assert result["status"] == "unhealthy"
+    assert "jq: command not found" in result["detail"]
+
+
+def test_every_branch_requiring_workflow_lint_triggers_it_on_prs(watchdog):
+    """A required check nothing posts blocks every PR forever (PR #205): each
+    branch whose contexts include "Workflow lint" must be a pull_request branch
+    of workflow-lint.yml."""
+    import yaml
+
+    workflow = SCRIPT.parents[1] / ".github" / "workflows" / "workflow-lint.yml"
+    triggers = yaml.safe_load(workflow.read_text(encoding="utf-8"))[True]  # `on:` parses as True
+    pr_branches = set(triggers["pull_request"]["branches"])
+    requiring = {b for b in ("main", "develop", "polity", "polity-ui")
+                 if "Workflow lint" in watchdog.parse_setup_script_expectations(b)[0]}
+    assert requiring == {"develop", "polity"}
+    assert requiring <= pr_branches

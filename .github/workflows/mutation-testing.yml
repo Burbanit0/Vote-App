@@ -33,7 +33,7 @@ on:
   # moves, so this runs exactly when it has something new to say — which is
   # a better rule than "every Monday" anyway.
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
       - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
@@ -48,9 +48,14 @@ on:
 
 # A full pass is ~40 min per engine. Two engine merges in quick succession would
 # otherwise queue two runs whose only difference is the older one being obsolete.
+# Scheduled runs test polity: their own group, so a develop push can't cancel them.
 concurrency:
-  group: mutation-${{ github.ref }}
+  group: mutation-${{ github.event_name == 'schedule' && 'schedule-polity' || github.ref }}
   cancel-in-progress: true
+
+# Both jobs only read the code and upload artifacts: read-only token.
+permissions:
+  contents: read
 
 jobs:
   mutmut:
@@ -61,22 +66,26 @@ jobs:
     timeout-minutes: 210
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
       # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements.txt
-          uv pip install --system -r fast_api_voter/requirements-dev.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
       # Scope (which files get mutated, which tests run) lives entirely in
       # fast_api_voter/pyproject.toml's [tool.mutmut] — this step just runs it.
@@ -121,12 +130,36 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload mutmut cache (survivor details, for local mutmut show)
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      # mutmut 3 keeps its results in mutants/ (the .meta files `mutmut show`
+      # reads, next to the mutated sources); .mutmut-cache was mutmut 2's
+      # file, so until 2026-10-06 this step uploaded nothing, silently, on
+      # every run. The log is the only place the score lives, and the input
+      # `check_mutation_score.sh <log> --update` needs to raise the baseline
+      # (that script already refuses a partial log: done != total). Checked
+      # here first so a missing half fails visibly instead of uploading the
+      # other half alone; skipped when mutmut never ran, so an install
+      # failure isn't reported twice.
+      - name: Check the mutmut log and results exist
+        if: always() && steps.mutmut.outcome != 'skipped'
+        working-directory: fast_api_voter
+        run: |
+          test -s mutmut-run.log || { echo "::error::mutmut-run.log missing or empty"; exit 1; }
+          [ -n "$(find mutants -name '*.meta' -print -quit 2>/dev/null)" ] \
+            || { echo "::error::no mutants/**/*.meta: mutmut 3 wrote no results"; exit 1; }
+
+      # The mutated sources, not the whole copied tree: no tests, bytecode,
+      # or pytest/hypothesis caches (no hidden files) in a public artifact.
+      - name: Upload mutmut log and results (score + survivor details)
+        if: always() && steps.mutmut.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutmut-cache
-          path: fast_api_voter/.mutmut-cache
+          name: mutmut-results
+          path: |
+            fast_api_voter/mutmut-run.log
+            fast_api_voter/mutants/**/*.meta
+            fast_api_voter/mutants/api/**/*.py
+            !fast_api_voter/mutants/api/tests/**
+          if-no-files-found: error
           retention-days: 30
 
   stryker:
@@ -144,7 +177,12 @@ jobs:
     timeout-minutes: 240
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Scheduled runs use develop's copy of this file (the default branch);
+          # test polity, the working branch, rather than develop's older tree.
+          ref: ${{ github.event_name == 'schedule' && 'polity' || '' }}
 
       # @stryker-mutator/core@10.0.0 hard-requires Node >=22 (it throws before
       # running a single mutant otherwise) -- satisfied by the project-wide
@@ -156,9 +194,9 @@ jobs:
       # straight from continue-on-error to a hard `thresholds.break` fail on its
       # very first scheduled/push run, and both looked identical to a genuine
       # mutation-score regression until the log was read.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -176,7 +214,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: voter-app/.stryker-tmp/incremental.json
-          key: stryker-incremental-${{ github.sha }}
+          # Per run, not per github.sha: a scheduled run tests polity while
+          # github.sha is develop's tip, so a sha key would hit and never save.
+          key: stryker-incremental-${{ github.run_id }}
           restore-keys: |
             stryker-incremental-
 
@@ -201,7 +241,7 @@ jobs:
 
       - name: Upload HTML mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stryker-report
           path: voter-app/reports/mutation

@@ -59,6 +59,7 @@ from .simulation_score_utils import (
     get_star_voting_winner,
     get_variance_based_winner,
 )
+from .tie_lot import ranking
 
 
 class UnknownMethod(ValueError):
@@ -135,8 +136,11 @@ def rule_winner(
     method: str,
     rankings: Optional[List[List[str]]] = None,
     scores: Optional[Sequence[Mapping[str, float]]] = None,
+    *,
+    seed: object = 0,
 ) -> Optional[str]:
-    """The winner under `method`, or None if the rule elects nobody.
+    """The winner under `method`, or None if the rule elects nobody. A score rule draws
+    an exact tie by the lot seeded with `seed` (the request's), not by the listing order.
 
     Raises `UnknownMethod` for a name no rule answers to, and for a rule whose
     ballots the caller did not pass (a score rule needs `scores`).
@@ -148,7 +152,7 @@ def rule_winner(
     if method in SCORE_RULES:
         if scores is None:
             raise UnknownMethod(f"{method!r} is a score rule but no score ballots were given")
-        result = SCORE_RULES[method](scores)
+        result = SCORE_RULES[method](scores, seed=seed)
         winner = result.get("winner") if isinstance(result, dict) else result
         return str(winner) if winner else None
     raise UnknownMethod(f"unknown voting method {method!r} -- supported: {', '.join(supported())}")
@@ -166,19 +170,20 @@ UTILITY_METHODS: tuple[str, ...] = (
 def rankings_from_utilities(
     utilities: Mapping[Any, Mapping[str, float]], voters: Sequence[Mapping[str, Any]]
 ) -> List[List[str]]:
-    """Each voter's candidates, their favourite first."""
-    return [
-        sorted(utilities[v["id"]].keys(), key=lambda n: -utilities[v["id"]][n])
-        for v in voters
-    ]
+    """Each voter's candidates, their favourite first; a tie of their own is ordered by
+    a lot seeded with their id, not by the listing order (#662)."""
+    return [ranking(utilities[v["id"]], utilities[v["id"]].__getitem__, v["id"]) for v in voters]
 
 
 def winner_from_utilities(
     method: str,
     utilities: Mapping[Any, Mapping[str, float]],
     voters: Sequence[Mapping[str, Any]],
+    *,
+    seed: object = 0,
 ) -> Optional[str]:
-    """The winner under `method`, read off a voter -> candidate -> utility map.
+    """The winner under `method`, read off a voter -> candidate -> utility map; `seed`
+    seeds a score rule's tie lot (see `rule_winner`).
 
     Five dispatchers each rebuilt this: rankings from the utilities, 0-5 score
     ballots from the same, an if-chain over method names, and a silent
@@ -206,12 +211,12 @@ def winner_from_utilities(
         return get_approval_winner_sincere({v["id"]: utilities[v["id"]] for v in voters})
     if method == "majority_judgment":
         # Also utility-native: MJ grades on the raw values, not a 0-5 rounding.
-        raw = SCORE_RULES[method]([dict(utilities[v["id"]]) for v in voters])
+        raw = SCORE_RULES[method]([dict(utilities[v["id"]]) for v in voters], seed=seed)
         return str(raw["winner"]) if raw.get("winner") else None
     if method in SCORE_RULES:
         scores = [
             {n: max(0, min(5, round(5 * val))) for n, val in utilities[v["id"]].items()}
             for v in voters
         ]
-        return rule_winner(method, scores=scores)
+        return rule_winner(method, scores=scores, seed=seed)
     return rule_winner(method, rankings_from_utilities(utilities, voters))

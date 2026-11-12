@@ -1,0 +1,318 @@
+/**
+ * lib/polity/mapScene.ts — what the population map draws at one tick, pure
+ * (ADR-013).
+ *
+ * The scene is computed once per tick, lens, selection and size, then drawn by
+ * drawScene on the canvas and by the SVG overlay above it. Both read the
+ * same pixel projection, so a citizen's point and their selection ring can't
+ * drift apart. Every code has a shape as well as a colour, so the map reads
+ * without colour and in print.
+ */
+import type { PolityLens } from './urlState';
+
+export type PointShape = 'circle' | 'ring' | 'square' | 'triangle' | 'diamond' | 'cross';
+
+/** Okabe–Ito: distinguishable under the common colour-vision deficiencies. */
+export const MAP_COLORS = {
+  muted: '#9ca3af',
+  faint: '#d1d5db',
+  orange: '#e69f00',
+  sky: '#56b4e9',
+  green: '#009e73',
+  blue: '#0072b2',
+  vermillion: '#d55e00',
+  purple: '#cc79a7',
+  black: '#1f2937',
+} as const;
+export type MapColor = keyof typeof MAP_COLORS;
+
+/** Dark mode's own steps, chosen rather than flipped, and validated with the dataviz checks against
+ * the dark page (#0f1722), every pair compared since any two parties can share the map. The light
+ * steps of orange, purple and sky sat above the dark lightness band, and darkening them alone made
+ * them collide with their Okabe-Ito partners (sky with blue, purple with green under deuteranopia,
+ * orange with vermillion), so each pair is pushed to opposite ends of the band instead: worst normal
+ * ΔE 16.5, worst colour-blind ΔE 8.6, every hue kept so a party is the same colour in both modes.
+ * The neutrals keep their order rather than their values: `faint` must still recede and `black`, a
+ * blank vote, still stand out -- so on a dark page `black` is the light foreground ink. */
+export const MAP_COLORS_DARK: Readonly<Record<MapColor, string>> = {
+  muted: '#9aa7b8', // --muted-foreground
+  faint: '#4b5768',
+  orange: '#bb8d09',
+  sky: '#3c9cd0',
+  green: '#078964',
+  blue: '#03639a',
+  vermillion: '#ac4b02',
+  purple: '#c2709e',
+  black: '#e6e9ef', // --foreground
+};
+
+/** The map's colours for the page's theme. */
+export const mapColors = (dark: boolean): Readonly<Record<MapColor, string>> =>
+  dark ? MAP_COLORS_DARK : MAP_COLORS;
+
+/** Six colours that pass the dataviz palette checks against the page. Okabe-Ito's yellow sits
+ * outside the light-mode lightness band, at 1.2:1 against the paper, so it is not a party colour. */
+const PARTY_COLORS: readonly MapColor[] = [
+  'blue',
+  'orange',
+  'green',
+  'purple',
+  'sky',
+  'vermillion',
+];
+/** Past six parties at once, the shape tells them apart: the filled shapes first, the cross last. */
+const PARTY_SHAPES: readonly PointShape[] = ['circle', 'square', 'triangle', 'diamond', 'cross'];
+
+export interface PartyStyle {
+  shape: PointShape;
+  color: MapColor;
+}
+
+const partyStyleAt = (slot: number): PartyStyle => ({
+  color: PARTY_COLORS[slot % PARTY_COLORS.length],
+  shape: PARTY_SHAPES[Math.floor(slot / PARTY_COLORS.length) % PARTY_SHAPES.length],
+});
+
+/**
+ * Every party's colour and shape, for the whole run. A party keeps its style from its first
+ * census with members to its last, and two parties alive at the same time never share one:
+ * each party, in order of appearance, takes the first style no party overlapping its life holds.
+ * With no more parties at once than colours, every party is a dot of its own colour; shapes
+ * come in only past that. A party no census shows is styled by its id.
+ */
+export function partyStyles(
+  censuses: readonly { parties: readonly (number | null)[] }[]
+): (party: number) => PartyStyle {
+  const lives = new Map<number, [number, number]>(); // party -> its first and last census
+  censuses.forEach((census, i) => {
+    for (const party of census.parties) {
+      if (party === null) continue;
+      const life = lives.get(party);
+      if (life) life[1] = i;
+      else lives.set(party, [i, i]);
+    }
+  });
+  const slots = new Map<number, number>();
+  const placed: { life: [number, number]; slot: number }[] = [];
+  for (const [party, life] of [...lives].sort((a, b) => a[1][0] - b[1][0] || a[0] - b[0])) {
+    const taken = new Set(
+      placed.filter((p) => p.life[0] <= life[1] && life[0] <= p.life[1]).map((p) => p.slot)
+    );
+    let slot = 0;
+    while (taken.has(slot)) slot += 1;
+    slots.set(party, slot);
+    placed.push({ life, slot });
+  }
+  return (party) => partyStyleAt(slots.get(party) ?? party);
+}
+
+export interface MapPoint {
+  id: number;
+  x: number;
+  y: number;
+  shape: PointShape;
+  color: MapColor;
+  /** The legend entry this point counts toward. */
+  legend: string;
+  /** The citizen's party at the census in force. */
+  party: number | null;
+}
+
+export interface LegendEntry {
+  key: string;
+  shape: PointShape;
+  color: MapColor;
+  count: number;
+}
+
+interface FrameCodes {
+  status: readonly number[];
+  chamber: readonly number[];
+  act: readonly number[];
+  vote: readonly number[];
+  candidacy: readonly number[];
+}
+
+export interface SceneInput {
+  citizens: readonly (readonly number[])[];
+  frame: FrameCodes;
+  citizenParties: readonly (number | null)[];
+  /** The run's party styles (partyStyles), so a party looks the same at every tick. */
+  partyStyle: (party: number) => PartyStyle;
+  parties: readonly { party_id: number; xy: readonly number[] }[];
+  president: {
+    citizen_id: number;
+    xy: readonly number[];
+    pledged_xy?: readonly number[] | null;
+  } | null;
+}
+
+export interface Scene {
+  width: number;
+  height: number;
+  points: MapPoint[];
+  legend: LegendEntry[];
+  parties: { partyId: number; x: number; y: number; color: MapColor }[];
+  president: {
+    id: number;
+    x: number;
+    y: number;
+    pledgedX: number | null;
+    pledgedY: number | null;
+  } | null;
+  /** Pixel position of a map coordinate (for the SVG overlay and axes). */
+  project: (xy: readonly number[]) => [number, number];
+}
+
+export const MAP_PADDING = 24;
+
+type Style = [legend: string, shape: PointShape, color: MapColor];
+
+const ACTIVITY: Record<number, Style> = {
+  0: ['elector', 'circle', 'muted'],
+  1: ['candidate', 'triangle', 'orange'],
+  2: ['elected', 'diamond', 'vermillion'],
+};
+const ACT: Record<number, Style> = {
+  [-1]: ['notConsulted', 'circle', 'faint'],
+  0: ['nothing', 'ring', 'muted'],
+  1: ['signPetition', 'diamond', 'sky'],
+  2: ['launchPetition', 'triangle', 'blue'],
+  3: ['mobilize', 'square', 'vermillion'],
+  4: ['waitForElection', 'cross', 'green'],
+};
+const VOTE: Record<number, Style> = {
+  [-1]: ['noBallot', 'circle', 'faint'],
+  0: ['blank', 'ring', 'black'],
+  1: ['forWinner', 'circle', 'green'],
+  2: ['forOther', 'square', 'orange'],
+};
+const CANDIDACY: Record<number, Style> = {
+  [-1]: ['notAsked', 'circle', 'faint'],
+  0: ['declined', 'cross', 'muted'],
+  1: ['declared', 'ring', 'sky'],
+  2: ['nominationLost', 'triangle', 'purple'],
+  3: ['standing', 'square', 'orange'],
+  4: ['electedCandidate', 'diamond', 'vermillion'],
+};
+
+const partyNumber = (key: string) =>
+  key === 'noParty' ? Infinity : Number(key.slice('party'.length));
+const byPartyNumber = (a: LegendEntry, b: LegendEntry) => partyNumber(a.key) - partyNumber(b.key);
+
+/** The lens's style for citizen `id`: legend key, shape and colour. */
+export function styleOf(lens: PolityLens, input: SceneInput, id: number): Style {
+  const { frame } = input;
+  switch (lens) {
+    case 'activity': {
+      const [legend, shape, color] = ACTIVITY[frame.status[id]] ?? ACTIVITY[0];
+      // A seated elector shows the chamber; a candidate or the president keeps their status.
+      return frame.chamber[id] && frame.status[id] === 0
+        ? ['chamber', 'square', 'purple']
+        : [legend, shape, color];
+    }
+    case 'act':
+      return ACT[frame.act[id]] ?? ACT[-1];
+    case 'vote':
+      return VOTE[frame.vote[id]] ?? VOTE[-1];
+    case 'candidacy':
+      return CANDIDACY[frame.candidacy[id]] ?? CANDIDACY[-1];
+    case 'party': {
+      const party = input.citizenParties[id];
+      if (party === null || party === undefined) return ['noParty', 'ring', 'muted'];
+      const { shape, color } = input.partyStyle(party);
+      return [`party${party}`, shape, color];
+    }
+  }
+}
+
+function bounds(input: SceneInput): [number, number, number, number] {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const add = (xy: readonly number[] | null | undefined) => {
+    if (xy) {
+      xs.push(xy[0]);
+      ys.push(xy[1]);
+    }
+  };
+  input.citizens.forEach(add);
+  input.parties.forEach((p) => add(p.xy));
+  add(input.president?.xy);
+  add(input.president?.pledged_xy);
+  if (xs.length === 0) return [-1, -1, 1, 1];
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+export function buildScene(
+  input: SceneInput,
+  lens: PolityLens,
+  width: number,
+  height: number
+): Scene {
+  // The run lists every party it ever had; a party is drawn, and sizes the map, only while
+  // it has members.
+  const members = new Set(input.citizenParties);
+  const parties = input.parties.filter((p) => members.has(p.party_id));
+  const [minX, minY, maxX, maxY] = bounds({ ...input, parties });
+  const spanX = Math.max(maxX - minX, 1e-9);
+  const spanY = Math.max(maxY - minY, 1e-9);
+  // One scale for both axes: distances on the map mean the same thing in every direction.
+  const scale = Math.min((width - 2 * MAP_PADDING) / spanX, (height - 2 * MAP_PADDING) / spanY);
+  const offsetX = (width - scale * spanX) / 2;
+  const offsetY = (height - scale * spanY) / 2;
+  // Up is the second axis's positive direction, as on any chart.
+  const project = (xy: readonly number[]): [number, number] => [
+    offsetX + (xy[0] - minX) * scale,
+    height - (offsetY + (xy[1] - minY) * scale),
+  ];
+
+  const counts = new Map<string, LegendEntry>();
+  const points = input.citizens.map((xy, id) => {
+    const [legend, shape, color] = styleOf(lens, input, id);
+    const entry = counts.get(legend) ?? { key: legend, shape, color, count: 0 };
+    entry.count += 1;
+    counts.set(legend, entry);
+    const [x, y] = project(xy);
+    return { id, x, y, shape, color, legend, party: input.citizenParties[id] ?? null };
+  });
+
+  const president = input.president;
+  const pledged = president?.pledged_xy ? project(president.pledged_xy) : null;
+  return {
+    width,
+    height,
+    points,
+    // Entries arrive in the order citizens first hit them, which is arbitrary for parties; under
+    // the party lens list them by number, independents last. Other lenses keep their own order.
+    legend: lens === 'party' ? [...counts.values()].sort(byPartyNumber) : [...counts.values()],
+    parties: parties.map((p) => {
+      const [x, y] = project(p.xy);
+      return { partyId: p.party_id, x, y, color: input.partyStyle(p.party_id).color };
+    }),
+    president: president
+      ? {
+          id: president.citizen_id,
+          ...xyOf(project(president.xy)),
+          pledgedX: pledged?.[0] ?? null,
+          pledgedY: pledged?.[1] ?? null,
+        }
+      : null,
+    project,
+  };
+}
+
+function xyOf([x, y]: [number, number]): { x: number; y: number } {
+  return { x, y };
+}
+
+/** The census positions in force at `year`: the latest recorded at or before it (the first otherwise). */
+export function censusAt<T extends { year: number }>(
+  censuses: readonly T[],
+  year: number
+): T | undefined {
+  let found: T | undefined;
+  for (const census of censuses) {
+    if (census.year <= year && (!found || census.year > found.year)) found = census;
+  }
+  return found ?? censuses[0];
+}

@@ -1,0 +1,266 @@
+"""Statistics for multi-seed sweeps (S0.7): intervals instead of bare means, and
+the pre-registered red flags evaluated mechanically, so a sweep's results doc is
+generated rather than argued.
+
+The p100 sweep reported mean and stdev only, and its first write-up read 10 seeds
+as settling representativeness; intervals were then computed by hand to correct
+it (S0.1). These functions make them the default output. They reproduce that
+correction's prediction and Clopper-Pearson figures exactly; its BCa lower bound
+(0.894) was Monte Carlo noise from 10,000 resamples on rounded values, hence the
+100,000 default here (0.888 on the exact values).
+
+Repeated runs of one seed measure inference noise at a fixed seed, not
+seed-to-seed variation, so every across-seed statistic uses each seed's first
+completed run only.
+"""
+from __future__ import annotations
+
+import math
+from collections import Counter
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+from scipy import stats
+
+OCCUPANCY_BAR = 0.70
+FALLBACK_ALERT_RATE = 0.10
+
+# run_metadata.json fields (S0.4) that must agree across a batch for its runs to
+# be one experiment: same code, same prompts, same server and weights.
+PROVENANCE_FIELDS = (
+    "git_sha", "git_dirty_paths", "prompt_source_sha256",
+    "vllm_version", "vllm_image_id", "served_model_repo", "served_model_revision",
+)
+
+
+def sweep_run_plan(seeds: Sequence[int]) -> list[tuple[int, int]]:
+    """(seed, repeat) per requested run, repeat counting from 1 in order of
+    appearance -- `1,2,42,1` runs seed 1 twice, the second as repeat 2."""
+    seen: Counter[int] = Counter()
+    plan = []
+    for seed in seeds:
+        seen[seed] += 1
+        plan.append((seed, seen[seed]))
+    return plan
+
+
+def mean_bca_interval(
+    values: Sequence[float], *, confidence: float = 0.95, n_resamples: int = 100_000, random_seed: int = 0,
+) -> tuple[float, float] | None:
+    """Bias-corrected and accelerated bootstrap interval for the mean. None below
+    three values or when every value is equal (the bootstrap distribution is a
+    point). With few values it is wide and unstable; it is reported, not trusted."""
+    if len(values) < 3 or len(set(values)) == 1:
+        return None
+    result = stats.bootstrap(
+        (np.asarray(values, dtype=float),), np.mean, confidence_level=confidence,
+        n_resamples=n_resamples, method="BCa", random_state=random_seed,
+    )
+    low, high = float(result.confidence_interval.low), float(result.confidence_interval.high)
+    return None if math.isnan(low) or math.isnan(high) else (low, high)
+
+
+def prediction_interval(values: Sequence[float], *, confidence: float = 0.95) -> tuple[float, float] | None:
+    """Where one new seed's value is expected to fall: mean ± t · s · √(1 + 1/n).
+    It can extend past a metric's natural bounds, and that is information."""
+    n = len(values)
+    if n < 2:
+        return None
+    mean = float(np.mean(values))
+    half_width = float(stats.t.ppf((1 + confidence) / 2, n - 1)) * float(np.std(values, ddof=1)) * math.sqrt(1 + 1 / n)
+    return (mean - half_width, mean + half_width)
+
+
+def clopper_pearson(successes: int, trials: int, *, confidence: float = 0.95) -> tuple[float, float] | None:
+    """Exact binomial interval for a rate; None for zero trials."""
+    if trials == 0:
+        return None
+    interval = stats.binomtest(successes, trials).proportion_ci(confidence_level=confidence, method="exact")
+    return (float(interval.low), float(interval.high))
+
+
+@dataclass(frozen=True)
+class PairedContrast:
+    """Arm B minus arm A, seed by seed (PLAN_BEYOND_CI W2.1). The test is the sign-flip permutation
+    on the per-seed differences: under the null each difference is as likely to have either sign.
+    scipy enumerates every one of the 2^n flips whenever that is no more than the 100,000 asked
+    for (n <= 16: exact p), and draws 100,000 seeded random flips beyond (2^n flips held at once
+    would need gigabytes from about 20 seeds). The BCa
+    interval on the differences is reported, not trusted, at n=10 (see mean_bca_interval)."""
+
+    seeds: tuple[int, ...]
+    differences: tuple[float, ...]
+    mean_difference: float
+    p_value: float
+    interval: tuple[float, float] | None
+
+
+def paired_contrast(arm_a: Mapping[int, float], arm_b: Mapping[int, float]) -> PairedContrast | None:
+    """Pair the two arms on the seeds they share (a seed missing from one arm is dropped, never
+    imputed) and test whether B differs from A. None when no seed is shared; a non-finite value
+    raises rather than reading as "no effect". One seed, or no difference at all, gives p = 1:
+    every flip is then as extreme as the observed one."""
+    seeds = tuple(sorted(set(arm_a) & set(arm_b)))
+    if not seeds:
+        return None
+    differences = tuple(float(arm_b[seed]) - float(arm_a[seed]) for seed in seeds)
+    if not all(math.isfinite(d) for d in differences):
+        raise ValueError(f"non-finite paired difference for seeds {seeds}: {differences}")
+    if len(differences) < 2 or not any(differences):
+        p_value = 1.0
+    else:
+        p_value = float(stats.permutation_test(
+            (np.asarray(differences),), np.mean, permutation_type="samples", n_resamples=100_000, random_state=0,
+        ).pvalue)
+    return PairedContrast(
+        seeds=seeds, differences=differences, mean_difference=float(np.mean(differences)),
+        p_value=p_value, interval=mean_bca_interval(differences),
+    )
+
+
+@dataclass(frozen=True)
+class SweepRun:
+    seed: int
+    repeat: int
+    run_id: str
+    outcome: str
+    arm: str = ""
+    """Which arm of a two-arm experiment this run belongs to; empty for a one-arm sweep."""
+    office_occupancy: float | None = None
+    last_election: dict[str, Any] | None = None
+    """The digest's effective_parties row for the run's last legislative election (tick, by_seats,
+    by_votes, parties_standing); None before the first, or when the metric is off."""
+    decisions_by_type: dict[str, int] = field(default_factory=dict)
+    fallback_by_type: dict[str, int] = field(default_factory=dict)
+    run_metadata: dict[str, Any] = field(default_factory=dict)
+    constitution: tuple[tuple[int, str, Any], ...] | None = ()
+    """The run's constitutional history: the amendments it ratified, in order, as (tick, article, new
+    value) -- ADR-015's versions with when each took effect. () is the unamended constitution and None
+    an unknown one (no readable journal). Runs whose histories differ were not under one set of rules
+    for the whole run, which is what a whole-run metric averages over."""
+    archetype: str | None = None
+    """The digest's trajectory archetype (trajectory.ARCHETYPE_RULES); None before the digest carried one."""
+    plausibility_failed: tuple[str, ...] | None = None
+    """The plausibility-band checks the run failed (trajectory.PLAUSIBILITY_BAND); None when unknown."""
+    yearly: dict[str, list[float | None]] | None = None
+    """The digest's yearly trajectory series (trajectory.FEATURES), the run's position in trajectory space."""
+
+    @property
+    def completed(self) -> bool:
+        return self.outcome == "completed"
+
+    def fallback_rates(self) -> dict[str, float]:
+        return {t: self.fallback_by_type.get(t, 0) / n for t, n in sorted(self.decisions_by_type.items()) if n}
+
+
+def constitution_groups(
+    runs: Sequence[SweepRun],
+) -> dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]]:
+    """Completed runs grouped by constitutional history: a metric is pooled within a group, never across
+    two, since runs in different groups were not under the same rules all along (ADR-015). The None group
+    (history unknown) is never pooled."""
+    groups: dict[tuple[tuple[int, str, Any], ...] | None, list[SweepRun]] = {}
+    for run in runs:
+        if run.completed:
+            groups.setdefault(run.constitution, []).append(run)
+    return groups
+
+
+def first_completed_runs(runs: Sequence[SweepRun]) -> list[SweepRun]:
+    """Each seed's first completed run, per arm: the independent sample across seeds. Keyed by
+    (arm, seed), so two arms run on the same seed are never folded into one."""
+    chosen: dict[tuple[str, int], SweepRun] = {}
+    for run in sorted(runs, key=lambda r: (r.arm, r.seed, r.repeat)):
+        if run.completed and (run.arm, run.seed) not in chosen:
+            chosen[(run.arm, run.seed)] = run
+    return list(chosen.values())
+
+
+def provenance_differences(runs: Sequence[SweepRun]) -> dict[str, dict[str, str]]:
+    """PROVENANCE_FIELDS whose values differ among completed runs, as field ->
+    {run (or run@resume n): value}. A resume records its own provenance, so a run
+    resumed under other code counts as differing from itself. Empty when the batch
+    is one experiment -- or when no run recorded provenance (all values null)."""
+    differences: dict[str, dict[str, str]] = {}
+    for provenance_field in PROVENANCE_FIELDS:
+        values: dict[str, str] = {}
+        for run in (r for r in runs if r.completed):
+            records = [run.run_metadata, *run.run_metadata.get("resumes", [])]
+            for index, record in enumerate(records):
+                label = run.run_id if index == 0 else f"{run.run_id}@resume{index}"
+                values[label] = str(record.get(provenance_field))
+        if len(set(values.values())) > 1:
+            differences[provenance_field] = values
+    return differences
+
+
+@dataclass(frozen=True)
+class RedFlag:
+    name: str
+    status: str  # "raised", "clear" or "not evaluable"
+    detail: str
+
+
+_OCCUPANCY_FLAG = "office_occupancy below the bar"
+_FALLBACK_FLAG = "decision type above the fallback alert"
+_DIVERGENCE_FLAG = "same-seed divergence beyond the across-seed spread"
+
+
+def _occupancy_by_run(runs: Sequence[SweepRun]) -> dict[str, float]:
+    return {r.run_id: r.office_occupancy for r in runs if r.completed and r.office_occupancy is not None}
+
+
+def _occupancy_flag(runs: Sequence[SweepRun]) -> RedFlag:
+    measured = _occupancy_by_run(runs)
+    if not measured:
+        return RedFlag(_OCCUPANCY_FLAG, "not evaluable", "no completed run reports office_occupancy")
+    low = [f"{run_id} {value:.4f}" for run_id, value in measured.items() if value < OCCUPANCY_BAR]
+    if low:
+        return RedFlag(_OCCUPANCY_FLAG, "raised", f"bar {OCCUPANCY_BAR}; below it: {', '.join(low)}")
+    return RedFlag(_OCCUPANCY_FLAG, "clear", f"all {len(measured)} completed runs at or above {OCCUPANCY_BAR}")
+
+
+def _fallback_flag(runs: Sequence[SweepRun]) -> RedFlag:
+    completed = [r for r in runs if r.completed]
+    if not completed:
+        return RedFlag(_FALLBACK_FLAG, "not evaluable", "no completed run")
+    over = [
+        f"{r.run_id} {decision_type} {rate:.1%}"
+        for r in completed for decision_type, rate in r.fallback_rates().items() if rate > FALLBACK_ALERT_RATE
+    ]
+    if over:
+        return RedFlag(_FALLBACK_FLAG, "raised", f"alert {FALLBACK_ALERT_RATE:.0%}: {'; '.join(over)}")
+    return RedFlag(_FALLBACK_FLAG, "clear", f"no type above {FALLBACK_ALERT_RATE:.0%} in {len(completed)} completed runs")
+
+
+def _repeat_divergences(runs: Sequence[SweepRun], first_by_seed: dict[int, float]) -> dict[str, float]:
+    repeats = [r for r in runs if r.repeat > 1 and r.seed in first_by_seed]
+    return {
+        f"seed {r.seed} repeat {r.repeat}": abs(occupancy - first_by_seed[r.seed])
+        for r in repeats
+        if (occupancy := _occupancy_by_run([r]).get(r.run_id)) is not None
+    }
+
+
+def _repeat_divergence_flag(runs: Sequence[SweepRun]) -> RedFlag:
+    """|office_occupancy of a repeat - its seed's first run| against the range of
+    first-run office_occupancy across distinct seeds."""
+    first_by_seed = {r.seed: r.office_occupancy for r in first_completed_runs(runs) if r.office_occupancy is not None}
+    divergences = _repeat_divergences(runs, first_by_seed)
+    if len(first_by_seed) < 2 or not divergences:
+        return RedFlag(
+            _DIVERGENCE_FLAG, "not evaluable",
+            f"needs two completed seeds and a completed repeat of one (have {len(first_by_seed)} seeds, "
+            f"{len(divergences)} comparable repeats)",
+        )
+    spread = max(first_by_seed.values()) - min(first_by_seed.values())
+    listed = "; ".join(f"{label}: |Δ| {value:.4f}" for label, value in divergences.items())
+    status = "raised" if any(value > spread for value in divergences.values()) else "clear"
+    return RedFlag(_DIVERGENCE_FLAG, status, f"office_occupancy spread across seeds {spread:.4f}; {listed}")
+
+
+def red_flags(runs: Sequence[SweepRun]) -> list[RedFlag]:
+    """The three red flags S0.7 pre-registered for the p500 batch, in its order."""
+    return [_occupancy_flag(runs), _fallback_flag(runs), _repeat_divergence_flag(runs)]

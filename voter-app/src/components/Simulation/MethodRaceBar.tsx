@@ -112,7 +112,7 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
               }}
               data-testid={`stable-badge-${r.method}`}
             >
-              🏆 {r.method}: {listNames(r.winner)} {Math.round(r.stability * 100)}%
+              {r.method}: {listNames(r.winner)} {Math.round(r.stability * 100)}%
             </Badge>
           ))}
         </div>

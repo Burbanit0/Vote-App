@@ -1,15 +1,17 @@
 # Shareable stories
 
-Four standalone write-ups pulled out of
+Standalone write-ups. The first four are pulled out of
 [`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md), the
-technical-hardening plan for Vote Lab. The plan itself is French, internal,
+technical-hardening plan for Vote Lab; the fifth comes from Polity, the simulated
+democracy, and its LLM decision audits. The plan itself is French, internal,
 and organized by work item ("Lot"); these are the opposite on purpose —
 English, narrative, written for a reader who has never opened this repo, one
 real investigation per file. Each one is meant to be linked and read on its
 own, the way a blog post is, not as a chapter of a larger document.
 
 Every number and quote in each story traces back to a specific test file, an
-experience carnet under [`docs/exploration/`](../exploration/README.md), or
+experience carnet under [`docs/exploration/`](../exploration/README.md), a
+results file under `fast_api_voter/scripts/`, or
 a dated section of the plan — cited at the bottom of each piece.
 
 - **[Is 91% coverage lying to you?](is-91-percent-coverage-lying-to-you.md)**
@@ -41,3 +43,11 @@ a dated section of the plan — cited at the bottom of each piece.
   written in direct response to a real incident immediately caught real,
   unfixed debt — three routers with no rate limit, eighteen silently
   swallowed exceptions.
+
+- **[The answer that did not depend on the question](the-answer-that-did-not-depend-on-the-question.md)**
+  — reading a language model's closed-code decisions as token probabilities, on
+  the production prompts. A president concedes at P ≥ 0.999999 whether the street
+  is empty or full, and parties join coalitions whatever the distance. One of
+  the three flat decisions was entirely the prompt's fault (it never stated its
+  own threshold), the president's partly. The coalition one stayed flat on three
+  model families.

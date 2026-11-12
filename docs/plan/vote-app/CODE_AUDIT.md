@@ -1,5 +1,7 @@
 # Audit code — code mort, duplication & garde-fous "vibe coding"
 
+> **status:** history — a dated audit (2026-08-20, updated until 2026-09-13). Most §7 items are done; left open: the two polity rank-F functions and the `workers*.py` consolidation (§7). Today's numbers are the CI ratchets (`.github/quality-baseline.json`). (Set 2026-10-08; `docs/README.md` lists every plan.)
+
 *Première édition : 2026-08-20. Section complexité cyclomatique (radon/xenon)
 ajoutée le 2026-08-21. À relancer et mettre à jour après chaque passe de
 nettoyage significative (voir "Prochaines étapes" en bas de page).*
@@ -27,7 +29,7 @@ Effet de bord : a révélé `ruff`/`pytest`/`pytest-asyncio`/`pytest-cov`
 dupliqués dans `requirements.txt` (production) alors qu'ils n'appartiennent
 qu'à `requirements-dev.txt` — retirés, et `fast_api_voter/Dockerfile` (image
 dev, utilisée par `scripts/bootstrap.sh` pour lancer `pytest` en conteneur)
-installe désormais aussi `requirements-dev.txt` en conséquence.*
+installe désormais aussi les dépendances de dev en conséquence (depuis le 2026-10-24 via `requirements-dev.lock.txt`).*
 
 *`madge` ajouté le même jour (imports circulaires côté frontend +
 visualisation du graphe) — informationnel uniquement, pas dans le cliquet

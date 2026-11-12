@@ -7,6 +7,8 @@ schema accepts (config.py's _PRESIDENTIAL_METHODS) actually has a working
 dispatch entry here, and (b) known scenarios produce the same winners the
 engine/utils test suite already establishes for these algorithms.
 """
+import random
+
 import pytest
 
 from api.domain.polity.ballot_and_aggregation import (
@@ -31,12 +33,14 @@ def test_every_configured_presidential_method_has_a_dispatch_entry():
     assert set(RANKED_METHODS) | set(SCORE_METHODS) == _ALL_PRESIDENTIAL_METHODS
 
 
+@pytest.mark.behavior("ELE-08")
 def test_every_ranked_method_picks_the_unanimous_winner():
     ballots = [["A", "B", "C"]] * 7 + [["B", "A", "C"]] * 3
     for method in RANKED_METHODS:
         assert get_presidential_winner(ballots, method) == "A", method
 
 
+@pytest.mark.behavior("ELE-08")
 def test_every_score_method_picks_the_unanimous_winner():
     ballots = [{"A": 5, "B": 1, "C": 0}] * 10
     for method in SCORE_METHODS:
@@ -54,9 +58,10 @@ def test_two_round_resolves_a_case_plurality_gets_wrong():
     assert get_presidential_winner(ballots, "two_round") == "B"
 
 
+@pytest.mark.behavior("ELE-08")
 def test_empty_ballots_return_no_winner():
-    assert get_presidential_winner([], "plurality") is None
-    assert get_presidential_winner([], "star") is None
+    for method in (*RANKED_METHODS, *SCORE_METHODS):
+        assert get_presidential_winner([], method) is None, method
 
 
 def test_unknown_method_raises():
@@ -139,3 +144,26 @@ def test_confidence_vote_raises_on_empty_ballots():
 def test_unsupported_confidence_vote_format_raises():
     with pytest.raises(NotImplementedError, match="confidence_vote_format"):
         resolve_confidence_vote([True, False], ballot_format="multi_candidate")
+
+
+@pytest.mark.parametrize("method, votes, seats", [
+    ("dhondt", {"1": 100.0, "2": 50.0}, 2),        # quotients 50 = 50/1
+    ("sainte_lague", {"1": 90.0, "2": 30.0}, 2),   # quotients 90/3 = 30/1
+    ("largest_remainder", {"1": 60.0, "2": 60.0}, 1),  # equal remainders
+])
+def test_a_seat_tie_is_drawn_by_lot_whatever_the_party_order(method, votes, seats):
+    """The last seat is an exact tie. It used to go to the first-listed party,
+    i.e. the lowest party_id."""
+    reversed_votes = dict(reversed(votes.items()))
+    outcomes = set()
+    for seed in range(20):
+        a = allocate_seats(votes, seats, method, 0.0, rng=random.Random(seed))
+        b = allocate_seats(reversed_votes, seats, method, 0.0, rng=random.Random(seed))
+        assert a == b, seed
+        outcomes.add(tuple(sorted(a.items())))
+    assert len(outcomes) == 2
+
+
+def test_without_a_lot_a_seat_tie_goes_to_the_first_listed_party():
+    assert allocate_seats({"1": 100.0, "2": 50.0}, 2, "dhondt", 0.0) == {"1": 2, "2": 0}
+    assert allocate_seats({"2": 50.0, "1": 100.0}, 2, "dhondt", 0.0) == {"2": 1, "1": 1}

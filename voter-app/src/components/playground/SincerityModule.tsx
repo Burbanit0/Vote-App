@@ -141,7 +141,7 @@ const SincerityModule: React.FC<{
       <p data-testid="sincerity-headline" className="text-sm">
         {t('sincerity.headlinePre')}{' '}
         <strong className="text-green-700 dark:text-green-400">{safe.length}</strong>
-        {t('sincerity.headlineMid')}{' '}
+        {t('sincerity.headlineMid', { total: report.verdicts.length })}{' '}
         <strong className="text-amber-600 dark:text-amber-400">{tempting.length}</strong>{' '}
         {t('sincerity.headlineEnd')}
       </p>
@@ -149,7 +149,7 @@ const SincerityModule: React.FC<{
       {/* Strategy-tempting methods */}
       {tempting.length > 0 && (
         <div data-testid="sincerity-tempting" className="flex flex-col gap-1">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
             {t('sincerity.temptingHead')}
           </p>
           {tempting.map((v) => (
@@ -169,7 +169,7 @@ const SincerityModule: React.FC<{
       {/* Conviction-safe methods */}
       {safe.length > 0 && (
         <div data-testid="sincerity-safe" className="flex flex-col gap-1">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">
+          <p className="text-xs font-semibold text-green-700 dark:text-green-400">
             {t('sincerity.safeHead')}
           </p>
           <div className="flex flex-wrap gap-1.5">

@@ -3,8 +3,16 @@ api.domain.polity.parties — initial party platforms (Lot 3).
 
 Resolves audit blocker A2 ("rien ne dit d'où viennent les partis"): N fixed
 parties, platforms initialized by k-means on citizen issue positions. No
-birth/death/split in v0 (parties.birth_enabled/death_enabled/split_enabled
-are all false — that's a v1+ palier).
+birth/death in v0 (parties.birth_enabled/death_enabled false by default —
+ADR-018 gives them their meaning: an agent's `found`, and the dissolution of
+a party too small to keep). Party splitting (Points ouverts #4) was closed
+2026-08-29 with no code ever written: no research motivation was ever
+named anywhere in the design doc for it, unlike every other Points
+ouverts item this project has resolved -- see
+polity-simulation-design-v2.md's own entry for the closure reasoning.
+parties.split_enabled existed only as an unconsumed config flag (same
+class of dead config as candidacy.independent_signature_ratio,
+ADR-003) and was deleted, not merely left reserved.
 """
 from __future__ import annotations
 
@@ -21,9 +29,15 @@ _MAX_KMEANS_ITER = 100
 class Party:
     party_id: int
     platform: tuple[float, ...]
+    founded_tick: int | None = None
+    """The tick a citizen founded it (ADR-018); None for the parties a run starts with."""
+    heading: tuple[float, ...] | None = None
+    """ADR-040: a hunter's direction of travel (a unit vector); None for any other leader, and before its first move."""
+    last_share: float | None = None
+    """ADR-040: a hunter's poll share at its last move, which the next poll is compared with; None before it."""
 
 
-def _kmeans(points: np.ndarray, k: int, seed: int) -> np.ndarray:
+def kmeans(points: np.ndarray, k: int, seed: int) -> np.ndarray:
     """Deterministic Lloyd's-algorithm k-means: same (points, k, seed) always
     converges to the same centroids. A cluster left empty after an assignment
     step keeps its previous centroid unchanged rather than being
@@ -61,9 +75,10 @@ def initialize_parties(citizens: list[Citizen], initial_count: int, seed: int) -
         raise ValueError(f"cannot form {initial_count} parties from {len(citizens)} citizens")
 
     points = np.array([c.issue_positions for c in citizens], dtype=float)
-    centroids = _kmeans(points, initial_count, seed)
+    centroids = kmeans(points, initial_count, seed)
 
     return [
         Party(party_id=i, platform=tuple(float(x) for x in centroids[i]))
         for i in range(initial_count)
     ]
+

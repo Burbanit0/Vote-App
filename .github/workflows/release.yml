@@ -3,15 +3,6 @@ name: 🚀 Release Vote Lab
 on:
   workflow_dispatch:
     inputs:
-      version_type:
-        description: 'Type de version'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch    # 1.0.0 → 1.0.1  (bugfix)
-          - minor    # 1.0.0 → 1.1.0  (nouvelle feature)
-          - major    # 1.0.0 → 2.0.0  (changement majeur)
       release_notes:
         description: 'Notes de release (optionnel — GitHub génère les siennes sinon)'
         required: false
@@ -29,82 +20,121 @@ permissions:
   contents: read
 
 jobs:
+  # ── 0. The version to release, checked before ~20 min of CI ───────────────
+  # main is protected (PRs only), so no job commits a version bump to it: the
+  # release is whatever voter-app/package.json says on the dispatched commit,
+  # set by a bump PR that went polity -> develop -> main (see the release
+  # skill). Refused up front: a malformed version, one not above the highest
+  # vX.Y.Z tag (it would be published as "latest"), and one already released
+  # (tag and GitHub Release both exist). A tag on this commit with no release
+  # is a release whose last step failed: the run finishes it.
+  version:
+    name: Version à publier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tagged: ${{ steps.version.outputs.tagged }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: voter-app/package.json
+          sparse-checkout-cone-mode: false
+      - name: Check the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION="v$(jq -r .version voter-app/package.json)"
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::voter-app/package.json has version '${VERSION#v}', expected X.Y.Z." >&2
+            exit 1
+          fi
+          bump="Set the next version in a PR to polity (npm version <X.Y.Z> --no-git-tag-version in voter-app/), carry it to main, then dispatch again."
+          tags=$(git ls-remote --tags origin) || { echo "::error::Could not list the remote tags; re-run this job." >&2; exit 1; }
+          # The commit a tag points to: the peeled line (^{}) for an annotated tag.
+          tag_sha=$(awk -v t="refs/tags/${VERSION}" '$2==t"^{}"{p=$1} $2==t{l=$1} END{print (p!=""?p:l)}' <<< "$tags")
+          if [ -n "$tag_sha" ]; then
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::${VERSION} is already tagged on another commit (${tag_sha:0:7}). ${bump}" >&2
+              exit 1
+            fi
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/${REPO}/releases/tags/${VERSION}")
+            if [ "$code" = 200 ]; then
+              echo "::error::${VERSION} is already released (tag and GitHub Release exist). Nothing to do." >&2
+              exit 1
+            elif [ "$code" != 404 ]; then
+              echo "::error::Could not check the ${VERSION} release (HTTP ${code}); re-run this job." >&2
+              exit 1
+            fi
+            echo "::notice::${VERSION} is tagged on this commit with no release yet: finishing it."
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          else
+            latest=$(awk '{sub("refs/tags/","",$2)} $2 ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ {print $2}' <<< "$tags" | sort -V | tail -n1)
+            if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "$latest" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+              echo "::error::${VERSION} is not above the latest release ${latest}. ${bump}" >&2
+              exit 1
+            fi
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${VERSION}"
+
   # ── 1. CI — tests must pass before any release ─────────────────────────────
+  # The same workflows a PR runs, called on the dispatched commit (#683). They used to be
+  # hand-kept copies that drifted (the first dispatch, v0.2.0, died in the backend one), and
+  # they only ran at release time, so the next drift would again show up on release day.
+  # main has no push-time CI worth the name (the paths filter finds nothing to test after a
+  # merge), so these are the only tests that run against the exact commit that gets tagged.
+  # The callee skips what only makes sense on a PR (diff-cover, the Codecov upload, the paths
+  # filter). `id-token: write` is only here because a called workflow may not ask for more
+  # than its caller grants, and its Codecov job (not run for a release) declares it.
   ci-frontend:
     name: Tests frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: voter-app/package-lock.json
-      - run: npm ci
-        working-directory: ./voter-app
-      # test:coverage enforces the coverage thresholds; build runs tsc and the
-      # 1 MB size-limit, neither of which vitest or the e2e build checks.
-      - run: npm run test:coverage && npm run build
-        working-directory: ./voter-app
-        env:
-          CI: 'true'
+    needs: version
+    uses: ./.github/workflows/frontend-ci-cd-pipeline.yml
+    permissions:
+      contents: read
+      id-token: write
 
   ci-backend:
     name: Tests backend
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
-      # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
-      # Same install and pytest steps as backend-ci-cd-pipeline.yml (hand-kept in
-      # sync: the first real dispatch, v0.2.0, died here collecting the
-      # hypothesis/schemathesis/z3 modules because this job installed only
-      # requirements.txt + pytest). Run from fast_api_voter/: pyproject's
-      # --ignore paths resolve against the cwd.
-      - run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
-      - run: python -m pytest api/tests -v -n auto
-        working-directory: fast_api_voter
-        env:
-          APP_ENV: testing
-      - name: Engine perf ceilings (pytest-benchmark)
-        run: python -m pytest api/tests/test_engine_benchmarks.py -v -o addopts=""
-        working-directory: fast_api_voter
+    needs: version
+    uses: ./.github/workflows/backend-ci-cd-pipeline.yml
+    permissions:
+      contents: read
+      id-token: write
 
-  # E2E (Playwright) was previously wired to nothing (workflow_dispatch only)
-  # despite being the repo's one exhaustive, end-to-end check. It's too slow
-  # to run on every develop PR, but a release is exactly the infrequent,
-  # can-afford-to-be-slow moment it belongs at — see e2e.yml's own comment.
+  # E2E (Playwright) gates every PR too (CLAUDE.md), but pushes to main skip
+  # it, so the release re-runs it on the exact commit it tags.
   e2e:
     name: E2E (Playwright)
+    needs: version
     uses: ./.github/workflows/e2e.yml
 
   # ── 2. Release — only if CI + E2E all pass ─────────────────────────────────
   release:
     name: Créer la release
-    needs: [ci-frontend, ci-backend, e2e]
+    needs: [version, ci-frontend, ci-backend, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write   # needed to push tags and create releases
 
     steps:
-      - name: Checkout main
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: Checkout main # zizmor: ignore[artipacked] this job pushes the release tag with the checkout token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # This job always tags/pushes `main`, regardless of which ref the
+      # This job always tags `main`, regardless of which ref the
       # workflow_dispatch was actually fired against — ci-frontend/ci-backend/
       # e2e above test whatever ref the dispatch used, not necessarily `main`.
       # Since the repo's default branch is `develop`, a dispatch without an
@@ -115,9 +145,7 @@ jobs:
       # triggered this run must already be reachable from `main`, which is
       # only true once the develop → main PR (see the `release` skill) has
       # merged and this was dispatched with `--ref main`.
-      # Exact match, not ancestry: an ancestor check also passes a second
-      # (queued) dispatch or a re-run after this job has pushed its bump commit,
-      # which would publish a duplicate release, and passes when main moved
+      # Exact match, not ancestry: an ancestor check passes when main moved
       # during CI, which would tag commits this run never tested.
       - name: Verify main is exactly the commit that was tested
         run: |
@@ -126,50 +154,84 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: voter-app/package-lock.json
-
-      - name: Bump version in package.json
-        id: bump
-        working-directory: ./voter-app
-        env:
-          VERSION_TYPE: ${{ inputs.version_type }}   # via env (constrained choice, but never interpolate into the shell)
-        run: |
-          npm version "$VERSION_TYPE" --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "Bumped to v${VERSION}"
-
       - name: Configure git identity
+        if: needs.version.outputs.tagged == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit + tag + push
+      - name: Tag + push the tag
+        if: needs.version.outputs.tagged == 'false'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          VERSION="${{ steps.bump.outputs.version }}"
-          git add voter-app/package.json voter-app/package-lock.json
-          git commit -m "chore: bump to ${VERSION} [skip ci]"
           git tag -a "${VERSION}" -m "Release ${VERSION}"
-          git push --atomic origin main --follow-tags
+          git push origin "refs/tags/${VERSION}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ steps.bump.outputs.version }}
-          name: "🗳️ Vote Lab ${{ steps.bump.outputs.version }}"
+          tag_name: ${{ needs.version.outputs.version }}
+          name: "🗳️ Vote Lab ${{ needs.version.outputs.version }}"
           body: |
-            ## Vote Lab ${{ steps.bump.outputs.version }}
+            ## Vote Lab ${{ needs.version.outputs.version }}
 
             ${{ inputs.release_notes != '' && inputs.release_notes || 'Voir les commits ci-dessous pour le détail des changements.' }}
 
             ---
             **Liens**
-            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ steps.bump.outputs.version }}/THEORY.md)
+            - 📖 [Référence théorique](${{ github.server_url }}/${{ github.repository }}/blob/${{ needs.version.outputs.version }}/THEORY.md)
             - 🐛 [Signaler un bug](${{ github.server_url }}/${{ github.repository }}/issues/new)
           generate_release_notes: true   # GitHub auto-generates changelog from commits
           make_latest: true
+
+  # The static site (PLAN_BEYOND_CI W6): the app built from the commit just tagged, with the
+  # engine in Pyodide, attached to the release as static-site.zip. ci-dashboard.yml deploys
+  # the one Pages site (a repo has one, and each deploy replaces all of it): the newest
+  # release's app at its root, the CI dashboard under ci/. Dispatching it publishes the release now rather than
+  # at the next hourly run; a dispatch is the one event GITHUB_TOKEN may start.
+  static-site:
+    name: Static site (attached, then published)
+    needs: [version, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # the release asset
+      actions: write # dispatching ci-dashboard.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # engine.zip is built from the backend's own code and packages (build:static).
+      # No caches in a job that publishes (zizmor's cache-poisoning audit).
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Install the backend's runtime packages
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: voter-app/.nvmrc
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./voter-app
+      # Served under the repo's name (https://burbanit0.github.io/Vote-App/); with a
+      # custom domain, '/'.
+      - name: Build (npm run build:static)
+        run: npm run build:static
+        working-directory: ./voter-app
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+      - name: Attach to the release, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          (cd voter-app/build-static && zip -qr "$RUNNER_TEMP/static-site.zip" .)
+          gh release upload "$VERSION" "$RUNNER_TEMP/static-site.zip" --clobber --repo "$REPO"
+          gh workflow run ci-dashboard.yml --repo "$REPO"

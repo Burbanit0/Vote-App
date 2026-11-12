@@ -183,7 +183,7 @@ const JuryTheoremPanel: React.FC = () => {
                 {t('jury.simulating')}
               </>
             ) : (
-              `⚖️ ${t('jury.run')}`
+              t('jury.run')
             )}
           </Button>
         </Col>
@@ -232,7 +232,7 @@ const JuryTheoremPanel: React.FC = () => {
                 }
                 data-testid="best-method-badge"
               >
-                🏆 {listNames(data.best_method)}:{' '}
+                {listNames(data.best_method)}:{' '}
                 {Math.round(data.methods[data.best_method[0]].accuracy * 100)}%
               </Badge>
             )}

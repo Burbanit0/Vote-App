@@ -24,34 +24,6 @@ compte-rendu technique brut, une vraie narration de ce qui s'est passé.
    - Regarde `git log` depuis ce point (commits, messages, fichiers
      touchés) et la session de conversation en cours.
 
-### Mode reconstruction rétroactive (à utiliser une seule fois, au démarrage du journal)
-
-Si `docs/journal/JOURNAL_DE_BORD.md` n'existe pas encore ou ne contient que des
-entrées de test, et que je demande explicitement une reconstruction
-rétroactive :
-
-1. Parcours `git log --all --date=short` depuis le premier commit du
-   repo, et regroupe les commits par journée ou par étape logique
-   (ex. "rédaction du plan de conception", "audit de précision", "lot 3
-   du dev-plan v0", "bascule GPU") plutôt que par date stricte si
-   plusieurs jours se rapportent à la même étape.
-2. Pour chaque document daté trouvé dans le repo
-   (`polity-simulation-design.md`, `audit-precision-plan.md`, les
-   `*_results.md`, etc.), utilise sa date pour situer les entrées
-   correspondantes.
-3. Pour les épisodes déjà racontés en détail dans une conversation
-   fournie (ex. copier-coller d'un chat), base-toi en priorité sur cette
-   source — elle contient le contexte, les hypothèses testées et
-   rejetées, pas seulement le résultat final visible dans le code.
-4. Rédige une entrée par étape logique identifiée, dans le même gabarit
-   que le mode courant. Marque explicitement en tête de chaque entrée
-   reconstruite : `> Entrée reconstruite a posteriori le AAAA-MM-JJ, à
-   partir de [git log / documents / conversation fournie].` — pour que la
-   distinction avec une entrée écrite en temps réel reste visible dans le
-   journal.
-5. Présente l'ensemble des entrées reconstruites en une fois, dans
-   l'ordre chronologique, avant toute application — je valide bloc par
-   bloc ou l'ensemble.
 2. Identifie, pour la période couverte :
    - **Ce qui a avancé** : fonctionnalités, bugs résolus, décisions
      validées — avec la preuve (test qui passe, commit, résultat vérifié),
@@ -62,6 +34,41 @@ rétroactive :
      "pourquoi" en une phrase — pas juste le "quoi".
    - **Ce qui reste à faire ensuite** : 2-4 prochaines actions concrètes,
      pas une liste exhaustive.
+
+### Mode reconstruction rétroactive
+
+Quand je demande explicitement une reconstruction rétroactive : au démarrage du
+journal, ou pour combler des journées restées sans entrée (cas du 2026-10-12,
+quand le journal a été rouvert après sa mise en pause du 2026-10-08) :
+
+1. Parcours `git log --all --date=short` sur la période à reconstruire (depuis
+   le premier commit du repo au démarrage), et regroupe les commits par journée ou par étape logique
+   (ex. "rédaction du plan de conception", "audit de précision", "lot 3
+   du dev-plan v0", "bascule GPU") plutôt que par date stricte si
+   plusieurs jours se rapportent à la même étape.
+2. Lis la description de chaque PR fusionnée sur la période
+   (`gh pr view N --repo Burbanit0/Vote-App --json title,body,mergedAt`) :
+   depuis 2026-10, c'est là que vit l'histoire de chaque changement, ses
+   décisions et ses preuves. Cite chaque fait par son numéro de PR.
+3. Pour chaque document daté trouvé dans le repo
+   (`docs/plan/polity/polity-simulation-design-v2.md`,
+   `docs/plan/polity/audit-precision-plan.md`, les `*_results.md`, les ADR,
+   les entrées OBS, `docs/STATUS.md` et son historique git, etc.), utilise sa
+   date pour situer les entrées correspondantes.
+4. Pour les épisodes déjà racontés en détail dans une conversation
+   fournie (ex. copier-coller d'un chat), base-toi en priorité sur cette
+   source — elle contient le contexte, les hypothèses testées et
+   rejetées, pas seulement le résultat final visible dans le code.
+5. Rédige une entrée par étape logique identifiée, dans le même gabarit
+   que le mode courant. Marque explicitement en tête de chaque entrée
+   reconstruite : `> Entrée reconstruite a posteriori le AAAA-MM-JJ, à
+   partir de [git log / descriptions de PR / documents / conversation fournie].` — pour que la
+   distinction avec une entrée écrite en temps réel reste visible dans le
+   journal.
+6. Présente l'ensemble des entrées reconstruites en une fois, dans
+   l'ordre chronologique, avec pour chacune l'endroit exact où l'insérer
+   (entre quelles deux entrées existantes, ou dans quelle archive), avant
+   toute application — je valide bloc par bloc ou l'ensemble.
 
 ## Règles de rédaction
 

@@ -114,7 +114,7 @@ describe('SenParadoxPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('paradox-badge');
-      expect(badge.className).toContain('bg-[#dc3545]');
+      expect(badge.className).toContain('bg-destructive/15');
     });
     vi.runAllTimers();
   });
@@ -125,7 +125,7 @@ describe('SenParadoxPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('paradox-badge');
-      expect(badge.className).toContain('bg-[#198754]');
+      expect(badge.className).toContain('bg-ok/15');
     });
     vi.runAllTimers();
   });

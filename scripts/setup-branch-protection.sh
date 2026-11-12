@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # ── Vote Lab — Branch protection setup ────────────────────────────────────────
 # Usage:
-#   bash scripts/setup-branch-protection.sh [main|develop|all] [GH_TOKEN]
-#   bash scripts/setup-branch-protection.sh              # both branches, gh CLI
+#   bash scripts/setup-branch-protection.sh [main|develop|polity|polity-ui|all] [GH_TOKEN]
+#   bash scripts/setup-branch-protection.sh              # main and develop, gh CLI
 #   bash scripts/setup-branch-protection.sh develop      # develop only, gh CLI
-#   bash scripts/setup-branch-protection.sh all <TOKEN>  # both, curl + token
+#   bash scripts/setup-branch-protection.sh all <TOKEN>  # main and develop, curl + token
+#   bash scripts/setup-branch-protection.sh polity-ui    # one Polity branch, gh CLI
+#
+# `all` means main and develop only: polity and polity-ui are protected one at a time,
+# on purpose, each when its branch exists and its checks are known to report there.
 #
 # Get a token: GitHub → Settings → Developer settings → Personal access tokens
 # Required scopes: repo (or Administration for fine-grained tokens)
@@ -60,8 +64,9 @@ api_call() {
   fi
 }
 
-# Same required checks for both branches — main will need everything develop
-# needs once a real develop→main release resumes.
+# The base list: main requires exactly this (its PRs come from develop, which
+# already passed all of it); develop and polity add the review gate and
+# Workflow lint (contexts_for below).
 #
 # Backend CI / Frontend CI / E2E / OpenAPI Contract used to be excluded here:
 # each was scoped by a `paths:` filter at the workflow-trigger level, and a
@@ -95,21 +100,216 @@ REQUIRED_CONTEXTS='[
       "CI health check"
     ]'
 
+# The high-risk review hold (.github/workflows/human-review.yml) posts this status
+# on every PR to polity and develop, red until the owner has reviewed a PR that
+# touches a path .mergify.yml protects. Required on those two branches only: it
+# never reports on PRs to main or polity-ui, and a required check that never
+# reports blocks every PR forever (the PR #205 lesson above).
+REVIEW_GATE="High-risk review gate"
+
+# Phase 3b: the numeric id of the review-gate GitHub App (its settings page,
+# "App ID"). When set, the gate is required FROM THAT APP only, so a status of
+# the same name posted by any workflow's GITHUB_TOKEN no longer satisfies it;
+# every other context stays "any source" (app_id -1), as before. Unset: the
+# plain contexts list, as before. Pin only once develop's human-review.yml posts
+# with the App (CONTRIBUTING.md, "GitHub App de la revue"), or every PR waits
+# forever on a gate nothing can post.
+#   REVIEW_GATE_APP_ID=123456 bash scripts/setup-branch-protection.sh polity
+REVIEW_GATE_APP_ID="${REVIEW_GATE_APP_ID:-}"
+REVIEW_GATE_APP_ID="${REVIEW_GATE_APP_ID//[[:space:]]/}"  # a pasted variable may carry a newline
+if [ -n "$REVIEW_GATE_APP_ID" ] && ! [[ "$REVIEW_GATE_APP_ID" =~ ^[0-9]+$ ]]; then
+  echo "❌  REVIEW_GATE_APP_ID must be the App's numeric id, got '${REVIEW_GATE_APP_ID}'."
+  exit 1
+fi
+
+# Requiring the gate before the workflow that posts it is live blocks every PR,
+# including the one that would bring the workflow in. PRs to a branch run that
+# branch's human-review.yml (pull_request_target); `/reviewed` runs develop's
+# (issue_comment always runs from the default branch). So both must post it.
+require_gate_workflow() {
+  local branch workflow
+  for branch in develop "$1"; do
+    # Fetch first, then search: piping curl into `grep -q` lets grep exit on the
+    # first match, curl then dies writing to the closed pipe (exit 23), and
+    # pipefail turns a found gate into a false "not posted yet".
+    if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/human-review.yml"); then
+      echo "❌  could not fetch ${branch}'s human-review.yml (missing on that branch, or a network error)."
+      exit 1
+    fi
+    if ! grep -qF "$REVIEW_GATE" <<< "$workflow"; then
+      echo "❌  ${branch}'s human-review.yml doesn't post '${REVIEW_GATE}' yet: merge it there first,"
+      echo "    or every PR to '$1' would wait forever on a status nothing posts."
+      exit 1
+    fi
+    if [ -n "$REVIEW_GATE_APP_ID" ] && ! grep -qF "actions/create-github-app-token" <<< "$workflow"; then
+      echo "❌  ${branch}'s human-review.yml doesn't post with the review-gate App yet: pinning"
+      echo "    the gate to App ${REVIEW_GATE_APP_ID} now would hold every PR to '$1' forever."
+      exit 1
+    fi
+  done
+  if [ -n "$REVIEW_GATE_APP_ID" ]; then require_gate_posted_by_app; fi
+}
+
+# The workflow naming the App is not enough (the variable or the key may be
+# missing, or the id mistyped): before pinning, the newest gate status on a PR
+# to polity or develop must have been posted by the App with this very id.
+require_gate_posted_by_app() {
+  local sha creator="" app_id
+  if ! command -v gh &>/dev/null; then
+    echo "❌  pinning the gate to an App needs the gh CLI (it checks who posts the gate)."
+    exit 1
+  fi
+  for sha in $(gh api "repos/${OWNER}/${REPO}/pulls?state=all&sort=updated&direction=desc&per_page=30" \
+      --jq '.[] | select(.base.ref == "polity" or .base.ref == "develop") | .head.sha'); do
+    creator=$(GATE="$REVIEW_GATE" gh api "repos/${OWNER}/${REPO}/commits/${sha}/statuses" \
+      --jq '[.[] | select(.context == env.GATE)][0].creator.login // ""')
+    [ -n "$creator" ] && break
+  done
+  if [ -z "$creator" ]; then
+    echo "❌  no '${REVIEW_GATE}' status on the last 30 PRs to polity or develop: open one, then retry."
+    exit 1
+  fi
+  app_id=""
+  if [[ "$creator" == *"[bot]" ]]; then
+    app_id=$(gh api "apps/${creator%\[bot\]}" --jq .id 2>/dev/null) || app_id=""
+  fi
+  if [ "$app_id" != "$REVIEW_GATE_APP_ID" ]; then
+    echo "❌  the newest '${REVIEW_GATE}' was posted by '${creator}' (app id: ${app_id:-none}),"
+    echo "    not by App ${REVIEW_GATE_APP_ID}: finish CONTRIBUTING.md's App setup (variable"
+    echo "    REVIEW_GATE_APP_CLIENT_ID, key in the review-gate environment), let the gate run"
+    echo "    once on a PR, then retry. Pinning now would hold every PR forever."
+    exit 1
+  fi
+  echo "✅  '${REVIEW_GATE}' is posted by '${creator}' (App ${app_id})."
+}
+
+# Requiring a check on a branch before the workflow that posts it runs on PRs
+# to that branch blocks every PR forever (the PR #205 lesson above).
+#   require_pr_trigger_on <target branch> <workflow file> <context> <copy branch>...
+# checks each named branch's copy of the workflow: the target's own (PRs run the
+# workflow from their merge commit) and, where given, develop's: the ci-health
+# audit runs from develop and reads develop's copy of THIS script, so protection
+# applied before the develop sync reads as drift there.
+# Matches the inline form `branches: [a, b]` that every workflow here uses.
+require_pr_trigger_on() {
+  local target="$1" file="$2" context="$3" branch workflow
+  shift 3
+  for branch in "$@"; do
+    if ! workflow=$(curl -fsSL "https://raw.githubusercontent.com/${OWNER}/${REPO}/${branch}/.github/workflows/${file}"); then
+      echo "❌  could not fetch ${branch}'s ${file} (not on that branch yet, or a network error)."
+      echo "    Merge (or sync) it there first, or every PR to '${target}' would wait forever on '${context}'."
+      exit 1
+    fi
+    if ! awk '/^  pull_request:/{f=1} f && /branches:/{print; exit}' <<< "$workflow" | grep -qE "branches: \[(.*[ ,])?${target}([ ,].*)?\]"; then
+      echo "❌  ${branch}'s ${file} doesn't run on PRs to ${target} yet: merge (or sync) that first,"
+      echo "    or every PR to '${target}' would wait forever on '${context}'."
+      exit 1
+    fi
+  done
+}
+
+require_ci_health_on() { require_pr_trigger_on "$1" ci-health.yml "CI health check" "$1"; }
+
+# "Workflow lint" (workflow-lint.yml): actionlint, zizmor and the guard hooks'
+# tests on PRs touching workflows or hooks. Required once the target's AND
+# develop's copies run on PRs to the target, i.e. after the develop sync that
+# carries it: see require_pr_trigger_on.
+WORKFLOW_LINT="Workflow lint"
+require_workflow_lint_on() { require_pr_trigger_on "$1" workflow-lint.yml "$WORKFLOW_LINT" "$1" develop; }
+
+# The required-contexts list for one branch, as compact JSON: the one place it is
+# decided, read both by the protect_* functions below and by
+# scripts/check_ci_health.py (--print-contexts), so the drift check can never
+# expect something other than what this script applies.
+#   main:      REQUIRED_CONTEXTS.
+#   develop:   + the review gate and "Workflow lint".
+#   polity:    + the review gate and "Workflow lint". "CI health check" too,
+#              now that ci-health.yml runs on PRs to polity.
+#   polity-ui: less "CI health check": ci-health.yml doesn't run on PRs to it,
+#              and a required check that never reports blocks every PR
+#              forever (the PR #205 lesson above).
+# Computed here, not at the top, so the main target never needs jq.
+contexts_for() {
+  case "$1" in
+    main)           printf '%s' "$REQUIRED_CONTEXTS" | jq -c . ;;
+    develop|polity) printf '%s' "$REQUIRED_CONTEXTS" | jq -c --arg g "$REVIEW_GATE" --arg w "$WORKFLOW_LINT" '. + [$g, $w]' ;;
+    polity-ui)      printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))' ;;
+    *) echo "contexts_for: unknown branch '$1'" >&2; return 1 ;;
+  esac
+}
+
+# The required_status_checks entry for one branch: `"contexts": [...]`, or, with
+# REVIEW_GATE_APP_ID set and the gate required there, `"checks": [...]` with the
+# gate pinned to the App and every other context from any source (-1).
+status_checks_for() {
+  local contexts
+  contexts=$(contexts_for "$1")
+  if [ -n "$REVIEW_GATE_APP_ID" ] && jq -e --arg g "$REVIEW_GATE" 'index($g) != null' <<< "$contexts" > /dev/null; then
+    printf '"checks": %s' "$(jq -c --arg g "$REVIEW_GATE" --argjson id "$REVIEW_GATE_APP_ID" \
+      'map({context: ., app_id: (if . == $g then $id else -1 end)})' <<< "$contexts")"
+  else
+    printf '"contexts": %s' "$contexts"
+  fi
+}
+
+protect_polity_branch() {
+  local branch="$1"
+  local POLITY_CHECKS
+  if [ "$branch" = polity ]; then
+    require_gate_workflow polity
+    require_ci_health_on polity
+    require_workflow_lint_on polity
+  fi
+  POLITY_CHECKS=$(status_checks_for "$branch")
+  echo "Protecting '${branch}'..."
+  api_call PUT "repos/${OWNER}/${REPO}/branches/${branch}/protection" "{
+    \"required_status_checks\": {
+      \"strict\": true,
+      ${POLITY_CHECKS}
+    },
+    \"enforce_admins\": false,
+    \"required_pull_request_reviews\": {
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
+    },
+    \"restrictions\": null,
+    \"required_linear_history\": false,
+    \"allow_force_pushes\": false,
+    \"allow_deletions\": false
+  }"
+  echo "✅  '${branch}' protected."
+}
+
+# main: PRs only (develop -> main, see the release skill), the same required
+# checks, no direct pushes for anyone but an admin, and none at all from the
+# release workflow's token (release.yml only pushes a tag).
+#   - 0 approvals: the repo has one maintainer, and GitHub never lets a PR's
+#     author approve it, so 1 would block every release.
+#   - enforce_admins false, as on polity and develop: the owner can override a
+#     red check that isn't a regression. The develop -> main PR is where that
+#     happens (diff-cover re-counts against a far-behind main, #669).
+#   - no linear history: the release PR is merged with a merge commit.
+#   - strict false, unlike polity and develop: that merge commit lands on main
+#     and never on develop, so with strict every next develop -> main PR would
+#     be "behind" main, and its "Update branch" would push to the protected
+#     develop. Nothing else merges into main, and the release job re-tests the
+#     exact commit it tags, so strict buys nothing here.
 protect_main() {
+  local MAIN_CONTEXTS
+  MAIN_CONTEXTS=$(contexts_for main)
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
     \"required_status_checks\": {
-      \"strict\": true,
-      \"contexts\": ${REQUIRED_CONTEXTS}
+      \"strict\": false,
+      \"contexts\": ${MAIN_CONTEXTS}
     },
-    \"enforce_admins\": true,
+    \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
-      \"required_approving_review_count\": 1,
-      \"dismiss_stale_reviews\": true,
-      \"require_last_push_approval\": true
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
     },
     \"restrictions\": null,
-    \"required_linear_history\": true,
+    \"required_linear_history\": false,
     \"allow_force_pushes\": false,
     \"allow_deletions\": false
   }"
@@ -117,11 +317,15 @@ protect_main() {
 }
 
 protect_develop() {
+  local DEVELOP_CHECKS
+  require_gate_workflow develop
+  require_workflow_lint_on develop
+  DEVELOP_CHECKS=$(status_checks_for develop)
   echo "Protecting 'develop'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{
     \"required_status_checks\": {
       \"strict\": true,
-      \"contexts\": ${REQUIRED_CONTEXTS}
+      ${DEVELOP_CHECKS}
     },
     \"enforce_admins\": false,
     \"required_pull_request_reviews\": {
@@ -136,14 +340,29 @@ protect_develop() {
   echo "✅  'develop' protected."
 }
 
+# Print a branch's required contexts and exit, touching nothing (for
+# scripts/check_ci_health.py's drift check): --print-contexts <branch>.
+if [ "$TARGET" = --print-contexts ]; then
+  contexts_for "${2:?usage: $0 --print-contexts <main|develop|polity|polity-ui>}"
+  exit
+fi
+# The required_status_checks entry a run would apply (with REVIEW_GATE_APP_ID:
+# the gate pinned to the App), touching nothing: --print-checks <branch>.
+if [ "$TARGET" = --print-checks ]; then
+  status_checks_for "${2:?usage: $0 --print-checks <main|develop|polity|polity-ui>}"
+  echo
+  exit
+fi
+
 echo "🔒 Setting up branch protection for ${OWNER}/${REPO} (target: ${TARGET})..."
 echo ""
 
 case "$TARGET" in
   main)    protect_main ;;
   develop) protect_develop ;;
+  polity|polity-ui) protect_polity_branch "$TARGET" ;;
   all)     protect_main; echo ""; protect_develop ;;
-  *) echo "❌ Unknown target '$TARGET' — use main, develop, or all"; exit 1 ;;
+  *) echo "❌ Unknown target '$TARGET' — use main, develop, polity, polity-ui, or all (= main and develop)"; exit 1 ;;
 esac
 
 echo ""

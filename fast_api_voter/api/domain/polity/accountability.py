@@ -35,11 +35,13 @@ from api.domain.polity.citizen import Citizen, Office
 from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import (
     AwakeningConfig,
+    EmotionsConfig,
     EventsConfig,
     MandateConfig,
     PetitionConfig,
     StreetPressureConfig,
 )
+from api.domain.polity.emotions import awakening_pull
 from api.domain.polity.social_graph import SocialGraph
 from api.domain.polity.metrics import signed_ratio
 
@@ -199,24 +201,29 @@ def self_gap(citizen: Citizen, officeholder: Citizen) -> float:
     return weighted_euclidean(citizen.issue_positions, officeholder.revealed_position, citizen.issue_priorities)
 
 
+def counted_terms(citizen: Citizen) -> int:
+    """The terms the limit counts: every one won, less those won with less than half a term left (OBS-041)."""
+    return citizen.mandates_served - citizen.short_terms
+
+
 def is_term_limited(citizen: Citizen, term_limit: int | None) -> bool:
     """§6bis.1: a hard, always-on candidacy block, independent of the LLM --
     `term_limit=None` (shipped default) means illimité, always False. Doubles
     as the `lame_duck` predicate for a sitting officeholder (Lot 6 ctx)."""
-    return term_limit is not None and citizen.mandates_served >= term_limit
+    return term_limit is not None and counted_terms(citizen) >= term_limit
+
+
+def is_irregular(citizen: Citizen, term_limit: int | None) -> bool:
+    """ADR-022: holding office past the last term the rules allow -- recalls are suspended."""
+    return term_limit is not None and counted_terms(citizen) > term_limit
 
 
 def ticks_to_election(tick: int, term_end_tick: int | None) -> int | None:
-    """term_end_tick - tick, or None with no sitting officeholder. Two real
-    consumers (v4 Lot 6): election_proximity (which delegates here) and
-    dt=6's ResponseContext.ticks_left. No InstitutionalClock needed --
-    term_end_tick is only ever assigned at a presidential election tick, to
-    exactly tick_of_election + president_term_years*ticks_per_year, so it
-    already IS the next scheduled presidential election; a recall (Lot 3)
-    clears it via vacate_office, so a stale value is unreachable. Lot 4
-    already proved the range is [1, president_term_ticks] for a sitting
-    holder (the accountability phase runs after the election block, so 0 is
-    unreachable) -- never 0, never negative, in the caller's own tests."""
+    """term_end_tick - tick, or None with no sitting officeholder. term_end_tick is the
+    calendar's next presidential election from the tick its holder won, off-calendar reruns
+    included (InstitutionalClock.next_presidential_election, OBS-041), and a recall clears it
+    (vacate_office). 0 is reachable: a phase that runs before the election phase on an
+    election tick (the chamber's amendment ballot) reads the outgoing holder's last tick."""
     if term_end_tick is None:
         return None
     return term_end_tick - tick
@@ -237,6 +244,7 @@ def awakening_threshold(
     mandate_dev: float,
     proximity: float,
     neighbors_acting: float = 0.0,
+    emotion_pull: float = 0.0,
     config: AwakeningConfig,
 ) -> float:
     """§7bis.9c: base_threshold * f(context), f bounded to [1-amp, 1+amp].
@@ -259,7 +267,10 @@ def awakening_threshold(
     so the caller (accountability.neighbors_acting, computed once per
     holder over the whole population) threads it in exactly like
     mandate_dev/proximity. Defaults to 0.0 so every pre-v6-Lot-3 caller
-    keeps compiling and behaving identically."""
+    keeps compiling and behaving identically.
+
+    emotion_pull (S4.3, emotions.awakening_pull) lowers it the same way: anger and anxiety
+    pull the threshold down, enthusiasm pushes it up, inside the same bound."""
     amp = config.modulation_amplitude
     f = 1.0
     if config.context_modulation.mandate_deviation:
@@ -270,6 +281,8 @@ def awakening_threshold(
         f -= amp * citizen.event_salience
     if config.context_modulation.neighbors_acting:
         f -= amp * neighbors_acting
+    if emotion_pull:
+        f -= amp * emotion_pull
     f = max(1.0 - amp, min(1.0 + amp, f))
     return citizen.base_threshold * f
 
@@ -321,6 +334,7 @@ def select_consulted(
     mandate_dev: float,
     awakening: AwakeningConfig,
     neighbors_acting: Mapping[int, float] | None = None,
+    emotions: EmotionsConfig | None = None,
 ) -> list[tuple[Citizen, float]]:
     """§7bis.9d: the awakening gate -- a sampling GATE, never a decision. A
     citizen is consulted iff self_gap > their own awakening_threshold
@@ -334,7 +348,10 @@ def select_consulted(
     `neighbors_acting` (v6 Lot 3) is the per-citizen fraction the module-
     level function of the same name already computed once for this holder
     -- None (the default) behaves exactly like "no social graph", 0.0 for
-    every citizen, preserving every pre-v6-Lot-3 call site unmodified."""
+    every citizen, preserving every pre-v6-Lot-3 call site unmodified.
+
+    `emotions` (S4.3) weights each citizen's tracked emotions into their threshold; None,
+    or untracked emotions, adds nothing."""
     if holder.revealed_position is None:
         return []
     proximity = election_proximity(tick, holder.term_end_tick, term_ticks)
@@ -345,7 +362,8 @@ def select_consulted(
         gap = self_gap(citizen, holder)
         frac = neighbors_acting.get(citizen.citizen_id, 0.0) if neighbors_acting else 0.0
         threshold = awakening_threshold(
-            citizen, mandate_dev=mandate_dev, proximity=proximity, neighbors_acting=frac, config=awakening
+            citizen, mandate_dev=mandate_dev, proximity=proximity, neighbors_acting=frac,
+            emotion_pull=awakening_pull(citizen, emotions) if emotions is not None else 0.0, config=awakening,
         )
         if gap > threshold:
             consulted.append((citizen, gap))

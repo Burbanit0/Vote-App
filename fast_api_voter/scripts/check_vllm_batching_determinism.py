@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -66,7 +67,9 @@ from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA  # noqa: E402
 from api.domain.polity.simple_rules import declare_candidacy  # noqa: E402
 
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
-MODEL = "qwen3:8b"  # must match --served-model-name at server launch (docker-compose.llm.yml)
+# must match --served-model-name at server launch (docker-compose.llm.yml); POLITY_PROBE_MODEL points the
+# check at a probe server that serves another name (S2.4: granite-4.2-8b, gemma-4-12b), as the other probes do
+MODEL = os.environ.get("POLITY_PROBE_MODEL", "qwen3:8b")
 BATCH_SIZES = (1, 5, 25, 50)
 SEQUENTIAL_RUNS = 10
 _DIMS = 20  # matches the shipped citizens.issue_count

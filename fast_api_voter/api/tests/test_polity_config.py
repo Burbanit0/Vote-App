@@ -4,11 +4,12 @@ Contract (dev-plan-v0-worktree.md §3, Lot 1): an invalid config file fails
 explicitly, never silently.
 """
 import copy
+import dataclasses
 
 import pytest
 import yaml
 
-from api.domain.polity.config import PolityConfigError, load_config
+from api.domain.polity.config import PolityConfigError, load_config, validate_config
 
 
 def test_loads_the_real_polity_config_with_expected_v0_values():
@@ -21,9 +22,11 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.institutions.presidential_method == "two_round"
     assert config.institutions.assembly_seats == 100
     assert config.institutions.seat_allocation == "dhondt"
-    assert config.institutions.president_term_limit is None
+    assert config.institutions.president_term_limit == 2  # D6, 2026-09-13
+    assert config.institutions.recalled_barred_from_snap_election is True
     assert config.parties.initial_count == 5
     assert config.parties.coalition_tiebreak == ("seats", "votes", "party_id")
+    assert config.parties.coalition_max_negotiation_rounds == 3
     assert config.citizens.issue_count == 20
     assert config.legitimacy.enabled is False
     assert config.journal.enabled is True
@@ -39,8 +42,10 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.max_batch_replays == 0
     assert config.llm.recycle_after_n_calls is None
     assert config.llm.enabled is False
-    assert config.llm.provider == "ollama"
-    assert config.llm.base_url == "http://localhost:11434/v1"
+    # Switched 2026-09-06 (plan-flagship-30y-run.md phase 0); was "ollama"
+    # until the axis (a)/(b) checks and the xgrammar truncation fix landed.
+    assert config.llm.provider == "vllm"
+    assert config.llm.base_url == "http://localhost:8000/v1"
     assert config.llm.model == "qwen3:8b"
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
@@ -148,6 +153,14 @@ def test_reelection_delay_ticks_zero_raises(tmp_path):
         load_config(path)
 
 
+def test_coalition_max_negotiation_rounds_zero_raises(tmp_path):
+    path = _write(
+        tmp_path, lambda d: d["parties"].__setitem__("coalition_max_negotiation_rounds", 0)
+    )
+    with pytest.raises(PolityConfigError, match="coalition_max_negotiation_rounds"):
+        load_config(path)
+
+
 def test_coalition_tiebreak_rejects_unknown_key(tmp_path):
     path = _write(
         tmp_path,
@@ -193,9 +206,10 @@ def test_llm_provider_unknown_raises(tmp_path):
 
 
 def test_llm_provider_vllm_is_accepted(tmp_path):
-    # v4 vLLM switch (§15bis.6): "vllm" is a legal config.py value even
-    # though the shipped default stays "ollama" -- nothing pinned this
-    # loading successfully before this lot.
+    # v4 vLLM switch (§15bis.6): "vllm" is a legal config.py value --
+    # nothing pinned this loading successfully before this lot. It is also
+    # the shipped default since 2026-09-06, but this test stays independent
+    # of which of the two the shipped file happens to name.
     path = _write(tmp_path, lambda d: d["llm"].__setitem__("provider", "vllm"))
     config = load_config(path)
     assert config.llm.provider == "vllm"
@@ -358,6 +372,35 @@ def test_llm_max_batch_replays_positive_is_legal(tmp_path):
     assert load_config(path).llm.max_batch_replays == 2
 
 
+# ── S1.2 and S1.3, adopted 2026-09-16 ─────────────────────────────────────
+
+def test_the_shipped_config_adopts_the_vote_grammar_and_a_2048_thinking_budget():
+    llm = load_config().llm
+    assert (llm.vote_cast_grammar_invariants, llm.thinking_token_budget) == (True, 2048)
+
+
+def test_llm_thinking_token_budget_null_sends_no_budget(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("thinking_token_budget", None))
+    assert load_config(path).llm.thinking_token_budget is None
+
+
+@pytest.mark.parametrize("budget", [0, -64])
+def test_llm_thinking_token_budget_not_positive_raises(tmp_path, budget):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("thinking_token_budget", budget))
+    with pytest.raises(PolityConfigError, match="thinking_token_budget.*positive int or null"):
+        load_config(path)
+
+
+def test_llm_thinking_token_budget_needs_vllm(tmp_path):
+    """A budget is a vLLM request field. On another provider it is refused rather than
+    silently dropped, so a config never claims a budget its runs did not send."""
+    config = load_config()
+    on_ollama = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    with pytest.raises(PolityConfigError, match="thinking_token_budget.*needs 'llm.provider: vllm'"):
+        validate_config(on_ollama)
+    validate_config(dataclasses.replace(on_ollama, llm=dataclasses.replace(on_ollama.llm, thinking_token_budget=None)))
+
+
 # ── llm.recycle_after_n_calls (bug 4 investigation, 2026-08-19/20) ────────
 
 def test_llm_recycle_after_n_calls_null_is_legal(tmp_path):
@@ -455,6 +498,15 @@ def test_petition_enabled_without_legitimacy_enabled_raises(tmp_path):
 
     path = _write(tmp_path, mutate)
     with pytest.raises(PolityConfigError, match="legitimacy.enabled"):
+        load_config(path)
+
+
+def test_approval_weight_without_legitimacy_enabled_raises(tmp_path):
+    def mutate(d):
+        d["legitimacy"]["approval_weight"] = 0.5
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="approval_weight"):
         load_config(path)
 
 
@@ -616,10 +668,10 @@ def test_social_graph_unknown_topology_raises(tmp_path):
         load_config(path)
 
 
-def test_social_graph_evolving_true_raises(tmp_path):
+def test_social_graph_evolving_true_parses_and_needs_the_dynamics(tmp_path):
     path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("evolving", True))
     with pytest.raises(PolityConfigError, match="social_graph.evolving"):
-        load_config(path)
+        load_config(path)  # no graph, no dynamics: ADR-036's cross-validation
 
 
 def test_social_graph_mean_degree_zero_raises(tmp_path):
@@ -742,3 +794,57 @@ def test_missing_sortition_max_deliberation_shifts_raises_and_names_it(tmp_path)
     path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("max_deliberation_shifts"))
     with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_shifts"):
         load_config(path)
+
+
+# ── validate_config (S1.5): one place for every cross-setting rule ───────
+
+def test_the_shipped_config_passes_validate_config():
+    validate_config(load_config())
+
+
+def test_validate_config_holds_a_config_built_in_code_to_the_yaml_rules():
+    # dataclasses.replace never passes through load_config's parsing; before S1.5 only the
+    # flagship runner re-checked a hand-copied subset of these rules.
+    config = load_config()
+    incoherent = dataclasses.replace(config, pressure_menu=dataclasses.replace(
+        config.pressure_menu, electoral_only=False, mobilization_enabled=True,
+    ))
+    with pytest.raises(PolityConfigError, match="'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree"):
+        validate_config(incoherent)
+    shock_without_generator = dataclasses.replace(config, events=dataclasses.replace(config.events, enabled=True))
+    with pytest.raises(PolityConfigError, match="'events.enabled' must equal"):
+        validate_config(shock_without_generator)
+    sampled = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, temperature=0.7))
+    with pytest.raises(PolityConfigError, match="'llm.temperature': must be 0.0 when llm.enabled is true, got 0.7"):
+        validate_config(sampled)
+
+
+def test_a_negative_non_negative_float_is_rejected():
+    from api.domain.polity.config import PolityConfigError, _get_nonneg_float
+
+    with pytest.raises(PolityConfigError, match="must be non-negative"):
+        _get_nonneg_float({"partisanship": -0.5}, "vote", "partisanship")
+
+
+def test_llm_crowd_ships_on_and_off_needs_the_utility_ballot() -> None:
+    """plan-scenarios-v1 step 2: llm.crowd off hands the crowd to the rules; the model must then never vote."""
+    import dataclasses
+
+    from api.domain.polity.config import broken_rule, load_config
+
+    config = load_config()
+    assert config.llm.crowd is True
+    agents_only = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, crowd=False))
+    assert broken_rule(agents_only) is None  # the shipped vote.mode is utility
+    model_votes = dataclasses.replace(agents_only, vote=dataclasses.replace(config.vote, mode="llm"))
+    message = broken_rule(model_votes)
+    assert message is not None and "'llm.crowd: false' needs 'vote.mode: utility'" in message
+    off_engine = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=False, crowd=False))
+    assert broken_rule(dataclasses.replace(off_engine, vote=dataclasses.replace(config.vote, mode="llm"))) is None
+    # The two things the rules cannot do for the crowd are refused, not silently dropped.
+    staggered = dataclasses.replace(agents_only, institutions=dataclasses.replace(config.institutions, staggered_election=True))
+    assert "staggered_election" in (broken_rule(staggered) or "")
+    responses = dataclasses.replace(agents_only, mandate=dataclasses.replace(config.mandate, enabled=True),
+                                    agents=dataclasses.replace(config.agents, president=False))
+    assert "agents.president" in (broken_rule(responses) or "")
+    assert broken_rule(dataclasses.replace(responses, agents=dataclasses.replace(config.agents, president=True))) is None

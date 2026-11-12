@@ -12,6 +12,13 @@ name: Generated Artifacts Contract
 #     this before: a backend rule could change while the fixture kept the old
 #     winners, leaving the parity test green against a frozen snapshot while the
 #     two engines diverged. See scripts/check_engine_parity_drift.sh.
+#  3. Generated doc blocks — cog blocks in docs that render facts owned by code
+#     (polity's model profiles, the journal event registry; and, from
+#     scripts/ci_facts.py, CONTRIBUTING's and the voter-ci skill's workflow and
+#     required-check counts, plus CONTRIBUTING's one-row-per-workflow table, so
+#     adding or removing a workflow or a required check is checked here). A
+#     change that leaves the doc behind, or a hand edit of generated text, fails
+#     here. See scripts/check_generated_docs.sh.
 
 # No top-level `paths:` filter (moved to the `changes` job below, on purpose):
 # this workflow is a required status check, and a required check scoped by
@@ -23,9 +30,9 @@ name: Generated Artifacts Contract
 # instead, which GitHub treats as a passing required check.
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, polity, polity-ui]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, polity, polity-ui]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,8 +48,11 @@ jobs:
     timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -58,50 +68,83 @@ jobs:
               # ctx/input) and went uncaught on develop until this filter
               # started watching this workflow file's own edits instead.
               - "fast_api_voter/requirements.txt"
+              - "fast_api_voter/requirements.lock.txt"
               - "voter-app/src/api/types.gen.ts"
               - "voter-app/src/lib/__fixtures__/**"
               - "voter-app/package.json"
               - "voter-app/package-lock.json"
               - ".github/workflows/openapi-contract.yml"
               - "scripts/check_*_drift.sh"
+              - "scripts/check_generated_docs.sh"
+              - "docs/plan/polity/polity-llm-reference.md"
+            # Only the doc blocks can move: the job runs, but skips the npm
+            # install and the contract and parity checks.
+            # The CI counts in CONTRIBUTING and the voter-ci skill
+            # (scripts/ci_facts.py): a new workflow or required check moves them.
+            docs:
+              - "CONTRIBUTING.md"
+              - ".claude/skills/voter-ci/SKILL.md"
+              - "scripts/ci_facts.py"
+              - "scripts/check_ci_health.py"
+              - "scripts/setup-branch-protection.sh"
+              - ".github/workflows/*.yml"
+              - ".github/workflows/*.yaml"
 
   drift-check:
     needs: changes
-    if: needs.changes.outputs.relevant == 'true'
+    # A detector that did not succeed (failed, or its job cancelled) runs this
+    # job and every check in it: skipped would pass the required check without testing anything.
+    # !cancelled() rather than always(): a superseded run still stops.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true' || needs.changes.outputs.docs == 'true') }}
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Decided once for every step below: the contract and parity checks run
+      # when the detector found relevant paths or did not succeed.
+      FULL_CHECK: ${{ needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
       # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
       # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: "fast_api_voter/requirements*.txt"
 
       - name: Install backend dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: env.FULL_CHECK == 'true'
         with:
-          node-version: "24"
+          node-version-file: voter-app/.nvmrc
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 
       - name: Install frontend dependencies
+        if: env.FULL_CHECK == 'true'
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
 
       - name: API contract drift
+        if: env.FULL_CHECK == 'true'
         run: ./scripts/check_openapi_drift.sh
 
       # Runs even if the contract check failed: two independent artifacts, and
       # seeing both verdicts in one run beats fixing them one push at a time.
       - name: Engine parity fixture drift
-        if: always()
+        if: always() && env.FULL_CHECK == 'true'
         run: ./scripts/check_engine_parity_drift.sh
+
+      - name: Generated doc blocks in sync
+        if: always()
+        run: |
+          uv pip install --system "$(grep -E '^cogapp==' fast_api_voter/requirements-dev.txt | cut -d' ' -f1)"
+          ./scripts/check_generated_docs.sh

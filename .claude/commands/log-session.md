@@ -13,5 +13,6 @@ Utilise le sub-agent `journal-writer` pour :
    claire, honnête, narrative, en français.
 4. Ne rien appliquer directement : présenter l'entrée proposée pour
    validation avant de l'ajouter en tête du fichier.
-5. Si je valide, ajouter l'entrée et confirmer le commit à faire côté
-   `docs/journal/JOURNAL_DE_BORD.md`.
+5. Si je valide, ajouter l'entrée sur une branche `docs/journal-<date>` partie
+   de `polity`, et ouvrir une PR vers `polity` (jamais de commit direct sur
+   `polity` ou `develop`, cf. `CLAUDE.md`).

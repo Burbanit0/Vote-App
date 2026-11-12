@@ -22,15 +22,36 @@ asyncio_mode = "strict"
 # backend-ci-cd-pipeline.yml's "Engine perf ceilings" step and the module
 # docstring for the full design rationale).
 addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py --ignore=api/tests/test_engine_benchmarks.py"
+# Test integrity (phase 11b): a mistyped marker (`@pytest.mark.skipp`) is an
+# error instead of a silently ignored decoration (strict_markers), and
+# an xfail test that starts passing fails the run (xfail_strict), so a fixed
+# bug can't hide behind a stale xfail. A test that is genuinely nondeterministic
+# opts out explicitly with `strict=False` and a reason (test_polity_vllm_live.py).
+# Ini keys, not addopts: they hold under `-o addopts=""` (fast-gate, local runs).
+strict_markers = true
+xfail_strict = true
+# behavior("ELE-01", ...): the docs/spec/behaviors.md invariants a test checks;
+# test_behavior_catalogue.py keeps the catalogue and the markers in step.
+markers = [
+    "behavior(*ids): the docs/spec/behaviors.md invariant IDs this test checks",
+]
 
 [tool.coverage.run]
 source = ["api"]
+# Branch data: diff-cover --branch-coverage (backend-ci-cd-pipeline.yml) fails a
+# changed line whose branch was only taken one way (an `if` whose `else` no test
+# reaches), which line coverage alone counts as covered. It also makes the
+# fail_under total below combine lines and branches.
+branch = true
 omit = ["api/tests/*"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-precision = 0
+# Two decimals: with 0, coverage rounds the total BEFORE comparing it to fail_under, so
+# 89.5% would pass a 90 floor (and pytest-cov's `--cov-fail-under=90` in addopts, which
+# reads the same rounded total, would too). #682.
+precision = 2
 fail_under = 90
 
 # Linting (replaces flake8 as of Lot 1 of PLAN_SOLIDITE_TECHNIQUE.md — same
@@ -48,9 +69,6 @@ fail_under = 90
 [tool.ruff]
 line-length = 88
 extend-exclude = [
-    "api/tests",  # never linted under flake8 either (see the old .flake8's
-                  # `exclude` list) — extending coverage there is a separate,
-                  # deliberate decision, not a side effect of this swap.
     ".vulture_whitelist.py",  # same exclusion the old .flake8 had — its
                               # bare names are deliberately "undefined",
                               # that's how vulture's whitelist mechanism works.
@@ -62,6 +80,24 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["F", "NPY002"]   # NPY002: legacy np.random.* singleton calls
+# Test integrity (CI hardening plan, phase 11b): api/tests is linted too, and
+# these rules catch a test that can pass without checking anything -- a bare
+# comparison or expression that asserts nothing (B015, B018), `assert False`
+# (B011, PT015), a pytest.raises with no expected exception or so broad any
+# ValueError passes (PT010, PT011), raises/warns blocks that swallow more than
+# one statement (PT012, PT031), a closure that sees a later loop value (B023),
+# an assert inside `except` (PT017) and unittest-style asserts (PT027).
+# Enabled for test code only: see per-file-ignores below.
+extend-select = ["B011", "B015", "B018", "B023", "PT010", "PT011", "PT012", "PT015", "PT017", "PT027", "PT030", "PT031"]
+
+[tool.ruff.lint.per-file-ignores]
+# The test-integrity rules above apply to tests only; the rest of the codebase
+# keeps its existing rule set (enabling B018/B023 there is a separate decision).
+"!{api/tests/**,scripts/**/tests/**}" = ["B011", "B015", "B018", "B023", "PT010", "PT011", "PT012", "PT015", "PT017", "PT027", "PT030", "PT031"]
+# These two tests drive the legacy global RNG on purpose, to prove the engine
+# never reads or reseeds it.
+"api/tests/test_no_global_rng.py" = ["NPY002"]
+"api/tests/test_seeded_rng_isolation.py" = ["NPY002"]
 
 # Unused/undeclared dependency detection (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md —
 # knip's Python equivalent). Scoped to api/ — fast_api_voter/scripts/ holds
@@ -217,6 +253,13 @@ pytest_add_cli_args = ["-o", "addopts="]
 # this list is hand-curated, not auto-discovered, and neither new file had
 # been added to it — the exact tests written to catch the tie-break bugs never
 # ran under mutmut at all.
+#
+# It drifted a third time (6 matching files missing, test_borda.py among them,
+# so Borda's own tests never ran against Borda's mutants). The list is now
+# locked to the rule above by api/tests/test_mutmut_selection.py: a file the
+# rule selects must be listed here or named, with its reason, in that test's
+# EXCLUDED (the benchmarks, and the two whole-engine suites too slow to run
+# per mutant).
 pytest_add_cli_args_test_selection = [
     "api/tests/test_anonymity.py",
     "api/tests/test_anti_plurality.py",
@@ -225,21 +268,25 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_ballot_dict_format.py",
     "api/tests/test_benham.py",
     "api/tests/test_black.py",
+    "api/tests/test_borda.py",
     "api/tests/test_bucklin_cumulative.py",
     "api/tests/test_cardinal_batch.py",
     "api/tests/test_cardinal_orphans.py",
     "api/tests/test_condorcet.py",
     "api/tests/test_copeland.py",
     "api/tests/test_dowdall.py",
+    "api/tests/test_gibbard_satterthwaite.py",
     # Property-based suites: the most effective mutant killers in the selection,
     # and both were previously left out.
     "api/tests/test_hypothesis_condorcet.py",
     "api/tests/test_hypothesis_monotonicity.py",
     "api/tests/test_irv_coombs_elimination.py",
     "api/tests/test_kemeny_young.py",
+    "api/tests/test_literature_counterexamples.py",
     "api/tests/test_minimax.py",
     "api/tests/test_nanson.py",
     "api/tests/test_plurality.py",
+    "api/tests/test_positional_score.py",
     "api/tests/test_ranked_pairs_random_ballot.py",
     "api/tests/test_raynaud.py",
     "api/tests/test_river.py",
@@ -247,8 +294,11 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_smith_irv.py",
     "api/tests/test_split_cycle.py",
     "api/tests/test_star_runoff_tie.py",
+    "api/tests/test_tally_ties_by_name.py",
     "api/tests/test_theory_pure.py",
+    "api/tests/test_tie_lot.py",
     "api/tests/test_two_round.py",
+    "api/tests/test_workers_behavioral.py",
 ]
 
 # Makes the voter-api skill's documented layering blocking instead of just

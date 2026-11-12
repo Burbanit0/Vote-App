@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 
@@ -73,6 +73,21 @@ const CUBE_EDGES: [number, number][] = [
   [3, 7],
 ];
 
+/** The orbit camera. The host may own it (a ref) so it survives the scene unmounting. */
+export interface SceneCamera {
+  yaw: number;
+  pitch: number;
+  spin: boolean;
+}
+
+const initialCamera = (): SceneCamera => ({
+  yaw: 0.6,
+  pitch: 0.35,
+  // Don't auto-rotate for users who asked for less motion (the orbit is an
+  // infinite animation); they can still start it from the toggle.
+  spin: !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+});
+
 export interface LeaderScene3DProps {
   voters: Pt[];
   candidates: NamedPt[];
@@ -81,6 +96,15 @@ export interface LeaderScene3DProps {
   /** Optional "you" marker (the sincere-vote module) — read-only here; the
    *  x/y/z sliders drive it, since depth can't be dragged unambiguously. */
   you?: Pt | null;
+  /** Optional host-owned camera: read on mount, written on every change, so the
+   *  viewpoint is kept when the scene is unmounted and mounted again. */
+  cameraRef?: React.MutableRefObject<SceneCamera | null>;
+  /** Index of the candidate the active rule elects (ringed); null/undefined = none. */
+  winner?: number | null;
+  /** Index of the Condorcet winner (criteria lens); null/undefined = none. */
+  condorcet?: number | null;
+  /** Id of a text that describes the scene (the host's hidden summary, which names the winner). */
+  describedBy?: string;
 }
 
 const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
@@ -89,16 +113,23 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   palette,
   axisLabels = ['x', 'y', 'z'],
   you,
+  cameraRef,
+  winner,
+  condorcet,
+  describedBy,
 }) => {
   const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
-  const [yaw, setYaw] = useState(0.6);
-  const [pitch, setPitch] = useState(0.35);
-  // Don't auto-rotate for users who asked for less motion (the orbit is an
-  // infinite animation); they can still start it from the toggle.
-  const [spin, setSpin] = useState(
-    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  );
+  const ownCamera = useRef<SceneCamera | null>(null);
+  const camera = cameraRef ?? ownCamera;
+  const saved = (camera.current ??= initialCamera());
+  const [yaw, setYaw] = useState(saved.yaw);
+  const [pitch, setPitch] = useState(saved.pitch);
+  const [spin, setSpin] = useState(saved.spin);
+  useEffect(() => {
+    // Mutate in place: this runs every spin frame.
+    Object.assign(saved, { yaw, pitch, spin });
+  }, [saved, yaw, pitch, spin]);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-rotate until the user grabs it.
@@ -156,13 +187,17 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     setSpin(false);
   };
 
+  // Nearest candidate doesn't depend on the camera: compute it when the electorate
+  // changes, not on every orbit frame.
+  const parties = useMemo(
+    () => voters.map((v) => nearestCandidate(v, candidates)),
+    [voters, candidates]
+  );
+
   // Project everything, then paint far→near.
   const cubePts = CUBE.map((c) => rotate({ x: c[0], y: c[1], z: c[2] }, yaw, pitch));
   const voterDots = voters
-    .map((v) => {
-      const r = rotate(v, yaw, pitch);
-      return { r, party: nearestCandidate(v, candidates) };
-    })
+    .map((v, k) => ({ r: rotate(v, yaw, pitch), party: parties[k] }))
     .sort((a, b) => a.r.z - b.r.z);
   const candDots = candidates
     .map((c, i) => ({ r: rotate(c, yaw, pitch), i, name: c.name }))
@@ -195,6 +230,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         width="100%"
         role="img"
         aria-label={t('scene.aria')}
+        aria-describedby={describedBy}
         className="touch-none select-none rounded-lg bg-card"
         style={{ maxHeight: '70vh', cursor: 'grab' }}
         onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
@@ -252,20 +288,46 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         {/* Candidates */}
         <g>
           {candDots.map((d) => {
-            const t = depth01(d.r.z);
+            const near = depth01(d.r.z);
+            const rad = 6 + near * 5;
+            const isWinner = d.i === winner;
+            const isCondorcet = d.i === condorcet;
             return (
               <g key={d.i} data-testid={`scene-candidate-${d.i}`}>
+                {isCondorcet && (
+                  <circle
+                    data-testid="scene-condorcet"
+                    cx={sx(d.r)}
+                    cy={sy(d.r)}
+                    r={rad + (isWinner ? 9 : 5)}
+                    fill="none"
+                    stroke="#0f766e"
+                    strokeWidth={2}
+                    strokeDasharray="3 2"
+                  />
+                )}
+                {isWinner && (
+                  <circle
+                    data-testid="scene-winner"
+                    cx={sx(d.r)}
+                    cy={sy(d.r)}
+                    r={rad + 4}
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth={2.5}
+                  />
+                )}
                 <circle
                   cx={sx(d.r)}
                   cy={sy(d.r)}
-                  r={6 + t * 5}
+                  r={rad}
                   fill={palette[d.i % palette.length]}
                   stroke="#fff"
                   strokeWidth={1.5}
                 />
                 <text
                   x={sx(d.r)}
-                  y={sy(d.r) - 10 - t * 4}
+                  y={sy(d.r) - 10 - near * 4}
                   textAnchor="middle"
                   fontSize={11}
                   fontWeight={600}
@@ -273,6 +335,25 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
                 >
                   {d.name}
                 </text>
+                {(isWinner || isCondorcet) && (
+                  <text
+                    x={sx(d.r)}
+                    y={sy(d.r) + rad + (isWinner && isCondorcet ? 26 : 17)}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fontWeight={700}
+                    fill={isWinner ? '#d97706' : '#0f766e'}
+                    // A halo in the card colour keeps the tag legible over the voter dots.
+                    className="stroke-card"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    strokeLinejoin="round"
+                  >
+                    {[isWinner && t('scene.winner'), isCondorcet && t('canvas.condorcetMarker')]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </text>
+                )}
               </g>
             );
           })}

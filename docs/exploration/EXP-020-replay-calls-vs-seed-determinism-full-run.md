@@ -1,0 +1,48 @@
+# EXP-020 — Rejeu par journal d'appels comme garantie de reproductibilité, à l'échelle d'un run complet (30 ans, 500 citoyens)
+
+- **Date** : 2026-09-26 (run seed 42, PR #658) → 2026-09-27 (seeds 1 et 2, PR #670) · **Statut** : adopté (confirmé à l'échelle) · **Coût réel** : le protocole EST le coût — 3 runs complets, 2 h 08, 1 h 59 et 2 h 05 de calcul GPU, plus 86 s de rejeu CPU (voir « Ce que ça a coûté ») · **Coût en tokens** : partagé avec EXP-019, EXP-021 et une partie d'EXP-022 — voir la note de coût d'EXP-019 (session continue `c08db11e`, non ventilable par sujet)
+- **Verdict en une phrase** : le rejeu depuis le journal d'appels LLM (`--replay-calls-from`), adopté par choix explicite à la place du déterminisme même-graine, a reproduit un run de 30 ans/500 citoyens octet pour octet sur `events.jsonl` et `snapshots.jsonl` en 86 s, sur les 20 297 appels enregistrés, sans qu'aucun ne manque — la garantie tient à l'échelle de production, pas seulement sur les sondes courtes qui l'avaient motivée.
+
+## Hypothèse de départ
+
+Ce carnet a une particularité par rapport aux précédents : son hypothèse n'est pas reconstruite après coup, elle est écrite mot pour mot dans `docs/plan/polity/plan-full-run.md`, daté **avant** le run (« Written 2026-09-26, the run was made the same day »), sous une section explicite « Expected before it starts » suivie d'une table « Written before the run | Measured » remplie seulement après. Deux décisions étaient déjà prises en amont, pour des raisons opérationnelles (le run tourne en `relaxed`, 12 workers, EAGLE-3 — voir EXP-019), et ce run en était le premier test à pleine échelle :
+
+- **D2, la reproductibilité** : « The owner does not need a run to be reproducible from its seed as long as it leaves enough logs to read it closely (...) and reproduces from its call log (`--replay-calls-from`) instead. » La question posée avant de lancer : cette garantie de rejeu, jusqu'ici vérifiée seulement sur des sondes courtes et sur des runs pré-existants, **tient-elle sur un run de 30 ans/500 citoyens (~120 ticks, ~9 000 décisions de chambre, des dizaines de milliers d'appels LLM), qui n'avait jamais été tenté à ce volume** ?
+- **D6, le coût** : une estimation par extrapolation depuis des sondes plus petites (« 2 to 5 h; 6 h would mean the workers gained nothing ») écrite avant le run, pour vérifier si elle tient ou si elle est fausse par un ordre de grandeur.
+
+Le document lui-même le formule sans ambiguïté pour le rejeu : « This is the test of the claim that the call log is a sufficient record. »
+
+## Protocole
+
+Rejouable avec `scripts/run_polity_flagship.py`, depuis `fast_api_voter/` :
+
+1. **Le run** : `--engine llm --years 30 --population 500 --seats 75 --seed 42 --max-batch-replays 2 --workers 12 --reproducibility relaxed`, serveur vLLM avec EAGLE-3 (EXP-019), lancé via `launch_full_run.sh --go` sous `systemd-run --user` avec un inhibiteur de veille/extinction et une garde de disque, depuis un checkout propre de `polity` (pour que le run enregistre un commit poussé, tracé dans `run_metadata.json`). Deux runs supplémentaires (seeds 1 et 2), même code et config, lancés la nuit suivante via `chain-seeds.sh 1 2`.
+2. **Ce qui est enregistré**, sans drapeau supplémentaire au-delà de ce que le lanceur active déjà : `events.jsonl`/`snapshots.jsonl` (l'état simulé), `llm_calls.jsonl` (chaque appel modèle : prompt, réponse, raisonnement, tokens, `finish_reason`, latence — l'entrée du rejeu), `llm_prompts.jsonl` (le prompt exact envoyé, sidecar optionnel activé), `run_metadata.json` (provenance : SHA git, hash de config, version vLLM), le log serveur et une télémétrie GPU par minute.
+3. **La preuve de rejeu** : après le run, `run_polity_flagship.py` avec les *mêmes* drapeaux que le run, plus `--replay-calls-from <run-dir>` et un `--output-dir` séparé, sur CPU (aucun serveur nécessaire). Le script refuse de démarrer si le `config_hash` enregistré diffère des drapeaux fournis. Le critère de succès, écrit avant le run : reproduire `events.jsonl` octet pour octet.
+
+## Ce que ça a trouvé
+
+**La preuve de rejeu a tenu, à cette échelle, la première fois qu'elle était testée à ce volume** : `--replay-calls-from` sur CPU a servi les 20 297 appels enregistrés, n'en a demandé aucun qui manquait, et a reproduit `events.jsonl` et `snapshots.jsonl` octet pour octet, en **86 s**.
+
+**L'estimation de coût par extrapolation a tenu, dans la fourchette écrite avant le run** : estimée « 2 à 5 h » (6 h aurait signifié qu'ajouter des workers n'apportait rien à cette échelle), mesurée à **2 h 08 (7705 s)** pour le run seed 42, puis **1 h 59** et **2 h 05** pour les seeds 1 et 2 — un écart de moins de 8 % entre les trois seeds.
+
+**Une prédiction écrite avant le run a été confirmée, avec un chiffre plus précis que prévu** : le bassin KV plus petin sous EAGLE-3 (EXP-019) « may queue requests under 12 workers » — confirmé : sur 764 échantillons serveur (toutes les 10 s), des requêtes ont attendu dans 37 (4,8 %, au plus 8 en attente simultanée), l'usage KV a atteint 95 % ou plus dans 3 échantillons, **sans aucune préemption ni erreur serveur**. La dégradation, comme dans EXP-007 (Locust, hors périmètre LLM), se lit d'abord en file d'attente, jamais en erreur franche.
+
+**Une prédiction a été confirmée dans sa forme mais dépassée dans son ampleur, révélant une cause structurelle plutôt qu'un artefact d'échelle** : les pannes de validation de chambre attendues à « 5 à 12 % » (OBS-021, extrapolées depuis une sonde à population 100) sont mesurées à **7,05 %** (640/9075 unités) sur seed 42, puis 5,79 % et 7,11 % sur les deux autres seeds — dans la fourchette, mais avec la cause précise montrée à l'échelle et non plus seulement supposée : la règle de comptage de changements (rejet au-delà de 3 changements) explique 361 des 362 appels échoués sur les trois seeds, et chaque appel raté perd tout son lot de 5 unités, pas seulement la décision fautive.
+
+**Une prédiction a été franchement dépassée, révélant un défaut de contrat non anticipé (OBS-023)** : le budget de réflexion (2048 tokens) attendu contraignant sur « 25 % » des appels `vote_cast` (mesuré sur une sonde à population 100) atteint en réalité **72 à 86 %** sur les trois runs à pleine échelle — un écart que la sonde plus petite n'avait pas laissé prévoir.
+
+## Ce que ça a coûté
+
+Le coût **est** le protocole, sans coût caché supplémentaire trouvé : 7705 s + 7162 s + 7498 s de calcul GPU sur les trois seeds (**≈ 6 h 12 min au total**), plus 86 s de rejeu CPU pour la vérification. Le run laisse derrière lui, sans drapeau additionnel, ~24 Mo de journal d'appels et ~12 Mo de prompts pour un run de 30 ans — largement sous le gigaoctet, le risque de disque documenté étant le reste du disque, pas ce run lui-même. Aucun temps humain de préparation ou de lecture n'est chronométré séparément dans les documents consultés (la lecture et l'exploitation des observations OBS-021 à OBS-025 sont un travail distinct, non compté ici). Aucun faux positif rencontré dans le rejeu lui-même : la preuve a réussi du premier coup documenté.
+
+## Verdict et pourquoi
+
+**Adopté, confirmé à l'échelle.** La décision de renoncer au déterminisme même-graine (D2) en échange d'une garantie de rejeu par journal n'était pas nouvelle — elle datait de l'adoption d'EAGLE-3 (EXP-019) — mais n'avait jamais été mise à l'épreuve sur un run de la taille visée par le projet (30 ans, 500 citoyens). Le run l'a fait, une fois, avec un critère de succès écrit avant (rejeu octet pour octet), et ce critère a été atteint. Le run a aussi servi de sonde de coût pré-enregistrée, confirmant l'estimation par extrapolation à mieux que 10 % près sur les trois seeds — et a révélé, à l'échelle réelle, qu'une prédiction extrapolée depuis une sonde plus petite (le budget de réflexion contraignant à 25 %) était largement sous-estimée (72-86 % en réalité), ce qu'aucune sonde à petite échelle n'aurait pu montrer.
+
+## Ce que j'en retiens (transférable à un autre projet)
+
+1. **Quand le déterminisme d'exécution est trop coûteux ou impossible à garantir à l'échelle voulue (ici : concurrence, batching non déterministe côté serveur), remplacer la promesse « même graine → même résultat octet pour octet » par une promesse vérifiable différente — « le journal enregistré suffit à reconstruire le résultat » — et écrire un test explicite de cette promesse précise, pas une vérification vague.** Le déterminisme et le rejeu ne sont pas substituables sans vérification : c'est le rejeu, pas la graine, qui a été testé et confirmé ici.
+2. **Écrire les attentes chiffrées avant de lancer un run coûteux, dans un document daté, transforme automatiquement le run en expérience falsifiable** — sans effort supplémentaire au moment de l'analyse : il suffit de remplir une colonne « mesuré » face à une colonne déjà écrite. Cela empêche aussi de relire un résultat surprenant comme s'il avait été prévu.
+3. **Une extrapolation depuis une sonde à petite échelle peut être juste sur un axe (le coût total, confirmé à 8 % près) et fausse sur un autre (le taux de contrainte du budget de réflexion, sous-estimé d'un facteur 3) dans le même run** — ne pas supposer qu'une sonde valide globalement valide chacune de ses prédictions individuelles ; vérifier chaque ligne séparément contre la mesure réelle.
+4. **Une dégradation de capacité sous charge (ici, un bassin mémoire plus petit sous 12 workers) se voit d'abord en file d'attente et jamais forcément en erreur** — chercher le signal dans les métriques de latence/attente du serveur, pas seulement dans son taux d'erreur, avant de conclure qu'une charge donnée est soutenable.

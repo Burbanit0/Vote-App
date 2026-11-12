@@ -19,9 +19,8 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import sentry_sdk
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -34,10 +33,13 @@ from slowapi.errors import RateLimitExceeded
 
 from api.engine.utils.logger import configure_logging, get_logger
 from api.core.config import Settings, get_settings
-from api.core.ratelimit import limiter
+from api.core.errors import unhandled_exception_handler
+from api.core.ratelimit import check_v2_rate_limit, limiter
 from api.core.tracing import configure_tracing, instrument_app
+from api.domain.polity.explorer_workers import explorer_roots
 from api.routes import election as election_routes
 from api.routes import health as health_routes
+from api.routes import polity as polity_routes
 from api.routes.metrics import setup_metrics
 from api.routes import public as public_routes
 from api.routes import simulations as simulations_routes
@@ -60,6 +62,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         cors_origins=settings.allowed_origins,
         log_level=settings.log_level,
     )
+    # POLITY_RUN_ROOTS is parsed per request by /api/v2/polity. A typo (a bare path with
+    # no "label=", a repeated label) would otherwise be a 500 on every polity request,
+    # with the reason only in the logs -- so the process refuses to start instead.
+    polity_roots = explorer_roots(settings.polity_run_roots)
+    log.info("api.startup.polity_run_roots", roots=[root.label for root in polity_roots])
     yield
     log.info("api.shutdown")
 
@@ -110,24 +117,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 
 # ── Catch-all exception handler ──────────────────────────────────────────────
-# Most domain workers already catch their own exceptions and return a (body,
-# 500) tuple, which never reaches this handler — see the `log.error(...,
-# exc_info=True)` calls added alongside each of those. This handler is the
-# backstop for anything that still escapes uncaught (a route or middleware bug,
-# not a worker's own try/except), so a genuinely unhandled exception is logged
-# with a traceback instead of surfacing only as a bare 500 in the access log.
-_unhandled_log = get_logger("api.unhandled")
-
-
-@app.exception_handler(Exception)
-async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
-    _unhandled_log.error(
-        "http.unhandled_exception",
-        method=request.method,
-        path=request.url.path,
-        exc_info=True,
-    )
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+# Shared with the in-browser app (api/browser.py): see api/core/errors.py.
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 # ── CORS ────────────────────────────────────────────────────────────────────
@@ -218,12 +209,16 @@ async def log_requests(
 
 
 # ── Routers ─────────────────────────────────────────────────────────────────
+# The /api/v2 compute routers are rate-limited here, not in their own modules, so the
+# in-browser app (api/browser.py) can include the same routers without the limiter.
+_v2_limited = [Depends(check_v2_rate_limit)]
 app.include_router(health_routes.router)
-app.include_router(election_routes.router)
+app.include_router(election_routes.router, dependencies=_v2_limited)
+app.include_router(polity_routes.router, dependencies=_v2_limited)
 app.include_router(public_routes.router)
-app.include_router(simulations_routes.router)
-app.include_router(tech_routes.router)
-app.include_router(theory_routes.router)
+app.include_router(simulations_routes.router, dependencies=_v2_limited)
+app.include_router(tech_routes.router, dependencies=_v2_limited)
+app.include_router(theory_routes.router, dependencies=_v2_limited)
 
 
 @app.get("/api/v2", tags=["meta"])

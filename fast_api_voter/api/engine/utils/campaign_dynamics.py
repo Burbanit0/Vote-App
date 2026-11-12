@@ -14,8 +14,8 @@ Model
 from __future__ import annotations
 
 import math
-import random
 from typing import Any, Optional
+from api.engine.utils import tie_lot
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ def _softmax(values: list[float]) -> list[float]:
 
 def _plurality_winner(utilities: dict[str, float]) -> str:
     """Deterministic: candidate with highest utility wins."""
-    return max(utilities, key=lambda n: utilities[n])
+    return tie_lot.best(utilities, utilities.__getitem__)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ def simulate_campaign(
     num_days: int,
     events: list[dict[str, Any]],
     seed: Optional[int] = None,
+    names: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """
     Simulate a day-by-day electoral campaign.
@@ -76,6 +77,9 @@ def simulate_campaign(
                         candidate (int index, 0-based)
                         magnitude (float 0–1)
     seed           : int | None  for reproducibility in tests
+    names          : list | None the real candidates (up to 8), in place of the internal
+                     ones and of num_candidates; each keeps its own trajectory
+                     however they are listed
 
     Returns
     -------
@@ -89,14 +93,15 @@ def simulate_campaign(
         "candidates":   list[str]
     }
     """
-    rng = random.Random(seed)
-
-    num_candidates = max(2, min(8,  num_candidates))
+    names          = list(names)[:8] if names else _NAMES[:max(2, min(8, num_candidates))]
+    num_candidates = len(names)
     num_days       = max(1, min(90, num_days))
-    names          = _NAMES[:num_candidates]
+    # One stream per candidate, seeded with the seed and its name: a candidate keeps
+    # its trajectory however the candidates are listed (#664).
+    streams = dict(zip(names, tie_lot.streams(seed, names, "campaign")))
 
     # Initial utilities: random in [0.3, 0.7]
-    utilities: dict[str, float] = {name: rng.uniform(0.3, 0.7) for name in names}
+    utilities: dict[str, float] = {name: streams[name].uniform(0.3, 0.7) for name in names}
 
     # Index events by day for O(1) lookup
     events_by_day: dict[int, list[dict[str, Any]]] = {}
@@ -140,7 +145,7 @@ def simulate_campaign(
         # 4. Brownian noise for *next* day
         if day < num_days:
             for name in names:
-                noise = rng.gauss(0, _SIGMA)
+                noise = streams[name].gauss(0, _SIGMA)
                 utilities[name] = max(0.05, min(0.95, utilities[name] + noise))
 
     # Annotate events with measured impact direction

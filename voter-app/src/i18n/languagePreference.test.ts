@@ -13,6 +13,15 @@ describe('language preference', () => {
     expect(localStorage.getItem('votelab_lang')).toBe('en');
   });
 
+  it('sets <html lang> to the language, and "en" for the pseudo-locale', async () => {
+    await switchLanguage('en');
+    expect(document.documentElement.lang).toBe('en');
+    await switchLanguage('fr');
+    expect(document.documentElement.lang).toBe('fr');
+    await switchLanguage('pseudo'); // not a valid language tag; English underneath
+    expect(document.documentElement.lang).toBe('en');
+  });
+
   it('starts from the browser language when storage is unavailable', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('storage disabled');

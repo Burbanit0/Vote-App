@@ -11,13 +11,24 @@
  */
 import createClient from 'openapi-fetch';
 import type { paths } from './types.gen';
+import { createBrowserFetch, ENGINE_IN_BROWSER } from './browserEngine';
 
 // Same origin in production ('' → relative /api). The prod build bakes '' via
 // vite define; `??` preserves that empty string (unlike `||`, which would fall
 // back to localhost), while an unset var (test env) falls back to localhost.
 const API_BASE = process.env.VITE_API_URL ?? 'http://localhost:4434';
 
-export const apiClient = createClient<paths>({ baseUrl: API_BASE });
+// The static build answers /api/v2 in the browser (api/browserEngine.ts); every other
+// build talks to a server.
+export const apiClient = createClient<paths>({
+  baseUrl: API_BASE,
+  fetch: ENGINE_IN_BROWSER
+    ? createBrowserFetch(
+        () =>
+          new Worker(new URL('../workers/engine.worker.ts', import.meta.url), { type: 'module' })
+      )
+    : undefined,
+});
 
 // An error with no body (a proxy's bare 502 when the backend is down) reaches
 // openapi-fetch as `error: ''`, which openapi-react-query's `if (error) throw`

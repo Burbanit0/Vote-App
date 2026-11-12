@@ -6,8 +6,8 @@ on:
   workflow_call:
   # …and on every PR touching either side of the app. It used to be release-only
   # ("exhaustive and slow"), which let the specs rot against a UI that had moved
-  # on for two months without anyone noticing. The suite now runs in ~1 min, so
-  # it belongs where the drift happens.
+  # on for two months without anyone noticing. It belongs where the drift
+  # happens: ~10 min of tests, split across two shards (see the e2e job).
   #
   # No `paths:` filter here (moved to the `changes` job below, on purpose): this
   # workflow is a required status check, and a required check scoped by `paths:`
@@ -18,13 +18,19 @@ on:
   # The workflow now always triggers; the real job is skipped instead, which
   # GitHub treats as a passing required check.
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
   push:
-    branches: [develop]
+    branches: [develop, polity, polity-ui]
+
+# No job writes anything back to the repo: read-only token for all of them.
+permissions:
+  contents: read
 
 # A newer push to the same branch cancels the previous e2e run.
 concurrency:
-  group: e2e-${{ github.ref }}
+  # The event keeps a release's run (called from release.yml) out of the group of a push or PR
+  # run on the same ref, which would cancel it.
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -34,17 +40,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.filter.outputs.relevant == 'true' || steps.backend.outputs.runtime == 'true' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
             relevant:
               - 'voter-app/**'
-              - 'fast_api_voter/**'
               - '.github/workflows/e2e.yml'
+      # The backend counts only where the running app can change: a change confined to
+      # backend scripts, backend tests or Markdown cannot alter what the e2e suite drives.
+      # `every` makes a file match only when it passes all four patterns -- inside
+      # fast_api_voter/ and outside each exclusion. On `polity` most PRs touch only
+      # scripts, results docs or tests, and the e2e run (~10 min of tests, in two
+      # shards since 2026-10-06) stays for the rest.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: backend
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            runtime:
+              - 'fast_api_voter/**'
+              - '!fast_api_voter/scripts/**'
+              - '!fast_api_voter/api/tests/**'
+              - '!fast_api_voter/**/*.md'
 
   playwright-image-sync:
     needs: changes
@@ -52,15 +75,18 @@ jobs:
     # check that never reports blocks the PR forever (see the top-of-file
     # comment on `pull_request` triggers, PR #205's real incident).
     if: |
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Playwright/Docker image version sync
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Dependabot's `docker` ecosystem only parses `Dockerfile`s — it has no
       # visibility into a `container: image:` field inline in a workflow, so a
       # routine `@playwright/test` bump (a patch/minor Dependabot groups and
@@ -72,54 +98,139 @@ jobs:
       # fixed afterwards in hotfix PR #478. This job turns that same class of
       # break into a fast, explicit failure on the PR that introduces it,
       # instead of a cryptic missing-browser error discovered later.
-      - name: Assert @playwright/test matches the visual-regression image tag
+      # The image is pinned by tag AND digest, and Docker pulls by the digest:
+      # a later bump of the tag alone would keep running the old browser. So
+      # when the pin itself changes (the `image:` line or the @playwright/test
+      # version differs from the commit this one builds on), the digest is also
+      # checked against what the registry serves for the tag. A run that does
+      # not move the pin (any other PR, a dispatch, the release) never asks the
+      # registry, so a tag Microsoft re-pushes cannot turn it red.
+      - name: Assert @playwright/test matches the Playwright image pin
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
           # so a non-matching grep (exit 1) would otherwise abort the script
-          # right here -- before the explicit empty-value
-          # diagnostic below ever gets a chance to run.
-          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
-          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)
+          # right here -- before the explicit diagnostics below.
+          # The pin is written once, anchored `&playwright-image` in the e2e job and reused by
+          # visual-regression. The version it must match is the one the lockfile installs, not
+          # package.json's range: the shards run whatever `npm ci` puts in node_modules.
+          pin_of() { # $1: e2e.yml content, $2: package-lock.json content
+            local image pkg
+            image=$(grep -m1 -oP '^\s+image:\s*(?:&\S+\s+)?\Kmcr\.microsoft\.com/playwright:\S+' <<< "$1" || true)
+            pkg=$(jq -r '.packages["node_modules/@playwright/test"].version // empty' <<< "$2" 2>/dev/null || true)
+            echo "$image $pkg"
+          }
+          pins=$(grep -cP '^\s+image:\s*(?:&\S+\s+)?mcr\.microsoft\.com/playwright:' .github/workflows/e2e.yml || true)
+          if [ "$pins" != 1 ]; then
+            echo "::error::The Playwright image must be written once, as the \`&playwright-image\` anchor, and reused with \`image: *playwright-image\`; found $pins literal pin(s)."
+            exit 1
+          fi
+          read -r image pkg_version <<< "$(pin_of "$(cat .github/workflows/e2e.yml)" "$(cat voter-app/package-lock.json)")"
+          image_version=$(grep -oP 'playwright:v\K[0-9.]+(?=-noble)' <<< "$image" || true)
+          digest=$(grep -oP '@\Ksha256:[0-9a-f]{64}$' <<< "$image" || true)
           if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
-            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image_version='$image_version') -- this check itself needs fixing, not just the versions it compares."
+            echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image='$image') -- this check itself needs fixing, not just the versions it compares."
             exit 1
           fi
           if [ "$pkg_version" != "$image_version" ]; then
-            echo "::error::Playwright version mismatch: voter-app/package.json pins @playwright/test@$pkg_version, but this workflow's visual-regression job pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- pixel comparisons need a byte-identical browser build (see docs/exploration/EXP-004). Update the 'image:' line in this file's visual-regression job to v$pkg_version-noble."
+            echo "::error::Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@$pkg_version, but this workflow pins mcr.microsoft.com/playwright:v$image_version-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the \`&playwright-image\` line in the e2e job to v$pkg_version-noble with that tag's digest."
             exit 1
           fi
-          echo "OK: @playwright/test and the visual-regression Docker image both pinned to $pkg_version"
+          if [ -z "$digest" ]; then
+            echo "::error::The Playwright image must be pinned by digest too: image: &playwright-image mcr.microsoft.com/playwright:v$pkg_version-noble@sha256:<digest>."
+            exit 1
+          fi
+          echo "OK: @playwright/test and the Playwright image both pinned to $pkg_version ($digest)"
 
+          moved=true
+          if [ "$EVENT" != pull_request ] && [ "$EVENT" != push ]; then
+            moved=false # a dispatch or the release does not change the pin
+          elif [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != 0000000000* ]] \
+              && git fetch --quiet --depth 1 origin "$BASE_SHA" 2>/dev/null; then
+            base_pin=$(pin_of "$(git show "$BASE_SHA:.github/workflows/e2e.yml" 2>/dev/null)" \
+                              "$(git show "$BASE_SHA:voter-app/package-lock.json" 2>/dev/null)")
+            [ "$base_pin" != "$image $pkg_version" ] || moved=false
+          fi
+          if [ "$moved" = false ]; then
+            echo "OK: the pin did not change here, registry lookup skipped"
+            exit 0
+          fi
+          tag="v$pkg_version-noble"
+          served=$(curl -fsSI --retry 3 --max-time 30 \
+            -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            "https://mcr.microsoft.com/v2/playwright/manifests/$tag" \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "docker-content-digest" { print $2 }')
+          if [ -z "$served" ]; then
+            echo "::error::Could not read the digest of mcr.microsoft.com/playwright:$tag from the registry; re-run this job."
+            exit 1
+          fi
+          if [ "$served" != "$digest" ]; then
+            echo "::error::The pinned digest is not the one mcr.microsoft.com/playwright:$tag serves, so Docker would run another browser than the tag says. Pin mcr.microsoft.com/playwright:$tag@$served, then regenerate the visual baselines in that image (voter-app/scripts/test-visual-docker.sh --update-snapshots) and review the PNG diff."
+            exit 1
+          fi
+          echo "OK: $digest is what the registry serves for $tag"
+
+  # Two shards, then one `Playwright E2E` job that merges their reports. The
+  # suite took ~10 of the job's 11 minutes; split in two (198 + 197 tests) it
+  # runs in parallel. The required check is the aggregator below, which keeps
+  # the exact name branch protection, Mergify and ci-local know.
   e2e:
-    needs: changes
+    needs: [changes, playwright-image-sync]
     # Always run for a manual dispatch or the release-gate call (no paths to
     # filter on); otherwise only when the changes job found something relevant.
     if: |
-      always() &&
+      !cancelled() && needs.playwright-image-sync.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
-    name: Playwright E2E
-    runs-on: ubuntu-latest
+    name: Playwright E2E (shard ${{ matrix.shard }}/${{ matrix.total }})
+    # ubuntu-24.04, not -latest: setup-python takes its CPython from the host's tool cache, and a
+    # build for a newer host needs a newer OpenSSL than the noble image ships.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # The same pinned image as visual-regression: browsers and their system libraries come
+    # with it, so a shard runs no apt and downloads no browser. On 2026-10-07 the runner's
+    # Ubuntu mirror stalled `playwright install --with-deps` until this job's limit in 4 of 8
+    # runs (polity's included); apt was out of reach of any timeout set here, because
+    # Playwright runs it as root. --user 1001 is the runner's uid: Firefox will not start as
+    # root under a $HOME owned by another user, and the workspace stays the runner's.
+    container:
+      image: &playwright-image mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --ipc=host --user 1001
+    defaults:
+      run:
+        shell: bash # a container job's default is sh (dash), which actionlint does not check for
+    strategy:
+      # Both shards always finish: a failure in one says nothing about the other.
+      fail-fast: false
+      matrix:
+        # To add a shard: extend `shard` and `total`, and EXPECTED_SHARDS in
+        # e2e-report below.
+        shard: [1, 2]
+        total: [2]
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # ── Python / Flask backend ────────────────────────────────────────────────
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
       # this same pairing (`--system` rejects a uv-managed interpreter).
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
       # The backend is a fixture here (Assemblée mode and two Laboratoire fiches
       # call /api/v2/*); it is stateless — no DB, no JWT since auth was removed.
@@ -140,10 +251,11 @@ jobs:
             exit 1
           fi
 
-      # ── Node / Frontend ───────────────────────────────────────────────────────
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      # Node from setup-node, like every other Node job (and its npm cache); the browsers
+      # from the image, so no browser cache and no `playwright install`.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version-file: voter-app/.nvmrc
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -151,27 +263,78 @@ jobs:
         run: npm ci
         working-directory: ./voter-app
 
-      # ── Playwright ────────────────────────────────────────────────────────────
-      # Browser binaries keyed on package-lock.json, where the Playwright
-      # version is pinned — a version bump naturally invalidates the cache.
-      # `playwright install` still runs unconditionally below: it already
-      # skips re-downloading browsers present in this cache dir, but still
-      # needs to run apt for --with-deps' system libraries either way.
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-        working-directory: ./voter-app
-
-      - name: Run E2E tests
-        run: npm run test:e2e
+      # blob replaces the config's html/json (the aggregator merges both shards'
+      # blobs back into them, so the flaky check and the html report see the
+      # whole suite); list keeps each failing test's name and error in this log.
+      - name: Run E2E tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+        run: npx playwright test --shard="${SHARD}/${TOTAL}" --reporter=blob,list
         working-directory: ./voter-app
         env:
           CI: 'true'
+          SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ matrix.total }}
+
+      - name: Upload the shard's blob report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: voter-app/blob-report/
+          if-no-files-found: error
+          retention-days: 1
+
+  # The required check. Same condition as the shards: skipped with them on a
+  # change e2e doesn't care about (a skipped required check passes, as before).
+  e2e-report:
+    needs: [changes, e2e]
+    if: |
+      !cancelled() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
+       needs.changes.outputs.relevant == 'true')
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # merge-reports comes with @playwright/test, so the locked install.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: voter-app/.nvmrc
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./voter-app
+
+      - name: Download the shards' blob reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: blob-report-*
+          path: voter-app/all-blob-reports
+          merge-multiple: true
+
+      # A pattern download succeeds with only one shard's blob, which would leave
+      # the merged report (and the flaky check) covering half the suite.
+      # --config: the config's own reporters, so results.json lands where
+      # check-flaky.mjs reads it, from one source of truth.
+      - name: Merge the reports (every shard's blob)
+        working-directory: ./voter-app
+        env:
+          EXPECTED_SHARDS: 2
+        run: |
+          found=$(find all-blob-reports -name '*.zip' | wc -l)
+          if [ "$found" -ne "$EXPECTED_SHARDS" ]; then
+            echo "::error::$found blob report(s), expected $EXPECTED_SHARDS: a shard produced no report"
+            exit 1
+          fi
+          npx playwright merge-reports --config playwright.config.ts ./all-blob-reports
 
       # A test that only passes on its retry is reported green by Playwright.
       # Runs even when the suite failed: the flaky list is useful either way.
@@ -180,30 +343,41 @@ jobs:
         run: node scripts/check-flaky.mjs
         working-directory: ./voter-app
 
-      # ── Artifacts ─────────────────────────────────────────────────────────────
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
           path: voter-app/playwright-report/
           retention-days: 7
 
+      # The gate: both shards passed. A failed, cancelled or skipped shard fails
+      # this check, whatever the report steps above did.
+      - name: All shards passed
+        if: always()
+        env:
+          SHARDS: ${{ needs.e2e.result }}
+        run: |
+          if [ "$SHARDS" != success ]; then
+            echo "::error::the e2e shards ended '$SHARDS', not 'success'"
+            exit 1
+          fi
+
   visual-regression:
-    # Waits on playwright-image-sync (not just changes): this job is the one
-    # actually at risk from a desynced image tag, and a fast, explicit
-    # version-mismatch failure here is the whole point of that job -- running
-    # them in parallel would still spend the full ~15 minutes on this job's
-    # real container pull + Playwright run before its own cryptic
-    # missing-browser error, right alongside the fast one.
+    # Waits on playwright-image-sync (not just changes), as the e2e shards do: both
+    # run on the image's browsers, so a desynced tag fails both, and a fast,
+    # explicit version-mismatch failure is the whole point of that job --
+    # running them in parallel would still spend the container pull + Playwright
+    # run before a cryptic missing-browser error, right alongside the fast one.
     needs: [changes, playwright-image-sync]
     if: |
-      always() &&
+      !cancelled() && needs.playwright-image-sync.result != 'failure' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'workflow_call' ||
+       needs.changes.result != 'success' ||
        needs.changes.outputs.relevant == 'true')
     name: Visual regression (screenshots)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # see the e2e job: the host's CPython must suit the noble image
     timeout-minutes: 15
     # Pixel comparisons are only meaningful when the baseline PNGs (committed to
     # the repo) and this run render with byte-identical fonts/AA/rasterization —
@@ -217,11 +391,18 @@ jobs:
     # find the pre-installed browsers or silently compares against a different
     # renderer than the one that generated the committed baselines.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # The e2e job's pin (tag for readers, digest for Docker); the
+      # playwright-image-sync job checks both against the lockfile and the registry.
+      image: *playwright-image
       options: --ipc=host
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # ── Python / backend ───────────────────────────────────────────────────
       # Verified by hand before wiring this: without a live backend,
@@ -238,16 +419,16 @@ jobs:
       # provides the real one uv installs into) — even though the container
       # image ships its own python3.12, pinning 3.14 here keeps the backend's
       # runtime identical to every other job that runs it.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
 
       - name: Start FastAPI backend (testing mode)
         run: |
@@ -282,7 +463,7 @@ jobs:
 
       - name: Upload visual regression report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-visual
           path: voter-app/playwright-report-visual/

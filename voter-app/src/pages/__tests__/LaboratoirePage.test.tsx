@@ -149,6 +149,13 @@ describe('LaboratoirePage — the bench', () => {
     // The second column appears, labelled with the electorate it reads.
     expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
     expect(screen.getByTestId('lab-elec-label-vs')).toHaveTextContent(/Polaris/);
+    // Each column's content-error link names the fiche and the electorate it reads.
+    const wheres = screen
+      .getAllByTestId('report-content-error')
+      .map((a) => new URL(a.getAttribute('href')!).searchParams.get('where')!);
+    expect(wheres).toHaveLength(2);
+    expect(wheres.every((w) => w.startsWith('lab:lab-matrix @ '))).toBe(true);
+    expect(wheres[1]).toMatch(/Polaris/);
     fireEvent.click(screen.getByTestId('lab-compare-close'));
     expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
   });

@@ -43,6 +43,12 @@ Deux paliers visuels distincts, documentés dans le skill `voter-ui` :
   the heavy Recharts vendor chunk after first paint »), plutôt que chargé au
   premier rendu.
 
+Un troisième palier, borné, s'est ajouté depuis : **ADR-013** (adopté le
+2026-09-15) autorise le Canvas 2D pour les seuls nuages de points denses — la
+carte de population de la page Polity, quelques centaines à quelques milliers
+de points — les parties, le président, la sélection et les axes restant en SVG
+par-dessus. Le SVG natif reste la règle pour tout le reste.
+
 ## Alternatives considérées
 
 - **Utiliser Recharts partout**, pour un seul système de rendu de graphiques

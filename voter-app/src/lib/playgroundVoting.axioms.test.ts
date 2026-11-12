@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import { ruleWinnerFromRanks, type Rule } from './playgroundVoting';
+import { METHOD_CRITERIA_ENTRIES, type CriterionKey } from '../data/methodCriteria';
 
 /**
  * Property-based axiomatic tests for the client voting engine (Lot 4.4,
@@ -394,17 +395,14 @@ describe('Pareto efficiency — a candidate ranked below another on every ballot
 
 // ── 6. Clone independence ────────────────────────────────────────────────────
 
-// `condorcet` and `baldwin` are NOT copied from the Python matrix's own
-// clone-independence classification -- for good reason in each case:
+// Two entries here were found on this side first:
 //
-// - The Python matrix's "condorcet" key is get_condorcet_winner, the raw
-//   strict criterion (trivially clone-"independent" in the sense that
-//   testing it against itself is closer to tautology). The client's
-//   "condorcet" RULE is a genuinely different function -- Copeland's method
-//   (RULE_LABELS calls it "Condorcet (Copeland)") -- and Copeland's
-//   win-minus-loss score is a textbook example of a scoring rule cloning can
-//   manipulate. Confirmed here with a real counterexample, independently of
-//   anything the Python file classified.
+// - `condorcet` is Copeland's method (RULE_LABELS calls it "Condorcet
+//   (Copeland)"), whose win-minus-loss score is a textbook example of a
+//   scoring rule cloning can manipulate. Confirmed here with a real
+//   counterexample. The Python matrix's "condorcet" key used to be the strict
+//   get_condorcet_winner; it is Copeland there too since PLAN_BEYOND_CI W1.2,
+//   with this same counterexample pinned.
 // - `baldwin` WAS classified as clone-independent in the Python matrix
 //   (Lot 4.1/4.2) -- but that classification came from Hypothesis fuzzing
 //   over a hardcoded 4-candidate pool (`_CANDS4`). fast-check's wider net (up
@@ -605,5 +603,35 @@ describe('Monotonicity — ranking the winner higher must never make them lose',
     expect(ruleWinnerFromRanks(ranks, 4, 'nanson')).toBe(3); // D
     const modified = promoteToFirst(ranks, 0, 3);
     expect(ruleWinnerFromRanks(modified, 4, 'nanson')).toBe(1); // B
+  });
+});
+
+// ── The criteria registry agrees with these sets (PLAN_BEYOND_CI W1.2) ──────
+//
+// The Lab's matrix reads method_criteria.json. Every cell this file classifies is marked
+// engine-tested there and must say what these sets say -- except the four documented
+// variants (D8: textbook verdict, which this engine's tie handling does not keep).
+
+describe('the criteria registry (method_criteria.json) agrees with these sets', () => {
+  const satisfies: [CriterionKey, Set<Rule>][] = [
+    ['condorcet_winner', new Set(CONDORCET_WINNER_SATISFIES)],
+    ['condorcet_loser', new Set(CONDORCET_LOSER_SATISFIES)],
+    ['majority', new Set(MAJORITY_SATISFIES)],
+    ['monotonicity', new Set(MONOTONICITY_SATISFIES)],
+  ];
+  it.each(satisfies)('%s', (criterion, holds) => {
+    for (const rule of ALL_METHODS) {
+      const entry = METHOD_CRITERIA_ENTRIES[rule][criterion];
+      if (entry.basis === 'variant') {
+        expect(
+          holds.has(rule),
+          `${rule}.${criterion} is a variant: the engine must violate it`
+        ).toBe(false);
+        expect(entry.verdict, `${rule}.${criterion}`).toBe('yes');
+      } else {
+        expect(entry.basis, `${rule}.${criterion}`).toBe('engine-tested');
+        expect(entry.verdict, `${rule}.${criterion}`).toBe(holds.has(rule) ? 'yes' : 'no');
+      }
+    }
   });
 });

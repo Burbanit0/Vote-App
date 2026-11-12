@@ -294,3 +294,49 @@ criterion written before the sweep, not after.
   override is correct given the shipped values; what was wrong was the comment
   presenting it as a convenience, which is corrected at the config site rather
   than in five scripts.
+
+## Amendment 2026-10-21: on the LLM path the threshold is not applied, and half the nominees are below it
+
+`candidacy.ambition_threshold` (0.30) gates the deterministic path (`simple_rules.decide_candidacy`). With
+`llm.enabled`, `_declare_nominees_llm` consults it only as the last resort for a chunk whose model calls are
+exhausted (`_deterministic_candidacy_fallback`, which reuses `decide_candidacy`; the candidacy fallback rate is
+0.0% in every run summarised below), and otherwise not at all (`run_polity_simulation.py`'s own comment on the
+empty-pool warning says so): `decide_candidacies` asks the model, for every citizen at every election, whether they stand, from
+their `ambition_score` and `perceived_support` as bare numbers, with no threshold in the prompt. The gate this ADR calibrated
+therefore does not govern the choices of any LLM run, which is every run since the exploration profile. That is a design choice of
+the LLM path (the model arbitrates), recorded here because the ADR reads as if the threshold were the rule.
+
+What that means in the runs we hold (`python scripts/check_observations.py elections <root>`, the pooled counts, and
+the one-liner in OBS-011's 2026-10-21 update):
+
+| runs | declare (of citizens considered) | would pass the 0.30 threshold | declared and below it | presidents elected below it | nominees below it |
+|---|---:|---:|---:|---:|---:|
+| phase11 (10 seeds) | 384 / 1,000 | 204 | 245 of 384 (64%) | 36 of 70 | 496 of 1,042 |
+| phase16 (10 runs) | 193 / 500 | 103 | 122 of 193 (63%) | 11 of 30 | 177 of 387 |
+| order-8y (9 runs) | 299 / 900 | 165 | 189 of 299 (63%) | 13 of 27 | 160 of 338 |
+
+By ambition band, the share of citizens who declare, all elections of the runs above (the one-liner in OBS-011):
+
+| ambition | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4+ |
+|---|---:|---:|---:|---:|---:|
+| phase11 | 13% (220/1,755) | 32% (701/2,196) | 52% (845/1,624) | 66% (582/888) | 77% (416/537) |
+| phase16 | 10% (81/804) | 31% (291/924) | 52% (342/654) | 66% (265/402) | 80% (173/216) |
+| order-8y | 8% (64/756) | 32% (282/891) | 44% (243/558) | 66% (197/297) | 83% (164/198) |
+
+The model's choice rises smoothly with ambition (it does read the number), with no step at 0.30: a citizen at 0.25 declares
+about as often as one at 0.30 would be expected to by the threshold's neighbours (44-52% against 66%). It agrees with
+the threshold on 69% of citizens, in every code version since September (OBS-011). About half
+of the nominees and of the elected presidents are below a threshold the config still lists as the "dominant path" gate.
+
+**Not changed, and why.** Enforcing the threshold on the LLM path would drop about half of the nominees and of the
+presidents the model chose, a different society from every run so far, and is not a fix of a defect: the model was
+given the decision on purpose. It is the owner's call, with these options, none measured yet:
+1. **Leave it** and read `ambition_threshold` as the deterministic path's parameter (this amendment).
+2. **Enforce it** on the model's declared set (the kernel referees): `declared and ambition >= threshold`. A prompt
+   change is not needed. Test: declared share by ambition band, nominees per party, who wins, OBS-001/002 recounts, ten
+   paired seeds.
+3. **Tell the model the rule** in the candidacy prompt (OBS-011: stating the population's mean ambition raised
+   declarations to 47.6% and was not shipped; stating the threshold is untried).
+
+The config comment at `candidacy.ambition_threshold` should say which paths it governs.
+

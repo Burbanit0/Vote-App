@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,7 +76,7 @@ const StabilityChart: React.FC<{
       )}
       {least_stable_method && leastStable && leastStable.winner_changes > 0 && (
         <Alert variant="warning" className="py-2 mb-2" style={{ fontSize: '0.8rem' }}>
-          ⚠{' '}
+          <TriangleAlert aria-hidden className="inline h-3.5 w-3.5 align-[-2px] text-stamp" />{' '}
           {t('campaign.leastStableMsg', {
             method: least_stable_method,
             changes: leastStable.winner_changes,
@@ -122,7 +123,7 @@ const StabilityChart: React.FC<{
         )}
         {least_stable_method && least_stable_method !== most_stable_method && (
           <Badge variant="danger">
-            ⚠ {t('campaign.leastStable')}: {least_stable_method}
+            {t('campaign.leastStable')}: {least_stable_method}
           </Badge>
         )}
       </div>

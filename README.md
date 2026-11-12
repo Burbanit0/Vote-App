@@ -5,7 +5,7 @@ choice of voting method changes the winner**, and exploring what happens when
 campaign dynamics, blank votes, information asymmetry, and social contagion all act
 on the same electorate.
 
-> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)
+> Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md) · Project status: [docs/STATUS.md](docs/STATUS.md) · Architecture, diagrams and glossary: [docs/overview/](docs/overview/README.md)
 
 > **No hosted instance.** This is a personal, public-source research project, not a
 > deployed product — there's no live demo URL. See **Quick Start** below to run it
@@ -115,14 +115,14 @@ no pre-existing hosted instance to link to (see the note at the top of this file
 ```bash
 python -m pytest api/tests -o addopts="" -q   # unit tests (-o addopts="" skips the coverage gate)
 mypy api/                                      # strict, must stay clean
-ruff check .                                   # pyflakes (F) errors are gating
+ruff check .                                   # F (pyflakes) + NPY002, plus test-integrity rules on tests
 ```
 
 ### Frontend (`voter-app/`)
 
 ```bash
 npm test                 # Vitest unit tests
-npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile)
+npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile + static; the static build needs Python)
 npm run test:a11y        # axe-core WCAG 2.1 AA audit
 npm run build            # tsc --noEmit && vite build (PWA manifest + service worker)
 npm run lint             # eslint (0 errors is gating)
@@ -141,7 +141,7 @@ and privacy posture: [`analytics/README.md`](analytics/README.md).
 
 ## Routes
 
-The app is anonymous (no accounts), with five real destinations:
+The app is anonymous (no accounts), with six real destinations:
 
 | Route | Description |
 |---|---|
@@ -150,6 +150,7 @@ The app is anonymous (no accounts), with five real destinations:
 | `/playground` | **The instrument** — 5-moment rail, ideological map + lenses, Dirigeant/Assemblée |
 | `/laboratoire` | Everything deeper — theory, paradoxes, mechanisms, systems, behavioural realism (reads the same electorate state as the Playground) |
 | `/a-vous-de-jouer` | Vote yourself in a real election under 5 ballot languages |
+| `/polity` | Polity: a simulated democracy replayed run by run (population map, elections, events) |
 
 All retired routes (`/theory`, `/what-if`, `/quiz`, `/quadratic-funding`,
 `/tech-democracy`, `/regimes-internationaux`, `/election-lab`, `/campagne`,
@@ -238,14 +239,15 @@ and — visible directly in this repo — a real hardening effort on how the
 project itself is built and tested. Both are treated as things that need
 evidence, not just a claim.
 
-- **[Four narrative write-ups](docs/stories/README.md)** — a green coverage
+- **[Five narrative write-ups](docs/stories/README.md)** — a green coverage
   badge that turns out to measure execution, not reachability; a table of
   quality tools that tracks the rejects with the same rigor as the adoptions;
   voting theory's own axioms (Condorcet, monotonicity, independence of
   clones…) turned into fuzzed executable tests; four documented-but-unenforced
   conventions turned into blocking gates, two of which caught real, unfixed
-  debt.
-- **[14 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
+  debt; and, from Polity, an LLM-decision audit whose answer did not depend on the
+  question.
+- **[22 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
   — adopt, reject, or suspend, backed by real findings and real cost rather
   than "we added X."
 - **[`RETROSPECTIVE.md`](docs/plan/vote-app/RETROSPECTIVE.md)** (French) — did
@@ -254,8 +256,8 @@ evidence, not just a claim.
   collisions revealed about running concurrent agents against the same repo.
 - **[`CODE_AUDIT.md`](docs/plan/vote-app/CODE_AUDIT.md)** and
   **[`PLAN_SOLIDITE_TECHNIQUE.md`](docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)**
-  (French) — the quantified baseline and the lot-by-lot plan behind all of
-  the above, both still maintained as the work continues.
+  (French) — the quantified baseline (a dated audit, 2026-08-20 to
+  2026-09-13) and the lot-by-lot plan behind all of the above.
 
 ---
 
@@ -263,9 +265,12 @@ evidence, not just a claim.
 
 ```
 main       ← stable releases (develop → main)
-develop    ← integration branch
-feat/xxx   ← one branch per step → PR to develop (merged --no-ff)
+develop    ← release syncs only (polity → develop)
+polity     ← working branch
+feat/xxx   ← one branch per step → PR to polity (merged --no-ff)
 ```
+
+Where things stand and what comes next: [`docs/STATUS.md`](docs/STATUS.md).
 
 Public repo (MIT). See [CONTRIBUTING.md](CONTRIBUTING.md) and
 [SECURITY.md](SECURITY.md).

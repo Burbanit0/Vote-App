@@ -51,11 +51,12 @@ describe('MethodInfo', () => {
     expect(screen.getByTestId('pop-schulze')).toHaveTextContent(
       /vainqueur de Condorcet|Condorcet winner/
     );
+    expect(screen.getByTestId('note-schulze')).toBeInTheDocument();
   });
 
   it('omits the cycle note when a Condorcet winner exists', () => {
     render(<MethodInfo method="schulze" context={{ condorcetExists: true }} />);
     fireEvent.click(screen.getByTestId('info-schulze'));
-    expect(screen.getByTestId('pop-schulze')).not.toHaveTextContent(/⚡/);
+    expect(screen.queryByTestId('note-schulze')).not.toBeInTheDocument();
   });
 });

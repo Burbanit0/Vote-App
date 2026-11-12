@@ -61,7 +61,13 @@ function payoff(voters: Pt[], field: NamedPt[], rule: Rule, i: number): number {
   const m = field.length;
   const ranks = computeRanks(voters, field);
   const scores = CARDINAL_RULES.has(rule) ? computeScores(voters, field) : undefined;
-  const winner = ruleWinnerFromRanks(ranks, m, rule, scores);
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    rule,
+    scores,
+    field.map((c) => c.name)
+  );
   let firsts = 0;
   for (const r of ranks) if (r[0] === i) firsts++;
   return (winner === i ? 2 : 0) + firsts / Math.max(1, voters.length);

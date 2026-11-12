@@ -1,0 +1,1276 @@
+{
+ "_about": "One entry per (rule, criterion): the single source of the criteria matrix (PLAN_BEYOND_CI W1.2). basis: engine-tested = both engines' axiom tests agree (methodCriteria.test.ts and fast_api_voter/api/tests/test_method_criteria_registry.py check it); literature = from the literature, source a docs/research/bibliography.bib key, null until confirmed (W1.4 review); variant = the textbook verdict, which this engine's own variant does not keep (note says how).",
+ "criteria": [
+  "condorcet_winner",
+  "condorcet_loser",
+  "majority",
+  "monotonicity",
+  "iia",
+  "strategy_proof",
+  "participation",
+  "reversal"
+ ],
+ "rules": {
+  "plurality": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "two_round": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "irv": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "variant",
+    "source": null,
+    "note": "Textbook: never elects the Condorcet loser. This engine eliminates tied last places together, and then can (test_condorcet_loser_irv_can_be_violated)."
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "borda": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "approval": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "condorcet": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "minimax": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "schulze": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "bucklin": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "coombs": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "variant",
+    "source": null,
+    "note": "Textbook: never elects the Condorcet loser. This engine eliminates tied last places together, and then can (test_condorcet_loser_coombs_can_be_violated)."
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "nanson": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "baldwin": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "ranked_pairs": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "random_ballot": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": "gibbard1977",
+    "note": "The only strategy-proof, Pareto-efficient, anonymous lottery."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null,
+    "note": "Not meaningful for a lottery: reversing every ballot turns first-choice shares into last-choice shares (the map lens says so too)."
+   }
+  },
+  "star": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "majority_judgment": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "score": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "anti_plurality": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "dowdall": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "black": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "smith_irv": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "split_cycle": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation. Split Cycle keeps positive involvement, a weaker property (Holliday & Pacuit)."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "kemeny": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "cumulative": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "maximin": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "benham": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "variant",
+    "source": null,
+    "note": "Textbook: never elects the Condorcet loser. This engine eliminates tied last places together, and then can (test_condorcet_loser_benham_can_be_violated)."
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "river": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "nash": {
+   "condorcet_winner": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "majority": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "iia": {
+    "verdict": "conditional",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "yes",
+    "basis": "literature",
+    "source": null
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  },
+  "raynaud": {
+   "condorcet_winner": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "condorcet_loser": {
+    "verdict": "yes",
+    "basis": "variant",
+    "source": null,
+    "note": "Textbook: never elects the Condorcet loser. This engine eliminates tied last places together, and then can (test_condorcet_loser_raynaud_can_be_violated)."
+   },
+   "majority": {
+    "verdict": "yes",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "monotonicity": {
+    "verdict": "no",
+    "basis": "engine-tested",
+    "source": null
+   },
+   "iia": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   },
+   "strategy_proof": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "gibbard1973",
+    "note": "Gibbard-Satterthwaite: every deterministic, non-dictatorial rule with 3+ possible winners is manipulable."
+   },
+   "participation": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": "moulin1988",
+    "note": "No Condorcet-consistent rule satisfies participation."
+   },
+   "reversal": {
+    "verdict": "no",
+    "basis": "literature",
+    "source": null
+   }
+  }
+ }
+}

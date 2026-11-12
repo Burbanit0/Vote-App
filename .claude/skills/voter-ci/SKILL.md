@@ -5,32 +5,59 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 
 # voter-ci — CI gates, diagnosis, and the quality ratchet
 
-Vote-App's CI is 15 workflow files (`.github/workflows/`). Most PRs only ever
-see four of them; this skill maps every gate to its config file, explains the
-two gates that most often surprise people (the quality ratchet, diff-cover's
+<!-- [[[cog
+import cog, ci_facts
+cog.outl(f"Vote-App's CI is {len(ci_facts.workflow_files())} workflow files (`.github/workflows/`; generated count).")
+]]] -->
+Vote-App's CI is 23 workflow files (`.github/workflows/`; generated count).
+<!-- [[[end]]] -->
+Most PRs only ever see four of them; this skill maps every gate to its config
+file, explains the two gates that most often surprise people (the quality ratchet, diff-cover's
 100%-changed-lines rule), and gives the actual recipe for turning a red check
 into a real error message.
 
 ## The gates, job by job
 
+**Branches.** `polity` is the working branch (every feature PR targets it); `develop`
+only receives release syncs from it and is GitHub's default branch, so every
+`schedule`/`workflow_run`/`issue_comment`/`pull_request_target` workflow runs from
+develop's copy. The authoritative required-check list per branch is
+`bash scripts/setup-branch-protection.sh --print-contexts <branch>`:
+<!-- [[[cog
+import cog, ci_facts
+c = {b: ci_facts.required_contexts(b) for b in ci_facts.BRANCHES}
+assert c["polity"] == c["develop"], "polity and develop no longer require the same set: rewrite this paragraph"
+extra = [x for x in c["polity"] if x not in c["main"]]
+gone = [x for x in c["main"] if x not in c["polity-ui"]]
+assert c["main"] == c["polity"][:len(c["main"])] and c["polity-ui"] == [x for x in c["main"] if x not in gone]
+cog.outl(f"`polity` and `develop` require the same {len(c['polity'])} (main's plus " + ", ".join(f'"{x}"' for x in extra) + "),")
+cog.outl(f"`main` {len(c['main'])}, `polity-ui` {len(c['polity-ui'])} (main's set minus " + ", ".join(f'"{x}"' for x in gone) + "; generated).")
+]]] -->
+`polity` and `develop` require the same 16 (main's plus "High-risk review gate", "Workflow lint"),
+`main` 14, `polity-ui` 13 (main's set minus "CI health check"; generated).
+<!-- [[[end]]] -->
+The script refuses to require a check before the workflow posting it runs
+on PRs to that branch (in its own copy and develop's).
+
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
 
-Triggers on every push/PR to `develop`/`main` but only *runs* its real job
-when `fast_api_voter/**` changed (a `changes` job with `dorny/paths-filter`
+Triggers on every push/PR to `develop`/`main`/`polity`/`polity-ui` but only *runs* its real job
+when `fast_api_voter/**` (or `docs/spec/**`, or the workflow itself) changed (a `changes` job with `dorny/paths-filter`
 gates it — see "Why no top-level `paths:` filter" below). In order:
 
 | Step | Tool | Gate | Config |
 |---|---|---|---|
-| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | informational (`continue-on-error`) | see the script's own header |
+| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | blocking | see the script's own header |
 | Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
-| Ruff | `ruff check fast_api_voter` | blocking, pyflakes (`F`) only | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
+| Ruff | `ruff check fast_api_voter` | blocking, `F` + `NPY002` (test-integrity rules on tests only) | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |
-| pip-audit | `pip-audit --requirement fast_api_voter/requirements.txt` | blocking (CVEs) | — |
+| pip-audit | `pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip` | blocking (CVEs), on the exact pins the production image installs | — |
 | License compliance | `bash fast_api_voter/scripts/check_license_compliance.sh` | blocking, production deps only | script |
-| Mypy | `python -m mypy api/ --config-file mypy.ini` | blocking, strict | `fast_api_voter/mypy.ini` |
-| Tests + coverage | `pytest api/tests -n auto --cov=api --cov-fail-under=90` | blocking, 90% global floor | `pyproject.toml` addopts |
-| diff-cover | see its own section below | blocking, **100% on changed lines** | — |
+| Mypy | `python -m mypy api/ scripts/llm_test_harness --config-file mypy.ini` | blocking, strict (the harness is a library 8 scripts import) | `fast_api_voter/mypy.ini` |
+| Tests + coverage | `pytest api/tests -n auto --cov=api --cov-fail-under=90` | blocking, 90% global floor on lines + branches combined (`branch = true`; 96% measured 2026-10-07) | `pyproject.toml` addopts |
+| LLM harness tests | `pytest scripts/llm_test_harness/tests -o addopts="" --cov=scripts/llm_test_harness --cov-fail-under=75` | blocking, 75% floor on the harness | `scripts/llm_test_harness/.coveragerc` |
+| diff-cover | see its own section below | blocking, **100% on changed lines and branches** | — |
 | Engine perf ceilings | `pytest api/tests/test_engine_benchmarks.py -o addopts=""` | blocking, generous absolute ceilings (15-500x baseline) | see `docs/exploration/EXP-006` |
 
 ### `frontend-ci-cd-pipeline.yml` — "Frontend: Tests + Coverage + Security" (required)
@@ -41,35 +68,49 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 |---|---|---|---|
 | Lint | `npm run lint` (`eslint . --ext .js,.jsx,.ts,.tsx`) | blocking, 0 errors | `voter-app/eslint.config.js` |
 | Architecture boundaries | `npm run depcruise` | blocking | `voter-app/.dependency-cruiser.json` |
-| npm audit | `npm audit --audit-level=high` | blocking, high+ CVEs | — |
+| npm audit | `npm run audit:gate` (`scripts/check-npm-audit.mjs`; its own tests: `npm run test:scripts`) | blocking, high+ advisories in the full tree (devDependencies included — workbox ships), minus dated exceptions; fails on an expired entry or an audit that couldn't run | `.github/npm-audit-allowlist.json` |
 | License compliance | `license-checker-rseidelsohn --production` | blocking, production deps only | inline allowlist |
-| Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | reporters configured, no hard floor here | `voter-app/vitest.config.ts` |
-| diff-cover | see below | blocking, **100% on changed lines** | — |
+| Tests + coverage | `npm run test:coverage` (`vitest run --coverage`) | blocking on the `test.coverage.thresholds` floors (lines 86 / statements 84 / functions 75 / branches 74) | `voter-app/vitest.config.ts` |
+| diff-cover | see below | blocking, **100% on changed lines and branches** | — |
 | Build | `npm run build` (`tsc --noEmit && vite build && npm run build:size`) | blocking — tsc, then Vite build, then `size-limit` (1 MB brotli budget) | `voter-app/.size-limit.json` |
 
-### `e2e.yml` — "Playwright E2E" (required) + "Visual regression" (not yet required — see EXP-004)
+### `e2e.yml` — "Playwright E2E" + "Playwright/Docker image version sync" (both required) + "Visual regression" (not yet required — see EXP-004)
 
-Called on every PR (paths-gated the same way), on push to `develop`, and via
+Called on every PR (paths-gated the same way: `voter-app/**`, or backend files outside
+`fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
+`polity` and `polity-ui`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
-as a fixture, then `npm run test:e2e` (chromium + firefox + mobile). A
-separate `visual-regression` job runs pixel-diff screenshots inside an
-**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
-has the current tag; must match `voter-app/package.json`'s
+as a fixture, then runs the suite (chromium + firefox + webkit + mobile + the Pyodide `static` build) in two
+shards (`Playwright E2E (shard 1/2)`, `(shard 2/2)`, `--shard=N/2 --reporter=blob`).
+The required "Playwright E2E" is the job after them: it checks both shards left a
+blob report, merges them (`playwright merge-reports --config playwright.config.ts`),
+runs `check-flaky.mjs` on the merged `results.json`, uploads `playwright-report`,
+and fails unless both shards succeeded. A red shard's own log names the failing
+tests (`--reporter=blob,list`). Locally, `npm run test:e2e` still runs the whole suite in one go. The
+shards (since 2026-10-07, after a stalled apt mirror timed them out) and a separate
+`visual-regression` job, which runs pixel-diff screenshots, both run inside one
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble@sha256:<digest>` image, written once as the
+`&playwright-image` anchor in the e2e job and reused by `visual-regression`
+(`e2e.yml` has the current pin; Docker pulls by the digest, so when bumping,
+change the tag **and** the digest: the sync job checks the digest against what
+the registry serves for the tag whenever `e2e.yml` or `package.json` changes,
+and its error prints the right one. The tag must match `voter-app/package.json`'s
 `@playwright/test` version exactly — a mismatch fails to find the
 pre-installed browsers, or worse, silently renders against a different
 browser build than the one that produced the committed baselines, e.g.
 PR #477's live break when a Dependabot `@playwright/test` bump landed
 without this tag moving in lockstep) — never on a bare `ubuntu-latest`,
 because the OS image itself can silently drift renderer output between
-runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
-runs after the main e2e job (`if: always()`) and fails the run if any test
+runs (`docs/exploration/EXP-004`). `check-flaky.mjs` runs inside the
+"Playwright E2E" aggregator, on the merged report, and fails it if any test
 passed only on retry.
 
 ### `openapi-contract.yml` — "Generated artifacts in sync" (required)
 
-Two independent generated-artifact drift checks, run back-to-back
-(`if: always()` on the second so both verdicts show up in one run even if the
-first fails):
+Three independent generated-artifact drift checks, run back-to-back
+(`if: always()` on the later ones so every verdict shows up in one run even if
+the first fails); the third, "Generated doc blocks in sync", is
+`./scripts/check_generated_docs.sh`. The first two:
 
 ```bash
 ./scripts/check_openapi_drift.sh          # openapi.gen.json + types.gen.ts
@@ -83,6 +124,16 @@ the failure. Triggered not just by `fast_api_voter/api/**` but also by
 touching `api/**` at all, and that went uncaught until the filter started
 watching requirements too.
 
+The doc-block check also covers CI itself: CONTRIBUTING's and this skill's
+workflow and required-check counts, and CONTRIBUTING's workflow table (one row
+per file in `.github/workflows/`, no row for a deleted one), rendered from
+`scripts/ci_facts.py`. So a PR that adds, removes or renames a workflow, or
+changes `setup-branch-protection.sh`'s lists, fails here until it runs
+`./scripts/check_generated_docs.sh --update` (after adding the new workflow's
+row by hand). Such a PR, with no API change, runs only this step: the npm install
+and the first two checks are skipped. `fast-gate.sh` runs the same check on these
+two docs before a push.
+
 ### `audit.yml` — "Security Audit" (four required jobs, several informational)
 
 | Job | Gate | Notes |
@@ -90,7 +141,7 @@ watching requirements too.
 | Semgrep SAST | **required**, `--error` on any finding | rules in `.semgrep/vote-app-rules.yml` + `p/python`, `p/javascript`, `p/react`, `p/security-audit`, `p/secrets`, `p/sql-injection`, `p/owasp-top-ten` |
 | Secret Scan (Gitleaks) | **required** | `.gitleaks.toml`; TruffleHog alongside is informational only |
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
-| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
+| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/mypy-scripts/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
 | GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
 
@@ -101,14 +152,47 @@ not a separate `codeql.yml`.
 ### Other workflows — informational or off the PR path entirely
 
 - `branch-policy.yml` — required, validates PR source-branch naming
-  (`feature/`, `fix/`, … into `develop`; **only `develop`** may be the source
-  of a PR into `main`).
+  (`feat/`, `fix/`, … into `polity`, the working branch, or `develop`; **only
+  `develop`** may be the source of a PR into `main`), plus a Conventional
+  Commits title on every PR, release PRs included (`chore(release): …`, not
+  `Release: …`).
 - `dependency-review.yml` — required, fails a PR that *introduces* a
   vulnerable dependency (complements Dependabot, which only scans what's
   already there).
+- `workflow-lint.yml` — **required on polity/develop** ("Workflow lint"):
+  actionlint (+ shellcheck), `zizmor --offline --min-severity medium` and the
+  guard hooks' tests (`python3 -m unittest discover -s .claude/hooks/tests`).
+  Always triggers on PRs and pushes to polity/develop (not main or polity-ui);
+  the lint job is skipped when no workflow or hook changed,
+  and runs anyway if change detection fails. An accepted zizmor finding is a
+  `# zizmor: ignore[rule]` comment with its reason, at the end of the flagged
+  line itself (zizmor ignores it anywhere else).
+- `human-review.yml` — owns the required "High-risk review gate": red on a PR
+  touching a held path or weakening the tests until the owner comments
+  `/reviewed <sha>` on the head commit. Once the review-gate GitHub App is set
+  up (CONTRIBUTING.md, "GitHub App de la revue"), it posts with the App's token
+  and protection accepts the gate only from that App; until then, any
+  workflow's `GITHUB_TOKEN` could post it.
+- `red-on-base.yml` — advisory: a `feat/`/`fix/` PR's new or changed tests must
+  fail on the base code (`scripts/check_red_on_base.py`); a `refactor/` PR must
+  change no test.
+- `zizmor-online.yml` — not a PR check: zizmor's online audits (impostor
+  commits, ref confusion, known-vulnerable actions) weekly and on polity
+  workflow pushes; findings live in one `zizmor-online` issue, closed when clean.
+- `mutation-diff.yml` — advisory, PRs to `polity`: Stryker/mutmut on the changed
+  lines/functions only (`scripts/mutation_diff.py`), read-only token; it keeps
+  each summary as an artifact, and `mutation-diff-comment.yml` (`workflow_run`,
+  develop's copy) posts one sticky comment per tool.
+- `branch-red-alert.yml` — keeps one `polity-red` issue open while a watched
+  workflow's latest polity run is red. `ci-dashboard.yml` — the GitHub Pages CI
+  dashboard plus a Monday "CI weekly report" issue. Both run from develop's copy.
+- To diagnose a red run, `/ci-status` (polity tip, per workflow) and
+  `/ci-doctor <run|PR|branch>` (the `ci-doctor` agent: real log, category,
+  base-branch check, never "just re-run").
 - `mutation-testing.yml`, `schemathesis.yml`, `flaky-check-backend.yml`,
-  `atheris-fuzzing.yml` — never run on `pull_request` at all (push-to-`develop`
-  + cron + `workflow_dispatch` only), deliberately not required checks
+  `atheris-fuzzing.yml`, `dast.yml` — never run on `pull_request` at all (push to
+  `develop`/`polity` + cron + `workflow_dispatch` only; the crons check out
+  `polity`), deliberately not required checks
   (`scripts/setup-branch-protection.sh`'s own comment: a required check under
   a workflow that never triggers on a PR blocks that PR forever — the exact
   failure PR #205 hit). Their `schedule`/`workflow_dispatch` triggers resolve
@@ -142,8 +226,11 @@ pattern, or does it still filter at the trigger?
 `audit.yml`'s `code-quality` job runs vulture (Python dead code), radon
 (cyclomatic complexity, rank C+), deptry (unused/undeclared deps), knip (TS
 dead code/unused deps), sonarjs (`eslint-plugin-sonarjs`'s full recommended
-ruleset, informational-only in the blocking `eslint.config.js`), and jscpd
-(cross-language duplication) — all with `continue-on-error: true`, because
+ruleset, informational-only in the blocking `eslint.config.js`), jscpd
+(cross-language duplication), and strict mypy over `fast_api_voter/scripts/*.py`
+(`mypy_scripts`: the scripts sit outside the blocking mypy gate on `api/`, so
+their type debt is counted here instead; the top level only, so neither
+`archive/` nor `llm_test_harness/`, which Backend CI type-checks itself) — all with `continue-on-error: true`, because
 the repo never did a full cleanup pass and failing outright on the existing
 backlog would just get the job disabled.
 
@@ -175,9 +262,9 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   `voter-app/eslint.sonarjs.config.js`), not to launder it into the baseline.
 - **Measure `--update` on an up-to-date branch.** CI runs these tools against
   the PR's merge result; the script's own header notes a real incident where a
-  baseline measured one merge behind `develop` disagreed with CI by exactly
-  the one finding the missing merge had added. Rebase on `develop` before
-  running `--update`.
+  baseline measured one merge behind its base disagreed with CI by exactly
+  the one finding the missing merge had added. Merge the latest `polity` (the
+  PR's base) before running `--update`.
 - A missing input `.txt` file is treated as a hard error, not "0 findings" —
   `require()` refuses to report a passing ratchet on data that was never
   produced (a broken install or renamed tool step would otherwise silently
@@ -191,7 +278,7 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
 ## The mutation score ratchet (`scripts/check_mutation_score.sh`)
 
 **Scope first, because the number invites over-reading**: the baseline score
-(66.57% as of this writing) is measured over a deliberately narrow,
+(68.17% as of this writing, `.github/mutation-baseline.json`) is measured over a deliberately narrow,
 hand-picked file selection (`[tool.mutmut]` in `fast_api_voter/pyproject.toml`
 — currently 3 backend files, ~4,700 of the repo's ~40,000 backend lines;
 Stryker's frontend half is narrower still, one file,
@@ -226,7 +313,16 @@ a suggestion to `--update`, not forced.
 ```
 
 Same "measure on an up-to-date branch" caveat as the quality ratchet — CI
-measures against the PR's merge result.
+measures against the PR's merge result. The log to `--update` from is the
+`mutmut-results` artifact (`mutmut-run.log`, next to the `mutants/` results
+`mutmut show` reads) of the latest green **polity** run, on its current tip
+(the workflow also runs on develop, under the same artifact name):
+
+```bash
+gh run list -w mutation-testing.yml -b polity -s success -L 1   # pick the run
+gh run download <run-id> -n mutmut-results -D fast_api_voter    # paths are relative to fast_api_voter/
+./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log --update
+```
 
 ## The type-coverage ratchet (frontend, `package.json`'s `typeCoverage.atLeast`)
 
@@ -254,16 +350,26 @@ to compare against) — never hand-edit the number down to make a red run
 green; that's a real regression, not noise, since `type-coverage` is fully
 deterministic (unlike mutmut, there's no tolerance band here).
 
-## diff-cover — 100% coverage on changed lines
+## diff-cover — 100% coverage on changed lines and branches
 
 This is a *different, stricter* gate than the 90%/global coverage floor:
 diff-cover only looks at lines your PR actually changed, so a large
-already-tested codebase can't dilute it. Reproduce it locally before pushing:
+already-tested codebase can't dilute it. With `--branch-coverage`, a changed
+line that is a branch (`if`/`else`, ternary, `&&`/`||`, `??`, `?.`) must also
+have been taken every way: a line that ran but whose `else` no test reaches
+fails as "Missing". A branch no test can reach (a loop that always returns
+from inside, an exhaustive `if`/`elif`) takes `# pragma: no branch` (Python)
+or `/* v8 ignore else */` / `/* v8 ignore next */` (frontend), with the reason
+next to it; both are silencers, so `edit_guard` asks and fast-gate reports
+them. Backend branch data comes from pyproject's
+`[tool.coverage.run] branch = true`; the frontend's from vitest's `cobertura`
+reporter (diff-cover's lcov reader ignores partly-taken branches). Reproduce
+it locally before pushing:
 
 ```bash
 # Backend, from fast_api_voter/ — verified working:
 python -m pytest api/tests --cov-report=xml -q
-diff-cover coverage.xml --compare-branch=origin/develop --fail-under=100
+diff-cover coverage.xml --compare-branch=origin/polity --branch-coverage --fail-under=100
 ```
 
 **The gotcha**: `--cov-report=xml` is not in `pyproject.toml`'s default
@@ -277,15 +383,15 @@ works but then you lose the default coverage flags entirely and must pass
 # Frontend — mirrors frontend-ci-cd-pipeline.yml exactly, including the cwd
 # (test:coverage runs inside voter-app/, diff-cover itself runs from repo root):
 (cd voter-app && npm run test:coverage)
-# vitest writes lcov.info with SF: paths relative to voter-app/ (its own cwd),
-# but git diff (and diff-cover's lcov reader) expect repo-root-relative paths:
-sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
-diff-cover voter-app/coverage/lcov-diffcover.info --compare-branch=origin/develop --fail-under=100
+# the Cobertura report's <source> is voter-app/, so its paths already line up
+# with git's (repo-root-relative):
+diff-cover voter-app/coverage/cobertura-coverage.xml --compare-branch=origin/polity --branch-coverage --fail-under=100
 ```
 
-Both commands compare against `origin/develop` — make sure that ref is fetched
-and up to date locally (`git fetch origin develop`) or the diff is computed
-against a stale base and won't match what CI sees.
+Both commands compare against `origin/polity`, the working branch (CI uses the
+PR's own base; use `origin/develop` for a release-sync PR into develop) — make
+sure that ref is fetched and up to date locally (`git fetch origin polity`) or
+the diff is computed against a stale base and won't match what CI sees.
 
 ## `ci-local/` — the Docker mirror, and when to reach for it
 
@@ -317,8 +423,8 @@ Reach for a **real GitHub Actions log** instead when:
 
 Known fidelity gaps (from `ci-local/README.md`, verify against it before
 trusting a fully-green local mirror over a red PR): the local backend
-coverage gate is 85%, real CI is 90%; `pip-audit` doesn't fail the local
-mirror even though the real workflow gates on it; the `audit` target only
+coverage gate is 85%, real CI is 90%; the local mypy covers `api/` only, not
+`scripts/llm_test_harness`, and the harness tests don't run there; the `audit` target only
 covers Semgrep/Gitleaks/filesystem-Trivy, not `image-scan`, `code-quality`,
 or CodeQL.
 
@@ -383,9 +489,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
     block (even at 0 required approvals) makes GitHub reject any raw push
-    with "Changes must be made through a pull request" — meaning
-    `release.yml`'s own direct push to `main` has the same latent bug and
-    has simply never been exercised for real yet (no release has shipped).
+    with "Changes must be made through a pull request". `release.yml` used
+    to push its version bump straight to `main` too (it worked for v0.2.0
+    because `main` was unprotected); now `main` is protected and the release
+    only pushes a tag.
   - `GITHUB_TOKEN` couldn't open the PR at all at first either — GitHub
     blocks Actions from creating PRs by default (`gh api repos/.../actions/
     permissions/workflow`'s `can_approve_pull_request_reviews`, confusingly
@@ -414,11 +521,15 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   diff, caught by `/code-review ultra` before it shipped. Fails if:
   - the snapshot is stale (the scheduled `audit` job has gone quiet — its
     own silence has to be as loud as any other failure it reports), or
-  - any watched workflow is `unhealthy` (≥2 consecutive real failures),
+  - any watched workflow (`WATCHED_WORKFLOWS` in the script; `audit.yml` is
+    judged on its scheduled runs alone, since its PR runs only scan new
+    commits) is `unhealthy` (≥2 consecutive real failures),
     `inert` (no run within 1.5× its own cron-derived cadence), or
     `never_run`, or
-  - `develop`'s live branch protection has drifted from
-    `scripts/setup-branch-protection.sh`.
+  - `develop`'s, `polity`'s or `main`'s live branch protection has drifted
+    from `scripts/setup-branch-protection.sh` (its `--print-contexts <branch>`
+    is the expected list; polity and main each have their own snapshot key and
+    snooze, `branch-protection-polity` and `branch-protection-main`).
 
 **`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
 this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't
@@ -481,7 +592,7 @@ detection were each verified against constructed fixtures
 4. Reproduce locally with the exact command from that section (not a
    paraphrase) before pushing a fix — diff-cover and the quality ratchet
    especially depend on flags (`--cov-report=xml`, an up-to-date
-   `origin/develop`) that are easy to omit locally and then be surprised by.
+   base: `origin/polity` for most PRs) that are easy to omit locally and then be surprised by.
 5. If the fix touches `engineParity.json` or `openapi.gen.json`/`types.gen.ts`,
    regenerate them via their scripts (never hand-edit) and re-run the drift
    checks before pushing again.

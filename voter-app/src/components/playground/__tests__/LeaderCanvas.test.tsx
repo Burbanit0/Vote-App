@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import LeaderCanvas from '../LeaderCanvas';
@@ -30,6 +30,38 @@ function setup(overrides: Partial<React.ComponentProps<typeof LeaderCanvas>> = {
 }
 
 describe('LeaderCanvas', () => {
+  it('describes the map in words for a screen reader (W3.6)', () => {
+    setup();
+    const summary = screen.getByTestId('leader-map-summary');
+    expect(screen.getByTestId('leader-map')).toHaveAttribute('aria-describedby', summary.id);
+    expect(summary).toHaveTextContent('120 voters.');
+    expect(summary).toHaveTextContent(/A at \(-0\.5, 0\.0\): first choice of \d+%\./);
+    const winner = screen.getByTestId('field-winner').querySelector('strong')?.textContent;
+    expect(summary).toHaveTextContent(`Plurality (1 round), ${winner} wins.`);
+  });
+
+  it('the description follows a moved candidate once it holds still', () => {
+    vi.useFakeTimers();
+    try {
+      const props = {
+        voters: sampleVoters(120, 42, 'random'),
+        rule: 'plurality' as const,
+        dims: 2 as const,
+        onRuleChange: vi.fn(),
+        onMoveCandidate: vi.fn(),
+      };
+      const { rerender } = render(<LeaderCanvas candidates={CANDS} {...props} />);
+      const moved = CANDS.map((c) => (c.name === 'A' ? { ...c, x: 0.2 } : c));
+      rerender(<LeaderCanvas candidates={moved} {...props} />);
+      const summary = screen.getByTestId('leader-map-summary');
+      expect(summary).toHaveTextContent('A at (-0.5, 0.0)');
+      act(() => vi.advanceTimersByTime(300));
+      expect(summary).toHaveTextContent('A at (0.2, 0.0)');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders the plane, candidates, and the field winner', () => {
     setup();
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
@@ -133,6 +165,20 @@ describe('LeaderCanvas', () => {
     expect(onMoveCandidate.mock.calls[0][0]).toBe(0);
   });
 
+  it('a touch on a hit circle grabs its candidate, or the "you" marker (W3.6)', () => {
+    const onMoveYou = vi.fn();
+    const { onMoveCandidate } = setup({ youMarker: { x: 0, y: -0.5 }, onMoveYou });
+    const map = screen.getByTestId('leader-map');
+    fireEvent.touchStart(screen.getByTestId('candidate-1-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveCandidate.mock.calls[0][0]).toBe(1);
+    fireEvent.touchEnd(map);
+    fireEvent.touchStart(screen.getByTestId('you-marker-hit'));
+    fireEvent.touchMove(map, { touches: [{ clientX: 100, clientY: 100 }] });
+    expect(onMoveYou).toHaveBeenCalledTimes(1);
+    expect(onMoveCandidate).toHaveBeenCalledTimes(1);
+  });
+
   it('1-D collapses to a line: dragging forces y=0 and no z controls', () => {
     const { onMoveCandidate } = setup({ dims: 1, voters: sampleVoters(80, 1, 'random', 1) });
     expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '1');
@@ -154,6 +200,137 @@ describe('LeaderCanvas', () => {
     expect(screen.getByTestId('z-controls')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('z-slider-2'), { target: { value: '0.6' } });
     expect(onMoveCandidate).toHaveBeenCalledWith(2, cands[2].x, cands[2].y, 0.6);
+  });
+
+  describe('3-D scene', () => {
+    const cands3: NamedPt[] = CANDS.map((c, i) => ({ ...c, z: i * 0.3 - 0.3 }));
+    const props3 = {
+      dims: 3 as const,
+      candidates: cands3,
+      voters: sampleVoters(80, 1, 'random', 3),
+    };
+
+    it('paints no hidden-map grid while the scene shows, and recomputes it on the plane', () => {
+      vi.useFakeTimers();
+      const spy = vi.spyOn(playgroundVoting, 'winRegionGrid');
+      try {
+        setup({ ...props3, lens: 'winner' });
+        act(() => vi.advanceTimersByTime(500));
+        expect(spy).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('view-plane'));
+        act(() => vi.advanceTimersByTime(500));
+        expect(spy).toHaveBeenCalled();
+        expect(screen.getByTestId('winregion')).toBeInTheDocument();
+      } finally {
+        spy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it('still shows the plane-independent lens panels under the scene', async () => {
+      setup({ ...props3, lens: 'criteria' });
+      expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(await screen.findByTestId('criteria-matrix')).toBeInTheDocument();
+    });
+
+    it('rings the same winner as the readout, and none for a lottery rule', () => {
+      setup({ ...props3, rule: 'plurality' });
+      const name = screen.getByTestId('field-winner').querySelector('strong')!.textContent!;
+      const ringed = screen.getByTestId('scene-winner').parentElement!;
+      expect(ringed).toHaveTextContent(name);
+      cleanup();
+      setup({ ...props3, rule: 'random_ballot' });
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+    });
+
+    it('rings the Condorcet winner under the criteria lens only', async () => {
+      setup({ ...props3, lens: 'criteria' });
+      expect(await screen.findByTestId('scene-condorcet')).toBeInTheDocument();
+      cleanup();
+      setup({ ...props3, lens: 'winner' });
+      expect(screen.queryByTestId('scene-condorcet')).not.toBeInTheDocument();
+    });
+
+    it('puts the Condorcet ring on the candidate every voter prefers', async () => {
+      // Every voter sits on C: C beats each rival head to head, whatever the rule says.
+      const onC = Array.from({ length: 40 }, (_, k) => ({
+        x: cands3[2].x + (k % 5) * 0.01,
+        y: cands3[2].y,
+        z: cands3[2].z,
+      }));
+      setup({ ...props3, voters: onC, lens: 'criteria' });
+      const ring = await screen.findByTestId('scene-condorcet');
+      expect(ring.parentElement).toBe(screen.getByTestId('scene-candidate-2'));
+    });
+
+    it('counts the Condorcet winner on every voter, not on the thinned grid sample', async () => {
+      // 330 voters > the 160-voter cap, so the grid keeps every 3rd one. Those are all
+      // on A, but two thirds of the electorate sit on B: B is the true Condorcet winner.
+      const at = (c: NamedPt) => ({ x: c.x, y: c.y, z: c.z });
+      const crowd = Array.from({ length: 330 }, (_, i) => at(cands3[i % 3 === 0 ? 0 : 1]));
+      setup({ ...props3, voters: crowd, lens: 'criteria' });
+      const ring = await screen.findByTestId('scene-condorcet');
+      expect(ring.parentElement).toBe(screen.getByTestId('scene-candidate-1'));
+    });
+
+    it('rings the strategic winner, as the readout does, when voters are not sincere', () => {
+      setup({
+        ...props3,
+        behavior: 'strategic',
+        strategicOutcome: {
+          sincereWinner: 0,
+          strategicWinner: 2,
+          defectors: [],
+          defectRate: 0,
+          sampled: 0,
+        },
+      });
+      expect(screen.getByTestId('scene-winner').parentElement).toBe(
+        screen.getByTestId('scene-candidate-2')
+      );
+    });
+
+    it('rings nobody when the rule elects no one or two candidates share the winner name', () => {
+      setup({ ...props3, voters: [] });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+      cleanup();
+      setup({ ...props3, candidates: cands3.map((c) => ({ ...c, name: 'A' })) });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+    });
+
+    it('rings nobody before a method is chosen (showRuleUi off)', () => {
+      setup({ ...props3, showRuleUi: false, lens: 'criteria' });
+      expect(screen.getByTestId('scene-3d')).toBeInTheDocument();
+      expect(screen.queryByTestId('scene-winner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('scene-condorcet')).not.toBeInTheDocument();
+    });
+
+    it('describes the scene with the canvas summary, which names the winner', () => {
+      setup(props3);
+      const summary = screen.getByTestId('leader-map-summary');
+      expect(screen.getByTestId('scene-3d')).toHaveAttribute('aria-describedby', summary.id);
+    });
+
+    it('keeps the orbit viewpoint across a trip to the x–y plane', () => {
+      setup(props3);
+      fireEvent.click(screen.getByTestId('scene-spin')); // pause auto-spin
+      fireEvent.mouseDown(screen.getByTestId('scene-3d'), { clientX: 100, clientY: 100 });
+      fireEvent.mouseMove(window, { clientX: 260, clientY: 160 });
+      fireEvent.mouseUp(window);
+      const cx = () =>
+        screen.getByTestId('scene-candidate-1').querySelector('circle')!.getAttribute('cx');
+      const orbited = cx();
+      fireEvent.click(screen.getByTestId('view-plane'));
+      expect(screen.queryByTestId('scene-3d')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('view-3d'));
+      expect(cx()).toBe(orbited);
+      // …and it stays paused: the user's pause is part of the viewpoint.
+      expect(screen.getByTestId('scene-spin')).toHaveTextContent('▶');
+    });
   });
 
   // ── React.memo isolation (perf/leader-canvas-drag-and-memo) ────────────────

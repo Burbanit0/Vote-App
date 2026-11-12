@@ -1,0 +1,317 @@
+name: Human review attestation
+
+# Holds high-risk PRs until the owner has reviewed their CURRENT head commit,
+# through one required status, `High-risk review gate` (branch protection on
+# polity and develop; scripts/setup-branch-protection.sh). Mergify applies
+# required statuses as merge conditions, so a held PR never enters the queue.
+#
+# Mergify's own `merge_protections` block in .mergify.yml lists the same paths
+# but was never evaluated (#731 merged through the queue unreviewed): this
+# status is the enforcement, .mergify.yml stays the path list.
+#
+#  - gate (every PR event): if the PR touches a path the hold covers
+#    (scripts/check_mergify_protected_paths.py --classify, against the BASE
+#    branch's .mergify.yml), or weakens the test suite (fewer tests, or tests
+#    switched off: scripts/check_test_integrity.py, a static diff), the gate is
+#    red until the head commit carries a `human-review` success; otherwise it
+#    is green straight away.
+#  - attest: the repository owner comments `/reviewed <sha>` on the PR, naming
+#    the head commit they reviewed (7+ hex chars). If that is still the head,
+#    post `human-review` and a green gate on it. Naming the SHA matters: a
+#    commit pushed while the owner was reading the diff is not approved by
+#    accident, which a label or a bare "LGTM" could not tell apart.
+#  - An update of an approved head by Mergify (strict mode keeping a queued PR
+#    up to date) or by the owner (the "Update branch" button) carries the
+#    approval over only when the new head is a merge whose first parent is the
+#    approved head and whose other parent is already on the base branch, i.e.
+#    it adds nothing that hasn't merged through its own checks.
+#  - Any other new commit gets a red gate, so the PR is held again. There is
+#    no reset step that could be skipped.
+#
+# Both triggers run the workflow from a branch the PR cannot edit: the DEFAULT
+# branch (develop), for issue_comment and for pull_request_target alike (seen
+# live on #763: the gate ran develop's copy while polity had a newer one). A
+# change to this file, or to what its checkout reads (the classifier, the
+# integrity check, .mergify.yml), takes effect only after a polity -> develop
+# sync.
+# No PR code is checked out or executed (the checkout is the base branch, for
+# the classifier and the path list); untrusted event fields only reach the
+# shell through env.
+#
+# Who may post the statuses (Phase 3b). Any workflow run in this repo can post
+# a commit status under any name with its GITHUB_TOKEN, including a PR's own
+# `pull_request` workflow. So when the review-gate GitHub App is configured
+# (repository variable REVIEW_GATE_APP_CLIENT_ID, private key in the secret
+# REVIEW_GATE_APP_KEY of the `review-gate` environment), both jobs post with
+# the App's token instead, and:
+#  - branch protection pins `High-risk review gate` to the App's id
+#    (REVIEW_GATE_APP_ID=<id> scripts/setup-branch-protection.sh), so a status
+#    of that name from anything else does not count;
+#  - a `human-review` status counts only when the App posted it (its creator
+#    is the App's bot), so a forged one cannot turn the gate green;
+#  - the key is reachable only from runs on a protected branch: the
+#    environment's deployment branches are "Protected branches only", and a
+#    PR's own workflow runs on refs/pull/N/merge, which is not one.
+# Until the variable is set, both jobs post with GITHUB_TOKEN exactly as
+# before (the forgeable version: it stops accidental and lazy merges, not a
+# deliberate forgery). CONTRIBUTING.md has the setup steps, in order.
+# An agent using the owner's own credentials can still comment as the owner;
+# that has to be denied on the agent side (.claude/hooks), not here.
+
+on: # zizmor: ignore[dangerous-triggers] pull_request_target classifies the PR paths (data fetched by SHA, never run); it must run from the base branch
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+    branches: [develop, polity]
+
+permissions:
+  contents: read
+
+env:
+  GATE: High-risk review gate
+
+jobs:
+  gate:
+    name: Decide whether the PR is held for review
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: human-review-gate-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    # The App's key lives in this environment (see the header); deployment:
+    # false reads its secrets without adding a deployment to every PR. Without
+    # the App configured, the environment holds nothing and the job runs as before.
+    environment:
+      name: review-gate
+      deployment: false
+    permissions:
+      statuses: write
+      contents: read
+      pull-requests: read
+    steps:
+      # A failed mint (App uninstalled, key rotated or missing) must not leave
+      # the required gate "Expected" with no reason: the next step reports it.
+      - name: Mint the review-gate App token
+        id: app
+        if: vars.REVIEW_GATE_APP_CLIENT_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.REVIEW_GATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEW_GATE_APP_KEY }}
+          permission-statuses: write
+      # The default branch (pull_request_target's ref): the classifier, the path
+      # list and the test-integrity check a PR cannot rewrite for itself.
+      # Full history, for the merge-base the integrity diff starts from.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Classify the changed paths and test changes, then post the gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Posts the statuses: the App's token when configured, else GITHUB_TOKEN.
+          STATUS_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_CONFIGURED: ${{ vars.REVIEW_GATE_APP_CLIENT_ID != '' }}
+          MINT: ${{ steps.app.outcome }}
+          # Only a human-review status from this bot counts ("" = any, no App).
+          APP_BOT: ${{ steps.app.outputs.app-slug && format('{0}[bot]', steps.app.outputs.app-slug) || '' }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          SENDER: ${{ github.event.sender.login }}
+          OWNER: ${{ github.repository_owner }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -Eeuo pipefail  # -E: the ERR trap below also covers status()/reviewed()
+          status() {  # sha state context description
+            GH_TOKEN="$STATUS_TOKEN" gh api "repos/$REPO/statuses/$1" > /dev/null \
+              -f state="$2" -f context="$3" -f description="$4" -f target_url="$RUN_URL"
+          }
+          reviewed() {  # latest human-review state on a commit from the App ("" if none)
+            gh api "repos/$REPO/commits/$1/statuses" \
+              --jq '[.[] | select(.context == "human-review"
+                       and (env.APP_BOT == "" or .creator.login == env.APP_BOT))][0].state // ""'
+          }
+          # A command failing before a status is posted (the files API, the
+          # classifier) would leave the required gate "Expected" forever: post an
+          # error instead, so the PR shows red with a reason. ERR skips commands
+          # tested by if/||/&&, so the deliberate fallbacks below are unaffected;
+          # API calls with a deterministic failure fall back to holding the PR.
+          trap 'status "$HEAD" error "$GATE" "The gate crashed before deciding: see the run log, then re-run it" || true' ERR
+          # The App is configured but its token could not be minted: never fall
+          # back to GITHUB_TOKEN (pinned protection would not count it anyway).
+          # Say why with an error status, which can never release the gate.
+          if [ "$APP_CONFIGURED" = true ] && [ "$MINT" != success ]; then
+            trap - ERR
+            gh api "repos/$REPO/statuses/$HEAD" > /dev/null \
+              -f state=error -f context="$GATE" -f target_url="$RUN_URL" \
+              -f description="The review-gate App token could not be minted: see the run log"
+            echo "::error::REVIEW_GATE_APP_CLIENT_ID is set but the App token step failed (installation, key or environment secret)."
+            exit 1
+          fi
+          # Both sides of a rename: moving a protected file out of its path is held too.
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
+          held=$(python3 scripts/check_mergify_protected_paths.py --classify --author "$AUTHOR" \
+            < "$RUNNER_TEMP/files.txt")
+          # Tests deleted or switched off (scripts/check_test_integrity.py): a
+          # static diff of the PR head's files, fetched as data and never run.
+          # Any failure to check counts as held.
+          weakened=""
+          why=""
+          if git fetch --quiet --no-tags origin "$HEAD" \
+              && weakened=$(python3 scripts/check_test_integrity.py --base "$(git rev-parse HEAD)" \
+                   --head "$HEAD" --summary "$GITHUB_STEP_SUMMARY"); then :; else
+            weakened="the test-integrity check could not run"
+          fi
+          # What a regenerated test oracle changes (winners by rule, golden
+          # values, API shape, baselines), for the reviewer: report only, it
+          # never decides the gate. Same static diff, never runs PR code.
+          if ! oracles=$(python3 scripts/oracle_diff_report.py --base "$(git rev-parse HEAD)" \
+              --head "$HEAD" --summary "$GITHUB_STEP_SUMMARY"); then
+            echo "The test-oracle report could not run (it does not affect the gate)."
+          elif [ -n "$oracles" ]; then
+            echo "Test oracles changed: the run summary says how."
+          fi
+          if [ -z "$held" ] && [ -z "$weakened" ]; then
+            status "$HEAD" success "$GATE" "No high-risk path changed, no test removed or switched off"
+            exit 0
+          fi
+          if [ -n "$held" ]; then
+            echo "High-risk paths in this PR:"
+            printf '%s\n' "$held" | sed 's/^/  /'
+            why="High-risk change"
+          fi
+          if [ -n "$weakened" ]; then
+            echo "Test suite weakened:"
+            printf '%s\n' "$weakened" | sed 's/^/  /'
+            case "$weakened" in
+              "the test-integrity check could not run") what="test-integrity check failed" ;;
+              *) what="tests removed or switched off" ;;
+            esac
+            why="${why:+$why + }$what"
+          fi
+          if [ "$(reviewed "$HEAD")" = success ]; then
+            status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
+            exit 0
+          fi
+          # Mergify, or the owner's "Update branch", bringing an approved head
+          # up to date with the base. Anyone else's push is held as usual.
+          if [ "$ACTION" = synchronize ] \
+              && { [ "$SENDER" = "mergify[bot]" ] || [ "$SENDER" = "$OWNER" ]; } \
+              && [ "$(reviewed "$BEFORE")" = success ]; then
+            parents=$(gh api "repos/$REPO/commits/$HEAD" --jq '[.parents[].sha] | join(" ")') || parents=""
+            read -r first second extra <<< "$parents"
+            rel=""
+            if [ "$first" = "$BEFORE" ] && [ -n "$second" ] && [ -z "${extra:-}" ]; then
+              rel=$(gh api "repos/$REPO/compare/$second...$BASE" --jq .status) || rel=""
+            fi
+            # The parents alone don't show what the merge commit contains: a
+            # conflict resolution or an edit slipped into it (an agent pushing
+            # with the owner's credentials can do that) would ride on the old
+            # approval. Recompute the clean merge and require the same tree.
+            # Any conflict makes merge-tree fail, which holds the PR too.
+            clean=""
+            if [ "$rel" = identical ] || [ "$rel" = ahead ]; then
+              if git fetch --quiet --no-tags origin "$BEFORE" "$second" 2>/dev/null; then
+                clean=$(git merge-tree --write-tree "$BEFORE" "$second" 2>/dev/null) || clean=""
+              fi
+            fi
+            if [ -n "$clean" ] && [ "$clean" = "$(git rev-parse "$HEAD^{tree}" 2>/dev/null)" ]; then
+              status "$HEAD" success human-review "Carried over a base update of ${BEFORE:0:7} by $SENDER"
+              status "$HEAD" success "$GATE" "Review carried over a base update by $SENDER"
+              echo "Approval carried from $BEFORE to $HEAD."
+              exit 0
+            fi
+            echo "Update by $SENDER is not a clean base merge onto the approved head ($parents); held."
+          fi
+          status "$HEAD" failure "$GATE" "$why: the owner comments /reviewed ${HEAD:0:7}"
+          # attest may have run between the check above and this post. It posts
+          # human-review before its green gate, so re-checking here (after our
+          # red one) means the last gate status always matches the review.
+          if [ "$(reviewed "$HEAD")" = success ]; then
+            status "$HEAD" success "$GATE" "Head commit reviewed by the owner"
+            exit 0
+          fi
+          echo "Held: the owner reviews the PR, then comments \`/reviewed ${HEAD:0:7}\`."
+
+  attest:
+    name: Record the review on the named commit
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/reviewed')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: human-review-attest-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    environment:
+      name: review-gate
+      deployment: false
+    permissions:
+      statuses: write
+      # The reply goes through the issues API, but on a pull request the token
+      # needs pull-requests: write for it (issues: write alone is a 403).
+      issues: write
+      pull-requests: write
+    steps:
+      # Minted only for the owner's own comment: anyone else's is answered
+      # below without it.
+      - name: Mint the review-gate App token
+        id: app
+        if: vars.REVIEW_GATE_APP_CLIENT_ID != '' && github.event.comment.user.login == github.repository_owner
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.REVIEW_GATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEW_GATE_APP_KEY }}
+          permission-statuses: write
+      - name: Check the commenter and the SHA, then post the statuses
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATUS_TOKEN: ${{ steps.app.outputs.token || secrets.GITHUB_TOKEN }}
+          APP_CONFIGURED: ${{ vars.REVIEW_GATE_APP_CLIENT_ID != '' }}
+          MINT: ${{ steps.app.outcome }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          PR: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.comment.user.login }}
+          BODY: ${{ github.event.comment.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          reply() { gh api "repos/$REPO/issues/$PR/comments" -f body="$1" > /dev/null; }
+          if [ "$AUTHOR" != "$OWNER" ]; then
+            reply "\`/reviewed\` from @$AUTHOR ignored: only @$OWNER can approve a high-risk change."
+            exit 0
+          fi
+          named=$(printf '%s\n' "$BODY" | head -n1 | sed -nE 's#^/reviewed[[:space:]]+([0-9a-fA-F]{7,40})[[:space:]]*$#\1#p' | tr 'A-F' 'a-f')
+          if [ -z "$named" ]; then
+            reply "Usage: \`/reviewed <sha>\` with the head commit you reviewed (at least 7 hex characters)."
+            exit 0
+          fi
+          if [ "$APP_CONFIGURED" = true ] && [ "$MINT" != success ]; then
+            reply "Not recorded: the review-gate App token could not be minted (see $RUN_URL). Fix the App or its key, then comment again."
+            exit 1
+          fi
+          head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
+          case "$head" in
+            "$named"*) ;;
+            *)
+              reply "Not recorded: \`$named\` is not the head of this PR (\`${head:0:7}\`). Review the newer commits, then \`/reviewed ${head:0:7}\`."
+              exit 0
+              ;;
+          esac
+          for ctx in human-review "$GATE"; do
+            GH_TOKEN="$STATUS_TOKEN" gh api "repos/$REPO/statuses/$head" > /dev/null \
+              -f state=success -f context="$ctx" \
+              -f description="Reviewed by @$AUTHOR" -f target_url="$RUN_URL"
+          done
+          reply "Recorded @$AUTHOR's review of \`${head:0:7}\` (\`human-review\` status, gate released). Any new commit needs a new review."
