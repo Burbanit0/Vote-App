@@ -974,7 +974,7 @@
   "code": 118,
   "test-flaky": 17
  },
- "generated_at": "2026-11-12T03:14:16Z",
+ "generated_at": "2026-11-12T03:17:55Z",
  "grid": {
   "Backend CI": {
    "2026-10-13": {
@@ -1239,7 +1239,7 @@
     "success": 45
    },
    "2026-11-12": {
-    "success": 22
+    "success": 23
    }
   },
   "CI Health Watchdog": {
@@ -1472,7 +1472,7 @@
   },
   "Diff Mutation comment": {
    "2026-10-13": {
-    "success": 13
+    "success": 12
    },
    "2026-10-14": {
     "success": 1
@@ -2078,8 +2078,8 @@
   "polity red alert": {
    "2026-10-13": {
     "cancelled": 24,
-    "skipped": 69,
-    "success": 45
+    "skipped": 63,
+    "success": 44
    },
    "2026-10-14": {
     "skipped": 12,
@@ -2271,9 +2271,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-12T03:10:22Z",
+   "created_at": "2026-11-12T03:12:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43146381713"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43146650340"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2381,7 +2381,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7212,
+ "runs": 7205,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2527,12 +2527,12 @@
     "2026-11-09": 257.0,
     "2026-11-10": 241,
     "2026-11-11": 279,
-    "2026-11-12": 258.0
+    "2026-11-12": 264
    },
    "p50_s": 361,
    "p95_s": 558,
    "queue_p50_s": 0,
-   "runs": 530
+   "runs": 531
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2696,7 +2696,7 @@
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
-    "2026-10-13": 14,
+    "2026-10-13": 14.0,
     "2026-10-14": 11,
     "2026-10-15": 12,
     "2026-10-16": 11.0,
@@ -2721,7 +2721,7 @@
    "p50_s": 12,
    "p95_s": 251,
    "queue_p50_s": 0,
-   "runs": 206
+   "runs": 205
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -3043,7 +3043,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-13": 29,
+    "2026-10-13": 29.5,
     "2026-10-14": 32,
     "2026-10-15": 29,
     "2026-10-16": 30,
@@ -3078,7 +3078,7 @@
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 797
+   "runs": 796
   },
   "zizmor online": {
    "daily_p50_s": {
