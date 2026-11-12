@@ -18,12 +18,14 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..
 const CATALOG = path.join(SRC, 'components/lab/labCatalog.tsx');
 const catalog = readFileSync(CATALOG, 'utf8');
 
+function baseOf(from: string, spec: string): string | null {
+  if (spec.startsWith('@/')) return path.join(SRC, spec.slice(2));
+  if (spec.startsWith('.')) return path.resolve(path.dirname(from), spec);
+  return null;
+}
+
 function resolveImport(from: string, spec: string): string | null {
-  const base = spec.startsWith('@/')
-    ? path.join(SRC, spec.slice(2))
-    : spec.startsWith('.')
-      ? path.resolve(path.dirname(from), spec)
-      : null;
+  const base = baseOf(from, spec);
   if (base === null) return null;
   for (const tail of ['.tsx', '.ts', '/index.tsx', '/index.ts']) {
     if (existsSync(base + tail)) return base + tail;
@@ -31,15 +33,20 @@ function resolveImport(from: string, spec: string): string | null {
   return null;
 }
 
-const IMPORT =
-  /(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/gs;
+// Static `import … from '…'` / `export … from '…'`, and dynamic `import('…')`: two small patterns.
+const FROM = /(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]/gs;
+const DYNAMIC = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+/** Every module specifier a source text imports. */
+const specifiersOf = (text: string): string[] =>
+  [...text.matchAll(FROM), ...text.matchAll(DYNAMIC)].map((m) => m[1]);
 
 /** `file` and every source file it imports, transitively (tests excluded). */
 function closure(file: string, seen = new Set<string>()): Set<string> {
   if (seen.has(file)) return seen;
   seen.add(file);
-  for (const m of readFileSync(file, 'utf8').matchAll(IMPORT)) {
-    const next = resolveImport(file, m[1] ?? m[2]);
+  for (const spec of specifiersOf(readFileSync(file, 'utf8'))) {
+    const next = resolveImport(file, spec);
     if (next && !/\.test\.tsx?$/.test(next)) closure(next, seen);
   }
   return seen;

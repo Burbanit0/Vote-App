@@ -278,6 +278,15 @@ const LaboratoireContent: React.FC = () => {
     setBench(id, locateExperiment(id)?.experiment.readsElectorate ? vsElec : null);
   };
 
+  // What the live region says: how many fiches match, or that none does (nothing, while not searching).
+  let searchStatus = '';
+  if (searching) {
+    searchStatus =
+      results.length > 0
+        ? t('lab.searchResults', { count: results.length })
+        : t('lab.searchEmpty', { q: query.trim(), interpolation: { escapeValue: false } });
+  }
+
   // A result opens its fiche and brings its family along, so closing the search lands on it.
   const pickResult = (located: Located) => {
     setFamilyId(located.family.id);
@@ -349,11 +358,7 @@ const LaboratoireContent: React.FC = () => {
         />
         {/* Heard when the count changes; seen as the results themselves. */}
         <p role="status" className="sr-only" data-testid="lab-search-count">
-          {searching
-            ? results.length > 0
-              ? t('lab.searchResults', { count: results.length })
-              : t('lab.searchEmpty', { q: query.trim(), interpolation: { escapeValue: false } })
-            : ''}
+          {searchStatus}
         </p>
       </div>
 

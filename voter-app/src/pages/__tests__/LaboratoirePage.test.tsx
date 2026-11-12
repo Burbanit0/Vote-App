@@ -324,6 +324,14 @@ describe('LaboratoirePage — the bench', () => {
       expect(screen.getByTestId('chip-mech-jury')).toHaveTextContent('Systems & mechanisms');
     });
 
+    it('keeps the search on any other key: only Escape clears it', () => {
+      renderLab();
+      search('jury');
+      fireEvent.keyDown(screen.getByTestId('lab-search'), { key: 'a' });
+      expect(screen.getByTestId('lab-search')).toHaveValue('jury');
+      expect(screen.getByTestId('chip-mech-jury')).toBeInTheDocument();
+    });
+
     it('a lone accent is no search', () => {
       renderLab();
       search('\u0301');
