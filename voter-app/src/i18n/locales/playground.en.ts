@@ -215,6 +215,7 @@ const pgEn: PlaygroundKeys = {
   },
   scene: {
     drag: 'Drag to rotate',
+    dragYou: 'Drag the diamond to move yourself',
     pauseSpin: '⏸ rotation',
     playSpin: '▶ rotation',
     aria: '3D view of the electorate',

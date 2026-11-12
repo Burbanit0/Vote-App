@@ -220,6 +220,7 @@ const pgFr = {
   },
   scene: {
     drag: 'Glissez pour pivoter',
+    dragYou: 'Glissez le losange pour vous déplacer',
     pauseSpin: '⏸ rotation',
     playSpin: '▶ rotation',
     aria: 'Vue 3D de l’électorat',

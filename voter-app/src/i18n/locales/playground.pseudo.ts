@@ -242,6 +242,7 @@ const pgPseudo: PlaygroundKeys = {
   },
   scene: {
     drag: '⟦Glísséz~~~ póúr~~ pívótér~~~⟧',
+    dragYou: '⟦Glísséz~~~ lé~ lósáñgé~~~ póúr~~ vóús~~ dépláçér~~~⟧',
     pauseSpin: '⟦⏸~ rótátíóñ~~~⟧',
     playSpin: '⟦▶~ rótátíóñ~~~⟧',
     aria: '⟦Vúé~~ 3D~ dé~ l’éléçtórát~~~~⟧',
