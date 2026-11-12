@@ -945,7 +945,7 @@
   "code": 112,
   "test-flaky": 17
  },
- "generated_at": "2026-11-12T01:15:12Z",
+ "generated_at": "2026-11-12T01:18:49Z",
  "grid": {
   "Backend CI": {
    "2026-10-13": {
@@ -1210,7 +1210,7 @@
     "success": 45
    },
    "2026-11-12": {
-    "success": 8
+    "success": 9
    }
   },
   "CI Health Watchdog": {
@@ -2183,7 +2183,7 @@
    },
    "2026-11-12": {
     "cancelled": 7,
-    "skipped": 21,
+    "skipped": 22,
     "success": 22
    }
   },
@@ -2241,9 +2241,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-12T01:07:23Z",
-   "event": "workflow_dispatch",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43132263015"
+   "created_at": "2026-11-12T01:15:05Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43133194239"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2338,10 +2338,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-12T01:17:41Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-12T01:19:59Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43133509132"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43133776769"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2351,7 +2351,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7114,
+ "runs": 7117,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2497,12 +2497,12 @@
     "2026-11-09": 257.0,
     "2026-11-10": 241,
     "2026-11-11": 279,
-    "2026-11-12": 258.5
+    "2026-11-12": 252
    },
    "p50_s": 362,
    "p95_s": 560,
    "queue_p50_s": 0,
-   "runs": 522
+   "runs": 523
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2967,12 +2967,12 @@
     "2026-11-09": 210,
     "2026-11-10": 180,
     "2026-11-11": 175.5,
-    "2026-11-12": 172
+    "2026-11-12": 174.0
    },
    "p50_s": 168,
    "p95_s": 324,
    "queue_p50_s": 0,
-   "runs": 306
+   "runs": 307
   },
   "Workflow Lint": {
    "daily_p50_s": {
