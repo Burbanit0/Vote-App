@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import HomePage from './HomePage';
@@ -64,23 +64,48 @@ describe('HomePage', () => {
       expect(names()).toEqual(['Alice', 'Bob', 'Carol']);
     });
 
+    const edited = {
+      ...DEFAULT_CONFIG,
+      candidates: [
+        { name: 'Ana', x: -0.9, y: 0.1 },
+        { name: 'Ben', x: 0.9, y: -0.1 },
+      ],
+    };
+
     it('leaves a returning visitor’s saved candidates alone', () => {
-      const saved = {
-        ...DEFAULT_CONFIG,
-        candidates: [
-          { name: 'Ana', x: -0.9, y: 0.1 },
-          { name: 'Ben', x: 0.9, y: -0.1 },
-        ],
-      };
-      localStorage.setItem('votelab_election_config', JSON.stringify(saved));
-      useElectionStore.setState({ config: saved });
+      localStorage.setItem('votelab_election_config', JSON.stringify(edited));
+      useElectionStore.setState({ config: edited });
       renderHome();
       open();
       expect(screen.getByText('playground')).toBeInTheDocument();
       expect(names()).toEqual(['Ana', 'Ben']);
       // Nor does it rewrite what was saved.
       __flushPersistedStoreForTests();
-      expect(JSON.parse(localStorage.getItem('votelab_election_config')!)).toEqual(saved);
+      expect(JSON.parse(localStorage.getItem('votelab_election_config')!)).toEqual(edited);
+    });
+
+    it('keeps an edit whose write is still pending (nothing in storage yet)', () => {
+      // Mid-session, as in the app: the provider hydrated once at startup, the visitor edits,
+      // goes Home and clicks before the debounced write lands.
+      renderHome();
+      act(() => useElectionStore.setState({ config: edited }));
+      expect(localStorage.getItem('votelab_election_config')).toBeNull();
+      open();
+      expect(names()).toEqual(['Ana', 'Ben']);
+    });
+
+    it('carries the example when the saved value is unreadable (the store loaded the default)', () => {
+      localStorage.setItem('votelab_election_config', '{not json');
+      renderHome();
+      open();
+      expect(useElectionStore.getState().config.candidates).toEqual(homeExampleCandidates());
+    });
+
+    it('keeps a scenario the visitor picked: that is a choice too', () => {
+      renderHome();
+      act(() => useElectionStore.getState().applyScenario('france2002'));
+      open();
+      expect(names()).toHaveLength(8);
     });
   });
 

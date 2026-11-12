@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { candidateColor } from '../palette';
-import { homeExampleCandidates } from './carry';
+import { DEFAULT_CONFIG } from '../../stores/useElectionStore';
+import { homeExampleCandidates, isUntouched } from './carry';
 import { CANDIDATES } from './scenario';
 
 describe('homeExampleCandidates', () => {
@@ -12,18 +13,17 @@ describe('homeExampleCandidates', () => {
     ]);
   });
 
-  it('keeps the colours the home gives each name (blue, red, green)', () => {
-    const colours = Object.fromEntries(CANDIDATES.map((c) => [c.name, c.color]));
-    // The home's hues are its own tokens; the playground's are the palette's. Same family, in
-    // the same order: Alice blue, Bob red, Carol green.
-    expect(homeExampleCandidates().map((c, i) => [c.name, candidateColor(i)])).toEqual([
-      ['Alice', '#2563eb'],
-      ['Bob', '#dc2626'],
-      ['Carol', '#16a34a'],
-    ]);
-    expect(colours.Alice).toMatch(/^#2F5B/i);
-    expect(colours.Bob).toMatch(/^#C835/i);
-    expect(colours.Carol).toMatch(/^#1E8A/i);
+  it('keeps the hue the home gives each name: the palette order matches it', () => {
+    // The two sets are different tokens (the home's own, the playground's palette): compare them
+    // with each other, by the channel that dominates.
+    const dominant = (hex: string): number => {
+      const ch = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
+      return ch.indexOf(Math.max(...ch));
+    };
+    const home = Object.fromEntries(CANDIDATES.map((c) => [c.name, c.color]));
+    homeExampleCandidates().forEach((c, i) => {
+      expect(dominant(candidateColor(i)), c.name).toBe(dominant(home[c.name]));
+    });
   });
 
   it('keeps the picture: left to right, top to bottom, as on the home map', () => {
@@ -44,5 +44,28 @@ describe('homeExampleCandidates', () => {
         expect(Math.round(v * 100) / 100).toBe(v);
       }
     }
+  });
+});
+
+describe('isUntouched', () => {
+  it('is true for the default config, a copy of it included', () => {
+    expect(isUntouched(DEFAULT_CONFIG)).toBe(true);
+    expect(isUntouched({ ...DEFAULT_CONFIG })).toBe(true);
+  });
+
+  it('is false once any candidate was moved, renamed, added or removed', () => {
+    const [a, ...rest] = DEFAULT_CONFIG.candidates;
+    for (const candidates of [
+      [{ ...a, x: a.x + 0.1 }, ...rest],
+      [{ ...a, name: 'Zed' }, ...rest],
+      [a, ...rest, { name: 'Dan', x: 0, y: 0 }],
+      rest,
+    ]) {
+      expect(isUntouched({ ...DEFAULT_CONFIG, candidates })).toBe(false);
+    }
+  });
+
+  it('is false when anything else of the config was chosen (a scenario, a seed)', () => {
+    expect(isUntouched({ ...DEFAULT_CONFIG, seed: 2002 })).toBe(false);
   });
 });

@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { hasSavedConfig, useElection } from '../stores/useElectionStore';
-import { homeExampleCandidates } from '../lib/home/carry';
+import { useElection, useElectionStore } from '../stores/useElectionStore';
+import { homeExampleCandidates, isUntouched } from '../lib/home/carry';
 import HeroInstrument from '../components/home/HeroInstrument';
 import HomeEntrance from '../components/home/HomeEntrance';
 import CountStory from '../components/home/CountStory';
@@ -50,10 +50,12 @@ const HomePage: React.FC = () => {
     description: t('home.heroLede'),
   });
 
-  // Open the instrument on the example the page has just taught. Only for a visitor with nothing
-  // saved: a returning one finds their own candidates, not ours.
+  // Open the instrument on the example the page has just taught. Only for a visitor who has made
+  // no choice yet: one who has edited candidates (or picked a scenario) finds their own.
   const openInstrument = useCallback(() => {
-    if (!hasSavedConfig()) setConfig({ candidates: homeExampleCandidates() });
+    // Read at the click, not at the render: the latest edit is the one that counts.
+    if (isUntouched(useElectionStore.getState().config))
+      setConfig({ candidates: homeExampleCandidates() });
     navigate('/playground');
   }, [setConfig, navigate]);
 
