@@ -87,6 +87,9 @@ test.describe('Playground — 3D scene', () => {
     await page.locator('[data-testid="scene-spin"]').click(); // pause the auto-spin
     const marker = page.locator('[data-testid="you-marker-3d"]');
     await expect(marker).toBeVisible();
+    // Bring the scene on screen first: a mouse event outside the viewport is delivered by Chromium
+    // but dropped by Firefox and sent to the page background by WebKit, so the drag would do nothing.
+    await page.locator('[data-testid="scene-3d"]').scrollIntoViewIfNeeded();
     const where = async () => {
       const b = (await marker.locator('rect').boundingBox())!;
       return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
@@ -97,6 +100,9 @@ test.describe('Playground — 3D scene', () => {
       return [await circle.getAttribute('cx'), await circle.getAttribute('cy')];
     };
     const [from, candBefore] = [await where(), await cand()];
+    const viewport = page.viewportSize()!;
+    expect(from.y).toBeLessThan(viewport.height - 80); // on screen, with room to drag
+    expect(from.y).toBeGreaterThan(80);
 
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
