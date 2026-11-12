@@ -1041,6 +1041,8 @@ const pgFr = {
       'L’électorat composé alimente la vue dirigeant (carte, zones, bilan, coloré par communauté), le parlement (sièges, bilan d’assemblée) et le taux de paradoxe (vrai taux de cycle spatial, ré-échantillonné). Le 3ᵉ axe n’agit qu’en mode carte 3D ; le bruit de mesure simule l’incertitude d’un sondage.',
   },
   sincerity: {
+    fewCandidates:
+      'Avec moins de trois candidats, il n’y a pas de dilemme stratégique : toutes les méthodes sont sûres par construction.',
     typeCompromise: 'vote utile (compromis)',
     typeBurying: 'enterrement d’un rival',
     intro:

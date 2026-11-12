@@ -69,14 +69,15 @@ describe('StrategyMoment: the "Vous" panel', () => {
   it('follows the diamond: moving "you" on the map moves the sliders and the verdicts', async () => {
     mount();
     fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
-    const module = () => screen.getByTestId('sincerity-module').textContent;
+    const order = () => screen.getByTestId('sincerity-order').textContent;
     act(() => youApi!.setYouPos({ x: -0.9, y: 0.1, z: 0 }));
     await waitFor(() => expect(screen.getByTestId('sincerity-you-x')).toHaveValue('-0.9'));
-    const left = module();
+    const left = order();
     act(() => youApi!.setYouPos({ x: 0.9, y: 0.1, z: 0 }));
     await waitFor(() => expect(screen.getByTestId('sincerity-you-x')).toHaveValue('0.9'));
-    // Your sincere order of the candidates is the first thing the module reads off your position.
-    expect(module()).not.toBe(left);
+    // Your sincere order of the candidates is read off your position, not off the slider label:
+    // the far-left and far-right voter rank the same three candidates in opposite orders.
+    expect(order()).not.toBe(left);
   });
 
   it('the sliders move the same position the map marker uses', async () => {
@@ -84,6 +85,29 @@ describe('StrategyMoment: the "Vous" panel', () => {
     fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
     fireEvent.change(screen.getByTestId('sincerity-you-x'), { target: { value: '0.5' } });
     await waitFor(() => expect(youApi!.youPos.x).toBeCloseTo(0.5));
+  });
+
+  it('says so when there are fewer than three candidates (no dilemma is possible)', () => {
+    useElectionStore.setState({
+      config: { ...DEFAULT_CONFIG, candidates: DEFAULT_CONFIG.candidates.slice(0, 2) },
+    });
+    mount();
+    fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
+    expect(screen.getByTestId('sincerity-few')).toBeInTheDocument();
+  });
+
+  it('says nothing of the kind with three or more', () => {
+    mount();
+    fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
+    expect(screen.queryByTestId('sincerity-few')).not.toBeInTheDocument();
+  });
+
+  it('is not offered for a non-spatial preference source: there is no diamond to drag', () => {
+    useElectionStore.setState({
+      playground: { ...DEFAULT_PLAYGROUND, prefSource: 'impartial' },
+    });
+    mount();
+    expect(screen.queryByTestId('module-sincerity-toggle')).not.toBeInTheDocument();
   });
 
   it('is only offered for the single-winner question, not the assembly', () => {

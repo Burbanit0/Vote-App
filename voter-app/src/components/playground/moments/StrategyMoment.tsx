@@ -6,6 +6,7 @@ import { Field, selectCls } from '../playgroundFields';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { BLANK_LENSES } from '../../../lib/blankVote';
 import Collapsible from '../Collapsible';
+import { isSpatialSource } from '../../../stores/useElectionStore';
 import StrategicModule from '../StrategicModule';
 import SincerityModule from '../SincerityModule';
 
@@ -35,6 +36,7 @@ const StrategyMoment: React.FC = () => {
     dims,
     youPos,
     setYouPos,
+    prefSource,
   } = usePlaygroundCtx();
 
   const strat =
@@ -341,7 +343,7 @@ const StrategyMoment: React.FC = () => {
           panels (nothing mounts at first paint); once open it judges every method for the position
           you drag the diamond to, or set with the sliders. The same state the Lab's sincerity fiche
           reads. ── */}
-      {mode === 'leader' && (
+      {mode === 'leader' && isSpatialSource(prefSource) && (
         <Collapsible
           title={t('strategy.youTitle')}
           subtitle={t('strategy.youSubtitle')}

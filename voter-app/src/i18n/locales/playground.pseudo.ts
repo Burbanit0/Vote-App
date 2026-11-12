@@ -1116,6 +1116,8 @@ const pgPseudo: PlaygroundKeys = {
       '⟦L’éléçtórát~~~~ çómpósé~~~ álíméñté~~~ lá~ vúé~~ dírígéáñt~~~~ (çárté,~~~ zóñés,~~~ bíláñ,~~~ çólóré~~~ pár~~ çómmúñáúté),~~~~~ lé~ párléméñt~~~~ (síègés,~~~ bíláñ~~ d’ássémbléé)~~~~~ ét~ lé~ táúx~~ dé~ párádóxé~~~ (vráí~~ táúx~~ dé~ çyçlé~~ spátíál,~~~ ré-éçháñtíllóññé).~~~~~~~ Lé~ 3ᵉ~ áxé~~ ñ’ágít~~~ qú’éñ~~ módé~~ çárté~~ 3D~ ;~ lé~ brúít~~ dé~ mésúré~~~ símúlé~~~ l’íñçértítúdé~~~~~ d’úñ~~ sóñdágé.~~~⟧',
   },
   sincerity: {
+    fewCandidates:
+      '⟦Ávéç~~ móíñs~~ dé~ tróís~~ çáñdídáts,~~~~ íl~ ñ’y~~ á~ pás~~ dé~ dílémmé~~~ strátégíqúé~~~~ :~ tóútés~~~ lés~~ méthódés~~~ sóñt~~ sûrés~~ pár~~ çóñstrúçtíóñ.~~~~~⟧',
     typeCompromise: '⟦vóté~~ útílé~~ (çómprómís)~~~~⟧',
     typeBurying: '⟦éñtérréméñt~~~~ d’úñ~~ rívál~~⟧',
     intro:

@@ -1020,6 +1020,8 @@ const pgEn: PlaygroundKeys = {
       'The composed electorate feeds the leader view (map, regions, verdict, coloured by community), the parliament (seats, assembly verdict) and the paradox rate (the true spatial cycle rate, resampled). The 3rd axis only acts in 3D map mode; measurement noise simulates polling uncertainty.',
   },
   sincerity: {
+    fewCandidates:
+      'With fewer than three candidates there is no strategic dilemma: every method is conviction-safe by construction.',
     typeCompromise: 'tactical vote (compromise)',
     typeBurying: 'burying a rival',
     intro:
