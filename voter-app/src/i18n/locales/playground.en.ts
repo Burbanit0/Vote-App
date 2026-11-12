@@ -1181,6 +1181,7 @@ const pgEn: PlaygroundKeys = {
     announce: '{{rule}}: {{name}} wins',
     announceStrategic: '{{rule}}, strategic votes: {{name}} wins',
     announceNone: '{{rule}}: no fixed winner',
+    flip: 'The winner changed: {{from}} → {{to}}.',
   },
   instrument: {
     labelLeader: 'Ideology map — leader',

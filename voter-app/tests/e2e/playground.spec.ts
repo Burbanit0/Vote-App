@@ -108,6 +108,19 @@ test.describe('Playground — the instrument', () => {
     await expect(page.locator('[data-testid="winner-strip"]')).toHaveCount(0);
   });
 
+  test("the winner strip says why the winner wins, in the method's own words", async ({ page }) => {
+    const why = page.locator('[data-testid="winner-why"]');
+    await expect(why).toBeVisible();
+    const plurality = (await why.textContent()) ?? '';
+    expect(plurality).not.toBe('');
+    // Another method, another reason: the sentence follows the rule the map is under.
+    await page.locator('[data-testid="moment-method"]').click();
+    await page.locator('[data-testid="rule-select"]').selectOption('condorcet');
+    await expect(why).not.toHaveText(plurality);
+    // No flip is announced for a first reading, or for a change of method.
+    await expect(page.locator('[data-testid="winner-flip"]')).toHaveCount(0);
+  });
+
   test('the Bilan moment reports which methods elect whom', async ({ page }) => {
     await page.locator('[data-testid="moment-bilan"]').click();
     await expect(page.locator('[data-testid="bilan-verdict"]')).toBeVisible();

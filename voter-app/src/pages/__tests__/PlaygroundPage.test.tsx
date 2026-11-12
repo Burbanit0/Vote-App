@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
@@ -716,5 +716,144 @@ describe('PlaygroundPage — the Bilan says why (W3.3)', () => {
     expect(anyway).toMatch(
       new RegExp(`^Plurality \\(1 round\\) elects ${m![2]} all the same\\. ${m![2]} wins`)
     );
+  });
+});
+
+describe('PlaygroundPage — the winner strip says why and when it flips', () => {
+  const winnerName = () =>
+    screen.getByTestId('winner-strip-current').querySelector('strong')?.textContent;
+  const setCandidates = (list: { name: string; x: number; y: number }[]) =>
+    act(() => {
+      useElectionStore.setState({ config: { ...DEFAULT_CONFIG, candidates: list } });
+    });
+  // Three candidates on a line: where Bob stands decides who plurality elects.
+  const line = (bobX: number) => [
+    { name: 'Alice', x: -0.7, y: 0 },
+    { name: 'Bob', x: bobX, y: 0 },
+    { name: 'Carol', x: 0.7, y: 0 },
+  ];
+
+  it('gives the reason for the winner it names, in the method’s words', () => {
+    renderPage();
+    const why = screen.getByTestId('winner-why');
+    // Plurality is a count: the sentence names the winner and the figures that decide it.
+    expect(why).toHaveTextContent(
+      new RegExp(`^${winnerName()} wins on the highest total: \\d+ to`)
+    );
+    // Another method, another reason, under the same strip.
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'condorcet' } });
+    expect(screen.getByTestId('winner-why')).toHaveTextContent(/head|duel|beat/i);
+    expect(screen.getByTestId('winner-why')).not.toHaveTextContent('highest total');
+  });
+
+  it('says nothing about why for the lottery, which has no fixed winner', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.click(screen.getByTestId('rule-check-random_ballot'));
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'random_ballot' } });
+    expect(screen.queryByTestId('winner-why')).not.toBeInTheDocument();
+  });
+
+  it('says nothing about why when voters are strategic: the sincere tally is not the reason', async () => {
+    useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, behavior: 'strategic' } });
+    // The spoiler line-up of the strategic test above: Alice's voters compromise on Bob.
+    setCandidates([
+      { name: 'Alice', x: -0.7, y: 0 },
+      { name: 'Bob', x: -0.1, y: 0 },
+      { name: 'Carol', x: 0.3, y: 0 },
+    ]);
+    renderPage();
+    // The strategic outcome settles ~200 ms after render; the strike-through marks it.
+    fireEvent.click(screen.getByTestId('moment-method'));
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('winner-why')).not.toBeInTheDocument();
+  });
+
+  it('announces no flip at first, and names the change when the winner moves', () => {
+    setCandidates(line(-0.1));
+    renderPage();
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    const first = winnerName();
+
+    // Bob slides to the right edge, next to Carol: the winner changes, and the strip says so.
+    setCandidates(line(0.6));
+    const second = winnerName();
+    expect(second).not.toBe(first);
+    expect(screen.getByTestId('winner-flip')).toHaveTextContent(
+      `The winner changed: ${first} → ${second}.`
+    );
+
+    // Dragged back: that is a change too, and the latest one is what it says.
+    setCandidates(line(-0.1));
+    expect(winnerName()).toBe(first);
+    expect(screen.getByTestId('winner-flip')).toHaveTextContent(
+      `The winner changed: ${second} → ${first}.`
+    );
+  });
+
+  it('fades the sentence after a few seconds, and speaks the change to a screen reader', async () => {
+    setCandidates(line(-0.1));
+    renderPage();
+    setCandidates(line(0.6));
+    const flip = screen.getByTestId('winner-flip').textContent!;
+    expect(flip).toMatch(/^The winner changed: \w+ → \w+\.$/);
+    // Spoken once it settles, with the winner (a polite live region, not the visible line).
+    await waitFor(() => expect(screen.getByTestId('winner-announce')).toHaveTextContent(flip), {
+      timeout: 2000,
+    });
+    // Not news for ever: it fades by itself (8 s).
+    await waitFor(() => expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument(), {
+      timeout: 9000,
+    });
+  }, 15000);
+
+  it('leaves strategic voters out: their result settles late, and is no change anybody made', async () => {
+    // The spoiler line-up: sincere plurality elects Carol, Alice's voters compromise on Bob.
+    useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, behavior: 'strategic' } });
+    setCandidates([
+      { name: 'Alice', x: -0.7, y: 0 },
+      { name: 'Bob', x: -0.1, y: 0 },
+      { name: 'Carol', x: 0.3, y: 0 },
+    ]);
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    // The strategic winner arrives ~200 ms in (the strike-through), replacing the sincere one.
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    // Nor is a move that changes the sincere winner behind the strategic one on display: the
+    // sentence would be about a winner the strip is not showing.
+    const sincereBefore = screen.getByTestId('field-winner').querySelector('s')?.textContent;
+    setCandidates(line(0.6));
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')?.textContent).not.toBe(
+        sincereBefore
+      )
+    );
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    // Neither is a switch to sincere votes (which shows the sincere winner again).
+    act(() => {
+      useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, behavior: 'sincere' } });
+    });
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+  });
+
+  it('does not call a change of method, or an edit of the candidates, a flip', () => {
+    setCandidates(line(-0.1));
+    renderPage();
+    setCandidates(line(0.6));
+    expect(screen.getByTestId('winner-flip')).toBeInTheDocument();
+    // Another method: the question changed, not the answer.
+    fireEvent.click(screen.getByTestId('moment-method'));
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'irv' } });
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    // A renamed candidate: the same.
+    setCandidates(line(-0.1));
+    setCandidates(line(0.6).map((c) => (c.name === 'Bob' ? { ...c, name: 'Robert' } : c)));
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
   });
 });
