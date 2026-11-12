@@ -772,7 +772,7 @@ describe('PlaygroundPage — the winner strip says why and when it flips', () =>
     expect(screen.queryByTestId('winner-why')).not.toBeInTheDocument();
   });
 
-  it('announces no flip at first, names one when the winner changes, and drops it on a return', () => {
+  it('announces no flip at first, and names the change when the winner moves', () => {
     setCandidates(line(-0.1));
     renderPage();
     expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
@@ -783,12 +783,62 @@ describe('PlaygroundPage — the winner strip says why and when it flips', () =>
     const second = winnerName();
     expect(second).not.toBe(first);
     expect(screen.getByTestId('winner-flip')).toHaveTextContent(
-      `The winner just changed: ${first} → ${second}.`
+      `The winner changed: ${first} → ${second}.`
     );
 
-    // Dragged back, the winner is the first again: nothing changed overall.
+    // Dragged back: that is a change too, and the latest one is what it says.
     setCandidates(line(-0.1));
     expect(winnerName()).toBe(first);
+    expect(screen.getByTestId('winner-flip')).toHaveTextContent(
+      `The winner changed: ${second} → ${first}.`
+    );
+  });
+
+  it('fades the sentence after a few seconds, and speaks the change to a screen reader', async () => {
+    setCandidates(line(-0.1));
+    renderPage();
+    setCandidates(line(0.6));
+    const flip = screen.getByTestId('winner-flip').textContent!;
+    expect(flip).toMatch(/^The winner changed: \w+ → \w+\.$/);
+    // Spoken once it settles, with the winner (a polite live region, not the visible line).
+    await waitFor(() => expect(screen.getByTestId('winner-announce')).toHaveTextContent(flip), {
+      timeout: 2000,
+    });
+    // Not news for ever: it fades by itself (8 s).
+    await waitFor(() => expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument(), {
+      timeout: 9000,
+    });
+  }, 15000);
+
+  it('leaves strategic voters out: their result settles late, and is no change anybody made', async () => {
+    // The spoiler line-up: sincere plurality elects Carol, Alice's voters compromise on Bob.
+    useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, behavior: 'strategic' } });
+    setCandidates([
+      { name: 'Alice', x: -0.7, y: 0 },
+      { name: 'Bob', x: -0.1, y: 0 },
+      { name: 'Carol', x: 0.3, y: 0 },
+    ]);
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    // The strategic winner arrives ~200 ms in (the strike-through), replacing the sincere one.
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    // Nor is a move that changes the sincere winner behind the strategic one on display: the
+    // sentence would be about a winner the strip is not showing.
+    const sincereBefore = screen.getByTestId('field-winner').querySelector('s')?.textContent;
+    setCandidates(line(0.6));
+    await waitFor(() =>
+      expect(screen.getByTestId('field-winner').querySelector('s')?.textContent).not.toBe(
+        sincereBefore
+      )
+    );
+    expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+    // Neither is a switch to sincere votes (which shows the sincere winner again).
+    act(() => {
+      useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND, behavior: 'sincere' } });
+    });
     expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
   });
 

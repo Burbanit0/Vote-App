@@ -27,8 +27,9 @@ describe('nextFlip', () => {
     expect(nextFlip(mark('B'), mark('C'), { from: 'A', to: 'B' })).toEqual({ from: 'B', to: 'C' });
   });
 
-  it('shows nothing once the winner is back where the flip began', () => {
-    expect(nextFlip(mark('B'), mark('A'), { from: 'A', to: 'B' })).toBeNull();
+  it('reads a return as a change too, and A, B, C, then B as "C to B"', () => {
+    expect(nextFlip(mark('B'), mark('A'), { from: 'A', to: 'B' })).toEqual({ from: 'B', to: 'A' });
+    expect(nextFlip(mark('C'), mark('B'), { from: 'B', to: 'C' })).toEqual({ from: 'C', to: 'B' });
   });
 
   it('is not a flip when the method changes: that is another question', () => {

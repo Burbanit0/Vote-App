@@ -18,6 +18,9 @@ import {
 import NoFixedWinner from './NoFixedWinner';
 import LiveAnnouncement from '../shared/ui/LiveAnnouncement';
 
+/** How long "the winner changed" stays up. */
+const FLIP_VISIBLE_MS = 8000;
+
 /** Winner strip, above every moment: the map's rule and the winner the map shows
  * (strategic, when voters are), then what the other ticked methods elect on the same
  * expressed ballots, sincerely. Leader mode on a spatial electorate only: the
@@ -60,13 +63,15 @@ const WinnerStrip: React.FC = () => {
   // The map's readout shows the strategic winner when voters are strategic; mirror it.
   const strategic = behavior !== 'sincere' && strategicOutcome != null;
   const current = strategic ? strategicOutcome.strategicWinner : sincere;
-  const currentName = current == null ? undefined : leaderCandidates[current]?.name;
+  const sincereName = sincere == null ? undefined : leaderCandidates[sincere]?.name;
 
   // Why the winner wins, in the words of the map's method. Sincere votes only: a strategic
   // winner is not the one these ballots elect, and a sentence about the sincere tally would
-  // name the wrong reasons.
+  // name the wrong reasons. (Keyed on the behaviour, not on the strategic result, which arrives
+  // ~200 ms late: the sentence would show, then vanish.)
   const why = React.useMemo(() => {
-    if (!ballots || strategic || sincere == null || !hasFixedWinner(leaderRule)) return null;
+    if (!ballots || behavior !== 'sincere' || sincere == null || !hasFixedWinner(leaderRule))
+      return null;
     const trace = buildTraceFromBallots(
       leaderCandidates,
       ballots.ranks,
@@ -74,17 +79,19 @@ const WinnerStrip: React.FC = () => {
       leaderRule
     );
     return explainWinner(trace, leaderCandidates);
-  }, [ballots, strategic, sincere, leaderRule, leaderCandidates]);
+  }, [ballots, behavior, sincere, leaderRule, leaderCandidates]);
 
-  // "The winner just changed": read off the displayed winner, under the same method and the same
-  // field of candidates (see winnerFlip). An effect, because it compares with the previous render.
+  // "The winner changed": read off the sincere winner, under the same method and the same field
+  // of candidates (see winnerFlip). Sincere votes only: the strategic result trails its inputs by
+  // ~200 ms and, for that long, belongs to the previous method or candidates, so it would
+  // announce changes nobody made. An effect, because it compares with the previous render.
   const namesKey = leaderCandidates.map((c) => c.name).join('\u0000');
   const mark: WinnerMark | null = React.useMemo(
     () =>
-      currentName === undefined || !hasFixedWinner(leaderRule)
+      sincereName === undefined || behavior !== 'sincere' || !hasFixedWinner(leaderRule)
         ? null
-        : { rule: leaderRule, names: namesKey.split('\u0000'), winner: currentName },
-    [leaderRule, namesKey, currentName]
+        : { rule: leaderRule, names: namesKey.split('\u0000'), winner: sincereName },
+    [leaderRule, namesKey, sincereName, behavior]
   );
   const previous = React.useRef<WinnerMark | null>(null);
   const [flip, setFlip] = React.useState<Flip | null>(null);
@@ -93,6 +100,12 @@ const WinnerStrip: React.FC = () => {
     previous.current = mark;
     setFlip((f) => nextFlip(before, mark, f));
   }, [mark]);
+  // A sentence about a drag made a minute ago is not news: it fades after a few seconds.
+  React.useEffect(() => {
+    if (flip === null) return;
+    const id = setTimeout(() => setFlip(null), FLIP_VISIBLE_MS);
+    return () => clearTimeout(id);
+  }, [flip]);
 
   if (!shown || (sincere == null && hasFixedWinner(leaderRule))) return null;
   const groups = groupByWinner(winners, otherRules);
@@ -108,6 +121,8 @@ const WinnerStrip: React.FC = () => {
           ...raw,
         })
       : t('strip.announceNone', { rule: ruleLabels[leaderRule], ...raw });
+  // The winner is spoken once it settles; so is the change, which the sighted read below.
+  const spoken = flip ? `${announced} ${t('strip.flip', { ...flip, ...raw })}` : announced;
   const name = (i: number) => (
     <strong style={{ color: textTone(candidateColor(i)) }}>{leaderCandidates[i]?.name}</strong>
   );
@@ -119,7 +134,7 @@ const WinnerStrip: React.FC = () => {
       // stamped each time it changes (keyed on it, so a drag that keeps it moves nothing).
       className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-envelope px-5 py-3 text-sm"
     >
-      <LiveAnnouncement testId="winner-announce" text={announced} />
+      <LiveAnnouncement testId="winner-announce" text={spoken} />
       <span data-testid="winner-strip-current" className="font-display text-[22px] leading-none">
         {t('strip.under', { rule: ruleLabels[leaderRule] })}{' '}
         {hasFixedWinner(leaderRule) && current != null ? (

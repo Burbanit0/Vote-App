@@ -1283,7 +1283,7 @@ const pgPseudo: PlaygroundKeys = {
     announce: '⟦{{rule}} :~ víçtóíré~~~ dé~ {{name}}⟧',
     announceStrategic: '⟦{{rule}},~ vótés~~ strátégíqúés~~~~~ :~ víçtóíré~~~ dé~ {{name}}⟧',
     announceNone: '⟦{{rule}} :~ pás~~ dé~ váíñqúéúr~~~~ fíxé~~⟧',
-    flip: '⟦Lé~ váíñqúéúr~~~~ víéñt~~ dé~ çháñgér~~~ :~ {{from}} →~ {{to}}.~⟧',
+    flip: '⟦Lé~ váíñqúéúr~~~~ á~ çháñgé~~~ :~ {{from}} →~ {{to}}.~⟧',
   },
   instrument: {
     labelLeader: '⟦Cárté~~ ídéólógíqúé~~~~ —~ dírígéáñt~~~~⟧',
