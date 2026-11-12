@@ -100,7 +100,7 @@ export function servePolity(
       if (path === '/api/v2/polity/runs') {
         return failRuns ? failed('roots unreadable') : ok({ runs });
       }
-      const key = init.params?.path?.run_key ?? '';
+      const key = init.params!.path!.run_key!; // every run endpoint carries it; a call without it should fail loudly
       if (path === '/api/v2/polity/runs/{run_key}') {
         return failRun ? failed('run not found') : ok(overview ?? runOverview(key));
       }

@@ -106,6 +106,20 @@ describe('PopulationMap', () => {
     drawn.length = 0;
   });
 
+  it('sizes the canvas at one pixel per unit when the browser reports no pixel ratio', async () => {
+    const ratio = vi.spyOn(window, 'devicePixelRatio', 'get').mockReturnValue(0);
+    try {
+      await renderMap('/polity?tick=3');
+      const canvas = screen.getByTestId('polity-map-canvas') as HTMLCanvasElement;
+      const width = Number(screen.getByTestId('polity-map-overlay').getAttribute('width'));
+      expect(width).toBeGreaterThan(0);
+      // A ratio of 0 would collapse the canvas to nothing; it falls back to 1.
+      await waitFor(() => expect(canvas.width).toBe(width));
+    } finally {
+      ratio.mockRestore();
+    }
+  });
+
   it('draws every citizen on the canvas and lays the story over it', async () => {
     await renderMap('/polity?tick=3');
     expect(screen.getByTestId('polity-map-canvas')).toHaveAttribute(
