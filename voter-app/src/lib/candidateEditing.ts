@@ -15,7 +15,8 @@ export type NameProblem = 'empty' | 'tooLong' | 'duplicate';
 export function nameProblem(raw: string, others: readonly string[]): NameProblem | null {
   const name = raw.trim();
   if (name === '') return 'empty';
-  if (name.length > MAX_NAME_LENGTH) return 'tooLong';
+  // Code points, as the backend counts them (an emoji is one, not two UTF-16 units).
+  if (Array.from(name).length > MAX_NAME_LENGTH) return 'tooLong';
   return others.includes(name) ? 'duplicate' : null;
 }
 

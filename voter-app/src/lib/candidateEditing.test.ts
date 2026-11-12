@@ -40,6 +40,10 @@ describe('nameProblem', () => {
     expect(nameProblem('x'.repeat(MAX_NAME_LENGTH + 1), others)).toBe('tooLong');
     expect(nameProblem('x'.repeat(MAX_NAME_LENGTH), others)).toBeNull();
   });
+  it('counts code points, as the backend does: 64 emoji fit, 65 do not', () => {
+    expect(nameProblem('😀'.repeat(MAX_NAME_LENGTH), others)).toBeNull(); // 128 UTF-16 units
+    expect(nameProblem('😀'.repeat(MAX_NAME_LENGTH + 1), others)).toBe('tooLong');
+  });
   it('refuses a name another candidate has, exactly as the backend compares them', () => {
     expect(nameProblem('Alice', others)).toBe('duplicate');
     expect(nameProblem(' Bob ', others)).toBe('duplicate'); // trimmed first

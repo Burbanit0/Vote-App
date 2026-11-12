@@ -88,13 +88,21 @@ const CandidateEditor: React.FC = () => {
   // that changed any other way (a preset, a story) gets fresh ones.
   const lastId = React.useRef(0);
   const planned = React.useRef<{ list: ElectionCandidate[]; ids: number[] } | null>(null);
-  const ids = React.useMemo(
-    () =>
-      planned.current?.list === config.candidates
-        ? planned.current.ids
-        : config.candidates.map(() => lastId.current++),
-    [config.candidates]
-  );
+  const known = React.useRef<{ names: string[]; ids: number[] }>({ names: [], ids: [] });
+  const ids = React.useMemo(() => {
+    const now = config.candidates.map((c) => c.name);
+    const same = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((n, i) => n === b[i]);
+    // The editor's own edit says what it did; a list with the same names in the same order (a
+    // candidate dragged on the map, a valence slider, the campaign pin) is the same list; anything
+    // else (a preset, a story) starts again with new ids.
+    let carried: number[];
+    if (planned.current?.list === config.candidates) carried = planned.current.ids;
+    else if (same(known.current.names, now)) carried = known.current.ids;
+    else carried = config.candidates.map(() => lastId.current++);
+    known.current = { names: now, ids: carried };
+    return carried;
+  }, [config.candidates]);
   const edit = (patch: Pick<ElectionConfig, 'candidates'>, nextIds: number[]) => {
     planned.current = { list: patch.candidates, ids: nextIds };
     setConfig(patch);

@@ -12,7 +12,7 @@ vi.mock('../../../services/assemblyApi', () => ({
   runAssemblyScorecard: vi.fn().mockRejectedValue(new Error('not under test')),
 }));
 
-import { PlaygroundProvider } from '../PlaygroundController';
+import { PlaygroundProvider, useInstrumentCtx } from '../PlaygroundController';
 import ElectorateMoment from '../moments/ElectorateMoment';
 import {
   useElectionStore,
@@ -121,14 +121,14 @@ describe('CandidateEditor', () => {
       expect(nameInput(1).value).toBe('Robert');
     });
 
-    it('commits on Enter', () => {
+    it('commits on Enter alone: it blurs the field, which commits', () => {
       mount();
       open();
+      act(() => nameInput(0).focus());
       type(0, 'Zed');
       fireEvent.keyDown(nameInput(0), { key: 'Enter' });
-      expect(names()[0]).toBe('Alice'); // Enter blurs the field, which commits (jsdom: do it by hand)
-      fireEvent.blur(nameInput(0));
       expect(names()[0]).toBe('Zed');
+      expect(nameInput(0)).not.toHaveFocus();
     });
 
     it('refuses a name another candidate has: says so, and nothing reaches the config', () => {
@@ -266,6 +266,26 @@ describe('CandidateEditor', () => {
       expect(remove).toHaveFocus();
     });
 
+    it('a candidate dragged on the map keeps every row, and the draft being typed', async () => {
+      mount();
+      open();
+      const row = screen.getByTestId('candidate-row-1');
+      type(1, 'Bob'); // a draft the editor must not lose
+      type(2, 'half-typed');
+      act(() =>
+        useElectionStore.setState({
+          config: {
+            ...DEFAULT_CONFIG,
+            candidates: DEFAULT_CONFIG.candidates.map((c, i) =>
+              i === 0 ? { ...c, x: 0.1, y: 0.1 } : c
+            ),
+          },
+        })
+      );
+      expect(screen.getByTestId('candidate-row-1')).toBe(row); // not remounted by a position change
+      expect(nameInput(2).value).toBe('half-typed');
+    });
+
     it('a list changed from outside (a preset) starts again with the new names', async () => {
       mount();
       open();
@@ -292,6 +312,27 @@ describe('CandidateEditor', () => {
     type(0, 'R&D <3');
     fireEvent.blur(nameInput(0));
     expect(screen.getByRole('button', { name: 'Remove R&D <3' })).toBeInTheDocument();
+  });
+
+  it('every reader of the list follows an edit: the instrument sees the renamed, added and removed', async () => {
+    let seen: string[] = [];
+    const Reader: React.FC = () => {
+      seen = useInstrumentCtx().leaderCandidates.map((c) => c.name);
+      return null;
+    };
+    render(
+      <PlaygroundProvider>
+        <ElectorateMoment />
+        <Reader />
+      </PlaygroundProvider>
+    );
+    open();
+    expect(seen).toEqual(['Alice', 'Bob', 'Carol']);
+    fireEvent.click(screen.getByTestId('candidate-add'));
+    type(0, 'Zed');
+    fireEvent.blur(nameInput(0));
+    fireEvent.click(screen.getByTestId('candidate-remove-1'));
+    await waitFor(() => expect(seen).toEqual(['Zed', 'Carol', 'Candidate 4']));
   });
 
   it('says parties, not candidates, for the assembly question', () => {
