@@ -131,7 +131,8 @@ export interface LeaderCanvasProps {
   /** Active overlay on the central map (defaults to the win-region). */
   lens?: Lens;
   onLensChange?: (lens: Lens) => void;
-  onMoveYou?: (x: number, y: number) => void;
+  /** `z` is given only by the 3-D scene; the x–y map leaves the depth as it is. */
+  onMoveYou?: (x: number, y: number, z?: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
   /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
@@ -469,6 +470,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           candidates={candidates}
           palette={PALETTE}
           you={youMarker}
+          onMoveYou={onMoveYou}
           cameraRef={sceneCamera}
           winner={winnerIdx}
           condorcet={markedIndex(showRuleUi, cwIndex)}
