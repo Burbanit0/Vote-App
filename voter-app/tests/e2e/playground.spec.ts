@@ -22,6 +22,42 @@ test.describe('HomePage hero — the thesis, live', () => {
     // different laureate. One winner for all three rules means it is broken.
     expect(seen.size).toBeGreaterThan(1);
   });
+
+  test('on a first visit, "open the instrument" carries the home example (three candidates)', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.locator('[data-testid="home-open"]').click();
+    await expect(page.locator('[data-testid="playground-page"]')).toBeVisible();
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    // The page taught Alice, Bob and Carol; it used to open on eight French candidates.
+    for (const [i, name] of ['Alice', 'Bob', 'Carol'].entries()) {
+      await expect(page.locator(`[data-testid="candidate-name-${i}"]`)).toHaveValue(name);
+    }
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toHaveCount(0);
+  });
+
+  test('a returning visitor keeps their own candidates when they open the instrument', async ({
+    page,
+  }) => {
+    await page.goto('/playground');
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    const first = page.locator('[data-testid="candidate-name-0"]');
+    await first.fill('Zed');
+    await first.press('Enter');
+    // Saved a moment after the edit (the store writes once a gesture ends).
+    await expect
+      .poll(() =>
+        page.evaluate(() => localStorage.getItem('votelab_election_config')?.includes('Zed'))
+      )
+      .toBe(true);
+
+    await page.goto('/');
+    await page.locator('[data-testid="home-open"]').click();
+    await expect(page.locator('[data-testid="playground-page"]')).toBeVisible();
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-name-0"]')).toHaveValue('Zed');
+  });
 });
 
 test.describe('Playground — the instrument', () => {
