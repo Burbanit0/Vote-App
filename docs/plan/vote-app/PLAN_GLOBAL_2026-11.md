@@ -32,10 +32,10 @@ against the code before it went in, but a size or a cost marked *(est.)* is an e
 
 A box is ticked when the change is on `polity`.
 
-- [ ] Close #690, #691, #694: all three are fixed (checked 2026-11-11), the issues are still
-  open. #681, #682 and #683 are fixed too and also still open: their PRs said "Closes", but
-  GitHub only acts on that for a PR into the default branch (`develop`), and these went into
-  `polity`. They have to be closed by hand.
+- [x] Close #681, #682, #683, #690, #691, #694 (2026-11-12, by hand: their PRs said "Closes",
+  but GitHub only acts on that for a PR into the default branch, `develop`, and these went
+  into `polity`). Still open: #926 (ties, Phase 3), #692 (hash-pinning, Phase 4) and the
+  bot's weekly report.
 - [x] #682: `precision = 2` (#1041).
 - [x] #681: the flaky check ignores the benchmark suite (#1041).
 - [x] #833: two pinned actions carried the wrong version comment (#1041).
@@ -47,7 +47,7 @@ A box is ticked when the change is on `polity`.
 ## Phase 1: ship what exists
 
 - [x] #683: `release.yml` calls Backend and Frontend CI instead of hand-copied jobs (#1044).
-  Not yet exercised: a release dispatch cannot run before a version bump reaches `main`.
+  Exercised by the v0.3.0 release (below): every gate ran and passed.
 - [x] `scripts/fast-gate.sh` works on macOS, or fails loudly. It printed "nothing to check"
   because `mapfile` needs bash 4, which is a false pass (#1042).
 - [x] The `polity` → `develop` sync (#1021, merged 2026-11-11): `develop` has everything
@@ -56,10 +56,16 @@ A box is ticked when the change is on `polity`.
   check only asks the registry when a PR changes the pin, so the next re-pushed tag will
   again show on a release sync and not before (a scheduled advisory run would catch it early:
   Phase 6).
-- [ ] Cut a release: a version-bump PR into `polity` first (it has to ride the sync, and the
-  last sync went without one, so the bump needs another), then the sync, develop → main, and
-  the dispatch (see the `release` skill). The static site is built and tested but only goes
-  live with a release: v0.2.0 predates it, so Pages serves the CI dashboard alone.
+- [x] **v0.3.0 released, 2026-11-12** (bump #1049, syncs #1050 and #1054, `main` into `develop`
+  #1051, the release PR #1052, `CITATION.cff` #1055; dispatch run 43130911488, the first real
+  run of the new gate: Frontend CI, Backend CI and E2E all passed). The static site is live:
+  checked in a real browser against https://burbanit0.github.io/Vote-App/, the playground
+  renders and the in-page Python engine answers (the diagnostics readout resolves). Deep links
+  such as `/playground` answer HTTP **404 with the app as the body** (the Pages fallback the
+  build creates on purpose); link checkers will call them errors, browsers render the app.
+  A lesson: the release PR re-runs diff-cover against `main` and found 18 Polity lines whose
+  branches no test took (#1053 covered them, a fresh sync carried that in); a release PR is
+  worth opening before the day you want to release.
 - [x] Branch model: **kept as it is** (decided by the owner, 2026-11-11): `polity` is the
   working branch, `develop` receives the syncs, `main` is the release. `develop` stays the
   GitHub default branch, so scheduled workflows run its copy: that is why a sync has to land

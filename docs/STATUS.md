@@ -2,13 +2,12 @@
 
 > Where each part of the project stands and what comes next. One page, updated at
 > the end of each phase of [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md) and whenever
-> the next steps change. Last update: **2026-11-11**: the static site's workflow edits are in
-> (#937) but the site is **not live**: no release has been cut since v0.2.0 (2026-09-27).
-> `develop` has everything `polity` had as of 2026-11-11 (the sync #1021). A four-part audit
-> and the open issues are folded into
-> [`PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md); its Phases 0 and 1
-> (housekeeping, then ship what exists) are done except the release itself. Earlier: W6 built (#914–#924),
-> the preprint drafted (#913), the W6 spike's two bugs fixed (#910, #911).
+> the next steps change. Last update: **2026-11-12**: **v0.3.0 is released** and the static
+> site is **live** at https://burbanit0.github.io/Vote-App/ (the app, with the engine running
+> in the page; `/ci/` is still the CI dashboard). A four-part audit and the open issues are
+> folded into [`PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md); its Phases 0
+> and 1 (housekeeping, then ship what exists) are done. Earlier: W6 built (#914–#924), the
+> preprint drafted (#913), the W6 spike's two bugs fixed (#910, #911).
 
 ## The three parts
 
@@ -28,25 +27,19 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
 
 ## Next 3 steps
 
-1. **The first release with the static site.** The workflow edits are in and the sync is
-   done; what is missing is the release: a version-bump PR into `polity`, another sync,
-   develop → main, the dispatch (the `release` skill). Then check
-   https://burbanit0.github.io/Vote-App/ (today it serves the CI dashboard only), a deep link
-   such as `/polity?citizen=3`, and the dashboard at `/ci/`. The release gate is the new
-   `workflow_call` one (#1044), not yet run.
+1. **Product basics** ([Phase 2](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-2-product-basics)),
+   the first user-visible work since the release: the "Vous" marker made to count in the
+   playground, a candidate editor, a shareable scenario link, a "why" line under the winner.
 2. **Ties, #926** ([Phase 3](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-3-correctness)):
    the ranked rules' tie-breaks on both engines, one parity-fixture regeneration, a
    high-risk path.
-3. **Product basics** ([Phase 2](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-2-product-basics)):
-   a candidate editor, a shareable scenario link, and the "Vous" marker made to count.
-   Closing `PLAN_BEYOND_CI`: W3.5 (class mode) waits for the teacher outreach, and the
-   preprint for its author line.
+3. **Process diet** ([Phase 6](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-6-process-diet)),
+   starting with a scheduled check of the Playwright image digest (it cost the first sync
+   its red run) and #692. Closing `PLAN_BEYOND_CI`: W3.5 (class mode) waits for the teacher
+   outreach, and the preprint for its author line.
 
 ## Waiting on the owner
 
-- **The release itself.** The static site's two workflow edits landed (#937: the
-  `static-site` job in `release.yml` and the site assembly in `ci-dashboard.yml`); the
-  second must reach `develop` before the release that first carries the site.
 - **#917's e2e path filter**, also in its body: three backend files the static check reads
   do not yet start the e2e job.
 - **The preprint's author line and disclosure** (`docs/preprint/`, #913).
@@ -58,9 +51,9 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
   Recreating the venv fixes it.
 - **Outreach** (Phases 3–4): one social-choice researcher (W1.4), and one teacher for a
   projector demo (W3.5). The researcher's packet is ready
-  ([`docs/research/expert-review-packet.md`](research/expert-review-packet.md)). Send it
-  after the next release sync: its "report a content error" link opens an issue form, and
-  GitHub reads issue forms from the default branch only.
+  ([`docs/research/expert-review-packet.md`](research/expert-review-packet.md)). It can go
+  now: v0.3.0 is out and `develop`, the default branch, carries the "report a content error"
+  issue form its link opens (GitHub reads issue forms from the default branch only).
 - **The Zenodo upload** of the archived runs (W2.5).
 
 ## Open questions
