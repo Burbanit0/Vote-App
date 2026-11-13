@@ -66,8 +66,8 @@ describe('ReplayStage', () => {
     render(<ReplayStage trace={trace()} frame={0} candidates={candidates} colorOf={colorOf} />);
     expect(colorOf).toHaveBeenCalledWith(0);
     // The name gets the readable text tone of the override's colour (palette.ts textTone).
-    expect(screen.getByText('Alice')).toHaveStyle({
-      color: 'color-mix(in oklab, #111111 70%, var(--foreground))',
-    });
+    expect(screen.getByText('Alice').style.color).toBe(
+      'color-mix(in oklab, #111111 70%, var(--foreground))'
+    );
   });
 });

@@ -131,7 +131,7 @@ describe('HandoverMap', () => {
     unmount();
     act(() => void frames.flush());
     expect(handover()).toBe('');
-    expect(shown).toHaveStyle({ display: 'none' });
+    expect(shown.style.display).toBe('none');
     expect(heroText).not.toHaveAttribute('inert');
     expect(scrubber).not.toHaveAttribute('inert');
     expect(off).toHaveBeenCalledWith('scroll', expect.any(Function));

@@ -36,7 +36,7 @@ describe('HomeEntrance', () => {
     expect(onDone).not.toHaveBeenCalled();
     act(() => void vi.advanceTimersByTime(1150));
     expect(entrance()).toHaveAttribute('data-phase', 'wipe');
-    expect(entrance()!.style.clipPath).toContain('41.0px 11.0px');
+    expect(entrance()!.style.clipPath).toContain('41px 11px');
     // The page settles in while the screen folds away.
     expect(onDone).toHaveBeenCalledTimes(1);
     act(() => void vi.advanceTimersByTime(1000));
@@ -51,7 +51,7 @@ describe('HomeEntrance', () => {
     vi.useFakeTimers();
     render(<HomeEntrance onReveal={vi.fn()} />);
     act(() => void vi.advanceTimersByTime(1150));
-    expect(entrance()!.style.clipPath).toContain('17.0px 13.0px');
+    expect(entrance()!.style.clipPath).toContain('17px 13px');
   });
 
   it('ends at once on a key, a click or the wheel, and stops counting', () => {
