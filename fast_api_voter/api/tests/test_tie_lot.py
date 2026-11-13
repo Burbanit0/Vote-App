@@ -49,8 +49,26 @@ def test_a_two_way_draw_does_not_follow_the_parity_of_the_seed():
     draw falls both ways without a pattern (pinned: the client pins the same 16)."""
     draws = ["AB"[draw(["Ann", "Ben"], s) == "Ben"] for s in range(64)]
     assert "".join(draws[:16]) == "ABAABBBBABBBAABB"
-    assert any(draws[i] == draws[i + 1] for i in range(63))  # not an alternation
     assert 20 <= draws.count("A") <= 44  # nor lopsided
+
+
+@pytest.mark.parametrize(
+    "names, drawn",
+    [
+        (["Alice", "Bob", "Carol"], "2121220001120110202000210211122010000211211022220001220011022200"),
+        (
+            ["C0", "C1", "C2", "C3", "C4"],
+            "3113033003401212114022220102223420104132224032243334433124033400",
+        ),
+    ],
+)
+def test_an_n_way_draw_pins_64_seeds_the_client_pins_and_spreads_over_every_name(names, drawn):
+    """The index drawn (in code-point order) for seeds 0..63. The client pins the same strings:
+    a pin over many seeds ties its `Math.imul` arithmetic to Python's masked one for more
+    hash values than a handful of cases, and a lopsided spread would show here."""
+    got = "".join(str(sorted(names).index(draw(names, s))) for s in range(64))
+    assert got == drawn
+    assert all(got.count(str(i)) >= 64 // len(names) // 2 for i in range(len(names)))
 
 
 def test_best_draws_only_among_the_tied_top():

@@ -26,11 +26,31 @@ describe('the tie lot', () => {
       drawName(['Ann', 'Ben'], s) === 'Ben' ? 'B' : 'A'
     );
     expect(draws.slice(0, 16).join('')).toBe('ABAABBBBABBBAABB');
-    expect(draws.some((d, i) => i < 63 && d === draws[i + 1])).toBe(true); // not an alternation
     const ann = draws.filter((d) => d === 'A').length;
     expect(ann).toBeGreaterThanOrEqual(20); // nor lopsided
     expect(ann).toBeLessThanOrEqual(44);
   });
+
+  it.each([
+    [['Alice', 'Bob', 'Carol'], '2121220001120110202000210211122010000211211022220001220011022200'],
+    [
+      ['C0', 'C1', 'C2', 'C3', 'C4'],
+      '3113033003401212114022220102223420104132224032243334433124033400',
+    ],
+  ] as const)(
+    '%j draws the 64 seeds tie_lot.py pins, and spreads over every name',
+    (names, drawn) => {
+      const got = Array.from({ length: 64 }, (_, s) =>
+        [...names].sort().indexOf(drawName(names, s))
+      ).join('');
+      expect(got).toBe(drawn);
+      for (let i = 0; i < names.length; i++) {
+        expect(got.split(String(i)).length - 1).toBeGreaterThanOrEqual(
+          Math.floor(64 / names.length / 2)
+        );
+      }
+    }
+  );
 
   it('sorts by code point, as Python does (an astral character sorts after U+FFFD)', () => {
     expect(drawName(['\u{1F600}', '�'], 0)).toBe(drawName(['�', '\u{1F600}'], 0));

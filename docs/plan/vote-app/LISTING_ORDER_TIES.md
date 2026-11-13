@@ -25,8 +25,9 @@ fixture regenerated. Tracked by #926.
 
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
 FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
-tied names in code-point order; the index is the hash modulo the number of tied names.
-Both test files pin the same draws. A tie is equal up to float noise (1e-9 relative,
+tied names in code-point order, finalised with murmur3's fmix32; the index is that hash
+modulo the number of tied names. Both test files pin the same draws, among them the same
+64-seed sequences for 2, 3 and 5 names. A tie is equal up to float noise (1e-9 relative,
 as `break_tie` reads one): the engines' logs and sums can differ in the last bits. The client draws over names when its caller passes
 them (`ruleWinnerFromRanks`' `names`), and over indices otherwise.
 
@@ -78,7 +79,9 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 
 ## Open
 
-#926 tracks what remains:
+#926 tracks what remains (the lot's finaliser, which changed the pinned draws and regenerated the
+parity fixture once, is already in: the regeneration #926's ranked-rule PR owes will move only
+the ordinal rules' winners):
 - the decision's ranked-rule tie-breaks, IRV and Coombs on a full tie, and the client's
   ordinal rules (above);
 - aggregate tallies that still break a tie by name, `min(tally, key=(-count, name))`, in the
