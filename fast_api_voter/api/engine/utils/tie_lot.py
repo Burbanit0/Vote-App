@@ -4,8 +4,10 @@ were listed in (docs/plan/vote-app/LISTING_ORDER_TIES.md: decided 2026-10-09).
 The lot is a seeded hash of the tied names, sorted: reproducible, the same whatever
 the listing order, and computed the same way by the client engine
 (voter-app/src/lib/tieLot.ts). Keep the two in step: FNV-1a (32-bit) over the UTF-8
-bytes of the seed and the sorted names, joined by U+001F; the index is that hash
-modulo the number of tied names. test_tie_lot.py pins values the client test pins too.
+bytes of the seed and the sorted names, joined by U+001F, finalised with murmur3's
+fmix32; the index is that hash modulo the number of tied names (finalised, because the
+raw hash's low bit is only a parity: two tied names would alternate with the seed's).
+test_tie_lot.py pins values the client test pins too.
 
 `ranking` and `nearest` (a voter's own ranking and nearest option, backend only) order a
 tie differently: by one finalised hash per name (`_voter_lot`), of the seed and that name,
@@ -40,21 +42,27 @@ def _hash(*parts: object) -> int:
     return _fnv1a(key.encode("utf-8"))
 
 
-def _voter_lot(seed: object, name: object) -> int:
-    """A per-voter lot key: FNV-1a finalised with murmur3's fmix32. FNV-1a's low bit is
-    only the parity of its input bytes, so names differing in their last byte would
-    alternate with the voter's index; the finaliser mixes every bit into every other.
-    Backend only (`ranking`, `nearest`): `draw`, which the client mirrors, is unchanged."""
-    h = _hash(seed, name)
+def _fmix32(h: int) -> int:
+    """murmur3's finaliser: it mixes every bit of `h` into every other. FNV-1a's low bit is
+    only the parity of its input bytes, so a modulo of the raw hash by two follows the
+    parity of the seed (or of a name's last byte): two tied names would alternate with it."""
     h = ((h ^ (h >> 16)) * 0x85EBCA6B) & 0xFFFFFFFF
     h = ((h ^ (h >> 13)) * 0xC2B2AE35) & 0xFFFFFFFF
     return h ^ (h >> 16)
 
 
+def _voter_lot(seed: object, name: object) -> int:
+    """A per-voter lot key: FNV-1a of the seed and the name, finalised (see `_fmix32`), so
+    names differing in their last byte do not alternate with the voter's index.
+    Backend only (`ranking`, `nearest`): `draw`, which the client mirrors, uses the same
+    finaliser over its own key (the seed and every tied name)."""
+    return _fmix32(_hash(seed, name))
+
+
 def draw(tied: Iterable[T], seed: object = 0) -> T:
     """One of `tied`, drawn by the seeded lot over their names in code-point order."""
     names = sorted(tied, key=str)
-    return names[_hash(seed, *names) % len(names)]
+    return names[_fmix32(_hash(seed, *names)) % len(names)]
 
 
 def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> List[T]:

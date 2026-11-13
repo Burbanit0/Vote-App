@@ -148,7 +148,7 @@ it against the satisfies/violates sets that the Hypothesis matrix (`test_voting_
 asserts, so either engine disagreeing fails CI
 ([review packet](../research/expert-review-packet.md)).
 
-Exact ties are broken by a **seeded lot** (an FNV-1a hash), the same on both engines, never by the
+Exact ties are broken by a **seeded lot** (an FNV-1a hash, finalised with fmix32), the same on both engines, never by the
 order in which candidates happen to be listed
 ([`LISTING_ORDER_TIES.md`](../plan/vote-app/LISTING_ORDER_TIES.md)).
 

@@ -81,7 +81,7 @@ party needs to win seats.
 | Burying | Ranking a strong rival below candidates you like less | `playgroundSincerity.ts` |
 | Pivotality | Chance that one ballot changes the outcome | `glossary.ts` |
 | Blank vote (*vote blanc*) | A ballot for none of the candidates; in Vote Lab and Polity it can count and even win | `lib/blankVote.ts`, `blank_vote_rules.py`, `polity/citizen.py` |
-| Tie lot | Exact ties broken by a seeded hash (FNV-1a), never by listing order, identically on both engines | `tie_lot.py`, `tieLot.ts`, [`LISTING_ORDER_TIES.md`](../plan/vote-app/LISTING_ORDER_TIES.md) |
+| Tie lot | Exact ties broken by a seeded hash (FNV-1a, finalised with fmix32), never by listing order, identically on both engines | `tie_lot.py`, `tieLot.ts`, [`LISTING_ORDER_TIES.md`](../plan/vote-app/LISTING_ORDER_TIES.md) |
 
 ## Spatial and profile model
 
