@@ -148,25 +148,26 @@
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-d4d236b823"
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-d4d236b823",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-ea78317385"
    ],
    "category": "code",
-   "count": 36,
+   "count": 39,
    "example": {
-    "job": "Playwright E2E (shard 1/2)",
+    "job": "Playwright E2E (shard 2/2)",
     "lines": [
      "error: No solution found when resolving dependencies",
      "##[error]Process completed with exit code 1.",
      "##[error]No files were found with the provided path: voter-app/blob-report/. No artifacts will be uploaded."
     ],
     "pr": [
-     1038
+     1070
     ],
-    "sha": "793ac3e2ffae624d5ce6986bccc8472c601de591",
+    "sha": "a2b8a534e7e79d867fe621b2803ce74c68c1b9de",
     "step": "Install Python dependencies",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42494832180"
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382331153"
    },
-   "last_seen": "2026-11-08T15:26:39Z",
+   "last_seen": "2026-11-13T06:57:55Z",
    "signature": "code: error: No solution found when resolving dependencies",
    "workflows": [
     "Backend CI",
@@ -296,6 +297,40 @@
   },
   {
    "branches": [
+    "dependabot/npm_and_yarn/voter-app/polity/jsdom-31.0.0",
+    "feat/lab-search-compare",
+    "fix/3d-scene-lens-camera",
+    "fix/tie-lot-finalised",
+    "polity",
+    "refactor/retire-level-switch"
+   ],
+   "category": "code",
+   "count": 6,
+   "example": {
+    "job": "Frontend: Tests + Coverage + Security",
+    "lines": [
+     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  787ms",
+     "     \u00d7 clears its progress and listeners when it leaves 45ms",
+     "     \u00d7 follows a mouse over the list, and hides when it leaves 204ms",
+     "##[error]AssertionError: expected 'translate3d(122px, 150px, 0px)' to be 'translate3d(122.0px, 150.0px, 0)' // Object.is equality",
+     "##[error]Error: expect(element).toHaveStyle()",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1069
+    ],
+    "sha": "d42bc31ad68ed1b56cb080ef1bdb96d4cf1a1b08",
+    "step": "Tests with coverage",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382256123"
+   },
+   "last_seen": "2026-11-13T06:57:13Z",
+   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
+   "workflows": [
+    "Frontend CI"
+   ]
+  },
+  {
+   "branches": [
     "develop",
     "polity"
    ],
@@ -317,34 +352,6 @@
    "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
    "workflows": [
     "Mutation Testing"
-   ]
-  },
-  {
-   "branches": [
-    "feat/lab-search-compare",
-    "fix/3d-scene-lens-camera",
-    "fix/tie-lot-finalised",
-    "polity",
-    "refactor/retire-level-switch"
-   ],
-   "category": "code",
-   "count": 5,
-   "example": {
-    "job": "Frontend: Tests + Coverage + Security",
-    "lines": [
-     "     \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  622ms",
-     "##[error]src/lib/tieLot.test.ts(44,35): error TS2345: Argument of type 'string' is not assignable to parameter of type '\"Alice\" | \"Bob\" | \"Carol\" | \"C0\" | \"C1\" | \"C2\" | \"C3\" | \"C4\"'.",
-     "##[error]Process completed with exit code 2."
-    ],
-    "pr": [],
-    "sha": "47f45e9adf6b14bb5b6b2c74c8ae8db3359c6722",
-    "step": "Build",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43353670723"
-   },
-   "last_seen": "2026-11-13T02:39:22Z",
-   "signature": "code: \u2713 switching to the criteria lens renders the empirical methods \u00d7 criteria matrix  #",
-   "workflows": [
-    "Frontend CI"
    ]
   },
   {
@@ -373,6 +380,33 @@
   },
   {
    "branches": [
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
+   ],
+   "category": "code",
+   "count": 4,
+   "example": {
+    "job": "Playwright/Docker image version sync",
+    "lines": [
+     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.65.0, but this workflow pins mcr.microsoft.com/playwright:v1.64.1-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.65.0-noble with that tag's digest.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1068
+    ],
+    "sha": "ac8673d3b29fe7f4a328897bdeef7e3510a0d10c",
+    "step": "Assert @playwright/test matches the Playwright image pin",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382236495"
+   },
+   "last_seen": "2026-11-13T06:57:03Z",
+   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "test-flaky",
@@ -396,32 +430,6 @@
    "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Playwright/Docker image version sync",
-    "lines": [
-     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.64.1, but this workflow pins mcr.microsoft.com/playwright:v1.64.0-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.64.1-noble with that tag's digest.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     989
-    ],
-    "sha": "4f43ecdc580a60aa7457ddfacb52903167c1e25c",
-    "step": "Assert @playwright/test matches the Playwright image pin",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39914614024"
-   },
-   "last_seen": "2026-10-23T06:56:42Z",
-   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -973,10 +981,10 @@
  ],
  "failures_by_category": {
   "advisory": 3,
-  "code": 123,
+  "code": 128,
   "test-flaky": 16
  },
- "generated_at": "2026-11-13T03:45:33Z",
+ "generated_at": "2026-11-13T07:55:14Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1147,7 +1155,7 @@
   "CI Dashboard": {
    "2026-10-14": {
     "failure": 2,
-    "success": 6
+    "success": 5
    },
    "2026-10-15": {
     "success": 13
@@ -1239,7 +1247,7 @@
     "success": 40
    },
    "2026-11-13": {
-    "success": 15
+    "success": 16
    }
   },
   "CI Health Watchdog": {
@@ -1529,7 +1537,7 @@
     "success": 18
    },
    "2026-11-13": {
-    "success": 8
+    "success": 15
    }
   },
   "E2E Tests": {
@@ -1813,7 +1821,7 @@
     "success": 3
    },
    "2026-11-13": {
-    "skipped": 10,
+    "skipped": 21,
     "success": 3
    }
   },
@@ -2202,7 +2210,7 @@
    },
    "2026-11-13": {
     "cancelled": 3,
-    "skipped": 48,
+    "skipped": 90,
     "success": 27
    }
   },
@@ -2257,9 +2265,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T03:39:30Z",
+   "created_at": "2026-11-13T03:44:33Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43360420024"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43360953654"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2285,9 +2293,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T02:55:07Z",
+   "created_at": "2026-11-13T07:00:53Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43355421880"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382673079"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2313,9 +2321,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-13T03:33:15Z",
+   "created_at": "2026-11-13T07:08:26Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43359731018"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43383588762"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2354,10 +2362,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-13T03:44:33Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-13T07:09:51Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43360953611"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43383754978"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2367,7 +2375,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7272,
+ "runs": 7416,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2399,12 +2407,12 @@
     "2026-11-10": 11.0,
     "2026-11-11": 105.0,
     "2026-11-12": 11.0,
-    "2026-11-13": 11
+    "2026-11-13": 12
    },
-   "p50_s": 372,
-   "p95_s": 622,
+   "p50_s": 373,
+   "p95_s": 621,
    "queue_p50_s": 0,
-   "runs": 306
+   "runs": 312
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2474,16 +2482,16 @@
     "2026-11-10": 12,
     "2026-11-11": 12.0,
     "2026-11-12": 11,
-    "2026-11-13": 10
+    "2026-11-13": 11.0
    },
    "p50_s": 11,
-   "p95_s": 70,
+   "p95_s": 80,
    "queue_p50_s": 0,
-   "runs": 251
+   "runs": 258
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-14": 430.5,
+    "2026-10-14": 455,
     "2026-10-15": 383,
     "2026-10-16": 389.5,
     "2026-10-17": 336,
@@ -2513,7 +2521,7 @@
     "2026-11-10": 241,
     "2026-11-11": 279,
     "2026-11-12": 263.0,
-    "2026-11-13": 246
+    "2026-11-13": 250.5
    },
    "p50_s": 355,
    "p95_s": 544,
@@ -2549,12 +2557,12 @@
     "2026-11-10": 13,
     "2026-11-11": 13,
     "2026-11-12": 10.5,
-    "2026-11-13": 10.5
+    "2026-11-13": 11
    },
    "p50_s": 12,
    "p95_s": 71,
    "queue_p50_s": 0,
-   "runs": 245
+   "runs": 252
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2645,12 +2653,12 @@
     "2026-11-10": 12,
     "2026-11-11": 15,
     "2026-11-12": 11.0,
-    "2026-11-13": 9.0
+    "2026-11-13": 12
    },
    "p50_s": 12,
-   "p95_s": 88,
+   "p95_s": 92,
    "queue_p50_s": 0,
-   "runs": 237
+   "runs": 244
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -2673,12 +2681,12 @@
     "2026-11-10": 10,
     "2026-11-11": 14,
     "2026-11-12": 106.5,
-    "2026-11-13": 130
+    "2026-11-13": 31.0
    },
    "p50_s": 11,
-   "p95_s": 191,
+   "p95_s": 184,
    "queue_p50_s": 0,
-   "runs": 207
+   "runs": 214
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -2701,12 +2709,12 @@
     "2026-11-10": 12,
     "2026-11-11": 12,
     "2026-11-12": 11.0,
-    "2026-11-13": 12.0
+    "2026-11-13": 13
    },
    "p50_s": 12,
-   "p95_s": 251,
+   "p95_s": 204,
    "queue_p50_s": 0,
-   "runs": 208
+   "runs": 215
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -2738,12 +2746,12 @@
     "2026-11-10": 289.5,
     "2026-11-11": 538,
     "2026-11-12": 483,
-    "2026-11-13": 493
+    "2026-11-13": 504.0
    },
    "p50_s": 538,
    "p95_s": 824,
    "queue_p50_s": 0,
-   "runs": 294
+   "runs": 299
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -2775,12 +2783,12 @@
     "2026-11-10": 10,
     "2026-11-11": 265.0,
     "2026-11-12": 271,
-    "2026-11-13": 315
+    "2026-11-13": 272
    },
-   "p50_s": 23,
+   "p50_s": 24,
    "p95_s": 393,
    "queue_p50_s": 0,
-   "runs": 325
+   "runs": 331
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -2812,12 +2820,12 @@
     "2026-11-10": 9.5,
     "2026-11-11": 81,
     "2026-11-12": 11.0,
-    "2026-11-13": 11
+    "2026-11-13": 13
    },
-   "p50_s": 89,
-   "p95_s": 153,
+   "p50_s": 88,
+   "p95_s": 161,
    "queue_p50_s": 0,
-   "runs": 320
+   "runs": 326
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -2849,12 +2857,12 @@
     "2026-11-10": 25,
     "2026-11-11": 22,
     "2026-11-12": 21,
-    "2026-11-13": 20.0
+    "2026-11-13": 21
    },
    "p50_s": 20,
-   "p95_s": 105,
+   "p95_s": 120,
    "queue_p50_s": 0,
-   "runs": 324
+   "runs": 331
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2917,12 +2925,12 @@
     "2026-11-10": 85,
     "2026-11-11": 69.5,
     "2026-11-12": 86,
-    "2026-11-13": 87
+    "2026-11-13": 81.0
    },
    "p50_s": 49,
    "p95_s": 217,
    "queue_p50_s": 0,
-   "runs": 233
+   "runs": 240
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -2981,12 +2989,12 @@
     "2026-11-10": 180,
     "2026-11-11": 175.5,
     "2026-11-12": 165,
-    "2026-11-13": 165
+    "2026-11-13": 168.5
    },
    "p50_s": 167,
-   "p95_s": 324,
+   "p95_s": 328,
    "queue_p50_s": 0,
-   "runs": 309
+   "runs": 316
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3018,12 +3026,12 @@
     "2026-11-10": 11.5,
     "2026-11-11": 31,
     "2026-11-12": 10,
-    "2026-11-13": 9.0
+    "2026-11-13": 11
    },
    "p50_s": 11,
-   "p95_s": 84,
+   "p95_s": 85,
    "queue_p50_s": 0,
-   "runs": 333
+   "runs": 340
   },
   "polity red alert": {
    "daily_p50_s": {
