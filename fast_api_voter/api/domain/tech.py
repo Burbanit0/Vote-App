@@ -239,7 +239,9 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         # An equidistant voter is drawn by lot, seeded with their position (#665).
         gap = dict(zip(cand_names, (abs(px - cx) for cx in cand_x)))
         vote_tally[tie_lot.favourite(cand_names, lambda c: -gap[c], px)] += 1
-    election_winner = min(vote_tally, key=lambda c: (-vote_tally[c], c)) if vote_tally else cand_names[0]
+    election_winner = (
+        tie_lot.best(vote_tally, vote_tally.__getitem__, seed) if vote_tally else cand_names[0]
+    )
     winners_agree   = polis_winner == election_winner
 
     # ── Participant positions ─────────────────────────────────────────────

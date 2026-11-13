@@ -15,6 +15,7 @@ from .simulation_score_utils import (
 )
 from .method_registry import RANKED_RULES, SCORE_RULES, rankings_from_utilities
 from .quadratic_voting import apply_quadratic_voting
+from .tie_lot import best
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
 # Kept low because each call reruns the full election for every permutation.
@@ -350,10 +351,11 @@ def compare_all_methods(
     methods_result["majority_judgment"] = mj_entry
 
     # ── Evaluative voting (+1 / 0 / −1) — uses raw float utilities ───────────
-    ev_raw: Dict[str, Any]    = get_evaluative_winner(mj_utility_scores)
+    ev_rule = partial(get_evaluative_winner, seed=seed)
+    ev_raw: Dict[str, Any]    = ev_rule(mj_utility_scores)
     ev_winner: Optional[str]  = str(ev_raw["winner"]) if ev_raw.get("winner") else None
     ev_entry = _build_metrics_score(
-        get_evaluative_winner, ev_winner, mj_utility_scores,
+        ev_rule, ev_winner, mj_utility_scores,
     )
     ev_entry["ev_scores"]       = ev_raw.get("scores", {})
     ev_entry["ev_distribution"] = ev_raw.get("distribution", {})
@@ -363,7 +365,7 @@ def compare_all_methods(
     qv_utilities: List[Dict[str, float]] = [
         utilities[v["id"]].copy() for v in voters
     ]
-    qv_result = apply_quadratic_voting(qv_utilities, budget=100)
+    qv_result = apply_quadratic_voting(qv_utilities, budget=100, seed=seed)
     qv_winner: Optional[str] = qv_result.get("winner")
     methods_result["quadratic"] = {
         "winner":                qv_winner,
@@ -383,7 +385,7 @@ def compare_all_methods(
     # strategic_vulnerability is exactly 0.
     rb_probs = random_ballot_probabilities(rankings)
     if rb_probs:
-        rb_winner = min(rb_probs, key=lambda c: (-rb_probs[c], c))
+        rb_winner = best(rb_probs, rb_probs.__getitem__, seed)
         rb_regret = round(
             sum(p * (_bayesian_regret(c) or 0.0) for c, p in rb_probs.items()), 6
         )

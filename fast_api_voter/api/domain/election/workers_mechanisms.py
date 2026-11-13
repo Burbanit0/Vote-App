@@ -697,7 +697,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_fptp(active_voters: list[Dict[str, Any]]) -> str:
         fc: Counter[str] = Counter(voter_preferred[v["id"]] for v in active_voters)
-        return min(fc, key=lambda k: (-fc[k], k)) if fc else cand_names[0]
+        return tie_lot.best(fc, fc.__getitem__, seed) if fc else cand_names[0]
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
@@ -1029,7 +1029,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         fc: Counter[str] = Counter(voter_preferred[uid] for uid in members)
         total = len(members)
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
-        winner = min(fc, key=lambda k: (-fc[k], k))
+        winner = tie_lot.best(fc, fc.__getitem__, seed)
 
         district_results.append({
             "id":          d["id"],

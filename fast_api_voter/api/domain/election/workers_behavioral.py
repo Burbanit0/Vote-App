@@ -100,7 +100,7 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             })
 
         vc = Counter(votes)
-        winner: str = min(vc, key=lambda c: (-vc[c], c)) if votes else cand_names[0]
+        winner: str = tie_lot.best(vc, vc.__getitem__, seed) if votes else cand_names[0]
         rate: float = round(cascade_count / len(voters), 4) if voters else 0.0
         return sequence, winner, cascade_start, rate
 
@@ -257,7 +257,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 for cname, val in u.items():
                     if val > threshold:
                         tally[cname] += 1
-        return min(tally, key=lambda c: (-tally[c], c)) if tally else cand_names[0]
+        return tie_lot.best(tally, tally.__getitem__, seed) if tally else cand_names[0]
 
     sincere_winners  = _compute_winners(sincere_utilities)
     biased_winners   = _compute_winners(biased_utilities)
@@ -440,6 +440,7 @@ def _ld_tally(
     weighted_ids: List[tuple[int, int]],
     sincere_utilities: Dict[int, Dict[str, float]],
     fallback: str,
+    seed: int = 0,
 ) -> tuple[Counter[Any], str]:
     """Plurality over each voter's top choice, each carrying their own weight.
     The liquid tally weights by delegations received; the direct baseline gives
@@ -447,7 +448,7 @@ def _ld_tally(
     tally: Counter[Any] = Counter()
     for vid, w in weighted_ids:
         tally[_ld_top_choice(sincere_utilities, vid)] += w
-    return tally, (min(tally, key=lambda c: (-tally[c], c)) if tally else fallback)
+    return tally, (tie_lot.best(tally, tally.__getitem__, seed) if tally else fallback)
 
 
 def _ld_gini_curve(
@@ -530,10 +531,10 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     weights: Counter[Any] = Counter(effective.values())
 
     liquid_tally, liquid_winner = _ld_tally(
-        list(weights.items()), sincere_utilities, cand_names[0],
+        list(weights.items()), sincere_utilities, cand_names[0], seed=seed,
     )
     _, direct_winner = _ld_tally(
-        [(v["id"], 1) for v in voters], sincere_utilities, cand_names[0],
+        [(v["id"], 1) for v in voters], sincere_utilities, cand_names[0], seed=seed,
     )
 
     gini    = _ld_gini([weights.get(vid, 0) for vid in all_ids])
@@ -902,10 +903,16 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             else:
                 choice = tie_lot.favourite(sincere_utilities[vid], sincere_utilities[vid].__getitem__, vid)
                 tally[choice] += 1
-        # NOTA must beat every candidate outright: a tie goes to the candidate
-        # (then by name), so whether it voids the election can't hang on how
-        # the candidates' names sort against "NOTA".
-        raw_winner = min(tally, key=lambda c: (-tally[c], c == "NOTA", c)) if tally else cand_names[0]
+        # NOTA must beat every candidate outright: a tie goes to a candidate (drawn by lot
+        # among those tied), so whether it voids the election can't hang on how the
+        # candidates' names sort against "NOTA". Tallies are whole numbers, so a quarter
+        # off NOTA's count ranks it below any candidate on the same count and above none
+        # with one more.
+        raw_winner = (
+            tie_lot.best(tally, lambda c: tally[c] - (0.25 if c == "NOTA" else 0.0), seed)
+            if tally
+            else cand_names[0]
+        )
         np         = tally.get("NOTA", 0) / num_voters if num_voters else 0.0
         return raw_winner, round(np, 4)
 
@@ -1171,7 +1178,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     real_results: Dict[str, float] = {
         c: round(real_counts.get(c, 0) / num_voters, 4) for c in cand_names
     }
-    real_winner: str = min(real_results, key=lambda c: (-real_results[c], c))
+    real_winner: str = tie_lot.best(real_results, real_results.__getitem__, seed)
 
     # ── Second choices for shy voters ─────────────────────────────────────
     second_choices: Dict[int, str] = {}
@@ -1215,7 +1222,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in cand_names
     }
     # Same tie-break as real_winner, or an exact tie reads as the polls being wrong.
-    poll_winner: str = min(avg_pred, key=lambda c: (-avg_pred[c], c))
+    poll_winner: str = tie_lot.best(avg_pred, avg_pred.__getitem__, seed)
     polls_wrong       = poll_winner != real_winner
 
     systematic_error: Dict[str, float] = {
@@ -1237,7 +1244,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for c in other_cands
         }
         poll_f          = {shy_candidate: poll_shy} | poll_others
-        poll_win_f      = min(poll_f, key=lambda c: (-poll_f[c], c))
+        poll_win_f      = tie_lot.best(poll_f, poll_f.__getitem__, seed)
         winner_wrong_f  = 1.0 if poll_win_f != real_winner else 0.0
         curve.append({
             "factor":           f,
@@ -1496,7 +1503,7 @@ def _co_winner(
         # Name breaks an exact tie, as in every engine rule; `max(counter)`
         # broke it by whichever voter happened to be counted first.
         t2 = _co_approval_tally(v_list, utils, voted, is_h)
-        return min(t2, key=lambda c: (-t2[c], c)) if t2 else cnames[0]
+        return tie_lot.best(t2, t2.__getitem__, seed) if t2 else cnames[0]
     if method == "majority_judgment":
         return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames, seed)
     # Plurality included: each ballot in `rnk` already leads with the voter's

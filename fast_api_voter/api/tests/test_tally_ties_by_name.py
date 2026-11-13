@@ -36,16 +36,20 @@ def test_schulze_steps_elect_whom_the_rule_elects_and_show_its_paths():
         assert all(paths[winner][o] >= paths[o][winner] for o in listed if o != winner)
 
 
-def test_quadratic_voting_breaks_a_tie_by_name_as_its_comment_says():
-    """The comment said "tie -> alphabetical first"; the code took the first key,
-    and handed each voter's odd leftover vote to the first-listed of two
-    equally rated candidates, so it was Bob 4-3 when Bob was listed first."""
-    for voter in ({"Bob": 0.5, "Alice": 0.5}, {"Alice": 0.5, "Bob": 0.5}):
-        assert apply_quadratic_voting([voter], budget=30)["winner"] == "Alice"
+def test_quadratic_voting_breaks_a_tie_by_lot_not_by_name_or_listing():
+    """The code took the first key, and handed each voter's odd leftover vote to the first-listed
+    of two equally rated candidates (then to the first name), so it was Bob 4-3 when Bob was
+    listed first. The extra vote is the voter's own tie, drawn by a lot seeded with the request
+    and the voter: seed 0 draws Ann, seed 3 draws Cat, whichever is listed first."""
+    for seed, drawn in ((0, "Ann"), (3, "Cat")):
+        for voter in ({"Cat": 0.5, "Ann": 0.5}, {"Ann": 0.5, "Cat": 0.5}):
+            assert apply_quadratic_voting([voter], budget=30, seed=seed)["winner"] == drawn
 
 
-def test_counted_ties_go_to_the_first_name_not_the_first_counted():
-    assert _identity_plurality(["Bob", "Alice"], ["Bob", "Alice"]) == "Alice"
+def test_counted_ties_are_drawn_not_the_first_name_or_the_first_counted():
+    for votes in (["Cat", "Ann"], ["Ann", "Cat"]):
+        assert _identity_plurality(votes, votes, 0) == "Cat" == draw(["Ann", "Cat"], 0)
+        assert _identity_plurality(votes, votes, 1) == "Ann" == draw(["Ann", "Cat"], 1)
 
 
 def test_a_tied_election_with_no_shy_voters_is_polled_right():
@@ -53,12 +57,17 @@ def test_a_tied_election_with_no_shy_voters_is_polled_right():
     it can't be wrong -- unless the real and polled winners break the tie
     differently, as they did for one commit of this change."""
     from api.domain.election.workers_behavioral import _shy_voter_worker
-    body, _ = _shy_voter_worker({
-        "num_voters": 50, "seed": 0, "shy_candidate_idx": 0, "ideology": "centrist", "num_polls": 3,
-        "candidates": [{"name": "Bob", "x": 0.3, "y": 0.0}, {"name": "Alice", "x": -0.3, "y": 0.0}],
-    })
-    assert body["real_results"] == {"Bob": 0.5, "Alice": 0.5} and body["real_winner"] == "Alice"
-    assert body["social_desirability_curve"][0]["winner_wrong_pct"] == 0.0
+    for cands in ([("Cat", 0.3), ("Ann", -0.3)], [("Ann", -0.3), ("Cat", 0.3)]):
+        body, _ = _shy_voter_worker({
+            "num_voters": 50, "seed": 0, "shy_candidate_idx": 0, "ideology": "centrist",
+            "num_polls": 3, "candidates": [{"name": n, "x": x, "y": 0.0} for n, x in cands],
+        })
+        # The lot (seed 0) draws Cat, whichever is listed first and whichever sorts first.
+        assert body["real_results"] == {"Cat": 0.5, "Ann": 0.5} or body["real_results"] == {
+            "Ann": 0.5, "Cat": 0.5
+        }
+        assert body["real_winner"] == "Cat"
+        assert body["social_desirability_curve"][0]["winner_wrong_pct"] == 0.0
 
 
 def test_irv_steps_draw_a_dead_tie_like_the_engine():

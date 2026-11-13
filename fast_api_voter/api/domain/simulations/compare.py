@@ -449,7 +449,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             if score >= threshold:
                 approval[cname] += 1
     approval_pct = {c: round(approval.get(c, 0) / num_voters, 4) for c in cand_names}
-    winner_a: Optional[str] = min(approval_pct, key=lambda k: (-approval_pct[k], k)) if approval_pct else None
+    winner_a: Optional[str] = best(approval_pct, approval_pct.__getitem__, seed) if approval_pct else None
     return {"method": "approval", "threshold_used": threshold,
             "approval_scores": approval_pct, "winner": winner_a}, 200
 
