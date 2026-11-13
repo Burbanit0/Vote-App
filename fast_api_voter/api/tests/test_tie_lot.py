@@ -117,18 +117,19 @@ def test_best_ignores_nan_and_falls_back_to_the_first_when_none_ranks():
     ],
 )
 def test_the_details_list_the_drawn_winner_first_among_those_tied(rule):
-    # Ann and Ben mirror each other exactly; Ben is listed first, the lot draws Ann.
-    ballots = [{"Ben": 0.0, "Ann": 1.0, "Cy": 0.2}, {"Ben": 1.0, "Ann": 0.0, "Cy": 0.2}]
+    # Ann and Cat mirror each other exactly. Ann is listed first and is first by name; the lot
+    # draws Cat: neither the listing order nor a name tie-break gives that answer.
+    ballots = [{"Ann": 1.0, "Cat": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Cat": 1.0, "Cy": 0.2}]
     result = rule(ballots)
     first = next(iter(result["details"]))
-    assert result["winner"] == "Ann"
-    assert (first if isinstance(first, str) else first["candidate"]) == "Ann"
+    assert result["winner"] == "Cat"
+    assert (first if isinstance(first, str) else first["candidate"]) == "Cat"
 
 
 def test_star_lists_its_first_finalist_first():
-    ballots = [{"Ben": 0.0, "Ann": 1.0, "Cy": 0.2}, {"Ben": 1.0, "Ann": 0.0, "Cy": 0.2}]
+    ballots = [{"Ann": 1.0, "Cat": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Cat": 1.0, "Cy": 0.2}]
     result = get_star_voting_winner(ballots)
-    assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ann"
+    assert next(iter(result["details"]["first_round"])) == result["winner"] == "Cat"
 
 
 def test_ranking_orders_a_tie_by_the_seeded_lot_not_the_listing_order():
