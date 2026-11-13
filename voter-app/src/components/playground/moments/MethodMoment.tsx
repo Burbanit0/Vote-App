@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { useStoreCtx, useMethodSelection } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import { type Rule } from '../../../lib/playgroundVoting';
@@ -38,6 +39,7 @@ const FAMILIES: RuleFamily[] = [
 
 const MethodMoment: React.FC = () => {
   const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
   const { setPlaygroundDeep, mode, assembly } = useStoreCtx();
   const { enabledRules, setEnabledRules } = useMethodSelection();
 
@@ -105,7 +107,7 @@ const MethodMoment: React.FC = () => {
                     onChange={() => toggle(r)}
                     className="accent-primary"
                   />
-                  {t(`rules.${r}`)}
+                  {ruleLabels[r]}
                 </label>
               ))}
             </div>

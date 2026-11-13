@@ -3,7 +3,7 @@
  *
  * Consolidates two small UI contexts:
  *   - theme            (light/dark, persisted as votelab_theme, sets data-bs-theme)
- *   - expertMode       (persisted as votelab_expert)
+ *   - plainLanguage    (persisted as votelab_plain)
  */
 import { create } from 'zustand';
 
@@ -12,14 +12,11 @@ import { create } from 'zustand';
 export type Theme = 'light' | 'dark';
 
 interface UIState {
-  /** Re-read theme/expert from localStorage (mount). */
+  /** Re-read theme/plain-language from localStorage (mount). */
   hydrate: () => void;
   // Theme
   theme: Theme;
   toggleTheme: () => void;
-  // Expert mode
-  expertMode: boolean;
-  setExpertMode: (value: boolean) => void;
   // Plain-language mode — swaps technical method labels for plain ones. Default
   // off: the app teaches the real vocabulary; this is an on-demand assist.
   plainLanguage: boolean;
@@ -31,11 +28,6 @@ interface UIState {
 function initialTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
   return (localStorage.getItem('votelab_theme') as Theme) ?? 'light';
-}
-
-function initialExpert(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('votelab_expert') === 'true';
 }
 
 function initialPlain(): boolean {
@@ -55,7 +47,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   hydrate: () => {
     const theme = initialTheme();
     applyTheme(theme);
-    set({ theme, expertMode: initialExpert(), plainLanguage: initialPlain() });
+    set({ theme, plainLanguage: initialPlain() });
   },
 
   // ── Theme ──
@@ -67,13 +59,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ theme: next });
   },
 
-  // ── Expert mode ──
-  expertMode: initialExpert(),
-  setExpertMode: (value) => {
-    localStorage.setItem('votelab_expert', String(value));
-    set({ expertMode: value });
-  },
-
   // ── Plain-language mode ──
   plainLanguage: initialPlain(),
   setPlainLanguage: (value) => {
@@ -82,9 +67,13 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 }));
 
-/** Apply the persisted theme to <html> on app start. */
+/** Keys an earlier version wrote and nothing reads any more (the Beginner/Expert level). */
+const RETIRED_KEYS = ['votelab_expert'] as const;
+
+/** Apply the persisted theme to <html> on app start, and forget what no longer exists. */
 export function initUITheme(): void {
   applyTheme(useUIStore.getState().theme);
+  for (const key of RETIRED_KEYS) localStorage.removeItem(key);
 }
 
 // ── Convenience hooks (former context APIs) ───────────────────────────────────
@@ -95,12 +84,6 @@ export function useTheme(): { theme: Theme; toggleTheme: () => void } {
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   return { theme, toggleTheme };
-}
-
-export function useExpertMode(): { expertMode: boolean; setExpertMode: (v: boolean) => void } {
-  const expertMode = useUIStore((s) => s.expertMode);
-  const setExpertMode = useUIStore((s) => s.setExpertMode);
-  return { expertMode, setExpertMode };
 }
 
 export function usePlainLanguage(): {

@@ -1239,8 +1239,9 @@ const pgEn: PlaygroundKeys = {
     nash: 'Nash (product of utilities)',
     raynaud: 'Raynaud',
   },
-  // Plain-language method labels (plain-language mode). Bounded to the methods a
-  // newcomer actually meets; anything absent falls back to its technical name.
+  // Plain-language method labels (plain-language mode): one per rule, all 29. A rule added to the
+  // engine needs its plain name here (useVotingLabels.test.tsx fails until it has one), in both
+  // languages, short enough for a checkbox row (34 characters).
   rulesPlain: {
     plurality: 'Most votes',
     two_round: 'Two rounds',
@@ -1252,6 +1253,25 @@ const pgEn: PlaygroundKeys = {
     score: 'Average ratings',
     star: 'Rate, then duel',
     cumulative: 'Points to spread',
+    minimax: 'Smallest worst defeat',
+    schulze: 'Strongest chain of wins',
+    bucklin: 'Add choices till a majority',
+    nanson: 'Drop the below-average',
+    baldwin: 'Drop the lowest points',
+    ranked_pairs: 'Lock in the biggest wins',
+    random_ballot: 'Draw a ballot at random',
+    majority_judgment: 'Best median grade',
+    anti_plurality: 'Fewest last places',
+    dowdall: 'Shrinking points by rank',
+    black: 'Duel winner, else points',
+    smith_irv: 'Top group, then round-by-round',
+    split_cycle: 'Cut each cycle’s weakest win',
+    kemeny: 'Best overall ranking',
+    maximin: 'Best for the least happy',
+    benham: 'Round-by-round, duel winner wins',
+    river: 'Strongest wins, no loops',
+    nash: 'Best product of ratings',
+    raynaud: 'Drop the heaviest defeat',
   },
   structures: {
     pr: 'Proportional (lists)',

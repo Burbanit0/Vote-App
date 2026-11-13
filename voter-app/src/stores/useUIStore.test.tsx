@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useUIStore, useTheme, useExpertMode } from './useUIStore';
+import { useUIStore, useTheme, usePlainLanguage, initUITheme } from './useUIStore';
 
 const ThemeConsumer = () => {
   const { theme, toggleTheme } = useTheme();
@@ -13,15 +13,15 @@ const ThemeConsumer = () => {
   );
 };
 
-const ExpertConsumer = () => {
-  const { expertMode, setExpertMode } = useExpertMode();
+const PlainConsumer = () => {
+  const { plainLanguage, setPlainLanguage } = usePlainLanguage();
   return (
     <div>
-      <span data-testid="expert">{expertMode ? 'on' : 'off'}</span>
-      <button data-testid="enable" onClick={() => setExpertMode(true)}>
+      <span data-testid="plain">{plainLanguage ? 'on' : 'off'}</span>
+      <button data-testid="enable" onClick={() => setPlainLanguage(true)}>
         on
       </button>
-      <button data-testid="disable" onClick={() => setExpertMode(false)}>
+      <button data-testid="disable" onClick={() => setPlainLanguage(false)}>
         off
       </button>
     </div>
@@ -30,7 +30,7 @@ const ExpertConsumer = () => {
 
 beforeEach(() => {
   localStorage.clear();
-  useUIStore.setState({ theme: 'light', expertMode: false });
+  useUIStore.setState({ theme: 'light', plainLanguage: false });
 });
 
 describe('useUIStore — theme', () => {
@@ -51,22 +51,42 @@ describe('useUIStore — theme', () => {
   });
 });
 
-describe('useUIStore — expert mode', () => {
+describe('useUIStore — plain language', () => {
   it('defaults off, enables/disables, persists', () => {
-    render(<ExpertConsumer />);
-    expect(screen.getByTestId('expert')).toHaveTextContent('off');
+    render(<PlainConsumer />);
+    expect(screen.getByTestId('plain')).toHaveTextContent('off');
     fireEvent.click(screen.getByTestId('enable'));
-    expect(screen.getByTestId('expert')).toHaveTextContent('on');
-    expect(localStorage.getItem('votelab_expert')).toBe('true');
+    expect(screen.getByTestId('plain')).toHaveTextContent('on');
+    expect(localStorage.getItem('votelab_plain')).toBe('true');
     fireEvent.click(screen.getByTestId('disable'));
-    expect(screen.getByTestId('expert')).toHaveTextContent('off');
-    expect(localStorage.getItem('votelab_expert')).toBe('false');
+    expect(screen.getByTestId('plain')).toHaveTextContent('off');
+    expect(localStorage.getItem('votelab_plain')).toBe('false');
   });
 
-  it('hydrate() restores expert mode from localStorage', () => {
+  it('hydrate() restores plain language from localStorage', () => {
+    localStorage.setItem('votelab_plain', 'true');
+    useUIStore.getState().hydrate();
+    render(<PlainConsumer />);
+    expect(screen.getByTestId('plain')).toHaveTextContent('on');
+  });
+});
+
+describe('useUIStore — the retired Beginner/Expert level', () => {
+  it('has no level in its state, and hydrate() does not read the key an earlier version left', () => {
     localStorage.setItem('votelab_expert', 'true');
     useUIStore.getState().hydrate();
-    render(<ExpertConsumer />);
-    expect(screen.getByTestId('expert')).toHaveTextContent('on');
+    const state = useUIStore.getState() as unknown as Record<string, unknown>;
+    expect(state).not.toHaveProperty('expertMode');
+    expect(state).not.toHaveProperty('setExpertMode');
+  });
+
+  it('forgets that key at app start, and leaves the live ones alone', () => {
+    localStorage.setItem('votelab_expert', 'true');
+    localStorage.setItem('votelab_plain', 'true');
+    localStorage.setItem('votelab_theme', 'dark');
+    initUITheme();
+    expect(localStorage.getItem('votelab_expert')).toBeNull();
+    expect(localStorage.getItem('votelab_plain')).toBe('true');
+    expect(localStorage.getItem('votelab_theme')).toBe('dark');
   });
 });

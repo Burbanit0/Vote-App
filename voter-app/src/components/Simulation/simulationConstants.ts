@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { usePlainLanguage } from '../../stores/useUIStore';
+import { RULE_LABELS } from '../../lib/playgroundVoting';
 
 // The methods the simulation surfaces report on, in display order.
 const METHOD_KEYS = [
@@ -61,10 +63,20 @@ const PLAYGROUND_RULE_KEYS = [
  */
 export function useMethodLabels(): Record<string, string> {
   const { t } = useTranslation();
-  return {
+  const { plainLanguage } = usePlainLanguage();
+  const labels: Record<string, string> = {
     ...Object.fromEntries(PLAYGROUND_RULE_KEYS.map((k) => [k, t(`playground:rules.${k}`)])),
     // METHOD_KEYS last: where a rule is named in both namespaces, the
     // simulation surfaces' own wording wins.
     ...Object.fromEntries(METHOD_KEYS.map((k) => [k, t(`methods.${k}.label`)])),
   };
+  // Plain-language mode speaks on the charts too: a label whose id is one of the engine's rules
+  // takes that rule's plain name, so a method is not "Drop the below-average" on one page and
+  // "Nanson" on another. (Ids only the simulation knows, like `kemeny_young`, keep their label.)
+  if (plainLanguage) {
+    for (const k of Object.keys(labels)) {
+      if (k in RULE_LABELS) labels[k] = t(`playground:rulesPlain.${k}`);
+    }
+  }
+  return labels;
 }

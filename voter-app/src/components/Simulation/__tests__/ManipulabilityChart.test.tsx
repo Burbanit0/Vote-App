@@ -19,13 +19,32 @@ interface MockManipResult {
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="bar-chart">{children}</div>
+  BarChart: ({
+    children,
+    data,
+  }: {
+    children?: React.ReactNode;
+    data?: { manipulability_rate: number }[];
+  }) => (
+    <div
+      data-testid="bar-chart"
+      data-points={data?.length}
+      data-rates={data?.map((d) => d.manipulability_rate).join(',')}
+    >
+      {children}
+    </div>
   ),
   Bar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
   Cell: () => null,
-  LabelList: () => null,
+  // Real recharts calls `formatter` for each bar's label; the mock calls it directly with a number
+  // and with something that is not one, so both of its outcomes are exercised.
+  LabelList: ({ formatter }: { formatter?: (v: unknown) => string }) =>
+    formatter ? (
+      <div data-testid="manip-label">
+        {formatter(12.34)}|{formatter(undefined)}
+      </div>
+    ) : null,
   ReferenceLine: () => null,
   // Real recharts computes its own tick values; the mock calls the
   // formatter directly so the `%`-suffix formatting is exercised.
@@ -146,5 +165,56 @@ describe('ManipulabilityChart', () => {
     fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
     await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
     expect(screen.getByText(/1 méthode/)).toBeInTheDocument();
+  });
+
+  it('shows every method, with what the chart means and the detail table, for everyone', async () => {
+    // Beginner/Expert used to cut the chart to the 3 most resistant methods and hide the table.
+    const methods = ['plurality', 'borda', 'irv', 'approval', 'schulze'];
+    apiClient.GET.mockResolvedValue({
+      data: { results: methods.map((m, i) => ({ ...makeResult(5 + i * 7), method: m })) },
+      error: undefined,
+    });
+    renderChart();
+    // What it means is there before any run, not only for a "beginner".
+    expect(screen.getByText(/Gibbard-Satterthwaite/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    expect(screen.getByText(/5 méthodes/)).toBeInTheDocument();
+    // Every method is a bar of the chart, not only the most resistant three.
+    expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-points', String(methods.length));
+    expect(screen.getByText('Détail par méthode')).toBeInTheDocument();
+    // One row per method in the detail table (plus its header row).
+    expect(screen.getAllByRole('row')).toHaveLength(methods.length + 1);
+  });
+
+  it('ranks a long list of methods, most resistant first, and scrolls it inside the card', async () => {
+    // Unsorted from the backend, 14 methods: the old beginner view kept only the first 3 by rate.
+    const rates = [31, 4, 18, 9, 44, 2, 27, 13, 36, 7, 22, 40, 15, 25];
+    apiClient.GET.mockResolvedValue({
+      data: { results: rates.map((r, i) => ({ ...makeResult(r), method: `m${i}` })) },
+      error: undefined,
+    });
+    renderChart();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    const chart = screen.getByTestId('bar-chart');
+    expect(chart).toHaveAttribute('data-points', String(rates.length));
+    expect(chart.getAttribute('data-rates')).toBe([...rates].sort((a, b) => a - b).join(','));
+    // 14 bars would stand ~730px tall: the card scrolls instead of lengthening the page.
+    expect(screen.getByTestId('manip-chart-scroll')).toHaveStyle({
+      maxHeight: '520px',
+      overflowY: 'auto',
+    });
+  });
+
+  it('labels each bar with its rate to one decimal, and a dash where there is none', async () => {
+    apiClient.GET.mockResolvedValue({
+      data: { results: [makeResult(3), makeResult(45)] },
+      error: undefined,
+    });
+    renderChart();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    expect(screen.getByTestId('manip-label')).toHaveTextContent('12.3 %|—');
   });
 });

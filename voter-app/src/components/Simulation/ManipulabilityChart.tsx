@@ -18,7 +18,6 @@ import {
 } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { numericTickFormatter } from '@/lib/rechartsFormatters';
-import { useExpertMode } from '../../stores/useUIStore';
 import { useMethodLabels } from './simulationConstants';
 import { apiClient } from '../../api/client';
 
@@ -39,6 +38,9 @@ interface ManipResult {
   }>;
   error?: string;
 }
+
+/** A result that has a rate (the others are left out of the chart). */
+type RatedResult = ManipResult & { manipulability_rate: number };
 
 interface Props {
   baseParams: {
@@ -102,10 +104,9 @@ function ManipTooltip({ active, payload }: TooltipContentProps) {
 // ── ManipulabilityChart ───────────────────────────────────────────────────────
 
 const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
-  const { expertMode } = useExpertMode();
   const methodLabels = useMethodLabels();
 
-  const [data, setData] = useState<ManipResult[]>([]);
+  const [data, setData] = useState<RatedResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,7 +130,9 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
       );
       if (apiErr || !resp) throw new Error("Erreur lors de l'analyse");
       const results = (resp as { results: ManipResult[] }).results;
-      setData(results.filter((r) => r.manipulability_rate !== null));
+      // Most resistant first: "the lower, the better" reads as a ranking of every method.
+      const rated = results.filter((r): r is RatedResult => r.manipulability_rate !== null);
+      setData(rated.sort((a, b) => a.manipulability_rate - b.manipulability_rate));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur lors de l'analyse");
     } finally {
@@ -137,14 +140,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
     }
   }, [baseParams]);
 
-  // Beginner mode: top 3 most resistant (lowest rate)
-  const displayData = expertMode
-    ? data
-    : [...data]
-        .sort((a, b) => (a.manipulability_rate ?? 100) - (b.manipulability_rate ?? 100))
-        .slice(0, 3);
-
-  const chartData = displayData.map((d) => ({
+  const chartData = data.map((d) => ({
     ...d,
     label: methodLabels[d.method] ?? d.method,
   }));
@@ -171,20 +167,18 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
         )}
       </div>
 
-      {/* ── Beginner explanation ── */}
-      {!expertMode && (
-        <Alert
-          variant="light"
-          className="mb-3"
-          style={{ fontSize: '0.85rem', borderLeft: '3px solid #0d6efd' }}
-        >
-          <strong>Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de vote
-          ne peut être complètement résistante à la manipulation. Ce graphique montre les{' '}
-          <strong>3 méthodes les plus résistantes</strong> au vote stratégique. Un faible taux
-          signifie que peu d'électeurs peuvent améliorer leur résultat en mentant sur leurs
-          préférences.
-        </Alert>
-      )}
+      {/* ── What it means ── */}
+      <Alert
+        variant="light"
+        className="mb-3"
+        style={{ fontSize: '0.85rem', borderLeft: '3px solid #0d6efd' }}
+      >
+        <strong>Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de vote ne
+        peut être complètement résistante à la manipulation. Ce graphique montre, pour{' '}
+        <strong>chaque méthode</strong>, la part d'électeurs qui peuvent améliorer leur résultat en
+        mentant sur leurs préférences : plus le taux est faible, plus la méthode résiste au vote
+        stratégique.
+      </Alert>
 
       {/* ── Error ── */}
       {error && <Alert variant="danger">{error}</Alert>}
@@ -241,66 +235,71 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
               </span>
             </div>
 
-            <ResponsiveContainer width="100%" height={chartData.length * 48 + 60}>
-              <BarChart
-                data={chartData}
-                layout="vertical"
-                margin={{ top: 4, right: 60, left: 0, bottom: 16 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal={false}
-                  stroke="var(--bs-border-color, #dee2e6)"
-                />
-                <XAxis
-                  type="number"
-                  domain={[0, 100]}
-                  tickFormatter={numericTickFormatter((v) => `${v} %`)}
-                  tick={{ fontSize: 11 }}
-                  label={{
-                    value: 'Taux de manipulation (%)',
-                    position: 'insideBottom',
-                    offset: -10,
-                    fontSize: 11,
-                    fill: '#6c757d',
-                  }}
-                />
-                <YAxis type="category" dataKey="label" width={110} tick={{ fontSize: 12 }} />
-                <Tooltip content={ManipTooltip} />
-
-                {/* Threshold reference line at 5 % */}
-                <ReferenceLine
-                  x={5}
-                  stroke="#f59e0b"
-                  strokeDasharray="5 3"
-                  strokeWidth={2}
-                  label={{
-                    value: 'Seuil 5 %',
-                    position: 'top',
-                    fontSize: 11,
-                    fill: '#b45309',
-                  }}
-                />
-
-                <Bar dataKey="manipulability_rate" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={rateColor(entry.manipulability_rate ?? 0)} />
-                  ))}
-                  <LabelList
-                    dataKey="manipulability_rate"
-                    position="right"
-                    formatter={(v: unknown) => (typeof v === 'number' ? `${v.toFixed(1)} %` : '—')}
-                    style={{ fontSize: '0.8rem', fill: 'var(--bs-body-color, #333)' }}
+            {/* Every method is a bar: past a dozen, the chart scrolls inside its card. */}
+            <div data-testid="manip-chart-scroll" style={{ maxHeight: 520, overflowY: 'auto' }}>
+              <ResponsiveContainer width="100%" height={chartData.length * 48 + 60}>
+                <BarChart
+                  data={chartData}
+                  layout="vertical"
+                  margin={{ top: 4, right: 60, left: 0, bottom: 16 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    horizontal={false}
+                    stroke="var(--bs-border-color, #dee2e6)"
                   />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    tickFormatter={numericTickFormatter((v) => `${v} %`)}
+                    tick={{ fontSize: 11 }}
+                    label={{
+                      value: 'Taux de manipulation (%)',
+                      position: 'insideBottom',
+                      offset: -10,
+                      fontSize: 11,
+                      fill: '#6c757d',
+                    }}
+                  />
+                  <YAxis type="category" dataKey="label" width={110} tick={{ fontSize: 12 }} />
+                  <Tooltip content={ManipTooltip} />
+
+                  {/* Threshold reference line at 5 % */}
+                  <ReferenceLine
+                    x={5}
+                    stroke="#f59e0b"
+                    strokeDasharray="5 3"
+                    strokeWidth={2}
+                    label={{
+                      value: 'Seuil 5 %',
+                      position: 'top',
+                      fontSize: 11,
+                      fill: '#b45309',
+                    }}
+                  />
+
+                  <Bar dataKey="manipulability_rate" radius={[0, 4, 4, 0]} maxBarSize={28}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={rateColor(entry.manipulability_rate)} />
+                    ))}
+                    <LabelList
+                      dataKey="manipulability_rate"
+                      position="right"
+                      formatter={(v: unknown) =>
+                        typeof v === 'number' ? `${v.toFixed(1)} %` : '—'
+                      }
+                      style={{ fontSize: '0.8rem', fill: 'var(--bs-body-color, #333)' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardBody>
         </Card>
       )}
 
-      {/* ── Expert detail table ── */}
-      {expertMode && data.length > 0 && (
+      {/* ── Detail table ── */}
+      {data.length > 0 && (
         <Card>
           <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>Détail par méthode</strong>
@@ -321,7 +320,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
               </thead>
               <tbody>
                 {data.map((r) => {
-                  const rate = r.manipulability_rate ?? 0;
+                  const rate = r.manipulability_rate;
                   return (
                     <tr key={r.method}>
                       <td className="font-semibold">{methodLabels[r.method] ?? r.method}</td>
