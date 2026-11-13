@@ -72,6 +72,7 @@ vi.mock('../../services/profileApi', () => ({
 
 import { MemoryRouter, Routes, Route } from 'react-router';
 import PlaygroundPage from '../PlaygroundPage';
+import { useUIStore } from '../../stores/useUIStore';
 import {
   useElectionStore,
   DEFAULT_PLAYGROUND,
@@ -855,5 +856,31 @@ describe('PlaygroundPage — the winner strip says why and when it flips', () =>
     setCandidates(line(-0.1));
     setCandidates(line(0.6).map((c) => (c.name === 'Bob' ? { ...c, name: 'Robert' } : c)));
     expect(screen.queryByTestId('winner-flip')).not.toBeInTheDocument();
+  });
+});
+
+describe('PlaygroundPage — plain-language names reach every rule name on the instrument', () => {
+  afterEach(() => useUIStore.setState({ plainLanguage: false }));
+
+  it('names the rule in the footer and on the Méthode checkboxes, technical by default', () => {
+    renderPage();
+    // The footer summary names the rule the map is under (exact text: the strip says "Under …:").
+    expect(screen.getAllByText('Plurality (1 round)')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(screen.getByTestId('rule-check-plurality')).toHaveTextContent('Plurality (1 round)');
+    expect(screen.getByTestId('rule-check-kemeny')).toHaveTextContent('Kemeny-Young');
+  });
+
+  it('with plain language on, both say it in plain words, for a rule that had no plain name too', () => {
+    useUIStore.setState({ plainLanguage: true });
+    renderPage();
+    expect(screen.getAllByText('Most votes')).toHaveLength(1);
+    expect(screen.queryByText('Plurality (1 round)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('moment-method'));
+    expect(screen.getByTestId('rule-check-plurality')).toHaveTextContent('Most votes');
+    expect(screen.getByTestId('rule-check-kemeny')).toHaveTextContent('Best overall ranking');
+    expect(screen.getByTestId('rule-check-random_ballot')).toHaveTextContent(
+      'Draw a ballot at random'
+    );
   });
 });

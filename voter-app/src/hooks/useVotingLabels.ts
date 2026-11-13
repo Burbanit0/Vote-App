@@ -45,12 +45,12 @@ export function useVotingLabels() {
   // (PlaygroundController's context value chief among them: axisMeta/
   // structureLabels flow straight into its own useMemo dependency list).
   return useMemo(() => {
-    // Plain-language mode swaps the technical method name for a plain one, but
-    // only where a plain label exists (bounded set) — otherwise keeps the real term.
+    // Plain-language mode swaps the technical method name for a plain one. Every rule has one
+    // (rulesPlain.test.ts locks that: a rule added without it fails there, not on screen).
     const ruleLabels = Object.fromEntries(
       (Object.keys(RULE_LABELS) as Rule[]).map((r) => [
         r,
-        plainLanguage ? t(`rulesPlain.${r}`, { defaultValue: t(`rules.${r}`) }) : t(`rules.${r}`),
+        plainLanguage ? t(`rulesPlain.${r}`) : t(`rules.${r}`),
       ])
     ) as Record<Rule, string>;
 
