@@ -57,6 +57,51 @@ test.describe('Laboratoire — rail, catalogue, bench', () => {
     await expect(page.locator('[data-testid="lab-bench"]')).toContainText(label);
   });
 
+  test('the search finds a fiche in another family, and opens it with its family', async ({
+    page,
+  }) => {
+    // The jury fiche lives in "systems"; read its title there, then look for it from "methods".
+    await page.locator('[data-testid="lab-family-systems"]').click();
+    const label = (
+      (await page.locator('[data-testid="chip-mech-jury"]').textContent()) ?? ''
+    ).trim();
+    await page.locator('[data-testid="lab-family-methods"]').click();
+    await expect(page.locator('[data-testid="chip-mech-jury"]')).toHaveCount(0);
+
+    await page.locator('[data-testid="lab-search"]').fill(label);
+    await expect(page.locator('[data-testid="chip-mech-jury"]')).toBeVisible();
+    await expect(page.locator('[data-testid="chip-lab-matrix"]')).toHaveCount(0);
+
+    await page.locator('[data-testid="chip-mech-jury"]').click();
+    await expect(page.locator('[data-testid="lab-bench"]')).toContainText(label);
+    // While the results stand in for the catalogue no family is the one being read; clearing the
+    // box lands on the fiche's own.
+    await page.locator('[data-testid="lab-search"]').press('Escape');
+    await expect(page.locator('[data-testid="lab-family-systems"]')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await expect(page.locator('[data-testid="chip-mech-jury"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Nothing matches: the box says so instead of showing an empty catalogue.
+    await page.locator('[data-testid="lab-search"]').fill('zzzzqq');
+    await expect(page.locator('[data-testid="lab-search-empty"]')).toBeVisible();
+  });
+
+  test('Comparer is offered only on a fiche that reads the electorate', async ({ page }) => {
+    // The matrix (the default fiche) reads it: the button is there.
+    await expect(page.locator('[data-testid="lab-compare"]')).toBeVisible();
+    await expect(page.locator('[data-testid="lab-elec-note"]')).toHaveCount(0);
+    // Sen's paradox does not: no button, and the label says the electorate's mix is not what shapes it.
+    await page.goto('/laboratoire?exp=thy-sen');
+    await expect(page.locator('[data-testid="lab-bench"]')).toBeVisible();
+    await expect(page.locator('[data-testid="lab-compare"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="lab-elec-note"]')).toBeVisible();
+  });
+
   test('Comparer opens a second bench on another electorate', async ({ page }) => {
     await page.locator('[data-testid="lab-compare"]').click();
     const picker = page.locator('[data-testid="lab-elec-picker"]');

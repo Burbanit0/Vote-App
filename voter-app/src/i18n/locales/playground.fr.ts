@@ -1509,6 +1509,13 @@ const pgFr = {
     comparePick: 'Comparer la même fiche sur :',
     compareStop: 'Fermer la comparaison',
     elecCurrent: 'Électorat actuel',
+    elecIndependent: 'Identique quel que soit l’électorat',
+    elecIndependentNote:
+      'Tourne sur les candidats, le nombre d’électeurs et le préréglage d’idéologie, pas sur l’électorat composé : comparer des électorats ne changerait rien ici.',
+    search: 'Chercher une fiche…',
+    searchResults_one: '{{count}} fiche correspond',
+    searchResults_other: '{{count}} fiches correspondent',
+    searchEmpty: 'Aucune fiche ne correspond à « {{q}} ».',
     matrix: {
       title: 'Comparaison des méthodes',
       colMethod: 'Méthode',
