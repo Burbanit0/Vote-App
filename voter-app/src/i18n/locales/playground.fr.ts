@@ -76,7 +76,7 @@ const pgFr = {
         approval:
           'Passez au vote par approbation : cette fois, c’est Bob. Trois méthodes, trois vainqueurs.',
         condorcet:
-          'En duel un-contre-un, personne ne bat les deux autres : Alice bat Bob, Bob bat Carol, mais Carol bat Alice. Il n’y a pas de vainqueur de Condorcet — c’est le paradoxe de Condorcet. La règle « Condorcet (Copeland) » doit pourtant trancher : chacun gagne un duel, et c’est le départage (ici, l’ordre de la liste) qui désigne Alice. Quand la majorité tourne en rond, c’est la méthode qui choisit.',
+          'En duel un-contre-un, personne ne bat les deux autres : Alice bat Bob, Bob bat Carol, mais Carol bat Alice. Il n’y a pas de vainqueur de Condorcet — c’est le paradoxe de Condorcet. La règle « Condorcet (Copeland) » doit pourtant trancher : chacun gagne un duel, et c’est le départage (ici, un tirage au sort sur les noms, pas l’ordre de la liste) qui désigne Carol. Quand la majorité tourne en rond, c’est la méthode qui choisit.',
       },
     },
     utile: {

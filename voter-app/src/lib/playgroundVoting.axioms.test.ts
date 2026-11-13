@@ -173,6 +173,26 @@ function promoteToFirst(ranks: number[][], ballotIndex: number, candidate: numbe
   return ranks.map((row, i) => (i === ballotIndex ? promoted : row));
 }
 
+/**
+ * Every candidate the rule can elect when its tie lot runs over different names: the lot draws over
+ * the tied candidates' NAMES, so relabelling the field walks through the draws a seed would. A
+ * profile with one possible winner has no tie for the lot to settle. (The backend's twin is
+ * api/tests/strict_outcomes.py, which varies the seed.) Criteria are claims about the algorithm,
+ * not about the lot: a draw over a different pool of tied candidates can name someone else after
+ * an innocent change to the ballots, so they are read over these sets.
+ */
+const RELABELLINGS = 128;
+function possibleWinners(ranks: number[][], n: number, rule: Rule): Set<number> {
+  const out = new Set<number>();
+  for (let k = 0; k < RELABELLINGS; k++) {
+    const names = Array.from({ length: n }, (_, i) => ((i + 1) * 2654435761 + k * 40503) >>> 0).map(
+      (h) => h.toString(36)
+    );
+    out.add(ruleWinnerFromRanks(ranks, n, rule, undefined, names));
+  }
+  return out;
+}
+
 // ── 1. Condorcet winner ──────────────────────────────────────────────────────
 
 const CONDORCET_WINNER_SATISFIES: Rule[] = [
@@ -279,28 +299,38 @@ describe('Condorcet loser criterion — must never elect the Condorcet loser', (
   });
 
   it('benham can be violated (found by fast-check, hand-verified against the backend too)', () => {
-    // Same family as coombs above: 4 candidates, a 6-ballot profile the
-    // Python matrix's fixed Hypothesis examples never happened to sample.
+    // A 5-ballot profile where the Condorcet loser is the ONLY candidate Benham can elect: no
+    // draw is involved (the earlier 6-ballot witness left three candidates tied, so the loser
+    // won only a tie-break). Same profile as the Python matrix.
     const ranks = [
-      [2, 0, 3, 1],
-      [1, 3, 0, 2],
+      [1, 2, 0, 3],
+      [2, 1, 0, 3],
       [3, 2, 0, 1],
-      [2, 0, 3, 1],
-      [1, 2, 3, 0],
-      [3, 2, 0, 1],
+      [0, 1, 2, 3],
+      [3, 0, 1, 2],
     ];
-    expect(condorcetLoser(ranks, 4)).toBe(1);
-    expect(ruleWinnerFromRanks(ranks, 4, 'benham')).toBe(1);
+    const loser = condorcetLoser(ranks, 4);
+    expect(loser).toBeGreaterThanOrEqual(0);
+    expect([...possibleWinners(ranks, 4, 'benham')]).toEqual([loser]);
   });
 
   it('raynaud can be violated (found by fast-check, hand-verified against the backend too)', () => {
+    // No draw: the Condorcet loser is the only candidate Raynaud can elect. (The earlier 3-ballot
+    // witness is a four-way tie, where every candidate can win.) Same as the Python matrix.
     const ranks = [
-      [3, 1, 0, 2],
-      [1, 2, 3, 0],
-      [2, 0, 3, 1],
+      [1, 3, 0, 2],
+      [3, 2, 1, 0],
+      [1, 0, 2, 3],
+      [0, 2, 3, 1],
+      [2, 3, 1, 0],
+      [0, 2, 1, 3],
+      [3, 2, 1, 0],
+      [1, 0, 3, 2],
+      [0, 2, 1, 3],
     ];
-    expect(condorcetLoser(ranks, 4)).toBe(0);
-    expect(ruleWinnerFromRanks(ranks, 4, 'raynaud')).toBe(0);
+    const loser = condorcetLoser(ranks, 4);
+    expect(loser).toBeGreaterThanOrEqual(0);
+    expect([...possibleWinners(ranks, 4, 'raynaud')]).toEqual([loser]);
   });
 });
 
@@ -326,23 +356,25 @@ describe('Majority criterion — a strict first-choice majority must win', () =>
   });
 
   it('dowdall can be violated (found by fast-check, hand-verified against the backend too)', () => {
-    // B has an outright majority of first-place votes (5 of 9), but ties A
-    // exactly on Dowdall score (19/3 each, in exact fractions) and loses
-    // the alphabetical tie-break -- same family as Borda's already-known
-    // majority weakness, just rarer (needs an exact score tie).
+    // B has an outright majority of first-place votes (6 of 11) and A is the only candidate
+    // Dowdall can elect: no tie, no draw -- the same family as Borda's majority weakness. (The
+    // earlier witness had B tie A exactly on Dowdall score and lose the tie-break; under a lot
+    // that is a draw, not a violation. Same profile as the Python matrix's search.)
     const ranks = [
-      [0, 2, 1],
-      [1, 0, 2],
-      [0, 2, 1],
-      [1, 0, 2],
-      [0, 2, 1],
-      [1, 0, 2],
-      [0, 2, 1],
-      [1, 0, 2],
       [1, 2, 0],
+      [1, 0, 2],
+      [0, 2, 1],
+      [0, 2, 1],
+      [0, 2, 1],
+      [1, 0, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 0, 2],
     ];
     expect(majorityFirstChoice(ranks, 3)).toBe(1);
-    expect(ruleWinnerFromRanks(ranks, 3, 'dowdall')).toBe(0);
+    expect([...possibleWinners(ranks, 3, 'dowdall')]).toEqual([0]);
   });
 });
 
@@ -559,12 +591,17 @@ describe('Monotonicity — ranking the winner higher must never make them lose',
   it.each(MONOTONICITY_SATISFIES)('%s', (rule) => {
     fc.assert(
       fc.property(profileArb, ({ n, ranks }) => {
-        const winner = ruleWinnerFromRanks(ranks, n, rule);
-        if (winner < 0) return true;
-        for (let i = 0; i < ranks.length; i++) {
-          if (ranks[i][0] === winner) continue;
-          const modified = promoteToFirst(ranks, i, winner);
-          return ruleWinnerFromRanks(modified, n, rule) === winner;
+        // Every candidate the rule can elect (some draw of its tie lot) must stay one of
+        // them when promoted: a draw over a different pool of tied candidates is the lot's
+        // business, not the algorithm's (see possibleWinners).
+        for (const winner of possibleWinners(ranks, n, rule)) {
+          if (winner < 0) continue;
+          for (let i = 0; i < ranks.length; i++) {
+            if (ranks[i][0] === winner) continue;
+            const modified = promoteToFirst(ranks, i, winner);
+            if (!possibleWinners(modified, n, rule).has(winner)) return false;
+            break; // one promotion per candidate is enough signal
+          }
         }
         return true;
       }),
@@ -573,36 +610,43 @@ describe('Monotonicity — ranking the winner higher must never make them lose',
   });
 
   it('smith_irv can be violated (pinned, ported from the Python matrix)', () => {
+    // No tie anywhere: B is the only candidate the rule can elect, and after promoting B on one
+    // ballot A is (the profile the Python matrix pins; the earlier witness leaned on a name
+    // tie-break).
     const ranks = [
-      [3, 0, 2, 1], // D A C B
-      [2, 0, 3, 1], // C A D B
-      [3, 1, 2, 0], // D B C A
-      [1, 2, 0, 3], // B C A D
-      [0, 3, 2, 1], // A D C B
-      [3, 2, 1, 0], // D C B A
+      [2, 0, 1, 3],
+      [2, 0, 1, 3],
+      [1, 0, 3, 2],
+      [3, 2, 0, 1],
+      [0, 2, 3, 1],
+      [3, 2, 0, 1],
+      [0, 1, 3, 2],
+      [1, 3, 0, 2],
       [1, 2, 0, 3],
-      [0, 3, 2, 1],
-      [1, 0, 3, 2], // B A D C
     ];
-    expect(ruleWinnerFromRanks(ranks, 4, 'smith_irv')).toBe(0); // A
-    const modified = promoteToFirst(ranks, 0, 0);
-    expect(ruleWinnerFromRanks(modified, 4, 'smith_irv')).toBe(1); // B
+    expect([...possibleWinners(ranks, 4, 'smith_irv')]).toEqual([1]);
+    const modified = promoteToFirst(ranks, 0, 1);
+    expect([...possibleWinners(modified, 4, 'smith_irv')]).toEqual([0]);
   });
 
   it('nanson can be violated (pinned, ported from the Python matrix)', () => {
+    // No tie anywhere: A is the only candidate the rule can elect, and promoting A on one ballot
+    // makes A impossible (the profile the Python matrix pins; the earlier 8-ballot witness left
+    // B and D tied after the promotion, a draw rather than a violation).
     const ranks = [
-      [2, 3, 1, 0], // C D B A
-      [2, 0, 3, 1], // C A D B
-      [1, 3, 0, 2], // B D A C
-      [3, 2, 1, 0], // D C B A
-      [1, 3, 0, 2],
-      [2, 0, 1, 3], // C A B D
-      [3, 0, 2, 1], // D A C B
-      [1, 0, 3, 2], // B A D C
+      [2, 0, 3, 1],
+      [3, 1, 0, 2],
+      [3, 1, 2, 0],
+      [0, 2, 3, 1],
+      [0, 3, 1, 2],
+      [2, 1, 0, 3],
+      [3, 0, 1, 2],
+      [1, 2, 3, 0],
+      [1, 0, 2, 3],
     ];
-    expect(ruleWinnerFromRanks(ranks, 4, 'nanson')).toBe(3); // D
-    const modified = promoteToFirst(ranks, 0, 3);
-    expect(ruleWinnerFromRanks(modified, 4, 'nanson')).toBe(1); // B
+    expect([...possibleWinners(ranks, 4, 'nanson')]).toEqual([0]);
+    const modified = promoteToFirst(ranks, 6, 0);
+    expect(possibleWinners(modified, 4, 'nanson').has(0)).toBe(false);
   });
 });
 

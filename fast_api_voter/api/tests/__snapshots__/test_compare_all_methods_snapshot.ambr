@@ -395,11 +395,11 @@
       'winner': 'Ann',
     }),
     'coombs': dict({
-      'bayesian_regret': None,
+      'bayesian_regret': 0.16,
       'condorcet_consistent': None,
-      'majority_satisfaction': None,
+      'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': None,
+      'winner': 'Ann',
     }),
     'copeland': dict({
       'bayesian_regret': 0.16,
@@ -452,11 +452,11 @@
       'winner': 'Ann',
     }),
     'irv': dict({
-      'bayesian_regret': None,
+      'bayesian_regret': 0.16,
       'condorcet_consistent': None,
-      'majority_satisfaction': None,
+      'majority_satisfaction': 0.5,
       'strategic_vulnerability': None,
-      'winner': None,
+      'winner': 'Ann',
     }),
     'kemeny_young': dict({
       'bayesian_regret': 0.16,

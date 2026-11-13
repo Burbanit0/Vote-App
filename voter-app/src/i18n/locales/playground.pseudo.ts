@@ -91,7 +91,7 @@ const pgPseudo: PlaygroundKeys = {
         approval:
           '⟦Pásséz~~~ áú~ vóté~~ pár~~ áppróbátíóñ~~~~ :~ çétté~~ fóís,~~ ç’ést~~ Bób.~~ Tróís~~ méthódés,~~~~ tróís~~ váíñqúéúrs.~~~~⟧',
         condorcet:
-          '⟦Éñ~ dúél~~ úñ-çóñtré-úñ,~~~~~ pérsóññé~~~ ñé~ bát~~ lés~~ déúx~~ áútrés~~~ :~ Álíçé~~ bát~~ Bób,~~ Bób~~ bát~~ Cáról,~~~ máís~~ Cáról~~ bát~~ Álíçé.~~~ Íl~ ñ’y~~ á~ pás~~ dé~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ ç’ést~~ lé~ párádóxé~~~ dé~ Cóñdórçét.~~~~ Lá~ règlé~~ «~ Cóñdórçét~~~~ (Cópéláñd)~~~~ »~ dóít~~ póúrtáñt~~~ tráñçhér~~~ :~ çháçúñ~~~ gágñé~~ úñ~ dúél,~~ ét~ ç’ést~~ lé~ dépártágé~~~~ (íçí,~~ l’órdré~~~ dé~ lá~ lísté)~~~ qúí~~ désígñé~~~ Álíçé.~~~ Qúáñd~~ lá~ májóríté~~~ tóúrñé~~~ éñ~ róñd,~~ ç’ést~~ lá~ méthódé~~~ qúí~~ çhóísít.~~~⟧',
+          '⟦Éñ~ dúél~~ úñ-çóñtré-úñ,~~~~~ pérsóññé~~~ ñé~ bát~~ lés~~ déúx~~ áútrés~~~ :~ Álíçé~~ bát~~ Bób,~~ Bób~~ bát~~ Cáról,~~~ máís~~ Cáról~~ bát~~ Álíçé.~~~ Íl~ ñ’y~~ á~ pás~~ dé~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ ç’ést~~ lé~ párádóxé~~~ dé~ Cóñdórçét.~~~~ Lá~ règlé~~ «~ Cóñdórçét~~~~ (Cópéláñd)~~~~ »~ dóít~~ póúrtáñt~~~ tráñçhér~~~ :~ çháçúñ~~~ gágñé~~ úñ~ dúél,~~ ét~ ç’ést~~ lé~ dépártágé~~~~ (íçí,~~ úñ~ tírágé~~~ áú~ sórt~~ súr~~ lés~~ ñóms,~~ pás~~ l’órdré~~~ dé~ lá~ lísté)~~~ qúí~~ désígñé~~~ Cáról.~~~ Qúáñd~~ lá~ májóríté~~~ tóúrñé~~~ éñ~ róñd,~~ ç’ést~~ lá~ méthódé~~~ qúí~~ çhóísít.~~~⟧',
       },
     },
     utile: {

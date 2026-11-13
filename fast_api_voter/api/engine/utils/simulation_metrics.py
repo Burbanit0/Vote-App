@@ -82,7 +82,7 @@ def compare_all_methods(
     Run every available voting method on the same population and return a
     structured comparison report.
 
-    `seed` seeds the score rules' tie lot (tie_lot.best): pass the request's, so an
+    `seed` seeds every rule's tie lot (tie_lot.best, tie_lot.draw): pass the request's, so an
     exact tie is drawn per request rather than always the same way.
 
     When blank_vote=True, each voter's ranking includes a "Blank" candidate
@@ -309,9 +309,12 @@ def compare_all_methods(
     # ------------------------------------------------------------------
     methods_result: Dict[str, Dict[str, Any]] = {}
 
-    for name, fn in RANKED_RULES.items():
-        winner = fn(rankings)
-        entry = _build_metrics_ranked(fn, winner)
+    for name, rule in RANKED_RULES.items():
+        # The request's seed reaches a ranked rule's tie lot too, and the strategic probe reruns
+        # the same rule with the same seed.
+        ranked = partial(rule, seed=seed)
+        winner = ranked(rankings)
+        entry = _build_metrics_ranked(ranked, winner)
         if name == "kemeny_young":
             # Informative on the polity path only. Every request schema caps
             # candidates at 8, and a blank rule splices in at most one more, so

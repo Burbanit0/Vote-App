@@ -29,6 +29,7 @@ from typing import Any, Dict
 
 import pytest
 
+from api.engine.utils.tie_lot import draw
 from api.domain.theory.workers import (
     _IIA_BORDA,
     _IIA_PLURALITY,
@@ -122,7 +123,9 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     instead of just bounds — a mutant in the hit-counting or the round(...,4)
     would move these exact values. (0.14 / 0.16 / 0.14 before plurality went
     through the engine's rule, which breaks a first-choice tie by name rather
-    than by whichever candidate was counted first.)"""
+    than by whichever candidate was counted first; 0.12 / 0.16 / 0.16 while it broke it by
+    name; 0.14 / 0.18 / 0.16 now that it draws it by lot, whose draw over a different pool
+    of tied candidates can name someone else: a tie reads as a violation here.)"""
     body, status = _iia_rate_worker({
         "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
     })
@@ -132,8 +135,8 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     # n=2 is hard-coded to 0.0 (workers.py:191) -- too few candidates to matter
     assert body["curve"] == [
         {"n_candidates": 2, "violation_rate": 0.0},
-        {"n_candidates": 3, "violation_rate": 0.12},
-        {"n_candidates": 4, "violation_rate": 0.16},
+        {"n_candidates": 3, "violation_rate": 0.14},
+        {"n_candidates": 4, "violation_rate": 0.18},
         {"n_candidates": 5, "violation_rate": 0.16},
     ]
 
@@ -143,7 +146,9 @@ def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
     times a constant -- this test pinned schulze at exactly 0.35x. The numbers
     below come from running each rule, and they disagree with the old constants
     in both directions: approval (0.55x, i.e. 0.077 at n=3) is in fact the most
-    IIA-violating rule here, and schulze (0.35x) nearly never violates it."""
+    IIA-violating rule here, and schulze (0.35x) rarely violates it. (The tie lot raised
+    every rule's measured rate a little: a draw over a different pool of tied candidates is
+    counted as a violation. Schulze read 0.02 / 0.0 / 0.0 while ties went to the first name.)"""
     def curve(method):
         body, status = _iia_rate_worker({
             "method": method, "max_candidates": 5, "num_trials": 50, "seed": 42,
@@ -151,10 +156,10 @@ def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
         assert status == 200
         return [c["violation_rate"] for c in body["curve"]]
 
-    assert curve("schulze") == [0.0, 0.02, 0.0, 0.0]
-    assert curve("approval") == [0.0, 0.44, 0.36, 0.14]
+    assert curve("schulze") == [0.0, 0.06, 0.02, 0.08]
+    assert curve("approval") == [0.0, 0.46, 0.26, 0.2]
     assert curve("kemeny_young") == [0.0, 0.02, 0.02, 0.02]
-    assert curve("condorcet") == [0.0, 0.04, 0.04, 0.04]    # measured as Copeland
+    assert curve("condorcet") == [0.0, 0.08, 0.0, 0.06]    # measured as Copeland
 
 
 def test_iia_rate_rejects_majority_judgment() -> None:
@@ -659,16 +664,17 @@ def test_collective_will_approval_still_scales_with_the_field() -> None:
     assert m["approval"] == m["plurality"] == m["borda"] == m["irv"], m
 
 
-def test_collective_will_omits_a_method_that_elects_nobody() -> None:
-    """An exact 5-5 split has no IRV winner: the engine returns None and the
-    panel leaves `irv` out rather than reporting the first candidate in the
-    request, which is what its `or cand_names[0]` fallback used to do."""
-    body = _collective_will(
-        candidates=[{"name": "Zed", "x": -0.5, "y": 0.0}, {"name": "Amy", "x": 0.5, "y": 0.0}],
-        num_voters=10, seed=0, ideology="random",
-    )
-    assert "irv" not in body["winner_by_method"]
-    assert body["winner_by_method"]["plurality"] == "Amy"
+def test_collective_will_draws_an_exact_tie_instead_of_reporting_the_first_listed() -> None:
+    """An exact 5-5 split: IRV used to return None and the panel left `irv` out (and before
+    that its `or cand_names[0]` fallback reported the first candidate in the request). The
+    engine draws it now, with the request's seed: Cat, not Ann the first listed and the first
+    by name, whichever order the request lists them in."""
+    left = {"name": "Ann", "x": -0.5, "y": 0.0}
+    right = {"name": "Cat", "x": 0.5, "y": 0.0}
+    for candidates in ([left, right], [right, left]):
+        body = _collective_will(candidates=candidates, num_voters=10, seed=0, ideology="random")
+        assert body["winner_by_method"]["irv"] == draw(["Ann", "Cat"], 0) == "Cat"
+        assert body["winner_by_method"]["plurality"] == "Cat"
 
 
 def test_collective_will_no_condorcet_winner_here_is_a_tie_not_a_cycle() -> None:

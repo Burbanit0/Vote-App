@@ -50,7 +50,14 @@ describe('voteTrace', () => {
     const trace = buildTrace(sample, cands, rule);
     const ranks = computeRanks(sample, cands);
     const scores = CARDINAL_RULES.has(rule) ? computeScores(sample, cands) : undefined;
-    const engine = ruleWinnerFromRanks(ranks, cands.length, rule, scores);
+    // The engine's names too: a tie is drawn over them, and the trace draws over the same.
+    const engine = ruleWinnerFromRanks(
+      ranks,
+      cands.length,
+      rule,
+      scores,
+      cands.map((c) => c.name)
+    );
 
     expect(trace.winner).toBe(engine);
     expect(trace.frames.length).toBeGreaterThan(0);

@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from api.engine.utils.demographic_data import _seeded_rng_pair, unseeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
-from api.engine.utils.tie_lot import ranking
+from api.engine.utils.tie_lot import best, draw, ranking
 from api.domain.simulations.helpers import (
     _build_population,
 )
@@ -193,7 +193,7 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
     Each non-final round:
         { "round": N, "scores": {name: pct}, "eliminated": name|null, "transfers": {name: pct}|null }
     Final round:
-        { "round": N, "winner": name|null }   (null: a dead tie, as in get_irv_winner)
+        { "round": N, "winner": name }   (a dead tie is drawn by lot, as in get_irv_winner)
 
     The "eliminated" / "transfers" fields on round N describe what happened
     at the *end of round N-1* (i.e. why the scores changed from N-1 to N).
@@ -255,10 +255,10 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
         last_eliminated = elim_label
         last_transfers  = transfer_pct
 
-        # Every remaining candidate tied for last: a dead tie elects nobody, as in
-        # get_irv_winner. This used to crown the alphabetically first of them.
+        # Every remaining candidate tied for last: the lot draws among them, as in
+        # get_irv_winner (this used to crown the alphabetically first of them).
         if not active:
-            rounds.append({"round": rnum + 1, "winner": None})
+            rounds.append({"round": rnum + 1, "winner": str(draw(eliminated_set))})
             break
 
     return rounds
@@ -284,7 +284,8 @@ def _borda_steps(
             "tally":          cumulative.copy(),
         })
 
-    winner: Optional[str] = min(cumulative, key=lambda k: (-cumulative[k], k)) if cumulative else None
+    # The engine's winner: the highest total, a tie drawn by lot (as get_borda_winner).
+    winner: Optional[str] = str(best(cumulative, cumulative.__getitem__)) if cumulative else None
     return steps, winner
 
 

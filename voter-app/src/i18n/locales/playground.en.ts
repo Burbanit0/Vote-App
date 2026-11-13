@@ -71,7 +71,7 @@ const pgEn: PlaygroundKeys = {
         irv: 'Switch to instant-runoff: Carol wins, with exactly the same ballots.',
         approval: 'Switch to approval voting: this time it is Bob. Three methods, three winners.',
         condorcet:
-          'Head-to-head, no one beats both others: Alice beats Bob, Bob beats Carol, but Carol beats Alice. There is no Condorcet winner — this is Condorcet’s paradox. The “Condorcet (Copeland)” rule must still pick someone: each candidate wins one duel, so a tie-break (here, list order) names Alice. When the majority goes in circles, the method does the choosing.',
+          'Head-to-head, no one beats both others: Alice beats Bob, Bob beats Carol, but Carol beats Alice. There is no Condorcet winner — this is Condorcet’s paradox. The “Condorcet (Copeland)” rule must still pick someone: each candidate wins one duel, so a tie-break (here, a seeded draw over the names, not the order of the list) names Carol. When the majority goes in circles, the method does the choosing.',
       },
     },
     utile: {

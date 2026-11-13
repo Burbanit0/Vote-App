@@ -47,10 +47,11 @@ def test_manipulation_analysis_runs_two_round_as_two_round():
     assert (winner("irv"), winner("two_round")) == ("Frank", "Dave")
 
 
-def test_a_tied_sincere_result_has_nothing_to_manipulate():
+def test_a_tied_sincere_result_is_drawn_and_has_nothing_to_manipulate():
     """IRV ties on this electorate. `or cand_names[0]` used to elect Alice, the
     first-listed candidate, and any ballot that broke the tie then counted as a
-    successful manipulation."""
+    successful manipulation. The tie is drawn by lot now (Carol, with this seed) and the
+    probe reruns the rule with the same seed, so a tie-break is still not a manipulation."""
     cands = [{"name": "Alice", "x": 0.68, "y": 0.72}, {"name": "Bob", "x": 0.63, "y": -0.67},
              {"name": "Carol", "x": 0.15, "y": -0.12}, {"name": "Dave", "x": 0.05, "y": -0.59},
              {"name": "Eve", "x": -0.49, "y": -0.09}]
@@ -58,5 +59,5 @@ def test_a_tied_sincere_result_has_nothing_to_manipulate():
         {"candidates": cands, "num_voters": 40, "seed": 23, "method": "irv"}
     )
     assert status == 200
-    assert body["sincere_winner"] is None
+    assert body["sincere_winner"] == "Carol"
     assert body["manipulation_count"] == 0 and body["manipulable"] is False
