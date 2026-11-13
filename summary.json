@@ -976,7 +976,7 @@
   "code": 122,
   "test-flaky": 16
  },
- "generated_at": "2026-11-13T01:47:33Z",
+ "generated_at": "2026-11-13T01:51:29Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1236,7 +1236,7 @@
     "success": 40
    },
    "2026-11-13": {
-    "success": 6
+    "success": 7
    }
   },
   "CI Health Watchdog": {
@@ -2197,7 +2197,7 @@
    "2026-11-13": {
     "cancelled": 2,
     "skipped": 24,
-    "success": 11
+    "success": 12
    }
   },
   "zizmor online": {
@@ -2251,9 +2251,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T01:43:12Z",
+   "created_at": "2026-11-13T01:46:26Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43346988156"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43347366553"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2349,9 +2349,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T01:48:17Z",
+   "created_at": "2026-11-13T01:50:49Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43347584931"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43347884949"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2361,7 +2361,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7148,
+ "runs": 7150,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2506,12 +2506,12 @@
     "2026-11-10": 241,
     "2026-11-11": 279,
     "2026-11-12": 263.0,
-    "2026-11-13": 240.0
+    "2026-11-13": 255
    },
    "p50_s": 356,
    "p95_s": 544,
    "queue_p50_s": 0,
-   "runs": 535
+   "runs": 536
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3049,12 +3049,12 @@
     "2026-11-10": 28,
     "2026-11-11": 27.0,
     "2026-11-12": 27,
-    "2026-11-13": 27
+    "2026-11-13": 27.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 785
+   "runs": 786
   },
   "zizmor online": {
    "daily_p50_s": {
