@@ -29,11 +29,13 @@ import {
 } from '../stores/useElectionStore';
 import { AnchorFallback } from '../components/playground/playgroundFields';
 import { track } from '../lib/analytics';
+import { hasWords, matchesQuery } from '../lib/labSearch';
 import {
   LAB_FAMILIES,
   DEFAULT_EXPERIMENT,
   locateExperiment,
   type FamilyId,
+  type LabExperiment,
   type Located,
 } from '../components/lab/labCatalog';
 
@@ -61,6 +63,47 @@ const FAMILY_ICON: Record<FamilyId, LucideIcon> = {
   dynamics: Activity,
   theory: FlaskConical,
   blank: Ban,
+};
+
+// ── A fiche's chip: in the family's catalogue, and (with its family) in the search results ──
+
+const FicheChip: React.FC<{
+  experiment: LabExperiment;
+  isActive: boolean;
+  onPick: () => void;
+  /** Named in the search results, where the chips of several families sit together. */
+  familyLabel?: string;
+}> = ({ experiment, isActive, onPick, familyLabel }) => {
+  const { t } = useTranslation('playground');
+  return (
+    <button
+      type="button"
+      data-testid={`chip-${experiment.id}`}
+      aria-pressed={isActive}
+      onMouseEnter={experiment.preload}
+      onFocus={experiment.preload}
+      onClick={onPick}
+      className={cn(
+        'rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none',
+        familyLabel && 'flex items-baseline gap-2',
+        isActive
+          ? 'border-primary bg-primary font-semibold text-primary-foreground'
+          : 'border-border bg-card text-foreground hover:border-primary/50'
+      )}
+    >
+      {t(experiment.titleKey)}
+      {familyLabel && (
+        <span
+          className={cn(
+            'text-[0.72rem] font-normal',
+            isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'
+          )}
+        >
+          {familyLabel}
+        </span>
+      )}
+    </button>
+  );
 };
 
 // ── One fiche on the bench ───────────────────────────────────────────────────
@@ -106,11 +149,24 @@ const BenchFiche: React.FC<{
               holds one side against the other. */}
             <span
               data-testid={`lab-elec-label-${side}`}
+              // A fiche that ignores the electorate's mix says so, instead of wearing a label
+              // that suggests the electorate shapes it (and Compare is not offered there).
               className="mt-2.5 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-border bg-muted px-2.5 py-0.5 text-[0.78rem] font-semibold text-muted-foreground"
             >
               <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{electorateLabel}</span>
+              <span className="truncate">
+                {experiment.readsElectorate ? electorateLabel : t('lab.elecIndependent')}
+              </span>
             </span>
+            {/* Why there is no Compare here, in text anyone reads (not a tooltip). */}
+            {!experiment.readsElectorate && (
+              <p
+                data-testid="lab-elec-note"
+                className="mt-1.5 max-w-prose text-[0.78rem] leading-snug text-muted-foreground"
+              >
+                {t('lab.elecIndependentNote')}
+              </p>
+            )}
           </div>
           {onCompare && (
             <Button
@@ -150,7 +206,9 @@ const BenchFiche: React.FC<{
       </div>
       <footer className="border-t border-border px-5 py-2 text-right sm:px-6">
         {/* The electorate label says which column a compare-mode reader was on. */}
-        <ReportContentError where={`lab:${experiment.id} @ ${electorateLabel}`} />
+        <ReportContentError
+          where={`lab:${experiment.id} @ ${experiment.readsElectorate ? electorateLabel : 'electorate-independent'}`}
+        />
       </footer>
     </section>
   );
@@ -169,8 +227,13 @@ const LaboratoireContent: React.FC = () => {
   // Comparison axis: the SAME fiche read on a second electorate (a preset), so the
   // phenomenon is held constant and only the electorate varies. `vsElec` is the
   // preset id; unknown ids fall back to no comparison.
+  // Only a fiche that reads the electorate's composition has a second column to show: on any other
+  // the two would be identical, so a stale `vsElec` in a link is ignored there.
   const vsElecRaw = searchParams.get('vsElec');
-  const vsElec = vsElecRaw && ELECTORATE_PRESETS[vsElecRaw] ? vsElecRaw : null;
+  const vsElec =
+    active.experiment.readsElectorate && vsElecRaw && ELECTORATE_PRESETS[vsElecRaw]
+      ? vsElecRaw
+      : null;
 
   // Which family's catalogue is open — follows the active fiche, but browsing
   // another family must not clear the bench.
@@ -179,6 +242,26 @@ const LaboratoireContent: React.FC = () => {
   const [pickingElec, setPickingElec] = React.useState(false);
 
   const family = LAB_FAMILIES.find((f) => f.id === familyId) ?? LAB_FAMILIES[0];
+
+  // The search box looks across every family at once; while it holds words, its results stand in
+  // for the family's catalogue. Matching is on what the chips and groups say, in the active language.
+  const [query, setQuery] = React.useState('');
+  const searching = hasWords(query);
+  const results = React.useMemo(
+    () =>
+      searching
+        ? LAB_FAMILIES.flatMap((f) =>
+            f.groups.flatMap((g) =>
+              g.experiments
+                .filter((e) =>
+                  matchesQuery(`${t(e.titleKey)} ${t(g.titleKey)} ${t(f.labelKey)}`, query)
+                )
+                .map((e) => ({ family: f, group: g, experiment: e }))
+            )
+          )
+        : [],
+    [searching, query, t]
+  );
 
   const setBench = (exp: string, vsElecNext: string | null) => {
     const params: Record<string, string> = { exp };
@@ -190,7 +273,24 @@ const LaboratoireContent: React.FC = () => {
   // the two columns always show the SAME phenomenon on their two electorates.
   const pick = (id: string) => {
     track('lab_fiche_opened', { fiche: id });
-    setBench(id, vsElec);
+    // A picker armed on one fiche is not a pending question on the next.
+    setPickingElec(false);
+    setBench(id, locateExperiment(id)?.experiment.readsElectorate ? vsElec : null);
+  };
+
+  // What the live region says: how many fiches match, or that none does (nothing, while not searching).
+  let searchStatus = '';
+  if (searching) {
+    searchStatus =
+      results.length > 0
+        ? t('lab.searchResults', { count: results.length })
+        : t('lab.searchEmpty', { q: query.trim(), interpolation: { escapeValue: false } });
+  }
+
+  // A result opens its fiche and brings its family along, so closing the search lands on it.
+  const pickResult = (located: Located) => {
+    setFamilyId(located.family.id);
+    pick(located.experiment.id);
   };
 
   // Clicking a preset opens (or re-targets) column B; clicking the open one closes.
@@ -242,6 +342,26 @@ const LaboratoireContent: React.FC = () => {
         </Link>
       </header>
 
+      {/* ── Search: across every family ── */}
+      <div className="home-up mb-3" style={{ animationDelay: '280ms' }}>
+        <input
+          data-testid="lab-search"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setQuery('');
+          }}
+          placeholder={t('lab.search')}
+          aria-label={t('lab.search')}
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none sm:max-w-md"
+        />
+        {/* Heard when the count changes; seen as the results themselves. */}
+        <p role="status" className="sr-only" data-testid="lab-search-count">
+          {searchStatus}
+        </p>
+      </div>
+
       {/* ── Family rail ── */}
       <div
         data-testid="lab-family-rail"
@@ -251,7 +371,8 @@ const LaboratoireContent: React.FC = () => {
         style={{ animationDelay: '300ms' }}
       >
         {LAB_FAMILIES.map((f) => {
-          const on = f.id === familyId;
+          // While the search stands in for the catalogue, no family is the one being read.
+          const on = !searching && f.id === familyId;
           const Icon = FAMILY_ICON[f.id];
           return (
             <button
@@ -260,7 +381,10 @@ const LaboratoireContent: React.FC = () => {
               role="radio"
               aria-checked={on}
               data-testid={`lab-family-${f.id}`}
-              onClick={() => setFamilyId(f.id)}
+              onClick={() => {
+                setQuery('');
+                setFamilyId(f.id);
+              }}
               className={cn(
                 'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-t-lg px-3 py-2.5 text-left transition-colors motion-reduce:transition-none',
                 on
@@ -293,52 +417,64 @@ const LaboratoireContent: React.FC = () => {
 
       {/* ── Catalogue of the active family ── */}
       <div data-testid="lab-catalogue" className="mt-2">
-        <div key={family.id} className="flex flex-col">
-          {family.groups.map((g, gi) => (
-            <div
-              key={g.key}
-              className="home-up flex flex-col gap-2.5 border-b border-border py-4 lg:flex-row lg:gap-8"
-              style={{ animationDelay: `${gi * 70}ms` }}
-            >
-              <p className="flex shrink-0 flex-col lg:w-56">
-                <span className="font-display text-[22px] leading-none font-extrabold">
-                  {t(g.titleKey)}
-                </span>
-                {g.subtitleKey && (
-                  <span className="mt-1 text-sm text-muted-foreground">{t(g.subtitleKey)}</span>
-                )}
+        {searching ? (
+          <div
+            data-testid="lab-search-results"
+            className="flex flex-col border-b border-border py-4"
+          >
+            {results.length === 0 ? (
+              <p data-testid="lab-search-empty" className="text-sm text-muted-foreground">
+                {t('lab.searchEmpty', { q: query.trim(), interpolation: { escapeValue: false } })}
               </p>
-              <div className="flex flex-wrap content-start gap-1.5">
-                {g.experiments.map((e) => {
-                  const isActive = e.id === active.experiment.id;
-                  return (
-                    <button
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {results.map((r) => (
+                  <li key={r.experiment.id}>
+                    <FicheChip
+                      experiment={r.experiment}
+                      isActive={r.experiment.id === active.experiment.id}
+                      onPick={() => pickResult(r)}
+                      familyLabel={t(r.family.labelKey)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <div key={family.id} className="flex flex-col">
+            {family.groups.map((g, gi) => (
+              <div
+                key={g.key}
+                className="home-up flex flex-col gap-2.5 border-b border-border py-4 lg:flex-row lg:gap-8"
+                style={{ animationDelay: `${gi * 70}ms` }}
+              >
+                <p className="flex shrink-0 flex-col lg:w-56">
+                  <span className="font-display text-[22px] leading-none font-extrabold">
+                    {t(g.titleKey)}
+                  </span>
+                  {g.subtitleKey && (
+                    <span className="mt-1 text-sm text-muted-foreground">{t(g.subtitleKey)}</span>
+                  )}
+                </p>
+                <div className="flex flex-wrap content-start gap-1.5">
+                  {g.experiments.map((e) => (
+                    <FicheChip
                       key={e.id}
-                      type="button"
-                      data-testid={`chip-${e.id}`}
-                      aria-pressed={isActive}
-                      onMouseEnter={e.preload}
-                      onFocus={e.preload}
-                      onClick={() => pick(e.id)}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none',
-                        isActive
-                          ? 'border-primary bg-primary font-semibold text-primary-foreground'
-                          : 'border-border bg-card text-foreground hover:border-primary/50'
-                      )}
-                    >
-                      {t(e.titleKey)}
-                    </button>
-                  );
-                })}
+                      experiment={e}
+                      isActive={e.id === active.experiment.id}
+                      onPick={() => pick(e.id)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Electorate comparison picker: the same fiche on a second electorate ── */}
-      {(pickingElec || vsElec) && (
+      {(pickingElec || vsElec) && active.experiment.readsElectorate && (
         <div
           data-testid="lab-elec-picker"
           className="home-up mt-6 flex flex-wrap items-center gap-2 rounded-2xl bg-envelope px-4 py-3"
@@ -369,7 +505,11 @@ const LaboratoireContent: React.FC = () => {
         <BenchFiche
           located={active}
           electorateLabel={t('lab.elecCurrent')}
-          onCompare={!vsElec ? () => setPickingElec((p) => !p) : undefined}
+          onCompare={
+            !vsElec && active.experiment.readsElectorate
+              ? () => setPickingElec((p) => !p)
+              : undefined
+          }
         />
         {vsElec && playgroundB && (
           <ElectorateOverrideProvider config={configB} playground={playgroundB}>
