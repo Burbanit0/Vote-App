@@ -92,6 +92,9 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
   nothing: IRV, Coombs, Nanson, Baldwin, Raynaud, Benham and Smith-IRV drop every candidate
   tied for last together, so a round has no tie to break; only a tie among the last survivors
   is left, and that is drawn.)
+- aggregate tallies that still follow the listing order or the names: the theory workers'
+  assumption-testing winner (`tally.index(max(tally))`, first-listed on a tie) and the
+  multiwinner completion's rng-less fallback (`sorted(..., key=(-approval, name))`, by name);
 - the runners-up the workers report (`runner_up` in `/primary` and the districts worker): the
   second place of a tie follows the listing order;
 - the theory workers' apportionment comparison (`_hamilton` and the four divisor methods in

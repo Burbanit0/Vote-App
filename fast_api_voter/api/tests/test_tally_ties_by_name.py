@@ -63,9 +63,7 @@ def test_a_tied_election_with_no_shy_voters_is_polled_right():
             "num_polls": 3, "candidates": [{"name": n, "x": x, "y": 0.0} for n, x in cands],
         })
         # The lot (seed 0) draws Cat, whichever is listed first and whichever sorts first.
-        assert body["real_results"] == {"Cat": 0.5, "Ann": 0.5} or body["real_results"] == {
-            "Ann": 0.5, "Cat": 0.5
-        }
+        assert body["real_results"] == {"Ann": 0.5, "Cat": 0.5}
         assert body["real_winner"] == "Cat"
         assert body["social_desirability_curve"][0]["winner_wrong_pct"] == 0.0
 

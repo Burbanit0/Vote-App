@@ -440,7 +440,8 @@ def _ld_tally(
     weighted_ids: List[tuple[int, int]],
     sincere_utilities: Dict[int, Dict[str, float]],
     fallback: str,
-    seed: int = 0,
+    *,
+    seed: int,
 ) -> tuple[Counter[Any], str]:
     """Plurality over each voter's top choice, each carrying their own weight.
     The liquid tally weights by delegations received; the direct baseline gives
@@ -905,14 +906,13 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 tally[choice] += 1
         # NOTA must beat every candidate outright: a tie goes to a candidate (drawn by lot
         # among those tied), so whether it voids the election can't hang on how the
-        # candidates' names sort against "NOTA". Tallies are whole numbers, so a quarter
-        # off NOTA's count ranks it below any candidate on the same count and above none
-        # with one more.
-        raw_winner = (
-            tie_lot.best(tally, lambda c: tally[c] - (0.25 if c == "NOTA" else 0.0), seed)
-            if tally
-            else cand_names[0]
-        )
+        # candidates' names sort against "NOTA".
+        contenders = {c: n for c, n in tally.items() if c != "NOTA"}
+        if contenders:
+            top = tie_lot.best(contenders, contenders.__getitem__, seed)
+            raw_winner = "NOTA" if tally.get("NOTA", 0) > contenders[top] else top
+        else:
+            raw_winner = "NOTA" if tally else cand_names[0]
         np         = tally.get("NOTA", 0) / num_voters if num_voters else 0.0
         return raw_winner, round(np, 4)
 
@@ -1500,8 +1500,8 @@ def _co_winner(
     if not v_list:
         return cnames[0] if cnames else None
     if method == "approval":
-        # Name breaks an exact tie, as in every engine rule; `max(counter)`
-        # broke it by whichever voter happened to be counted first.
+        # An exact tie is drawn by the request's seeded lot, as in every engine rule;
+        # `max(counter)` broke it by whichever voter happened to be counted first.
         t2 = _co_approval_tally(v_list, utils, voted, is_h)
         return tie_lot.best(t2, t2.__getitem__, seed) if t2 else cnames[0]
     if method == "majority_judgment":

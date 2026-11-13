@@ -96,7 +96,10 @@ def apply_quadratic_voting(
 
         # Greedy redistribution of leftover credits
         while remaining > 0:
-            affordable = [c for c in candidates if 2 * votes[c] + 1 <= remaining]
+            affordable = [
+                c for c in candidates
+                if 2 * votes[c] + 1 <= remaining and util_values[c] / (2 * votes[c] + 1) > -1.0
+            ]
             if not affordable:
                 break
             # One more vote costs 2v + 1 credits. Two options with the same value per credit
