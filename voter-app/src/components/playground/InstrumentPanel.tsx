@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { Button } from '@/components/ui/button';
 import { Instrument } from '@/components/ui/instrument';
 import { usePlaygroundCtx } from './PlaygroundController';
@@ -27,6 +28,7 @@ interface InstrumentPanelProps {
 
 const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = false }) => {
   const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
   const {
     config,
     playground,
@@ -100,7 +102,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
           <span aria-hidden className="text-border">
             ·
           </span>
-          <span className="normal-case">{t(`rules.${leaderRule}`)}</span>
+          <span className="normal-case">{ruleLabels[leaderRule]}</span>
         </>
       )}
       <span aria-hidden className="text-border">
