@@ -44,15 +44,17 @@ def test_districts_do_not_depend_on_the_listing():
 
 
 def test_a_counted_manipulator_never_reports_a_zero_gain():
-    """Voter 79 gains 8.3e-6 by compromising. Kept to 4 places the gain read
+    """One voter gains 1.2e-5 by compromising. Kept to 4 places the gain read
     0.0 on a voter counted as a manipulator; it is chosen on the exact value
-    and shown to 4 significant figures."""
+    and shown to 4 significant figures. (Seed 265174 held a voter gaining 8.3e-6 until
+    two-round's tie lot changed which finalists the probe saw; this seed was found by
+    search for the same property.)"""
     from api.domain.theory.workers import _manipulation_analysis_worker
 
     pts = [(-0.91, -0.47), (0.04, -0.74), (0.57, -0.75), (1.0, 0.13), (0.46, 0.38), (0.09, -0.69)]
     body, status = _manipulation_analysis_worker({
         "candidates": [{"name": f"C{i}", "x": x, "y": y} for i, (x, y) in enumerate(pts)],
-        "num_voters": 88, "ideology": "polarized", "seed": 265174, "method": "two_round"})
+        "num_voters": 88, "ideology": "polarized", "seed": 265479, "method": "two_round"})
     assert status == 200 and body["manipulable"]
     assert all(m["utility_gain"] > 0 for m in body["manipulators"])
     assert body["key_manipulator"]["gain"] > 0

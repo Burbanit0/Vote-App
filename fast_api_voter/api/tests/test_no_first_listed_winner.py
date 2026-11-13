@@ -1,13 +1,16 @@
-"""A rule that cannot separate the leaders elects nobody. These endpoints used
-to write `winner or cand_names[0]`, reporting each tie below as a win for the
-first-listed candidate -- and then comparing that phantom winner to others."""
+"""A rule that cannot separate the leaders draws one by lot (tie_lot.py). These endpoints used
+to write `winner or cand_names[0]`, reporting each tie below as a win for the first-listed
+candidate -- and then comparing that phantom winner to others. (An IRV dead tie used to elect
+nobody, and these tests said so; the engine now draws it, with the request's seed.)"""
 from api.domain.election.workers import _primary_worker
 from api.domain.election.workers_advanced import _demographic_turnout_worker, _dt_winner
 from api.domain.election.workers_behavioral import _behavioral_biases_worker
+from api.engine.utils.tie_lot import draw
 
 
-def test_a_tied_general_election_has_no_winner_runner_up_or_median_distance():
-    """25-25 between L1 and R2. L1, first on the ballot, used to win it."""
+def test_a_tied_general_election_is_drawn_not_won_by_the_first_listed():
+    """25-25 between L1 and R2. L1, first on the ballot, used to win it; the lot, seeded with
+    the request's seed, draws R2, and draws it whichever party is listed first."""
     parties = [
         {"name": "Left", "ideology_center": -0.5, "primary_voters_pct": 0.3,
          "primary_candidates": [{"name": "L1", "ideology_position": -0.6},
@@ -21,25 +24,31 @@ def test_a_tied_general_election_has_no_winner_runner_up_or_median_distance():
     })
     assert status == 200
     assert body["general_vote_shares"] == {"L1": 0.5, "R2": 0.5}
-    assert body["general_winner"] is None
-    assert body["general_runner_up"] is None and body["median_voter_distance"] is None
+    assert body["general_winner"] == draw(["L1", "R2"], 447) == "R2"
+    assert body["general_runner_up"] == "L1" and body["median_voter_distance"] is not None
+    flipped, _ = _primary_worker({
+        "parties": parties[::-1], "general_num_voters": 50, "seed": 447, "general_method": "irv",
+    })
+    assert flipped["general_winner"] == "R2"
 
 
-def test_a_tie_among_actual_voters_is_a_change_not_a_first_listed_win():
-    """IRV ties among those who turned out; everyone voting elects Alice. The
-    tie used to read as Alice too, so the panel said turnout changed nothing."""
+def test_a_tie_among_actual_voters_is_drawn_like_the_engine():
+    """IRV ties among those who turned out. The tie used to read as Alice (the first-listed),
+    then as no winner; the engine now draws it with the request's seed, and so does the panel.
+    Here the draw and the everyone-voting winner are both Alice, so turnout changed nothing
+    (the order-independence of the draw itself is pinned in test_compare_all_methods_snapshot)."""
     body, _ = _demographic_turnout_worker({"num_voters": 50, "seed": 35, "method": "irv"})
-    assert body["biased_result"]["winner"] is None
+    assert body["biased_result"]["winner"] == "Alice"
     assert body["corrected_result"]["winner"] == "Alice"
-    assert body["winner_changed"] is True
-    assert "égalité → 'Alice'" in body["pedagogical_note"]
+    assert body["winner_changed"] is False
 
 
-def test_a_tied_sincere_result_is_not_reported_as_alice():
+def test_a_tied_sincere_result_is_drawn_not_read_off_the_listing():
+    """A tied sincere IRV result used to be reported as Alice (first-listed), then as no winner;
+    it is the engine's draw now, and the biased run draws the same candidate."""
     body, _ = _behavioral_biases_worker({"num_voters": 50, "seed": 38, "method": "irv"})
-    assert body["sincere_winner"] is None and body["biased_winner"] == "Alice"
-    assert body["winner_changed"] is True
-    assert "égalité → 'Alice'" in body["pedagogical_note"]
+    assert body["sincere_winner"] == "Alice" == body["biased_winner"]
+    assert body["winner_changed"] is False
 
 
 def test_nobody_voting_elects_nobody():

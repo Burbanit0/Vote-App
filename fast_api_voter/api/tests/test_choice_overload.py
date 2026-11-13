@@ -31,15 +31,16 @@ def test_an_approval_tie_is_broken_by_name_not_voter_order():
                       ["A", "B"]) == "A"
 
 
-def test_electing_nobody_is_not_electing_the_condorcet_winner():
-    """At 5 candidates IRV elects nobody (an exact tie) and there is no Condorcet
-    winner. `None == None` used to report that as IRV electing the Condorcet
-    winner, and as IRV agreeing with its own sincere result."""
+def test_a_drawn_winner_is_not_the_condorcet_winner_when_there_is_none():
+    """At 5 candidates IRV ties exactly and there is no Condorcet winner. IRV used to elect
+    nobody there, and `None == None` reported that as IRV electing the Condorcet winner, and as
+    IRV agreeing with its own sincere result; it draws D now, who is not a Condorcet winner
+    that does not exist."""
     body, _ = _choice_overload_worker({
         "num_voters": 50, "seed": 0, "overload_threshold": 2, "methods": ["plurality", "irv"],
     })
     row = next(r for r in body["results_by_n"] if r["num_candidates"] == 5)
-    assert row["winner_by_method"]["irv"] is None and row["condorcet_winner"] is None
+    assert row["winner_by_method"]["irv"] == "D" and row["condorcet_winner"] is None
     assert row["methods_elect_condorcet"]["irv"] is False
 
 
@@ -96,7 +97,7 @@ def test_a_tie_for_most_robust_names_every_tied_method_in_any_request_order():
     assert "'borda', 'irv' et 'schulze' sont les méthodes les plus robustes" in body["pedagogical_note"]
     assert sorted(_robust(METHODS[::-1])["most_robust_method"]) == body["most_robust_method"]
 
-    single = _robust(METHODS, seed=0)
+    single = _robust(METHODS, seed=1)
     assert single["most_robust_method"] == ["borda"]
     assert "'borda' est la méthode la plus robuste" in single["pedagogical_note"]
 

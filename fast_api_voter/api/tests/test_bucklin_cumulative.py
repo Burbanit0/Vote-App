@@ -26,3 +26,8 @@ def test_bucklin_first_round_majority():
 
 def test_bucklin_empty():
     assert get_bucklin_winner([]) is None
+
+
+def test_bucklin_with_only_blank_ballots_has_no_winner():
+    # Ballots exist but none ranks anyone: no tally, so no winner (not an error).
+    assert get_bucklin_winner([[], []]) is None

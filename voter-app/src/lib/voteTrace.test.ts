@@ -50,7 +50,14 @@ describe('voteTrace', () => {
     const trace = buildTrace(sample, cands, rule);
     const ranks = computeRanks(sample, cands);
     const scores = CARDINAL_RULES.has(rule) ? computeScores(sample, cands) : undefined;
-    const engine = ruleWinnerFromRanks(ranks, cands.length, rule, scores);
+    // The engine's names too: a tie is drawn over them, and the trace draws over the same.
+    const engine = ruleWinnerFromRanks(
+      ranks,
+      cands.length,
+      rule,
+      scores,
+      cands.map((c) => c.name)
+    );
 
     expect(trace.winner).toBe(engine);
     expect(trace.frames.length).toBeGreaterThan(0);
@@ -106,6 +113,25 @@ describe('voteTrace', () => {
     ]);
     expect(trace.frames[0].bars).toEqual([2, 2, 1]);
     expect(trace.winner).toBe(0);
+  });
+});
+
+describe('a pairwise replay names the winner the engine draws, over the same names', () => {
+  it('on the Condorcet paradox the replay, the trace and the engine all say Carol', () => {
+    const names = ['Alice', 'Bob', 'Carol'];
+    const cands = names.map((name, i) => ({ name, x: i, y: 0 }));
+    const ranks = [
+      [0, 1, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+    ];
+    const scores = ranks.map((r) => r.map((_, i) => 1 - r.indexOf(i) / 2));
+    const trace = buildTraceFromBallots(cands, ranks, scores, 'condorcet');
+    // Each wins one duel and loses one: Copeland cannot separate them, and the lot draws Carol.
+    expect(trace.winner).toBe(2);
+    const last = trace.frames[trace.frames.length - 1];
+    expect(last.highlight).toEqual([2]);
+    expect(last.caption.params?.cand).toBe('Carol');
   });
 });
 

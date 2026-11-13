@@ -49,6 +49,7 @@ def _compute_winner(
     rankings: list[list[str]],
     utilities: Dict[Any, Dict[str, float]],
     method: str,
+    seed: object = 0,
 ) -> Optional[str]:
     """The winner under `method`, which `_adaptive_worker` has already checked
     against ADAPTIVE_METHODS (it answers a bad name with a 400). An unlisted
@@ -57,8 +58,8 @@ def _compute_winner(
     if method == "approval":
         # Sincere approval reads utilities (approve above your own mean), which
         # rankings cannot express.
-        return get_approval_winner_sincere(utilities)
-    return rule_winner(method, rankings)
+        return get_approval_winner_sincere(utilities, seed=seed)
+    return rule_winner(method, rankings, seed=seed)
 
 
 def _tactical_vote(
@@ -140,7 +141,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # Compute global sincere winner (used for drift comparison at the end)
     sincere_all_rankings = [sincere_rankings[v["id"]] for v in voters]
-    sincere_final_winner = _compute_winner(sincere_all_rankings, true_utilities, method)
+    sincere_final_winner = _compute_winner(sincere_all_rankings, true_utilities, method, seed)
 
     # Voter snapshot for ideology overlay (max 200 points)
     snap_indices = list(range(min(200, len(voters))))
@@ -168,7 +169,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         eff_utils: Dict[Any, Dict[str, float]] = {
             v["id"]: true_utilities[v["id"]] for v in voters
         }
-        winner = _compute_winner(effective_rankings, eff_utils, method)
+        winner = _compute_winner(effective_rankings, eff_utils, method, seed)
 
         # Vote shares from first-choice counts
         first_choice_counts: Counter[str] = Counter(
@@ -488,10 +489,10 @@ def _run_jury_simulation(
 
     for _ in range(num_sims):
         ballots = _generate_jury_ballots(num_voters, options, correct_idx, competence, rng)
-        # Every rule breaks an exact tie by name, and the options are named in
-        # index order, so a tie always went to option 0 -- the default correct
-        # answer -- inflating every method's accuracy. A fresh random relabelling
-        # per trial sends a tie to each tied option equally often.
+        # Every rule draws an exact tie by the seeded lot over the names, and the options are
+        # named in index order, so a tie always went to the same option (once option 0, the
+        # default correct answer) -- inflating or deflating every method's accuracy. A fresh
+        # random relabelling per trial sends a tie to each tied option equally often.
         relabel = dict(zip(options, rng.sample(options, len(options))))
         ballots = [[relabel[o] for o in b] for b in ballots]
         truth   = relabel[correct]

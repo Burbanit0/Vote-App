@@ -614,7 +614,15 @@ function tracePairwise(cands: NamedPt[], ranks: number[][], m: number, rule: Rul
         highlight: [i, j],
       });
     }
-  const winner = ruleWinnerFromRanks(ranks, m, rule);
+  // The same names as buildTraceFromBallots: a tie is drawn over them, so this replay cannot
+  // name another winner than the headline result it explains.
+  const winner = ruleWinnerFromRanks(
+    ranks,
+    m,
+    rule,
+    undefined,
+    cands.map((c) => c.name)
+  );
   const doneKey =
     rule === 'minimax'
       ? 'replay.pairwise.doneMinimax'

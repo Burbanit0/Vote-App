@@ -20,6 +20,7 @@ from typing import Callable, Optional
 
 from hypothesis import assume, given, settings, strategies as st
 
+from api.tests.strict_outcomes import possible_winners
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_plurality_winner,
@@ -29,7 +30,7 @@ from api.engine.utils.simulation_ranked_utils import (
 _CANDIDATES = ["A", "B", "C", "D"]
 _profiles = st.lists(st.permutations(_CANDIDATES), min_size=3, max_size=12)
 
-Rule = Callable[[list[list[str]]], Optional[str]]
+Rule = Callable[..., Optional[str]]
 
 
 def _promote_by_one(votes: list[list[str]], candidate: str) -> Optional[list[list[str]]]:
@@ -46,11 +47,19 @@ def _promote_by_one(votes: list[list[str]], candidate: str) -> Optional[list[lis
 
 
 def _check_monotone(votes: list[list[str]], rule: Rule) -> None:
-    winner = rule(votes)
-    assume(winner is not None)
-    promoted_votes = _promote_by_one(votes, winner)  # type: ignore[arg-type]
-    assume(promoted_votes is not None)
-    assert rule(promoted_votes) == winner  # type: ignore[arg-type]
+    """Every candidate the rule can elect (some seed of the tie lot) stays one of them when it
+    is improved by one slot: a draw over a different pool of tied candidates is the lot's
+    business, not the algorithm's, so it is not what is asserted."""
+    winners = possible_winners(rule, votes) - {None}
+    assume(winners)
+    checked = False
+    for winner in sorted(winners):  # type: ignore[type-var]
+        promoted_votes = _promote_by_one(votes, winner)  # type: ignore[arg-type]
+        if promoted_votes is None:
+            continue
+        checked = True
+        assert winner in possible_winners(rule, promoted_votes)
+    assume(checked)
 
 
 @settings(max_examples=200, deadline=None)

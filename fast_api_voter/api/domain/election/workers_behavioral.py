@@ -1501,7 +1501,7 @@ def _co_winner(
         return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames, seed)
     # Plurality included: each ballot in `rnk` already leads with the voter's
     # actual pick (`_co_rankings` promotes the heuristic choice to the top).
-    return rule_winner(method, rnk)
+    return rule_winner(method, rnk, seed=seed)
 
 
 def _co_candidates(

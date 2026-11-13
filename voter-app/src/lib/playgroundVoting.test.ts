@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { drawName } from './tieLot';
 import {
   ruleWinner,
   ruleWinnerFromRanks,
@@ -14,6 +15,7 @@ import {
   pluralityCounts,
   argmax,
   RULE_LABELS,
+  KEMENY_EXACT_CAP,
   type NamedPt,
   type Pt,
   type Rule,
@@ -130,6 +132,7 @@ describe('Tier B extras (client-only)', () => {
       [0, 1, 2],
     ];
     for (const rule of [
+      'approval',
       'star',
       'majority_judgment',
       'score',
@@ -747,29 +750,24 @@ describe('degenerate cases — no winner, empty field, unknown rule', () => {
   ]);
 
   // All four rules guard the same case (`if (doomed.length >= remaining) ...`,
-  // without it they'd eliminate the whole field and index into an empty set),
-  // but resolve it two different ways, matching their respective backend
-  // twins exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md — an exhaustive
-  // small-profile parity check against the backend found and fixed a
-  // frontend/backend divergence here for smith_irv/benham).
-  //
-  // irv/coombs: `return -1` — -1 is the file's "no winner" sentinel, matching
-  // get_irv_winner/get_coombs_winner's own `return None` in this case.
-  it.each(['irv', 'coombs'] as const)(
-    '%s reports no winner when a round would eliminate every survivor',
+  // without it they'd eliminate the whole field and index into an empty set), and
+  // resolve it the same way, matching their backend twins: the survivors cannot be
+  // separated, so the seeded lot draws one over their NAMES (tieLot.ts). irv and coombs
+  // used to return -1 ("no winner") here, and smith_irv/benham the lowest index (Lot
+  // 4.3); none of that survives #926. Ann, Bob, Cat: the lot draws Bob (index 1), neither
+  // the first listed nor the alphabetically first.
+  const NAMES = ['Ann', 'Bob', 'Cat'];
+  it.each(['irv', 'coombs', 'smith_irv', 'benham'] as const)(
+    '%s draws a winner by lot when a round would eliminate every survivor',
     (rule) => {
-      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(-1);
-    }
-  );
-
-  // smith_irv/benham: `break` out of the loop instead, falling through to the
-  // alphabetically-first (lowest-index) survivor — matching
-  // get_smith_irv_winner/get_benham_winner's own documented alphabetical
-  // fallback on a total tie, which is NOT "no winner".
-  it.each(['smith_irv', 'benham'] as const)(
-    '%s falls back to the alphabetically-first survivor when a round would eliminate everyone',
-    (rule) => {
-      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(0);
+      expect(ruleWinnerFromRanks(CYCLE, 3, rule, undefined, NAMES)).toBe(
+        NAMES.indexOf(drawName(NAMES))
+      );
+      expect(NAMES.indexOf(drawName(NAMES))).toBe(1);
+      // The same names in another order draw the same candidate, wherever it now sits.
+      const shuffled = ['Cat', 'Ann', 'Bob'];
+      const idx = ruleWinnerFromRanks(CYCLE, 3, rule, undefined, shuffled);
+      expect(shuffled[idx]).toBe('Bob');
     }
   );
 
@@ -912,6 +910,46 @@ describe('anonymity — ballot order must not decide', () => {
     }
   });
 
+  it('two_round draws its second finalist, then the runoff, over the names (not by index)', () => {
+    // Each candidate has one first choice, so all three tie: the lot draws the first finalist,
+    // then the second among the other two. With Ann, Bob, Cat that is Bob, then Cat, and Bob
+    // beats Cat in the runoff. A second finalist taken by index (Ann) would elect Ann instead.
+    const cycle = ranksOf([
+      [1, [0, 1, 2]],
+      [1, [1, 2, 0]],
+      [1, [2, 0, 1]],
+    ]);
+    const names = ['Ann', 'Bob', 'Cat'];
+    expect(names[ruleWinnerFromRanks(cycle, 3, 'two_round', undefined, names)]).toBe('Bob');
+    // The same names in another order, and the ballots reversed: the same candidate wins.
+    const shuffled = ['Cat', 'Bob', 'Ann'];
+    const remapped = cycle.map((r) => r.map((i) => shuffled.indexOf(names[i])));
+    expect(
+      shuffled[ruleWinnerFromRanks(remapped.slice().reverse(), 3, 'two_round', undefined, shuffled)]
+    ).toBe('Bob');
+  });
+
+  it('condorcet (Copeland) breaks a score tie by total wins before the lot', () => {
+    // B and D both score +1 (wins minus losses), but D wins two duels to B's one: D, whatever
+    // the names (no draw is involved). The Python engine pins the same profile.
+    const ranks = [
+      [0, 1, 3, 2],
+      [2, 1, 3, 0],
+      [1, 0, 3, 2],
+      [3, 0, 1, 2],
+      [3, 2, 1, 0],
+      [2, 1, 3, 0],
+      [0, 2, 1, 3],
+      [3, 0, 1, 2],
+    ];
+    for (const names of [
+      ['Ann', 'Bob', 'Cat', 'Dee'],
+      ['Dee', 'Cat', 'Bob', 'Ann'],
+    ]) {
+      expect(ruleWinnerFromRanks(ranks, 4, 'condorcet', undefined, names)).toBe(3);
+    }
+  });
+
   it('dowdall keeps an exact tie exactly tied', () => {
     // A and B swap the top two seats once each: their Dowdall totals are equal
     // to the last bit only if the 1/(rank+1) shares are summed exactly. As
@@ -921,8 +959,18 @@ describe('anonymity — ballot order must not decide', () => {
       [1, [1, 0, 2]],
     ]);
 
-    expect(ruleWinnerFromRanks(tied, 3, 'dowdall')).toBe(0);
-    expect(ruleWinnerFromRanks(tied.slice().reverse(), 3, 'dowdall')).toBe(0);
+    // A true tie goes to the lot over the names, whatever order the ballots come in: the draw
+    // between Ann and Cat is Cat. (Float noise would instead hand it to whichever candidate the
+    // noise favoured, ignoring the names.)
+    for (const [names, expected] of [
+      [['Ann', 'Cat', 'Zed'], 1],
+      [['Cat', 'Ann', 'Zed'], 0],
+    ] as const) {
+      expect(ruleWinnerFromRanks(tied, 3, 'dowdall', undefined, names)).toBe(expected);
+      expect(ruleWinnerFromRanks(tied.slice().reverse(), 3, 'dowdall', undefined, names)).toBe(
+        expected
+      );
+    }
   });
 });
 
@@ -1060,6 +1108,13 @@ describe('kemeny exact DP', () => {
       const ranks = [asc, asc, asc, asc.slice().reverse(), asc.slice().reverse()];
       expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(0);
     }
+  });
+
+  it('falls back to Borda above the exact cap', () => {
+    // 11 candidates, one ballot: Borda's winner is its first choice.
+    const m = KEMENY_EXACT_CAP + 1;
+    const order = Array.from({ length: m }, (_, i) => (i + 3) % m);
+    expect(ruleWinnerFromRanks([order], m, 'kemeny')).toBe(order[0]);
   });
 
   it('returns no winner for an empty field instead of candidate 0', () => {
