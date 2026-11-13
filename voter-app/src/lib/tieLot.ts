@@ -3,9 +3,10 @@
 // 2026-10-09).
 //
 // The twin of fast_api_voter/api/engine/utils/tie_lot.py: FNV-1a (32-bit) over the UTF-8
-// bytes of the seed and the tied names in code-point order, joined by U+001F; the index
-// is that hash modulo the number of tied names. Keep the two in step: tieLot.test.ts and
-// test_tie_lot.py pin the same values.
+// bytes of the seed and the tied names in code-point order, joined by U+001F, finalised
+// with murmur3's fmix32; the index is that hash modulo the number of tied names. Finalised
+// because the raw hash's low bit is only a parity: two tied names would alternate with the
+// seed's. Keep the two in step: tieLot.test.ts and test_tie_lot.py pin the same values.
 
 const SEP = '\u001f';
 
@@ -13,6 +14,13 @@ function fnv1a(bytes: Uint8Array): number {
   let h = 0x811c9dc5;
   for (const b of bytes) h = Math.imul(h ^ b, 0x01000193) >>> 0;
   return h;
+}
+
+/** murmur3's finaliser: every bit of `h` is mixed into every other. */
+function fmix32(h: number): number {
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
 }
 
 /** Code-point order, as Python's `sorted` on str (UTF-16 order differs past U+FFFF). */
@@ -28,7 +36,7 @@ const ENCODER = new TextEncoder();
 /** One of `tied`, drawn by the seeded lot over their names. */
 export function drawName(tied: readonly string[], seed = 0): string {
   const names = [...tied].sort(byCodePoint);
-  return names[fnv1a(ENCODER.encode([String(seed), ...names].join(SEP))) % names.length];
+  return names[fmix32(fnv1a(ENCODER.encode([String(seed), ...names].join(SEP)))) % names.length];
 }
 
 /** The index among `pool` drawn by lot over their names, mapped back within `pool` (so

@@ -51,11 +51,12 @@ Still at 0:
 - **Polity's elections** (`domain/polity/`), out of scope as below: seeding them would change
   the archived runs' outcomes.
 
-**A two-way tie follows the seed's parity.** `draw` takes FNV-1a modulo the number of tied
-names, and FNV-1a's low bit is the parity of its input, so between two names the draw
-alternates with the seed's last digit. The per-voter lot was finalised with fmix32 for this
-reason (#663). Doing the same for `draw` changes its pinned values on both engines and the
-parity fixture's draws: it belongs with #926's fixture regeneration.
+**A two-way tie no longer follows the seed's parity.** `draw` used to take FNV-1a modulo the
+number of tied names, and FNV-1a's low bit is the parity of its input, so between two names the
+draw alternated with the seed's last digit (Ann for seeds 1, 3, 5, 7 and Ben for 2, 4, 6, 8, on
+twin candidates). Both engines now finalise it with fmix32, as the per-voter lot has since #663.
+The pinned draws changed on both sides, and so did the parity fixture's score-rule draws and
+the tied-electorate snapshot (the tied electorates in them are where a draw shows).
 
 ## Fixed
 
@@ -72,6 +73,7 @@ parity fixture's draws: it belongs with #926's fixture regeneration.
 | #667 | The score rules draw an exact tie by the seeded lot, on both engines: score, STAR (a tie for a finalist place; a tied runoff goes to the higher score, then the lot), majority judgment (once every grade is compared), cumulative, maximin, Nash, median voting, mean-median hybrid, variance-based |
 | #664 | The campaign and information models draw their noise from one stream per candidate (`tie_lot.streams`: the seed and the candidate's name), not from one shared stream in slot order; the workers pass the real candidates to `simulate_campaign` and read its shares by name, not by slot position |
 | #663, #665 | A voter's nearest option, or favourite, when two tie: `tie_lot.nearest` (vectorised, for `argmin`/`argmax` rows) and `tie_lot.favourite` (the top of the voter's `ranking`), a lot seeded with the endpoint's seed and the voter. Issue voting (and its winner), party dynamics, the playground's sincere vote and desertion, Hotelling, `tech.py`, the theory workers, conviction voting, and the 22 sites that took a voter's favourite with `max(utilities, key=…)`. A voter's lot is finalised with fmix32 (`_voter_lot`): FNV-1a's low bit is only the parity of its input, which made a two-way tie alternate with the voter's index |
+| (this PR) | The rule-level lot (`tie_lot.draw`, `drawName` in `tieLot.ts`) is finalised with fmix32 on both engines, so a two-way draw falls both ways across seeds instead of alternating with the seed's parity; the pinned draws, the parity fixture's draws and the tied-electorate snapshot are regenerated |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open

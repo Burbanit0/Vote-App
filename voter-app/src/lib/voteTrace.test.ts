@@ -110,13 +110,14 @@ describe('voteTrace', () => {
 });
 
 describe('traces agree with the engine on a tie (tie lot, #667)', () => {
+  // Ben is listed first: the lot draws Ann, the second listed.
   const pair = [
-    { name: 'Ann', x: -0.5, y: 0 },
-    { name: 'Ben', x: 0.5, y: 0 },
+    { name: 'Ben', x: -0.5, y: 0 },
+    { name: 'Ann', x: 0.5, y: 0 },
   ];
 
   it('the last caption names the drawn winner, not the first-listed one', () => {
-    // Ann and Ben tie on score; the lot draws Ben (tieLot.test.ts), the tally's argmax Ann.
+    // Ann and Ben tie on score; the lot draws Ann (tieLot.test.ts), the tally's argmax the first listed.
     const tr = buildTraceFromBallots(
       pair,
       [
@@ -132,7 +133,7 @@ describe('traces agree with the engine on a tie (tie lot, #667)', () => {
     expect(tr.winner).toBe(1);
     const last = tr.frames[tr.frames.length - 1];
     expect(last.highlight).toEqual([1]);
-    expect(last.caption.params?.cand).toBe('Ben');
+    expect(last.caption.params?.cand).toBe('Ann');
   });
 
   it('STAR picks its finalists as the engine does', () => {

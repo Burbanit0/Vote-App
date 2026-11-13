@@ -26,14 +26,14 @@ def test_the_hash_is_fnv1a_32():
 @pytest.mark.parametrize(
     "names, seed, drawn",
     [
-        (["Ann", "Ben"], 0, "Ben"),
-        (["Ann", "Ben"], 7, "Ann"),
+        (["Ann", "Ben"], 0, "Ann"),
+        (["Ann", "Ben"], 7, "Ben"),
         (["Alice", "Bob", "Carol"], 0, "Carol"),
         (["Alice", "Bob", "Carol"], 7, "Alice"),
-        (["Zoé", "Émile", "Ana"], 0, "Zoé"),
+        (["Zoé", "Émile", "Ana"], 0, "Ana"),
         (["Zoé", "Émile", "Ana"], 7, "Ana"),
         (["C0", "C1", "C2", "C3"], 0, "C3"),
-        (["C0", "C1", "C2", "C3"], 7, "C2"),
+        (["C0", "C1", "C2", "C3"], 7, "C3"),
         (["Ann", "Anna"], 0, "Ann"),  # one name a prefix of the other
         (["Ann", "Anna"], 7, "Anna"),
     ],
@@ -41,6 +41,16 @@ def test_the_hash_is_fnv1a_32():
 def test_draw_pins_the_values_the_client_pins(names, seed, drawn):
     assert draw(names, seed) == drawn
     assert draw(list(reversed(names)), seed) == drawn  # listing order does not matter
+
+
+def test_a_two_way_draw_does_not_follow_the_parity_of_the_seed():
+    """FNV-1a's low bit is only the parity of its input, so a raw modulo by two alternated
+    with the seed's last digit: Ann for 1, 3, 5, 7 and Ben for 2, 4, 6, 8. Finalised, the
+    draw falls both ways without a pattern (pinned: the client pins the same 16)."""
+    draws = ["AB"[draw(["Ann", "Ben"], s) == "Ben"] for s in range(64)]
+    assert "".join(draws[:16]) == "ABAABBBBABBBAABB"
+    assert any(draws[i] == draws[i + 1] for i in range(63))  # not an alternation
+    assert 20 <= draws.count("A") <= 44  # nor lopsided
 
 
 def test_best_draws_only_among_the_tied_top():
@@ -63,9 +73,9 @@ def test_float_noise_is_a_tie_and_a_real_gap_is_not():
     "names, seed, drawn",
     [
         (["\ud800", "A"], 0, "\ud800"),
-        (["\ud800", "A"], 7, "A"),
+        (["\ud800", "A"], 7, "\ud800"),
         (["\ud800", "\ufffd", "B"], 0, "B"),
-        (["\ud800", "\ufffd", "B"], 7, "\ufffd"),
+        (["\ud800", "\ufffd", "B"], 7, "B"),
     ],
 )
 def test_a_lone_surrogate_hashes_as_the_replacement_character(names, seed, drawn):
@@ -89,18 +99,18 @@ def test_best_ignores_nan_and_falls_back_to_the_first_when_none_ranks():
     ],
 )
 def test_the_details_list_the_drawn_winner_first_among_those_tied(rule):
-    # Ann and Ben mirror each other exactly; Ann is listed first, the lot draws Ben.
-    ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
+    # Ann and Ben mirror each other exactly; Ben is listed first, the lot draws Ann.
+    ballots = [{"Ben": 0.0, "Ann": 1.0, "Cy": 0.2}, {"Ben": 1.0, "Ann": 0.0, "Cy": 0.2}]
     result = rule(ballots)
     first = next(iter(result["details"]))
-    assert result["winner"] == "Ben"
-    assert (first if isinstance(first, str) else first["candidate"]) == "Ben"
+    assert result["winner"] == "Ann"
+    assert (first if isinstance(first, str) else first["candidate"]) == "Ann"
 
 
 def test_star_lists_its_first_finalist_first():
-    ballots = [{"Ann": 1.0, "Ben": 0.0, "Cy": 0.2}, {"Ann": 0.0, "Ben": 1.0, "Cy": 0.2}]
+    ballots = [{"Ben": 0.0, "Ann": 1.0, "Cy": 0.2}, {"Ben": 1.0, "Ann": 0.0, "Cy": 0.2}]
     result = get_star_voting_winner(ballots)
-    assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ben"
+    assert next(iter(result["details"]["first_round"])) == result["winner"] == "Ann"
 
 
 def test_ranking_orders_a_tie_by_the_seeded_lot_not_the_listing_order():

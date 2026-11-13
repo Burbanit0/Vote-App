@@ -5,19 +5,31 @@ import { drawName, bestIndex, drawIndex, isTied } from './tieLot';
 // draw the same candidate from the same tie.
 describe('the tie lot', () => {
   it.each([
-    [['Ann', 'Ben'], 0, 'Ben'],
-    [['Ann', 'Ben'], 7, 'Ann'],
+    [['Ann', 'Ben'], 0, 'Ann'],
+    [['Ann', 'Ben'], 7, 'Ben'],
     [['Alice', 'Bob', 'Carol'], 0, 'Carol'],
     [['Alice', 'Bob', 'Carol'], 7, 'Alice'],
-    [['Zoé', 'Émile', 'Ana'], 0, 'Zoé'],
+    [['Zoé', 'Émile', 'Ana'], 0, 'Ana'],
     [['Zoé', 'Émile', 'Ana'], 7, 'Ana'],
     [['C0', 'C1', 'C2', 'C3'], 0, 'C3'],
-    [['C0', 'C1', 'C2', 'C3'], 7, 'C2'],
+    [['C0', 'C1', 'C2', 'C3'], 7, 'C3'],
     [['Ann', 'Anna'], 0, 'Ann'], // one name a prefix of the other
     [['Ann', 'Anna'], 7, 'Anna'],
   ] as const)('%j with seed %i draws %s, whatever the order', (names, seed, drawn) => {
     expect(drawName(names, seed)).toBe(drawn);
     expect(drawName([...names].reverse(), seed)).toBe(drawn);
+  });
+
+  it('a two-way draw does not follow the parity of the seed (the same 16 draws tie_lot.py pins)', () => {
+    // FNV-1a's low bit is only a parity: a raw modulo by two alternated with the seed's last digit.
+    const draws = Array.from({ length: 64 }, (_, s) =>
+      drawName(['Ann', 'Ben'], s) === 'Ben' ? 'B' : 'A'
+    );
+    expect(draws.slice(0, 16).join('')).toBe('ABAABBBBABBBAABB');
+    expect(draws.some((d, i) => i < 63 && d === draws[i + 1])).toBe(true); // not an alternation
+    const ann = draws.filter((d) => d === 'A').length;
+    expect(ann).toBeGreaterThanOrEqual(20); // nor lopsided
+    expect(ann).toBeLessThanOrEqual(44);
   });
 
   it('sorts by code point, as Python does (an astral character sorts after U+FFFD)', () => {
@@ -37,9 +49,9 @@ describe('the tie lot', () => {
 
   it.each([
     [['\ud800', 'A'], 0, '\ud800'],
-    [['\ud800', 'A'], 7, 'A'],
+    [['\ud800', 'A'], 7, '\ud800'],
     [['\ud800', '\ufffd', 'B'], 0, 'B'],
-    [['\ud800', '\ufffd', 'B'], 7, '\ufffd'],
+    [['\ud800', '\ufffd', 'B'], 7, 'B'],
   ] as const)(
     'a lone surrogate hashes as U+FFFD, as tie_lot.py (%j, seed %i)',
     (names, seed, drawn) => {
