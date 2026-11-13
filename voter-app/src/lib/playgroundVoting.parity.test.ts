@@ -148,7 +148,7 @@ const preparedTiedNames = exhaustiveTiedNames.map((sc) => {
 
 describe('engine parity — the same domain over names where the lot is not the alphabetical first', () => {
   it('covers the full n<=3, m<=5 domain, over Ann / Bea / Cat', () => {
-    expect(preparedTiedNames.length).toBe(481);
+    expect(preparedTiedNames).toHaveLength(481);
     expect(preparedTiedNames.map((s) => s.candidates.join())).toContain('Ann,Bea,Cat');
   });
 

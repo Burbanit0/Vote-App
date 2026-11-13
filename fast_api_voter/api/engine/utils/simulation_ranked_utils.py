@@ -88,6 +88,27 @@ def get_condorcet_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     return None
 
 
+def _first_choice_tally(votes: list[Any], is_dict: bool) -> "Counter[Any]":
+    """Each candidate's count of first places (blank ballots count for no one)."""
+    tally: "Counter[Any]" = Counter()
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        if ranking:
+            tally[ranking[0]] += 1
+    return tally
+
+
+def _runoff_finalists(first_choice_votes: "Counter[Any]", seed: object) -> list[Any]:
+    """First place, then second place, each by lot among those tied for it (neither the
+    ballot order nor the names decide). NOT most_common(2): Counter breaks count ties by
+    insertion order, so the ballot order decided who reached the runoff."""
+    first = best(first_choice_votes, first_choice_votes.__getitem__, seed)
+    others = [c for c in first_choice_votes if c != first]
+    if not others:
+        return [first]
+    return [first, best(others, first_choice_votes.__getitem__, seed)]
+
+
 def get_two_round_winner(
     votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
 ) -> Optional[str]:
@@ -100,26 +121,16 @@ def get_two_round_winner(
         return None
     is_dict = _is_dict_format(votes)
 
-    first_choice_votes: "Counter[Any]" = Counter()
-    for vote in votes:
-        ranking = _get_ranking(vote, is_dict)
-        if ranking:
-            first_choice_votes[ranking[0]] += 1
+    first_choice_votes = _first_choice_tally(votes, is_dict)
 
     majority = len(votes) // 2
     for candidate, count in first_choice_votes.items():
         if count > majority:
             return str(candidate)
 
-    # NOT most_common(2): Counter breaks count ties by insertion order, so the
-    # ballot order decided who reached the runoff.
-    # The finalists: first place, then second place, each by lot among those tied for it
-    # (neither the ballot order nor the names decide).
-    first = best(first_choice_votes, first_choice_votes.__getitem__, seed)
-    others = [c for c in first_choice_votes if c != first]
-    top_two_candidates = [first]
-    if others:
-        top_two_candidates.append(best(others, first_choice_votes.__getitem__, seed))
+    if not first_choice_votes:  # every ballot blank: nobody to put in a runoff
+        return None
+    top_two_candidates = _runoff_finalists(first_choice_votes, seed)
 
     second_round_votes: "Counter[Any]" = Counter()
     for vote in votes:
@@ -1245,8 +1256,7 @@ def get_split_cycle_winner(
     ]
     if len(winners) == 1:
         return winners[0]
-    if not winners:
-        return get_borda_winner(votes, blank_candidate_name, seed=seed)
+    # `winners` is never empty: a Split Cycle winner always exists (Holliday & Pacuit, 2023).
 
     is_dict = _is_dict_format(votes)
     borda_scores: dict[str, int] = {c: 0 for c in candidates}

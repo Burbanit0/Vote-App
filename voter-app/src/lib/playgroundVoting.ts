@@ -336,8 +336,8 @@ function winSchulze(ranks: number[][], m: number, names: readonly string[]): num
       }
     if (wins) winners.push(i);
   }
-  if (winners.length > 0) return bestOf(winners, () => 0, names);
-  return winBorda(ranks, m, names); // rare cyclic tie
+  // Never empty: the strongest-path relation always leaves a winner (Schulze, 2011).
+  return bestOf(winners, () => 0, names);
 }
 
 /** Bucklin: descend ranks until a candidate reaches a majority of mentions. */
@@ -502,8 +502,8 @@ function winRankedPairs(ranks: number[][], m: number, names: readonly string[]):
       }
     if (!incoming) sources.push(i);
   }
-  if (sources.length > 0) return bestOf(sources, () => 0, names);
-  return winCondorcet(ranks, m, names); // degenerate fallback (all-tie field)
+  // Never empty: the locked edges form an acyclic graph, which has a source.
+  return bestOf(sources, () => 0, names);
 }
 
 /** STAR: score, then an automatic runoff between the two highest totals. */
@@ -723,8 +723,7 @@ function winSplitCycle(ranks: number[][], m: number, names: readonly string[]): 
     if (!defeated) winners.push(x);
   }
   if (winners.length === 1) return winners[0];
-  if (winners.length === 0) return winBorda(ranks, m, names);
-  // Borda breaks a multi-winner Split-Cycle set; still tied, the lot.
+  // Never empty (Holliday & Pacuit, 2023). Borda breaks a multi-winner Split-Cycle set; still tied, the lot.
   const bordaScore = new Array(m).fill(0);
   for (const r of ranks) r.forEach((c, rank) => (bordaScore[c] += m - 1 - rank));
   return bestOf(winners, (x) => bordaScore[x], names);
@@ -878,7 +877,8 @@ function winRiver(ranks: number[][], m: number, names: readonly string[]): numbe
   }
   // Every root (no incoming lock); several remain when ties left pairs unlocked: the lot.
   const roots = inLock.flatMap((locked_, i) => (locked_ ? [] : [i]));
-  return roots.length > 0 ? bestOf(roots, () => 0, names) : winCondorcet(ranks, m, names);
+  // Never empty: the locked edges form an acyclic graph with at most one in-edge per node.
+  return bestOf(roots, () => 0, names);
 }
 
 /** Nash (proportional welfare): maximise the PRODUCT of voter utilities — summed

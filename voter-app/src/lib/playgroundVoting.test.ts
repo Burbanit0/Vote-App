@@ -15,6 +15,7 @@ import {
   pluralityCounts,
   argmax,
   RULE_LABELS,
+  KEMENY_EXACT_CAP,
   type NamedPt,
   type Pt,
   type Rule,
@@ -131,6 +132,7 @@ describe('Tier B extras (client-only)', () => {
       [0, 1, 2],
     ];
     for (const rule of [
+      'approval',
       'star',
       'majority_judgment',
       'score',
@@ -1106,6 +1108,13 @@ describe('kemeny exact DP', () => {
       const ranks = [asc, asc, asc, asc.slice().reverse(), asc.slice().reverse()];
       expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(0);
     }
+  });
+
+  it('falls back to Borda above the exact cap', () => {
+    // 11 candidates, one ballot: Borda's winner is its first choice.
+    const m = KEMENY_EXACT_CAP + 1;
+    const order = Array.from({ length: m }, (_, i) => (i + 3) % m);
+    expect(ruleWinnerFromRanks([order], m, 'kemeny')).toBe(order[0]);
   });
 
   it('returns no winner for an empty field instead of candidate 0', () => {

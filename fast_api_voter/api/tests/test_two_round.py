@@ -42,3 +42,13 @@ def test_compare_all_methods_registers_two_round():
     )
     assert "two_round" in res["methods"]
     assert res["methods"]["two_round"]["winner"] in names
+
+
+def test_two_round_with_a_single_finalist_elects_it():
+    # Only one candidate is anyone's first choice, but they fall short of a majority of the
+    # ballots because most are blank: there is no second finalist to draw, so A goes through.
+    assert get_two_round_winner([["A", "B"], [], [], []]) == "A"
+
+
+def test_two_round_with_every_ballot_blank_has_no_winner():
+    assert get_two_round_winner([[], []]) is None
