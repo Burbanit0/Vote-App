@@ -127,6 +127,45 @@ describe('engine parity — EXHAUSTIVE small-profile domain (n<=3 candidates, m<
   });
 });
 
+// The same domain over names where the lot's two-way draws are NOT the alphabetically first name
+// ('Ann', 'Bea', 'Cat': the lot draws Bea, Cat, Cat for the pairs and Bea for the triple at seed 0).
+// With A/B/C a name tie-break and the lot agree on every two-way tie, so the block above cannot
+// tell them apart; here they differ on every tie, so a rule that falls back to the first name or
+// the first index fails (gen_engine_parity.py's TIED_NAMES).
+const exhaustiveTiedNames = (fixtureJson as { exhaustiveTiedNameScenarios: Scenario[] })
+  .exhaustiveTiedNameScenarios;
+
+const preparedTiedNames = exhaustiveTiedNames.map((sc) => {
+  const idxOf: Record<string, number> = {};
+  sc.candidates.forEach((name, i) => (idxOf[name] = i));
+  return {
+    m: sc.candidates.length,
+    candidates: sc.candidates,
+    ranks: sc.ballots.map((b) => b.map((name) => idxOf[name])),
+    winners: sc.winners,
+  };
+});
+
+describe('engine parity — the same domain over names where the lot is not the alphabetical first', () => {
+  it('covers the full n<=3, m<=5 domain, over Ann / Bea / Cat', () => {
+    expect(preparedTiedNames.length).toBe(481);
+    expect(preparedTiedNames.map((s) => s.candidates.join())).toContain('Ann,Bea,Cat');
+  });
+
+  it('is discriminating: on an exact two-way tie the backend elects Bea, not the first name', () => {
+    const tie = preparedTiedNames.find(
+      (s) => s.m === 2 && s.ranks.length === 2 && s.ranks[0][0] !== s.ranks[1][0]
+    );
+    expect(tie?.winners.plurality).toBe('Bea');
+    expect(tie?.winners.borda).toBe('Bea');
+    expect(tie?.winners.irv).toBe('Bea');
+  });
+
+  it.each(EXHAUSTIVE_RULES)('%s matches the backend on EVERY profile, ties and all', (rule) => {
+    expect(exhaustiveMismatchesFor(preparedTiedNames, rule)).toEqual([]);
+  });
+});
+
 // ── Cardinal rules — per-voter score ballots, strict winners only. Three
 // fixture sections share this shape and these checks:
 // - cardinalScenarios: score / STAR / cumulative / maximin / nash over one
