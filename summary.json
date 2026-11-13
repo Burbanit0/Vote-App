@@ -984,7 +984,7 @@
   "code": 128,
   "test-flaky": 16
  },
- "generated_at": "2026-11-13T10:00:03Z",
+ "generated_at": "2026-11-13T11:06:17Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1146,13 +1146,13 @@
     "success": 3
    },
    "2026-11-13": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Dashboard": {
    "2026-10-14": {
     "failure": 2,
-    "success": 3
+    "success": 2
    },
    "2026-10-15": {
     "success": 13
@@ -2205,7 +2205,7 @@
    "2026-11-13": {
     "cancelled": 3,
     "skipped": 90,
-    "success": 28
+    "success": 29
    }
   },
   "zizmor online": {
@@ -2250,11 +2250,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43359757682"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T03:33:29Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43359757385"
+   "created_at": "2026-11-13T10:51:14Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43412313614"
   },
   "CI Dashboard": {
    "branch": "develop",
@@ -2357,9 +2357,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T09:59:56Z",
+   "created_at": "2026-11-13T11:06:09Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43405680086"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43414312719"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2369,7 +2369,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7413,
+ "runs": 7414,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2439,12 +2439,12 @@
     "2026-11-10": 1144,
     "2026-11-11": 713,
     "2026-11-12": 1094,
-    "2026-11-13": 661
+    "2026-11-13": 777.0
    },
    "p50_s": 1121,
    "p95_s": 1495,
    "queue_p50_s": 0,
-   "runs": 67
+   "runs": 68
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -2484,7 +2484,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-14": 455,
+    "2026-10-14": 430.5,
     "2026-10-15": 383,
     "2026-10-16": 389.5,
     "2026-10-17": 336,
@@ -2516,10 +2516,10 @@
     "2026-11-12": 263.0,
     "2026-11-13": 246
    },
-   "p50_s": 355,
+   "p50_s": 354,
    "p95_s": 544,
    "queue_p50_s": 0,
-   "runs": 543
+   "runs": 542
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3057,12 +3057,12 @@
     "2026-11-10": 28,
     "2026-11-11": 27.0,
     "2026-11-12": 27,
-    "2026-11-13": 27.0
+    "2026-11-13": 27
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 800
+   "runs": 801
   },
   "zizmor online": {
    "daily_p50_s": {
