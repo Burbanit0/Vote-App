@@ -137,8 +137,9 @@ class TestManipulationAnalysis:
         """This exact seed/candidate/method combo is known (found by a
         parameter search) to produce at least one voter for whom plurality
         strategic voting beats sincere voting -- exercising the
-        best-gain 'key manipulator' selection, not just the empty case."""
-        ok = {**self.payload, "seed": 32}
+        best-gain 'key manipulator' selection, not just the empty case.
+        (Seed 32 until plurality drew its ties with the request's seed; seed 25 now.)"""
+        ok = {**self.payload, "seed": 25}
         r = client.post("/api/v2/theory/manipulation-analysis", json=ok)
         assert r.status_code == 200, r.text
         body = r.json()

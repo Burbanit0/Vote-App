@@ -116,6 +116,25 @@ describe('voteTrace', () => {
   });
 });
 
+describe('a pairwise replay names the winner the engine draws, over the same names', () => {
+  it('on the Condorcet paradox the replay, the trace and the engine all say Carol', () => {
+    const names = ['Alice', 'Bob', 'Carol'];
+    const cands = names.map((name, i) => ({ name, x: i, y: 0 }));
+    const ranks = [
+      [0, 1, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+    ];
+    const scores = ranks.map((r) => r.map((_, i) => 1 - r.indexOf(i) / 2));
+    const trace = buildTraceFromBallots(cands, ranks, scores, 'condorcet');
+    // Each wins one duel and loses one: Copeland cannot separate them, and the lot draws Carol.
+    expect(trace.winner).toBe(2);
+    const last = trace.frames[trace.frames.length - 1];
+    expect(last.highlight).toEqual([2]);
+    expect(last.caption.params?.cand).toBe('Carol');
+  });
+});
+
 describe('traces agree with the engine on a tie (tie lot, #667)', () => {
   // Ann is listed first and is first by name: the lot draws Cat, the second listed.
   const pair = [

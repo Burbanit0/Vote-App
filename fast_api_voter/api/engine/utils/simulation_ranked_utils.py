@@ -588,6 +588,10 @@ def get_kemeny_young_winner(
 
     Exact (DP over candidate subsets) up to `_KY_EXACT_CAP` candidates, which
     covers every input reachable over HTTP. KwikSort approximation above it.
+    `seed` is accepted so every ranked rule shares one signature, but Kemeny-Young does not
+    use it: among equally good rankings it returns the name-smallest, not a draw (#926,
+    LISTING_ORDER_TIES.md "Open").
+
     Callers that need to know which path was taken should call
     kemeny_used_approximation(votes) separately rather than inspecting this
     function's state — see its docstring for why.

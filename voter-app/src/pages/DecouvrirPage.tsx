@@ -182,7 +182,8 @@ const DecouvrirPage: React.FC = () => {
         RANKS,
         FOOD_COUNT,
         rule,
-        rule === 'approval' ? approvalScores(approvalK) : undefined
+        rule === 'approval' ? approvalScores(approvalK) : undefined,
+        FOODS.map((f) => f.name)
       ),
     [rule, approvalK]
   );

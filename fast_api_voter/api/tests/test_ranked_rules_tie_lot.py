@@ -91,3 +91,46 @@ def test_compare_all_methods_draws_a_ranked_tie_with_the_request_seed():
             assert report[rule]["winner"] == draw(TIED, seed), (rule, seed)
         winners[seed] = report["plurality"]["winner"]
     assert set(winners.values()) == set(TIED)
+
+
+# ── The request's seed reaches the workers that report a tied ranked winner ──────────────────
+
+
+def test_the_step_animations_draw_a_tie_with_the_seed_the_engine_gets():
+    from api.domain.simulations.compare import _borda_steps, _irv_steps, _schulze_matrices
+    from api.engine.utils.simulation_ranked_utils import (
+        get_borda_winner,
+        get_irv_winner,
+        get_schulze_winner,
+    )
+
+    profile = [["Cat", "Ann"]] * 25 + [["Ann", "Cat"]] * 25
+    drawn = set()
+    for s in range(12):
+        assert _irv_steps(profile, 50, seed=s)[-1]["winner"] == get_irv_winner(profile, seed=s)
+        assert _borda_steps(profile, seed=s)[1] == get_borda_winner(profile, seed=s)
+        assert _schulze_matrices(profile, ["Ann", "Cat"], seed=s)[2] == get_schulze_winner(
+            profile, seed=s
+        )
+        drawn.add(_irv_steps(profile, 50, seed=s)[-1]["winner"])
+    assert drawn == set(TIED)
+
+
+def test_the_workers_helpers_take_the_requests_seed_for_a_ranked_tie():
+    from api.domain.election.workers_advanced import _dt_winner
+    from api.domain.election.workers_behavioral import _co_winner
+    from api.domain.election.workers_mechanisms import _compute_winner
+
+    utils = {0: {"Ann": 1.0, "Cat": 0.0}, 1: {"Ann": 0.0, "Cat": 1.0}}
+    voters = [{"id": 0}, {"id": 1}]
+    rankings = [["Ann", "Cat"], ["Cat", "Ann"]]
+    for s in range(12):
+        assert _dt_winner(voters, utils, TIED, "plurality", s)[0] == draw(TIED, s)
+        assert _compute_winner(rankings, utils, "plurality", s) == draw(TIED, s)
+        assert _co_winner(
+            "plurality", voters, rankings, utils, {0: "Ann", 1: "Cat"}, {0: False, 1: False},
+            TIED, s,
+        ) == draw(TIED, s)
+    assert {_compute_winner(rankings, utils, "plurality", s) for s in range(12)} == set(TIED)
+    # Sincere approval too: each approves their own favourite only.
+    assert {_compute_winner(rankings, utils, "approval", s) for s in range(12)} == set(TIED)

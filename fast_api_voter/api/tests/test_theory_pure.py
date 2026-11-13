@@ -124,8 +124,9 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     would move these exact values. (0.14 / 0.16 / 0.14 before plurality went
     through the engine's rule, which breaks a first-choice tie by name rather
     than by whichever candidate was counted first; 0.12 / 0.16 / 0.16 while it broke it by
-    name; 0.14 / 0.18 / 0.16 now that it draws it by lot, whose draw over a different pool
-    of tied candidates can name someone else: a tie reads as a violation here.)"""
+    name; 0.10 / 0.20 / 0.20 now that it draws it by lot with the request's seed, whose draw
+    over a different pool of tied candidates can name someone else: a tie reads as a
+    violation here.)"""
     body, status = _iia_rate_worker({
         "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
     })
@@ -135,9 +136,9 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     # n=2 is hard-coded to 0.0 (workers.py:191) -- too few candidates to matter
     assert body["curve"] == [
         {"n_candidates": 2, "violation_rate": 0.0},
-        {"n_candidates": 3, "violation_rate": 0.14},
-        {"n_candidates": 4, "violation_rate": 0.18},
-        {"n_candidates": 5, "violation_rate": 0.16},
+        {"n_candidates": 3, "violation_rate": 0.1},
+        {"n_candidates": 4, "violation_rate": 0.2},
+        {"n_candidates": 5, "violation_rate": 0.2},
     ]
 
 
@@ -156,8 +157,8 @@ def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
         assert status == 200
         return [c["violation_rate"] for c in body["curve"]]
 
-    assert curve("schulze") == [0.0, 0.06, 0.02, 0.08]
-    assert curve("approval") == [0.0, 0.46, 0.26, 0.2]
+    assert curve("schulze") == [0.0, 0.08, 0.04, 0.04]
+    assert curve("approval") == [0.0, 0.46, 0.28, 0.24]
     assert curve("kemeny_young") == [0.0, 0.02, 0.02, 0.02]
     assert curve("condorcet") == [0.0, 0.08, 0.0, 0.06]    # measured as Copeland
 
@@ -688,6 +689,6 @@ def test_collective_will_no_condorcet_winner_here_is_a_tie_not_a_cycle() -> None
     body = _collective_will(seed=4, num_voters=150, ideology="polarized")
     assert body["condorcet_exists"] is False
     m = body["winner_by_method"]
-    assert m["borda"] == "Bob"
-    assert m["schulze"] == "Alice"
-    assert m["black"] == "Bob"
+    # Borda, Schulze and Black all end in that Alice-Bob tie, and draw it with the request's
+    # seed (4): the same candidate, where a name tie-break gave Schulze Alice and Borda Bob.
+    assert m["borda"] == m["schulze"] == m["black"] == draw(["Alice", "Bob"], 4) == "Bob"

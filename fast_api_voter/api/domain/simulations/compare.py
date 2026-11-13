@@ -186,7 +186,9 @@ _VOTE_STEPS_METHODS = {"irv", "borda", "plurality", "schulze", "approval"}
 _PARTY_CYCLE_STEPS  = ("Green", "Conservative", "Liberal", "Independent")
 
 
-def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]:
+def _irv_steps(
+    rankings: list[list[str]], n_voters: int, *, seed: object = 0
+) -> list[dict[str, Any]]:
     """
     Return a list of round dicts for IRV animation.
 
@@ -258,14 +260,14 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
         # Every remaining candidate tied for last: the lot draws among them, as in
         # get_irv_winner (this used to crown the alphabetically first of them).
         if not active:
-            rounds.append({"round": rnum + 1, "winner": str(draw(eliminated_set))})
+            rounds.append({"round": rnum + 1, "winner": str(draw(eliminated_set, seed))})
             break
 
     return rounds
 
 
 def _borda_steps(
-    rankings: list[list[str]],
+    rankings: list[list[str]], *, seed: object = 0
 ) -> tuple[list[dict[str, Any]], Optional[str]]:
     """Return (steps_list, winner) for Borda animation (one step per rank)."""
     all_candidates = sorted(set(chain.from_iterable(rankings)))
@@ -285,13 +287,15 @@ def _borda_steps(
         })
 
     # The engine's winner: the highest total, a tie drawn by lot (as get_borda_winner).
-    winner: Optional[str] = str(best(cumulative, cumulative.__getitem__)) if cumulative else None
+    winner: Optional[str] = str(best(cumulative, cumulative.__getitem__, seed)) if cumulative else None
     return steps, winner
 
 
 def _schulze_matrices(
     rankings: list[list[str]],
     candidate_names: list[str],
+    *,
+    seed: object = 0,
 ) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], Optional[str]]:
     """Return (duel_pct, path_pct, winner) for Schulze animation."""
     from itertools import combinations, permutations
@@ -327,7 +331,7 @@ def _schulze_matrices(
 
     # The engine's winner, so the animation cannot name another. Counting beat-path
     # wins here disagreed with it on about 1 profile in 20 with a cycle.
-    return duel_pct, path_pct, get_schulze_winner(rankings)
+    return duel_pct, path_pct, get_schulze_winner(rankings, seed=seed)
 
 
 def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
@@ -419,20 +423,20 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         rankings.append(ranking(cand_names, utilities[vid].__getitem__, vid))
 
     if method == "irv":
-        return {"method": "irv", "rounds": _irv_steps(rankings, num_voters)}, 200
+        return {"method": "irv", "rounds": _irv_steps(rankings, num_voters, seed=seed)}, 200
 
     if method == "borda":
-        steps, winner = _borda_steps(rankings)
+        steps, winner = _borda_steps(rankings, seed=seed)
         return {"method": "borda", "num_candidates": len(cand_names),
                 "steps": steps, "winner": winner}, 200
 
     if method == "plurality":
         fc: Counter[str] = Counter(r[0] for r in rankings if r)
         pct = {c: round(fc.get(c, 0) / num_voters, 4) for c in cand_names}
-        return {"method": "plurality", "first_choices": pct, "winner": get_plurality_winner(rankings)}, 200
+        return {"method": "plurality", "first_choices": pct, "winner": get_plurality_winner(rankings, seed=seed)}, 200
 
     if method == "schulze":
-        duel, path, winner_s = _schulze_matrices(rankings, cand_names)
+        duel, path, winner_s = _schulze_matrices(rankings, cand_names, seed=seed)
         return {"method": "schulze", "duel_matrix": duel,
                 "path_matrix": path, "winner": winner_s}, 200
 

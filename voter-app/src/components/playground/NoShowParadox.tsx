@@ -38,7 +38,7 @@ function buildRanks(abstain: number): number[][] {
 
 /** Two-round winner index for the demo profile with `abstain` C-supporters absent. */
 export function noShowWinner(abstain: number): number {
-  return ruleWinnerFromRanks(buildRanks(abstain), 3, 'two_round');
+  return ruleWinnerFromRanks(buildRanks(abstain), 3, 'two_round', undefined, NAMES);
 }
 
 /** First-preference counts (for the mini bar display). */

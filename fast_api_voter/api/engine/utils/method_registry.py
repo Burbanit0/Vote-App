@@ -14,8 +14,8 @@ bad name into a 400 naming what it supports, rather than a confident wrong
 answer.
 
 Ranked rules take `rankings` (a list of candidate-name lists, best first) and
-return the winner's name, or None when the rule elects nobody (an exact tie IRV
-cannot break). Score rules take 0-5 `scores` (one dict per voter); some return
+return the winner's name (an exact tie is drawn by the seeded lot, never by name or listing
+order), or None when there is no ballot to count. Score rules take 0-5 `scores` (one dict per voter); some return
 the name and some a `{"winner": ..., "details": ...}` report, so this module
 unwraps the dict shape and both kinds end up with one signature.
 """
@@ -139,7 +139,7 @@ def rule_winner(
     *,
     seed: object = 0,
 ) -> Optional[str]:
-    """The winner under `method`, or None if the rule elects nobody. A rule draws an exact
+    """The winner under `method`, or None if there is nothing to count. A rule draws an exact
     tie by the lot seeded with `seed` (the request's), not by the listing order or the names.
 
     Raises `UnknownMethod` for a name no rule answers to, and for a rule whose
@@ -195,8 +195,8 @@ def winner_from_utilities(
     complexity turned away, or who did not turn out), so every rule reads those
     voters' utilities alone.
 
-    Returns None when the rule elects nobody -- an exact tie, or an approval
-    round where no candidate cleared any voter's own mean.
+    Returns None when nothing can be counted -- no voter, or an approval round where no candidate
+    cleared any voter's own mean. An exact tie is drawn, not reported as no winner.
     """
     if method not in UTILITY_METHODS:
         raise UnknownMethod(
