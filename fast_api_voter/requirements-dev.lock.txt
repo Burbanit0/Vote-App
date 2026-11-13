@@ -494,7 +494,7 @@ tomli-w==1.2.0
     # via pip-audit
 tomlkit==0.15.2
     # via marimo
-types-pyyaml==6.0.12.20260906
+types-pyyaml==6.0.12.20261103
     # via -r requirements-dev.txt
 typing-extensions==4.16.0
     # via
