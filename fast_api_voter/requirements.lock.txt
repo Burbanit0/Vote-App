@@ -120,7 +120,7 @@ pydantic==2.14.3
     #   -r requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.2
+pydantic-core==2.50.4
     # via pydantic
 pydantic-settings==2.16.2
     # via -r requirements.txt
