@@ -40,9 +40,8 @@ describe('the tie lot', () => {
   ] as const)(
     '%j draws the 64 seeds tie_lot.py pins, and spreads over every name',
     (names, drawn) => {
-      const got = Array.from({ length: 64 }, (_, s) =>
-        [...names].sort().indexOf(drawName(names, s))
-      ).join('');
+      const sorted: string[] = [...names].sort();
+      const got = Array.from({ length: 64 }, (_, s) => sorted.indexOf(drawName(names, s))).join('');
       expect(got).toBe(drawn);
       for (let i = 0; i < names.length; i++) {
         expect(got.split(String(i)).length - 1).toBeGreaterThanOrEqual(
