@@ -1239,8 +1239,9 @@ const pgEn: PlaygroundKeys = {
     nash: 'Nash (product of utilities)',
     raynaud: 'Raynaud',
   },
-  // Plain-language method labels (plain-language mode). Bounded to the methods a
-  // newcomer actually meets; anything absent falls back to its technical name.
+  // Plain-language method labels (plain-language mode): one per rule, all 29. A rule added to the
+  // engine needs its plain name here (useVotingLabels.test.tsx fails until it has one), in both
+  // languages, short enough for a checkbox row (34 characters).
   rulesPlain: {
     plurality: 'Most votes',
     two_round: 'Two rounds',
@@ -1261,7 +1262,7 @@ const pgEn: PlaygroundKeys = {
     random_ballot: 'Draw a ballot at random',
     majority_judgment: 'Best median grade',
     anti_plurality: 'Fewest last places',
-    dowdall: 'Points: 1, ½, ⅓…',
+    dowdall: 'Shrinking points by rank',
     black: 'Duel winner, else points',
     smith_irv: 'Top group, then round-by-round',
     split_cycle: 'Cut each cycle’s weakest win',

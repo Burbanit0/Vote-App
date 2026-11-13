@@ -1262,8 +1262,9 @@ const pgFr = {
     nash: 'Nash (produit d’utilités)',
     raynaud: 'Raynaud',
   },
-  // Plain-language method labels (mode « sans jargon »). Bounded to the methods a
-  // newcomer actually meets; anything absent falls back to its technical name.
+  // Plain-language method labels (mode « sans jargon ») : un par règle, les 29. Une règle ajoutée au
+  // moteur doit avoir son nom simple ici (useVotingLabels.test.tsx échoue tant qu'il manque), dans
+  // les deux langues, assez court pour une ligne de case à cocher (34 caractères).
   rulesPlain: {
     plurality: 'Le plus de voix',
     two_round: 'À deux tours',
@@ -1284,7 +1285,7 @@ const pgFr = {
     random_ballot: 'Tirer un bulletin au sort',
     majority_judgment: 'La meilleure mention médiane',
     anti_plurality: 'Le moins de dernières places',
-    dowdall: 'Points : 1, ½, ⅓…',
+    dowdall: 'Points dégressifs par rang',
     black: 'Duel gagné, sinon des points',
     smith_irv: 'Le groupe de tête, puis par tours',
     split_cycle: 'Couper le maillon faible du cycle',

@@ -46,11 +46,12 @@ export function useVotingLabels() {
   // structureLabels flow straight into its own useMemo dependency list).
   return useMemo(() => {
     // Plain-language mode swaps the technical method name for a plain one. Every rule has one
-    // (rulesPlain.test.ts locks that: a rule added without it fails there, not on screen).
+    // (useVotingLabels.test.tsx locks that, in both languages: a rule added without it fails there).
+    // The fallback to the technical name is only a net under the tests, so a gap never shows as a key.
     const ruleLabels = Object.fromEntries(
       (Object.keys(RULE_LABELS) as Rule[]).map((r) => [
         r,
-        plainLanguage ? t(`rulesPlain.${r}`) : t(`rules.${r}`),
+        plainLanguage ? t(`rulesPlain.${r}`, { defaultValue: t(`rules.${r}`) }) : t(`rules.${r}`),
       ])
     ) as Record<Rule, string>;
 

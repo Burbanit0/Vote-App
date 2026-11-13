@@ -1362,7 +1362,7 @@ const pgPseudo: PlaygroundKeys = {
     random_ballot: '⟦Tírér~~ úñ~ búllétíñ~~~ áú~ sórt~~⟧',
     majority_judgment: '⟦Lá~ méílléúré~~~~ méñtíóñ~~~ médíáñé~~~⟧',
     anti_plurality: '⟦Lé~ móíñs~~ dé~ dérñíèrés~~~~ pláçés~~~⟧',
-    dowdall: '⟦Póíñts~~~ :~ 1,~ ½,~ ⅓…~⟧',
+    dowdall: '⟦Póíñts~~~ dégréssífs~~~~ pár~~ ráñg~~⟧',
     black: '⟦Dúél~~ gágñé,~~~ síñóñ~~ dés~~ póíñts~~~⟧',
     smith_irv: '⟦Lé~ gróúpé~~~ dé~ têté,~~ púís~~ pár~~ tóúrs~~⟧',
     split_cycle: '⟦Cóúpér~~~ lé~ máíllóñ~~~ fáíblé~~~ dú~ çyçlé~~⟧',

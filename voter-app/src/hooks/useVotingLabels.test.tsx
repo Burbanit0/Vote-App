@@ -61,7 +61,14 @@ describe.each([
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('keeps each name short enough for a checkbox label and a footer (34 characters)', () => {
+  it('names every rule differently from its technical name, in this language too', () => {
+    const technical = locale.rules as Record<string, string>;
+    for (const rule of rules) expect(plain[rule], rule).not.toBe(technical[rule]);
+  });
+
+  // 34 characters: the longest plain name (French) still sits on one line of the Méthode panel's
+  // checkbox column with all 29 rules ticked (checked in a render, 2026-11-12).
+  it('keeps each name to a line of the Méthode panel and of the footer (34 characters)', () => {
     for (const [rule, name] of Object.entries(plain)) {
       expect(name.length, `${rule}: ${name}`).toBeLessThanOrEqual(34);
       expect(name.trim(), rule).not.toBe('');
