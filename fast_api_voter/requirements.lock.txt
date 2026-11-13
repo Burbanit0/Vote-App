@@ -115,7 +115,7 @@ protobuf==7.36.2
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pydantic==2.14.2
+pydantic==2.14.3
     # via
     #   -r requirements.txt
     #   fastapi
@@ -131,7 +131,7 @@ python-dotenv==1.2.4
     #   uvicorn
 python-engineio==4.15.1
     # via python-socketio
-python-socketio==5.17.1
+python-socketio==5.18.1
     # via -r requirements.txt
 pyyaml==6.0.3
     # via
@@ -145,7 +145,7 @@ requests==2.34.2
     #   opentelemetry-exporter-otlp-proto-http
 scipy==1.18.1
     # via -r requirements.txt
-sentry-sdk==2.73.0
+sentry-sdk==2.74.0
     # via -r requirements.txt
 simple-websocket==1.1.0
     # via python-engineio
@@ -170,7 +170,7 @@ typing-extensions==4.16.0
     #   pydantic-core
     #   pydantic-settings
     #   typing-inspection
-typing-inspection==0.4.4
+typing-inspection==0.4.5
     # via
     #   fastapi
     #   pydantic
