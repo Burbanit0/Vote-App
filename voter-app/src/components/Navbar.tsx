@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Bug,
   FlaskConical,
-  GraduationCap,
   Moon,
   Settings,
   SlidersHorizontal,
@@ -17,7 +16,6 @@ import { Switch } from '@/components/ui/switch';
 import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
 import { Container } from '@/components/ui/grid';
 import { useTheme } from '../stores/useUIStore';
-import { useExpertMode } from '../stores/useUIStore';
 import { usePlainLanguage } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
@@ -59,7 +57,6 @@ const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, 
 
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const { expertMode, setExpertMode } = useExpertMode();
   const { plainLanguage, setPlainLanguage } = usePlainLanguage();
   const { t } = useTranslation();
   const [navExpanded, setNavExpanded] = useState(false);
@@ -178,22 +175,6 @@ const Navbar: React.FC = () => {
                         // Each language is named in itself, so it can be found from the other.
                         { value: 'fr', label: 'Français', testid: 'lang-fr' },
                         { value: 'en', label: 'English', testid: 'lang-en' },
-                      ]}
-                    />
-                  </Field>
-                  <Field label={t('nav.level')}>
-                    <Segmented
-                      label={t('nav.level')}
-                      value={expertMode ? 'expert' : 'beginner'}
-                      onChange={(level) => setExpertMode(level === 'expert')}
-                      options={[
-                        { value: 'beginner', label: t('nav.beginner'), testid: 'level-beginner' },
-                        {
-                          value: 'expert',
-                          label: t('nav.expert'),
-                          icon: GraduationCap,
-                          testid: 'level-expert',
-                        },
                       ]}
                     />
                   </Field>

@@ -18,7 +18,6 @@ import {
 } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { numericTickFormatter } from '@/lib/rechartsFormatters';
-import { useExpertMode } from '../../stores/useUIStore';
 import { useMethodLabels } from './simulationConstants';
 import { apiClient } from '../../api/client';
 
@@ -102,7 +101,6 @@ function ManipTooltip({ active, payload }: TooltipContentProps) {
 // ── ManipulabilityChart ───────────────────────────────────────────────────────
 
 const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
-  const { expertMode } = useExpertMode();
   const methodLabels = useMethodLabels();
 
   const [data, setData] = useState<ManipResult[]>([]);
@@ -137,14 +135,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
     }
   }, [baseParams]);
 
-  // Beginner mode: top 3 most resistant (lowest rate)
-  const displayData = expertMode
-    ? data
-    : [...data]
-        .sort((a, b) => (a.manipulability_rate ?? 100) - (b.manipulability_rate ?? 100))
-        .slice(0, 3);
-
-  const chartData = displayData.map((d) => ({
+  const chartData = data.map((d) => ({
     ...d,
     label: methodLabels[d.method] ?? d.method,
   }));
@@ -171,20 +162,18 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
         )}
       </div>
 
-      {/* ── Beginner explanation ── */}
-      {!expertMode && (
-        <Alert
-          variant="light"
-          className="mb-3"
-          style={{ fontSize: '0.85rem', borderLeft: '3px solid #0d6efd' }}
-        >
-          <strong>Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de vote
-          ne peut être complètement résistante à la manipulation. Ce graphique montre les{' '}
-          <strong>3 méthodes les plus résistantes</strong> au vote stratégique. Un faible taux
-          signifie que peu d'électeurs peuvent améliorer leur résultat en mentant sur leurs
-          préférences.
-        </Alert>
-      )}
+      {/* ── What it means ── */}
+      <Alert
+        variant="light"
+        className="mb-3"
+        style={{ fontSize: '0.85rem', borderLeft: '3px solid #0d6efd' }}
+      >
+        <strong>Le théorème de Gibbard-Satterthwaite</strong> démontre qu'aucune méthode de vote ne
+        peut être complètement résistante à la manipulation. Ce graphique montre, pour{' '}
+        <strong>chaque méthode</strong>, la part d'électeurs qui peuvent améliorer leur résultat en
+        mentant sur leurs préférences : plus le taux est faible, plus la méthode résiste au vote
+        stratégique.
+      </Alert>
 
       {/* ── Error ── */}
       {error && <Alert variant="danger">{error}</Alert>}
@@ -299,8 +288,8 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
         </Card>
       )}
 
-      {/* ── Expert detail table ── */}
-      {expertMode && data.length > 0 && (
+      {/* ── Detail table ── */}
+      {data.length > 0 && (
         <Card>
           <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>Détail par méthode</strong>

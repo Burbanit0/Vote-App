@@ -19,8 +19,10 @@ interface MockManipResult {
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="bar-chart">{children}</div>
+  BarChart: ({ children, data }: { children?: React.ReactNode; data?: unknown[] }) => (
+    <div data-testid="bar-chart" data-points={data?.length}>
+      {children}
+    </div>
   ),
   Bar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
@@ -146,5 +148,25 @@ describe('ManipulabilityChart', () => {
     fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
     await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
     expect(screen.getByText(/1 méthode/)).toBeInTheDocument();
+  });
+
+  it('shows every method, with what the chart means and the detail table, for everyone', async () => {
+    // Beginner/Expert used to cut the chart to the 3 most resistant methods and hide the table.
+    const methods = ['plurality', 'borda', 'irv', 'approval', 'schulze'];
+    apiClient.GET.mockResolvedValue({
+      data: { results: methods.map((m, i) => ({ ...makeResult(5 + i * 7), method: m })) },
+      error: undefined,
+    });
+    renderChart();
+    // What it means is there before any run, not only for a "beginner".
+    expect(screen.getByText(/Gibbard-Satterthwaite/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    expect(screen.getByText(/5 méthodes/)).toBeInTheDocument();
+    // Every method is a bar of the chart, not only the most resistant three.
+    expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-points', String(methods.length));
+    expect(screen.getByText('Détail par méthode')).toBeInTheDocument();
+    // One row per method in the detail table (plus its header row).
+    expect(screen.getAllByRole('row')).toHaveLength(methods.length + 1);
   });
 });
