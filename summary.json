@@ -984,7 +984,7 @@
   "code": 128,
   "test-flaky": 16
  },
- "generated_at": "2026-11-13T07:55:14Z",
+ "generated_at": "2026-11-13T10:00:03Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1051,9 +1051,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-14": {
-    "success": 1
-   },
    "2026-10-15": {
     "success": 2
    },
@@ -1155,7 +1152,7 @@
   "CI Dashboard": {
    "2026-10-14": {
     "failure": 2,
-    "success": 5
+    "success": 3
    },
    "2026-10-15": {
     "success": 13
@@ -1247,7 +1244,7 @@
     "success": 40
    },
    "2026-11-13": {
-    "success": 16
+    "success": 17
    }
   },
   "CI Health Watchdog": {
@@ -1384,9 +1381,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-14": {
-    "success": 1
-   },
    "2026-10-15": {
     "success": 2
    },
@@ -1475,7 +1469,7 @@
     "success": 9
    },
    "2026-11-13": {
-    "success": 4
+    "success": 5
    }
   },
   "Diff Mutation comment": {
@@ -2075,7 +2069,7 @@
   "polity red alert": {
    "2026-10-14": {
     "skipped": 6,
-    "success": 3
+    "success": 1
    },
    "2026-10-15": {
     "skipped": 12,
@@ -2211,7 +2205,7 @@
    "2026-11-13": {
     "cancelled": 3,
     "skipped": 90,
-    "success": 27
+    "success": 28
    }
   },
   "zizmor online": {
@@ -2265,9 +2259,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T03:44:33Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43360953654"
+   "created_at": "2026-11-13T07:55:07Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43389190378"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2284,11 +2278,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43225848831"
   },
   "DAST \u2014 ZAP Baseline": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T03:33:29Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43359757553"
+   "created_at": "2026-11-13T09:56:36Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43405284720"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -2362,10 +2356,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-13T07:09:51Z",
+   "conclusion": "success",
+   "created_at": "2026-11-13T09:59:56Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43383754978"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43405680086"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2375,7 +2369,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43043752672"
   }
  },
- "runs": 7416,
+ "runs": 7413,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2416,7 +2410,6 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-14": 1110,
     "2026-10-15": 1105.0,
     "2026-10-16": 1071,
     "2026-10-17": 1111.5,
@@ -2451,7 +2444,7 @@
    "p50_s": 1121,
    "p95_s": 1495,
    "queue_p50_s": 0,
-   "runs": 68
+   "runs": 67
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -2521,12 +2514,12 @@
     "2026-11-10": 241,
     "2026-11-11": 279,
     "2026-11-12": 263.0,
-    "2026-11-13": 250.5
+    "2026-11-13": 246
    },
    "p50_s": 355,
    "p95_s": 544,
    "queue_p50_s": 0,
-   "runs": 544
+   "runs": 543
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2586,7 +2579,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-14": 194,
     "2026-10-15": 173.5,
     "2026-10-16": 187,
     "2026-10-17": 171.0,
@@ -2616,7 +2608,7 @@
     "2026-11-10": 205,
     "2026-11-11": 192,
     "2026-11-12": 210,
-    "2026-11-13": 216.0
+    "2026-11-13": 206
    },
    "p50_s": 179,
    "p95_s": 226,
@@ -3065,12 +3057,12 @@
     "2026-11-10": 28,
     "2026-11-11": 27.0,
     "2026-11-12": 27,
-    "2026-11-13": 27
+    "2026-11-13": 27.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 801
+   "runs": 800
   },
   "zizmor online": {
    "daily_p50_s": {
