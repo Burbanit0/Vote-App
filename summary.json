@@ -406,30 +406,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 4,
-   "example": {
-    "job": "Update the polity-red issue",
-    "lines": [
-     "Traceback (most recent call last):",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "f71e5f995967ded497b1a983234575dc128d8bdc",
-    "step": "Rebuild the list of red workflows",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41469313890"
-   },
-   "last_seen": "2026-11-02T15:12:33Z",
-   "signature": "test-flaky: Traceback (most recent call last):",
-   "workflows": [
-    "CI Dashboard",
-    "polity red alert"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7"
@@ -484,6 +460,30 @@
    "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 3,
+   "example": {
+    "job": "Update the polity-red issue",
+    "lines": [
+     "Traceback (most recent call last):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "f71e5f995967ded497b1a983234575dc128d8bdc",
+    "step": "Rebuild the list of red workflows",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41469313890"
+   },
+   "last_seen": "2026-11-02T15:12:33Z",
+   "signature": "test-flaky: Traceback (most recent call last):",
+   "workflows": [
+    "CI Dashboard",
+    "polity red alert"
    ]
   },
   {
@@ -1004,9 +1004,9 @@
  "failures_by_category": {
   "advisory": 3,
   "code": 131,
-  "test-flaky": 16
+  "test-flaky": 15
  },
- "generated_at": "2026-11-13T16:19:34Z",
+ "generated_at": "2026-11-13T22:36:03Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1175,7 +1175,6 @@
   },
   "CI Dashboard": {
    "2026-10-14": {
-    "failure": 1,
     "success": 1
    },
    "2026-10-15": {
@@ -1268,7 +1267,7 @@
     "success": 40
    },
    "2026-11-13": {
-    "success": 40
+    "success": 41
    }
   },
   "CI Health Watchdog": {
@@ -2235,7 +2234,7 @@
    "2026-11-13": {
     "cancelled": 25,
     "skipped": 151,
-    "success": 81
+    "success": 82
    }
   },
   "zizmor online": {
@@ -2292,9 +2291,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T16:09:48Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43459898893"
+   "created_at": "2026-11-13T16:19:27Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43461562269"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2390,9 +2389,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T13:49:10Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43436985883"
+   "created_at": "2026-11-13T17:16:01Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43471078649"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2402,7 +2401,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 7791,
+ "runs": 7792,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2545,12 +2544,12 @@
     "2026-11-10": 241,
     "2026-11-11": 279,
     "2026-11-12": 263.0,
-    "2026-11-13": 283.0
+    "2026-11-13": 282
    },
    "p50_s": 353,
    "p95_s": 543,
    "queue_p50_s": 0,
-   "runs": 564
+   "runs": 565
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3080,12 +3079,12 @@
     "2026-11-10": 28,
     "2026-11-11": 27.0,
     "2026-11-12": 27,
-    "2026-11-13": 27
+    "2026-11-13": 27.0
    },
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 852
+   "runs": 853
   },
   "zizmor online": {
    "daily_p50_s": {
