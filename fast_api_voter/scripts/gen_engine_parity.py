@@ -153,6 +153,12 @@ def _mj_winner(ballots):
     return get_majority_judgment_winner(ballots)["winner"]
 
 NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"]
+# Names for the tied-profile block: sorted (so name order and index order agree, as the lock-order
+# ties of ranked_pairs / river and Kemeny still need), and chosen so that at seed 0 the lot draws
+# the SECOND name of every pair and the middle one of the three ('Bea', 'Cat', 'Cat' for the pairs;
+# 'Bea' for the triple). With A/B/C the lot's two-way draws are the alphabetically first name, so
+# a name tie-break would pass the exhaustive block undetected; with these it fails.
+TIED_NAMES = ["Ann", "Bea", "Cat"]
 SEED = 20260628
 OUT = os.path.abspath(
     os.path.join(ROOT, "..", "voter-app", "src", "lib", "__fixtures__", "engineParity.json")
@@ -267,7 +273,7 @@ def single_rule_scenarios(rule, fn, make_ballot, to_json):
     return scenarios
 
 
-def generate_exhaustive_scenarios() -> list[dict]:
+def generate_exhaustive_scenarios(names: list[str] = NAMES) -> list[dict]:
     """Every possible ordinal profile for n<=3 candidates and m<=5 voters --
     an exhaustive proof of parity over that whole bounded domain, not a
     sample of it (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md). Anonymity (already
@@ -291,7 +297,7 @@ def generate_exhaustive_scenarios() -> list[dict]:
     """
     scenarios = []
     for n in (2, 3):
-        cands = NAMES[:n]
+        cands = names[:n]
         ballot_types = list(itertools.permutations(cands))
         k = len(ballot_types)
         for m in range(1, 6):
@@ -769,6 +775,8 @@ def main() -> None:
     )
 
     exhaustive_scenarios = generate_exhaustive_scenarios()
+    # The same domain over names where the lot's draw is NOT the alphabetical first (TIED_NAMES).
+    exhaustive_tied_name_scenarios = generate_exhaustive_scenarios(TIED_NAMES)
     exhaustive_approval_scenarios = generate_exhaustive_approval_scenarios()
     exhaustive_mj_scenarios = generate_exhaustive_majority_judgment_scenarios()
     exhaustive_maximin_scenarios = generate_exhaustive_maximin_scenarios()
@@ -787,6 +795,7 @@ def main() -> None:
         "approvalScenarios": approval_scenarios,
         "majorityJudgmentScenarios": mj_scenarios,
         "exhaustiveScenarios": exhaustive_scenarios,
+        "exhaustiveTiedNameScenarios": exhaustive_tied_name_scenarios,
         "exhaustiveApprovalScenarios": exhaustive_approval_scenarios,
         "exhaustiveMajorityJudgmentScenarios": exhaustive_mj_scenarios,
         "exhaustiveMaximinScenarios": exhaustive_maximin_scenarios,

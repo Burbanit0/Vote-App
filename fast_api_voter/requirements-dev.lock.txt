@@ -67,7 +67,7 @@ cogapp==3.6.0
     # via -r requirements-dev.txt
 colorama==0.4.6
     # via radon
-coverage==7.17.0
+coverage==7.17.2
     # via
     #   mutmut
     #   pytest-cov
@@ -83,7 +83,7 @@ deprecated==3.0.1
     #   limits
 deptry==0.25.1
     # via -r requirements-dev.txt
-diff-cover==11.0.0
+diff-cover==11.0.1
     # via -r requirements-dev.txt
 docutils==0.23
     # via marimo
@@ -97,7 +97,7 @@ fastapi==0.162.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-filelock==4.2.6
+filelock==4.2.9
     # via cachecontrol
 frozenlist==1.8.0
     # via
@@ -175,7 +175,7 @@ mando==0.7.1
     # via radon
 marimo==0.25.2
     # via -r requirements-dev.txt
-markdown==3.11.2
+markdown==3.11.3
     # via
     #   marimo
     #   pymdown-extensions
@@ -204,7 +204,7 @@ mutmut==3.8.1
     # via -r requirements-dev.txt
 mypy==2.4.1
     # via -r requirements-dev.txt
-mypy-extensions==1.1.0
+mypy-extensions==1.2.0
     # via mypy
 narwhals==2.28.0
     # via marimo
@@ -298,7 +298,7 @@ parso==0.8.7
     # via jedi
 pathspec==1.1.1
     # via mypy
-pip==26.2.2
+pip==26.3
     # via pip-api
 pip-api==0.0.35
     # via pip-audit
@@ -306,7 +306,7 @@ pip-audit==2.10.1
     # via -r requirements-dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
-platformdirs==4.14.2
+platformdirs==4.14.5
     # via
     #   pip-audit
     #   textual
@@ -339,13 +339,13 @@ py-cpuinfo2==10.1.1
     # via pytest-benchmark
 py-serializable==2.1.0
     # via cyclonedx-python-lib
-pydantic==2.14.2
+pydantic==2.14.3
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.2
+pydantic-core==2.50.4
     # via
     #   -c requirements.lock.txt
     #   pydantic
@@ -377,7 +377,7 @@ pytest==9.2.0
     #   pytest-xdist
     #   schemathesis
     #   syrupy
-pytest-asyncio==1.4.1
+pytest-asyncio==1.4.1.post1
     # via -r requirements-dev.txt
 pytest-benchmark==5.3.1
     # via -r requirements-dev.txt
@@ -399,7 +399,7 @@ python-engineio==4.15.1
     #   python-socketio
 python-multipart==0.0.33
     # via marimo
-python-socketio==5.17.1
+python-socketio==5.18.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -414,7 +414,7 @@ pyyaml==6.0.3
     #   schemathesis
     #   uvicorn
     #   xenon
-pyzmq==27.2.0
+pyzmq==27.3.0
     # via marimo
 radon==6.0.1
     # via
@@ -442,15 +442,15 @@ rich==15.0.0
     #   pip-audit
     #   schemathesis
     #   textual
-ruff==0.17.3
+ruff==0.17.4
     # via -r requirements-dev.txt
-schemathesis==4.32.7
+schemathesis==4.33.1
     # via -r requirements-dev.txt
 scipy==1.18.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-sentry-sdk==2.73.0
+sentry-sdk==2.74.0
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -494,7 +494,7 @@ tomli-w==1.2.0
     # via pip-audit
 tomlkit==0.15.2
     # via marimo
-types-pyyaml==6.0.12.20260906
+types-pyyaml==6.0.12.20261103
     # via -r requirements-dev.txt
 typing-extensions==4.16.0
     # via
@@ -514,7 +514,7 @@ typing-extensions==4.16.0
     #   schemathesis
     #   textual
     #   typing-inspection
-typing-inspection==0.4.4
+typing-inspection==0.4.5
     # via
     #   -c requirements.lock.txt
     #   fastapi

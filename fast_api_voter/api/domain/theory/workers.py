@@ -190,7 +190,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for _ in range(n_trials):
             n_voters = rng.randint(3, 7)
             profile = [rng.sample(cands, n) for _ in range(n_voters)]
-            winner_full = rule_winner(rule, profile)
+            winner_full = rule_winner(rule, profile, seed=seed)
             if winner_full is None:
                 continue
             others = [c for c in cands if c != winner_full]
@@ -198,7 +198,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 continue
             removed = rng.choice(others)
             reduced = [[c for c in v if c != removed] for v in profile]
-            winner_red = rule_winner(rule, reduced)
+            winner_red = rule_winner(rule, reduced, seed=seed)
             if winner_full != winner_red:
                 hits += 1
         return round(hits / n_trials, 4)
@@ -966,10 +966,10 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     def _run(rnks: List[List[str]]) -> Optional[str]:
         # Ballots go in as cast. They used to be padded back to full rankings
         # in candidate-list order first, which undid the "truncating" strategy
-        # before IRV ever saw it. And an exact tie stays None: `or
-        # cand_names[0]` used to elect the first-listed candidate instead, so a
-        # tied sincere result became "manipulated" by any ballot that decided it.
-        return rule_winner(method, rnks)
+        # before IRV ever saw it. And an exact tie is drawn by the request's seed, the same draw
+        # on every rerun: `or cand_names[0]` used to elect the first-listed candidate instead,
+        # so a tied sincere result became "manipulated" by any ballot that decided it.
+        return rule_winner(method, rnks, seed=seed)
 
     sincere_winner = _run(sincere_rankings)
 
@@ -2540,10 +2540,10 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "borda":        get_borda_winner,
         "irv":          get_irv_winner,
         # The engine's default threshold is 2, which at 2 candidates approves the
-        # whole field -- a dead tie it then breaks alphabetically, so approval
+        # whole field -- a dead tie it then draws by lot, so approval
         # would stop reading the votes at all. The panel's own rule (top ~40%,
         # at least 1) is kept, which is also plurality at 2 candidates.
-        "approval":     lambda r: get_approval_winner(r, _approval_threshold),
+        "approval":     lambda r, seed=0: get_approval_winner(r, _approval_threshold, seed=seed),
         "schulze":      get_schulze_winner,
         "minimax":      get_minimax_winner,
         "kemeny_young": get_kemeny_young_winner,
@@ -2561,9 +2561,9 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     def _run_method(
         method: str, rankings: List[List[str]], util_matrix: List[List[float]]
     ) -> Optional[str]:
-        """The winner, or None when the rule genuinely elects nobody (an exact
-        tie IRV cannot break). Reporting a name there is what this worker used to
-        do for four methods; `winner_by_method` omits the method instead.
+        """The winner (an exact tie is drawn by the request's seed), or None when there is
+        nothing to count. Reporting the first-listed candidate on a tie is what this worker
+        used to do for four methods; `winner_by_method` omits a method that has no winner.
 
         `util_matrix` must be the one the rankings came from: a score rule reads
         it rather than the rankings, and the multi-simulation loop below hands
@@ -2571,7 +2571,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if method in _SCORED:
             winner = _SCORED[method](_score_votes(util_matrix), seed=seed)["winner"]
             return str(winner) if winner else None
-        return _RANKED[method](rankings)
+        return _RANKED[method](rankings, seed=seed)
 
     # ── Binary elimination for agenda comparison ───────────────────────────────
     def _binary_elim(agenda_order: List[str], pair_matrix: Dict[str, Dict[str, float]]) -> str:
@@ -2608,8 +2608,8 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     for method in methods_used:
         w = _run_method(method, sincere_rankings, utilities)
-        # A rule that elects nobody (IRV on an exact tie) is reported by its
-        # absence rather than by a name it did not choose.
+        # A rule with no winner (nothing to count) is reported by its absence rather than
+        # by a name it did not choose.
         if w is not None:
             winner_by_method[method] = w
             all_results.append(w)

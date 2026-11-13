@@ -288,6 +288,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_plurality.py",
     "api/tests/test_positional_score.py",
     "api/tests/test_ranked_pairs_random_ballot.py",
+    "api/tests/test_ranked_rules_tie_lot.py",
     "api/tests/test_raynaud.py",
     "api/tests/test_river.py",
     "api/tests/test_schulze_beatpath.py",

@@ -8,6 +8,8 @@ from fractions import Fraction
 from itertools import combinations
 from typing import Any, Optional
 
+from .tie_lot import best, draw
+
 
 def _is_dict_format(votes: list[Any]) -> bool:
     """Return True when votes are dicts with a 'ranking' key, False for plain lists."""
@@ -86,7 +88,30 @@ def get_condorcet_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     return None
 
 
-def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def _first_choice_tally(votes: list[Any], is_dict: bool) -> "Counter[Any]":
+    """Each candidate's count of first places (blank ballots count for no one)."""
+    tally: "Counter[Any]" = Counter()
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        if ranking:
+            tally[ranking[0]] += 1
+    return tally
+
+
+def _runoff_finalists(first_choice_votes: "Counter[Any]", seed: object) -> list[Any]:
+    """First place, then second place, each by lot among those tied for it (neither the
+    ballot order nor the names decide). NOT most_common(2): Counter breaks count ties by
+    insertion order, so the ballot order decided who reached the runoff."""
+    first = best(first_choice_votes, first_choice_votes.__getitem__, seed)
+    others = [c for c in first_choice_votes if c != first]
+    if not others:
+        return [first]
+    return [first, best(others, first_choice_votes.__getitem__, seed)]
+
+
+def get_two_round_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the winner of a two-round system from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -96,22 +121,16 @@ def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
         return None
     is_dict = _is_dict_format(votes)
 
-    first_choice_votes: "Counter[Any]" = Counter()
-    for vote in votes:
-        ranking = _get_ranking(vote, is_dict)
-        if ranking:
-            first_choice_votes[ranking[0]] += 1
+    first_choice_votes = _first_choice_tally(votes, is_dict)
 
     majority = len(votes) // 2
     for candidate, count in first_choice_votes.items():
         if count > majority:
             return str(candidate)
 
-    # NOT most_common(2): Counter breaks count ties by insertion order, so the
-    # ballot order decided who reached the runoff.
-    top_two_candidates = sorted(
-        first_choice_votes, key=lambda c: (-first_choice_votes[c], c)
-    )[:2]
+    if not first_choice_votes:  # every ballot blank: nobody to put in a runoff
+        return None
+    top_two_candidates = _runoff_finalists(first_choice_votes, seed)
 
     second_round_votes: "Counter[Any]" = Counter()
     for vote in votes:
@@ -123,10 +142,12 @@ def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
 
     if not second_round_votes:
         return None
-    return str(min(second_round_votes, key=lambda c: (-second_round_votes[c], c)))
+    return str(best(second_round_votes, second_round_votes.__getitem__, seed))
 
 
-def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_borda_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Borda count winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -143,10 +164,12 @@ def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
             scores[candidate] += num_candidates - 1 - position
     if not scores:
         return None
-    return str(min(scores, key=lambda c: (-scores[c], c)))
+    return str(best(scores, scores.__getitem__, seed))
 
 
-def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_dowdall_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Dowdall (Nauru) winner: a positional rule using HARMONIC
     weights — rank k (0-indexed) scores 1/(k+1), so a strong first choice
@@ -172,10 +195,12 @@ def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
             scores[candidate] += Fraction(1, position + 1)
     if not scores:
         return None
-    return str(min(scores, key=lambda c: (-scores[c], c)))
+    return str(best(scores, lambda c: float(scores[c]), seed))
 
 
-def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_black_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the winner under Black's method (Duncan Black, 1958): elect the
     Condorcet winner if one exists, otherwise fall back to the Borda winner.
@@ -184,16 +209,21 @@ def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
     :return: The name of the Black winner
     """
     condorcet = get_condorcet_winner(votes, blank_candidate_name)
-    return condorcet if condorcet is not None else get_borda_winner(votes, blank_candidate_name)
+    if condorcet is not None:
+        return condorcet
+    return get_borda_winner(votes, blank_candidate_name, seed=seed)
 
 
-def get_benham_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_benham_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Benham's method (Condorcet-IRV): at the start of each round, elect the
     Condorcet winner among the REMAINING candidates if one exists; otherwise
     eliminate every candidate tied for fewest first-preferences (as IRV does)
     and repeat. Condorcet-consistent while keeping IRV's clone-resistance.
-    Tie-break if no majority winner emerges: alphabetical.
+    If the elimination ends with candidates it cannot separate, the seeded lot (`tie_lot.draw`)
+    picks among them, never the listing order or the names.
 
     :param votes: A list of rankings (see get_condorcet_winner for format)
     :return: The name of the Benham winner
@@ -221,10 +251,12 @@ def get_benham_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
             break
         active -= doomed
 
-    return min(active) if active else None
+    return str(draw(active, seed)) if active else None
 
 
-def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_plurality_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the plurality winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -240,10 +272,12 @@ def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
             first_choice_votes[ranking[0]] += 1
     if not first_choice_votes:
         return None
-    return str(min(first_choice_votes, key=lambda c: (-first_choice_votes[c], c)))
+    return str(best(first_choice_votes, first_choice_votes.__getitem__, seed))
 
 
-def get_anti_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_anti_plurality_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the anti-plurality (veto) winner from a set of rankings: each
     ballot vetoes its last-ranked candidate, and the candidate vetoed the
@@ -268,7 +302,7 @@ def get_anti_plurality_winner(votes: list[Any], blank_candidate_name: str = "") 
     if not candidates:
         return None
     # A candidate never ranked last has 0 vetoes — Counter.get defaults it in.
-    return str(min(candidates, key=lambda c: (last_choice_votes.get(c, 0), c)))
+    return str(best(candidates, lambda c: -last_choice_votes.get(c, 0), seed))
 
 
 def get_approval_winner(
@@ -276,6 +310,8 @@ def get_approval_winner(
     approval_threshold: int = 2,
     utility_scores: Optional[dict[Any, Any]] = None,
     blank_candidate_name: str = "",
+    *,
+    seed: object = 0,
 ) -> Optional[str]:
     """
     Determine the approval voting winner from a set of rankings.
@@ -316,10 +352,12 @@ def get_approval_winner(
 
     if not approval_votes:
         return None
-    return str(min(approval_votes, key=lambda c: (-approval_votes[c], c)))
+    return str(best(approval_votes, approval_votes.__getitem__, seed))
 
 
-def get_approval_winner_sincere(utility_scores: dict[Any, Any]) -> Optional[str]:
+def get_approval_winner_sincere(
+    utility_scores: dict[Any, Any], *, seed: object = 0
+) -> Optional[str]:
     """
     Convenience wrapper that runs approval voting in sincere mode.
     Expects utility_scores as {voter_id: {candidate_name: float}}.
@@ -327,10 +365,12 @@ def get_approval_winner_sincere(utility_scores: dict[Any, Any]) -> Optional[str]
     a parallel rankings list.
     """
     votes = [{"voter_id": voter_id} for voter_id in utility_scores]
-    return get_approval_winner(votes, utility_scores=utility_scores)
+    return get_approval_winner(votes, utility_scores=utility_scores, seed=seed)
 
 
-def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_irv_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Instant Runoff Voting winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -365,14 +405,16 @@ def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional
         min_votes = min(votes_count.values())
         eliminated = [c for c, v in votes_count.items() if v == min_votes]
         if len(eliminated) >= len(candidates):
-            return None
+            return str(draw(candidates, seed))  # every survivor tied: the lot, not "no winner"
         for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None
 
 
-def get_coombs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_coombs_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Coombs' method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -411,14 +453,16 @@ def get_coombs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         max_last = max(last_choices.values())
         eliminated = [c for c, v in last_choices.items() if v == max_last]
         if len(eliminated) >= len(candidates):
-            return None
+            return str(draw(candidates, seed))  # every survivor tied: the lot, not "no winner"
         for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None
 
 
-def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
+def get_positional_score_winner(
+    votes: list[Any], *, seed: object = 0, **kwargs: Any
+) -> Optional[str]:
     """
     Determine the winner using positional scoring derived from rankings.
     Each candidate receives a score proportional to their rank position
@@ -437,7 +481,7 @@ def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str
             scores[candidate] += 1 - (position / (num_candidates - 1)) if num_candidates > 1 else 1
     if not scores:
         return None
-    return str(min(scores, key=lambda c: (-scores[c], c)))
+    return str(best(scores, scores.__getitem__, seed))
 
 
 def _kwik_sort(candidates: list[str], pw: dict[str, dict[str, int]]) -> list[str]:
@@ -547,12 +591,18 @@ def kemeny_used_approximation(votes: list[Any]) -> bool:
     return len(cand_set) > _KY_EXACT_CAP
 
 
-def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
+def get_kemeny_young_winner(
+    votes: list[Any], *, seed: object = 0, **kwargs: Any
+) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
 
     Exact (DP over candidate subsets) up to `_KY_EXACT_CAP` candidates, which
     covers every input reachable over HTTP. KwikSort approximation above it.
+    `seed` is accepted so every ranked rule shares one signature, but Kemeny-Young does not
+    use it: among equally good rankings it returns the name-smallest, not a draw (#926,
+    LISTING_ORDER_TIES.md "Open").
+
     Callers that need to know which path was taken should call
     kemeny_used_approximation(votes) separately rather than inspecting this
     function's state — see its docstring for why.
@@ -590,7 +640,9 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     return _kemeny_exact_winner(candidates, pw)
 
 
-def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_bucklin_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Bucklin voting winner from a set of rankings.
 
@@ -616,12 +668,14 @@ def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
 
         over_majority = [(c, v) for c, v in votes_count.items() if v > majority]
         if over_majority:
-            return str(min(over_majority, key=lambda cv: (-cv[1], cv[0]))[0])
+            return str(best([c for c, _ in over_majority], votes_count.__getitem__, seed))
 
-    return str(min(votes_count, key=lambda c: (-votes_count[c], c))) if votes_count else None
+    return str(best(votes_count, votes_count.__getitem__, seed)) if votes_count else None
 
 
-def get_minimax_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_minimax_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Minimax winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -654,10 +708,12 @@ def get_minimax_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
         )
         for candidate in candidates
     }
-    return str(min(max_opposition, key=lambda c: (max_opposition[c], c)))
+    return str(best(max_opposition, lambda c: -max_opposition[c], seed))
 
 
-def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_schulze_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Determine the Schulze method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -710,9 +766,13 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     # Scan in name order, not first-seen order: several candidates can satisfy the
     # condition at once, and taking the first one encountered made the winner
     # depend on which ballot happened to mention whom first.
-    for cand in sorted(candidates):
-        if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
-            return str(cand)
+    winners = [
+        cand
+        for cand in sorted(candidates)
+        if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand)
+    ]
+    if winners:
+        return str(draw(winners, seed))
     # Unreachable on a finite candidate set: Schulze's beatpath matrix is always
     # transitive and strict, so a maximal (undominated) candidate always exists
     # and the loop above always returns first. Verified empirically against
@@ -747,11 +807,13 @@ def _pairwise_wins(votes: list[Any]) -> dict[str, dict[str, int]]:
     return pw
 
 
-def get_copeland_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_copeland_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Copeland's method: score = pairwise wins − pairwise losses.
     Ties in Copeland score are broken by total wins (descending),
-    then alphabetically.
+    then by the seeded lot (`tie_lot.best`), never by name.
     """
     if not votes:
         return None
@@ -772,15 +834,14 @@ def get_copeland_winner(votes: list[Any], blank_candidate_name: str = "") -> Opt
         copeland[c]    = w - l
         total_wins[c]  = w
 
-    # Primary sort: Copeland score desc; secondary: total wins desc; tertiary: alpha asc
-    ranked = sorted(
-        candidates,
-        key=lambda c: (-copeland[c], -total_wins[c], c),
-    )
-    return ranked[0]
+    # Copeland score first, then total wins (both integers: this key is exact), then the lot.
+    width = len(candidates) + 1
+    return str(best(candidates, lambda c: copeland[c] * width + total_wins[c], seed))
 
 
-def get_raynaud_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_raynaud_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Raynaud's method: each round, compute every active candidate's WORST
     pairwise loss (the biggest margin by which any single opponent beats
@@ -824,15 +885,18 @@ def get_raynaud_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
         if len(doomed) >= len(active):
             break
         active -= doomed
-    return min(active) if active else None
+    return str(draw(active, seed)) if active else None
 
 
-def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_nanson_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Nanson's method: iteratively eliminate all candidates whose Borda score
     is strictly below the mean Borda score of the remaining candidates.
     Guaranteed to elect the Condorcet winner when one exists (Nanson, 1882).
-    Tie-break (if multiple remain with no eliminations possible): alphabetical.
+    Tie-break (if multiple remain with no eliminations possible): the highest final Borda
+    score, then the seeded lot.
     """
     # `votes` empty, or every ballot ranking zero candidates (e.g. [[]]), are
     # both handled by this guard, same as get_benham_winner/get_smith_irv_winner
@@ -872,7 +936,7 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
     if len(active) == 1:
         return next(iter(active))
 
-    # Multiple survivors: return the one with highest final Borda score, then alpha
+    # Multiple survivors: return the one with highest final Borda score, then the lot
     scores_final: dict[str, float] = {c: 0.0 for c in active}
     for r in ballots:
         ranking = [c for c in r if c in active]
@@ -880,10 +944,12 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         for pos, c in enumerate(ranking):
             scores_final[c] += n - 1 - pos
 
-    return min(active, key=lambda c: (-scores_final[c], c))
+    return str(best(active, scores_final.__getitem__, seed))
 
 
-def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_baldwin_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Baldwin's method: iteratively eliminate EVERY candidate tied for the
     lowest Borda score among the remaining candidates (not just one).
@@ -931,10 +997,12 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
 
     if not active:
         return min(all_cands)
-    return min(active)  # alpha tie-break among survivors
+    return str(draw(active, seed))  # the lot among the survivors, not the first by name
 
 
-def get_ranked_pairs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_ranked_pairs_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Tideman's Ranked Pairs (1987).
 
@@ -993,10 +1061,12 @@ def get_ranked_pairs_winner(votes: list[Any], blank_candidate_name: str = "") ->
         for loser in losers:
             incoming[loser] += 1
     sources = sorted(c for c in candidates if incoming[c] == 0)
-    return sources[0] if sources else None
+    return str(draw(sources, seed)) if sources else None
 
 
-def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_river_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     River (Heitzig): like Ranked Pairs, lock the strongest pairwise majorities
     first, skipping any that would create a cycle -- but each candidate
@@ -1006,8 +1076,8 @@ def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
 
     Tie-break for equal margins: stronger winner support first, then
     alphabetical on (winner, loser) -- same convention as Ranked Pairs. If
-    several disjoint roots remain (ties left some pairs unlocked), the
-    alphabetically first root wins.
+    several disjoint roots remain (ties left some pairs unlocked), the seeded lot
+    draws among them.
     """
     if not votes:
         return None
@@ -1053,7 +1123,7 @@ def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
         has_parent[loser] = True
 
     roots = sorted(c for c in candidates if not has_parent[c])
-    return roots[0] if roots else get_condorcet_winner(votes, blank_candidate_name)
+    return str(draw(roots, seed)) if roots else get_condorcet_winner(votes, blank_candidate_name)
 
 
 def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
@@ -1096,7 +1166,9 @@ def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
     return members.copy()  # pragma: no cover
 
 
-def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_smith_irv_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Smith-IRV (Tideman's Alternative): restrict to the Smith set ONCE, then
     run ordinary IRV (eliminate the candidate(s) tied for fewest first-
@@ -1130,10 +1202,12 @@ def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
             break
         active -= doomed
 
-    return min(active) if active else None
+    return str(draw(active, seed)) if active else None
 
 
-def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+def get_split_cycle_winner(
+    votes: list[Any], blank_candidate_name: str = "", *, seed: object = 0
+) -> Optional[str]:
     """
     Split Cycle (Holliday & Pacuit, 2021): a majority defeat is discarded
     when it is the weakest link of a majority cycle -- a candidate wins iff
@@ -1182,8 +1256,7 @@ def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> 
     ]
     if len(winners) == 1:
         return winners[0]
-    if not winners:
-        return get_borda_winner(votes, blank_candidate_name)
+    # `winners` is never empty: a Split Cycle winner always exists (Holliday & Pacuit, 2023).
 
     is_dict = _is_dict_format(votes)
     borda_scores: dict[str, int] = {c: 0 for c in candidates}
@@ -1193,7 +1266,7 @@ def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> 
         for pos, c in enumerate(ranking):
             if c in borda_scores:
                 borda_scores[c] += n - 1 - pos
-    return min(winners, key=lambda c: (-borda_scores[c], c))
+    return str(best(winners, borda_scores.__getitem__, seed))
 
 
 def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:

@@ -141,15 +141,16 @@ def _dt_winner(
     utils: Dict[Any, Dict[str, float]],
     cand_names: List[str],
     method: str,
+    seed: object = 0,
 ) -> tuple[Optional[str], Dict[str, float]]:
-    """Winner and first-choice shares for one voter subset. No winner on an
-    exact tie, or when nobody voted."""
+    """Winner and first-choice shares for one voter subset. An exact tie is drawn by the
+    seeded lot (the request's seed); no winner only when nobody voted."""
     if not vlist:
         return None, {c: 0.0 for c in cand_names}
     rnk = [tie_lot.ranking(utils[v["id"]], utils[v["id"]].__getitem__, v["id"]) for v in vlist]
     fc = Counter(r[0] for r in rnk)
     shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
-    return rule_winner(method, rnk), shares
+    return rule_winner(method, rnk, seed=seed), shares
 
 
 def _dt_mean(
@@ -306,9 +307,11 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     voted_ids, actual_voters = _dt_turnout_draw(raw_voters, voter_demo, seed)
     n_actual = len(actual_voters)
 
-    biased_winner, biased_shares = _dt_winner(actual_voters, utils, cand_names, primary_method)
+    biased_winner, biased_shares = _dt_winner(
+        actual_voters, utils, cand_names, primary_method, seed
+    )
     corrected_winner, corrected_shares = (
-        _dt_winner(raw_voters, utils, cand_names, primary_method) if correct_flag
+        _dt_winner(raw_voters, utils, cand_names, primary_method, seed) if correct_flag
         else (biased_winner, biased_shares)
     )
 

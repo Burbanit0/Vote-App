@@ -131,6 +131,23 @@ export function pluralityCounts(ranks: number[][], alive: boolean[], m: number):
   return counts;
 }
 
+/** The index in `pool` with the highest `value`; an exact tie is drawn by lot over the tied names. */
+function bestOf(
+  pool: readonly number[],
+  value: (i: number) => number,
+  names: readonly string[]
+): number {
+  return pool[
+    bestIndex(
+      pool.map((i) => value(i)),
+      pool.map((i) => names[i])
+    )
+  ];
+}
+
+/** Candidates still standing, as indices. */
+const standing = (alive: readonly boolean[]): number[] => alive.flatMap((a, i) => (a ? [i] : []));
+
 export function argmax(arr: number[]): number {
   let best = 0;
   for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
@@ -139,18 +156,21 @@ export function argmax(arr: number[]): number {
 
 // ── Rules → winning candidate index ──────────────────────────────────────────
 
-function winPlurality(ranks: number[][], m: number): number {
-  return argmax(pluralityCounts(ranks, new Array(m).fill(true), m));
+function winPlurality(ranks: number[][], m: number, names: readonly string[]): number {
+  return bestIndex(pluralityCounts(ranks, new Array(m).fill(true), m), names);
 }
 
-function winTwoRound(ranks: number[][], m: number): number {
+function winTwoRound(ranks: number[][], m: number, names: readonly string[]): number {
   const counts = pluralityCounts(ranks, new Array(m).fill(true), m);
   const total = ranks.length;
-  const leader = argmax(counts);
+  const leader = argmax(counts); // a majority is held by one candidate: argmax finds it
   if (counts[leader] > total / 2) return leader;
-  // top-2 runoff
-  const order = counts.map((_, i) => i).sort((a, b) => counts[b] - counts[a]);
-  const [a, b] = [order[0], order[1]];
+  // top-2 runoff: first place, then second place, each by lot among those tied for it.
+  const a = bestIndex(counts, names);
+  const b = bestIndex(
+    counts.map((v, i) => (i === a ? -Infinity : v)),
+    names
+  );
   let av = 0;
   let bv = 0;
   for (const r of ranks) {
@@ -165,15 +185,14 @@ function winTwoRound(ranks: number[][], m: number): number {
       }
     }
   }
-  // A second-round tie breaks alphabetically (lowest index), not by who led
-  // round one -- matches get_two_round_winner exactly (Lot 4.3,
-  // PLAN_SOLIDITE_TECHNIQUE.md: `av >= bv ? a : b` used to silently favour
-  // the round-one leader on a genuine tie).
+  // A second-round tie goes to the lot over the two names, not to who led round one
+  // (Lot 4.3: `av >= bv ? a : b` used to silently favour the round-one leader) nor to the
+  // lowest index: it matches get_two_round_winner.
   if (av !== bv) return av > bv ? a : b;
-  return Math.min(a, b);
+  return bestOf([a, b], () => 0, names);
 }
 
-function winIRV(ranks: number[][], m: number): number {
+function winIRV(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
@@ -188,7 +207,8 @@ function winIRV(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && counts[i] < min) min = counts[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && counts[i] === min) doomed.push(i);
-    if (doomed.length >= remaining) return -1; // every survivor tied → no winner
+    // Every survivor tied for fewest: drawn by lot over their names, not "no winner".
+    if (doomed.length >= remaining) return bestOf(standing(alive), () => 0, names);
     for (const i of doomed) {
       alive[i] = false;
       remaining--;
@@ -197,14 +217,14 @@ function winIRV(ranks: number[][], m: number): number {
   return alive.findIndex((a) => a);
 }
 
-function winBorda(ranks: number[][], m: number): number {
+function winBorda(ranks: number[][], m: number, names: readonly string[]): number {
   const scores = new Array(m).fill(0);
   for (const r of ranks) {
     r.forEach((cand, rank) => {
       scores[cand] += m - 1 - rank;
     });
   }
-  return argmax(scores);
+  return bestIndex(scores, names);
 }
 
 /** Cardinal score in [0,1] per voter via min-max of -distance. */
@@ -218,12 +238,12 @@ export function computeScores(voters: Pt[], cands: Pt[]): number[][] {
   });
 }
 
-function winApproval(scores: number[][], m: number): number {
+function winApproval(scores: number[][], m: number, names: readonly string[]): number {
   const counts = new Array(m).fill(0);
   for (const s of scores) {
     for (let i = 0; i < m; i++) if (s[i] >= 0.5) counts[i] += 1;
   }
-  return argmax(counts);
+  return bestIndex(counts, names);
 }
 
 /** Pairwise tally: beats[i][j] = number of voters ranking i above j. */
@@ -246,13 +266,13 @@ export function pairwise(ranks: number[][], m: number): number[][] {
 
 /**
  * Copeland: pairwise wins − losses; ties broken by total wins (descending),
- * then alphabetically (candidate index order) -- matches the backend's
+ * then by the lot over the names -- matches the backend's
  * get_copeland_winner exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md: an
  * exhaustive small-profile comparison found this rule's tie-break used to
  * be Borda here but total-wins-then-alpha on the backend, a real, frequent
  * divergence on tied profiles).
  */
-function winCondorcet(ranks: number[][], m: number): number {
+function winCondorcet(ranks: number[][], m: number, names: readonly string[]): number {
   const beats = pairwise(ranks, m);
   const copeland = new Array(m).fill(0);
   const totalWins = new Array(m).fill(0);
@@ -267,38 +287,34 @@ function winCondorcet(ranks: number[][], m: number): number {
       }
     }
   }
-  let best = 0;
-  for (let i = 1; i < m; i++) {
-    if (
-      copeland[i] > copeland[best] ||
-      (copeland[i] === copeland[best] && totalWins[i] > totalWins[best])
-    )
-      best = i;
-  }
-  return best;
+  // Copeland score first, then total wins (both integers: this key is exact), then the lot.
+  return bestIndex(
+    copeland.map((c, i) => c * (m + 1) + totalWins[i]),
+    names
+  );
 }
 
 /** Minimax (margins): elect the candidate whose worst pairwise defeat is least. */
-function winMinimax(ranks: number[][], m: number): number {
+function winMinimax(ranks: number[][], m: number, names: readonly string[]): number {
   const b = pairwise(ranks, m);
-  let best = 0;
-  let bestWorst = Infinity;
+  const worstDefeat: number[] = [];
   for (let i = 0; i < m; i++) {
     let worst = -Infinity;
     for (let j = 0; j < m; j++) {
       if (i === j) continue;
       worst = Math.max(worst, b[j][i] - b[i][j]); // margin of defeat by j
     }
-    if (worst < bestWorst) {
-      bestWorst = worst;
-      best = i;
-    }
+    worstDefeat.push(worst);
   }
-  return best;
+  // The smallest worst defeat wins; a tie is drawn by lot.
+  return bestIndex(
+    worstDefeat.map((w) => -w),
+    names
+  );
 }
 
 /** Schulze (beatpaths): strongest-path winner via Floyd–Warshall. */
-function winSchulze(ranks: number[][], m: number): number {
+function winSchulze(ranks: number[][], m: number, names: readonly string[]): number {
   const b = pairwise(ranks, m);
   const p = Array.from({ length: m }, () => new Array(m).fill(0));
   for (let i = 0; i < m; i++)
@@ -308,6 +324,9 @@ function winSchulze(ranks: number[][], m: number): number {
       if (i !== j)
         for (let k = 0; k < m; k++)
           if (i !== k && j !== k) p[j][k] = Math.max(p[j][k], Math.min(p[j][i], p[i][k]));
+  // Every candidate whose strongest path to each rival is at least the rival's way back; the
+  // lot draws among them.
+  const winners: number[] = [];
   for (let i = 0; i < m; i++) {
     let wins = true;
     for (let j = 0; j < m; j++)
@@ -315,27 +334,27 @@ function winSchulze(ranks: number[][], m: number): number {
         wins = false;
         break;
       }
-    if (wins) return i;
+    if (wins) winners.push(i);
   }
-  return winBorda(ranks, m); // rare cyclic tie
+  // Never empty: the strongest-path relation always leaves a winner (Schulze, 2011).
+  return bestOf(winners, () => 0, names);
 }
 
 /** Bucklin: descend ranks until a candidate reaches a majority of mentions. */
-function winBucklin(ranks: number[][], m: number): number {
+function winBucklin(ranks: number[][], m: number, names: readonly string[]): number {
   const n = ranks.length;
   const tally = new Array(m).fill(0);
   for (let k = 0; k < m; k++) {
     for (const r of ranks) tally[r[k]] += 1;
-    let best = -1;
-    for (let i = 0; i < m; i++)
-      if (tally[i] > n / 2 && (best === -1 || tally[i] > tally[best])) best = i;
-    if (best >= 0) return best;
+    // Those over a majority this round: the highest tally wins, a tie by lot.
+    const over = tally.map((v) => (v > n / 2 ? v : -Infinity));
+    if (over.some((v) => v > -Infinity)) return bestIndex(over, names);
   }
-  return argmax(tally);
+  return bestIndex(tally, names);
 }
 
 /** Coombs: IRV but eliminate the candidate with the most LAST-place votes. */
-function winCoombs(ranks: number[][], m: number): number {
+function winCoombs(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
@@ -359,7 +378,8 @@ function winCoombs(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && last[i] > max) max = last[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && last[i] === max) doomed.push(i);
-    if (doomed.length >= remaining) return -1; // every survivor tied → no winner
+    // Every survivor tied for the most last places: the lot over their names, not "no winner".
+    if (doomed.length >= remaining) return bestOf(standing(alive), () => 0, names);
     for (const i of doomed) {
       alive[i] = false;
       remaining--;
@@ -384,7 +404,7 @@ export function bordaAlive(ranks: number[][], m: number, alive: boolean[]): numb
 }
 
 /** Nanson: iteratively eliminate every candidate with below-average Borda. */
-function winNanson(ranks: number[][], m: number): number {
+function winNanson(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
@@ -393,7 +413,8 @@ function winNanson(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i]) idx.push(i);
     const avg = idx.reduce((s, i) => s + score[i], 0) / idx.length;
     const elim = idx.filter((i) => score[i] < avg - 1e-9);
-    if (elim.length === 0) return idx.reduce((b, i) => (score[i] > score[b] ? i : b), idx[0]);
+    // No one is below average: the highest Borda among the survivors, a tie by lot.
+    if (elim.length === 0) return bestOf(idx, (i) => score[i], names);
     for (const i of elim) {
       alive[i] = false;
       remaining -= 1;
@@ -413,7 +434,7 @@ function winNanson(ranks: number[][], m: number): number {
  * caught cross-checking the backend twin of this function against the
  * independent `pref_voting` library).
  */
-function winBaldwin(ranks: number[][], m: number): number {
+function winBaldwin(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
@@ -428,7 +449,8 @@ function winBaldwin(ranks: number[][], m: number): number {
       remaining -= 1;
     }
   }
-  return alive.findIndex((a) => a);
+  // The survivors cannot be separated: the lot over their names, not the first by index.
+  return bestOf(standing(alive), () => 0, names);
 }
 
 /**
@@ -436,7 +458,7 @@ function winBaldwin(ranks: number[][], m: number): number {
  * skipping any that would create a cycle; the source of the resulting acyclic
  * tournament wins. Elects the Condorcet winner when one exists, clone-independent.
  */
-function winRankedPairs(ranks: number[][], m: number): number {
+function winRankedPairs(ranks: number[][], m: number, names: readonly string[]): number {
   const beats = pairwise(ranks, m); // beats[i][j] = voters ranking i above j
   const majorities: { margin: number; support: number; w: number; l: number }[] = [];
   for (let i = 0; i < m; i++) {
@@ -468,6 +490,9 @@ function winRankedPairs(ranks: number[][], m: number): number {
     // w → l would close a cycle iff l can already reach w.
     if (!reaches(l, w)) locked[w][l] = true;
   }
+  // The sources (no locked edge points into them): several remain when ties left pairs unlocked,
+  // and the lot draws among them.
+  const sources: number[] = [];
   for (let i = 0; i < m; i++) {
     let incoming = false;
     for (let j = 0; j < m; j++)
@@ -475,9 +500,10 @@ function winRankedPairs(ranks: number[][], m: number): number {
         incoming = true;
         break;
       }
-    if (!incoming) return i;
+    if (!incoming) sources.push(i);
   }
-  return winCondorcet(ranks, m); // degenerate fallback (all-tie field)
+  // Never empty: the locked edges form an acyclic graph, which has a source.
+  return bestOf(sources, () => 0, names);
 }
 
 /** STAR: score, then an automatic runoff between the two highest totals. */
@@ -530,22 +556,23 @@ function winScore(scores: number[][], m: number, names: readonly string[]): numb
 }
 
 /** Anti-plurality (veto): elect whoever is ranked LAST the fewest times. */
-function winAntiPlurality(ranks: number[][], m: number): number {
+function winAntiPlurality(ranks: number[][], m: number, names: readonly string[]): number {
   const last = new Array(m).fill(0);
   for (const r of ranks) last[r[r.length - 1]] += 1;
-  let best = 0;
-  for (let i = 1; i < m; i++) if (last[i] < last[best]) best = i;
-  return best;
+  return bestIndex(
+    last.map((v) => -v),
+    names
+  );
 }
 
 /** Dowdall (Nauru): harmonic positional weights — rank k scores 1/(k+1). */
-function winDowdall(ranks: number[][], m: number): number {
+function winDowdall(ranks: number[][], m: number, names: readonly string[]): number {
   // Dowdall gives 1/(rank+1) per ballot. Summed as floats that is not
   // associative, so two candidates who tie EXACTLY can end up ~1e-16 apart
   // depending on the order the ballots were counted — and argmax then picks a
   // winner by ballot order. Scale every share by lcm(1..m) so the whole sum is
   // integer and exact, which keeps genuine ties genuinely tied and leaves
-  // argmax's lowest-index convention to settle them.
+  // the lot to settle them.
   let lcm = 1;
   for (let k = 2; k <= m; k++) {
     let a = lcm;
@@ -555,7 +582,7 @@ function winDowdall(ranks: number[][], m: number): number {
   }
   const s = new Array(m).fill(0);
   for (const r of ranks) r.forEach((c, rank) => (s[c] += lcm / (rank + 1)));
-  return argmax(s);
+  return bestIndex(s, names);
 }
 
 /** The Condorcet winner (beats every rival head-to-head), or -1 if none exists.
@@ -578,9 +605,9 @@ export function condorcetWinnerIdx(ranks: number[][], m: number, alive?: boolean
 }
 
 /** Black: the Condorcet winner when one exists, otherwise the Borda winner. */
-function winBlack(ranks: number[][], m: number): number {
+function winBlack(ranks: number[][], m: number, names: readonly string[]): number {
   const cw = condorcetWinnerIdx(ranks, m);
-  return cw >= 0 ? cw : winBorda(ranks, m);
+  return cw >= 0 ? cw : winBorda(ranks, m, names);
 }
 
 /**
@@ -637,7 +664,7 @@ export function smithSet(ranks: number[][], m: number, alive?: boolean[]): numbe
  * function against the independent `pref_voting` library (Lot 4.2,
  * PLAN_SOLIDITE_TECHNIQUE.md).
  */
-function winSmithIRV(ranks: number[][], m: number): number {
+function winSmithIRV(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   const S = smithSet(ranks, m);
@@ -655,17 +682,16 @@ function winSmithIRV(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    // A total tie (everyone left is tied for fewest) falls back to the
-    // alphabetically-first survivor, matching get_smith_irv_winner's
-    // documented tie-break -- not "no winner" (Lot 4.3,
-    // PLAN_SOLIDITE_TECHNIQUE.md).
+    // A total tie (everyone left is tied for fewest) goes to the lot over the survivors'
+    // names, matching get_smith_irv_winner -- not "no winner" (Lot 4.3).
     if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;
     }
   }
-  return alive.findIndex((a) => a);
+  // The survivors cannot be separated: the lot over their names, not the first by index.
+  return bestOf(standing(alive), () => 0, names);
 }
 
 /**
@@ -674,7 +700,7 @@ function winSmithIRV(ranks: number[][], m: number): number {
  * every defeat a→x is beaten by the strongest majority path from x back to a.
  * Borda breaks a multi-winner Split-Cycle set.
  */
-function winSplitCycle(ranks: number[][], m: number): number {
+function winSplitCycle(ranks: number[][], m: number, names: readonly string[]): number {
   const b = pairwise(ranks, m);
   const margin = (i: number, j: number): number => b[i][j] - b[j][i];
   // Strongest-path strengths over positive-margin edges (Floyd–Warshall).
@@ -697,11 +723,10 @@ function winSplitCycle(ranks: number[][], m: number): number {
     if (!defeated) winners.push(x);
   }
   if (winners.length === 1) return winners[0];
-  if (winners.length === 0) return winBorda(ranks, m);
-  // Borda tie-break within the Split-Cycle set.
+  // Never empty (Holliday & Pacuit, 2023). Borda breaks a multi-winner Split-Cycle set; still tied, the lot.
   const bordaScore = new Array(m).fill(0);
   for (const r of ranks) r.forEach((c, rank) => (bordaScore[c] += m - 1 - rank));
-  return winners.reduce((best, x) => (bordaScore[x] > bordaScore[best] ? x : best), winners[0]);
+  return bestOf(winners, (x) => bordaScore[x], names);
 }
 
 /**
@@ -742,9 +767,9 @@ function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
  * strict `>` while `i` ascends returns the index-smallest optimal ordering,
  * where the backend returns the name-smallest.
  */
-function winKemeny(ranks: number[][], m: number): number {
+function winKemeny(ranks: number[][], m: number, names: readonly string[]): number {
   if (m < 1) return -1;
-  if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m);
+  if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m, names);
   const b = pairwise(ranks, m);
   const full = (1 << m) - 1;
   const score = new Int32Array(full + 1); // score[0] = 0: the empty set
@@ -789,7 +814,7 @@ function winMaximin(scores: number[][], m: number, names: readonly string[]): nu
  * Condorcet winner among the remaining candidates if one exists. A Condorcet
  * method with IRV's clone-resistance.
  */
-function winBenham(ranks: number[][], m: number): number {
+function winBenham(ranks: number[][], m: number, names: readonly string[]): number {
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
@@ -800,16 +825,16 @@ function winBenham(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    // A total tie (everyone left is tied for fewest) falls back to the
-    // alphabetically-first survivor, matching get_benham_winner's documented
-    // tie-break -- not "no winner" (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    // A total tie (everyone left is tied for fewest) goes to the lot over the survivors'
+    // names, matching get_benham_winner -- not "no winner" (Lot 4.3).
     if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;
     }
   }
-  return alive.findIndex((a) => a);
+  // The survivors cannot be separated: the lot over their names, not the first by index.
+  return bestOf(standing(alive), () => 0, names);
 }
 
 /**
@@ -817,7 +842,7 @@ function winBenham(ranks: number[][], m: number): number {
  * each candidate accepts at most ONE incoming lock, so the result is a tree.
  * Its root (no incoming lock) wins. Elects the Condorcet winner when one exists.
  */
-function winRiver(ranks: number[][], m: number): number {
+function winRiver(ranks: number[][], m: number, names: readonly string[]): number {
   const beats = pairwise(ranks, m);
   const majorities: { margin: number; support: number; w: number; l: number }[] = [];
   for (let i = 0; i < m; i++)
@@ -850,8 +875,10 @@ function winRiver(ranks: number[][], m: number): number {
     locked[w][l] = true;
     inLock[l] = true;
   }
-  const root = inLock.findIndex((v) => !v);
-  return root >= 0 ? root : winCondorcet(ranks, m);
+  // Every root (no incoming lock); several remain when ties left pairs unlocked: the lot.
+  const roots = inLock.flatMap((locked_, i) => (locked_ ? [] : [i]));
+  // Never empty: the locked edges form an acyclic graph with at most one in-edge per node.
+  return bestOf(roots, () => 0, names);
 }
 
 /** Nash (proportional welfare): maximise the PRODUCT of voter utilities — summed
@@ -898,7 +925,7 @@ export function raynaudWorstLoss(b: number[][], alive: boolean[], m: number): nu
  * PLAN_SOLIDITE_TECHNIQUE.md, caught cross-checking the backend twin of
  * this function against the independent `pref_voting` library).
  */
-function winRaynaud(ranks: number[][], m: number): number {
+function winRaynaud(ranks: number[][], m: number, names: readonly string[]): number {
   const b = pairwise(ranks, m);
   const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
@@ -916,7 +943,8 @@ function winRaynaud(ranks: number[][], m: number): number {
       remaining -= 1;
     }
   }
-  return alive.findIndex((a) => a);
+  // The survivors cannot be separated: the lot over their names, not the first by index.
+  return bestOf(standing(alive), () => 0, names);
 }
 
 /**
@@ -924,17 +952,14 @@ function winRaynaud(ranks: number[][], m: number): number {
  * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
  * manipulation probe). `scores` is required for 'approval' (cardinal rule).
  *
- * Ties, for the ordinal rules: each runs the same procedure as its backend twin,
- * keyed on candidate INDEX where the backend keys on candidate NAME (Python
- * code-point order, not a locale sort). The two therefore agree on a tied
- * profile whenever index order and name order coincide on the candidates
- * involved — always, for an array sorted that way, which every parity scenario
- * is. With an authored array they can name different, equally valid winners:
- * on B>A, A>B with ['B', 'A'], the 19 ordinal rules that have a deterministic
- * backend twin and return a winner all answer B here and A there. The key can
- * act at an intermediate step (two_round's runoff pair, ranked_pairs' and
- * river's lock order), so the tied winner is not always the lowest index. The
- * exhaustive parity block pins this, ties included, at up to 3 candidates.
+ * Ties: where a rule ends in an exact tie it cannot separate (a tied tally, survivors that no
+ * round tells apart, several sources of a lock graph), the seeded lot draws over the tied
+ * candidates' NAMES (tieLot.ts), the same draw as its backend twin, so the two agree whatever
+ * the listing order and the names. Without `names` the lot runs over the indices, which still
+ * decides but follows listing order. Not yet on the lot, and still keyed on index here where
+ * the backend keys on name: the lock order of ranked_pairs and river on equal margins, and
+ * Kemeny's choice among equally good rankings (#926 follow-up). The exhaustive parity block
+ * pins this, ties included, at up to 3 candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],
@@ -950,68 +975,68 @@ export function ruleWinnerFromRanks(
   switch (rule) {
     // Cardinal rules — fall back to plurality if scores weren't supplied.
     case 'approval':
-      return scores ? winApproval(scores, m) : winPlurality(ranks, m);
+      return scores ? winApproval(scores, m, names) : winPlurality(ranks, m, names);
     case 'star':
-      return scores ? winStar(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winStar(scores, m, names) : winPlurality(ranks, m, names);
     case 'majority_judgment':
-      return scores ? winMajorityJudgment(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winMajorityJudgment(scores, m, names) : winPlurality(ranks, m, names);
     case 'score':
-      return scores ? winScore(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winScore(scores, m, names) : winPlurality(ranks, m, names);
     case 'plurality':
-      return winPlurality(ranks, m);
+      return winPlurality(ranks, m, names);
     case 'two_round':
-      return winTwoRound(ranks, m);
+      return winTwoRound(ranks, m, names);
     case 'irv':
-      return winIRV(ranks, m);
+      return winIRV(ranks, m, names);
     case 'borda':
-      return winBorda(ranks, m);
+      return winBorda(ranks, m, names);
     case 'condorcet':
-      return winCondorcet(ranks, m);
+      return winCondorcet(ranks, m, names);
     case 'minimax':
-      return winMinimax(ranks, m);
+      return winMinimax(ranks, m, names);
     case 'schulze':
-      return winSchulze(ranks, m);
+      return winSchulze(ranks, m, names);
     case 'bucklin':
-      return winBucklin(ranks, m);
+      return winBucklin(ranks, m, names);
     case 'coombs':
-      return winCoombs(ranks, m);
+      return winCoombs(ranks, m, names);
     case 'nanson':
-      return winNanson(ranks, m);
+      return winNanson(ranks, m, names);
     case 'baldwin':
-      return winBaldwin(ranks, m);
+      return winBaldwin(ranks, m, names);
     case 'ranked_pairs':
-      return winRankedPairs(ranks, m);
+      return winRankedPairs(ranks, m, names);
     // Random ballot is a lottery; its single representative winner is the most
     // probable outcome — the candidate with the largest first-preference share
     // (i.e. the plurality winner). The full distribution drives the probability lens.
     case 'random_ballot':
-      return winPlurality(ranks, m);
+      return winPlurality(ranks, m, names);
     case 'black':
-      return winBlack(ranks, m);
+      return winBlack(ranks, m, names);
     case 'anti_plurality':
-      return winAntiPlurality(ranks, m);
+      return winAntiPlurality(ranks, m, names);
     case 'dowdall':
-      return winDowdall(ranks, m);
+      return winDowdall(ranks, m, names);
     case 'kemeny':
-      return winKemeny(ranks, m);
+      return winKemeny(ranks, m, names);
     case 'raynaud':
-      return winRaynaud(ranks, m);
+      return winRaynaud(ranks, m, names);
     case 'benham':
-      return winBenham(ranks, m);
+      return winBenham(ranks, m, names);
     case 'river':
-      return winRiver(ranks, m);
+      return winRiver(ranks, m, names);
     case 'smith_irv':
-      return winSmithIRV(ranks, m);
+      return winSmithIRV(ranks, m, names);
     case 'cumulative':
-      return scores ? winCumulative(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winCumulative(scores, m, names) : winPlurality(ranks, m, names);
     case 'maximin':
-      return scores ? winMaximin(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winMaximin(scores, m, names) : winPlurality(ranks, m, names);
     case 'nash':
-      return scores ? winNash(scores, m, names) : winPlurality(ranks, m);
+      return scores ? winNash(scores, m, names) : winPlurality(ranks, m, names);
     case 'split_cycle':
-      return winSplitCycle(ranks, m);
+      return winSplitCycle(ranks, m, names);
     default:
-      return winPlurality(ranks, m);
+      return winPlurality(ranks, m, names);
   }
 }
 

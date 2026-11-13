@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { drawName } from './tieLot';
 import { STORIES, storiesForMode, storyById, type StoryStep } from './stories';
 import {
   sampleVoters,
@@ -193,9 +194,12 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winners.size).toBe(3);
   });
 
-  it('paradox: the blocs form a cycle, so there is no Condorcet winner (Copeland names Alice by tie-break)', () => {
+  it('paradox: the blocs form a cycle, so there is no Condorcet winner (Copeland names Carol by the lot)', () => {
     expect(strictCondorcetAt('paradox', 'condorcet')).toBeNull();
-    expect(winnerAt('paradox', 'condorcet')).toBe('Alice');
+    // Each wins one duel and loses one, so nothing in Copeland separates them: the seeded lot
+    // draws over the three names (the story's copy says so, in both languages).
+    expect(winnerAt('paradox', 'condorcet')).toBe(drawName(['Alice', 'Bob', 'Carol']));
+    expect(winnerAt('paradox', 'condorcet')).toBe('Carol');
   });
 
   it('utile: plurality is spoiler-prone here (differs from a Condorcet-consistent rule)', () => {

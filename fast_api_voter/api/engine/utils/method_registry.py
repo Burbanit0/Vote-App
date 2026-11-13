@@ -14,8 +14,8 @@ bad name into a 400 naming what it supports, rather than a confident wrong
 answer.
 
 Ranked rules take `rankings` (a list of candidate-name lists, best first) and
-return the winner's name, or None when the rule elects nobody (an exact tie IRV
-cannot break). Score rules take 0-5 `scores` (one dict per voter); some return
+return the winner's name (an exact tie is drawn by the seeded lot, never by name or listing
+order), or None when there is no ballot to count. Score rules take 0-5 `scores` (one dict per voter); some return
 the name and some a `{"winner": ..., "details": ...}` report, so this module
 unwraps the dict shape and both kinds end up with one signature.
 """
@@ -139,8 +139,8 @@ def rule_winner(
     *,
     seed: object = 0,
 ) -> Optional[str]:
-    """The winner under `method`, or None if the rule elects nobody. A score rule draws
-    an exact tie by the lot seeded with `seed` (the request's), not by the listing order.
+    """The winner under `method`, or None if there is nothing to count. A rule draws an exact
+    tie by the lot seeded with `seed` (the request's), not by the listing order or the names.
 
     Raises `UnknownMethod` for a name no rule answers to, and for a rule whose
     ballots the caller did not pass (a score rule needs `scores`).
@@ -148,7 +148,7 @@ def rule_winner(
     if method in RANKED_RULES:
         if rankings is None:
             raise UnknownMethod(f"{method!r} is a ranked rule but no rankings were given")
-        return RANKED_RULES[method](rankings)
+        return RANKED_RULES[method](rankings, seed=seed)
     if method in SCORE_RULES:
         if scores is None:
             raise UnknownMethod(f"{method!r} is a score rule but no score ballots were given")
@@ -183,7 +183,7 @@ def winner_from_utilities(
     seed: object = 0,
 ) -> Optional[str]:
     """The winner under `method`, read off a voter -> candidate -> utility map; `seed`
-    seeds a score rule's tie lot (see `rule_winner`).
+    seeds the rule's tie lot (see `rule_winner`).
 
     Five dispatchers each rebuilt this: rankings from the utilities, 0-5 score
     ballots from the same, an if-chain over method names, and a silent
@@ -195,8 +195,8 @@ def winner_from_utilities(
     complexity turned away, or who did not turn out), so every rule reads those
     voters' utilities alone.
 
-    Returns None when the rule elects nobody -- an exact tie, or an approval
-    round where no candidate cleared any voter's own mean.
+    Returns None when nothing can be counted -- no voter, or an approval round where no candidate
+    cleared any voter's own mean. An exact tie is drawn, not reported as no winner.
     """
     if method not in UTILITY_METHODS:
         raise UnknownMethod(
@@ -208,7 +208,9 @@ def winner_from_utilities(
         # express where a voter's mean falls, so this reads the utilities --
         # and it is the engine's own helper, so these panels tie-break the same
         # way /adaptive does.
-        return get_approval_winner_sincere({v["id"]: utilities[v["id"]] for v in voters})
+        return get_approval_winner_sincere(
+            {v["id"]: utilities[v["id"]] for v in voters}, seed=seed
+        )
     if method == "majority_judgment":
         # Also utility-native: MJ grades on the raw values, not a 0-5 rounding.
         raw = SCORE_RULES[method]([dict(utilities[v["id"]]) for v in voters], seed=seed)
@@ -219,4 +221,4 @@ def winner_from_utilities(
             for v in voters
         ]
         return rule_winner(method, scores=scores, seed=seed)
-    return rule_winner(method, rankings_from_utilities(utilities, voters))
+    return rule_winner(method, rankings_from_utilities(utilities, voters), seed=seed)

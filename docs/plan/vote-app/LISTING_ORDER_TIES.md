@@ -18,10 +18,10 @@ every tie). So:
 - #667 and #662 implement it, and the strict xfails in `test_compare_all_methods_snapshot.py`
   flip as they do.
 
-#667 did the score rules and #662 a voter's own ties. **Still to do from this decision:**
-the ranked rules' aggregate tie-break (first bullet), IRV and Coombs on a full tie (second),
-and the client's ordinal rules with them (third): 21 parity-locked rules, so one PR with the
-fixture regenerated. Tracked by #926.
+#667 did the score rules and #662 a voter's own ties; #1066 finalised the lot itself, and the
+ranked-rules PR (#1074) did the first three bullets: where a ranked rule ends in a tie it cannot
+separate, both engines draw by lot over the tied names, with the request's seed (below).
+What that PR leaves, as #926's remainder, is in "Open".
 
 **The lot** is `api/engine/utils/tie_lot.py` and its twin `voter-app/src/lib/tieLot.ts`:
 FNV-1a (32-bit) over the UTF-8 bytes of the seed and the
@@ -48,7 +48,9 @@ Still at 0:
   (scorecard, sincerity, criteria, equilibrium, …) comes first, then this endpoint follows.
 - **Endpoints without a seed:** the public v1 API, and `/simulations/monte-carlo` and its
   socket, which draw a fresh electorate each run.
-- **The ranked rules,** which ignore the seed until they draw ties by lot (#926).
+- **A ranked rule called directly,** outside `compare_all_methods`, `rule_winner` and
+  `winner_from_utilities` (which pass the request's seed): the workers that call
+  `get_*_winner(...)` themselves draw with 0 until their seed is threaded (#926, workers).
 - **Polity's elections** (`domain/polity/`), out of scope as below: seeding them would change
   the archived runs' outcomes.
 
@@ -75,18 +77,22 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 | #664 | The campaign and information models draw their noise from one stream per candidate (`tie_lot.streams`: the seed and the candidate's name), not from one shared stream in slot order; the workers pass the real candidates to `simulate_campaign` and read its shares by name, not by slot position |
 | #663, #665 | A voter's nearest option, or favourite, when two tie: `tie_lot.nearest` (vectorised, for `argmin`/`argmax` rows) and `tie_lot.favourite` (the top of the voter's `ranking`), a lot seeded with the endpoint's seed and the voter. Issue voting (and its winner), party dynamics, the playground's sincere vote and desertion, Hotelling, `tech.py`, the theory workers, conviction voting, and the 22 sites that took a voter's favourite with `max(utilities, key=…)`. A voter's lot is finalised with fmix32 (`_voter_lot`): FNV-1a's low bit is only the parity of its input, which made a two-way tie alternate with the voter's index |
 | #1066 | The rule-level lot (`tie_lot.draw`, `drawName` in `tieLot.ts`) is finalised with fmix32 on both engines, so a two-way draw falls both ways across seeds instead of alternating with the seed's parity; the pinned draws, the parity fixture's draws and the tied-electorate snapshot are regenerated |
+| #1074 | The ranked rules draw an exact tie by the seeded lot on both engines, with the request's seed: plurality, two-round (its two finalists, then the runoff), Borda, Dowdall, positional, anti-plurality, approval, Bucklin, minimax, Copeland (Copeland score, then total wins, then the lot), Schulze, Nanson, Baldwin, Raynaud, Benham, Smith-IRV, Split Cycle (Borda, then the lot), ranked pairs and River (the sources / roots left); IRV and Coombs draw a full tie instead of returning no winner. `playgroundVoting.ts` draws over the same names; the parity fixture is regenerated |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
 
-#926 tracks what remains (the lot's finaliser, which changed the pinned draws and regenerated the
-parity fixture once, is already in: the regeneration #926's ranked-rule PR owes will move only
-the ordinal rules' winners):
-- the decision's ranked-rule tie-breaks, IRV and Coombs on a full tie, and the client's
-  ordinal rules (above);
+#926 tracks what remains (the lot's finaliser, #1066, and the ranked rules' end-of-rule ties,
+#1074, are in, each with the parity fixture regenerated):
+- ties inside a rule that are not its final answer and still follow the names or the indices:
+  the lock order of ranked pairs and River on equal margins and supports (by name on the
+  backend, by index on the client), and Kemeny-Young's choice among equally good rankings (the
+  name-smallest, where the client takes the index-smallest). (The elimination rules need
+  nothing: IRV, Coombs, Nanson, Baldwin, Raynaud, Benham and Smith-IRV drop every candidate
+  tied for last together, so a round has no tie to break; only a tie among the last survivors
+  is left, and that is drawn.)
 - aggregate tallies that still break a tie by name, `min(tally, key=(-count, name))`, in the
-  workers;
-- approval (below);
+  workers (19 sites), and the step animations' approval winner;
 - two orders that are not ties: Hotelling moves its candidates one after another in list
   order, and identity voting's default groups are bound to the first and second listed
   candidates.
@@ -94,15 +100,15 @@ the ordinal rules' winners):
 **Found while writing #666's test (2026-10-09).**
 - The backend's ranked rules already break an aggregate tie by name
   (`min(scores, key=lambda c: (-scores[c], c))` in `simulation_ranked_utils.py`): the option
-  parked above, on one side of the dual engine only.
+  parked above, on one side of the dual engine only. Fixed by #1074.
 - With one voter indifferent between the two tied candidates, 30 of the 34 methods changed
   winner when the order was reversed: `compare_all_methods` ranked that voter by a stable sort
   over the listing order. Fixed by #662, with every other site that built a voter's ranking
   the same way.
 - On an exact two-way tie, IRV and Coombs return no winner at all, where the invariant wants
-  the lot. No issue tracks this yet.
+  the lot. Fixed by #1074.
 - Approval is left as it was by #667 (the score rules): a tie in the client's tally goes to
-  the first-listed candidate (`argmax`), the backend's to the name. No issue tracks this yet.
+  the first-listed candidate (`argmax`), the backend's to the name. Fixed by #1074.
 
 Out of scope: polity's own seat allocation (tracked as E1, fixed on the polity
 branch) and `/choice-overload`, whose candidates are generated from the seed,

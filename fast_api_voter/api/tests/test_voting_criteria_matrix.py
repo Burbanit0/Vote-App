@@ -141,8 +141,10 @@ from api.engine.utils.simulation_ranked_utils import (
     get_two_round_winner,
 )
 
+from api.tests.strict_outcomes import possible_winners
+
 Rankings = list[list[str]]
-MethodFn = Callable[[Rankings], Optional[str]]
+MethodFn = Callable[..., Optional[str]]
 
 # Mirrors scripts/gen_engine_parity.py's RULES — the 21 ordinal methods in
 # the parity-locked set (CLAUDE.md). `condorcet` is Copeland, as there and in
@@ -350,20 +352,31 @@ def test_condorcet_loser_benham_can_be_violated():
     against this backend), same class as the coombs finding above: a
     6-ballot, 4-candidate profile Hypothesis's fixed 200 examples never
     sampled."""
+    # A 5-ballot profile where the Condorcet loser is the ONLY candidate Benham can elect: no
+    # draw is involved (the earlier 6-ballot witness left three candidates tied, so the loser
+    # won only a tie-break).
     rankings = [
-        ["C", "A", "D", "B"], ["B", "D", "A", "C"], ["D", "C", "A", "B"],
-        ["C", "A", "D", "B"], ["B", "C", "D", "A"], ["D", "C", "A", "B"],
+        ["B", "C", "A", "D"], ["C", "B", "A", "D"], ["D", "C", "A", "B"],
+        ["A", "B", "C", "D"], ["D", "A", "B", "C"],
     ]
-    assert _condorcet_loser(rankings) == "B"
-    assert get_benham_winner(rankings) == "B"
+    loser = _condorcet_loser(rankings)
+    assert loser is not None
+    assert possible_winners(get_benham_winner, rankings) == {loser}
 
 
 def test_condorcet_loser_raynaud_can_be_violated():
     """Pinned counterexample (found by fast-check, Lot 4.4; hand-verified
     against this backend), same class as the coombs/benham findings above."""
-    rankings = [["D", "B", "A", "C"], ["B", "C", "D", "A"], ["C", "A", "D", "B"]]
-    assert _condorcet_loser(rankings) == "A"
-    assert get_raynaud_winner(rankings) == "A"
+    # No draw: the Condorcet loser is the only candidate Raynaud can elect. (The earlier
+    # 3-ballot witness is a four-way tie, where every candidate can win.)
+    rankings = [
+        ["B", "D", "A", "C"], ["D", "C", "B", "A"], ["B", "A", "C", "D"],
+        ["A", "C", "D", "B"], ["C", "D", "B", "A"], ["A", "C", "B", "D"],
+        ["D", "C", "B", "A"], ["B", "A", "D", "C"], ["A", "C", "B", "D"],
+    ]
+    loser = _condorcet_loser(rankings)
+    assert loser is not None
+    assert possible_winners(get_raynaud_winner, rankings) == {loser}
 
 
 @pytest.mark.parametrize(
@@ -712,20 +725,21 @@ def _promote_to_first(rankings: Rankings, ballot_index: int, candidate: str) -> 
 @settings(max_examples=150, deadline=None, derandomize=True, suppress_health_check=[HealthCheck.too_slow])
 @given(rankings=_profiles4)
 def test_monotonicity_satisfied(method_name, rankings):
+    """A tie the rule cannot settle is drawn by lot (tie_lot), and a draw over a different pool
+    of tied candidates can name someone else after an innocent change: that is the lot, not the
+    algorithm. So the criterion is read over every candidate some seed of the lot elects:
+    promoting any of them must leave it one of the candidates the rule can elect."""
     fn = METHODS[method_name]
-    winner = fn(rankings)
-    if winner is None:
-        return
-    for i, r in enumerate(rankings):
-        if r[0] == winner:
-            continue
-        modified = _promote_to_first(rankings, i, winner)
-        new_winner = fn(modified)
-        assert new_winner == winner, (
-            f"{method_name}: promoting winner {winner!r} to 1st place on "
-            f"one ballot changed the outcome to {new_winner!r}"
-        )
-        break  # one promotion per profile is enough signal
+    for winner in sorted(possible_winners(fn, rankings) - {None}):
+        for i, r in enumerate(rankings):
+            if r[0] == winner:
+                continue
+            modified = _promote_to_first(rankings, i, winner)
+            assert winner in possible_winners(fn, modified), (
+                f"{method_name}: promoting {winner!r} to 1st place on one ballot made it "
+                f"impossible for the rule to elect them"
+            )
+            break  # one promotion per candidate is enough signal
 
 
 def test_monotonicity_smith_irv_can_be_violated():
@@ -734,14 +748,17 @@ def test_monotonicity_smith_irv_can_be_violated():
     non-monotonicity in some cases despite the Smith-set restriction —
     promoting the winner to 1st place on one more ballot flips the winner
     to someone else entirely."""
+    # No tie anywhere: B is the only candidate the rule can elect, and after promoting B on one
+    # ballot A is (found by search over random 4-candidate profiles once ties went to the lot:
+    # the earlier witness leaned on a name tie-break).
     rankings = [
-        ["D", "A", "C", "B"], ["C", "A", "D", "B"], ["D", "B", "C", "A"],
-        ["B", "C", "A", "D"], ["A", "D", "C", "B"], ["D", "C", "B", "A"],
-        ["B", "C", "A", "D"], ["A", "D", "C", "B"], ["B", "A", "D", "C"],
+        ["C", "A", "B", "D"], ["C", "A", "B", "D"], ["B", "A", "D", "C"],
+        ["D", "C", "A", "B"], ["A", "C", "D", "B"], ["D", "C", "A", "B"],
+        ["A", "B", "D", "C"], ["B", "D", "A", "C"], ["B", "C", "A", "D"],
     ]
-    assert get_smith_irv_winner(rankings) == "A"
-    modified = _promote_to_first(rankings, 0, "A")
-    assert get_smith_irv_winner(modified) == "B"
+    assert possible_winners(get_smith_irv_winner, rankings) == {"B"}
+    modified = _promote_to_first(rankings, 0, "B")
+    assert possible_winners(get_smith_irv_winner, modified) == {"A"}
 
 
 def test_monotonicity_nanson_can_be_violated():
@@ -752,19 +769,39 @@ def test_monotonicity_nanson_can_be_violated():
     below-average-Borda-score candidate each round rather than just the
     single lowest (Baldwin's rule) — that wider per-round cut doesn't make
     it monotone; both methods can fail this criterion."""
+    # No tie anywhere: A is the only candidate the rule can elect, and promoting A on one
+    # ballot makes A impossible (found by search once ties went to the lot: the earlier
+    # 8-ballot witness left B and D tied after the promotion, a draw rather than a violation).
     rankings = [
-        ["C", "D", "B", "A"], ["C", "A", "D", "B"], ["B", "D", "A", "C"],
-        ["D", "C", "B", "A"], ["B", "D", "A", "C"], ["C", "A", "B", "D"],
-        ["D", "A", "C", "B"], ["B", "A", "D", "C"],
+        ["C", "A", "D", "B"], ["D", "B", "A", "C"], ["D", "B", "C", "A"],
+        ["A", "C", "D", "B"], ["A", "D", "B", "C"], ["C", "B", "A", "D"],
+        ["D", "A", "B", "C"], ["B", "C", "D", "A"], ["B", "A", "C", "D"],
     ]
-    assert get_nanson_winner(rankings) == "D"
-    modified = _promote_to_first(rankings, 0, "D")
-    assert get_nanson_winner(modified) == "B"
+    assert possible_winners(get_nanson_winner, rankings) == {"A"}
+    modified = _promote_to_first(rankings, 6, "A")
+    assert "A" not in possible_winners(get_nanson_winner, modified)
+
+
+def test_monotonicity_two_round_can_be_violated():
+    """Two-round's classic non-monotonicity, as a pinned witness. The winner is promoted on
+    TWO ballots, not one: with no draw involved, one promotion can only drop the runner-up to a
+    tie with the next candidate, never strictly below it, so a one-ballot "violation" is the
+    tie-break and not the algorithm (the random search below cannot find a strict one).
+
+    21 ballots, A the only candidate the rule can elect. Promoting A on two of B's ballots
+    leaves B behind C in the first round, so A now meets C in the runoff, and C beats A."""
+    rankings = (
+        [["A", "B", "C"]] * 6 + [["A", "C", "B"]] * 2 + [["B", "A", "C"]]
+        + [["B", "C", "A"]] * 6 + [["C", "A", "B"]] * 3 + [["C", "B", "A"]] * 3
+    )
+    assert possible_winners(get_two_round_winner, rankings) == {"A"}
+    modified = _promote_to_first(_promote_to_first(rankings, 8, "A"), 9, "A")
+    assert "A" not in possible_winners(get_two_round_winner, modified)
 
 
 @pytest.mark.parametrize(
     "method_name",
-    sorted(MONOTONICITY_VIOLATES - {"smith_irv", "nanson"}),
+    sorted(MONOTONICITY_VIOLATES - {"smith_irv", "nanson", "two_round"}),
 )
 def test_monotonicity_can_be_violated(method_name):
     fn = METHODS[method_name]
@@ -780,7 +817,13 @@ def test_monotonicity_can_be_violated(method_name):
             if r[0] == winner:
                 continue
             modified = _promote_to_first(rankings, i, winner)
-            if fn(modified) != winner:
+            # A cheap screen first; then the violation has to hold with no draw involved: the
+            # winner was the only one the rule could elect, and it cannot win once promoted.
+            if (
+                fn(modified) != winner
+                and possible_winners(fn, rankings) == {winner}
+                and winner not in possible_winners(fn, modified)
+            ):
                 return
             break
     pytest.fail(
