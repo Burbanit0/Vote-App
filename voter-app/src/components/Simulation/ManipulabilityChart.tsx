@@ -106,7 +106,7 @@ function ManipTooltip({ active, payload }: TooltipContentProps) {
 const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
   const methodLabels = useMethodLabels();
 
-  const [data, setData] = useState<ManipResult[]>([]);
+  const [data, setData] = useState<RatedResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -280,7 +280,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
 
                   <Bar dataKey="manipulability_rate" radius={[0, 4, 4, 0]} maxBarSize={28}>
                     {chartData.map((entry, i) => (
-                      <Cell key={i} fill={rateColor(entry.manipulability_rate ?? 0)} />
+                      <Cell key={i} fill={rateColor(entry.manipulability_rate)} />
                     ))}
                     <LabelList
                       dataKey="manipulability_rate"
@@ -320,7 +320,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
               </thead>
               <tbody>
                 {data.map((r) => {
-                  const rate = r.manipulability_rate ?? 0;
+                  const rate = r.manipulability_rate;
                   return (
                     <tr key={r.method}>
                       <td className="font-semibold">{methodLabels[r.method] ?? r.method}</td>

@@ -37,7 +37,14 @@ vi.mock('recharts', () => ({
   Bar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
   Cell: () => null,
-  LabelList: () => null,
+  // Real recharts calls `formatter` for each bar's label; the mock calls it directly with a number
+  // and with something that is not one, so both of its outcomes are exercised.
+  LabelList: ({ formatter }: { formatter?: (v: unknown) => string }) =>
+    formatter ? (
+      <div data-testid="manip-label">
+        {formatter(12.34)}|{formatter(undefined)}
+      </div>
+    ) : null,
   ReferenceLine: () => null,
   // Real recharts computes its own tick values; the mock calls the
   // formatter directly so the `%`-suffix formatting is exercised.
@@ -198,5 +205,16 @@ describe('ManipulabilityChart', () => {
       maxHeight: '520px',
       overflowY: 'auto',
     });
+  });
+
+  it('labels each bar with its rate to one decimal, and a dash where there is none', async () => {
+    apiClient.GET.mockResolvedValue({
+      data: { results: [makeResult(3), makeResult(45)] },
+      error: undefined,
+    });
+    renderChart();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    expect(screen.getByTestId('manip-label')).toHaveTextContent('12.3 %|—');
   });
 });
