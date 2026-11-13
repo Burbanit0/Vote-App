@@ -81,7 +81,7 @@ A box is ticked when the change is on `polity`.
 | A "why" sentence under the winner strip, and a flip sentence after a drag | small | `explainWinner`, used only in Bilan today |
 | Lab search; a "reads your electorate" flag per fiche; hide Compare where it does nothing | small | the Lexique search pattern |
 | First visit: the home example carries into the playground and does not overwrite saved candidates | small | `HomePage.tsx`, `applyScenario` |
-| Make Beginner/Expert real, and finish plain-language names (10 of 29 rules) | medium | `useVotingLabels` |
+| ~~Make Beginner/Expert real~~: retired instead (owner's call, 2026-11-12: the switch promised more than it did); plain-language names finished for all 29 rules | medium | `useVotingLabels` |
 
 ## Phase 3: correctness
 

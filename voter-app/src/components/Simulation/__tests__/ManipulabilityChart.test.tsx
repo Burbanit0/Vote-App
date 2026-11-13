@@ -19,8 +19,18 @@ interface MockManipResult {
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children, data }: { children?: React.ReactNode; data?: unknown[] }) => (
-    <div data-testid="bar-chart" data-points={data?.length}>
+  BarChart: ({
+    children,
+    data,
+  }: {
+    children?: React.ReactNode;
+    data?: { manipulability_rate: number }[];
+  }) => (
+    <div
+      data-testid="bar-chart"
+      data-points={data?.length}
+      data-rates={data?.map((d) => d.manipulability_rate).join(',')}
+    >
       {children}
     </div>
   ),
@@ -168,5 +178,25 @@ describe('ManipulabilityChart', () => {
     expect(screen.getByText('Détail par méthode')).toBeInTheDocument();
     // One row per method in the detail table (plus its header row).
     expect(screen.getAllByRole('row')).toHaveLength(methods.length + 1);
+  });
+
+  it('ranks a long list of methods, most resistant first, and scrolls it inside the card', async () => {
+    // Unsorted from the backend, 14 methods: the old beginner view kept only the first 3 by rate.
+    const rates = [31, 4, 18, 9, 44, 2, 27, 13, 36, 7, 22, 40, 15, 25];
+    apiClient.GET.mockResolvedValue({
+      data: { results: rates.map((r, i) => ({ ...makeResult(r), method: `m${i}` })) },
+      error: undefined,
+    });
+    renderChart();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    const chart = screen.getByTestId('bar-chart');
+    expect(chart).toHaveAttribute('data-points', String(rates.length));
+    expect(chart.getAttribute('data-rates')).toBe([...rates].sort((a, b) => a - b).join(','));
+    // 14 bars would stand ~730px tall: the card scrolls instead of lengthening the page.
+    expect(screen.getByTestId('manip-chart-scroll')).toHaveStyle({
+      maxHeight: '520px',
+      overflowY: 'auto',
+    });
   });
 });

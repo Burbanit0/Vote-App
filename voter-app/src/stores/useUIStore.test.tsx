@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useUIStore, useTheme, usePlainLanguage } from './useUIStore';
+import { useUIStore, useTheme, usePlainLanguage, initUITheme } from './useUIStore';
 
 const ThemeConsumer = () => {
   const { theme, toggleTheme } = useTheme();
@@ -72,11 +72,21 @@ describe('useUIStore — plain language', () => {
 });
 
 describe('useUIStore — the retired Beginner/Expert level', () => {
-  it('has no level in its state, and ignores the key an earlier version left in storage', () => {
+  it('has no level in its state, and hydrate() does not read the key an earlier version left', () => {
     localStorage.setItem('votelab_expert', 'true');
     useUIStore.getState().hydrate();
     const state = useUIStore.getState() as unknown as Record<string, unknown>;
     expect(state).not.toHaveProperty('expertMode');
     expect(state).not.toHaveProperty('setExpertMode');
+  });
+
+  it('forgets that key at app start, and leaves the live ones alone', () => {
+    localStorage.setItem('votelab_expert', 'true');
+    localStorage.setItem('votelab_plain', 'true');
+    localStorage.setItem('votelab_theme', 'dark');
+    initUITheme();
+    expect(localStorage.getItem('votelab_expert')).toBeNull();
+    expect(localStorage.getItem('votelab_plain')).toBe('true');
+    expect(localStorage.getItem('votelab_theme')).toBe('dark');
   });
 });

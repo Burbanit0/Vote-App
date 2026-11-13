@@ -67,9 +67,13 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 }));
 
-/** Apply the persisted theme to <html> on app start. */
+/** Keys an earlier version wrote and nothing reads any more (the Beginner/Expert level). */
+const RETIRED_KEYS = ['votelab_expert'] as const;
+
+/** Apply the persisted theme to <html> on app start, and forget what no longer exists. */
 export function initUITheme(): void {
   applyTheme(useUIStore.getState().theme);
+  for (const key of RETIRED_KEYS) localStorage.removeItem(key);
 }
 
 // ── Convenience hooks (former context APIs) ───────────────────────────────────
