@@ -3,11 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import Navbar from './Navbar';
 import { switchLanguage } from '../i18n';
-import { useTheme, useExpertMode, usePlainLanguage } from '../stores/useUIStore';
+import { useTheme, usePlainLanguage } from '../stores/useUIStore';
 
 vi.mock('../stores/useUIStore', () => ({
   useTheme: vi.fn(),
-  useExpertMode: vi.fn(),
   usePlainLanguage: vi.fn(),
 }));
 vi.mock('../i18n', () => ({
@@ -27,7 +26,6 @@ describe('Navbar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: vi.fn() });
-    (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: vi.fn() });
     (usePlainLanguage as jest.Mock).mockReturnValue({
       plainLanguage: false,
       setPlainLanguage: vi.fn(),
@@ -145,19 +143,14 @@ describe('Navbar', () => {
       expect(switchLanguage).toHaveBeenCalledWith('fr');
     });
 
-    it('switches between the beginner and the expert level', () => {
-      const setExpertMode = vi.fn();
-      (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode });
-      const { unmount } = renderNavbar();
-      open();
-      fireEvent.click(screen.getByTestId('level-expert'));
-      expect(setExpertMode).toHaveBeenCalledWith(true);
-      unmount();
-      (useExpertMode as jest.Mock).mockReturnValue({ expertMode: true, setExpertMode });
+    it('offers no Beginner/Expert level: it promised more than it did, and is gone', () => {
       renderNavbar();
       open();
-      fireEvent.click(screen.getByTestId('level-beginner'));
-      expect(setExpertMode).toHaveBeenLastCalledWith(false);
+      expect(screen.queryByTestId('level-beginner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('level-expert')).not.toBeInTheDocument();
+      // The settings that do something are still there.
+      expect(screen.getByTestId('lang-fr')).toBeInTheDocument();
+      expect(screen.getByTestId('setting-plain')).toBeInTheDocument();
     });
 
     it('turns plain language on and off with a switch', () => {
