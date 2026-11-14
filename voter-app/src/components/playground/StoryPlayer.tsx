@@ -31,7 +31,7 @@ import type {
   PlaygroundState,
 } from '../../stores/useElectionStore';
 import type { Rule } from '../../lib/playgroundVoting';
-import type { MomentId } from './MomentRail';
+import type { MomentId } from '../../lib/journeyTypes';
 
 // StoryPlayer — the "histoires" surface. A story is scripted data (lib/stories.ts);
 // this component is the thin player that applies each beat's patch through the SAME
@@ -134,6 +134,18 @@ const StoryPlayer: React.FC = () => {
   React.useEffect(() => {
     if (active && active.mode !== ctx.mode) quit(ctx.mode);
   }, [ctx.mode]);
+
+  // A scenario link opened mid-story replaces the sandbox the story narrates: the story ends and
+  // the link's scenario stays (`quit` is not called, so nothing is restored over it). The render in which a story itself
+  // began does not count, whatever else changed in it, hence "was active before this render".
+  const wasActive = React.useRef(false);
+  React.useEffect(() => {
+    if (!wasActive.current) return;
+    setActive(null);
+  }, [ctx.linkOpens]);
+  React.useEffect(() => {
+    wasActive.current = active !== null;
+  });
 
   // Homepage hand-off: "/playground?story=<id>" auto-starts that story on mount.
   // Mount-only — `start` captures the pre-story sandbox as the restore point.

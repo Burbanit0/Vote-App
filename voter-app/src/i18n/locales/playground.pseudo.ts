@@ -14,7 +14,7 @@ const pgPseudo: PlaygroundKeys = {
     copied: '⟦Líéñ~~ çópíé~~⟧',
     manual: '⟦Líéñ~~ vérs~~ çé~ sçéñáríó,~~~~ à~ çópíér~~~⟧',
     opened:
-      '⟦Vóús~~ régárdéz~~~ úñ~ sçéñáríó~~~ óúvért~~~ dépúís~~~ úñ~ líéñ.~~ Lé~ vôtré~~ ést~~ gárdé~~ :~ lé~ bóútóñ~~~ lé~ rámèñé.~~~⟧',
+      '⟦Vóús~~ régárdéz~~~ úñ~ sçéñáríó~~~ óúvért~~~ dépúís~~~ úñ~ líéñ.~~ Lé~ vôtré~~ ést~~ gárdé~~ júsqú’à~~~ çé~ qúé~~ vóús~~ qúíttíéz~~~ lá~ págé~~ :~ lé~ bóútóñ~~~ lé~ rámèñé.~~~⟧',
     restore: '⟦Révéñír~~~ à~ móñ~~ sçéñáríó~~~⟧',
     keep: '⟦Gárdér~~~ çélúí-çí~~~⟧',
   },

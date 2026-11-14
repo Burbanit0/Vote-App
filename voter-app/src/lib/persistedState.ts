@@ -38,9 +38,9 @@ export const STORAGE_VERSION = 1;
 /** The voter distributions the sampler and the API know. */
 const IDEOLOGIES = ['random', 'centrist', 'polarized', 'left_skewed', 'right_skewed'] as const;
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
-const isObject = (v: unknown): v is Json =>
+export const isObject = (v: unknown): v is Json =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** The object to store: the state and the version that wrote it. */
@@ -101,7 +101,7 @@ const int = (v: unknown, fallback: number, min: number, max: number): number =>
 
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
 
-const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
+export const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
   typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
 
 /** A string kept as it is when short enough, cut when too long (a label is never replaced). */

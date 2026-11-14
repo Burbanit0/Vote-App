@@ -59,13 +59,17 @@ describe('scenarioHash / readScenarioLink', () => {
     expect(names).toEqual(['Zoé', '😀 Émile']);
   });
 
-  it('leaves out the groups of settings that equal the default, so a link stays short', () => {
-    const payload = (hash: string) =>
-      JSON.parse(atob(hash.slice(3).replace(/-/g, '+').replace(/_/g, '/')));
-    expect(payload(scenarioHash(base))).toMatchObject({ c: {}, p: {} });
-    const { c, p } = payload(scenarioHash(edited));
-    expect(Object.keys(c).sort()).toEqual(['candidates', 'description', 'num_voters', 'seed']);
-    expect(Object.keys(p).sort()).toEqual(['assembly', 'ballot', 'behavior', 'mode']);
+  it('carries the whole state, defaults included, so a later change of a default cannot change an old link', () => {
+    const payload = (hash: string) => {
+      const binary = atob(hash.slice(3).replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(
+        new TextDecoder().decode(Uint8Array.from(binary, (ch) => ch.charCodeAt(0)))
+      );
+    };
+    const { c, p } = payload(scenarioHash(base));
+    expect(c).toEqual(DEFAULT_CONFIG);
+    expect(p).toEqual(DEFAULT_PLAYGROUND);
+    expect(scenarioHash(base).length).toBeLessThan(3000);
   });
 
   it('writes a token that is safe in a URL: no +, / or =, and reads it back', () => {
@@ -166,7 +170,7 @@ describe('scenarioHash / readScenarioLink', () => {
     expect(link?.config).not.toHaveProperty('phenomenon');
   });
 
-  it('carries a setting that equals the default of another group', () => {
+  it('carries a setting that differs from the default, next to ones that do not', () => {
     const config: ElectionConfig = { ...DEFAULT_CONFIG, seed: DEFAULT_CONFIG.seed + 1 };
     const playground: PlaygroundState = { ...DEFAULT_PLAYGROUND, stratShare: 0.9 };
     const link = readScenarioLink(scenarioHash({ ...base, config, playground }));

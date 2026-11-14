@@ -13,7 +13,7 @@ const pgEn: PlaygroundKeys = {
     copied: 'Link copied',
     manual: 'Link to this scenario, to copy',
     opened:
-      'You are looking at a scenario opened from a link. Yours is kept: it comes back with the button.',
+      'You are looking at a scenario opened from a link. Yours is kept until you leave this page: the button brings it back.',
     restore: 'Back to my scenario',
     keep: 'Keep this one',
   },

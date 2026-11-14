@@ -4,9 +4,9 @@
  * sees what the sender saw.
  *
  * The hash, not the query string: it is never sent to a server, and it leaves `?story=` alone.
- * The token is base64url of a small JSON object. To keep a link short, a group of settings
- * (`candidates`, `blank_vote`, `space`, ...) that equals the default is left out, and the reader
- * falls back to the default for it.
+ * The token is base64url of a JSON object, about 2 kB for the default scenario. It carries the
+ * whole state, defaults included: a link that left out what equals today's default would show a
+ * different scenario once a later release changed that default.
  *
  * A link is typed by whoever wrote it, so reading it never trusts the shape: the two slices go
  * through the same checks as what comes back from localStorage (`persistedState`), and the rule,
@@ -16,7 +16,7 @@
 import { DEFAULT_CONFIG, DEFAULT_PLAYGROUND } from '../stores/useElectionStore';
 import type { ElectionConfig, PlaygroundState } from './electionTypes';
 import { LENSES, MOMENT_IDS, type Lens, type MomentId } from './journeyTypes';
-import { sanitizeConfig, sanitizePlayground } from './persistedState';
+import { isObject, oneOf, sanitizeConfig, sanitizePlayground } from './persistedState';
 import { RULE_LABELS, type Rule } from './playgroundVoting';
 
 /** The format of the token. Bump it when a field changes meaning; a newer token is refused. */
@@ -34,24 +34,6 @@ export interface ScenarioLink {
   rule: Rule;
   moment: MomentId;
   lens: Lens;
-}
-
-type Json = Record<string, unknown>;
-
-const isObject = (v: unknown): v is Json =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
-
-const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
-  allowed.find((a) => a === v) ?? fallback;
-
-/** The settings of `value` that differ from `base`: whole groups, never a part of one. */
-function changed(value: object, base: object): Json {
-  const out: Json = {};
-  const b = base as Json;
-  for (const [key, v] of Object.entries(value)) {
-    if (JSON.stringify(v) !== JSON.stringify(b[key])) out[key] = v;
-  }
-  return out;
 }
 
 function toBase64Url(text: string): string {
@@ -72,8 +54,8 @@ function fromBase64Url(token: string): string {
 export function scenarioHash(link: ScenarioLink): string {
   const payload = {
     v: LINK_VERSION,
-    c: changed(link.config, DEFAULT_CONFIG),
-    p: changed(link.playground, DEFAULT_PLAYGROUND),
+    c: link.config,
+    p: link.playground,
     r: link.rule,
     m: link.moment,
     l: link.lens,

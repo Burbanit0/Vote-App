@@ -17,7 +17,7 @@ const pgFr = {
     copied: 'Lien copié',
     manual: 'Lien vers ce scénario, à copier',
     opened:
-      'Vous regardez un scénario ouvert depuis un lien. Le vôtre est gardé : le bouton le ramène.',
+      'Vous regardez un scénario ouvert depuis un lien. Le vôtre est gardé jusqu’à ce que vous quittiez la page : le bouton le ramène.',
     restore: 'Revenir à mon scénario',
     keep: 'Garder celui-ci',
   },

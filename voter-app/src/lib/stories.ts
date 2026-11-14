@@ -14,7 +14,7 @@
 import type { ElectionConfig, PlaygroundMode, PlaygroundState } from '../stores/useElectionStore';
 import type { NamedPt, Rule } from './playgroundVoting';
 import type { Community } from './playgroundElectorate';
-import type { MomentId } from '../components/playground/MomentRail';
+import type { MomentId } from './journeyTypes';
 
 /** One beat: a state patch + a sentence. Every field is optional — a step patches
  *  only what changes from the previous beat. `beatKey` resolves in the `playground`

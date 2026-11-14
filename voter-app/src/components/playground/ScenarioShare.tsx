@@ -4,7 +4,8 @@ import { Check, Link2, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { track } from '../../lib/analytics';
 import { scenarioUrl } from '../../lib/scenarioLink';
-import { useJourneyCtx, useStoreCtx } from './PlaygroundController';
+import { useElectionStore } from '../../stores/useElectionStore';
+import { useJourneyCtx } from './PlaygroundController';
 
 /** How long "Link copied" stays on the button. */
 const COPIED_MS = 2000;
@@ -15,11 +16,20 @@ const COPIED_MS = 2000;
  * insecure page, a denied permission), the link is shown in a field to copy by hand.
  */
 export const ShareScenarioButton: React.FC = () => {
-  const { config, playground } = useStoreCtx();
   const { leaderRule, activeMoment, lens } = useJourneyCtx();
   const { t } = useTranslation('playground');
   const [copied, setCopied] = React.useState(false);
   const [manual, setManual] = React.useState<string | null>(null);
+
+  // A link shown to copy by hand is for the scenario that was on screen: once that changes (a
+  // setting, a candidate, the rule, the moment, the lens), it would share another one.
+  React.useEffect(() => {
+    if (!manual) return;
+    return useElectionStore.subscribe(() => setManual(null));
+  }, [manual]);
+  React.useEffect(() => {
+    setManual(null);
+  }, [leaderRule, activeMoment, lens]);
 
   React.useEffect(() => {
     if (!copied) return;
@@ -28,6 +38,9 @@ export const ShareScenarioButton: React.FC = () => {
   }, [copied]);
 
   const share = async () => {
+    // Read when clicked, not subscribed to: the config changes at every frame of a candidate drag,
+    // and the button only needs it at the moment of the click.
+    const { config, playground } = useElectionStore.getState();
     const url = scenarioUrl(
       { config, playground, rule: leaderRule, moment: activeMoment, lens },
       window.location

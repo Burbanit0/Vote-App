@@ -10,8 +10,6 @@ import type { MomentId } from '../../lib/journeyTypes';
 // which knobs are in your hand. Labels/hints come from the `playground` i18n
 // namespace (moments.<id>.label / .hint).
 
-export type { MomentId };
-
 export const MOMENTS: { id: MomentId; n: string; Icon: LucideIcon }[] = [
   { id: 'electorate', n: '1', Icon: Users },
   { id: 'method', n: '2', Icon: Vote },

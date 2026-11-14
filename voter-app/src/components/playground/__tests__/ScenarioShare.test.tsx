@@ -12,6 +12,7 @@ vi.mock('../../../services/assemblyApi', () => ({
 
 import { PlaygroundProvider, useJourneyCtx } from '../PlaygroundController';
 import { ShareScenarioButton, SharedScenarioNotice } from '../ScenarioShare';
+import StoryPlayer from '../StoryPlayer';
 import {
   useElectionStore,
   DEFAULT_CONFIG,
@@ -62,6 +63,7 @@ const Probe: React.FC = () => {
     <div>
       <span data-testid="probe">{`${activeMoment}/${leaderRule}/${lens}`}</span>
       <button data-testid="to-bilan" onClick={() => setActiveMoment('bilan')} />
+      <button data-testid="to-method" onClick={() => setActiveMoment('method')} />
       <button data-testid="to-approval" onClick={() => setLeaderRule('approval')} />
       <button data-testid="to-manipulation" onClick={() => setLens('manipulation')} />
     </div>
@@ -193,7 +195,57 @@ describe('the lens of a link', () => {
   });
 });
 
+describe('the lens of a link, once used', () => {
+  it('is not shown again when the visitor comes back to that moment', () => {
+    mount();
+    openByHash(shared);
+    expect(probe()).toBe('method/borda/probability');
+    fireEvent.click(screen.getByTestId('to-bilan'));
+    fireEvent.click(screen.getByTestId('to-method'));
+    expect(probe()).toBe('method/borda/criteria');
+  });
+});
+
+describe('a scenario link opened mid-story', () => {
+  it('ends the story and leaves the scenario of the link in place', () => {
+    render(
+      <PlaygroundProvider>
+        <Probe />
+        <StoryPlayer />
+      </PlaygroundProvider>
+    );
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    expect(screen.getByTestId('story-bar')).toBeInTheDocument();
+    openByHash(shared);
+    expect(screen.queryByTestId('story-bar')).toBeNull();
+    expect(names()).toEqual(['Ana', 'Ben', 'Cleo']);
+    expect(probe()).toBe('method/borda/probability');
+  });
+});
+
+describe('the lens of a link, left over', () => {
+  it('is not shown in another moment than the one it came with', () => {
+    mount();
+    // Same moment as the visitor's: no moment change, so nothing consumes the lens that came with it.
+    openByHash({ ...shared, moment: 'electorate', lens: 'manipulation' });
+    expect(probe()).toBe('electorate/borda/manipulation');
+    fireEvent.click(screen.getByTestId('to-method'));
+    expect(probe()).toBe('method/borda/criteria');
+  });
+});
+
 describe('Back to my scenario', () => {
+  it('puts back the named scenario the visitor had picked, with its name and what it shows', () => {
+    const meta = { id: 'x', name: 'Mine', description: 'My own scenario', phenomenon: 'Nothing' };
+    useElectionStore.setState({ scenarioMeta: meta });
+    mount();
+    openByHash(shared);
+    expect(useElectionStore.getState().scenarioMeta).toBeNull();
+    fireEvent.click(screen.getByTestId('shared-scenario-restore'));
+    expect(useElectionStore.getState().scenarioMeta).toEqual(meta);
+  });
+
   it('puts back the lens the visitor had chosen, in the moment the link also opened on', () => {
     mount();
     fireEvent.click(screen.getByTestId('to-manipulation'));
@@ -318,6 +370,37 @@ describe('Share this scenario', () => {
     const select = vi.spyOn(field, 'select');
     fireEvent.focus(field);
     expect(select).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a setting changes', () => useElectionStore.getState().setPlayground({ stratShare: 0.7 })],
+    ['a candidate moves', () => useElectionStore.getState().setConfig({ seed: 5 })],
+  ])(
+    'takes that field away when %s: the link in it is for what was on screen',
+    async (_n, edit) => {
+      writeText.mockRejectedValue(new Error('denied'));
+      mount();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('share-scenario'));
+      });
+      expect(screen.getByTestId('share-scenario-manual')).toBeInTheDocument();
+      act(() => edit());
+      expect(screen.queryByTestId('share-scenario-manual')).toBeNull();
+    }
+  );
+
+  it.each([
+    ['the rule', 'to-approval'],
+    ['the moment', 'to-bilan'],
+    ['the lens', 'to-manipulation'],
+  ])('takes that field away when %s changes', async (_n, button) => {
+    writeText.mockRejectedValue(new Error('denied'));
+    mount();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('share-scenario'));
+    });
+    fireEvent.click(screen.getByTestId(button));
+    expect(screen.queryByTestId('share-scenario-manual')).toBeNull();
   });
 
   it('hides that field once a later copy works', async () => {
