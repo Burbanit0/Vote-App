@@ -426,7 +426,7 @@ const pgFr = {
     title: 'Candidats',
     titleParty: 'Partis',
     subtitle: '{{count}} sur {{max}} · renommer, ajouter, retirer',
-    hint: 'La carte, le gagnant et chaque méthode suivent. Entre {{min}} et {{max}}, chacun avec son propre nom.',
+    hint: 'La carte, le gagnant et chaque méthode suivent. Entre {{min}} et {{max}}, chacun avec son propre nom. Double-cliquez sur un endroit vide de la carte pour en ajouter un là.',
     nameLabel: 'Nom du candidat {{n}}',
     nameLabelParty: 'Nom du parti {{n}}',
     defaultName: 'Candidat',

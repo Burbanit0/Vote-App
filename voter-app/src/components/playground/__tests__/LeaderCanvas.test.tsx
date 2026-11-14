@@ -414,3 +414,100 @@ describe('LeaderCanvas', () => {
     });
   });
 });
+
+describe('LeaderCanvas — double-click to add an entrant', () => {
+  const rectOf = (svg: Element) =>
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 460,
+      height: 460,
+      right: 460,
+      bottom: 460,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+  it('reports the domain point under an empty spot', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate });
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    // The centre of the square is the origin; a quarter in from the top-left is (-0.5, 0.5)-ish.
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+    expect(onAddCandidate.mock.calls[0][0]).toBeCloseTo(0, 5);
+    expect(onAddCandidate.mock.calls[0][1]).toBeCloseTo(0, 5);
+    fireEvent.doubleClick(map, { clientX: 0, clientY: 460 });
+    expect(onAddCandidate).toHaveBeenLastCalledWith(-1, -1); // clamped to the plane's corner
+  });
+
+  it('puts the entrant on the line in 1-D', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate, dims: 1 });
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    fireEvent.doubleClick(map, { clientX: 345, clientY: 100 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+    expect(onAddCandidate.mock.calls[0][0]).toBeGreaterThan(0);
+    expect(onAddCandidate.mock.calls[0][1]).toBe(0);
+  });
+
+  it('does nothing on a candidate, its hit area, or the "you" or median marker', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate, youMarker: { x: 0, y: -0.5 } });
+    rectOf(screen.getByTestId('leader-map'));
+    for (const id of [
+      'candidate-0',
+      'candidate-1-hit',
+      'you-marker',
+      'you-marker-hit',
+      'median-marker',
+    ])
+      fireEvent.doubleClick(screen.getByTestId(id));
+    // Nor on something drawn inside one of them.
+    fireEvent.doubleClick(screen.getByTestId('candidate-2').querySelector('circle')!);
+    expect(onAddCandidate).not.toHaveBeenCalled();
+  });
+
+  it("looks only inside the map: an ancestor that shares a marker's testid changes nothing", () => {
+    const onAddCandidate = vi.fn();
+    render(
+      <div data-testid="median-marker">
+        <LeaderCanvas
+          candidates={CANDS}
+          voters={sampleVoters(60, 42, 'random')}
+          rule="plurality"
+          dims={2}
+          onRuleChange={vi.fn()}
+          onMoveCandidate={vi.fn()}
+          onAddCandidate={onAddCandidate}
+        />
+      </div>
+    );
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds on the win-region overlay, which covers the plot: that is still empty ground', async () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate });
+    rectOf(screen.getByTestId('leader-map'));
+    await waitFor(() => expect(screen.getByTestId('winregion').querySelector('rect')).toBeTruthy());
+    fireEvent.doubleClick(screen.getByTestId('winregion').querySelector('rect')!, {
+      clientX: 230,
+      clientY: 230,
+    });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add when the page gives it no way to', () => {
+    setup();
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    expect(() => fireEvent.doubleClick(map, { clientX: 230, clientY: 230 })).not.toThrow();
+  });
+});

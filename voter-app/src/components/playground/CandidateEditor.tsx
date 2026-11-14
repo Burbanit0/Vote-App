@@ -97,8 +97,12 @@ const CandidateEditor: React.FC = () => {
     // candidate dragged on the map, a valence slider, the campaign pin) is the same list; anything
     // else (a preset, a story) starts again with new ids.
     let carried: number[];
+    const before = known.current.names;
     if (planned.current?.list === config.candidates) carried = planned.current.ids;
-    else if (same(known.current.names, now)) carried = known.current.ids;
+    else if (same(before, now)) carried = known.current.ids;
+    // One candidate appended elsewhere (a double-click on the map): the rows keep their ids.
+    else if (before.length > 0 && same(before, now.slice(0, -1)))
+      carried = [...known.current.ids, lastId.current++];
     else carried = config.candidates.map(() => lastId.current++);
     known.current = { names: now, ids: carried };
     return carried;

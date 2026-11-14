@@ -454,7 +454,7 @@ const pgPseudo: PlaygroundKeys = {
     title: '⟦Cáñdídáts~~~~⟧',
     titleParty: '⟦Pártís~~~⟧',
     subtitle: '⟦{{count}} súr~~ {{max}} ·~ réñómmér,~~~~ ájóútér,~~~ rétírér~~~⟧',
-    hint: '⟦Lá~ çárté,~~~ lé~ gágñáñt~~~ ét~ çháqúé~~~ méthódé~~~ súívéñt.~~~ Éñtré~~ {{min}} ét~ {{max}},~ çháçúñ~~~ ávéç~~ sóñ~~ própré~~~ ñóm.~~⟧',
+    hint: '⟦Lá~ çárté,~~~ lé~ gágñáñt~~~ ét~ çháqúé~~~ méthódé~~~ súívéñt.~~~ Éñtré~~ {{min}} ét~ {{max}},~ çháçúñ~~~ ávéç~~ sóñ~~ própré~~~ ñóm.~~ Dóúblé-çlíqúéz~~~~~ súr~~ úñ~ éñdróít~~~ vídé~~ dé~ lá~ çárté~~ póúr~~ éñ~ ájóútér~~~ úñ~ là.~~⟧',
     nameLabel: '⟦Nóm~~ dú~ çáñdídát~~~ {{n}}⟧',
     nameLabelParty: '⟦Nóm~~ dú~ pártí~~ {{n}}⟧',
     defaultName: '⟦Cáñdídát~~~⟧',

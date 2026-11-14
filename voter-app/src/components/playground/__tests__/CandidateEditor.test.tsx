@@ -62,6 +62,58 @@ describe('CandidateEditor', () => {
   });
 
   describe('adding', () => {
+    it('does not pair a draft with a different candidate when a preset replaces the list', () => {
+      mount();
+      open();
+      const first = nameInput(0);
+      act(() => {
+        useElectionStore.getState().setConfig({
+          candidates: ['W', 'X', 'Y', 'Z'].map((name) => ({ name, x: 0, y: 0 })),
+        });
+      });
+      expect(nameInput(0).value).toBe('W');
+      expect(nameInput(0)).not.toBe(first); // one more candidate, but not the same ones: fresh rows
+    });
+
+    it('gives every row a key when two candidates arrive at once', () => {
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      mount();
+      open();
+      act(() => {
+        const { config, setConfig } = useElectionStore.getState();
+        setConfig({
+          candidates: [...config.candidates, { name: 'D', x: 0, y: 0 }, { name: 'E', x: 0, y: 0 }],
+        });
+      });
+      expect([0, 1, 2, 3, 4].map((i) => nameInput(i).value)).toEqual([
+        'Alice',
+        'Bob',
+        'Carol',
+        'D',
+        'E',
+      ]);
+      expect(errors).not.toHaveBeenCalled(); // React warns about a missing or repeated key
+      errors.mockRestore();
+    });
+
+    it('keeps every row (and a name half-typed in one) when a candidate is added from the map', () => {
+      mount();
+      open();
+      const first = nameInput(0);
+      type(1, 'Bo'); // a draft, not committed: it must survive the addition
+      const second = nameInput(1);
+      act(() => {
+        const { config, setConfig } = useElectionStore.getState();
+        setConfig({
+          candidates: [...config.candidates, { name: 'Candidate 4', x: 0, y: 0, z: 0 }],
+        });
+      });
+      expect(nameInput(3).value).toBe('Candidate 4');
+      expect(nameInput(0)).toBe(first); // the same element: not remounted
+      expect(nameInput(1)).toBe(second);
+      expect(nameInput(1).value).toBe('Bo');
+    });
+
     it('appends a named candidate, placed away from the others, in the shared config', () => {
       mount();
       open();

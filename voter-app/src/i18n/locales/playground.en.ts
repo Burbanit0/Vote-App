@@ -420,7 +420,7 @@ const pgEn: PlaygroundKeys = {
     title: 'Candidates',
     titleParty: 'Parties',
     subtitle: '{{count}} of {{max}} · rename, add, remove',
-    hint: 'The map, the winner and every method follow. Between {{min}} and {{max}}, each with its own name.',
+    hint: 'The map, the winner and every method follow. Between {{min}} and {{max}}, each with its own name. Double-click an empty spot of the map to add one there.',
     nameLabel: 'Name of candidate {{n}}',
     nameLabelParty: 'Name of party {{n}}',
     defaultName: 'Candidate',

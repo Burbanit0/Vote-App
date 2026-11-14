@@ -112,6 +112,10 @@ const toSvg = (v: number, axis: 'x' | 'y'): number =>
 
 const svgToDomain = makeSvgToDomain({ width: SVG, height: SVG, pad: MARGIN });
 
+/** The testids of what sits on the map and is not ground: candidates, their hit areas, the "you"
+ *  marker, the median and Condorcet markers. */
+const MAP_OBJECT = /^(candidate-\d+(-hit)?|you-marker(-hit)?|median-marker|condorcet-marker)$/;
+
 const median = (xs: number[]): number => {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -135,6 +139,9 @@ export interface LeaderCanvasProps {
   onMoveYou?: (x: number, y: number, z?: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
+  /** Double-click on an empty spot of the map adds an entrant there (x, y in the domain; y is 0 in
+   *  1-D). Absent: the map does not add. The editor's button is the keyboard and touch way. */
+  onAddCandidate?: (x: number, y: number) => void;
   /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
   sampleAtSeed?: (seed: number) => Pt[];
   baseSeed?: number;
@@ -164,6 +171,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   onMoveYou,
   onRuleChange,
   onMoveCandidate,
+  onAddCandidate,
   sampleAtSeed,
   baseSeed,
   showRuleUi = true,
@@ -276,7 +284,19 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       e.preventDefault();
       move(e.touches[0].clientX, e.touches[0].clientY);
     };
+    // Double-click on empty ground: a new entrant there. Not on something a double-click may
+    // grab or mean otherwise: a candidate, the "you" marker, the median or Condorcet marker.
+    const onDbl = (e: MouseEvent) => {
+      const svg = svgRef.current;
+      if (!onAddCandidate || !svg) return;
+      for (let el = e.target as Element | null; el && el !== svg; el = el.parentElement) {
+        if (MAP_OBJECT.test(el.getAttribute('data-testid') ?? '')) return;
+      }
+      const { x, y } = svgToDomain(e.clientX, e.clientY, svg.getBoundingClientRect());
+      onAddCandidate(x, dims === 1 ? 0 : y);
+    };
     const svg = svgRef.current;
+    svg?.addEventListener('dblclick', onDbl);
     window.addEventListener('mousemove', onMM);
     window.addEventListener('mouseup', onUp);
     svg?.addEventListener('touchmove', onTM, { passive: false });
@@ -286,8 +306,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       window.removeEventListener('mouseup', onUp);
       svg?.removeEventListener('touchmove', onTM);
       svg?.removeEventListener('touchend', onUp);
+      svg?.removeEventListener('dblclick', onDbl);
     };
-  }, [onMoveCandidate, onMoveYou, dims]);
+  }, [onMoveCandidate, onMoveYou, onAddCandidate, dims]);
 
   const winner = fieldWinnerName(voters, candidates, rule);
   // When voters act strategically, surface the (possibly flipped) winner.
