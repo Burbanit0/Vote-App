@@ -135,6 +135,9 @@ export interface LeaderCanvasProps {
   onMoveYou?: (x: number, y: number, z?: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
+  /** Double-click on an empty spot of the map adds an entrant there (x, y in the domain; y is 0 in
+   *  1-D). Absent: the map does not add. The editor's button is the keyboard and touch way. */
+  onAddCandidate?: (x: number, y: number) => void;
   /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
   sampleAtSeed?: (seed: number) => Pt[];
   baseSeed?: number;
@@ -164,6 +167,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   onMoveYou,
   onRuleChange,
   onMoveCandidate,
+  onAddCandidate,
   sampleAtSeed,
   baseSeed,
   showRuleUi = true,
@@ -276,7 +280,17 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       e.preventDefault();
       move(e.touches[0].clientX, e.touches[0].clientY);
     };
+    // Double-click on empty map: a new entrant there. Not on a candidate or the "you" marker
+    // (their testids start with `candidate-` / `you-marker`), which a double-click may grab.
+    const onDbl = (e: MouseEvent) => {
+      if (!onAddCandidate || !svgRef.current) return;
+      if ((e.target as Element).closest('[data-testid^="candidate-"], [data-testid^="you-marker"]'))
+        return;
+      const { x, y } = svgToDomain(e.clientX, e.clientY, svgRef.current.getBoundingClientRect());
+      onAddCandidate(x, dims === 1 ? 0 : y);
+    };
     const svg = svgRef.current;
+    svg?.addEventListener('dblclick', onDbl);
     window.addEventListener('mousemove', onMM);
     window.addEventListener('mouseup', onUp);
     svg?.addEventListener('touchmove', onTM, { passive: false });
@@ -286,8 +300,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       window.removeEventListener('mouseup', onUp);
       svg?.removeEventListener('touchmove', onTM);
       svg?.removeEventListener('touchend', onUp);
+      svg?.removeEventListener('dblclick', onDbl);
     };
-  }, [onMoveCandidate, onMoveYou, dims]);
+  }, [onMoveCandidate, onMoveYou, onAddCandidate, dims]);
 
   const winner = fieldWinnerName(voters, candidates, rule);
   // When voters act strategically, surface the (possibly flipped) winner.
@@ -492,6 +507,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
+        {onAddCandidate && <title>{t('canvas.addHint')}</title>}
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
         {showRuleUi && !show3d && lens === 'winner' && (
           <g data-testid="winregion" opacity={0.28}>

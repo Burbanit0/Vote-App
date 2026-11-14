@@ -8,6 +8,7 @@ import LeaderCanvas from './LeaderCanvas';
 import NonSpatialProfileMap from './NonSpatialProfileMap';
 import ParliamentCanvas from './ParliamentCanvas';
 import { isSpatialSource } from '../../stores/useElectionStore';
+import { addCandidate, canAdd, nextName } from '../../lib/candidateEditing';
 import FlipReveal from './FlipReveal';
 import Collapsible from './Collapsible';
 import DemocracyMap from './DemocracyMap';
@@ -58,12 +59,25 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     sampleAtSeed,
     baseSeed,
     moveCandidate,
+    setConfig,
     assembly,
     shakeOn,
     setShakeOn,
     shake,
     democracyEntries,
   } = usePlaygroundCtx();
+
+  // A double-click on an empty spot of the map: a new entrant there (the editor's button places
+  // one in the biggest gap instead). The same rules as the editor: at most MAX_CANDIDATES, and a
+  // name no other candidate has. Stable between candidate edits, so the memoised canvas bails.
+  const addEntrant = React.useCallback(
+    (x: number, y: number) => {
+      if (!canAdd(config.candidates.length)) return;
+      const names = config.candidates.map((c) => c.name);
+      setConfig(addCandidate(config, { name: nextName(t('candidates.defaultName'), names), x, y }));
+    },
+    [config, setConfig, t]
+  );
 
   // While the rate loads, the same words with dots for the number. The readout is monospace, so
   // it keeps its width and wraps the same before and after: the shorter `· · ·` it replaced fitted
@@ -138,6 +152,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
                   onMoveYou={moveYou}
                   onRuleChange={setLeaderRule}
                   onMoveCandidate={moveCandidate}
+                  onAddCandidate={addEntrant}
                   showRuleUi={forceShowRuleUi || activeMoment !== 'electorate'}
                   behavior={behavior}
                   strategicOutcome={strategicOutcome}

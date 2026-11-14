@@ -411,6 +411,8 @@ const pgPseudo: PlaygroundKeys = {
     view3d: '⟦Vúé~~ 3D~⟧',
     viewPlane: '⟦▦~ Pláñ~~ x–y~~ (édítíóñ)~~~~⟧',
     svgAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ élíré~~ úñ~ dírígéáñt~~~~⟧',
+    addHint:
+      '⟦Dóúblé-çlíqúéz~~~~~ súr~~ úñ~ éñdróít~~~ vídé~~ póúr~~ y~ ájóútér~~~ úñ~ çáñdídát~~~⟧',
     summaryVoters_one: '⟦{{count}} éléçtéúr.~~~~⟧',
     summaryVoters_other: '⟦{{count}} éléçtéúrs.~~~~⟧',
     summaryCandidate: '⟦{{name}} éñ~ {{position}} :~ prémíér~~~ çhóíx~~ dé~ {{pct}} %.~⟧',

@@ -379,6 +379,7 @@ const pgEn: PlaygroundKeys = {
     view3d: '3D view',
     viewPlane: '▦ x–y plane (edit)',
     svgAria: 'Ideology map — electing a leader',
+    addHint: 'Double-click an empty spot to add a candidate there',
     summaryVoters_one: '{{count}} voter.',
     summaryVoters_other: '{{count}} voters.',
     summaryCandidate: '{{name}} at {{position}}: first choice of {{pct}}%.',

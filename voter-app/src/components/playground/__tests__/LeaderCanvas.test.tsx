@@ -414,3 +414,61 @@ describe('LeaderCanvas', () => {
     });
   });
 });
+
+describe('LeaderCanvas — double-click to add an entrant', () => {
+  const rectOf = (svg: Element) =>
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 460,
+      height: 460,
+      right: 460,
+      bottom: 460,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+  it('reports the domain point under an empty spot, and says so in a tooltip', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate });
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    expect(map.querySelector('title')).toHaveTextContent(/double-click an empty spot/i);
+    // The centre of the square is the origin; a quarter in from the top-left is (-0.5, 0.5)-ish.
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+    expect(onAddCandidate.mock.calls[0][0]).toBeCloseTo(0, 5);
+    expect(onAddCandidate.mock.calls[0][1]).toBeCloseTo(0, 5);
+    fireEvent.doubleClick(map, { clientX: 0, clientY: 460 });
+    expect(onAddCandidate).toHaveBeenLastCalledWith(-1, -1); // clamped to the plane's corner
+  });
+
+  it('puts the entrant on the line in 1-D', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate, dims: 1 });
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    fireEvent.doubleClick(map, { clientX: 345, clientY: 100 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+    expect(onAddCandidate.mock.calls[0][0]).toBeGreaterThan(0);
+    expect(onAddCandidate.mock.calls[0][1]).toBe(0);
+  });
+
+  it('does nothing on a candidate or the "you" marker, which a double-click may grab', () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate, youMarker: { x: 0, y: -0.5 } });
+    rectOf(screen.getByTestId('leader-map'));
+    fireEvent.doubleClick(screen.getByTestId('candidate-0'));
+    fireEvent.doubleClick(screen.getByTestId('you-marker'));
+    expect(onAddCandidate).not.toHaveBeenCalled();
+  });
+
+  it('does not add, and shows no hint, when the page gives it no way to', () => {
+    setup();
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    expect(map.querySelector('title')).toBeNull();
+    expect(() => fireEvent.doubleClick(map, { clientX: 230, clientY: 230 })).not.toThrow();
+  });
+});

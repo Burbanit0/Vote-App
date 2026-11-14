@@ -384,6 +384,7 @@ const pgFr = {
     view3d: 'Vue 3D',
     viewPlane: '▦ Plan x–y (édition)',
     svgAria: 'Carte idéologique — élire un dirigeant',
+    addHint: 'Double-cliquez sur un endroit vide pour y ajouter un candidat',
     summaryVoters_one: '{{count}} électeur.',
     summaryVoters_other: '{{count}} électeurs.',
     summaryCandidate: '{{name}} en {{position}} : premier choix de {{pct}} %.',
