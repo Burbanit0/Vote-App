@@ -20,14 +20,23 @@
 import { BLANK_LENSES } from './blankVote';
 import { MAX_CANDIDATES, MAX_NAME_LENGTH, MIN_CANDIDATES } from './candidateEditing';
 import type {
+  Apportionment,
+  AssemblyStructure,
+  Behavior,
+  BallotType,
   Community,
   ElectionCandidate,
   ElectionConfig,
   ElectorateComposition,
+  PlaygroundMode,
   PlaygroundState,
+  PrefSource,
 } from '../stores/useElectionStore';
 
 export const STORAGE_VERSION = 1;
+
+/** The voter distributions the sampler and the API know. */
+const IDEOLOGIES = ['random', 'centrist', 'polarized', 'left_skewed', 'right_skewed'] as const;
 
 type Json = Record<string, unknown>;
 
@@ -63,6 +72,23 @@ export function readStored(raw: string | null): Json | null {
   return parsed;
 }
 
+/**
+ * True when what is stored there was written by a newer build. The writers leave it alone: an
+ * older build that overwrote it (with defaults plus one edit) would destroy what the newer build
+ * saved, which the user gets back by opening the newer build again.
+ */
+export function isNewerThanThisBuild(raw: string | null): boolean {
+  if (!raw) return false;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return (
+      isObject(parsed) && typeof parsed.version === 'number' && parsed.version > STORAGE_VERSION
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ── Field checks: each returns the value when it is valid, the fallback otherwise ──────────
 
 const num = (v: unknown, fallback: number, min: number, max: number): number =>
@@ -78,8 +104,12 @@ const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean'
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
   typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
 
-const str = (v: unknown, fallback: string, maxLength = 200): string =>
-  typeof v === 'string' && v.length <= maxLength ? v : fallback;
+/** A string kept as it is when short enough, cut when too long (a label is never replaced). */
+const text = (v: unknown, fallback: string, maxLength: number): string =>
+  typeof v === 'string' ? v.slice(0, maxLength) : fallback;
+
+/** The allowed values of a union, from a map the compiler checks lists every member. */
+const keysOf = <T extends string>(map: Record<T, true>): T[] => Object.keys(map) as T[];
 
 const record = (v: unknown, fallback: Json): Json => (isObject(v) ? v : fallback);
 
@@ -103,7 +133,8 @@ const optionalCoordinate = (v: unknown): number | undefined =>
 function parseCandidate(item: unknown): ElectionCandidate | null {
   if (!isObject(item)) return null;
   const name = typeof item.name === 'string' ? item.name.trim() : '';
-  if (!name || name.length > MAX_NAME_LENGTH) return null;
+  // Code points, as the editor and the backend count them (an emoji is one, not two units).
+  if (!name || Array.from(name).length > MAX_NAME_LENGTH) return null;
   if (!isNumber(item.x) || !isNumber(item.y)) return null;
   const candidate: ElectionCandidate = {
     name,
@@ -117,17 +148,17 @@ function parseCandidate(item: unknown): ElectionCandidate | null {
   return candidate;
 }
 
+/**
+ * The whole list or nothing: a list with one unusable, repeated or surplus candidate is not the
+ * scenario that was saved, and keeping part of it would be a different election presented as the
+ * same one.
+ */
 function sanitizeCandidates(v: unknown, fallback: ElectionCandidate[]): ElectionCandidate[] {
-  if (!Array.isArray(v)) return fallback;
-  const seen = new Set<string>();
-  const out: ElectionCandidate[] = [];
-  for (const item of v) {
-    const candidate = out.length < MAX_CANDIDATES ? parseCandidate(item) : null;
-    if (!candidate || seen.has(candidate.name)) continue;
-    seen.add(candidate.name);
-    out.push(candidate);
-  }
-  return out.length >= MIN_CANDIDATES ? out : fallback;
+  if (!Array.isArray(v) || v.length < MIN_CANDIDATES || v.length > MAX_CANDIDATES) return fallback;
+  const out = v.map(parseCandidate);
+  const names = new Set(out.map((c) => c?.name));
+  if (out.some((c) => c === null) || names.size !== out.length) return fallback;
+  return out as ElectionCandidate[];
 }
 
 /** An election config read back from storage, every field checked, `fallback` where it is not. */
@@ -142,8 +173,8 @@ export function sanitizeConfig(raw: Json | null, fallback: ElectionConfig): Elec
   const config: ElectionConfig = {
     candidates: sanitizeCandidates(raw.candidates, fb.candidates),
     num_voters: int(raw.num_voters, fb.num_voters, 10, 1000),
-    ideology: str(raw.ideology, fb.ideology, 40),
-    seed: int(raw.seed, fb.seed, 0, 2 ** 31 - 1),
+    ideology: oneOf(raw.ideology, IDEOLOGIES, fb.ideology as (typeof IDEOLOGIES)[number]),
+    seed: int(raw.seed, fb.seed, 0, Number.MAX_SAFE_INTEGER),
     blank_vote: {
       enabled: bool(blank.enabled, fb.blank_vote.enabled),
       rule: oneOf(blank.rule, ['symbolic', 'competitive', 'threshold_30'], fb.blank_vote.rule),
@@ -178,36 +209,46 @@ export function sanitizeConfig(raw: Json | null, fallback: ElectionConfig): Elec
       polling_effect: num(campaign.polling_effect, fb.campaign.polling_effect, 0, 1),
     },
   };
-  if (typeof raw.description === 'string') config.description = str(raw.description, '', 600);
-  if (typeof raw.phenomenon === 'string') config.phenomenon = str(raw.phenomenon, '', 200);
+  // A bias is about a candidate: keep only those of the candidates that are there.
+  const names = new Set(config.candidates.map((c) => c.name));
+  config.information_model.media_bias = Object.fromEntries(
+    Object.entries(config.information_model.media_bias).filter(([name]) => names.has(name))
+  );
+  if (typeof raw.description === 'string') config.description = text(raw.description, '', 600);
+  if (typeof raw.phenomenon === 'string') config.phenomenon = text(raw.phenomenon, '', 200);
   return config;
 }
 
 // ── The playground slice ────────────────────────────────────────────────────────────────────
 
-const PREF_SOURCES = [
-  'spatial',
-  'single_peaked',
-  'impartial',
-  'iac',
-  'mallows',
-  'urn',
-  'plackett_luce',
-  'didi',
-  'stratification',
-  'handcrafted',
-] as const;
+const PREF_SOURCES = keysOf<PrefSource>({
+  spatial: true,
+  single_peaked: true,
+  impartial: true,
+  iac: true,
+  mallows: true,
+  urn: true,
+  plackett_luce: true,
+  didi: true,
+  stratification: true,
+  handcrafted: true,
+});
 
-const BALLOT_TYPES = [
-  'full',
-  'choose_one',
-  'approve',
-  'rank_full',
-  'rank_truncated',
-  'score',
-  'grade',
-  'cumulative',
-] as const;
+const BALLOT_TYPES = keysOf<BallotType>({
+  full: true,
+  choose_one: true,
+  approve: true,
+  rank_full: true,
+  rank_truncated: true,
+  score: true,
+  grade: true,
+  cumulative: true,
+});
+
+const MODES = keysOf<PlaygroundMode>({ leader: true, parliament: true });
+const BEHAVIORS = keysOf<Behavior>({ sincere: true, strategic: true, mixed: true });
+const STRUCTURES = keysOf<AssemblyStructure>({ pr: true, fptp: true, mmp: true });
+const APPORTIONMENTS = keysOf<Apportionment>({ dhondt: true, sainte_lague: true });
 
 /** One stored community, or null when it is not usable (no id, a bad centre). */
 function parseCommunity(item: unknown): Community | null {
@@ -216,11 +257,11 @@ function parseCommunity(item: unknown): Community | null {
   if (!id || !isNumber(item.x) || !isNumber(item.y)) return null;
   const community: Community = {
     id,
-    label: str(item.label, id, 60),
+    label: text(item.label, id, 60),
     x: num(item.x, 0, -1, 1),
     y: num(item.y, 0, -1, 1),
     spread: num(item.spread, 0.18, 0.01, 1),
-    weight: num(item.weight, 1, 0.01, 1000),
+    weight: num(item.weight, 1, 0, 1000),
     turnout: num(item.turnout, 0.9, 0, 1),
   };
   const z = optionalCoordinate(item.z);
@@ -233,7 +274,7 @@ function sanitizeCommunities(v: unknown, fallback: Community[]): Community[] {
   const ids = new Set<string>();
   const out: Community[] = [];
   for (const item of v) {
-    const community = out.length < 12 ? parseCommunity(item) : null;
+    const community = parseCommunity(item);
     if (!community || ids.has(community.id)) continue;
     ids.add(community.id);
     out.push(community);
@@ -268,13 +309,13 @@ export function sanitizePlayground(raw: Json | null, fallback: PlaygroundState):
       ? (space.axisLabels as string[])
       : fb.space.axisLabels;
   return {
-    mode: oneOf(raw.mode, ['leader', 'parliament'], fb.mode),
+    mode: oneOf(raw.mode, MODES, fb.mode),
     space: {
       dims: space.dims === 1 || space.dims === 2 || space.dims === 3 ? space.dims : fb.space.dims,
       axisLabels: labels,
       valenceEnabled: bool(space.valenceEnabled, fb.space.valenceEnabled),
     },
-    behavior: oneOf(raw.behavior, ['sincere', 'strategic', 'mixed'], fb.behavior),
+    behavior: oneOf(raw.behavior, BEHAVIORS, fb.behavior),
     stratTactic: oneOf(raw.stratTactic, ['compromise', 'burying'], fb.stratTactic),
     stratShare: num(raw.stratShare, fb.stratShare, 0, 1),
     prefSource: oneOf(raw.prefSource, PREF_SOURCES, fb.prefSource),
@@ -295,14 +336,10 @@ export function sanitizePlayground(raw: Json | null, fallback: PlaygroundState):
     },
     electorate: sanitizeElectorate(raw.electorate, fb.electorate),
     assembly: {
-      structure: oneOf(assembly.structure, ['pr', 'fptp', 'mmp'], fb.assembly.structure),
+      structure: oneOf(assembly.structure, STRUCTURES, fb.assembly.structure),
       seats: int(assembly.seats, fb.assembly.seats, 1, 1000),
       threshold: num(assembly.threshold, fb.assembly.threshold, 0, 1),
-      apportionment: oneOf(
-        assembly.apportionment,
-        ['dhondt', 'sainte_lague'],
-        fb.assembly.apportionment
-      ),
+      apportionment: oneOf(assembly.apportionment, APPORTIONMENTS, fb.assembly.apportionment),
       num_districts: int(assembly.num_districts, fb.assembly.num_districts, 1, 100),
       strategic_desertion: bool(assembly.strategic_desertion, fb.assembly.strategic_desertion),
     },

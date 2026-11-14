@@ -18,7 +18,13 @@ import { create } from 'zustand';
 import type { Community } from '../lib/playgroundElectorate';
 import type { BlankLens } from '../lib/blankVote';
 import { track } from '../lib/analytics';
-import { readStored, sanitizeConfig, sanitizePlayground, withVersion } from '../lib/persistedState';
+import {
+  isNewerThanThisBuild,
+  readStored,
+  sanitizeConfig,
+  sanitizePlayground,
+  withVersion,
+} from '../lib/persistedState';
 
 export type { Community };
 
@@ -655,7 +661,7 @@ function loadConfig(): ElectionConfig {
 // persists the final value instead of silently dropping it.
 const DEBOUNCE_MS = 250;
 
-function debouncedWriter<T>(key: string) {
+function debouncedWriter<T extends object>(key: string) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: T | undefined;
   let hasPending = false;
@@ -668,7 +674,10 @@ function debouncedWriter<T>(key: string) {
       timer = undefined;
     }
     try {
-      localStorage.setItem(key, JSON.stringify(withVersion(pending as object)));
+      // A value from a newer build stays as it is (lib/persistedState.ts).
+      if (!isNewerThanThisBuild(localStorage.getItem(key))) {
+        localStorage.setItem(key, JSON.stringify(withVersion(pending as T)));
+      }
     } catch {
       /* ignore */
     }

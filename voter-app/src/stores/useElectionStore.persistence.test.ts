@@ -188,6 +188,20 @@ describe('useElectionStore — versioned, validated storage', () => {
     expect(localStorage.getItem(LS_CONFIG_KEY)).toBe(newer);
   });
 
+  it('does not overwrite a value from a newer build when the user edits', () => {
+    const newer = JSON.stringify({
+      ...DEFAULT_CONFIG,
+      num_voters: 444,
+      version: STORAGE_VERSION + 1,
+    });
+    localStorage.setItem(LS_CONFIG_KEY, newer);
+    useElectionStore.getState().hydrate();
+    useElectionStore.getState().setConfig({ seed: 9 });
+    __flushPersistedStoreForTests();
+    expect(useElectionStore.getState().config.seed).toBe(9); // the edit works in the session
+    expect(localStorage.getItem(LS_CONFIG_KEY)).toBe(newer); // and the newer build's data survives
+  });
+
   it('falls back to the defaults when storage cannot be read at all', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
