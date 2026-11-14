@@ -1035,7 +1035,7 @@
   "code": 131,
   "test-flaky": 15
  },
- "generated_at": "2026-11-14T14:17:55Z",
+ "generated_at": "2026-11-14T14:58:20Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1302,7 +1302,7 @@
     "success": 42
    },
    "2026-11-14": {
-    "success": 16
+    "success": 17
    }
   },
   "CI Health Watchdog": {
@@ -1392,6 +1392,9 @@
     "success": 2
    },
    "2026-11-13": {
+    "success": 1
+   },
+   "2026-11-14": {
     "success": 1
    }
   },
@@ -2360,16 +2363,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-14T14:10:43Z",
+   "created_at": "2026-11-14T14:15:30Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43603496123"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43603914722"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-13T16:09:20Z",
+   "created_at": "2026-11-14T14:57:45Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43459822359"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43607570890"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -2470,7 +2473,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 7959,
+ "runs": 7961,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2616,12 +2619,12 @@
     "2026-11-11": 279,
     "2026-11-12": 263.0,
     "2026-11-13": 274.0,
-    "2026-11-14": 248.0
+    "2026-11-14": 257
    },
-   "p50_s": 348,
-   "p95_s": 543,
+   "p50_s": 349,
+   "p95_s": 542,
    "queue_p50_s": 0,
-   "runs": 571
+   "runs": 572
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2652,12 +2655,12 @@
     "2026-11-11": 13,
     "2026-11-12": 10.5,
     "2026-11-13": 11,
-    "2026-11-14": 12.0
+    "2026-11-14": 13
    },
    "p50_s": 12,
-   "p95_s": 77,
+   "p95_s": 71,
    "queue_p50_s": 0,
-   "runs": 270
+   "runs": 271
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
