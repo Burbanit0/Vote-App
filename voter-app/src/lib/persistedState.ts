@@ -24,14 +24,14 @@ import type {
   AssemblyStructure,
   Behavior,
   BallotType,
-  Community,
   ElectionCandidate,
   ElectionConfig,
   ElectorateComposition,
   PlaygroundMode,
   PlaygroundState,
   PrefSource,
-} from '../stores/useElectionStore';
+} from './electionTypes';
+import type { Community } from './playgroundElectorate';
 
 export const STORAGE_VERSION = 1;
 

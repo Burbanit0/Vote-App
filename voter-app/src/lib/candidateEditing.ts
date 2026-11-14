@@ -1,4 +1,4 @@
-import type { ElectionCandidate, ElectionConfig } from '../stores/useElectionStore';
+import type { ElectionCandidate, ElectionConfig } from './electionTypes';
 
 // Editing the candidate (or party) list: the pure part. The backend takes 2 to 8 candidates with
 // unique names of 1 to 64 characters (`UniqueCandidates`, `CandidateSpec`), and the palette has
