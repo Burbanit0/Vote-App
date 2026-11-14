@@ -1034,7 +1034,7 @@
   "code": 132,
   "test-flaky": 15
  },
- "generated_at": "2026-11-14T22:00:15Z",
+ "generated_at": "2026-11-14T22:04:03Z",
  "grid": {
   "Backend CI": {
    "2026-10-15": {
@@ -1301,7 +1301,7 @@
     "success": 42
    },
    "2026-11-14": {
-    "success": 23
+    "success": 24
    }
   },
   "CI Health Watchdog": {
@@ -1671,7 +1671,7 @@
    },
    "2026-11-14": {
     "cancelled": 1,
-    "success": 3
+    "success": 4
    }
   },
   "Frontend CI": {
@@ -1737,7 +1737,7 @@
     "success": 10
    },
    "2026-11-14": {
-    "success": 4
+    "success": 5
    }
   },
   "Generated Artifacts Contract": {
@@ -2305,7 +2305,7 @@
    "2026-11-14": {
     "cancelled": 1,
     "skipped": 43,
-    "success": 35
+    "success": 37
    }
   },
   "zizmor online": {
@@ -2362,9 +2362,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-14T21:27:48Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43642937925"
+   "created_at": "2026-11-14T22:00:09Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645732855"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2397,16 +2397,16 @@
   "E2E Tests": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-14T18:19:09Z",
+   "created_at": "2026-11-14T21:59:30Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43625923541"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645676978"
   },
   "Frontend CI": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-14T18:19:09Z",
+   "created_at": "2026-11-14T21:59:30Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43625923538"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645676986"
   },
   "Generated Artifacts Contract": {
    "branch": "polity",
@@ -2460,9 +2460,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-14T22:01:51Z",
+   "created_at": "2026-11-14T22:06:21Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645898321"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43646305251"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2472,7 +2472,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 8050,
+ "runs": 8055,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2618,12 +2618,12 @@
     "2026-11-11": 279,
     "2026-11-12": 263.0,
     "2026-11-13": 274.0,
-    "2026-11-14": 253
+    "2026-11-14": 246.5
    },
-   "p50_s": 348,
+   "p50_s": 347,
    "p95_s": 542,
    "queue_p50_s": 0,
-   "runs": 576
+   "runs": 577
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2846,12 +2846,12 @@
     "2026-11-11": 538,
     "2026-11-12": 483,
     "2026-11-13": 508.0,
-    "2026-11-14": 468.5
+    "2026-11-14": 464
    },
    "p50_s": 531,
    "p95_s": 815,
    "queue_p50_s": 0,
-   "runs": 322
+   "runs": 323
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -2883,12 +2883,12 @@
     "2026-11-11": 265.0,
     "2026-11-12": 271,
     "2026-11-13": 272,
-    "2026-11-14": 265
+    "2026-11-14": 269.0
    },
-   "p50_s": 33,
+   "p50_s": 34,
    "p95_s": 393,
    "queue_p50_s": 0,
-   "runs": 355
+   "runs": 356
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -3173,7 +3173,7 @@
    "p50_s": 28,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 878
+   "runs": 880
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3364,15 +3364,15 @@
     },
     "E2E Tests": {
      "conclusion": "success",
-     "created_at": "2026-11-14T18:19:09Z",
-     "sha": "a652adc8233eaf89f4f4058a4f52a6f120328200",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43625923541"
+     "created_at": "2026-11-14T21:59:30Z",
+     "sha": "ff2dbaf159e088d4293428891e62f3ba0b9f5a1e",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645676978"
     },
     "Frontend CI": {
      "conclusion": "success",
-     "created_at": "2026-11-14T18:19:09Z",
-     "sha": "a652adc8233eaf89f4f4058a4f52a6f120328200",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43625923538"
+     "created_at": "2026-11-14T21:59:30Z",
+     "sha": "ff2dbaf159e088d4293428891e62f3ba0b9f5a1e",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43645676986"
     },
     "Generated Artifacts Contract": {
      "conclusion": "success",
