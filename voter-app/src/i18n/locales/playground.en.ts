@@ -8,6 +8,15 @@ const pgEn: PlaygroundKeys = {
     subtitle:
       'One instrument, from simple to complex: pick the question, then move moment by moment and read the effects live.',
   },
+  share: {
+    button: 'Share this scenario',
+    copied: 'Link copied',
+    manual: 'Link to this scenario, to copy',
+    opened:
+      'You are looking at a scenario opened from a link. Yours is kept: it comes back with the button.',
+    restore: 'Back to my scenario',
+    keep: 'Keep this one',
+  },
   mode: {
     leader: 'Leader',
     assembly: 'Assembly',

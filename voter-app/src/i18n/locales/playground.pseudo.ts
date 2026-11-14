@@ -9,6 +9,15 @@ const pgPseudo: PlaygroundKeys = {
     subtitle:
       '⟦Úñ~ séúl~~ áppáréíl,~~~~ dú~ símplé~~~ áú~ çómpléxé~~~ :~ çhóísísséz~~~~ lá~ qúéstíóñ,~~~~ púís~~ áváñçéz~~~ móméñt~~~ pár~~ móméñt~~~ ét~ líséz~~ lés~~ éfféts~~~ éñ~ díréçt.~~~⟧',
   },
+  share: {
+    button: '⟦Pártágér~~~ çé~ sçéñáríó~~~⟧',
+    copied: '⟦Líéñ~~ çópíé~~⟧',
+    manual: '⟦Líéñ~~ vérs~~ çé~ sçéñáríó,~~~~ à~ çópíér~~~⟧',
+    opened:
+      '⟦Vóús~~ régárdéz~~~ úñ~ sçéñáríó~~~ óúvért~~~ dépúís~~~ úñ~ líéñ.~~ Lé~ vôtré~~ ést~~ gárdé~~ :~ lé~ bóútóñ~~~ lé~ rámèñé.~~~⟧',
+    restore: '⟦Révéñír~~~ à~ móñ~~ sçéñáríó~~~⟧',
+    keep: '⟦Gárdér~~~ çélúí-çí~~~⟧',
+  },
   mode: {
     leader: '⟦Dírígéáñt~~~~⟧',
     assembly: '⟦Ássémbléé~~~~⟧',

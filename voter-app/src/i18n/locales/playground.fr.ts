@@ -12,6 +12,15 @@ const pgFr = {
     subtitle:
       'Un seul appareil, du simple au complexe : choisissez la question, puis avancez moment par moment et lisez les effets en direct.',
   },
+  share: {
+    button: 'Partager ce scénario',
+    copied: 'Lien copié',
+    manual: 'Lien vers ce scénario, à copier',
+    opened:
+      'Vous regardez un scénario ouvert depuis un lien. Le vôtre est gardé : le bouton le ramène.',
+    restore: 'Revenir à mon scénario',
+    keep: 'Garder celui-ci',
+  },
   mode: {
     leader: 'Dirigeant',
     assembly: 'Assemblée',

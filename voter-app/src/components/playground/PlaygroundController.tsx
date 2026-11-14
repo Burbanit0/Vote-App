@@ -1,8 +1,8 @@
 import React, { createContext, useContext } from 'react';
 import { useElection, usePlayground } from '../../stores/useElectionStore';
 import { useProfileDiagnostics, useAssembly } from '../../hooks/usePlaygroundData';
-import { type Lens } from './LeaderCanvas';
-import { type MomentId } from './MomentRail';
+import { type Lens, type MomentId } from '../../lib/journeyTypes';
+import { useScenarioLink } from '../../hooks/useScenarioLink';
 import {
   sampleVoters,
   applyTurnout,
@@ -82,15 +82,31 @@ function useController() {
   // to WinnerRobustness's strip arriving above the lens switch mid-click; that
   // component now holds its place while it computes.
   const [lens, setLens] = React.useState<Lens>('winner');
+  // A lens that came with a scenario link, to show instead of the new moment's default one.
+  const pendingLens = React.useRef<Lens | null>(null);
   React.useLayoutEffect(() => {
     setLens(
-      activeMoment === 'method'
-        ? 'criteria'
-        : activeMoment === 'strategy'
-          ? 'manipulation'
-          : 'winner'
+      pendingLens.current ??
+        (activeMoment === 'method'
+          ? 'criteria'
+          : activeMoment === 'strategy'
+            ? 'manipulation'
+            : 'winner')
     );
+    pendingLens.current = null;
   }, [activeMoment]);
+  // After the lens effect above, so a link's lens is applied over the default one.
+  const sharedLink = useScenarioLink({
+    activeMoment,
+    leaderRule,
+    lens,
+    setActiveMoment: _setActiveMoment,
+    setLeaderRule: _setLeaderRule,
+    setLens,
+    pendingLens,
+    setConfig,
+    setPlayground,
+  });
 
   // Phase 0 perf: warm the heavy Recharts vendor chunk after first paint, so the
   // first behaviour/analysis panel that uses it opens without a cold parse.
@@ -609,8 +625,9 @@ function useController() {
       lens,
       setLens,
       showYou,
+      sharedLink,
     }),
-    [activeMoment, setActiveMoment, leaderRule, setLeaderRule, lens, setLens, showYou]
+    [activeMoment, setActiveMoment, leaderRule, setLeaderRule, lens, setLens, showYou, sharedLink]
   );
 
   const instrumentCtx = React.useMemo(
