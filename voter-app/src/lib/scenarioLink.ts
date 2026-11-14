@@ -57,7 +57,8 @@ function changed(value: object, base: object): Json {
 function toBase64Url(text: string): string {
   let binary = '';
   for (const byte of new TextEncoder().encode(text)) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Padding is dropped: '=' only ever ends a base64 string.
+  return btoa(binary).split('=')[0].replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 function fromBase64Url(token: string): string {

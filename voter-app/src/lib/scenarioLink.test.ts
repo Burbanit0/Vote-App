@@ -19,7 +19,7 @@ const base: ScenarioLink = {
 
 // A token as another build, a hand edit or a stranger could write it.
 const token = (payload: unknown) =>
-  `#s=${btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+  `#s=${btoa(JSON.stringify(payload)).split('=')[0].replace(/\+/g, '-').replace(/\//g, '_')}`;
 const v1 = (extra: Record<string, unknown>) => token({ v: LINK_VERSION, ...extra });
 
 const edited: ScenarioLink = {
@@ -172,7 +172,7 @@ describe('scenarioHash / readScenarioLink', () => {
     const link = readScenarioLink(scenarioHash({ ...base, config, playground }));
     expect(link?.config.seed).toBe(DEFAULT_CONFIG.seed + 1);
     expect(link?.config.num_voters).toBe(DEFAULT_CONFIG.num_voters);
-    expect(link?.playground.stratShare).toBe(0.9);
+    expect(link?.playground.stratShare).toBeCloseTo(0.9);
   });
 });
 

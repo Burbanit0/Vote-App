@@ -38,7 +38,6 @@ import NoShowParadox from './NoShowParadox';
 // tints voters by their incentive to vote strategically; 'probability' reads the
 // map as the random-ballot lottery. 'criteria' arrives in a later batch — only
 // implemented lenses appear in the switch.
-export type { Lens };
 
 const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
 
