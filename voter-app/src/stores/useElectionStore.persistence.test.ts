@@ -1,4 +1,10 @@
-import { useElectionStore, DEFAULT_CONFIG, DEFAULT_PLAYGROUND } from './useElectionStore';
+import {
+  useElectionStore,
+  DEFAULT_CONFIG,
+  DEFAULT_PLAYGROUND,
+  __flushPersistedStoreForTests,
+} from './useElectionStore';
+import { STORAGE_VERSION } from '../lib/persistedState';
 
 // Regression coverage for the debounced-persistence fix (perf/leader-canvas-
 // drag-and-memo): a candidate drag (LeaderCanvas's mousemove -> moveCandidate
@@ -117,5 +123,77 @@ describe('useElectionStore — debounced localStorage persistence (playground)',
     const playgroundWrites = setItemSpy.mock.calls.filter(([key]) => key === LS_PLAYGROUND_KEY);
     expect(playgroundWrites).toHaveLength(1);
     expect(JSON.parse(playgroundWrites[0][1] as string).electorate.noise).toBeCloseTo(14 / 15);
+  });
+});
+
+describe('useElectionStore — versioned, validated storage', () => {
+  it('writes the version beside the state, for both slices', () => {
+    useElectionStore.getState().setConfig({ seed: 5 });
+    useElectionStore.getState().setPlayground({ stratShare: 0.3 });
+    __flushPersistedStoreForTests();
+    expect(JSON.parse(localStorage.getItem(LS_CONFIG_KEY) as string)).toMatchObject({
+      seed: 5,
+      version: STORAGE_VERSION,
+    });
+    expect(JSON.parse(localStorage.getItem(LS_PLAYGROUND_KEY) as string)).toMatchObject({
+      stratShare: 0.3,
+      version: STORAGE_VERSION,
+    });
+  });
+
+  it('reads back what it wrote', () => {
+    useElectionStore.getState().setConfig({ seed: 5, num_voters: 120 });
+    __flushPersistedStoreForTests();
+    useElectionStore.setState({ config: { ...DEFAULT_CONFIG } });
+    useElectionStore.getState().hydrate();
+    expect(useElectionStore.getState().config).toMatchObject({ seed: 5, num_voters: 120 });
+    expect('version' in useElectionStore.getState().config).toBe(false);
+  });
+
+  it('still reads what a build from before versioning wrote (no version field)', () => {
+    localStorage.setItem(LS_CONFIG_KEY, JSON.stringify({ ...DEFAULT_CONFIG, num_voters: 210 }));
+    localStorage.setItem(
+      LS_PLAYGROUND_KEY,
+      JSON.stringify({ mode: 'parliament', assembly: { seats: 60 } })
+    );
+    useElectionStore.getState().hydrate();
+    expect(useElectionStore.getState().config.num_voters).toBe(210);
+    expect(useElectionStore.getState().playground.mode).toBe('parliament');
+    expect(useElectionStore.getState().playground.assembly.seats).toBe(60);
+    expect(useElectionStore.getState().playground.assembly.threshold).toBe(
+      DEFAULT_PLAYGROUND.assembly.threshold
+    );
+  });
+
+  it('does not let a hand-edited or damaged value reach the state', () => {
+    localStorage.setItem(
+      LS_CONFIG_KEY,
+      JSON.stringify({ candidates: 'x', num_voters: 'lots', blank_vote: 7 })
+    );
+    localStorage.setItem(LS_PLAYGROUND_KEY, JSON.stringify({ mode: 'bogus', ballot: 3 }));
+    useElectionStore.getState().hydrate();
+    expect(useElectionStore.getState().config).toEqual(DEFAULT_CONFIG);
+    expect(useElectionStore.getState().playground).toEqual(DEFAULT_PLAYGROUND);
+  });
+
+  it('ignores a value written by a newer build, and leaves it in storage', () => {
+    const newer = JSON.stringify({
+      ...DEFAULT_CONFIG,
+      num_voters: 444,
+      version: STORAGE_VERSION + 1,
+    });
+    localStorage.setItem(LS_CONFIG_KEY, newer);
+    useElectionStore.getState().hydrate();
+    expect(useElectionStore.getState().config).toEqual(DEFAULT_CONFIG);
+    expect(localStorage.getItem(LS_CONFIG_KEY)).toBe(newer);
+  });
+
+  it('falls back to the defaults when storage cannot be read at all', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    useElectionStore.getState().hydrate();
+    expect(useElectionStore.getState().config).toEqual(DEFAULT_CONFIG);
+    expect(useElectionStore.getState().playground).toEqual(DEFAULT_PLAYGROUND);
   });
 });

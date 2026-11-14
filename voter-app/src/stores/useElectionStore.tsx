@@ -18,6 +18,7 @@ import { create } from 'zustand';
 import type { Community } from '../lib/playgroundElectorate';
 import type { BlankLens } from '../lib/blankVote';
 import { track } from '../lib/analytics';
+import { readStored, sanitizeConfig, sanitizePlayground, withVersion } from '../lib/persistedState';
 
 export type { Community };
 
@@ -628,10 +629,11 @@ function deepSet(obj: unknown, path: string, value: unknown): unknown {
   return { ...parent, [head]: deepSet(parent[head] ?? {}, rest.join('.'), value) };
 }
 
+// What comes back from storage is checked field by field (lib/persistedState.ts), never cast:
+// a stale, hand-edited or newer-build value cannot put a NaN or a missing field into the engine.
 function loadConfig(): ElectionConfig {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as ElectionConfig) : DEFAULT_CONFIG;
+    return sanitizeConfig(readStored(localStorage.getItem(LS_KEY)), DEFAULT_CONFIG);
   } catch {
     return DEFAULT_CONFIG;
   }
@@ -666,7 +668,7 @@ function debouncedWriter<T>(key: string) {
       timer = undefined;
     }
     try {
-      localStorage.setItem(key, JSON.stringify(pending));
+      localStorage.setItem(key, JSON.stringify(withVersion(pending as object)));
     } catch {
       /* ignore */
     }
@@ -698,21 +700,10 @@ function saveConfig(config: ElectionConfig): void {
 
 function loadPlayground(): PlaygroundState {
   try {
-    const raw = localStorage.getItem(LS_PLAYGROUND_KEY);
-    if (!raw) return DEFAULT_PLAYGROUND;
-    const parsed = JSON.parse(raw) as Partial<PlaygroundState>;
-    // Merge over defaults (nested slices too) so a stored older shape keeps
-    // every knob present — e.g. assembly.strategic_desertion added in P4.
-    return {
-      ...DEFAULT_PLAYGROUND,
-      ...parsed,
-      space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
-      ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
-      turnout: { ...DEFAULT_PLAYGROUND.turnout, ...(parsed.turnout ?? {}) },
-      blank: { ...DEFAULT_PLAYGROUND.blank, ...(parsed.blank ?? {}) },
-      electorate: { ...DEFAULT_PLAYGROUND.electorate, ...(parsed.electorate ?? {}) },
-      assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
-    };
+    return sanitizePlayground(
+      readStored(localStorage.getItem(LS_PLAYGROUND_KEY)),
+      DEFAULT_PLAYGROUND
+    );
   } catch {
     return DEFAULT_PLAYGROUND;
   }
