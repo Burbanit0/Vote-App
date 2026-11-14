@@ -47,10 +47,10 @@ describe('StoriesRegister', () => {
     fireEvent.pointerEnter(rows()[0], { pointerType: 'mouse', clientX: 100, clientY: 300 });
     act(() => void frames.flush());
     expect(card()).toHaveStyle({ opacity: '1', transform: 'rotate(-3deg)' });
-    expect(slip().style.transform).toBe('translate3d(122.0px, 150.0px, 0)');
+    expect(slip().style.transform).toBe('translate3d(122px, 150px, 0px)');
     fireEvent.pointerMove(screen.getByRole('list'), { clientX: 200, clientY: 400 });
     act(() => void frames.flush());
-    expect(slip().style.transform).toBe('translate3d(222.0px, 250.0px, 0)');
+    expect(slip().style.transform).toBe('translate3d(222px, 250px, 0px)');
     fireEvent.pointerEnter(rows()[1], { pointerType: 'mouse', clientX: 200, clientY: 400 });
     expect(card()).toHaveStyle({ transform: 'rotate(2deg)' });
     fireEvent.pointerLeave(screen.getByRole('list'));
@@ -67,7 +67,7 @@ describe('StoriesRegister', () => {
     fireEvent.pointerEnter(rows()[0], { pointerType: 'mouse', clientX: 100, clientY: 300 });
     act(() => void frames.flush());
     fireEvent.focus(link);
-    expect(slip().style.transform).toBe('translate3d(122.0px, 150.0px, 0)');
+    expect(slip().style.transform).toBe('translate3d(122px, 150px, 0px)');
     fireEvent.blur(link);
     expect(card()).toHaveStyle({ opacity: '1' });
   });
