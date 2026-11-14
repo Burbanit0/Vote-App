@@ -7,7 +7,7 @@ import { usePlaygroundCtx } from './PlaygroundController';
 import LeaderCanvas from './LeaderCanvas';
 import NonSpatialProfileMap from './NonSpatialProfileMap';
 import ParliamentCanvas from './ParliamentCanvas';
-import { isSpatialSource } from '../../stores/useElectionStore';
+import { isSpatialSource, useElectionStore } from '../../stores/useElectionStore';
 import { addCandidate, canAdd, nextName } from '../../lib/candidateEditing';
 import FlipReveal from './FlipReveal';
 import Collapsible from './Collapsible';
@@ -68,16 +68,23 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
   } = usePlaygroundCtx();
 
   // A double-click on an empty spot of the map: a new entrant there (the editor's button places
-  // one in the biggest gap instead). The same rules as the editor: at most MAX_CANDIDATES, and a
-  // name no other candidate has. Stable between candidate edits, so the memoised canvas bails.
+  // one in the biggest gap instead). The same rules as the editor: at most MAX_CANDIDATES, a name
+  // no one has. The candidates are read when it is called, so this stays the same function across
+  // edits (the memoised canvas bails) and never works from a stale list.
   const addEntrant = React.useCallback(
     (x: number, y: number) => {
-      if (!canAdd(config.candidates.length)) return;
-      const names = config.candidates.map((c) => c.name);
-      setConfig(addCandidate(config, { name: nextName(t('candidates.defaultName'), names), x, y }));
+      const { config: now } = useElectionStore.getState();
+      if (!canAdd(now.candidates.length)) return;
+      const names = now.candidates.map((c) => c.name);
+      setConfig(
+        addCandidate(now, { name: nextName(t('candidates.defaultName'), names), x, y, z: 0 })
+      );
     },
-    [config, setConfig, t]
+    [setConfig, t]
   );
+  // Where the editor is (the Électorat moment): elsewhere a stray double-click must not change the
+  // field under a scorecard, a strategy or a campaign.
+  const canAddHere = activeMoment === 'electorate';
 
   // While the rate loads, the same words with dots for the number. The readout is monospace, so
   // it keeps its width and wraps the same before and after: the shorter `· · ·` it replaced fitted
@@ -152,7 +159,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
                   onMoveYou={moveYou}
                   onRuleChange={setLeaderRule}
                   onMoveCandidate={moveCandidate}
-                  onAddCandidate={addEntrant}
+                  onAddCandidate={canAddHere ? addEntrant : undefined}
                   showRuleUi={forceShowRuleUi || activeMoment !== 'electorate'}
                   behavior={behavior}
                   strategicOutcome={strategicOutcome}

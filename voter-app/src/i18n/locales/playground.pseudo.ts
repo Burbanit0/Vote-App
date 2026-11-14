@@ -411,8 +411,6 @@ const pgPseudo: PlaygroundKeys = {
     view3d: '⟦Vúé~~ 3D~⟧',
     viewPlane: '⟦▦~ Pláñ~~ x–y~~ (édítíóñ)~~~~⟧',
     svgAria: '⟦Cárté~~ ídéólógíqúé~~~~ —~ élíré~~ úñ~ dírígéáñt~~~~⟧',
-    addHint:
-      '⟦Dóúblé-çlíqúéz~~~~~ súr~~ úñ~ éñdróít~~~ vídé~~ póúr~~ y~ ájóútér~~~ úñ~ çáñdídát~~~⟧',
     summaryVoters_one: '⟦{{count}} éléçtéúr.~~~~⟧',
     summaryVoters_other: '⟦{{count}} éléçtéúrs.~~~~⟧',
     summaryCandidate: '⟦{{name}} éñ~ {{position}} :~ prémíér~~~ çhóíx~~ dé~ {{pct}} %.~⟧',
@@ -456,7 +454,7 @@ const pgPseudo: PlaygroundKeys = {
     title: '⟦Cáñdídáts~~~~⟧',
     titleParty: '⟦Pártís~~~⟧',
     subtitle: '⟦{{count}} súr~~ {{max}} ·~ réñómmér,~~~~ ájóútér,~~~ rétírér~~~⟧',
-    hint: '⟦Lá~ çárté,~~~ lé~ gágñáñt~~~ ét~ çháqúé~~~ méthódé~~~ súívéñt.~~~ Éñtré~~ {{min}} ét~ {{max}},~ çháçúñ~~~ ávéç~~ sóñ~~ própré~~~ ñóm.~~⟧',
+    hint: '⟦Lá~ çárté,~~~ lé~ gágñáñt~~~ ét~ çháqúé~~~ méthódé~~~ súívéñt.~~~ Éñtré~~ {{min}} ét~ {{max}},~ çháçúñ~~~ ávéç~~ sóñ~~ própré~~~ ñóm.~~ Dóúblé-çlíqúéz~~~~~ súr~~ úñ~ éñdróít~~~ vídé~~ dé~ lá~ çárté~~ póúr~~ éñ~ ájóútér~~~ úñ~ là.~~⟧',
     nameLabel: '⟦Nóm~~ dú~ çáñdídát~~~ {{n}}⟧',
     nameLabelParty: '⟦Nóm~~ dú~ pártí~~ {{n}}⟧',
     defaultName: '⟦Cáñdídát~~~⟧',

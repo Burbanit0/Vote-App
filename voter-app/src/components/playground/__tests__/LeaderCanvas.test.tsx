@@ -429,12 +429,11 @@ describe('LeaderCanvas — double-click to add an entrant', () => {
       toJSON: () => ({}),
     });
 
-  it('reports the domain point under an empty spot, and says so in a tooltip', () => {
+  it('reports the domain point under an empty spot', () => {
     const onAddCandidate = vi.fn();
     setup({ onAddCandidate });
     const map = screen.getByTestId('leader-map');
     rectOf(map);
-    expect(map.querySelector('title')).toHaveTextContent(/double-click an empty spot/i);
     // The centre of the square is the origin; a quarter in from the top-left is (-0.5, 0.5)-ish.
     fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
     expect(onAddCandidate).toHaveBeenCalledTimes(1);
@@ -455,20 +454,60 @@ describe('LeaderCanvas — double-click to add an entrant', () => {
     expect(onAddCandidate.mock.calls[0][1]).toBe(0);
   });
 
-  it('does nothing on a candidate or the "you" marker, which a double-click may grab', () => {
+  it('does nothing on a candidate, its hit area, or the "you" or median marker', () => {
     const onAddCandidate = vi.fn();
     setup({ onAddCandidate, youMarker: { x: 0, y: -0.5 } });
     rectOf(screen.getByTestId('leader-map'));
-    fireEvent.doubleClick(screen.getByTestId('candidate-0'));
-    fireEvent.doubleClick(screen.getByTestId('you-marker'));
+    for (const id of [
+      'candidate-0',
+      'candidate-1-hit',
+      'you-marker',
+      'you-marker-hit',
+      'median-marker',
+    ])
+      fireEvent.doubleClick(screen.getByTestId(id));
+    // Nor on something drawn inside one of them.
+    fireEvent.doubleClick(screen.getByTestId('candidate-2').querySelector('circle')!);
     expect(onAddCandidate).not.toHaveBeenCalled();
   });
 
-  it('does not add, and shows no hint, when the page gives it no way to', () => {
+  it("looks only inside the map: an ancestor that shares a marker's testid changes nothing", () => {
+    const onAddCandidate = vi.fn();
+    render(
+      <div data-testid="median-marker">
+        <LeaderCanvas
+          candidates={CANDS}
+          voters={sampleVoters(60, 42, 'random')}
+          rule="plurality"
+          dims={2}
+          onRuleChange={vi.fn()}
+          onMoveCandidate={vi.fn()}
+          onAddCandidate={onAddCandidate}
+        />
+      </div>
+    );
+    const map = screen.getByTestId('leader-map');
+    rectOf(map);
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds on the win-region overlay, which covers the plot: that is still empty ground', async () => {
+    const onAddCandidate = vi.fn();
+    setup({ onAddCandidate });
+    rectOf(screen.getByTestId('leader-map'));
+    await waitFor(() => expect(screen.getByTestId('winregion').querySelector('rect')).toBeTruthy());
+    fireEvent.doubleClick(screen.getByTestId('winregion').querySelector('rect')!, {
+      clientX: 230,
+      clientY: 230,
+    });
+    expect(onAddCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add when the page gives it no way to', () => {
     setup();
     const map = screen.getByTestId('leader-map');
     rectOf(map);
-    expect(map.querySelector('title')).toBeNull();
     expect(() => fireEvent.doubleClick(map, { clientX: 230, clientY: 230 })).not.toThrow();
   });
 });

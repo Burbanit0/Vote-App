@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 vi.mock('../../../services/profileApi', () => ({
@@ -10,7 +10,7 @@ vi.mock('../../../services/assemblyApi', () => ({
   runAssemblyScorecard: vi.fn().mockRejectedValue(new Error('not under test')),
 }));
 
-import { PlaygroundProvider } from '../PlaygroundController';
+import { PlaygroundProvider, useJourneyCtx } from '../PlaygroundController';
 import InstrumentPanel from '../InstrumentPanel';
 import {
   useElectionStore,
@@ -24,9 +24,18 @@ import { MAX_CANDIDATES } from '../../../lib/candidateEditing';
 
 const candidates = () => useElectionStore.getState().config.candidates;
 
+// Lets a test move the playground to another moment, as the rail does.
+type Moment = 'electorate' | 'method' | 'strategy';
+const rail = { go: undefined as unknown as (m: Moment) => void };
+const Rail: React.FC = () => {
+  rail.go = useJourneyCtx().setActiveMoment;
+  return null;
+};
+
 function mount() {
   render(
     <PlaygroundProvider>
+      <Rail />
       <InstrumentPanel />
     </PlaygroundProvider>
   );
@@ -57,12 +66,30 @@ beforeEach(() => {
 describe('InstrumentPanel — double-click on the map adds an entrant', () => {
   it('appends a named candidate at the clicked point, in the shared config', () => {
     const map = mount();
-    fireEvent.doubleClick(map, { clientX: 345, clientY: 115 });
+    // The centre of the square is the origin.
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
     expect(candidates()).toHaveLength(4);
     const added = candidates()[3];
     expect(added.name).toBe('Candidate 4');
-    expect(added.x).toBeGreaterThan(0);
-    expect(added.y).toBeGreaterThan(0);
+    expect(added.x).toBeCloseTo(0, 5);
+    expect(added.y).toBeCloseTo(0, 5);
+    expect(added.z).toBe(0); // as the editor's newcomer: every candidate has a depth
+    // Up and to the right of the centre is positive on both axes.
+    fireEvent.doubleClick(map, { clientX: 345, clientY: 115 });
+    expect(candidates()[4].x).toBeGreaterThan(0.3);
+    expect(candidates()[4].y).toBeGreaterThan(0.3);
+  });
+
+  it('adds only in the Électorat moment, where the editor is', () => {
+    const map = mount();
+    act(() => rail.go('method'));
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    act(() => rail.go('strategy'));
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(candidates()).toHaveLength(3);
+    act(() => rail.go('electorate'));
+    fireEvent.doubleClick(map, { clientX: 230, clientY: 230 });
+    expect(candidates()).toHaveLength(4);
   });
 
   it('gives each entrant a name no one has', () => {
