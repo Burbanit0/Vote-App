@@ -91,7 +91,9 @@ A box is ticked when the change is on `polity`.
   and Hypothesis strategies with truncated and unequal ballots.
 - One electorate for both sides: send the client's voters to the backend, or lock the sampler,
   turnout, scores and scorecard axes with a second golden fixture.
-- Versioned, validated localStorage (`loadConfig` casts whatever it finds).
+- ~~Versioned, validated localStorage (`loadConfig` casts whatever it finds).~~ Done for the election
+  config and the playground slice (#1077); the three one-string UI keys (theme, plain language,
+  language) still cast, and reach no engine.
 
 ## Phase 4: robustness, needed before the API is hosted
 
