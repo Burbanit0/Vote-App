@@ -1,6 +1,6 @@
 # Listing-order ties
 
-> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5), and so are the lot's finaliser (#1066), the ranked rules (#1074) and the workers' tallies (#1076) (#926); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
@@ -48,9 +48,9 @@ Still at 0:
   (scorecard, sincerity, criteria, equilibrium, …) comes first, then this endpoint follows.
 - **Endpoints without a seed:** the public v1 API, and `/simulations/monte-carlo` and its
   socket, which draw a fresh electorate each run.
-- **A ranked rule called directly,** outside `compare_all_methods`, `rule_winner` and
-  `winner_from_utilities` (which pass the request's seed): the workers that call
-  `get_*_winner(...)` themselves draw with 0 until their seed is threaded (#926, workers).
+- **A ranked rule called directly** with no `seed=`: it draws with 0. The engine's entry points
+  (`compare_all_methods`, `rule_winner`, `winner_from_utilities`) and the workers pass the
+  request's seed.
 - **Polity's elections** (`domain/polity/`), out of scope as below: seeding them would change
   the archived runs' outcomes.
 
