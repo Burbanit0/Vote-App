@@ -34,10 +34,14 @@ from __future__ import annotations
 import math
 from typing import Any, Optional
 
+from api.engine.utils.tie_lot import best, favourite
+
 
 def apply_quadratic_voting(
     utilities: list[dict[str, float]],
     budget: int = 100,
+    *,
+    seed: object = 0,
 ) -> dict[str, Any]:
     """
     Simulate Quadratic Voting on a population with known sincere utilities.
@@ -53,7 +57,7 @@ def apply_quadratic_voting(
     Returns
     -------
     dict with keys:
-        winner               : str | None   — candidate with most QV votes
+        winner               : str | None   — candidate with most QV votes (an exact tie: the seeded lot)
         scores               : dict[str, float]   — total QV votes per candidate
         total_credits_used   : float  — average credits spent per voter
         credit_distribution  : dict[str, float]  — avg credits per candidate per voter
@@ -65,17 +69,13 @@ def apply_quadratic_voting(
     n_candidates = len(candidates)
     if n_candidates == 0:
         return _empty_result()
-    # Leftover votes go to the first name among equally rated candidates, so a
-    # tie is settled by name here too, not by candidate-list order.
-    by_name = sorted(candidates)
-
     n_voters = len(utilities)
     total_qv_votes: dict[str, float] = {c: 0.0 for c in candidates}
     total_credits_spent: dict[str, float] = {c: 0.0 for c in candidates}
     total_budget_used = 0.0
     sqrt_b = math.sqrt(budget)
 
-    for voter_utils in utilities:
+    for voter_index, voter_utils in enumerate(utilities):
         util_sum = sum(voter_utils.get(c, 0.0) for c in candidates)
         if util_sum <= 0:
             # No preference — distribute equally
@@ -96,17 +96,20 @@ def apply_quadratic_voting(
 
         # Greedy redistribution of leftover credits
         while remaining > 0:
-            best_c: Optional[str] = None
-            best_ratio = -1.0
-            for c in by_name:
-                marginal_cost = 2 * votes[c] + 1   # cost of one more vote
-                if marginal_cost <= remaining:
-                    ratio = util_values[c] / marginal_cost
-                    if ratio > best_ratio:
-                        best_ratio = ratio
-                        best_c = c
-            if best_c is None:
+            affordable = [
+                c for c in candidates
+                if 2 * votes[c] + 1 <= remaining and util_values[c] / (2 * votes[c] + 1) > -1.0
+            ]
+            if not affordable:
                 break
+            # One more vote costs 2v + 1 credits. Two options with the same value per credit
+            # are the voter's own tie, drawn by a lot seeded with the request and the voter
+            # (as `tie_lot.favourite`), so it never falls by name or by listing order.
+            best_c = favourite(
+                affordable,
+                lambda c: util_values[c] / (2 * votes[c] + 1),
+                (seed, voter_index),
+            )
             votes[best_c] += 1
             marginal = 2 * (votes[best_c] - 1) + 1
             credits_used += marginal
@@ -118,8 +121,8 @@ def apply_quadratic_voting(
             total_credits_spent[c] += votes[c] * votes[c]
         total_budget_used += credits_used
 
-    # Determine winner (most total QV votes; tie → alphabetical first)
-    winner: Optional[str] = min(candidates, key=lambda c: (-total_qv_votes[c], c))
+    # Determine winner (most total QV votes; an exact tie is drawn by the seeded lot)
+    winner: Optional[str] = best(candidates, total_qv_votes.__getitem__, seed)
 
     avg_credits: dict[str, float] = {
         c: round(total_credits_spent[c] / n_voters, 3)
