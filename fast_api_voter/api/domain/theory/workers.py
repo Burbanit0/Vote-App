@@ -2104,10 +2104,13 @@ def _identity_generate_voters(
     return voters
 
 
-def _identity_plurality(votes: List[str], cand_names: List[str]) -> str:
+def _identity_plurality(votes: List[str], cand_names: List[str], seed: int) -> str:
+    """Plurality over `votes`; an exact tie is drawn by the seeded lot, never by name or by
+    listing order. Every call of one request passes the same seed, so a tied profile draws
+    the same way wherever it recurs and a changed winner is a changed profile."""
     from collections import Counter as _C
     vc = _C(votes)
-    return min(vc, key=lambda c: (-vc[c], c)) if votes else cand_names[0]
+    return tie_lot.best(vc, vc.__getitem__, seed) if votes else cand_names[0]
 
 
 def _identity_group_results(
@@ -2153,7 +2156,7 @@ def _identity_weight_curve(
             vote_c  = v["identity_vote"] if use_id else v["ideo_vote"]
             if not (cross_pressure and v["abstains"]):
                 curve_votes.append(vote_c)
-        w_winner = _identity_plurality(curve_votes, cand_names)
+        w_winner = _identity_plurality(curve_votes, cand_names, seed)
         # Agreement: fraction who would vote same under both identity=0 and identity=1
         ideo_tally   = {n: sincere_votes.count(n) for n in cand_names}
         id_tally     = {n: identity_votes.count(n) for n in cand_names}
@@ -2231,9 +2234,9 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     mixed_votes    = [v["final_vote"]    for v in voters
                       if not (cross_pressure and v["abstains"])]
 
-    sincere_winner  = _identity_plurality(sincere_votes, cand_names)
-    identity_winner = _identity_plurality(identity_votes, cand_names)
-    mixed_winner    = _identity_plurality(mixed_votes, cand_names)
+    sincere_winner  = _identity_plurality(sincere_votes, cand_names, seed)
+    identity_winner = _identity_plurality(identity_votes, cand_names, seed)
+    mixed_winner    = _identity_plurality(mixed_votes, cand_names, seed)
 
     group_results = _identity_group_results(voters, groups)
 
@@ -2317,7 +2320,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
     # ── Baseline: standard spatial model ─────────────────────────────────────
     base_positions = _voter_positions(seed, num_voters, ideology)
     baseline_votes = [_nearest(p, {}) for p in base_positions]
-    baseline_winner = _identity_plurality(baseline_votes, cand_names)
+    baseline_winner = _identity_plurality(baseline_votes, cand_names, seed)
 
     # ── Simulate each assumption violation ───────────────────────────────────
     relaxed_results: Dict[str, Any] = {}
@@ -2370,7 +2373,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                 else:
                     votes.append(_nearest(pos, {}))
 
-            trial_winners.append(_identity_plurality(votes, cand_names))
+            trial_winners.append(_identity_plurality(votes, cand_names, seed))
 
         # Statistics across trials
         from collections import Counter as _Ctr

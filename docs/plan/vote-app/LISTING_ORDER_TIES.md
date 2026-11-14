@@ -78,6 +78,7 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 | #663, #665 | A voter's nearest option, or favourite, when two tie: `tie_lot.nearest` (vectorised, for `argmin`/`argmax` rows) and `tie_lot.favourite` (the top of the voter's `ranking`), a lot seeded with the endpoint's seed and the voter. Issue voting (and its winner), party dynamics, the playground's sincere vote and desertion, Hotelling, `tech.py`, the theory workers, conviction voting, and the 22 sites that took a voter's favourite with `max(utilities, key=…)`. A voter's lot is finalised with fmix32 (`_voter_lot`): FNV-1a's low bit is only the parity of its input, which made a two-way tie alternate with the voter's index |
 | #1066 | The rule-level lot (`tie_lot.draw`, `drawName` in `tieLot.ts`) is finalised with fmix32 on both engines, so a two-way draw falls both ways across seeds instead of alternating with the seed's parity; the pinned draws, the parity fixture's draws and the tied-electorate snapshot are regenerated |
 | #1074 | The ranked rules draw an exact tie by the seeded lot on both engines, with the request's seed: plurality, two-round (its two finalists, then the runoff), Borda, Dowdall, positional, anti-plurality, approval, Bucklin, minimax, Copeland (Copeland score, then total wins, then the lot), Schulze, Nanson, Baldwin, Raynaud, Benham, Smith-IRV, Split Cycle (Borda, then the lot), ranked pairs and River (the sources / roots left); IRV and Coombs draw a full tie instead of returning no winner. `playgroundVoting.ts` draws over the same names; the parity fixture is regenerated |
+| #1076 | The workers' aggregate tallies draw an exact tie by the request's seed instead of by name: the cascade, shy-voter (real and polled), NOTA (a tie goes to a candidate, drawn among those tied), liquid democracy, approval in the behavioral-biases and choice-overload workers, abstention and gerrymander (first choices), the compulsory-voting run, vote-steps approval, the Polis election, identity plurality, evaluative voting, quadratic voting (the winner, and a voter's odd leftover vote, now a per-voter lot), and random ballot's most probable winner in `compare_all_methods` |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
@@ -91,8 +92,14 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
   nothing: IRV, Coombs, Nanson, Baldwin, Raynaud, Benham and Smith-IRV drop every candidate
   tied for last together, so a round has no tie to break; only a tie among the last survivors
   is left, and that is drawn.)
-- aggregate tallies that still break a tie by name, `min(tally, key=(-count, name))`, in the
-  workers (19 sites), and the step animations' approval winner;
+- aggregate tallies that still follow the listing order or the names: the theory workers'
+  assumption-testing winner (`tally.index(max(tally))`, first-listed on a tie) and the
+  multiwinner completion's rng-less fallback (`sorted(..., key=(-approval, name))`, by name);
+- the runners-up the workers report (`runner_up` in `/primary` and the districts worker): the
+  second place of a tie follows the listing order;
+- the theory workers' apportionment comparison (`_hamilton` and the four divisor methods in
+  `theory/workers.py`), which break a quotient tie by name on purpose, to show the methods side
+  by side;
 - two orders that are not ties: Hotelling moves its candidates one after another in list
   order, and identity voting's default groups are bound to the first and second listed
   candidates.

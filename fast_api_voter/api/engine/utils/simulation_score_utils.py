@@ -495,6 +495,8 @@ def get_evaluative_winner(
     utility_scores: List[Dict[str, float]],
     threshold_approve: float = 0.67,
     threshold_reject:  float = 0.33,
+    *,
+    seed: object = 0,
 ) -> Dict[str, object]:
     """
     Evaluative voting (vote +1 / 0 / −1).
@@ -555,5 +557,5 @@ def get_evaluative_winner(
         # All zeros — no approvals
         return {"winner": None, "scores": net, "distribution": dist}
 
-    winner = min(candidates, key=lambda c: (-net[c], c))  # alpha tie-break
+    winner = best(candidates, net.__getitem__, seed)  # a tie for the top net score: the lot
     return {"winner": winner, "scores": net, "distribution": dist}
