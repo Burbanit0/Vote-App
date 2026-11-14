@@ -61,8 +61,10 @@ const READS = [
   /useMethodSelection\(/,
   /votingVoters|sampleAtSeed/,
 ];
-// The store defines the hooks; the ui kit is chrome: neither is a reader.
-const SKIPPED = [/stores\/useElectionStore\.tsx$/, /components\/ui\//];
+// The store defines the hooks, and the persistence guard checks what the store reads back from
+// localStorage (it names the `electorate` slice to validate it, it draws nobody); the ui kit is
+// chrome: none is a reader.
+const SKIPPED = [/stores\/useElectionStore\.tsx$/, /lib\/persistedState\.ts$/, /components\/ui\//];
 const withoutImports = (text: string) => text.replace(/^import .*$/gm, '');
 
 const reads = (texts: string[]) => texts.some((t) => READS.some((r) => r.test(withoutImports(t))));
