@@ -561,9 +561,9 @@ def run_simulation(
     president_term_limit ships at 2 (D6, 2026-09-13; null means illimité) and is
     enforced when set (v4 Lot 2, §6bis.1): a citizen with
     mandates_served >= term_limit cannot be nominated again, on either
-    engine (the LLM path since 2026-09-13). There is no assembly term limit:
-    legislative elections are party-list, no per-citizen candidacy check
-    exists to gate.
+    engine (the LLM path since 2026-09-13). No assembly term limit was ever implemented:
+    in the default party-list mode legislative elections have no per-citizen
+    candidacy check to gate.
 
     `llm_client` is additive (default None) so every pre-v2 caller and test
     is unaffected. When `config.llm.enabled` is true and no client was

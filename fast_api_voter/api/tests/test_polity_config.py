@@ -9,6 +9,7 @@ import dataclasses
 import pytest
 import yaml
 
+from api.domain.polity.checkpoint import config_hash
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 
 
@@ -95,6 +96,23 @@ def _write(tmp_path, mutate):
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     return path
+
+
+def test_a_config_still_carrying_a_removed_key_loads_and_ignores_it(tmp_path):
+    # nine keys nothing read were removed (2026-11-15): an old config or override that sets them must not break
+    def old_keys(d):
+        d["llm"].update(cache_backend="none", cache_url="redis://x", personas_count=7)
+        d["parallel"]["runs_in_parallel"] = 3
+        d["metrics"]["compute_every_ticks"] = 2
+        d["journal"].update(snapshot_every_ticks=2, log_non_events=False)
+        d["legitimacy"]["recall_cooldown_ticks"] = 9
+        d["institutions"]["assembly_term_limit"] = 2
+
+    with_old = load_config(_write(tmp_path, old_keys))
+    assert with_old.raw["llm"]["cache_backend"] == "none"  # kept in the raw copy, read by nothing
+    # `raw` apart, nothing differs: the old keys change neither a field nor the config hash
+    assert dataclasses.replace(with_old, raw={}) == dataclasses.replace(load_config(), raw={})
+    assert config_hash(with_old) == config_hash(load_config())
 
 
 def test_missing_required_key_raises_and_names_it(tmp_path):
