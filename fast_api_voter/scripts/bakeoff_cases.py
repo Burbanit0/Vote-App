@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.domain.polity.bakeoff_bank import BankIntegrityError, read_bank, write_bank  # noqa: E402
 from api.domain.polity.bakeoff_cases import drift, generate_bank, generate_emotions_bank, generate_order_bank  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 DEFAULT_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank.jsonl"
 EMOTIONS_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank_emotions.jsonl"
@@ -37,7 +37,7 @@ REFERENCE_SEED = 42
 
 def reference_config(*, provider: str = "vllm", model: str | None = None, seed: int = REFERENCE_SEED) -> PolityConfig:
     """The p500 batch's config: the flagship runner's full-mechanism overrides."""
-    return _flagship_config(
+    return flagship_config(
         engine="llm", years=8, population=500, seats=75, seed=seed, output_dir=Path("bakeoff-unused"),
         max_batch_replays=2, provider=provider, workers=1, model=model,
     )

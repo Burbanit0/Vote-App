@@ -20,6 +20,7 @@ from api.domain.polity.run_polity_simulation import _run_accountability_phase
 from api.tests.test_polity_indexer import _config as _indexer_config
 from api.tests.test_polity_indexer import _e
 from api.tests.test_polity_run_simulation import _config_with_legitimacy_enabled, _legitimacy_test_citizen
+from api.domain.polity import profiles
 
 
 def test_pressure_weighs_like_support_and_legitimacy_settles_at_support_minus_pressure(tmp_path: Path) -> None:
@@ -136,9 +137,9 @@ def test_a_petition_vote_won_the_same_tick_holds_the_floor_without_a_second_vote
     assert "cause" not in events[1]["payload"] and events[2]["payload"]["averted_recall"] is True
 
 
-def test_both_switches_are_off_in_the_shipped_config_and_on_in_the_exploration_profile(flagship: Any) -> None:
+def test_both_switches_are_off_in_the_shipped_config_and_on_in_the_exploration_profile() -> None:
     shipped = load_config().legitimacy
     assert (shipped.pressure_like_support, shipped.floor_calls_vote) == (False, False)
-    explored = flagship._exploration_config(load_config()).legitimacy
+    explored = profiles.exploration_config(load_config()).legitimacy
     assert (explored.pressure_like_support, explored.floor_calls_vote) == (True, True)
 

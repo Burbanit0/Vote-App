@@ -27,7 +27,7 @@ from api.domain.polity.run_digest import build_digest, read_journal_tolerant  # 
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.trajectory import divergence_by_year, divergence_verdict, diversity, pairwise_distances  # noqa: E402
 from probe_cohorts import SEEDS, _mean, spread_kept  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 ADR_ARMS = ((0.0, 0.0), (0.2, 0.0), (0.2, 1.0), (0.2, 2.0), (0.2, 4.0), (0.5, 2.0))
 
@@ -46,7 +46,7 @@ def run_arm(share: float, homophily: float, years: int, output_dir: Path) -> dic
     first: list[float] = []
     last: list[float] = []
     for seed in SEEDS:
-        config = _flagship_config(
+        config = flagship_config(
             engine="deterministic", years=years, population=100, seats=15, seed=seed, output_dir=output_dir / f"{share}-{homophily}" / str(seed),
             max_batch_replays=0, provider=None, workers=1, profile="scenario",
         )

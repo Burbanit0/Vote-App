@@ -54,7 +54,8 @@ from api.domain.polity.twin_calibration import (  # noqa: E402
     legislation_alive,
 )
 from calibrate_legislation import INTERVALS, STEPS, Runs, _drafts, _spells  # noqa: E402
-from run_polity_flagship import _flagship_config, _write_digest_safely  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
+from run_polity_flagship import _write_digest_safely  # noqa: E402
 from twin_runs import SEEDS, observing  # noqa: E402
 
 YEARS = 16
@@ -68,7 +69,7 @@ RESULTS = Path(__file__).resolve().parent / "stage4_llm_legislation_results"
 
 
 def llm_config(seed: int, years: int, legislation: dict[str, float], output_dir: Path) -> PolityConfig:
-    config = _flagship_config(
+    config = flagship_config(
         engine="llm", years=years, population=POPULATION, seats=SEATS, seed=seed, output_dir=output_dir,
         max_batch_replays=2, provider=None, workers=WORKERS, reproducibility="relaxed",
     )

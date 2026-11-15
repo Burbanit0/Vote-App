@@ -18,6 +18,7 @@ from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.domain.polity.social_graph import generate_social_graph
 from api.tests.test_polity_run_simulation import _SimulatedCrash
+from api.domain.polity import profiles
 
 N = 16
 
@@ -147,8 +148,8 @@ def test_a_newcomers_anchor_survives_the_checkpoint_and_an_ordinary_citizen_writ
 
 # ── in a run ──────────────────────────────────────────────────────────────
 
-def _twin(flagship: Any, output_dir: Path, replacement: float, years: int = 3) -> PolityConfig:
-    config = flagship._flagship_config(
+def _twin(output_dir: Path, replacement: float, years: int = 3) -> PolityConfig:
+    config = profiles.flagship_config(
         engine="deterministic", years=years, population=60, seats=9, seed=2, output_dir=output_dir,
         max_batch_replays=0, provider=None, workers=1, profile="scenario",
     )
@@ -159,8 +160,8 @@ def _lines(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def test_a_run_replaces_about_the_expected_share_never_an_office_holder_and_journals_each_one(flagship: Any, tmp_path: Path) -> None:
-    journal = run_simulation(_twin(flagship, tmp_path, 0.2), run_id="run")
+def test_a_run_replaces_about_the_expected_share_never_an_office_holder_and_journals_each_one(tmp_path: Path) -> None:
+    journal = run_simulation(_twin(tmp_path, 0.2), run_id="run")
     events = _lines(journal)
     replaced = [e for e in events if e["event_type"] == "citizen_replaced"]
     expected = 60 * 0.2 * 3
@@ -174,17 +175,17 @@ def test_a_run_replaces_about_the_expected_share_never_an_office_holder_and_jour
     assert json.loads((journal.parent / "checkpoint.json").read_text())["demography_rng_state"]
 
 
-def test_a_run_with_no_replacement_writes_none_of_it(flagship: Any, tmp_path: Path) -> None:
-    journal = run_simulation(_twin(flagship, tmp_path, 0.0), run_id="run")
+def test_a_run_with_no_replacement_writes_none_of_it(tmp_path: Path) -> None:
+    journal = run_simulation(_twin(tmp_path, 0.0), run_id="run")
     assert not [e for e in _lines(journal) if e["event_type"] == "citizen_replaced"]
     checkpoint = json.loads((journal.parent / "checkpoint.json").read_text())
     assert "demography_rng_state" not in checkpoint and not any("anchor_factors" in c for c in checkpoint["citizens"])
 
 
-def test_a_run_with_replacement_resumed_after_a_crash_matches_an_uninterrupted_one(flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_run_with_replacement_resumed_after_a_crash_matches_an_uninterrupted_one(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import api.domain.polity.run_polity_simulation as engine
 
-    uninterrupted = run_simulation(_twin(flagship, tmp_path / "a", 0.3), run_id="run")
+    uninterrupted = run_simulation(_twin(tmp_path / "a", 0.3), run_id="run")
     real_phase = engine._run_accountability_phase
 
     def crash_at_tick_6(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
@@ -194,9 +195,9 @@ def test_a_run_with_replacement_resumed_after_a_crash_matches_an_uninterrupted_o
 
     monkeypatch.setattr(engine, "_run_accountability_phase", crash_at_tick_6)
     with pytest.raises(_SimulatedCrash):
-        run_simulation(_twin(flagship, tmp_path / "b", 0.3), run_id="run")
+        run_simulation(_twin(tmp_path / "b", 0.3), run_id="run")
     monkeypatch.undo()
-    resumed = run_simulation(_twin(flagship, tmp_path / "b", 0.3), run_id="run", resume=True)
+    resumed = run_simulation(_twin(tmp_path / "b", 0.3), run_id="run", resume=True)
     assert resumed.read_bytes() == uninterrupted.read_bytes()
     assert (resumed.parent / "snapshots.jsonl").read_bytes() == (uninterrupted.parent / "snapshots.jsonl").read_bytes()
 

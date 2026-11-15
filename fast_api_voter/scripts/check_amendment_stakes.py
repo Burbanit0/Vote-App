@@ -46,10 +46,10 @@ WORKERS = 8
 def _scenarios(root: Path) -> list[dict[str, Any]]:
     """Every run's final state: its president, the constitution in force with no proposal pending, and the last
     legislative vote (read from the journal: checkpoints from before ADR-026 do not keep it)."""
-    import run_polity_flagship as flagship
+    from api.domain.polity import profiles
 
     found = []
-    founding = flagship._flagship_config(
+    founding = profiles.flagship_config(
         engine="llm", years=8, population=100, seats=15, seed=1, output_dir=Path("/tmp/stakes-probe"),
         max_batch_replays=2, provider="vllm", workers=1, profile="exploration",
     )

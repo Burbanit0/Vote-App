@@ -25,7 +25,7 @@ from api.domain.polity.config import ScriptedEvent  # noqa: E402
 from api.domain.polity.run_digest import build_digest, read_journal_tolerant  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.trajectory import divergence_by_year, divergence_verdict, diversity, pairwise_distances  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 Arm = tuple[float, tuple[int, float] | None]
 ADR_ARMS: tuple[Arm, ...] = (
@@ -47,7 +47,7 @@ def run_arm(voting: float, crisis: tuple[int, float] | None, output_dir: Path) -
     reelections: list[int] = []
     recalls: list[int] = []
     for seed in SEEDS:
-        config = _flagship_config(
+        config = flagship_config(
             engine="deterministic", years=8, population=100, seats=15, seed=seed, output_dir=output_dir / label / str(seed),
             max_batch_replays=0, provider=None, workers=1, profile="scenario",
         )

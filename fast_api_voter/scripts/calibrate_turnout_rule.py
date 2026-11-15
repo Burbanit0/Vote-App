@@ -6,7 +6,7 @@ against next best) growing with the field. It keeps ADR-011's facts and its sele
 partisanship + approval, then turnout nearest 67.5%) and adds two things: the cost grid, which runs
 past the old one's 0.04 because the new rule keeps fewer voters home at any cost, and the reference
 row, the old rule at 0.04 under each setting. The settings are the two the LLM path runs:
-approval 0 (`_flagship_config`) and approval 0.1 (`_exploration_config`), both with partisanship 0.
+approval 0 (`flagship_config`) and approval 0.1 (`exploration_config`), both with partisanship 0.
 
 Usage (from fast_api_voter/):
     python scripts/calibrate_turnout_rule.py      # writes calibrate_turnout_rule_results.md

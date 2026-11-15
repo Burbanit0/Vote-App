@@ -36,7 +36,7 @@ from api.domain.polity.citizen import Citizen, LatentStructure, generate_populat
 from api.domain.polity.config import DynamicsConfig  # noqa: E402
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics, current_factors, shift_stance  # noqa: E402
 from api.domain.polity.social_graph import generate_social_graph  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 FOLLOWS = (0.0, 0.1, 0.25, 0.5, 1.0)
 SEEDS = range(1, 11)
@@ -44,7 +44,7 @@ TICKS_PER_YEAR, YEARS, STEP, HIGH_POLE, ON_ISSUE_0 = 4, 8, 0.25, 0.85, 0.5
 
 
 def _world(seed: int, population: int) -> tuple[list[Citizen], LatentStructure, NeighbourEdges, DynamicsConfig]:
-    config = _flagship_config(
+    config = flagship_config(
         engine="deterministic", years=YEARS, population=population, seats=15, seed=seed, output_dir=Path("/nonexistent"),
         max_batch_replays=0, provider=None, workers=1, profile="exploration",
     )

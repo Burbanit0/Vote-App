@@ -303,7 +303,7 @@ def indifference() -> None:
     from api.domain.polity.citizen import generate_population
     from api.domain.polity.config import load_config
     from api.domain.polity.simple_rules import abstains, candidate_utility
-    from run_polity_flagship import LLM_TURNOUT_COST
+    from api.domain.polity.profiles import LLM_TURNOUT_COST
 
     config = load_config()
     vote, cost = config.vote, 0.04  # LLM_TURNOUT_COST when OBS-042 measured it

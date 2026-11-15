@@ -107,8 +107,8 @@ class RecordingClient:
 
 
 def golden_config(output_dir: Path, *, llm: bool) -> PolityConfig:
-    """The flagship runner's full-mechanism overrides (run_polity_flagship.py's
-    _flagship_config), at a size small enough for the regular test suite."""
+    """The flagship runner's full-mechanism overrides (api/domain/polity/profiles.py,
+    flagship_config), at a size small enough for the regular test suite."""
     config = load_config()
     config = dataclasses.replace(
         config,

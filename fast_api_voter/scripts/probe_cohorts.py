@@ -29,7 +29,7 @@ from api.domain.polity.checkpoint import load_checkpoint  # noqa: E402
 from api.domain.polity.run_digest import build_digest, read_journal_tolerant  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.trajectory import divergence_by_year, divergence_verdict, diversity, pairwise_distances  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 ADR_ARMS = ((0.0, 0.5), (0.03, 0.2), (0.03, 0.35), (0.03, 0.5), (0.03, 0.8), (0.06, 0.5))
 SEEDS = range(1, 11)
@@ -55,7 +55,7 @@ def run_arm(rate: float, spread: float, years: int, output_dir: Path) -> dict[st
     shifts: list[float] = []
     newcomers: list[float] = []
     for seed in SEEDS:
-        config = _flagship_config(
+        config = flagship_config(
             engine="deterministic", years=years, population=100, seats=15, seed=seed, output_dir=output_dir / f"{rate}-{spread}" / str(seed),
             max_batch_replays=0, provider=None, workers=1, profile="scenario",
         )
