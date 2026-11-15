@@ -32,6 +32,52 @@
 
 ---
 
+## 2026-11-14 → 2026-11-15 — Polity : vLLM 0.33.0 rejeté à la sonde de deux minutes, puis état des lieux complet et plan par étapes jusqu'en février
+
+> Les semaines du 2026-10-12 au 2026-11-14 n'ont pas d'entrée dans ce journal. Le travail « scénarios » du 10-21 au 10-25 (ADR-031 à ADR-040) est consigné dans `docs/plan/polity/plan-scenarios-v1.md` et n'est pas reconstruit ici.
+
+**Contexte du jour.** Le propriétaire demande de comparer la dernière version de vLLM, la v0.33.0 (publiée le 2026-11-02), avec la version épinglée, la v0.31.0. La v0.32.0 avait été rejetée le 2026-10-18. Une fois la réponse obtenue, il demande « une bonne vision de l'état actuel et un plan pour la suite » pour Polity. La session fait donc deux choses : une expérience courte, puis une revue d'ensemble.
+
+**Ce qui a avancé**
+- **Comparaison sur pièces.** À partir des notes de version et du code amont, `backend_xgrammar.py` impose toujours un JSON compact (`separators=(",", ":")`) quand `disable_any_whitespace` est activé, sans réglage pour le désactiver. D'autres changements touchent notre chemin : masques de grammaire sous décodage spéculatif (#52477), hachages de blocs « lookahead » pour le cache de préfixes avec EAGLE (#61589), `finish_reason` fidèle (#59324), filtre de tokens spéciaux dans le compilateur JSON.
+- **Sonde de deux minutes** (`response_sweep`, 45 cas `representative_response`, 50 réponses). Sur 0.31.0, 48 réponses sur 50 sont valides. Sur la 0.33.0 d'origine, 0 sur 50 : toutes sont `"shifts":[]`.
+- **Trois bras à une seule variable sur la 0.33.0.** Sans EAGLE-3 : 0 sur 50. Sans le filtre de tokens spéciaux : 0 sur 50. Avec la seule ligne `separators` rétablie : 48 sur 50, et les 58 réponses qui portent un texte sont identiques à l'octet à celles de la 0.31.0. La cause est donc la même que pour la 0.32.0 (PR amont vLLM #58067).
+- **L'explication d'octobre est réfutée.** La 0.32.0 avait passé en octobre avec l'ordre `cid, motif, stance, shifts`, un ordre rejeté ensuite et jamais livré. EXP-025 et l'ADR-030 en avaient tiré « `stance` avant `shifts` ». L'ordre de production (`cid, stance, shifts, motif`, #967) met bien `stance` avant `shifts`, et il donne 0 sur 50 : ce n'est donc pas cela qui protège.
+- **Fin de la chaîne de bump.** Elle est arrêtée après l'étape du budget de réflexion : le budget est respecté, et le cache KV n'est pas plus petit (31 600 tokens contre 30 656 sur la 0.31.0 le même jour, chiffre lu dans le journal du serveur et non enregistré). Le résultat est consigné dans EXP-026.
+- **Revue complète de Polity**, en trois lectures sans modification (documentation, code, expériences et infrastructure), puis les décisions du propriétaire.
+  - *Constat principal* : le comportement du moteur a changé pour la dernière fois le 2026-10-25 (#1001, ADR-040). La direction du 10-21 a été construite presque entièrement sans le modèle. Le profil « scénario » n'a jamais tourné avec le modèle aux commandes des dirigeants. Le pari « le modèle apporte quelque chose là où il joue les dirigeants » n'est donc pas mesuré.
+  - *Points forts retenus* : le rejeu et la provenance, les replis sur règles qui sont comptés, les résultats négatifs écrits, le jumeau à règles seules (1,3 s par graine), le catalogue.
+  - *Points faibles retenus* : le bras « modèle » manque. Les preuves sont minces et dispersées dans les commits (sorties des Phases 1 à 3 jamais évaluées, Phase 4 sur un seul ensemble). Le modèle est fragile là où il classe, et rien ne vérifie la justesse des tours d'agents. La documentation est figée depuis les 10-12 et 10-25, avec trois plans « vivants » sans ordre de préséance. La dette de code est bornée : deux gros fichiers, environ deux douzaines de clés de configuration jamais lues, environ 36 scripts non référencés.
+- **Plan approuvé, en six étapes** (voir « Décisions »). L'étape 0 est rédigée : `docs/plan/polity/polity-state-2026-11.md`, des lignes de statut corrigées (feuille de route « agentivité » et ordre de construction passent à « remplacé », statut du plan scénarios aligné sur son §5, ADR-031 ajouté à l'index, note de statut sur l'ADR-001, ligne Polity de `STATUS.md`, commentaire dans `docker-compose.llm.yml`) et EXP-026.
+
+**Points bloquants**
+- **Tout ce qui passe par le modèle attend l'accord du propriétaire pour le GPU.**
+- **Demande amont non déposée.** Le texte d'une demande à vLLM pour un réglage de `separators` est rédigé dans EXP-026, mais il n'a pas été envoyé.
+
+**Décisions prises**
+- **Rester sur vLLM 0.31.0 ; les trois images 0.33 sont supprimées** (avec l'accord du propriétaire) — *pourquoi* : la 0.33.0 donne 0 réponse valide sur 50 tant que le JSON compact est forcé ; le reste du protocole de bump n'a pas été mesuré.
+- **Polity reste l'instrument de recherche du propriétaire** (scénarios et typologie), ni vitrine ni nouvelle étude — *pourquoi* : les trois douleurs nommées sont des runs qui se ressemblent, un modèle fragile et un projet difficile à suivre.
+- **Cadre du plan** : le calcul est la carte locale de 16 Go plus environ 50 $ de GPU loué. Le nettoyage est « moyen » (pas de découpe des deux gros fichiers). Pour la publication, on finit ce qui existe (preprint, Zenodo). L'horizon est de deux à trois mois.
+- **Les étapes** :
+  - 0 : la page d'état et les lignes de statut corrigées.
+  - 1 : nettoyage moyen, sans changement de comportement.
+  - 2 : le modèle comme dirigeants (sonde de durée, dix graines sur un même commit, porte G2 = décision du propriétaire).
+  - 3 : un niveau « dirigeant » fiable (famille de vérité terrain pour les tours d'agents, budget de réflexion, une session louée 27B contre 8B).
+  - 4 : le catalogue avec dix graines par point, puis le modèle sur ses cellules les plus originales.
+  - 5 : liste de contrôle de publication et un run de référence de 30 ans.
+- **Une correction faite en écrivant la page.** Le plan approuvé disait que la variété institutionnelle « n'avait jamais été explorée ». C'est faux : le catalogue balaie déjà méthode, seuil et règle de sièges sur le chemin à règles (cinq balayages de 1 000 runs, boîtes PRIM). L'énoncé n'est vrai que pour les runs avec modèle. L'étape 4a devient « confirmer les boîtes avec dix graines par point ».
+
+**Trois erreurs à consigner.** Un message en cours de session annonçait un cache KV plus petit sur la 0.33.0, en comparant avec un chiffre d'octobre ; le contrôle du même jour sur la 0.31.0 l'a corrigé. Et le compte rendu de la sonde disait « 64 sorties brutes identiques » : 6 de ces 64 appels sont des sondes d'un token sans texte, le bon chiffre est 58 réponses identiques (relevé par la relecture d'EXP-026). Enfin la première version d'EXP-026 présentait l'ordre d'octobre comme celui de l'ADR-030 et de la production : la revue de code l'a relevé, avec neuf autres points corrigés avant le PR.
+
+**Prochaines étapes**
+- [ ] Le PR de l'étape 0 est ouvert en brouillon (cette entrée en fait partie) : au propriétaire de le relire et de le marquer prêt.
+- [ ] Sur accord du propriétaire, lancer l'étape 1 (nettoyage moyen, sans changement de comportement).
+- [ ] Puis l'étape 2 : sonde de durée du modèle comme dirigeants, puis dix graines sur un commit, sur accord pour le GPU.
+
+**Pour aller plus loin** : `docs/plan/polity/polity-state-2026-11.md`, `docs/exploration/EXP-026-vllm-033-compact-separators-probe.md`, `docs/exploration/EXP-025-vllm-032-and-schema-field-order.md`, `docs/plan/polity/plan-scenarios-v1.md`.
+
+---
+
 ## 2026-10-10 → 2026-10-12 — Hébergement statique W6 (le moteur tourne dans la page), brouillon de preprint, graine des tirages d'égalité, et Mutation Testing au rouge
 
 > Entrée reconstruite a posteriori le 2026-10-12, à partir du git log, des descriptions de PR et des documents datés.

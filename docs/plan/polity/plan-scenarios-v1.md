@@ -1,6 +1,6 @@
 # Scenarios v1: from a world to an instrument
 
-> **status:** live — steps 1 (trajectory metrics, archetypes, the divergence test; #979), 1b (the crowd, live, in the engine atlas; #981) and 2 (the scenario profile; the rule-only twin fails the divergence test, the baseline for steps 3–4), 3a (the radicalisation channel, ADR-033), 3b (economic voting and scripted events, ADR-034) and 3c part 1 (cohort replacement, ADR-035) built; the model arm of step 2 still to time; 3c part 2 (rewiring) and steps 4–7 to do. (Set 2026-10-21; `docs/README.md` lists every plan.)
+> **status:** live — the plan that says what to build and under which gate; [`polity-state-2026-11.md`](polity-state-2026-11.md) says in which order. Built: steps 1, 1b, 2 (the scenario profile), 3a, 3b, 3c part 1 and part 2 (rewiring, off), 4's ADR-032 option D (off), 6 (the catalogue, gate met on the rule path) and 7's leader rules (off). Not run: everything that needs the model (step 2's timing, ADR-031 option B, the catalogue's GPU stage, step 7's classification of the LLM president). Not started: step 5. (Set 2026-11-15; `docs/README.md` lists every plan.)
 
 **What this is.** The assessment of 2026-10-21 of why the polity engine, after phases 0–5 of
 `plan-polity-agency-roadmap.md`, still does not hand the researcher *different scenarios of an
