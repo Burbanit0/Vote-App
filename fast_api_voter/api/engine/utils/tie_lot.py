@@ -9,6 +9,10 @@ fmix32; the index is that hash modulo the number of tied names (finalised, becau
 raw hash's low bit is only a parity: two tied names would alternate with the seed's).
 test_tie_lot.py pins values the client test pins too.
 
+`edge_key` orders two equal pairwise majorities when ranked pairs and River lock them: FNV-1a of
+the seed, the literal "edge", the winner and the loser (in that order), finalised the same way;
+`edgeKey` in tieLot.ts is its twin, and the two test files pin the same values.
+
 `ranking` and `nearest` (a voter's own ranking and nearest option, backend only) order a
 tie differently: by one finalised hash per name (`_voter_lot`), of the seed and that name,
 so a tie falls like a fair coin from one voter to the next.

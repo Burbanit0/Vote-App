@@ -7,6 +7,8 @@
 // with murmur3's fmix32; the index is that hash modulo the number of tied names. Finalised
 // because the raw hash's low bit is only a parity: two tied names would alternate with the
 // seed's. Keep the two in step: tieLot.test.ts and test_tie_lot.py pin the same values.
+// `edgeKey` is the same hash over the seed, "edge", a majority's winner and its loser (in that
+// order): it orders equal majorities when ranked pairs and River lock them.
 
 const SEP = '\u001f';
 

@@ -456,8 +456,9 @@ function winBaldwin(ranks: number[][], m: number, names: readonly string[]): num
 /**
  * The order ranked pairs and River lock the majorities in: margin desc, then winner support
  * desc, then the seeded lot (`edgeKey`), never the index. The key is hashed only for two
- * majorities equal on both counts. (Two colliding 32-bit keys keep their insertion order, the
- * indices' here and the names' on the backend: a 1-in-4-billion divergence.)
+ * majorities equal on both counts. Like every lot of this engine it is drawn at seed 0, so the
+ * backend agrees at its default seed only. Two equal keys (a 32-bit collision, or two candidates
+ * sharing a name) keep their insertion order: the listing's here, the names' on the backend.
  */
 function byLockOrder(names: readonly string[]) {
   type Majority = { margin: number; support: number; w: number; l: number };
