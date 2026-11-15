@@ -56,7 +56,7 @@ something where it plays leaders) are both unmeasured. That measurement is the h
 - **Institutions have been varied, on the rule path.** The catalogue's hypercube covers the voting
   method, the threshold and the seat rule among twelve dimensions, and its boxes name them
   (alternation with IRV, Borda, Copeland or Schulze under D'Hondt; realignment with plurality or
-  two-round; stasis with largest remainder): `scripts/run_polity_catalogue_results.md`.
+  two-round; stasis with largest remainder): `fast_api_voter/scripts/run_polity_catalogue_results.md`.
 - **Boundaries are clean.** One adapter to the voting engine (`ballot_and_aggregation.py`), a
   read-only explorer confined to its root, a typed frontend on generated OpenAPI types.
 - **The test suite is large.** 95 `test_polity_*` files and about 2,400 tests; 146 of them are
@@ -93,7 +93,7 @@ something where it plays leaders) are both unmeasured. That measurement is the h
 6. **Code debt, bounded.** Two large files (`llm_behavior_engine.py`, 5,499 lines, where six of the
    nine decision types carry their own chunk, retry and fallback loop; `run_polity_simulation.py`,
    3,581 lines). About two dozen config keys that nothing reads. The scenario presets live in a
-   launcher script (`scripts/run_polity_flagship.py`) that 21 scripts and 10 test files import. Four
+   launcher script (`fast_api_voter/scripts/run_polity_flagship.py`) that 21 scripts and 10 test files import. Four
    prompt builders with no production caller. About 36 scripts that nothing references. About
    4,200 lines of research code (bake-off, calibration, statistics) inside the domain package.
 
@@ -134,10 +134,10 @@ Small PRs, each with the golden byte-identical.
   `institutions.assembly_term_limit`, and `journal.format: parquet`, which is accepted and never
   written. Each key is checked against the code before it goes. The explorer fixture's manifest is
   regenerated (config hash only, as in #982).
-- Move the flagship, exploration and scenario presets from `scripts/run_polity_flagship.py` into the
+- Move the flagship, exploration and scenario presets from `fast_api_voter/scripts/run_polity_flagship.py` into the
   domain package; the scripts and tests import them from there.
 - Archive the four caller-less prompt builders and the unreferenced scripts under
-  `scripts/archive/` (their results notes stay where they are). One constant for the fallback alert.
+  `fast_api_voter/scripts/archive/` (their results notes stay where they are). One constant for the fallback alert.
 - Refresh `polity-llm-reference.md` (verified at a commit of 2026-09-11) and `fit-for-inference.md`
   (it predates OBS-050 to OBS-054).
 - Remove the worktrees and branches whose PR is merged. `Vote-App-monitor` is kept.
