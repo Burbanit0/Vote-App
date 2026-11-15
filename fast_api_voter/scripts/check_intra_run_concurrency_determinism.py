@@ -26,8 +26,8 @@ depends on the model's specific response). This proof is about concurrency,
 not retries -- entangling the two would make a diff impossible to attribute to
 either cause.
 
-**Why the flagship's own full-richness config.** Reusing `run_polity_flagship.
-_flagship_config` (not a bespoke lighter config) means this proof exercises
+**Why the flagship's own full-richness config.** Reusing `profiles.
+flagship_config` (not a bespoke lighter config) means this proof exercises
 every parallelized code path at once -- all 5 chunked decision types, not just
 one -- because that IS the flagship's own shape. A proof that only tested
 `vote_cast` and shipped in a run that also parallelizes `chamber_deliberation`
