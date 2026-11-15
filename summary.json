@@ -146,13 +146,12 @@
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0294fd5d16",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0777fd06be",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-d4d236b823",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-ea78317385"
    ],
    "category": "code",
-   "count": 39,
+   "count": 36,
    "example": {
     "job": "Playwright E2E (shard 2/2)",
     "lines": [
@@ -349,33 +348,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Playwright/Docker image version sync",
-    "lines": [
-     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.65.0, but this workflow pins mcr.microsoft.com/playwright:v1.64.1-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.65.0-noble with that tag's digest.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     1068
-    ],
-    "sha": "ac8673d3b29fe7f4a328897bdeef7e3510a0d10c",
-    "step": "Assert @playwright/test matches the Playwright image pin",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382236495"
-   },
-   "last_seen": "2026-11-13T06:57:03Z",
-   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "feat/lab-search-compare",
     "feat/playground-candidate-editor",
     "feat/playground-why-line",
@@ -432,32 +404,29 @@
   },
   {
    "branches": [
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-4497f7edbf",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7"
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4162940743",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
    ],
    "category": "code",
    "count": 3,
    "example": {
-    "job": "Code Quality (dead code, duplication & complexity)",
+    "job": "Playwright/Docker image version sync",
     "lines": [
-     "ERROR: Cannot install -r requirements.txt (line 48) and -r requirements.txt (line 50) because these package versions have conflicting dependencies.",
-     "ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts",
-     "##[error]Process completed with exit code 1.",
-     "##[error]Process completed with exit code 1.",
+     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.65.0, but this workflow pins mcr.microsoft.com/playwright:v1.64.1-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.65.0-noble with that tag's digest.",
      "##[error]Process completed with exit code 1."
     ],
     "pr": [
-     1037
+     1068
     ],
-    "sha": "52365b525ce0062055fa33b2ccdc7a877e9e1d0e",
-    "step": "Install backend dependencies (for deptry)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42493846755"
+    "sha": "ac8673d3b29fe7f4a328897bdeef7e3510a0d10c",
+    "step": "Assert @playwright/test matches the Playwright image pin",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43382236495"
    },
-   "last_seen": "2026-11-08T15:15:06Z",
-   "signature": "code: ERROR: Cannot install -r requirements.txt (#) and -r requirements.txt (#) because these package versions have conflicting dependencies.",
+   "last_seen": "2026-11-13T06:57:03Z",
+   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
    "workflows": [
-    "Security Audit"
+    "E2E Tests"
    ]
   },
   {
@@ -537,6 +506,35 @@
    "signature": "code: ##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v#.#-noble serves, so Docker would run another browser than the tag s",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
+    "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Code Quality (dead code, duplication & complexity)",
+    "lines": [
+     "ERROR: Cannot install -r requirements.txt (line 48) and -r requirements.txt (line 50) because these package versions have conflicting dependencies.",
+     "ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts",
+     "##[error]Process completed with exit code 1.",
+     "##[error]Process completed with exit code 1.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1037
+    ],
+    "sha": "52365b525ce0062055fa33b2ccdc7a877e9e1d0e",
+    "step": "Install backend dependencies (for deptry)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/42493846755"
+   },
+   "last_seen": "2026-11-08T15:15:06Z",
+   "signature": "code: ERROR: Cannot install -r requirements.txt (#) and -r requirements.txt (#) because these package versions have conflicting dependencies.",
+   "workflows": [
+    "Security Audit"
    ]
   },
   {
@@ -1030,10 +1028,10 @@
  ],
  "failures_by_category": {
   "advisory": 3,
-  "code": 131,
+  "code": 126,
   "test-flaky": 15
  },
- "generated_at": "2026-11-15T04:38:13Z",
+ "generated_at": "2026-11-15T09:21:47Z",
  "grid": {
   "Backend CI": {
    "2026-10-16": {
@@ -1105,7 +1103,7 @@
   },
   "Backend Flaky Test Hunt": {
    "2026-10-16": {
-    "success": 2
+    "success": 1
    },
    "2026-10-17": {
     "cancelled": 1,
@@ -1204,7 +1202,7 @@
   },
   "CI Dashboard": {
    "2026-10-16": {
-    "success": 13
+    "success": 10
    },
    "2026-10-17": {
     "success": 37
@@ -1296,7 +1294,7 @@
     "success": 27
    },
    "2026-11-15": {
-    "success": 10
+    "success": 11
    }
   },
   "CI Health Watchdog": {
@@ -1438,7 +1436,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "2026-10-16": {
-    "success": 3
+    "success": 2
    },
    "2026-10-17": {
     "success": 8
@@ -1533,7 +1531,7 @@
   },
   "Diff Mutation comment": {
    "2026-10-16": {
-    "success": 8
+    "success": 4
    },
    "2026-10-17": {
     "success": 11
@@ -1798,7 +1796,7 @@
   },
   "Human review attestation": {
    "2026-10-16": {
-    "skipped": 12,
+    "skipped": 7,
     "success": 1
    },
    "2026-10-17": {
@@ -2160,8 +2158,8 @@
   "polity red alert": {
    "2026-10-16": {
     "cancelled": 3,
-    "skipped": 53,
-    "success": 23
+    "skipped": 29,
+    "success": 21
    },
    "2026-10-17": {
     "cancelled": 18,
@@ -2355,9 +2353,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-15T04:31:45Z",
+   "created_at": "2026-11-15T04:35:18Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43677158473"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43677425099"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2465,11 +2463,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 7907,
+ "runs": 7816,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-10-16": 20.5,
+    "2026-10-16": 24,
     "2026-10-17": 415,
     "2026-10-18": 363,
     "2026-10-19": 944,
@@ -2500,13 +2498,13 @@
     "2026-11-15": 184.5
    },
    "p50_s": 370,
-   "p95_s": 621,
+   "p95_s": 622,
    "queue_p50_s": 0,
-   "runs": 332
+   "runs": 329
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-16": 1060.0,
+    "2026-10-16": 1049,
     "2026-10-17": 1111.5,
     "2026-10-18": 1114,
     "2026-10-19": 1010,
@@ -2537,14 +2535,14 @@
     "2026-11-13": 980,
     "2026-11-14": 883.0
    },
-   "p50_s": 1114,
+   "p50_s": 1115,
    "p95_s": 1495,
    "queue_p50_s": 0,
-   "runs": 70
+   "runs": 69
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-10-16": 11,
+    "2026-10-16": 12,
     "2026-10-17": 11.0,
     "2026-10-18": 12,
     "2026-10-20": 11.0,
@@ -2574,13 +2572,13 @@
     "2026-11-15": 11
    },
    "p50_s": 11,
-   "p95_s": 71,
+   "p95_s": 80,
    "queue_p50_s": 0,
-   "runs": 273
+   "runs": 267
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-16": 382,
+    "2026-10-16": 385.0,
     "2026-10-17": 336,
     "2026-10-18": 327,
     "2026-10-19": 346.0,
@@ -2610,16 +2608,16 @@
     "2026-11-12": 263.0,
     "2026-11-13": 274.0,
     "2026-11-14": 257,
-    "2026-11-15": 271.0
+    "2026-11-15": 278
    },
-   "p50_s": 345,
+   "p50_s": 346,
    "p95_s": 539,
    "queue_p50_s": 0,
-   "runs": 578
+   "runs": 576
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-16": 9,
+    "2026-10-16": 10,
     "2026-10-17": 11.0,
     "2026-10-18": 10,
     "2026-10-20": 11.0,
@@ -2651,7 +2649,7 @@
    "p50_s": 12,
    "p95_s": 77,
    "queue_p50_s": 0,
-   "runs": 268
+   "runs": 264
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2676,7 +2674,7 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-16": 187,
+    "2026-10-16": 182.0,
     "2026-10-17": 171.0,
     "2026-10-18": 169,
     "2026-10-19": 169,
@@ -2708,10 +2706,10 @@
     "2026-11-14": 196,
     "2026-11-15": 216
    },
-   "p50_s": 184,
-   "p95_s": 225,
+   "p50_s": 182,
+   "p95_s": 222,
    "queue_p50_s": 0,
-   "runs": 112
+   "runs": 111
   },
   "Dependency Review": {
    "daily_p50_s": {
@@ -2748,11 +2746,11 @@
    "p50_s": 12,
    "p95_s": 88,
    "queue_p50_s": 0,
-   "runs": 256
+   "runs": 252
   },
   "Diff Mutation": {
    "daily_p50_s": {
-    "2026-10-16": 10.0,
+    "2026-10-16": 13.5,
     "2026-10-17": 10,
     "2026-10-18": 10.0,
     "2026-10-20": 10,
@@ -2777,11 +2775,11 @@
    "p50_s": 11,
    "p95_s": 357,
    "queue_p50_s": 0,
-   "runs": 226
+   "runs": 222
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
-    "2026-10-16": 13.5,
+    "2026-10-16": 20.5,
     "2026-10-17": 11,
     "2026-10-18": 12.5,
     "2026-10-20": 11,
@@ -2804,13 +2802,13 @@
     "2026-11-15": 11
    },
    "p50_s": 12,
-   "p95_s": 191,
+   "p95_s": 204,
    "queue_p50_s": 0,
-   "runs": 231
+   "runs": 227
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-10-16": 563,
+    "2026-10-16": 462,
     "2026-10-17": 521.5,
     "2026-10-18": 11,
     "2026-10-19": 666,
@@ -2843,11 +2841,11 @@
    "p50_s": 528,
    "p95_s": 815,
    "queue_p50_s": 0,
-   "runs": 317
+   "runs": 315
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-10-16": 226,
+    "2026-10-16": 237,
     "2026-10-17": 13,
     "2026-10-18": 9.5,
     "2026-10-19": 638,
@@ -2877,14 +2875,14 @@
     "2026-11-14": 269.0,
     "2026-11-15": 234.5
    },
-   "p50_s": 42,
+   "p50_s": 41,
    "p95_s": 407,
    "queue_p50_s": 0,
-   "runs": 350
+   "runs": 346
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-10-16": 95,
+    "2026-10-16": 81.5,
     "2026-10-17": 95,
     "2026-10-18": 64.5,
     "2026-10-19": 1374,
@@ -2914,14 +2912,14 @@
     "2026-11-14": 12.5,
     "2026-11-15": 82.5
    },
-   "p50_s": 89,
+   "p50_s": 88,
    "p95_s": 161,
    "queue_p50_s": 0,
-   "runs": 348
+   "runs": 345
   },
   "Human review attestation": {
    "daily_p50_s": {
-    "2026-10-16": 17,
+    "2026-10-16": 19,
     "2026-10-17": 17.0,
     "2026-10-18": 17,
     "2026-10-19": 703,
@@ -2952,9 +2950,9 @@
     "2026-11-15": 22.5
    },
    "p50_s": 21,
-   "p95_s": 116,
+   "p95_s": 118,
    "queue_p50_s": 0,
-   "runs": 355
+   "runs": 349
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2991,7 +2989,7 @@
   },
   "Red on base": {
    "daily_p50_s": {
-    "2026-10-16": 26,
+    "2026-10-16": 35,
     "2026-10-17": 29.5,
     "2026-10-18": 37,
     "2026-10-19": 1290,
@@ -3021,10 +3019,10 @@
     "2026-11-14": 83.0,
     "2026-11-15": 27
    },
-   "p50_s": 50,
+   "p50_s": 51,
    "p95_s": 204,
    "queue_p50_s": 0,
-   "runs": 251
+   "runs": 247
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3055,7 +3053,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-10-16": 169,
+    "2026-10-16": 172.0,
     "2026-10-17": 161,
     "2026-10-18": 163,
     "2026-10-19": 2194,
@@ -3088,11 +3086,11 @@
    "p50_s": 167,
    "p95_s": 324,
    "queue_p50_s": 0,
-   "runs": 336
+   "runs": 333
   },
   "Workflow Lint": {
    "daily_p50_s": {
-    "2026-10-16": 12.5,
+    "2026-10-16": 24.5,
     "2026-10-17": 12,
     "2026-10-18": 10.5,
     "2026-10-19": 1534,
@@ -3125,11 +3123,11 @@
    "p50_s": 12,
    "p95_s": 85,
    "queue_p50_s": 0,
-   "runs": 363
+   "runs": 359
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-16": 32,
+    "2026-10-16": 34,
     "2026-10-17": 27.0,
     "2026-10-18": 27.5,
     "2026-10-19": 29.0,
@@ -3164,7 +3162,7 @@
    "p50_s": 27,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 869
+   "runs": 867
   },
   "zizmor online": {
    "daily_p50_s": {
