@@ -14,14 +14,15 @@
 2. **Pick** the first work order, in the order of the table below, that is not done, not
    claimed and not blocked. Do one work order per session unless the owner says otherwise.
 3. **Check it is not claimed.** A work order is claimed when its branch exists on the remote
-   or a PR carries it:
+   or a PR carries it, open or merged (a merged PR's branch is deleted, so ask both):
    ```bash
    git fetch origin
    git ls-remote --heads origin '<branch of the work order>'
-   gh pr list --state all --search '<branch of the work order> in:head'
+   gh pr list --state all --head '<branch of the work order>'
    ```
-   If either answers, someone has it: take the next one. Push your branch early (an empty
-   first commit is fine) so the next session sees your claim.
+   If either answers, someone has it, or it is done and the status table is late: fix the
+   table in your own PR and take the next one. Push your branch early (an empty first commit
+   is fine) so the next session sees your claim.
 4. **Do it** under "Rules that do not bend" and "The gate list", in a worktree (see "Local
    traps").
 5. **Tick it** in the status table of this page, in the same PR: write `open` and the branch
@@ -58,8 +59,10 @@ the owner's"). Ask the question; do not answer it yourself.
 ## Local traps (each one cost a session time)
 
 - **Work in a worktree**, not in the main checkout:
-  `git worktree add -b <branch> <scratch dir>/<name> origin/polity`. Remove it when the PR
-  is merged.
+  `git worktree add --no-track -b <branch> <scratch dir>/<name> origin/polity`, and push with
+  `git push -u origin HEAD`. Without `--no-track` the branch's upstream is `polity` itself,
+  and git's own hint for the failed push is a direct push to `polity`: never follow it.
+  Remove the worktree when the PR is merged.
 - **`/code-review` and `/verify` run in the session's own directory.** From a worktree, give
   them the branch and the worktree path in so many words, then check that the findings talk
   about your files. A review once came back with nine findings about another branch's
@@ -69,8 +72,13 @@ the owner's"). Ask the question; do not answer it yourself.
   had jsdom 30 where `package.json` asks `^31`, and four tests in `HomeEntrance` and
   `StoriesRegister` failed for that reason alone. Before calling a local failure a
   regression, run the same test on a clean `origin/polity`.
-- **Python:** the backend's virtualenv is `fast_api_voter/.venv` in the main checkout; call
-  its `python` by full path from a worktree.
+- **Python:** `fast_api_voter/mypy.ini` targets Python 3.14, and on 2026-11-14 both the
+  system `python3` and the main checkout's `fast_api_voter/.venv` were 3.13. With no 3.14 on
+  `PATH`, `scripts/fast-gate.sh` and `/verify` print `SKIPPED` for the backend sections
+  (mypy, pytest, the parity and OpenAPI drift checks). A `SKIPPED` section is not a pass: CI
+  is then the only check, and the PR says so under Not verified. That venv runs pytest on a
+  file well enough to develop with (call its `python` by full path), but its packages can
+  lag the lockfile, like `node_modules` above.
 - **The shell is zsh on macOS:** quote every glob (`--include='*.py'`), there is no
   `timeout`, and `sed -i` needs `sed -i ''`.
 - **A command whose text contains the review command is refused by a hook**, even inside a
@@ -92,18 +100,29 @@ the owner's"). Ask the question; do not answer it yourself.
   `npx eslint -c eslint.sonarjs.config.js . --ext .js,.jsx,.ts,.tsx | tail -3`,
   `npx knip --no-progress`, and from the root
   `npx --yes jscpd@5.4.0 --config .jscpd.json fast_api_voter/api voter-app/src | tail -3`.
-  If your change removes debt, lower the baseline with
-  `scripts/check_quality_ratchet.sh --update` in the same PR and expect the hold (work order
-  P6-4 removes this chore).
+  Those are the three frontend counts. The four backend ones (vulture, radon, deptry, strict
+  mypy over `fast_api_voter/scripts/`) are measured by the `code-quality` job of
+  `audit.yml`: copy its commands, a new script under `fast_api_voter/scripts/` can raise
+  `mypy_scripts`. If your change removes debt, the baseline must come down in the same PR,
+  and the PR is then held (`.github/quality-baseline.json` is on the hold list).
+  `scripts/check_quality_ratchet.sh --update` rewrites it, but it reads the seven report
+  files the job writes with `tee` (`voter-app/knip.txt`, `voter-app/sonarjs.txt`,
+  `jscpd.txt`, and four under `fast_api_voter/`) and refuses to run without all of them.
+  Work order P6-4 removes this chore.
 - **diff-cover wants 100% of changed lines and branches.** Locally:
   `npx vitest run --coverage --coverage.reportOnFailure=true`, then
   `diff-cover voter-app/coverage/cobertura-coverage.xml --compare-branch=origin/polity
   --branch-coverage --fail-under=100` (install `diff-cover` into a scratch directory with
   `pip install --target`, never into the repo).
 - **dependency-cruiser's `no-circular` counts type imports.** A type that a `lib/` module
-  and a component both need lives in `lib/` (`electionTypes.ts`, `journeyTypes.ts`).
-- **A new backend test file** must be added to the mutmut selection list in
-  `fast_api_voter/pyproject.toml`, or `test_mutmut_selection` fails.
+  and a component both need lives in `lib/` (`electionTypes.ts`; `journeyTypes.ts` arrives
+  with PR #1080, do not create another).
+- **A new backend test file that imports `simulation_ranked_utils` or
+  `simulation_score_utils`**, and uses neither `TestClient`, FastAPI, numpy nor `api.main`,
+  must be added to the mutmut selection list in `fast_api_voter/pyproject.toml`:
+  `test_mutmut_selection` fails until it is. Add no other file to that list (an API test
+  there breaks mutmut's in-process reload, and nothing local would tell you), and note that
+  `pyproject.toml` is on the hold list.
 - **A new i18n key** goes in `playground.fr.ts` (the source), `playground.en.ts`, then
   `npm run gen:pseudo-locale`.
 - **Mutation-check your own tests by hand:** alter each changed line in turn and rerun the
@@ -146,8 +165,12 @@ A session asks these; it does not settle them. Each is tied to the work order it
 ## Status
 
 `todo`, `open` (a PR exists: name the branch), `done` (merged), `blocked` (see the decision).
-**Held** means the PR touches a path of `.mergify.yml`'s hold list, so it waits for the
-owner's review of its head commit; plan for one extra round trip.
+**Held** means the PR waits for the owner's review of its head commit; plan for one extra
+round trip. Two things hold a PR: touching a path of `.mergify.yml`'s hold list (the
+engine, workflows, gate scripts and configs, `docs/spec/`, regenerated oracles, the quality
+baseline), and weakening the test suite (fewer tests in a changed test file, or an added
+skip, only or xfail: `scripts/check_test_integrity.py`). The column is a forecast, not a
+promise: read the "Decide whether the PR is held for review" job on your own PR.
 
 | ID | Work order | Held | Status |
 |---|---|---|---|
@@ -157,16 +180,16 @@ owner's review of its head commit; plan for one extra round trip.
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | todo |
 | P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | depends | blocked: D3 |
-| P3-5 | Truncated ballots: write down and pin what each rule does today | check (tests only) | todo |
+| P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | todo |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
 | P3-8 | Validate the three one-string UI keys | no | todo |
-| P4-1 | Throttle the Socket.IO Monte-Carlo | no | todo (D6 for the order) |
+| P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | todo (D6 for the order) |
 | P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | todo |
 | P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |
 | P4-4 | A per-fiche error boundary | no | todo |
 | P4-5 | Finish #692: pin images and pip installs by hash | yes (workflows) | todo |
-| P5-1 | One `useSimulation` hook, then the panels in batches | no | todo |
+| P5-1 | One `useSimulation` hook, then the panels in batches | yes once jscpd falls (baseline) | todo |
 | P5-2 | Monte-Carlo and grid libraries in a Web Worker | no | todo |
 | P5-3 | Typed nested API responses | yes (OpenAPI contract) | todo |
 | P5-4 | Split `AVousDeJouerPage` and `LeaderCanvas` | no | todo |
@@ -191,11 +214,15 @@ Two sessions collide when they edit the same file or regenerate the same oracle.
   and regenerate again after every merge in this lane.
 - **Playground lane, one at a time:** P5-1, P5-2, P5-4 (they all pass through
   `PlaygroundController.tsx`, `LeaderCanvas.tsx` or the panels).
-- **Backend robustness lane:** P4-1, P4-2, P4-3 touch different files and can overlap; P4-5
-  belongs to the CI lane.
+- **Backend robustness lane, one at a time:** P4-1, P4-2, P4-3. P4-1 and P4-2 both pass
+  through `api/core/ratelimit.py`, and a changed request bound regenerates the OpenAPI
+  contract and `types.gen.ts`, which P5-3 regenerates too. P4-5 belongs to the CI lane.
 - **CI lane, one at a time:** P4-5, P6-1 to P6-6 (workflows, `.mergify.yml`, gate scripts).
-- **Free:** P2-2, P3-8, P4-4, P5-3 collide with nothing above, apart from the status table
-  of this page: on a conflict there, keep both ticks.
+- **P5-3 runs alone:** it removes the frontend's casts on API responses, in the same panels
+  P5-1 moves onto the hook, and it regenerates the contract a Phase 4 schema change touches.
+  Not at the same time as the playground lane or the backend robustness lane.
+- **Free:** P2-2, P3-8, P4-4 collide with nothing above, apart from the status table of this
+  page: on a conflict there, keep both ticks.
 
 One session per lane is the limit; the owner reviews every held PR by hand, so more open
 held PRs than they can read is not faster.
@@ -234,17 +261,24 @@ winners moved (`scripts/oracle_diff_report.py`).
 - Done when: a reversed-candidates test passes for both rules on both engines, on an
   electorate with two equal majorities; parity regenerated and green with `KNOWN_DIVERGENT`
   still empty; the tied-electorate snapshot of `test_compare_all_methods_snapshot.py`
-  regenerated if it moved; the Open list loses the bullet and the Fixed table gains a row.
+  regenerated if it moved; the Open list's first bullet keeps its Kemeny half (P3-2) and
+  loses the ranked pairs and River half; the Fixed table gains a row.
 - Trap: the lot's draw must use the same names in the same order on both sides, or the
   parity test fails on the draw itself (that was #1066).
 
 **P3-2. Kemeny-Young: equal rankings by lot.**
-- Request: `From LISTING_ORDER_TIES.md's Open list: Kemeny-Young's choice among equally good rankings is the name-smallest on the backend and the index-smallest on the client. Draw it by the seeded lot on both engines, on the exact path and above the exact cap.`
+- Request: `From LISTING_ORDER_TIES.md's Open list: on the exact path (up to the exact cap), Kemeny-Young's choice among equally good rankings is the name-smallest on the backend and the index-smallest on the client. Draw it by the seeded lot on both engines, and keep the two engines identical on that path.`
 - Branch: `fix/kemeny-equal-rankings`. After P3-1 (same files, same fixture).
-- Start at: `_kemeny_exact_winner` and `get_kemeny_young_winner`; `KEMENY_EXACT_CAP` and
-  `kemenyGain` in `playgroundVoting.ts`. `docs/STATUS.md` records Kemeny as the one ordinal
-  rule that does not draw: change that sentence.
-- Done when: as P3-1, for Kemeny, with a case below the cap and one above it.
+- Start at: `_kemeny_exact_winner`, `get_kemeny_young_winner` and `_KY_EXACT_CAP` on the
+  backend; `KEMENY_EXACT_CAP` and `kemenyGain` in `playgroundVoting.ts`. `docs/STATUS.md`
+  records Kemeny as the one ordinal rule that does not draw: change that sentence.
+- Out of this work order: above the cap the two engines differ on purpose (the client falls
+  back to Borda, the backend runs `_kwik_sort`), and neither computes equally good rankings
+  there. `_kwik_sort` picks its pivot by sorted name: do not change it here, add it to the
+  Open list as its own entry.
+- Done when: a reversed-candidates test on both engines for an electorate with two equally
+  good rankings, below the cap; parity regenerated and green; the Open list's first bullet
+  is gone and the Fixed table gains a row.
 
 **P3-3. Theory tally, multiwinner fallback, runners-up.**
 - Request: `From LISTING_ORDER_TIES.md's Open list: the theory workers' assumption-testing winner (tally.index(max(tally))), the multiwinner completion's fallback when it has no rng (sorted by approval then name), and the runners-up the workers report (runner_up in /primary and the districts worker) still follow the listing order or the names. Draw each by the request's seed.`
@@ -359,8 +393,10 @@ change.
 **P5-1. One `useSimulation` hook.**
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 5: one useSimulation hook (cache, cancel, shared loading and error) in place of the block repeated across about 45 panels.`
 - Branch: `refactor/use-simulation-hook`, then `refactor/use-simulation-batch-<n>`.
-- Start at: count the panels first (`grep -rlE 'setLoading\(true\)' voter-app/src
-  --include='*.tsx'`; the plan's "about 45" is an estimate). `hooks/usePlaygroundData.ts`
+- Start at: the repeated block is the `$api.useMutation` call with its `isPending` and
+  `isError` handling and a cast on `data` (`grep -rlE 'useMutation' voter-app/src
+  --include='*.tsx'` gave 43 files outside tests on 2026-11-14); about ten more panels keep
+  their own `setLoading(true)` state. The hook has to serve both. `hooks/usePlaygroundData.ts`
   already does part of this for the playground.
 - Done when, first PR: the hook, its tests (a stale answer never overwrites a newer one; an
   unmounted panel sets no state; an error is shown and retried), and three panels moved.
