@@ -9,9 +9,9 @@ Le stack LLM de Vote-App (moteur de décision de Polity) sert des requêtes à u
 
 ## Protocole
 
-Mesuré le 2026-09-20 avec `scripts/archive/check_vllm_speculation_ab.py` et le harnais bake-off (`scripts/bakeoff_report.py`, `scripts/run_bakeoff.py`), depuis `fast_api_voter/`.
+Mesuré le 2026-09-20 avec `scripts/check_vllm_speculation_ab.py` et le harnais bake-off (`scripts/bakeoff_report.py`, `scripts/run_bakeoff.py`), depuis `fast_api_voter/`.
 
-1. **A/B en charge concurrente** — config flagship (population 100, 30 sièges, seed 1, 2 ans simulés, 12 workers relaxés, une élection), un échauffement non chronométré d'un an avant chaque bras, puis `python scripts/archive/check_vllm_speculation_ab.py <label> 2 <out_dir>` :
+1. **A/B en charge concurrente** — config flagship (population 100, 30 sièges, seed 1, 2 ans simulés, 12 workers relaxés, une élection), un échauffement non chronométré d'un an avant chaque bras, puis `python scripts/check_vllm_speculation_ab.py <label> 2 <out_dir>` :
    - A1/A2 : `vllm/vllm-openai:v0.28.0` + n-gram (l'ancien pin, deux répétitions)
    - B1 : 0.28.0, spéculation retirée (« Using V2 Model Runner »)
    - C1 : 0.29.0, spéculation retirée

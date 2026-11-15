@@ -1,6 +1,6 @@
 # n-gram speculation on real traffic, and the move to vLLM 0.29.0
 
-Measured 2026-09-20 with `scripts/archive/check_vllm_speculation_ab.py` and the bake-off scorecard
+Measured 2026-09-20 with `scripts/check_vllm_speculation_ab.py` and the bake-off scorecard
 (`scripts/bakeoff_report.py`). n-gram speculation was shipped on 2026-09-10 on two synthetic fixtures
 (`check_vllm_speculative_decoding_results.md`: about 2.5 times faster on a uniform chamber fixture,
 neutral on a varied `vote_cast`). This asks two things: does it earn its place on real traffic, and is
@@ -114,5 +114,5 @@ or slightly faster. Rollback: revert the change and `docker compose -f docker-co
 
 Each arm was a server started with the shipped flags (`docker-compose.llm.yml`, or a `docker run` with the
 same flags for the arms that are not the compose file), an untimed 1-year run, then
-`python scripts/archive/check_vllm_speculation_ab.py <label> 2 <out_dir>`. Arm A is the old compose file, B is
+`python scripts/check_vllm_speculation_ab.py <label> 2 <out_dir>`. Arm A is the old compose file, B is
 0.28.0 with the speculative config removed, C is 0.29.0 with it removed.

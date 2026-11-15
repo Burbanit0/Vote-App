@@ -6,8 +6,8 @@ only the server behind it changes between arms. Prints one `AB_RESULT` line and 
 the run. See check_vllm_speculation_ab_results.md for the arms and their outcome.
 
 Usage (from fast_api_voter/; needs the vLLM server, GPU, and nothing else on it):
-    python scripts/archive/check_vllm_speculation_ab.py <label> <years> <out_dir>
-    python scripts/archive/check_vllm_speculation_ab.py A1 2 /tmp/ab/A1
+    python scripts/check_vllm_speculation_ab.py <label> <years> <out_dir>
+    python scripts/check_vllm_speculation_ab.py A1 2 /tmp/ab/A1
 """
 from __future__ import annotations
 
