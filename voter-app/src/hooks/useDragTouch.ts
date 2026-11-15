@@ -68,14 +68,24 @@ export function arrowKeyNudge(
  * canvases (LeaderCanvas/ParliamentCanvas pass width === height for the
  * square case, HistoricalReplay passes distinct width/height for the general
  * rect case).
+ *
+ * The returned converter takes the element's bounding rect and assumes the SVG is drawn with
+ * `preserveAspectRatio`'s default, `xMidYMid meet` (scaled to fit, centred): a canvas that sets
+ * `none` or an `xMin`/`YMin` alignment, or that is transformed, needs its own mapping.
  */
 export function makeSvgToDomain(viewBox: { width: number; height: number; pad: number }) {
   const { width, height, pad } = viewBox;
   const plotW = width - 2 * pad;
   const plotH = height - 2 * pad;
   return (clientX: number, clientY: number, rect: DOMRect) => {
-    const sx = ((clientX - rect.left) / rect.width) * width;
-    const sy = ((clientY - rect.top) / rect.height) * height;
+    // The viewBox is drawn the way `preserveAspectRatio` defaults to (meet): scaled to fit and
+    // centred in the element's box. A box wider or taller than the viewBox's aspect (a square map
+    // capped by `maxHeight: 52vh`, a short viewport) leaves a margin on two sides that is not part
+    // of the drawing: dividing by the whole box, as this used to, put the pointer up to half that
+    // margin away from what it was pointing at (26 px at 720 px of viewport height, 44 at 600).
+    const scale = Math.min(rect.width / width, rect.height / height);
+    const sx = (clientX - rect.left - (rect.width - width * scale) / 2) / scale;
+    const sy = (clientY - rect.top - (rect.height - height * scale) / 2) / scale;
     return {
       x: Math.max(-1, Math.min(1, ((sx - pad) / plotW) * 2 - 1)),
       y: Math.max(-1, Math.min(1, 1 - ((sy - pad) / plotH) * 2)),

@@ -209,12 +209,18 @@ test.describe('Playground — Électorat', () => {
     const box = (await map.boundingBox())!;
     await map.dblclick({ position: { x: box.width * 0.72, y: box.height * 0.2 } });
 
-    // A fourth row, and a fourth handle on the map. Not asserted: that it lands exactly under the
-    // pointer. It does not when the map is letterboxed (the viewport under ~885 px tall, where
-    // LeaderCanvas's maxHeight 52vh binds): makeSvgToDomain divides by the element's box and
-    // ignores the margin the square viewBox leaves.
+    // A fourth row, and a fourth handle on the map, under the pointer. (This test runs at 720 px
+    // of viewport height, where the map is letterboxed: it used to land 19 px to the left.)
     await expect(page.locator('[data-testid="candidate-row-3"]')).toBeVisible();
-    await expect(page.locator('[data-testid="candidate-3"]')).toBeVisible();
+    const dot = page.locator('[data-testid="candidate-3"] circle').first();
+    const at = (await dot.boundingBox())!;
+    // Where the click was, now (the click may have scrolled the map into view).
+    const now = (await map.boundingBox())!;
+    expect([now.width, now.height]).toEqual([box.width, box.height]); // the click moved nothing
+    const spot = { x: now.x + box.width * 0.72, y: now.y + box.height * 0.2 };
+    expect(Math.hypot(at.x + at.width / 2 - spot.x, at.y + at.height / 2 - spot.y)).toBeLessThan(
+      2.5
+    );
 
     // A double-click on a candidate is the candidate's, not the ground's: no fifth entrant. Let
     // the frames after the click land first, or "nothing appeared" is true of a handler that has
@@ -229,6 +235,56 @@ test.describe('Playground — Électorat', () => {
     await expect(page.locator('[data-testid="candidate-row-4"]')).toHaveCount(0);
     expect(crashes).toEqual([]);
   });
+
+  // The map is a square drawing in a box capped at 52vh tall: on a short viewport the box is wider
+  // than the drawing and leaves a margin each side, which the pointer used to count as map (the
+  // handle landed 26 px from the pointer at 720 px, 44 px at 600, and exactly under it at 1000).
+  for (const height of [600, 720, 1000]) {
+    test(`a dragged candidate lands under the pointer, at ${height} px of viewport height`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1280, height });
+      const map = page.locator('[data-testid="leader-map"]');
+      await map.scrollIntoViewIfNeeded();
+      // The resize re-lays the map out: let it settle before reading where the handle is.
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done()))
+          )
+      );
+      const dot = page.locator('[data-testid="candidate-0"] circle').first();
+      const centre = async () => {
+        const b = (await dot.boundingBox())!;
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      };
+      const from = await centre();
+      const drag = async (a: { x: number; y: number }, b: { x: number; y: number }) => {
+        await page.mouse.move(a.x, a.y);
+        await page.mouse.down();
+        await page.mouse.move(b.x, b.y, { steps: 6 });
+        await page.mouse.up();
+      };
+      const distanceTo = (p: { x: number; y: number }) => async () => {
+        const at = await centre();
+        return Math.hypot(at.x - p.x, at.y - p.y);
+      };
+      // Two stretches, left of where it started and right of it, and back each time.
+      const left = { x: from.x - 40, y: from.y };
+      const right = { x: from.x + 120, y: from.y };
+      // Relative to where the handle starts, so they stay inside the plot (a target in the map's
+      // margin would be clamped to its edge) at every height; and real stretches, so the test
+      // cannot pass by the handle staying put.
+      expect(from.x - left.x).toBeGreaterThan(20);
+      expect(right.x - from.x).toBeGreaterThan(20);
+      await drag(from, left);
+      await expect.poll(distanceTo(left)).toBeLessThan(2.5);
+      await drag(left, from);
+      await expect.poll(distanceTo(from)).toBeLessThan(2.5);
+      await drag(from, right);
+      await expect.poll(distanceTo(right)).toBeLessThan(2.5);
+    });
+  }
 
   test('a name typed and left with a click elsewhere is kept (no Enter needed)', async ({
     page,
