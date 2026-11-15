@@ -154,7 +154,7 @@ A session asks these; it does not settle them. Each is tied to the work order it
 
 | # | Question | Blocks |
 |---|---|---|
-| D1 | PR #1080 holds a regenerated visual baseline: review of head `ac51c001`. And: should the visitor's previous scenario survive a reload after a link replaced it (today it is kept in memory only, and the notice says so)? Are the two analytics events wanted? | P2-1 |
+| D1 | PR #1080 holds a regenerated visual baseline: review of head `ac51c001`. And: should the visitor's previous scenario survive a reload after a link replaced it (today it is kept in memory only, and the notice says so)? Are the two analytics events wanted? | nothing: a follow-up to P2-1 (#1080 is merged) |
 | D2 | Adding an entrant on the map (#1078) is a double-click, in the Électorat moment only, with no touch equivalent. Keep, or an armed single-click mode, other moments, touch? | nothing; a follow-up if changed |
 | D3 | Hotelling moves its candidates in list order, and identity voting binds its default groups to the first and second listed candidates. Neither is a tie. Change them, or record them as by design? | P3-4 |
 | D4 | Where the two engines, or two rules, treat a truncated ballot differently (P3-5 produces the table): which reading wins, rule by rule? | P3-6 |

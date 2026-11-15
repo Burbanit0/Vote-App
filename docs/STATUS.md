@@ -26,7 +26,7 @@ CI and process work is frozen to maintenance: see the plan's
 [ground rules](plan/PLAN_BEYOND_CI.md#context). The plan lifts the freeze at the end of
 Phase 4, which W6 was the last build item of; what remains of it waits on you (below).
 
-## Next 2 steps
+## Next steps
 
 1. **Correctness** ([Phase 3](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-3-correctness)),
    what is left: one stated convention for truncated ballots per rule and one shared
