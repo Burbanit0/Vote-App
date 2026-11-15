@@ -2,7 +2,7 @@
 
 > **status:** live. Written 2026-11-11 from a four-part audit of `polity` at `aa2670fb`
 > (product and UX, frontend engineering, backend, process) and the ten open issues.
-> Phases 0, 1 and 2 are done and Phase 3 is under way (updated 2026-11-15); the rest waits for the owner's order. Polity is out of scope here: it
+> Phases 0, 1 and 2 are done and Phase 3 is under way (updated 2026-11-14); the rest waits for the owner's order. Polity is out of scope here: it
 > has its own plans. (`docs/README.md` lists every plan.) What is left is cut into work orders
 > a session can pick up one at a time: [`WORK_ORDERS_2026-11.md`](WORK_ORDERS_2026-11.md).
 

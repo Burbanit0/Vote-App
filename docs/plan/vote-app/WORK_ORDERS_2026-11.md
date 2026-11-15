@@ -176,7 +176,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 
 | ID | Work order | Held | Status |
 |---|---|---|---|
-| P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged 2026-11-15); D1's follow-up questions stay open |
+| P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged); D1's follow-up questions stay open |
 | P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | todo |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
@@ -236,9 +236,9 @@ than line numbers, which move.
 
 ### Phase 2
 
-**P2-1. Shareable scenario link.** Open as PR #1080 (`feat/shareable-scenario-link`). A
-session's only job here: once the owner has reviewed, check the head is green, and act on
-D1's answers in a follow-up PR if they ask for a change.
+**P2-1. Shareable scenario link.** Done: PR #1080 (`feat/shareable-scenario-link`) is merged.
+A session's only job here: act on D1's answers in a follow-up PR if the owner asks for a
+change.
 
 **P2-2. Strike Phase 2.**
 - Request: `Mark Phase 2 of PLAN_GLOBAL_2026-11.md done: strike the shareable-link row with its PR number, and bring docs/STATUS.md's header and next steps up to date.`
