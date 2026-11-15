@@ -37,7 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402
 from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
-from run_polity_flagship import _flagship_config, _write_digest_safely  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
+from run_polity_flagship import _write_digest_safely  # noqa: E402
 
 RUNS = Path(__file__).resolve().parent / "stage4_llm_runs"
 RUN_ID = "pilot-8y-p100-seed1"
@@ -47,7 +48,7 @@ REPLAYED = {"bill_interval_ticks": 1, "max_bill_step": 0.20}
 
 
 def pilot_config(output_dir: Path, legislation: dict[str, float]) -> PolityConfig:
-    config = _flagship_config(
+    config = flagship_config(
         engine="llm", years=YEARS, population=POPULATION, seats=SEATS, seed=SEED,
         output_dir=output_dir, max_batch_replays=2, provider=None, workers=WORKERS,
         reproducibility="relaxed",

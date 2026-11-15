@@ -12,6 +12,7 @@ import pytest
 from api.domain.polity.catalogue import DIMENSIONS, Dimension, apply_point, prim, relabel, sample
 from api.domain.polity.config import validate_config
 from api.domain.polity.trajectory import ARCHETYPE_VERSION
+from api.domain.polity import profiles
 
 N = 200
 
@@ -35,8 +36,8 @@ def test_the_same_seed_gives_the_same_points_and_another_seed_other_ones() -> No
     assert sample(20, seed=1) == sample(20, seed=1) != sample(20, seed=2)
 
 
-def test_a_point_sets_every_dimension_in_the_config_and_the_result_is_valid(flagship: Any, tmp_path: Path) -> None:
-    base = flagship._flagship_config(
+def test_a_point_sets_every_dimension_in_the_config_and_the_result_is_valid(tmp_path: Path) -> None:
+    base = profiles.flagship_config(
         engine="deterministic", years=3, population=40, seats=6, seed=1, output_dir=tmp_path, max_batch_replays=0, provider=None, workers=1,
         profile="scenario",
     )
@@ -93,7 +94,7 @@ def test_prim_stops_when_no_cut_can_take_a_point_out() -> None:
 # ── one point through the runner ──────────────────────────────────────────
 
 @pytest.fixture(scope="module")
-def runner(flagship: Any) -> Any:
+def runner() -> Any:
     script = Path(__file__).resolve().parents[2] / "scripts" / "run_polity_catalogue.py"
     spec = importlib.util.spec_from_file_location("run_polity_catalogue", script)
     assert spec is not None and spec.loader is not None

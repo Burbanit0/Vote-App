@@ -7,21 +7,22 @@ from typing import Any
 import pytest
 
 from api.domain.polity.config import validate_config
+from api.domain.polity import profiles
 
-def _config(flagship: Any, tmp_path: Path, **overrides: Any) -> Any:
-    return flagship._flagship_config(
+def _config(tmp_path: Path, **overrides: Any) -> Any:
+    return profiles.flagship_config(
         engine="llm", years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
         max_batch_replays=0, provider=None, workers=1, profile="exploration", **overrides,
     )
 
 
-def test_the_knobs_survive_the_exploration_profile_and_validate(flagship: Any, tmp_path: Path) -> None:
-    plain = _config(flagship, tmp_path)
+def test_the_knobs_survive_the_exploration_profile_and_validate(tmp_path: Path) -> None:
+    plain = _config(tmp_path)
     # The exploration profile turns amendments and regime acts on for the LLM engine...
     assert plain.agents.amendments and plain.regime.enabled
     assert plain.institutions.electoral_threshold == 0.05
     # ...and the experiment's overrides are applied after it, so they stick.
-    arm = _config(flagship, tmp_path, threshold=0.03, freeze_amendments=True)
+    arm = _config(tmp_path, threshold=0.03, freeze_amendments=True)
     assert arm.institutions.electoral_threshold == 0.03
     assert not arm.agents.amendments and not arm.regime.enabled and arm.constitution.referendum == "never"
     validate_config(arm)  # regime needs amendments: off together, so the config stays legal
@@ -29,36 +30,36 @@ def test_the_knobs_survive_the_exploration_profile_and_validate(flagship: Any, t
     assert arm.agents.forum == plain.agents.forum and arm.parties == plain.parties
 
 
-def test_without_the_knobs_nothing_changes(flagship: Any, tmp_path: Path) -> None:
-    assert _config(flagship, tmp_path, threshold=None, freeze_amendments=False) == _config(flagship, tmp_path)
+def test_without_the_knobs_nothing_changes(tmp_path: Path) -> None:
+    assert _config(tmp_path, threshold=None, freeze_amendments=False) == _config(tmp_path)
 
 
-def test_a_threshold_outside_the_articles_range_is_refused(flagship: Any, tmp_path: Path) -> None:
+def test_a_threshold_outside_the_articles_range_is_refused(tmp_path: Path) -> None:
     for bad in (3.0, -0.01, 0.2, float("nan")):
         with pytest.raises(ValueError, match="the article allows"):
-            _config(flagship, tmp_path, threshold=bad)
+            _config(tmp_path, threshold=bad)
 
 
-def test_freezing_also_drops_scripted_amendments(flagship: Any, tmp_path: Path) -> None:
+def test_freezing_also_drops_scripted_amendments(tmp_path: Path) -> None:
     import dataclasses
 
     from api.domain.polity.config import ScriptedAmendment
 
-    base = _config(flagship, tmp_path)
+    base = _config(tmp_path)
     scripted = dataclasses.replace(base, constitution=dataclasses.replace(
         base.constitution, scripted=(ScriptedAmendment(tick=40, article="institutions.electoral_threshold", value=0.07),),
     ))
-    frozen = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=True)
+    frozen = profiles.experiment_overrides(scripted, threshold=0.03, freeze_amendments=True)
     assert frozen.constitution.scripted == () and frozen.institutions.electoral_threshold == 0.03
-    kept = flagship._experiment_overrides(scripted, threshold=0.03, freeze_amendments=False)
+    kept = profiles.experiment_overrides(scripted, threshold=0.03, freeze_amendments=False)
     assert len(kept.constitution.scripted) == 1  # without the freeze, a scripted amendment is the run's own
     assert (kept.agents.forward_stakes, kept.agents.ambition_goal) == (True, True)
-    arm = flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward-stakes"])
+    arm = profiles.experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward-stakes"])
     assert (arm.agents.forward_stakes, arm.agents.ambition_goal) == (False, True)  # OBS-048: one mechanism off
     with pytest.raises(ValueError, match="nothing to turn off"):  # frozen, there are no stakes to recount
-        flagship._experiment_overrides(base, threshold=None, freeze_amendments=True, without=["forward-stakes"])
+        profiles.experiment_overrides(base, threshold=None, freeze_amendments=True, without=["forward-stakes"])
     with pytest.raises(ValueError, match="one of"):
-        flagship._experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward_stakes"])
+        profiles.experiment_overrides(base, threshold=None, freeze_amendments=False, without=["forward_stakes"])
 
 
 def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sweep: Any, tmp_path: Path) -> None:
@@ -79,10 +80,10 @@ def test_the_sweep_passes_the_arms_flags_and_one_directory_holds_one_arm(seed_sw
 
 
 
-def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(flagship: Any, tmp_path: Path) -> None:
+def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(tmp_path: Path) -> None:
     """plan-scenarios-v1 step 2."""
     def profiled(profile: str, engine: str = "llm") -> Any:
-        return flagship._flagship_config(
+        return profiles.flagship_config(
             engine=engine, years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
             max_batch_replays=0, provider=None, workers=1, profile=profile,
         )
@@ -96,7 +97,7 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     assert not scenario.citizens.static_population and explored.citizens.replacement_per_year == 0.0
     assert scenario.vote.economic_voting == 0.3 and explored.vote.economic_voting == 0.0 and scenario.events.scripted == ()  # ADR-038
     # ADR-039: the twin's indifference cost; the model engine keeps its own
-    assert scenario.vote.turnout_cost == explored.vote.turnout_cost == flagship.LLM_TURNOUT_COST
+    assert scenario.vote.turnout_cost == explored.vote.turnout_cost == profiles.LLM_TURNOUT_COST
     assert profiled("scenario", "deterministic").vote.turnout_cost == 0.02 and profiled("exploration", "deterministic").vote.turnout_cost == 0.0
     assert scenario.agents.president and scenario.agents.nominees and scenario.agents.forum and scenario.agents.coalition
     assert scenario.legitimacy == explored.legitimacy and scenario.emotions == explored.emotions
@@ -104,11 +105,11 @@ def test_the_scenario_profile_hands_the_crowd_to_the_rules_and_keeps_the_agents(
     twin = profiled("scenario", engine="deterministic")
     assert not twin.llm.enabled and not twin.agents.president and twin.dynamics.drift_std == 0.18
     validate_config(twin)
-    assert tuple(flagship.PROFILES) == ("flagship", "exploration", "scenario")
+    assert tuple(profiles.PROFILES) == ("flagship", "exploration", "scenario")
     # A flag outranks the profile, and the contradiction is refused rather than rewritten.
     from api.domain.polity.config import PolityConfigError
 
-    contradiction = flagship._flagship_config(
+    contradiction = profiles.flagship_config(
         engine="llm", years=2, population=50, seats=8, seed=1, output_dir=tmp_path,
         max_batch_replays=0, provider=None, workers=1, profile="scenario", vote_mode="llm",
     )

@@ -33,6 +33,7 @@ from api.domain.polity.simple_rules import (
     policy_gain,
     weighted_distance,
 )
+from api.domain.polity import profiles
 
 RAW = yaml.safe_load(_DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
 
@@ -78,8 +79,8 @@ def test_scripted_events_are_parsed_sorted_and_checked_against_the_run() -> None
             _parse_scripted_events({"scripted": [entry]}, RAW)
 
 
-def test_a_disabled_mechanism_stays_disabled_scripted_or_not_and_economic_voting_needs_an_economy(flagship: Any, tmp_path: Path) -> None:
-    base = _twin(flagship, tmp_path)  # the scenario profile: scandals and economic shocks on, everything they need on
+def test_a_disabled_mechanism_stays_disabled_scripted_or_not_and_economic_voting_needs_an_economy(tmp_path: Path) -> None:
+    base = _twin(tmp_path)  # the scenario profile: scandals and economic shocks on, everything they need on
     scandal, shock = ScriptedEvent(2, "scandal"), ScriptedEvent(3, "economic_shock", -0.5)
     validate_config(dataclasses.replace(base, events=dataclasses.replace(base.events, scripted=(scandal, shock)),
                                         vote=dataclasses.replace(base.vote, economic_voting=1.0)))
@@ -94,8 +95,8 @@ def test_a_disabled_mechanism_stays_disabled_scripted_or_not_and_economic_voting
         validate_config(dataclasses.replace(base, events=no_economy, vote=dataclasses.replace(base.vote, economic_voting=1.0)))
 
 
-def test_a_schedule_built_in_code_is_held_to_the_same_rules_as_one_parsed_from_yaml(flagship: Any, tmp_path: Path) -> None:
-    base = _twin(flagship, tmp_path)
+def test_a_schedule_built_in_code_is_held_to_the_same_rules_as_one_parsed_from_yaml(tmp_path: Path) -> None:
+    base = _twin(tmp_path)
     last = base.run.duration_years * base.run.ticks_per_year
     for event, match in (
         (ScriptedEvent(last + 1, "scandal"), "outside the run"),
@@ -111,8 +112,8 @@ def test_a_schedule_built_in_code_is_held_to_the_same_rules_as_one_parsed_from_y
     validate_config(dataclasses.replace(base, events=dataclasses.replace(base.events, scripted=(ScriptedEvent(last, "scandal"),))))  # the last tick is inside
 
 
-def test_economic_voting_must_be_finite_and_needs_the_utility_ballot(flagship: Any, tmp_path: Path) -> None:
-    base = _twin(flagship, tmp_path)
+def test_economic_voting_must_be_finite_and_needs_the_utility_ballot(tmp_path: Path) -> None:
+    base = _twin(tmp_path)
     with pytest.raises(PolityConfigError, match="finite"):
         validate_config(dataclasses.replace(base, vote=dataclasses.replace(base.vote, economic_voting=float("inf"))))
     with pytest.raises(PolityConfigError, match="vote.mode: utility"):
@@ -176,8 +177,8 @@ def test_approval_follows_the_economy_through_the_same_term() -> None:
 
 # ── scripted events in a run ──────────────────────────────────────────────
 
-def _twin(flagship: Any, output_dir: Path, scripted: tuple[ScriptedEvent, ...] = (), economic_voting: float = 0.0, years: int = 4) -> PolityConfig:
-    config = flagship._flagship_config(
+def _twin(output_dir: Path, scripted: tuple[ScriptedEvent, ...] = (), economic_voting: float = 0.0, years: int = 4) -> PolityConfig:
+    config = profiles.flagship_config(
         engine="deterministic", years=years, population=60, seats=9, seed=4, output_dir=output_dir,
         max_batch_replays=0, provider=None, workers=1, profile="scenario",
     )
@@ -191,10 +192,10 @@ def _events(journal: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in journal.read_text().splitlines()]
 
 
-def test_a_scripted_scandal_and_shock_happen_at_their_tick_and_leave_the_random_stream_alone(flagship: Any, tmp_path: Path) -> None:
+def test_a_scripted_scandal_and_shock_happen_at_their_tick_and_leave_the_random_stream_alone(tmp_path: Path) -> None:
     schedule = (ScriptedEvent(5, "scandal"), ScriptedEvent(9, "economic_shock", -0.8))
-    scripted = run_simulation(_twin(flagship, tmp_path / "scripted", schedule), run_id="run")
-    plain = run_simulation(_twin(flagship, tmp_path / "plain"), run_id="run")
+    scripted = run_simulation(_twin(tmp_path / "scripted", schedule), run_id="run")
+    plain = run_simulation(_twin(tmp_path / "plain"), run_id="run")
     events = _events(scripted)
     assert [e["tick"] for e in events if e["event_type"] == "scandal_occurred" and e["tick"] == 5] == [5]
     assert not [e for e in _events(plain) if e["event_type"] == "scandal_occurred" and e["tick"] == 5]  # no draw gave it: the script did
@@ -208,11 +209,11 @@ def test_a_scripted_scandal_and_shock_happen_at_their_tick_and_leave_the_random_
     assert final_with - final_without == pytest.approx(-0.8 * phi ** (ticks - 9))
 
 
-def test_a_recession_before_an_election_costs_the_incumbent_approval_only_when_voters_judge_the_economy(flagship: Any, tmp_path: Path) -> None:
+def test_a_recession_before_an_election_costs_the_incumbent_approval_only_when_voters_judge_the_economy(tmp_path: Path) -> None:
     recession = (ScriptedEvent(13, "economic_shock", -0.9),)
 
     def mean_approval(label: str, voting: float) -> float:
-        journal = run_simulation(_twin(flagship, tmp_path / label, recession, voting, years=5), run_id="run")
+        journal = run_simulation(_twin(tmp_path / label, recession, voting, years=5), run_id="run")
         readings = [e["payload"]["approval"] for e in _events(journal)
                     if e["event_type"] == "legitimacy_updated" and 13 <= e["tick"] <= 15 and "approval" in e["payload"]]
         assert readings
@@ -222,13 +223,13 @@ def test_a_recession_before_an_election_costs_the_incumbent_approval_only_when_v
     assert judging < ignoring  # the same recession, the same seed: only the weight differs
 
 
-def test_economic_voting_at_zero_and_an_empty_schedule_change_nothing_about_a_run(flagship: Any, tmp_path: Path) -> None:
+def test_economic_voting_at_zero_and_an_empty_schedule_change_nothing_about_a_run(tmp_path: Path) -> None:
     """Neutrality of the settings against each other; against the code before them it is held by the explorer
     fixture, whose `events.jsonl` and `snapshots.jsonl` are byte-identical across this change (the manifest records
     their digests and test_polity_explorer_fixture checks them), and by the review's run of the scenario profile
     on both revisions."""
-    implicit = run_simulation(_twin(flagship, tmp_path / "a"), run_id="run")
-    explicit = run_simulation(_twin(flagship, tmp_path / "b", scripted=(), economic_voting=0.0), run_id="run")
+    implicit = run_simulation(_twin(tmp_path / "a"), run_id="run")
+    explicit = run_simulation(_twin(tmp_path / "b", scripted=(), economic_voting=0.0), run_id="run")
     assert implicit.read_bytes() == explicit.read_bytes()
-    boom_ignored = run_simulation(_twin(flagship, tmp_path / "c", (ScriptedEvent(5, "economic_shock", 0.8),), 0.0), run_id="run")
+    boom_ignored = run_simulation(_twin(tmp_path / "c", (ScriptedEvent(5, "economic_shock", 0.8),), 0.0), run_id="run")
     assert boom_ignored.read_bytes() != implicit.read_bytes()  # a schedule is not nothing: the economy moves, even if no ballot reads it

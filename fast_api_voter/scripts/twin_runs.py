@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import api.domain.polity.run_polity_simulation as engine  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 SEEDS = tuple(range(1, 11))
 POPULATION = 100
@@ -29,7 +29,7 @@ SEATS = 30
 
 
 def twin_config(seed: int, years: int) -> PolityConfig:
-    config = _flagship_config(engine="deterministic", years=years, population=POPULATION, seats=SEATS, seed=seed,
+    config = flagship_config(engine="deterministic", years=years, population=POPULATION, seats=SEATS, seed=seed,
                               output_dir=Path("unused"), max_batch_replays=2, provider=None, workers=1)
     return dataclasses.replace(config, journal=dataclasses.replace(config.journal, index_after_run=False))
 

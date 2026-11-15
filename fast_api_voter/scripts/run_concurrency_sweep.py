@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.concurrency_comparison import compare_to_baseline, measure_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import config_hash  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 DEFAULT_ROOT = Path(__file__).resolve().parent / "concurrency_sweep_runs"
 SHAPE = {"years": 1, "population": 100, "seats": 30, "seed": 42, "max_batch_replays": 2, "vote_mode": "llm"}
@@ -91,7 +91,7 @@ def compare(label: str, root: Path) -> int:
     measures = []
     for arm in arms:
         run_dir = sweep_dir / arm["run_id"] / "run" / arm["run_id"]
-        config = _flagship_config(engine="llm", years=arm["years"], population=arm["population"], seats=arm["seats"],
+        config = flagship_config(engine="llm", years=arm["years"], population=arm["population"], seats=arm["seats"],
                                   seed=arm["seed"], output_dir=Path("unused"), max_batch_replays=arm["max_batch_replays"],
                                   provider="vllm", workers=arm["workers"], reproducibility=arm["reproducibility"],
                                   vote_mode=arm["vote_mode"])

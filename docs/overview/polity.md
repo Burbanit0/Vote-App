@@ -115,10 +115,10 @@ agency era: what it says about frozen parties, never-moving positions and three 
 true of the shipped defaults (dynamics and mutable parties off), not of the exploration profile.
 
 **Two profiles.** The shipped `polity_config.yaml` turns the LLM and the whole accountability
-layer off. The flagship profile (`_flagship_config`) turns on the LLM, legitimacy, petitions,
+layer off. The flagship profile (`flagship_config`) turns on the LLM, legitimacy, petitions,
 street pressure, awakening, events, the social graph and the chamber, but leaves emotions, opinion
-dynamics and legislation off. The exploration profile (`_exploration_config`) adds those and the
-agency mechanisms. The scenario profile (`_scenario_config`, [plan-scenarios-v1](../plan/polity/plan-scenarios-v1.md) step 2) is the exploration profile with `llm.crowd` off, so the rules
+dynamics and legislation off. The exploration profile (`exploration_config`) adds those and the
+agency mechanisms. The scenario profile (`scenario_config`, [plan-scenarios-v1](../plan/polity/plan-scenarios-v1.md) step 2) is the exploration profile with `llm.crowd` off, so the rules
 decide the nine batch decisions and the model plays only the agents, the forum capped at 10, views that drift and radicalise ([ADR-033](../adr/ADR-033-radicalisation.md)), voters who weigh the economy ([ADR-034](../adr/ADR-034-economic-voting-and-scripted-events.md)) and 3% of the citizens a year replaced by newcomers ([ADR-035](../adr/ADR-035-generational-replacement.md)). Results always name their profile; see
 [`polity-llm-reference.md` §0](../plan/polity/polity-llm-reference.md#0-the-one-thing-to-understand-first).
 

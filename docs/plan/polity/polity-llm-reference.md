@@ -30,7 +30,7 @@ this belongs to. The design docs are French, so §1 bridges the two vocabularies
 entire accountability layer off**. It runs a 121-tick, 100-citizen, 5-party polity with elections
 and coalitions, and *nothing else*: `_run_accountability_phase` early-returns on every single tick.
 
-The flagship runner (`scripts/run_polity_flagship.py::_flagship_config`) turns everything on:
+The flagship runner (`api/domain/polity/profiles.py::flagship_config`) turns everything on:
 legitimacy, mandate drift, petitions, street pressure, awakening, exogenous events, the social
 graph, the sortition chamber, and the LLM.
 

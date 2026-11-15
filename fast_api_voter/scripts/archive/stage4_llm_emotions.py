@@ -47,7 +47,8 @@ from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.twin_calibration import Arm, full_terms, grid, select  # noqa: E402
 from calibrate_dynamic_citizens import EMOTION_AXES, YEARS, Runs, _moods, emotions_arm  # noqa: E402
 from calibrate_dynamic_citizens import measure as twin_measure  # noqa: E402
-from run_polity_flagship import _flagship_config, _write_digest_safely  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
+from run_polity_flagship import _write_digest_safely  # noqa: E402
 from stage4_llm_legislation import MIN_FREE_GB, _completed, _events, _free_gb, run_report  # noqa: E402
 from twin_runs import SEEDS, twin_config  # noqa: E402
 
@@ -76,7 +77,7 @@ def slug(setting: dict[str, float]) -> str:
 
 
 def llm_config(seed: int, emotions: dict[str, float], output_dir: Path) -> PolityConfig:
-    config = _flagship_config(
+    config = flagship_config(
         engine="llm", years=YEARS, population=POPULATION, seats=SEATS, seed=seed, output_dir=output_dir,
         max_batch_replays=2, provider=None, workers=WORKERS, reproducibility="relaxed",
     )
