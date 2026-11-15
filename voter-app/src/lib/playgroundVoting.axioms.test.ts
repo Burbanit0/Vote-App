@@ -510,26 +510,25 @@ describe('Clone independence — cloning a candidate must not change the winner'
       // A 3-voter Condorcet cycle with all three pairwise margins exactly
       // tied at 2-1 -- the textbook clone-independence proof for Tideman's
       // ranked-pairs family assumes generic (non-tied) margins, so it
-      // doesn't cover this degenerate case. The Python original clones C and
-      // names the clone "A*" specifically because this counterexample is
-      // tie-break-order-sensitive: "A*" sorts alphabetically right after A
-      // (a prefix comparison), not last -- so the clone here is index 1
-      // (A=0, clone=1, B=2, C=3, D=4), not index n. Using index n (sorting
-      // after D) doesn't reproduce the violation; this is a
-      // deliberately-positioned counterexample, not a generic clone.
+      // doesn't cover this degenerate case. Which two majorities get locked
+      // is then the seeded lot's call (a hash of the two names), and the
+      // clone's new majorities reshuffle that order: at seed 0 the winner is
+      // B, and cloning the non-winner A (-> "A*") makes it C. The Python
+      // original (test_voting_criteria_matrix.py) pins the same profile.
+      const names = ['A', 'B', 'C', 'D'];
       const ranks = [
-        [0, 2, 1, 3], // A C B D
-        [1, 0, 2, 3], // B A C D
-        [2, 1, 0, 3], // C B A D
+        [0, 1, 2, 3], // A B C D
+        [1, 2, 0, 3], // B C A D
+        [2, 0, 1, 3], // C A B D
       ];
-      expect(ruleWinnerFromRanks(ranks, 4, rule)).toBe(1); // B
-      // Clone C (index 2) -> "A*"; renumber so A=0, clone=1, B=2, C=3, D=4.
+      expect(ruleWinnerFromRanks(ranks, 4, rule, undefined, names)).toBe(1); // B
+      // Clone A -> "A*", right after it: A=0, A*=1, B=2, C=3, D=4.
       const cloned = [
-        [0, 3, 1, 2, 4], // A C A* B D
-        [2, 0, 3, 1, 4], // B A C A* D
-        [3, 1, 2, 0, 4], // C A* B A D
+        [0, 1, 2, 3, 4], // A A* B C D
+        [2, 3, 0, 1, 4], // B C A A* D
+        [3, 0, 1, 2, 4], // C A A* B D
       ];
-      expect(ruleWinnerFromRanks(cloned, 5, rule)).toBe(0); // A
+      expect(ruleWinnerFromRanks(cloned, 5, rule, undefined, ['A', 'A*', 'B', 'C', 'D'])).toBe(3); // C
     }
   );
 

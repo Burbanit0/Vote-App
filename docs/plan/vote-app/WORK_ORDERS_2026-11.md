@@ -91,6 +91,14 @@ the owner's"). Ask the question; do not answer it yourself.
   listens, or run your spec with a copy of the config on another port (build with
   `vite build --outDir node_modules/.e2e-build-<name>`, serve with `vite preview --port
   <other>`), and delete the copy afterwards.
+- **Local WebKit dies at `page.goto`** ("WebKit encountered an internal error") when the shell
+  was started from the VS Code snap (Linux): the snap leaks `GIO_MODULE_DIR`, a module cache
+  built against the snap's older glibc, and WebKit's network process loads it
+  (`DEBUG=pw:browser` shows `symbol lookup error: /snap/core20/.../libpthread.so.0`). Nothing
+  else of the snap's environment matters. Run `env -u GIO_MODULE_DIR npx playwright test
+  --project=webkit …`. To see a WebKit-only race, add load: `yes > /dev/null` a couple of times
+  per core and `--workers` equal to the cores (stop them with `pkill -x yes`, never `pkill -f`,
+  which matches your own shell).
 - **Visual baselines** are rendered in the pinned Playwright image
   (`voter-app/scripts/test-visual-docker.sh --update-snapshots`, needs Docker and the backend
   on `:4434`). Without Docker: let the PR's "Visual regression" job fail once, download its
@@ -178,8 +186,8 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 |---|---|---|---|
 | P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged); D1's follow-up questions stay open |
 | P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
-| P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | todo |
-| P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
+| P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | open: `fix/ranked-pairs-river-lock-order`, PR #1083 |
+| P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 merges |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | todo |
 | P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | blocked: D3 |
 | P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | todo |

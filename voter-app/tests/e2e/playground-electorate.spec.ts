@@ -193,6 +193,43 @@ test.describe('Playground — Électorat', () => {
     expect(crashes).toEqual([]);
   });
 
+  test('a double-click on an empty spot of the map adds an entrant; on a candidate it does not', async ({
+    page,
+  }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-row-2"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toHaveCount(0);
+
+    // A spot inside the map, off the three candidates (a locator click: it scrolls the map into
+    // view and checks the point is reachable, which a raw page.mouse event does not).
+    const map = page.locator('[data-testid="leader-map"]');
+    const box = (await map.boundingBox())!;
+    await map.dblclick({ position: { x: box.width * 0.72, y: box.height * 0.2 } });
+
+    // A fourth row, and a fourth handle on the map. Not asserted: that it lands exactly under the
+    // pointer. It does not when the map is letterboxed (the viewport under ~885 px tall, where
+    // LeaderCanvas's maxHeight 52vh binds): makeSvgToDomain divides by the element's box and
+    // ignores the margin the square viewBox leaves.
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-3"]')).toBeVisible();
+
+    // A double-click on a candidate is the candidate's, not the ground's: no fifth entrant. Let
+    // the frames after the click land first, or "nothing appeared" is true of a handler that has
+    // not run yet.
+    await page.locator('[data-testid="candidate-0"]').dblclick();
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done()))
+        )
+    );
+    await expect(page.locator('[data-testid="candidate-row-4"]')).toHaveCount(0);
+    expect(crashes).toEqual([]);
+  });
+
   test('a name typed and left with a click elsewhere is kept (no Enter needed)', async ({
     page,
   }) => {

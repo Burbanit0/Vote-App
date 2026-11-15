@@ -153,8 +153,8 @@ def _mj_winner(ballots):
     return get_majority_judgment_winner(ballots)["winner"]
 
 NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"]
-# Names for the tied-profile block: sorted (so name order and index order agree, as the lock-order
-# ties of ranked_pairs / river and Kemeny still need), and chosen so that at seed 0 the lot draws
+# Names for the tied-profile block: sorted (so name order and index order agree, as Kemeny's choice
+# among equally good rankings still needs), and chosen so that at seed 0 the lot draws
 # the SECOND name of every pair and the middle one of the three ('Bea', 'Cat', 'Cat' for the pairs;
 # 'Bea' for the triple). With A/B/C the lot's two-way draws are the alphabetically first name, so
 # a name tie-break would pass the exhaustive block undetected; with these it fails.

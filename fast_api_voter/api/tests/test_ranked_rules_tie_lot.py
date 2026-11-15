@@ -10,7 +10,8 @@ name tie-break fails here.
 import pytest
 
 from api.engine.utils.method_registry import RANKED_RULES, rule_winner, winner_from_utilities
-from api.engine.utils.tie_lot import draw
+from api.engine.utils.simulation_ranked_utils import get_ranked_pairs_winner, get_river_winner
+from api.engine.utils.tie_lot import draw, edge_key
 
 TIED = ["Ann", "Cat"]
 # Mirror twins: every ballot of one kind has its mirror, so the rule cannot tell Ann from Cat.
@@ -134,3 +135,33 @@ def test_the_workers_helpers_take_the_requests_seed_for_a_ranked_tie():
     assert {_compute_winner(rankings, utils, "plurality", s) for s in range(12)} == set(TIED)
     # Sincere approval too: each approves their own favourite only.
     assert {_compute_winner(rankings, utils, "approval", s) for s in range(12)} == set(TIED)
+
+
+# A Condorcet cycle whose three majorities are equal (2-1 each): ranked pairs and River have to
+# pick which two to lock, and nothing but the lot can say. By name or by listing the answer would
+# always be the same candidate (A, with names sorted); by lot it is each of them under some seed.
+CYCLE = [["A", "B", "C"], ["B", "C", "A"], ["C", "A", "B"]]
+MAJORITIES = [("A", "B"), ("B", "C"), ("C", "A")]  # winner, loser
+
+
+def _lot_locked_winner(seed):
+    """The source of the two majorities the lot puts first. Written apart from the rules: in a
+    three-cycle any two edges form a path, so no cycle check is needed."""
+    first_two = sorted(MAJORITIES, key=lambda wl: edge_key(seed, *wl))[:2]
+    losers = {loser for _, loser in first_two}
+    (source,) = {c for c in "ABC" if c not in losers}
+    return source
+
+
+@pytest.mark.parametrize("rule", [get_ranked_pairs_winner, get_river_winner])
+def test_equal_majorities_are_locked_in_the_lots_order(rule):
+    assert [rule(CYCLE, seed=s) for s in range(32)] == [_lot_locked_winner(s) for s in range(32)]
+
+
+@pytest.mark.parametrize("rule", [get_ranked_pairs_winner, get_river_winner])
+def test_the_lock_order_follows_neither_the_names_nor_the_voters_order(rule):
+    drawn = {rule(CYCLE, seed=s) for s in range(32)}
+    assert drawn == {"A", "B", "C"}  # not always A, the first by name
+    for s in range(8):
+        assert rule(list(reversed(CYCLE)), seed=s) == rule(CYCLE, seed=s)
+    assert rule(CYCLE) == "B"  # seed 0: the client's tie test pins the same winner

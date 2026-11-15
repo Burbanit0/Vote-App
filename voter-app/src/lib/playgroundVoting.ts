@@ -6,7 +6,7 @@
 // Voter utility for a candidate is -distance (closer = better). Everything derives
 // from that: rankings for ordinal rules, per-voter min-max scores for cardinal ones.
 
-import { bestIndex, drawIndex } from './tieLot';
+import { bestIndex, drawIndex, edgeKey } from './tieLot';
 
 // Points carry an optional 3rd axis. 1-D uses x (y=z=0); 2-D uses x,y (z=0);
 // 3-D uses all three. z is optional so every existing 2-D caller is unchanged.
@@ -454,6 +454,21 @@ function winBaldwin(ranks: number[][], m: number, names: readonly string[]): num
 }
 
 /**
+ * The order ranked pairs and River lock the majorities in: margin desc, then winner support
+ * desc, then the seeded lot (`edgeKey`), never the index. The key is looked up only for two
+ * majorities equal on both counts, and once for each. Like every lot of this engine it is drawn at seed 0, so the
+ * backend agrees at its default seed only. Two equal keys (a 32-bit collision, or two candidates
+ * sharing a name) keep their insertion order: the listing's here, the names' on the backend.
+ */
+function byLockOrder(names: readonly string[]) {
+  type Majority = { margin: number; support: number; w: number; l: number; key?: number };
+  // Looked up once per majority, on its first tie: a sort compares each one many times.
+  const keyOf = (m: Majority): number => (m.key ??= edgeKey(names[m.w], names[m.l]));
+  return (a: Majority, b: Majority): number =>
+    b.margin - a.margin || b.support - a.support || keyOf(a) - keyOf(b);
+}
+
+/**
  * Ranked Pairs (Tideman, 1987): lock the strongest pairwise majorities first,
  * skipping any that would create a cycle; the source of the resulting acyclic
  * tournament wins. Elects the Condorcet winner when one exists, clone-independent.
@@ -469,8 +484,7 @@ function winRankedPairs(ranks: number[][], m: number, names: readonly string[]):
       else if (ji > ij) majorities.push({ margin: ji - ij, support: ji, w: j, l: i });
     }
   }
-  // Strongest first: margin desc, then winner support desc, then index order.
-  majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
+  majorities.sort(byLockOrder(names));
 
   const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
   const reaches = (src: number, dst: number): boolean => {
@@ -852,7 +866,7 @@ function winRiver(ranks: number[][], m: number, names: readonly string[]): numbe
       if (ij > ji) majorities.push({ margin: ij - ji, support: ij, w: i, l: j });
       else if (ji > ij) majorities.push({ margin: ji - ij, support: ji, w: j, l: i });
     }
-  majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
+  majorities.sort(byLockOrder(names));
 
   const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
   const inLock: boolean[] = new Array(m).fill(false); // does l already have an incoming lock?
@@ -956,10 +970,11 @@ function winRaynaud(ranks: number[][], m: number, names: readonly string[]): num
  * round tells apart, several sources of a lock graph), the seeded lot draws over the tied
  * candidates' NAMES (tieLot.ts), the same draw as its backend twin, so the two agree whatever
  * the listing order and the names. Without `names` the lot runs over the indices, which still
- * decides but follows listing order. Not yet on the lot, and still keyed on index here where
- * the backend keys on name: the lock order of ranked_pairs and river on equal margins, and
- * Kemeny's choice among equally good rankings (#926 follow-up). The exhaustive parity block
- * pins this, ties included, at up to 3 candidates.
+ * decides but follows listing order. The lock order of ranked_pairs and river on equal margins
+ * and supports is the lot's too (`edgeKey`, over the two names). Not yet on the lot, and still
+ * keyed on index here where the backend keys on name: Kemeny's choice among equally good
+ * rankings (#926 follow-up). The exhaustive parity block pins this, ties included, at up to 3
+ * candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],
