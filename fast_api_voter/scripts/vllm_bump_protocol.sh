@@ -24,12 +24,19 @@
 # Run it detached, it outlives a terminal:  setsid nohup scripts/vllm_bump_protocol.sh v0.34.0 > /dev/null 2>&1 &
 #
 # DRY=1 only runs the preflight and writes the two compose files, so the setup can be checked with the GPU idle.
-set -u
+set -u -o pipefail
 
 NEW_TAG="${1:?usage: scripts/vllm_bump_protocol.sh <new-tag, e.g. v0.34.0> [out-dir]}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"          # fast_api_voter/
 OUT="${2:-$HOME/Documents/Dev/polity-runs/vllm-$NEW_TAG}"
-PY="${PY:-$HERE/.venv/bin/python}"
+# The venv lives in one worktree only (the polity one): take the first worktree that has it, or set PY.
+if [ -z "${PY:-}" ]; then
+  for wt in "$HERE" $(git -C "$HERE" worktree list --porcelain | sed -n 's/^worktree //p'); do
+    [ -x "$wt/fast_api_voter/.venv/bin/python" ] && PY="$wt/fast_api_voter/.venv/bin/python" && break
+    [ -x "$wt/.venv/bin/python" ] && PY="$wt/.venv/bin/python" && break
+  done
+fi
+PY="${PY:-python3}"
 PROBE_MIN="${PROBE_MIN:-45}"                                      # of 50 answers; 0.31.0 gives 48
 NEED_GB="${NEED_GB:-45}"                                          # image (~33 GB) + logs
 BASE_COMPOSE="$HERE/docker-compose.llm.yml"
@@ -37,6 +44,7 @@ OLD_TAG="$(grep -oE 'image: vllm/vllm-openai:v[0-9.]+' "$BASE_COMPOSE" | head -1
 CTRL="$HERE/docker-compose.llm.bump-control.yml"                  # beside the original: relative paths hold
 NEW="$HERE/docker-compose.llm.bump-new.yml"
 cd "$HERE" || exit 1
+[[ "$NEW_TAG" =~ ^v[0-9]+(\.[0-9]+)+(rc[0-9]+)?$ ]] || { echo "STOP: '$NEW_TAG' is not a tag like v0.34.0 or v0.34.0rc1"; exit 1; }
 mkdir -p "$OUT"
 
 step() { echo; echo "=== $(date -u +%FT%TZ) $*"; }
@@ -46,7 +54,8 @@ die() { echo "STOP: $*"; exit 1; }
 healthy() {
   local t0=$SECONDS
   for _ in $(seq 1 240); do
-    curl -sf localhost:8000/health >/dev/null && { echo "healthy after $((SECONDS - t0)) s"; return 0; }
+    [ -n "$(docker ps --filter name='^vllm-polity$' --format '{{.Names}}')" ] \
+      && curl -sf localhost:8000/health >/dev/null && { echo "healthy after $((SECONDS - t0)) s"; return 0; }
     sleep 2
   done
   echo "NOT HEALTHY after $((SECONDS - t0)) s"; docker logs --tail 40 vllm-polity 2>&1; return 1
@@ -56,13 +65,19 @@ serverinfo() {
   docker logs vllm-polity 2>&1 | grep -E "Initializing a V1 LLM engine|speculative_config=|KV cache|Maximum concurrency|will be removed|deprecat|Traceback|ERROR" | cut -c1-400 | tail -14
 }
 serve() { docker compose -f "$1" up -d --force-recreate 2>&1 | tail -1; healthy && serverinfo; }
+# a server that does not come up ends the chain (the trap stops it): an hour of steps against nothing is worse
+must_serve() { serve "$1" || die "the server did not come up ($1)"; }
+restart_vllm() { docker compose -f "$1" restart vllm 2>&1 | tail -1; healthy || die "no healthy server after the restart"; }
 ab() { "$PY" scripts/check_vllm_speculation_ab.py "$1" "$2" "$OUT/ab/$1" 2>&1 | grep -E "AB_RESULT|Error|Traceback"; rc; }
 bank() { "$PY" scripts/run_bakeoff.py --label "$1" --out "$OUT/bank" "${@:2}" > "$OUT/$1.log" 2>&1; rc; tail -5 "$OUT/$1.log"; }
 # valid answers among the response_sweep rows of a bank session, "valid/total"
 probe_valid() {
   "$PY" - "$OUT/bank/$1/results.jsonl" <<'PY'
 import json, sys
-rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+try:
+    rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+except OSError:
+    print("none"); sys.exit(0)
 sweep = [r for r in rows if r.get("family") == "response_sweep"]
 print(f"{sum(1 for r in sweep if r.get('valid'))}/{len(sweep)}")
 PY
@@ -80,6 +95,8 @@ step PRE preflight
 docker info >/dev/null 2>&1 || die "docker is not reachable"
 others="$(docker ps --format '{{.Names}} {{.Image}}' | grep -i vllm || true)"
 [ -z "$others" ] || die "a vLLM container is running ($others): the GPU is shared with other sessions, stop it only if you know nothing uses it"
+! (exec 3<>/dev/tcp/127.0.0.1/8000) 2>/dev/null || die "something already listens on :8000"
+exec 9>"${TMPDIR:-/tmp}/vllm_bump_protocol.lock"; flock -n 9 || die "another run of this protocol is in progress"
 used="$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)"
 [ "${used:-99999}" -lt 2000 ] || die "the GPU has ${used} MiB in use: something else is on it"
 free_gb="$(df -BG --output=avail /var/lib/docker | tail -1 | tr -dc 0-9)"
@@ -98,10 +115,26 @@ echo "preflight ok: GPU ${used} MiB used, ${free_gb} GB free, images present"
 
 exec > >(tee -a "$OUT/chain.log") 2>&1
 
-step B0 serve "$NEW_TAG"; serve "$NEW"
+# Whatever ends the run (a failed step, Ctrl-C, a kill), the GPU is handed back: the server was stopped at start.
+# The tracked results files two steps rewrite are saved to $OUT and restored, so the worktree stays clean.
+cleanup() {
+  trap - EXIT
+  docker compose -f "$NEW" down >/dev/null 2>&1; docker compose -f "$CTRL" down >/dev/null 2>&1
+  docker compose -f "$HERE/docker-compose.llm.bump-arm.yml" down >/dev/null 2>&1
+  docker rmi "vllm-probe:$NEW_TAG-sep" >/dev/null 2>&1
+  for f in scripts/check_thinking_token_budget_results.md scripts/check_schema_order_results.md; do
+    if ! git diff --quiet -- "$f" 2>/dev/null; then cp "$f" "$OUT/$(basename "$f" .md).new-run.md"; git checkout -- "$f"; fi
+  done
+  echo "cleanup done $(date -u +%FT%TZ)"
+}
+trap cleanup EXIT
+trap 'echo INTERRUPTED; exit 130' INT TERM HUP
+
+step B0 serve "$NEW_TAG"; must_serve "$NEW"
 step B1 PROBE response_sweep on "$NEW_TAG"; bank probe-new --families response_sweep
 ok="$(probe_valid probe-new)"; echo "PROBE: $ok valid (stop below $PROBE_MIN of 50)"
-if [ "${ok%%/*}" -lt "$PROBE_MIN" ] && [ "${FORCE:-0}" != 1 ]; then
+probe_failed() { case "$1" in [0-9]*/[0-9]*) [ "${1%%/*}" -lt "$PROBE_MIN" ];; *) true;; esac; }  # no result counts as a fail
+if probe_failed "$ok" && [ "${FORCE:-0}" != 1 ]; then
   # The one-variable arm that explained 0.33 (EXP-026): the same image with the compact-JSON line undone.
   # ARM=0 skips it. If it passes, the cause is the same line and only the pin decision is left.
   if [ "${ARM:-1}" = 1 ]; then
@@ -120,7 +153,7 @@ PYEOF
 DOCKER
     if docker build -q -t "vllm-probe:$NEW_TAG-sep" "$ARM_DIR" > "$ARM_DIR/build.log" 2>&1; then
       sed "s#vllm/vllm-openai:$NEW_TAG#vllm-probe:$NEW_TAG-sep#" "$NEW" > "$HERE/docker-compose.llm.bump-arm.yml"
-      serve "$HERE/docker-compose.llm.bump-arm.yml"
+      serve "$HERE/docker-compose.llm.bump-arm.yml" || echo "ARM server did not come up"
       bank probe-arm-sep --families response_sweep
       echo "ARM separators restored: $(probe_valid probe-arm-sep) valid  (stock $NEW_TAG: $ok, $OLD_TAG: see EXP-026, 48/50)"
       docker compose -f "$HERE/docker-compose.llm.bump-arm.yml" down 2>&1 | tail -1
@@ -140,7 +173,6 @@ PROBE FAILED on $NEW_TAG ($ok). This is the 0.32 / 0.33 failure unless the raw o
      separators line restored (backend_xgrammar.py: separators = None). docs/exploration/EXP-026 has both Dockerfiles.
   4. The pin stays on $OLD_TAG (owner's call). Re-run with FORCE=1 to run the rest anyway.
 EOF
-  step C0 stop; docker compose -f "$NEW" down 2>&1 | tail -2
   echo "CHAIN_STOPPED_AT_PROBE $(date -u +%FT%TZ)"; exit 2
 fi
 
@@ -149,9 +181,9 @@ mkdir -p "$OUT/thinking-new"
 mv scripts/check_thinking_token_budget_results.calls.jsonl scripts/check_thinking_token_budget_results.json scripts/llm_calls_summary.json "$OUT/thinking-new/" 2>/dev/null
 git diff --stat scripts/check_thinking_token_budget_results.md   # byte-identical when the budget is honoured
 step B3 determinism within the run; "$PY" scripts/check_vllm_batching_determinism.py --save "$OUT/det-new.json" 2>&1 | tail -15; rc
-step B4 restart then determinism across it; docker compose -f "$NEW" restart vllm 2>&1 | tail -1; healthy
+step B4 restart then determinism across it; restart_vllm "$NEW"
 "$PY" scripts/check_vllm_batching_determinism.py --compare "$OUT/det-new.json" 2>&1 | tail -15; rc
-for i in 1 2 3; do step B5.$i restart $i; docker compose -f "$NEW" restart vllm 2>&1 | tail -1; healthy
+for i in 1 2 3; do step B5.$i restart $i; restart_vllm "$NEW"
   curl -s localhost:8000/v1/models | head -c 200; echo; done
 serverinfo
 step B6 live suite; POLITY_VLLM_LIVE=1 POLITY_VLLM_URL=http://localhost:8000/v1 timeout 3600 "$PY" -m pytest api/tests/test_polity_vllm_live.py -o addopts="" -q -rfxXs --tb=short -p no:logging > "$OUT/live-new.log" 2>&1; rc; tail -15 "$OUT/live-new.log"
@@ -164,7 +196,7 @@ step O1 field order isolation; "$PY" scripts/check_schema_order.py isolation 2>&
 step O2 field order run; "$PY" scripts/check_schema_order.py run --out "$OUT/order" --restart-between-controls "docker compose -f $NEW restart vllm" > "$OUT/order-run.log" 2>&1; rc; tail -5 "$OUT/order-run.log"
 step O3 field order decide; "$PY" scripts/check_schema_order.py decide --out "$OUT/order" > "$OUT/order-decide.log" 2>&1; rc; tail -25 "$OUT/order-decide.log"
 
-step A0 serve the pinned $OLD_TAG as control; serve "$CTRL"
+step A0 serve the pinned $OLD_TAG as control; must_serve "$CTRL"
 step A1 PROBE on $OLD_TAG; bank probe-control --families response_sweep
 echo "control PROBE: $(probe_valid probe-control) valid"
 step A2 warm-up 1y; ab W-ctl 1
