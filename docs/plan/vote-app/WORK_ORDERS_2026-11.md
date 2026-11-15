@@ -91,6 +91,14 @@ the owner's"). Ask the question; do not answer it yourself.
   listens, or run your spec with a copy of the config on another port (build with
   `vite build --outDir node_modules/.e2e-build-<name>`, serve with `vite preview --port
   <other>`), and delete the copy afterwards.
+- **Local WebKit dies at `page.goto`** ("WebKit encountered an internal error") when the shell
+  was started from the VS Code snap (Linux): the snap leaks `GIO_MODULE_DIR`, a module cache
+  built against the snap's older glibc, and WebKit's network process loads it
+  (`DEBUG=pw:browser` shows `symbol lookup error: /snap/core20/.../libpthread.so.0`). Nothing
+  else of the snap's environment matters. Run `env -u GIO_MODULE_DIR npx playwright test
+  --project=webkit …`. To see a WebKit-only race, add load: `yes > /dev/null` a couple of times
+  per core and `--workers` equal to the cores (stop them with `pkill -x yes`, never `pkill -f`,
+  which matches your own shell).
 - **Visual baselines** are rendered in the pinned Playwright image
   (`voter-app/scripts/test-visual-docker.sh --update-snapshots`, needs Docker and the backend
   on `:4434`). Without Docker: let the PR's "Visual regression" job fail once, download its
