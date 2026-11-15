@@ -405,3 +405,6 @@ INTERVIEW_PREP.md
 # The `!.claude/hooks/**` re-include above also re-includes the bytecode the
 # hooks leave behind when they import each other; exclude it again here (after).
 .claude/hooks/**/__pycache__/
+
+# vllm_bump_protocol.sh writes these beside docker-compose.llm.yml for the length of a run
+fast_api_voter/docker-compose.llm.bump-*.yml
