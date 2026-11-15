@@ -17,6 +17,12 @@ What is here:
 - **The one-off LLM spikes and calibrations** (`check_vllm_*`, `check_pressure_*`,
   `stage4_llm_*`, …). Apart from their own `_results.md` and the journal, nothing refers to them.
 
+- **The `check_*` experiments of the prompt-and-chunk-size era, archived 2026-11-15** (26 scripts: the
+  `check_pressure_action_*` and `*_collapse_signature` studies, the chunk-size and positional-bias checks,
+  the vote-cast cache checks, `check_vllm_speculation_ab`). No code, workflow or script referenced them;
+  their results are in their `_results.md` and the plan docs. `check_vllm_speculation_ab` was the
+  two-arm run of the vLLM bump protocol: a bump now needs it back from history (below), or a new one.
+
 Other files still mention these scripts. Where a path was written out (`scripts/<name>.py`),
 it now reads `scripts/archive/<name>.py`. Where only the file name is given (in docstrings,
 ADRs, plan docs and `_results.md` files), it stays as written: look for it here. The journal

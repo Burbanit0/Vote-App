@@ -3,7 +3,7 @@
 §5.D of `plan-llm-protocol-and-theory-program.md`: does a citizen's decision depend on WHERE they
 sat in a batched chunk (Liu et al. 2023, "lost in the middle")? Chunk composition was never
 journaled directly, but `chunk_voters` is a pure, deterministic function of (ordered citizen list,
-chunk size) — reconstructable after the fact from `scripts/check_positional_bias_within_chunk.py`,
+chunk size) — reconstructable after the fact from `scripts/archive/check_positional_bias_within_chunk.py`,
 zero GPU cost, run against `scripts/flagship_runs/parity-8y-p100-chunked-v1` (8y/pop100, the
 completed Phase 7 parity run).
 
