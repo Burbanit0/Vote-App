@@ -14,7 +14,7 @@ const setActiveMoment = vi.fn();
 const SNAP_CONFIG = { ...DEFAULT_CONFIG, seed: 999 };
 const SNAP_PLAYGROUND = { ...DEFAULT_PLAYGROUND, behavior: 'strategic' as const };
 // Mutable so a test can flip the Dirigeant/Assemblée toggle between renders.
-const ctxState = { mode: 'leader' as 'leader' | 'parliament' };
+const ctxState = { mode: 'leader' as 'leader' | 'parliament', linkOpens: 0 };
 
 // StoryPlayer composes useStoreCtx() + useJourneyCtx(); it only reads its own
 // fields from each, so one flat fixture serves both. A factory (not a const) so
@@ -23,6 +23,7 @@ const ctxFixture = () => ({
   config: SNAP_CONFIG,
   playground: SNAP_PLAYGROUND,
   mode: ctxState.mode,
+  linkOpens: ctxState.linkOpens,
   leaderRule: 'borda',
   activeMoment: 'campaign',
   setConfig,
@@ -42,6 +43,7 @@ import StoryPlayer from '../StoryPlayer';
 beforeEach(() => {
   vi.clearAllMocks();
   ctxState.mode = 'leader';
+  ctxState.linkOpens = 0;
   window.history.replaceState({}, '', '/playground');
 });
 
@@ -136,5 +138,44 @@ describe('StoryPlayer', () => {
     expect(screen.getByTestId('story-bar')).toBeInTheDocument();
     expect(setActiveMoment).toHaveBeenCalledWith('method');
     expect(screen.getByTestId('story-beat')).toHaveTextContent('Left, Centre, Right');
+  });
+
+  describe('a scenario link opened mid-story', () => {
+    const play = () => {
+      const view = render(<StoryPlayer />);
+      fireEvent.click(screen.getByTestId('story-launch'));
+      fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+      return view;
+    };
+
+    it('ends the story and leaves the scenario of the link, restoring nothing over it', () => {
+      const view = play();
+      setConfig.mockClear();
+      setPlayground.mockClear();
+      ctxState.linkOpens = 1;
+      view.rerender(<StoryPlayer />);
+      expect(screen.queryByTestId('story-bar')).toBeNull();
+      expect(screen.getByTestId('story-launch')).toBeInTheDocument();
+      expect(setConfig).not.toHaveBeenCalled();
+      expect(setPlayground).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when no story is playing', () => {
+      const view = render(<StoryPlayer />);
+      ctxState.linkOpens = 1;
+      view.rerender(<StoryPlayer />);
+      expect(screen.getByTestId('story-launch')).toBeInTheDocument();
+      expect(setConfig).not.toHaveBeenCalled();
+    });
+
+    it('leaves a story that began in the same render as the link', () => {
+      window.history.replaceState({}, '', '/playground?story=spoiler');
+      // The link opens (the count changes) in the render that the story's own start causes.
+      setActiveMoment.mockImplementationOnce(() => {
+        ctxState.linkOpens = 1;
+      });
+      render(<StoryPlayer />);
+      expect(screen.getByTestId('story-bar')).toBeInTheDocument();
+    });
   });
 });

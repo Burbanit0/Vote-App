@@ -2,14 +2,13 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Users, Vote, Swords, TrendingUp, Scale, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { MomentId } from '../../lib/journeyTypes';
 
 // MomentRail — the spine of the single-instrument journey. Five "moments" from
 // simple to complex, one active at a time. The others are not hidden in a drawer:
 // their effect is already baked into the live instrument; the rail only swaps
 // which knobs are in your hand. Labels/hints come from the `playground` i18n
 // namespace (moments.<id>.label / .hint).
-
-export type MomentId = 'electorate' | 'method' | 'strategy' | 'campaign' | 'bilan';
 
 export const MOMENTS: { id: MomentId; n: string; Icon: LucideIcon }[] = [
   { id: 'electorate', n: '1', Icon: Users },

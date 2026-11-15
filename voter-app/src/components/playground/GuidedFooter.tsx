@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useJourneyCtx } from './PlaygroundController';
-import { MOMENTS, type MomentId } from './MomentRail';
+import { MOMENTS } from './MomentRail';
+import type { MomentId } from '../../lib/journeyTypes';
 
 // GuidedFooter — the guided fil. Walks the moments in order (simple → complex),
 // one sentence at a time, with prev/next. It drives the SAME instrument as free

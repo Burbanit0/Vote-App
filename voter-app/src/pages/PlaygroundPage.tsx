@@ -16,6 +16,7 @@ import InstrumentPanel from '../components/playground/InstrumentPanel';
 import GuidedFooter from '../components/playground/GuidedFooter';
 import WinnerStrip from '../components/playground/WinnerStrip';
 import StoryPlayer from '../components/playground/StoryPlayer';
+import { ShareScenarioButton, SharedScenarioNotice } from '../components/playground/ScenarioShare';
 import { track } from '../lib/analytics';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
@@ -91,8 +92,14 @@ const PlaygroundShell: React.FC = () => {
             {t('masthead.subtitle')}
           </p>
         </div>
-        <ModeSwitch />
+        <div className="flex w-full max-w-xs shrink-0 flex-col gap-2">
+          <ModeSwitch />
+          <ShareScenarioButton />
+        </div>
       </header>
+
+      {/* ── A scenario opened from a link, with the way back to the visitor's own ── */}
+      <SharedScenarioNotice />
 
       {/* ── Histoires: guided narratives over the same instrument ── */}
       <StoryPlayer />

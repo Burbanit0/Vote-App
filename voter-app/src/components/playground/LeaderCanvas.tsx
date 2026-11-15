@@ -16,6 +16,7 @@ import {
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
+import type { Lens } from '../../lib/journeyTypes';
 import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 import LeaderScene3D, { type SceneCamera } from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
@@ -37,7 +38,6 @@ import NoShowParadox from './NoShowParadox';
 // tints voters by their incentive to vote strategically; 'probability' reads the
 // map as the random-ballot lottery. 'criteria' arrives in a later batch — only
 // implemented lenses appear in the switch.
-export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
 const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
 

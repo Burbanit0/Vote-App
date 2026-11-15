@@ -1,8 +1,8 @@
 import React, { createContext, useContext } from 'react';
 import { useElection, usePlayground } from '../../stores/useElectionStore';
 import { useProfileDiagnostics, useAssembly } from '../../hooks/usePlaygroundData';
-import { type Lens } from './LeaderCanvas';
-import { type MomentId } from './MomentRail';
+import { type Lens, type MomentId } from '../../lib/journeyTypes';
+import { useScenarioLink, type PendingLens } from '../../hooks/useScenarioLink';
 import {
   sampleVoters,
   applyTurnout,
@@ -82,15 +82,33 @@ function useController() {
   // to WinnerRobustness's strip arriving above the lens switch mid-click; that
   // component now holds its place while it computes.
   const [lens, setLens] = React.useState<Lens>('winner');
+  // A lens that came with a scenario link, to show instead of the default one of the moment it
+  // came with (it counts for that moment only, so one left over is never shown in another).
+  const pendingLens = React.useRef<PendingLens | null>(null);
   React.useLayoutEffect(() => {
+    const pending = pendingLens.current?.moment === activeMoment ? pendingLens.current.lens : null;
+    pendingLens.current = null;
     setLens(
-      activeMoment === 'method'
-        ? 'criteria'
-        : activeMoment === 'strategy'
-          ? 'manipulation'
-          : 'winner'
+      pending ??
+        (activeMoment === 'method'
+          ? 'criteria'
+          : activeMoment === 'strategy'
+            ? 'manipulation'
+            : 'winner')
     );
   }, [activeMoment]);
+  // After the lens effect above, so a link's lens is applied over the default one.
+  const { sharedLink, opened: linkOpens } = useScenarioLink({
+    activeMoment,
+    leaderRule,
+    lens,
+    setActiveMoment: _setActiveMoment,
+    setLeaderRule: _setLeaderRule,
+    setLens,
+    pendingLens,
+    setConfig,
+    setPlayground,
+  });
 
   // Phase 0 perf: warm the heavy Recharts vendor chunk after first paint, so the
   // first behaviour/analysis panel that uses it opens without a cold parse.
@@ -609,8 +627,20 @@ function useController() {
       lens,
       setLens,
       showYou,
+      sharedLink,
+      linkOpens,
     }),
-    [activeMoment, setActiveMoment, leaderRule, setLeaderRule, lens, setLens, showYou]
+    [
+      activeMoment,
+      setActiveMoment,
+      leaderRule,
+      setLeaderRule,
+      lens,
+      setLens,
+      showYou,
+      sharedLink,
+      linkOpens,
+    ]
   );
 
   const instrumentCtx = React.useMemo(
