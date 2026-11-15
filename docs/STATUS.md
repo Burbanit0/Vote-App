@@ -31,8 +31,8 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
 
 1. **Correctness** ([Phase 3](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-3-correctness)),
    what is left: one stated convention for truncated ballots per rule and one shared
-   pairwise-defeat definition; one electorate for both engines; #926's leftovers (the lock
-   order of ranked pairs and River, Kemeny, the runners-up, two tallies in the theory and
+   pairwise-defeat definition; one electorate for both engines; #926's leftovers (Kemeny,
+   the runners-up, two tallies in the theory and
    multiwinner code, the apportionment comparison; Hotelling and identity voting need an
    owner decision, all in `LISTING_ORDER_TIES.md`). The first two are high-risk paths.
 2. **Process diet** ([Phase 6](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-6-process-diet)),

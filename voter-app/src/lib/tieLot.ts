@@ -7,6 +7,8 @@
 // with murmur3's fmix32; the index is that hash modulo the number of tied names. Finalised
 // because the raw hash's low bit is only a parity: two tied names would alternate with the
 // seed's. Keep the two in step: tieLot.test.ts and test_tie_lot.py pin the same values.
+// `edgeKey` is the same hash over the seed, "edge", a majority's winner and its loser (in that
+// order): it orders equal majorities when ranked pairs and River lock them.
 
 const SEP = '\u001f';
 
@@ -37,6 +39,27 @@ const ENCODER = new TextEncoder();
 export function drawName(tied: readonly string[], seed = 0): string {
   const names = [...tied].sort(byCodePoint);
   return names[fmix32(fnv1a(ENCODER.encode([String(seed), ...names].join(SEP)))) % names.length];
+}
+
+// The key of a (seed, winner, loser) never changes, and a ranking sort asks for it on every
+// comparison: a property test or a Monte-Carlo sweep calls ranked pairs and River thousands of
+// times on a handful of names. Remembered, then, with a cap so that renaming candidates for ever
+// cannot grow it without bound (it is simply emptied when full).
+const EDGE_KEYS = new Map<string, number>();
+const EDGE_KEYS_CAP = 4096;
+
+/** The lot's place for one pairwise majority `winner` over `loser`: the key that orders equal
+ * majorities (same margin, same support) when ranked pairs and River lock them, as tie_lot.py's
+ * `edge_key`: FNV-1a of the seed, "edge" and the two names, finalised. */
+export function edgeKey(winner: string, loser: string, seed = 0): number {
+  const id = `${seed}${SEP}${winner}${SEP}${loser}`;
+  let key = EDGE_KEYS.get(id);
+  if (key === undefined) {
+    if (EDGE_KEYS.size >= EDGE_KEYS_CAP) EDGE_KEYS.clear();
+    key = fmix32(fnv1a(ENCODER.encode([String(seed), 'edge', winner, loser].join(SEP))));
+    EDGE_KEYS.set(id, key);
+  }
+  return key;
 }
 
 /** The index among `pool` drawn by lot over their names, mapped back within `pool` (so
