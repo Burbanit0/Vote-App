@@ -2,7 +2,8 @@
 
 > Where each part of the project stands and what comes next. One page, updated at
 > the end of each phase of [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md) and whenever
-> the next steps change. Last update: **2026-11-14**: **v0.3.0 is released** (2026-11-12) and the static
+> the next steps change. Last update: **2026-11-15**: Polity reviewed, with its own page and next
+> step ([`polity-state-2026-11.md`](plan/polity/polity-state-2026-11.md)). Before that, 2026-11-14: **v0.3.0 is released** (2026-11-12) and the static
 > site is **live** at https://burbanit0.github.io/Vote-App/ (the app, with the engine running
 > in the page; `/ci/` is still the CI dashboard). A four-part audit and the open issues are
 > folded into [`PLAN_GLOBAL_2026-11.md`](plan/vote-app/PLAN_GLOBAL_2026-11.md); its Phases 0,

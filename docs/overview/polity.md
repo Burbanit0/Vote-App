@@ -12,8 +12,12 @@ a constitution that can be amended, recalls, petitions, street pressure and a fo
 open-weights LLM takes some of the decisions; a deterministic kernel takes the rest and applies
 all of them.
 
-**Where it is going.** The current era's plan, the agency roadmap
-([`plan-polity-agency-roadmap.md`](../plan/polity/plan-polity-agency-roadmap.md), set 2026-09-27),
+**Where it is going.** Since 2026-11-15 the page to read is
+[`polity-state-2026-11.md`](../plan/polity/polity-state-2026-11.md), with
+[`plan-scenarios-v1.md`](../plan/polity/plan-scenarios-v1.md) for what to build. The plan of the era
+this page describes, the agency roadmap
+([`plan-polity-agency-roadmap.md`](../plan/polity/plan-polity-agency-roadmap.md), set 2026-09-27,
+now superseded),
 is titled *from classified citizens to a polity that rewrites itself*: from a model that classifies
 batches of citizens into closed codes, to citizens and leaders who act in the first person inside
 institutions they can change. Its phases (leaders, constitution, public sphere, parties, extra-legal
