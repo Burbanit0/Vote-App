@@ -12,7 +12,7 @@ import math as _math
 import random as _random
 from collections import Counter
 from operator import itemgetter
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import numpy as _np
 
@@ -1277,6 +1277,16 @@ def _build_primary_candidate(
     return _build_candidate_from_xy(i, name, ideology_pos, 0.0, issues)
 
 
+def _runner_up(
+    names: list[str], first_choices: Mapping[str, int], winner: Optional[str], seed: object,
+) -> Optional[str]:
+    """Second place: the most first preferences among the candidates but the winner (whatever
+    rule elected it), counted exactly, since the reported shares are rounded. A tie for second
+    used to go to whoever was listed first; it is drawn by the seeded lot over the names."""
+    others = [n for n in names if n != winner]
+    return tie_lot.best(others, lambda n: first_choices.get(n, 0), seed) if others else None
+
+
 def _run_primary(
     primary_candidates: list[Dict[str, Any]],
     party_voters: list[Dict[str, Any]],
@@ -1321,10 +1331,8 @@ def _run_primary(
         top = max(vote_shares.values())
         winner = str(lots.choice(sorted(n for n in cand_names if vote_shares[n] == top)))
 
-    sorted_by_share = sorted(cand_names, key=lambda n: -vote_shares.get(n, 0))
-    runner_up = next((n for n in sorted_by_share if n != winner), None)
-
-    return {"winner": winner, "runner_up": runner_up, "vote_shares": vote_shares}
+    return {"winner": winner, "runner_up": _runner_up(cand_names, first, winner, seed),
+            "vote_shares": vote_shares}
 
 
 #: The rules /primary's three elections (primaries, general, no-primaries) run.
@@ -1464,10 +1472,10 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ballot, who then also got a runner-up and a median-voter distance.
     general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters, seed=seed)
 
-    sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
-    general_runner_up = next(
-        (c["name"] for c in sorted_gen if c["name"] != general_winner_name), None,
-    ) if general_winner_name else None
+    general_runner_up = (
+        _runner_up([c["name"] for c in general_ballot_cands], first_gen, general_winner_name, seed)
+        if general_winner_name else None
+    )
 
     # ── Median voter distance ─────────────────────────────────────────────
     winner_cand_obj = next(

@@ -1,6 +1,6 @@
 # Listing-order ties
 
-> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5), and so are the lot's finaliser (#1066), the ranked rules (#1074), the workers' tallies (#1076) and the lock order of ranked pairs and River (#1083) and Kemeny-Young's equal rankings (#1088) (#926); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5), and so are the lot's finaliser (#1066), the ranked rules (#1074), the workers' tallies (#1076), the lock order of ranked pairs and River (#1083), Kemeny-Young's equal rankings (#1088) and the last aggregates, tallies and runners-up (#1090) (#926); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
@@ -81,6 +81,7 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 | #1076 | The workers' aggregate tallies draw an exact tie by the request's seed instead of by name: the cascade, shy-voter (real and polled), NOTA (a tie goes to a candidate, drawn among those tied), liquid democracy, approval in the behavioral-biases and choice-overload workers, abstention and gerrymander (first choices), the compulsory-voting run, vote-steps approval, the Polis election, identity plurality, evaluative voting, quadratic voting (the winner, and a voter's odd leftover vote, now a per-voter lot), and random ballot's most probable winner in `compare_all_methods` |
 | #1083 | The lock order of ranked pairs and River on equal margins and supports follows the seeded lot, not the names (backend) or the indices (client): `tie_lot.edge_key` and its twin `edgeKey` hash the seed and the majority's two names, and the equal majorities are locked in that order. The client sorts with the same key (hashed only for two majorities equal on both counts), at seed 0 like its other lots, so the engines agree at the backend's default seed. The parity fixture is regenerated |
 | #1088 | Kemeny-Young's choice among equally good rankings, on the exact path (up to 10 candidates), is a draw by the seeded lot on both engines: several candidates can head an optimal ranking, every one that can is collected from the full set of the subset DP, and `tie_lot.draw` (`bestOf` on the client) picks one over their names with the request's seed, not the name-smallest (backend) or index-smallest (client). The client draws at seed 0 like its other lots. The parity fixture is regenerated |
+| #1090 | Three aggregates that still followed the listing order or the names, now drawn by the seeded lot over the names: the epistocracy worker's tally winner (`tally.index(max(tally))`, first-listed), the Equal Shares completion's fallback when it has no rng (`sorted(..., key=(-approval, name))`; it takes a `seed`, and draws each place in turn), and the runners-up of `/primary`'s primaries and of its general election (the second place of a tie). The runner-up is now read off the first-preference counts, not their 4-place rounded shares |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
@@ -96,11 +97,10 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
   nothing: IRV, Coombs, Nanson, Baldwin, Raynaud, Benham and Smith-IRV drop every candidate
   tied for last together, so a round has no tie to break; only a tie among the last survivors
   is left, and that is drawn.)
-- aggregate tallies that still follow the listing order or the names: the theory workers'
-  assumption-testing winner (`tally.index(max(tally))`, first-listed on a tie) and the
-  multiwinner completion's rng-less fallback (`sorted(..., key=(-approval, name))`, by name);
-- the runners-up the workers report (`runner_up` in `/primary` and the districts worker): the
-  second place of a tie follows the listing order;
+- Equal Shares' main loop: two candidates with the same per-voter price `rho` are elected by name
+  (`c < best_c` in `get_equal_shares_result`), with or without an rng, and the same shape in the
+  load-balancing rule above it (`c < best_candidate`). Found while doing P3-3; a lot there changes
+  which candidate is elected first, so it is its own work order, not a completion tie;
 - the theory workers' apportionment comparison (`_hamilton` and the four divisor methods in
   `theory/workers.py`), which break a quotient tie by name on purpose, to show the methods side
   by side;
