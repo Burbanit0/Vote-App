@@ -8,7 +8,7 @@ from fractions import Fraction
 from itertools import combinations
 from typing import Any, Optional
 
-from .tie_lot import best, draw
+from .tie_lot import best, draw, edge_key
 
 
 def _is_dict_format(votes: list[Any]) -> bool:
@@ -1010,9 +1010,10 @@ def get_ranked_pairs_winner(
     a cycle; the source of the resulting acyclic tournament is the winner.
     Elects the Condorcet winner whenever one exists, and is clone-independent.
 
-    Tie-break for equal margins: stronger winner support first, then alphabetical
-    on (winner, loser) so the lock order — and therefore the winner — is
-    deterministic. A pairwise tie contributes no locked edge.
+    Tie-break for equal margins: stronger winner support first, then the seeded lot
+    (`tie_lot.edge_key`) on (winner, loser), so the lock order — and therefore the
+    winner — is deterministic and never follows the names. A pairwise tie
+    contributes no locked edge.
     """
     if not votes:
         return None
@@ -1032,7 +1033,8 @@ def get_ranked_pairs_winner(
             majorities.append((ab - ba, ab, a, b))
         elif ba > ab:
             majorities.append((ba - ab, ba, b, a))
-    majorities.sort(key=lambda m: (-m[0], -m[1], m[2], m[3]))
+    # Equal margin and support: the seeded lot orders them (the names only if two keys collide).
+    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3]), m[2], m[3]))
 
     locked: dict[str, set[str]] = {c: set() for c in candidates}
 
@@ -1074,8 +1076,8 @@ def get_river_winner(
     rather than a general acyclic tournament. The tree's root (no incoming
     lock) wins. Elects the Condorcet winner whenever one exists.
 
-    Tie-break for equal margins: stronger winner support first, then
-    alphabetical on (winner, loser) -- same convention as Ranked Pairs. If
+    Tie-break for equal margins: stronger winner support first, then the seeded
+    lot on (winner, loser) -- same convention as Ranked Pairs. If
     several disjoint roots remain (ties left some pairs unlocked), the seeded lot
     draws among them.
     """
@@ -1096,7 +1098,8 @@ def get_river_winner(
             majorities.append((ab - ba, ab, a, b))
         elif ba > ab:
             majorities.append((ba - ab, ba, b, a))
-    majorities.sort(key=lambda m: (-m[0], -m[1], m[2], m[3]))
+    # Equal margin and support: the seeded lot orders them (the names only if two keys collide).
+    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3]), m[2], m[3]))
 
     locked: dict[str, set[str]] = {c: set() for c in candidates}
     has_parent: dict[str, bool] = {c: False for c in candidates}

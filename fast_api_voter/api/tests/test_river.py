@@ -39,7 +39,10 @@ def test_river_can_diverge_from_ranked_pairs_when_a_loser_would_take_two_locks()
     """Found by random search: on this 4-candidate cyclic profile, Ranked
     Pairs lets a candidate accept a SECOND incoming lock (no cycle formed),
     while River's one-lock-per-candidate rule forces that edge to be
-    dropped -- reshaping the tree enough to change the root."""
+    dropped -- reshaping the tree enough to change the root.
+
+    Five of the six margins in this profile are equal, so the seeded lot orders the locks and
+    the rules agree under most seeds (D at seed 0); seed 9 is one where they differ."""
     ballots = [
         ["D", "A", "C", "B"],
         ["C", "B", "A", "D"],
@@ -54,8 +57,8 @@ def test_river_can_diverge_from_ranked_pairs_when_a_loser_would_take_two_locks()
         ["B", "D", "C", "A"],
     ]
     assert get_condorcet_winner(ballots) is None
-    assert get_ranked_pairs_winner(ballots) == "D"
-    assert get_river_winner(ballots) == "C"
+    assert get_ranked_pairs_winner(ballots, seed=9) == "B"
+    assert get_river_winner(ballots, seed=9) == "C"
 
 
 def test_river_single_and_empty():

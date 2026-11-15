@@ -65,6 +65,14 @@ def draw(tied: Iterable[T], seed: object = 0) -> T:
     return names[_fmix32(_hash(seed, *names)) % len(names)]
 
 
+def edge_key(seed: object, winner: object, loser: object) -> int:
+    """The lot's place for one pairwise majority `winner` over `loser`: the key that orders
+    equal majorities (same margin, same support) when ranked pairs and River lock them, so
+    the lock order never follows the names or the listing. A hash of the seed and the two
+    names, finalised (see `_fmix32`); the twin of `edgeKey` in tieLot.ts."""
+    return _fmix32(_hash(seed, "edge", winner, loser))
+
+
 def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> List[T]:
     """`names` by value, highest first. A tie (see `tied`) is ordered by a hash of the
     seed and each name, never by the listing order; seed it per voter (their id), so a

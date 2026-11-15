@@ -256,6 +256,31 @@ describe('extended method set (29 rules)', () => {
     expect(ruleWinnerFromRanks(ranks, 3, 'ranked_pairs', undefined)).toBe(0);
   });
 
+  it.each(['ranked_pairs', 'river'] as Rule[])(
+    '%s locks equal majorities in the lot order, whatever the listing',
+    (rule) => {
+      // A>B>C>A, each majority 2-1: which two to lock is the lot's to say. Seed 0 draws B
+      // (test_ranked_rules_tie_lot.py pins the same winner on the backend).
+      const ballots = [
+        ['A', 'B', 'C'],
+        ['B', 'C', 'A'],
+        ['C', 'A', 'B'],
+      ];
+      const perms = [
+        ['A', 'B', 'C'],
+        ['A', 'C', 'B'],
+        ['B', 'A', 'C'],
+        ['B', 'C', 'A'],
+        ['C', 'A', 'B'],
+        ['C', 'B', 'A'],
+      ];
+      for (const listing of perms) {
+        const ranks = ballots.map((b) => b.map((n) => listing.indexOf(n)));
+        expect(listing[ruleWinnerFromRanks(ranks, 3, rule, undefined, listing)]).toBe('B');
+      }
+    }
+  );
+
   it('Random ballot returns the most-probable winner (modal first choice)', () => {
     const ranks = [...Array(3).fill([0, 1, 2]), [1, 0, 2]]; // A first ×3, B first ×1
     expect(ruleWinnerFromRanks(ranks, 3, 'random_ballot', undefined)).toBe(0);

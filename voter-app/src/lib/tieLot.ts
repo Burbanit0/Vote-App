@@ -24,7 +24,7 @@ function fmix32(h: number): number {
 }
 
 /** Code-point order, as Python's `sorted` on str (UTF-16 order differs past U+FFFF). */
-function byCodePoint(a: string, b: string): number {
+export function byCodePoint(a: string, b: string): number {
   const x = Array.from(a, (c) => c.codePointAt(0)!);
   const y = Array.from(b, (c) => c.codePointAt(0)!);
   for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];
@@ -37,6 +37,13 @@ const ENCODER = new TextEncoder();
 export function drawName(tied: readonly string[], seed = 0): string {
   const names = [...tied].sort(byCodePoint);
   return names[fmix32(fnv1a(ENCODER.encode([String(seed), ...names].join(SEP)))) % names.length];
+}
+
+/** The lot's place for one pairwise majority `winner` over `loser`: the key that orders equal
+ * majorities (same margin, same support) when ranked pairs and River lock them, as tie_lot.py's
+ * `edge_key`: FNV-1a of the seed, "edge" and the two names, finalised. */
+export function edgeKey(winner: string, loser: string, seed = 0): number {
+  return fmix32(fnv1a(ENCODER.encode([String(seed), 'edge', winner, loser].join(SEP))));
 }
 
 /** The index among `pool` drawn by lot over their names, mapped back within `pool` (so
