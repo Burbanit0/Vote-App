@@ -41,7 +41,6 @@ _COALITION_TIEBREAK_KEYS = {"seats", "votes", "party_id"}
 _PARTY_INIT_STRATEGIES = {"kmeans_on_citizens", "random", "manual"}
 _LLM_PROVIDERS = {"ollama", "vllm", "api"}
 _LLM_SHARDINGS = {"static", "dynamic"}
-_LLM_CACHE_BACKENDS = {"redis", "sqlite", "none"}
 _LLM_RATIONALE_MODES = {"codes", "free_text", "hybrid"}
 _LLM_REPRODUCIBILITY = {"strict", "relaxed"}
 
@@ -148,7 +147,6 @@ class InstitutionsConfig:
     assembly_term_years: int
     assembly_offset_years: int
     president_term_limit: int | None
-    assembly_term_limit: int | None
     presidential_method: str
     assembly_seats: int
     assembly_mode: str
@@ -372,15 +370,12 @@ class LegitimacyConfig:
     the mechanism exists for) — _parse_legitimacy rejects `true` outright,
     the same "parse it so a typo fails loudly, but the feature itself is a
     rejected design, not a pending one" precedent as rupture_path_enabled
-    before v1. `recall_cooldown_ticks` is a DIFFERENT cooldown from
-    petition.cooldown_ticks (this one gates repeat recalls of the same
-    office; that one gates repeat petitions against the same target)."""
+    before v1."""
 
     enabled: bool
     decay: float
     recall_floor: float
     recall_floor_indexed_on_l0: bool
-    recall_cooldown_ticks: int
     passive_erosion_weight: float
     approval_weight: float = 0.0
     """Share of support(t) taken from approval (legitimacy.approval) instead of the mandate."""
@@ -600,8 +595,6 @@ class JournalConfig:
     enabled: bool
     format: str
     output_dir: str
-    snapshot_every_ticks: int
-    log_non_events: bool
     index_after_run: bool
     decode_codebook_on_index: bool
 
@@ -615,7 +608,6 @@ class MetricsConfig:
     legitimacy.recall_floor_indexed_on_L0) rather than silently accepting a
     flag that would produce nothing."""
 
-    compute_every_ticks: int
     effective_parties: bool
     cohabitation_rate: bool
     coalition_lifespan: bool
@@ -630,9 +622,10 @@ class MetricsConfig:
 @dataclass(frozen=True)
 class LlmConfig:
     """§3/§12 — inactive (enabled=false) until v2's vote_cast increment.
-    Typed in full even though most fields are still unused (cache_backend,
-    personas_count) — config.py's own contract is that a typo in a
-    not-yet-active section fails loudly now, not silently at activation.
+    Typed in full even though most fields are inactive until v2 — config.py's own
+    contract is that a typo in a not-yet-active section fails loudly now, not
+    silently at activation. (The response cache and the personas of §4.2 and §9 are
+    not implemented and have no key here; add one when one is built.)
 
     max_batch_replays (v4 Lot 8, §3.6.10): extra attempts on a batch
     LlmResponseError, shipped 0 (today's exact behavior -- no replay).
@@ -653,11 +646,8 @@ class LlmConfig:
     temperature: float
     max_batch_size: int
     batch_sharding: str
-    cache_backend: str
-    cache_url: str
     rationale_mode: str
     codebook_version: str
-    personas_count: int
     max_batch_replays: int
     recycle_after_n_calls: int | None
     vote_cast_grammar_invariants: bool
@@ -689,7 +679,6 @@ class LlmConfig:
 
 @dataclass(frozen=True)
 class ParallelConfig:
-    runs_in_parallel: int
     intra_run_workers: int
 
 
@@ -885,7 +874,6 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         assembly_term_years=_get_positive_int(s, "institutions", "assembly_term_years"),
         assembly_offset_years=_get(s, "institutions", "assembly_offset_years", int),
         president_term_limit=_get_optional_int(s, "institutions", "president_term_limit"),
-        assembly_term_limit=_get_optional_int(s, "institutions", "assembly_term_limit"),
         presidential_method=_get_enum(s, "institutions", "presidential_method", _PRESIDENTIAL_METHODS),
         assembly_seats=_get_positive_int(s, "institutions", "assembly_seats"),
         assembly_mode=_get_enum(s, "institutions", "assembly_mode", _ASSEMBLY_MODES),
@@ -1091,7 +1079,6 @@ def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
         decay=_get_ratio(s, "legitimacy", "decay"),
         recall_floor=_get_ratio(s, "legitimacy", "recall_floor"),
         recall_floor_indexed_on_l0=False,
-        recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
         passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
         approval_weight=_get_ratio(s, "legitimacy", "approval_weight"),
         pressure_like_support=_get(s, "legitimacy", "pressure_like_support", bool),
@@ -1310,8 +1297,6 @@ def _parse_journal(raw: dict[str, Any]) -> JournalConfig:
         enabled=_get(s, "journal", "enabled", bool),
         format=_get_enum(s, "journal", "format", {"jsonl", "parquet"}),
         output_dir=_get(s, "journal", "output_dir", str),
-        snapshot_every_ticks=_get_positive_int(s, "journal", "snapshot_every_ticks"),
-        log_non_events=_get(s, "journal", "log_non_events", bool),
         index_after_run=_get(s, "journal", "index_after_run", bool),
         decode_codebook_on_index=_get(s, "journal", "decode_codebook_on_index", bool),
     )
@@ -1330,7 +1315,6 @@ def _parse_metrics(raw: dict[str, Any]) -> MetricsConfig:
                 f"implement this [{palier}] metric yet"
             )
     return MetricsConfig(
-        compute_every_ticks=_get_positive_int(s, "metrics", "compute_every_ticks"),
         effective_parties=_get(s, "metrics", "effective_parties", bool),
         cohabitation_rate=_get(s, "metrics", "cohabitation_rate", bool),
         coalition_lifespan=_get(s, "metrics", "coalition_lifespan", bool),
@@ -1377,11 +1361,8 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         temperature=temperature,
         max_batch_size=_get_positive_int(s, "llm", "max_batch_size"),
         batch_sharding=_get_enum(s, "llm", "batch_sharding", _LLM_SHARDINGS),
-        cache_backend=_get_enum(s, "llm", "cache_backend", _LLM_CACHE_BACKENDS),
-        cache_url=_get(s, "llm", "cache_url", str),
         rationale_mode=_get_enum(s, "llm", "rationale_mode", _LLM_RATIONALE_MODES),
         codebook_version=_get(s, "llm", "codebook_version", str),
-        personas_count=_get_positive_int(s, "llm", "personas_count"),
         max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
         recycle_after_n_calls=recycle_after_n_calls,
         vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
@@ -1401,7 +1382,6 @@ def _thinking_token_budget(s: dict[str, Any]) -> int | None:
 def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
     s = _section(raw, "parallel")
     return ParallelConfig(
-        runs_in_parallel=_get_positive_int(s, "parallel", "runs_in_parallel"),
         intra_run_workers=_get_positive_int(s, "parallel", "intra_run_workers"),
     )
 

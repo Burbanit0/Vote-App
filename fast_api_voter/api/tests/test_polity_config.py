@@ -61,10 +61,8 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.sortition_chamber.veto_delay_ticks == 2
     assert config.sortition_chamber.max_deliberation_delta == 0.3
     assert config.sortition_chamber.max_deliberation_shifts == 3
-    assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
-    assert config.parallel.runs_in_parallel == 1
     assert config.parallel.intra_run_workers == 1
 
 
@@ -295,7 +293,6 @@ def test_loads_the_real_config_with_expected_v4_lot1_values():
     config = load_config()
     assert config.citizens.base_threshold_dist == "beta(3,5)"
     assert config.legitimacy.recall_floor_indexed_on_l0 is False
-    assert config.legitimacy.recall_cooldown_ticks == 4
     assert config.legitimacy.passive_erosion_weight == 0.0
     assert config.pressure_menu.petition_enabled is False
     assert config.pressure_menu.mobilization_enabled is False
