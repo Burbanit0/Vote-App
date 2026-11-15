@@ -1,5 +1,5 @@
 """
-scripts/check_vote_cast_prefix_cache_fix.py
+scripts/archive/check_vote_cast_prefix_cache_fix.py
 
 Live verification of the 2026-09-10 build_system_prompt/build_user_prompt
 restructuring (plan-llm-protocol-and-theory-program.md §3.B.7): the
@@ -20,7 +20,7 @@ This checks TWO things against the real server:
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_vote_cast_prefix_cache_fix.py
+    python fast_api_voter/scripts/archive/check_vote_cast_prefix_cache_fix.py
 """
 from __future__ import annotations
 

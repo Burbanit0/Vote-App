@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_order_diagnostic.py
+scripts/archive/check_pressure_action_order_diagnostic.py
 
 Step 0.2 of plan-pressure-action-remediation.md -- the second cheap diagnostic before committing
 to any of the three redesign paths (§3).
@@ -26,7 +26,7 @@ Pre-registered criterion:
 - If no change -> ruled out, do not revisit.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_order_diagnostic.py
+    python fast_api_voter/scripts/archive/check_pressure_action_order_diagnostic.py
 """
 from __future__ import annotations
 

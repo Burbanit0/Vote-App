@@ -1,5 +1,5 @@
 """
-scripts/check_coalition_decision_collapse_signature.py
+scripts/archive/check_coalition_decision_collapse_signature.py
 
 Follow-up requested before writing a new, separately-scoped document on the adversarial/target-
 relative framing pattern found for pressure_action and representative_response (both collapse to
@@ -32,7 +32,7 @@ Same isolation discipline: size=1 (one responder per call), think=False (product
 production prompt/schema, unmodified.
 
 Usage:
-    python fast_api_voter/scripts/check_coalition_decision_collapse_signature.py
+    python fast_api_voter/scripts/archive/check_coalition_decision_collapse_signature.py
 """
 from __future__ import annotations
 

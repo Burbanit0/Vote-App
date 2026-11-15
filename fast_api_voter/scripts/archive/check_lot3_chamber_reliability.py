@@ -1,5 +1,5 @@
 """
-scripts/check_lot3_chamber_reliability.py
+scripts/archive/check_lot3_chamber_reliability.py
 
 v6b Lot 3's pre-flight reliability spike (the roadmap's own Principal Risks
 gate) for `chamber_deliberation` (dt=11, §6bis.3) -- required before any
@@ -29,7 +29,7 @@ Setup: Ollama container running, qwen3:8b pulled (same as
 check_lot6_batch_reliability.py / check_lot4_reaction_reliability.py).
 
 Usage:
-    python fast_api_voter/scripts/check_lot3_chamber_reliability.py \
+    python fast_api_voter/scripts/archive/check_lot3_chamber_reliability.py \
         --sizes 1 10 30 --repeats 2 \
         --results scripts/lot3_chamber_reliability_results.md
 """

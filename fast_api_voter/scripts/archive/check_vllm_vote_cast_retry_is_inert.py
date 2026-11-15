@@ -1,5 +1,5 @@
 """
-scripts/check_vllm_vote_cast_retry_is_inert.py
+scripts/archive/check_vllm_vote_cast_retry_is_inert.py
 
 Why the first real `provider: vllm` run of the polity simulator died 4 minutes
 in, and which fix actually works.
@@ -62,8 +62,8 @@ chunk-size-1 shape), on the real tick-0 world at the seed the crashed run used:
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_vllm_vote_cast_retry_is_inert.py --voters 25
-    python fast_api_voter/scripts/check_vllm_vote_cast_retry_is_inert.py \\
+    python fast_api_voter/scripts/archive/check_vllm_vote_cast_retry_is_inert.py --voters 25
+    python fast_api_voter/scripts/archive/check_vllm_vote_cast_retry_is_inert.py \\
         --voters 25 --results scripts/check_vllm_vote_cast_retry_is_inert_results.md
 """
 from __future__ import annotations

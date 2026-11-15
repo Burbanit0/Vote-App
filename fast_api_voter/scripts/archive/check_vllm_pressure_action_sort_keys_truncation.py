@@ -1,5 +1,5 @@
 """
-scripts/check_vllm_pressure_action_sort_keys_truncation.py
+scripts/archive/check_vllm_pressure_action_sort_keys_truncation.py
 
 Found while comparing vLLM against Ollama on pressure_action's real, unmodified production
 schema (PressureDecision -- no test-only fields, unlike check_vllm_pressure_action_reasoning_
@@ -43,8 +43,8 @@ Usage:
     docker compose -f docker-compose.ollama.yml up -d   # for the Ollama half (stop the other first
                                                           # -- see the GPU-contention note in
                                                           # docker-compose.ollama.yml)
-    python fast_api_voter/scripts/check_vllm_pressure_action_sort_keys_truncation.py --backend vllm
-    python fast_api_voter/scripts/check_vllm_pressure_action_sort_keys_truncation.py --backend ollama
+    python fast_api_voter/scripts/archive/check_vllm_pressure_action_sort_keys_truncation.py --backend vllm
+    python fast_api_voter/scripts/archive/check_vllm_pressure_action_sort_keys_truncation.py --backend ollama
 """
 from __future__ import annotations
 

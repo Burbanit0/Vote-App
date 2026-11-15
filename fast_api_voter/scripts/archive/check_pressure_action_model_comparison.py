@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_model_comparison.py
+scripts/archive/check_pressure_action_model_comparison.py
 
 Eighth follow-up to the chunk-collapse finding (reasoning_budget_and_decision_quality_findings.md).
 The closed investigation eliminated position, batch size (1 through 25), and one specific prompt
@@ -20,7 +20,7 @@ Does not touch config.llm.model in polity_config.yaml -- builds a per-call LlmCo
 dataclasses.replace, same pattern as every prior script in this workstream.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_model_comparison.py
+    python fast_api_voter/scripts/archive/check_pressure_action_model_comparison.py
 """
 from __future__ import annotations
 
