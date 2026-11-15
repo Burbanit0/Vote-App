@@ -532,7 +532,23 @@ def _kwik_sort(candidates: list[str], pw: dict[str, dict[str, int]]) -> list[str
 _KY_EXACT_CAP = 10
 
 
-def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -> str:
+def _kemeny_leaders(candidates: list[str], w: list[list[int]], score: list[int]) -> list[str]:
+    """The candidates that head an optimal ordering, given the subset DP's `score`: `c` does
+    when ranking everyone else after it, best-possible, still reaches the full set's score."""
+    n = len(candidates)
+    full = (1 << n) - 1
+    leaders = []
+    for i, c in enumerate(candidates):
+        rest = full ^ (1 << i)  # everyone else, ranked after `c`: the same gain as the DP's
+        gain = sum(w[i][j] for j in range(n) if (rest >> j) & 1)
+        if score[rest] + gain == score[full]:
+            leaders.append(c)
+    return leaders
+
+
+def _kemeny_exact_winner(
+    candidates: list[str], pw: dict[str, dict[str, int]], seed: object = 0
+) -> str:
     """Exact Kemeny-Young winner by DP over candidate subsets.
 
     `f(S)` = the best achievable agreement score when ranking exactly the
@@ -546,13 +562,13 @@ def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -
     returns; the score and the full ordering agreed too when the DP was
     developed, but nothing committed re-checks them.
 
-    `candidates` must be sorted. Iterating it in ascending order and improving
-    on a strict `>` makes `lead[mask]` the FIRST candidate that can head an
-    optimal ordering, which reconstructs the lexicographically smallest optimal
-    ranking — the same tie-break `max(permutations(sorted(...)))` had. That is
-    smallest by NAME; the client mirror runs the same DP keyed on candidate INDEX,
-    so the two agree on a tie whenever index order and name order coincide on
-    the tied candidates (an array sorted by name always qualifies).
+    Equally good rankings: the winner is the head of the optimal ranking, and
+    several candidates can head one. Every candidate that can is collected from
+    the full set, and the seeded lot (`tie_lot.draw`, over their names) picks
+    one: not the name-smallest, which is what `max(permutations(sorted(...)))`
+    and a strict `>` used to give. The client mirror draws over the same names,
+    whatever the listing order. Only the full set names the winner, so no
+    per-subset leader is kept: `score` is all the DP needs.
     """
     n = len(candidates)
     # Duel counts as a dense matrix: the DP reads them 2^m · m² times.
@@ -563,19 +579,17 @@ def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -
     # -- the same silent-default shape as the phantom duel win deleted above.
     w = [[pw[a][b] for b in candidates] for a in candidates]
     score = [-1] * (1 << n)
-    lead = [-1] * (1 << n)
     score[0] = 0
     for mask in range(1, 1 << n):
-        best_score, best_i = -1, -1
+        best_score = -1
         for i in range(n):
             if not (mask >> i) & 1:
                 continue
             rest = mask ^ (1 << i)          # always < mask, so already solved
             gain = sum(w[i][j] for j in range(n) if (rest >> j) & 1)
-            if score[rest] + gain > best_score:
-                best_score, best_i = score[rest] + gain, i
-        score[mask], lead[mask] = best_score, best_i
-    return candidates[lead[(1 << n) - 1]]
+            best_score = max(best_score, score[rest] + gain)
+        score[mask] = best_score
+    return str(draw(_kemeny_leaders(candidates, w, score), seed))
 
 
 def kemeny_used_approximation(votes: list[Any]) -> bool:
@@ -599,9 +613,9 @@ def get_kemeny_young_winner(
 
     Exact (DP over candidate subsets) up to `_KY_EXACT_CAP` candidates, which
     covers every input reachable over HTTP. KwikSort approximation above it.
-    `seed` is accepted so every ranked rule shares one signature, but Kemeny-Young does not
-    use it: among equally good rankings it returns the name-smallest, not a draw (#926,
-    LISTING_ORDER_TIES.md "Open").
+    On the exact path, several candidates can head an optimal ranking: the seeded lot draws
+    among them (`seed`, over their names), never the name-smallest. The approximation above
+    the cap still does not use `seed` (#926, LISTING_ORDER_TIES.md "Open").
 
     Callers that need to know which path was taken should call
     kemeny_used_approximation(votes) separately rather than inspecting this
@@ -637,7 +651,7 @@ def get_kemeny_young_winner(
         ranking = _kwik_sort(candidates, pw)
         return ranking[0] if ranking else None
 
-    return _kemeny_exact_winner(candidates, pw)
+    return _kemeny_exact_winner(candidates, pw, seed)
 
 
 def get_bucklin_winner(

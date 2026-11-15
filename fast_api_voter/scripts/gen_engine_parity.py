@@ -153,9 +153,10 @@ def _mj_winner(ballots):
     return get_majority_judgment_winner(ballots)["winner"]
 
 NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"]
-# Names for the tied-profile block: sorted (so name order and index order agree, as Kemeny's choice
-# among equally good rankings still needs), and chosen so that at seed 0 the lot draws
-# the SECOND name of every pair and the middle one of the three ('Bea', 'Cat', 'Cat' for the pairs;
+# Names for the tied-profile block: listed sorted, which the parity test's own meta-checks name
+# (Ann / Bea / Cat). No rule needs it any more, since every rule now draws by lot over the names:
+# listed unsorted (Cat, Ann, Bea), the 81 engine-agreement tests still pass over all 481 scenarios.
+# Chosen so that at seed 0 the lot draws the SECOND name of every pair and the middle one of the three ('Bea', 'Cat', 'Cat' for the pairs;
 # 'Bea' for the triple). With A/B/C the lot's two-way draws are the alphabetically first name, so
 # a name tie-break would pass the exhaustive block undetected; with these it fails.
 TIED_NAMES = ["Ann", "Bea", "Cat"]

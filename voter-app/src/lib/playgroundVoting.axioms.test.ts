@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fc from 'fast-check';
 import { ruleWinnerFromRanks, type Rule } from './playgroundVoting';
 import { METHOD_CRITERIA_ENTRIES, type CriterionKey } from '../data/methodCriteria';
@@ -96,6 +96,13 @@ const profileArb: fc.Arbitrary<Profile> = fc.integer({ min: 3, max: 6 }).chain((
     })
     .map((ranks) => ({ n, ranks }))
 );
+
+// Each property below runs NUM_RUNS random profiles through a rule. CI (coverage on, a shared
+// runner) is about 2.6x slower than a laptop, so the slowest rules take 3-4.5 s there, against
+// vitest's 5 s default: once, a rule that got a little slower (the lot-ordered locks of ranked
+// pairs and River, 5.7 s) failed the job on time, not on a wrong answer, and Kemeny's draw adds
+// about 20% to the heaviest of them. 20 s keeps a timeout meaning "this hangs", not "slower".
+vi.setConfig({ testTimeout: 20_000 });
 
 const NUM_RUNS = 500;
 // fast-check picks a fresh random seed every run by default -- great for

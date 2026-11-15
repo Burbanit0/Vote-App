@@ -777,9 +777,10 @@ function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
  * with different algorithms, disagreeing on about a quarter of profiles. The
  * parity fixture could not see it: its scenarios stopped at 5 candidates.
  *
- * Ties follow the convention on `ruleWinnerFromRanks`: improving only on a
- * strict `>` while `i` ascends returns the index-smallest optimal ordering,
- * where the backend returns the name-smallest.
+ * Equally good rankings: several candidates can head an optimal ranking. Every one that can
+ * is collected at the full set and the seeded lot draws among them over their names
+ * (`drawIndex`, as the backend's `draw`), never the index-smallest. Only the full set names the
+ * winner, so the DP keeps `score` alone.
  */
 function winKemeny(ranks: number[][], m: number, names: readonly string[]): number {
   if (m < 1) return -1;
@@ -787,21 +788,22 @@ function winKemeny(ranks: number[][], m: number, names: readonly string[]): numb
   const b = pairwise(ranks, m);
   const full = (1 << m) - 1;
   const score = new Int32Array(full + 1); // score[0] = 0: the empty set
-  let lead = -1;
   for (let mask = 1; mask <= full; mask++) {
     let bestScore = -1;
     for (let i = 0; i < m; i++) {
       if (!((mask >> i) & 1)) continue;
       const rest = mask ^ (1 << i); // always < mask, so already solved
-      const total = score[rest] + kemenyGain(b, i, rest, m);
-      if (total > bestScore) {
-        bestScore = total;
-        if (mask === full) lead = i; // only the full set names the winner
-      }
+      bestScore = Math.max(bestScore, score[rest] + kemenyGain(b, i, rest, m));
     }
     score[mask] = bestScore;
   }
-  return lead;
+  // The winner heads an optimal ordering: every candidate that can is a contender.
+  const leaders: number[] = [];
+  for (let i = 0; i < m; i++) {
+    const rest = full ^ (1 << i);
+    if (score[rest] + kemenyGain(b, i, rest, m) === score[full]) leaders.push(i);
+  }
+  return leaders.length === 1 ? leaders[0] : drawIndex(leaders, names);
 }
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion
@@ -971,10 +973,10 @@ function winRaynaud(ranks: number[][], m: number, names: readonly string[]): num
  * candidates' NAMES (tieLot.ts), the same draw as its backend twin, so the two agree whatever
  * the listing order and the names. Without `names` the lot runs over the indices, which still
  * decides but follows listing order. The lock order of ranked_pairs and river on equal margins
- * and supports is the lot's too (`edgeKey`, over the two names). Not yet on the lot, and still
- * keyed on index here where the backend keys on name: Kemeny's choice among equally good
- * rankings (#926 follow-up). The exhaustive parity block pins this, ties included, at up to 3
- * candidates.
+ * and supports is the lot's too (`edgeKey`, over the two names), and so is Kemeny's choice
+ * among equally good rankings (on the exact path, up to `KEMENY_EXACT_CAP`: above it Borda
+ * here and KwikSort there differ on purpose). The exhaustive parity block pins this, ties
+ * included, at up to 3 candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],

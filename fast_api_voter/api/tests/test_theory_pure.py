@@ -149,7 +149,9 @@ def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
     in both directions: approval (0.55x, i.e. 0.077 at n=3) is in fact the most
     IIA-violating rule here, and schulze (0.35x) rarely violates it. (The tie lot raised
     every rule's measured rate a little: a draw over a different pool of tied candidates is
-    counted as a violation. Schulze read 0.02 / 0.0 / 0.0 while ties went to the first name.)"""
+    counted as a violation. Schulze read 0.02 / 0.0 / 0.0 while ties went to the first name.
+    Kemeny-Young did the same when it began to draw among equally good rankings: 0.02 / 0.02 /
+    0.02 became 0.08 / 0.06 / 0.04, at 50 trials a few more tied profiles resolved differently.)"""
     def curve(method):
         body, status = _iia_rate_worker({
             "method": method, "max_candidates": 5, "num_trials": 50, "seed": 42,
@@ -159,7 +161,7 @@ def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
 
     assert curve("schulze") == [0.0, 0.08, 0.04, 0.04]
     assert curve("approval") == [0.0, 0.46, 0.28, 0.24]
-    assert curve("kemeny_young") == [0.0, 0.02, 0.02, 0.02]
+    assert curve("kemeny_young") == [0.0, 0.08, 0.06, 0.04]
     assert curve("condorcet") == [0.0, 0.08, 0.0, 0.06]    # measured as Copeland
 
 
