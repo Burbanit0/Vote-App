@@ -27,6 +27,7 @@ import {
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { nearestCandidate } from '@/lib/identityGroups';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -127,17 +128,17 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, num
   const [crossPressure, setCrossPressure] = useState(true);
   const [activeView, setActiveView] = useState<'groups' | 'curve' | 'table'>('groups');
 
-  // Each group's affiliation follows the Lab's candidates, cycling if there
-  // are more groups than candidates.
+  // Each group backs the Lab's candidate nearest its centre (an exact tie drawn by the seeded lot,
+  // as the backend's default groups do), not the first, second and third listed.
   useEffect(() => {
     if (!candidates.length) return;
     setGroups((prev) =>
-      prev.map((g, i) => ({
+      prev.map((g) => ({
         ...g,
-        candidate_affiliation: candidates[i % candidates.length].name,
+        candidate_affiliation: nearestCandidate(candidates, g.ideology_center, seed),
       }))
     );
-  }, [candidates]);
+  }, [candidates, seed]);
 
   const updateGroup = (i: number, field: keyof IdentityGroup, val: string | number) =>
     setGroups((prev) => prev.map((g, j) => (j === i ? { ...g, [field]: val } : g)));

@@ -89,9 +89,9 @@ A box is ticked when the change is on `polity`.
 
 - #926, in three PRs instead of one: the lot's finaliser, which fixes its seed parity (#1066);
   the ranked rules on both engines, parity fixture regenerated (#1074); the workers' aggregate
-  tallies (#1076). What is left is the Open list of `LISTING_ORDER_TIES.md`: two tallies in the theory and
-  multiwinner code, the runners-up, the apportionment comparison, and Hotelling and identity
-  voting's default groups (an owner decision).
+  tallies (#1076). What is left is the Open list of `LISTING_ORDER_TIES.md` (the apportionment comparison breaks
+  a tie by name by design, and Hotelling's move order and identity voting's default groups are
+  settled).
 - One stated convention for truncated ballots per rule, one shared pairwise-defeat definition,
   and Hypothesis strategies with truncated and unequal ballots.
 - One electorate for both sides: send the client's voters to the backend, or lock the sampler,

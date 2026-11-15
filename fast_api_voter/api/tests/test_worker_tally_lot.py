@@ -10,14 +10,17 @@ pinned by wiring: the lot is replaced by one that elects the *lowest* tally, and
 reported winner must be that candidate, drawn with the request's seed."""
 from typing import Any
 
+import numpy as np
 import pytest
 
 from api.domain import tech
 from api.domain.election import workers_advanced, workers_behavioral, workers_mechanisms
+from api.domain.election.workers import _primary_worker, _run_primary, _runner_up
 from api.domain.simulations import compare
-from api.domain.theory.workers import _identity_plurality
+from api.domain.theory.workers import _epistocracy_worker, _identity_plurality, _tally_winner_index
 from api.engine.utils import quadratic_voting, simulation_metrics, simulation_score_utils, tie_lot
 from api.engine.utils.quadratic_voting import apply_quadratic_voting
+from api.engine.utils.simulation_multiwinner_utils import get_equal_shares_result
 from api.engine.utils.simulation_score_utils import get_evaluative_winner
 
 # At seed 0 the lot draws Cat between Ann and Cat, at seed 1 it draws Ann.
@@ -187,3 +190,151 @@ def test_random_ballots_most_probable_winner_is_drawn_by_the_lot(lowest_by_lot):
     calls = lowest_by_lot()
     assert winner() != top
     assert SEED in {seed for _, _, seed in calls}
+
+
+# ── the last #926 aggregates: the epistocracy tally, the Equal Shares completion, runners-up ──
+
+
+@pytest.mark.parametrize("seed", sorted(DRAWN))
+@pytest.mark.parametrize("listed", [PAIR, PAIR[::-1]])
+def test_the_epistocracy_tally_draws_a_tie_by_lot_not_by_listing(listed, seed):
+    """The theory worker read its winner off `tally.index(max(tally))`: the first-listed on a tie."""
+    names = [listed[0], listed[1], "Zed"]
+    winner = _tally_winner_index([2.0, 2.0, 1.0], names, seed)
+    assert names[winner] == DRAWN[seed]
+
+
+def test_the_epistocracy_tally_does_not_draw_a_unique_maximum():
+    assert _tally_winner_index([1.0, 3.0, 2.0], ["Ann", "Bea", "Cat"], 0) == 1
+
+
+def test_the_epistocracy_tally_keeps_the_best_of_two_candidates_sharing_a_name():
+    """Names come from the request and are not unique: the old index-based argmax coped."""
+    assert _tally_winner_index([5.0, 1.0, 3.0], ["Ann", "Ann", "Bea"], 0) == 0
+    assert _tally_winner_index([1.0, 5.0, 3.0], ["Ann", "Ann", "Bea"], 0) == 1
+
+
+def test_the_epistocracy_worker_draws_each_trials_tie_with_that_trials_seed(lowest_by_lot):
+    """Wired: the real lot elects the top tally (the centrist is right nearly always); a stand-in
+    that elects the LOWEST must change the reported rate. Every trial has its own seed, derived
+    from the request's (`seed * 1000 + trial`, 40 trials), so a tie that recurs is not settled
+    the same way in all of them."""
+    data = {"candidates": CANDS, "seed": SEED, "num_voters": 100}
+    top = _epistocracy_worker(data)[0]["results"]["equal"]["correct_choice_pct"]
+    calls = lowest_by_lot()
+    drawn = _epistocracy_worker(data)[0]["results"]["equal"]["correct_choice_pct"]
+    assert drawn != top
+    assert {seed for _, _, seed in calls} >= {SEED * 1000 + t for t in range(40)}
+    # Every call is a draw among the candidates' own names.
+    assert all(set(pool) <= {c["name"] for c in CANDS} for pool, _, _ in calls)
+
+
+def test_the_epistocracy_tally_reads_float_noise_as_a_tie():
+    """Competence-weighted tallies are sums of floats: equal up to rounding is a tie, as everywhere."""
+    names = ["Ann", "Cat"]
+    assert names[_tally_winner_index([0.3 + 0.6, 0.9], names, 0)] == DRAWN[0]
+
+
+@pytest.mark.parametrize("seed", sorted(DRAWN))
+@pytest.mark.parametrize("listed", [PAIR, PAIR[::-1]])
+def test_the_equal_shares_completion_draws_a_tie_by_lot_when_it_has_no_rng(listed, seed):
+    """Two voters, each approving a different candidate, one seat: nobody is affordable, so the
+    committee is completed by approval, and the two are tied. Without an rng that went by name."""
+    ballots = [[listed[0]], [listed[1]]]
+    assert get_equal_shares_result(ballots, 1, seed=seed)["elected"] == [DRAWN[seed]]
+
+
+def test_the_equal_shares_completion_draws_each_place_in_turn():
+    """Three tied candidates, two seats: the first place is drawn among all three, the second
+    among the two left, each by the same lot, and the listing order does not reach either."""
+    names = ["Ann", "Cat", "Eve"]
+    for seed in range(8):
+        first = tie_lot.draw(names, seed)
+        second = tie_lot.draw([n for n in names if n != first], seed)
+        for listed in (names, names[::-1]):
+            elected = get_equal_shares_result([[n] for n in listed], 2, seed=seed)["elected"]
+            assert elected == [first, second]
+
+
+def test_the_equal_shares_completion_keeps_the_callers_rng_when_it_has_one():
+    import random
+
+    ballots = [["Ann"], ["Cat"]]
+    elected = {tuple(get_equal_shares_result(ballots, 1, rng=random.Random(s))["elected"])
+               for s in range(16)}
+    assert elected == {("Ann",), ("Cat",)}  # drawn by the rng it was given, whatever the seed
+
+
+def _primary(names, firsts, seed):
+    """A primary whose voters' first choices are `firsts` (a list of names, one per voter)."""
+    voters = [{"id": i} for i in range(len(firsts))]
+    utilities = {i: {n: (1.0 if n == f else 0.0) for n in names} for i, f in enumerate(firsts)}
+    return _run_primary([{"name": n} for n in names], voters, utilities, "plurality",
+                        np.random.default_rng(0), seed)
+
+
+@pytest.mark.parametrize("seed", sorted(DRAWN))
+@pytest.mark.parametrize("listed", [PAIR, PAIR[::-1]])
+def test_a_primarys_runner_up_is_drawn_when_two_tie_for_second(listed, seed):
+    """Zed wins with 4 first preferences; Ann and Cat have 2 each. The runner-up used to be the
+    first-listed of the two."""
+    names = [listed[0], "Zed", listed[1]]
+    result = _primary(names, ["Zed"] * 4 + [PAIR[0]] * 2 + [PAIR[1]] * 2, seed)
+    assert result["winner"] == "Zed"
+    assert result["runner_up"] == DRAWN[seed]
+
+
+@pytest.mark.parametrize("seed", sorted(DRAWN))
+@pytest.mark.parametrize("listed", [PAIR, PAIR[::-1]])
+def test_the_runner_up_of_any_election_is_drawn_when_two_tie_for_second(listed, seed):
+    """The general election's runner-up goes through the same function as a primary's; a tie for
+    second place there cannot be made to happen by sampling, so it is pinned here. Listed both
+    ways, with the winner listed first, last and between."""
+    counts = {"Zed": 4, PAIR[0]: 2, PAIR[1]: 2}
+    for names in ([*listed, "Zed"], ["Zed", *listed], [listed[0], "Zed", listed[1]]):
+        assert _runner_up(names, counts, "Zed", seed) == DRAWN[seed]
+
+
+def test_there_is_no_runner_up_without_another_candidate_and_a_win():
+    assert _runner_up(["Zed"], {"Zed": 3}, "Zed", 0) is None
+    assert _runner_up(["Ann", "Cat"], {"Ann": 1}, None, 0) == "Ann"  # nobody won: best of both
+
+
+def test_a_primarys_runner_up_is_the_runner_up_when_there_is_one():
+    result = _primary(["Zed", "Ann", "Cat"], ["Zed"] * 4 + ["Cat"] * 3 + ["Ann"], 0)
+    assert (result["winner"], result["runner_up"]) == ("Zed", "Cat")
+
+
+def test_a_primarys_runner_up_counts_first_preferences_not_their_rounded_shares():
+    """The shares are rounded to 4 places, and 10001 and 10000 voters out of 70001 round to the
+    same one: they are not tied. The lot draws Cat at seed 0, so a tie would give the wrong one."""
+    firsts = ["Zed"] * 50000 + ["Ann"] * 10001 + ["Cat"] * 10000
+    result = _primary(["Zed", "Ann", "Cat"], firsts, 0)
+    assert result["vote_shares"]["Ann"] == result["vote_shares"]["Cat"]  # the premise
+    assert result["runner_up"] == "Ann"
+
+
+def test_a_primary_with_one_candidate_has_no_runner_up():
+    assert _primary(["Zed"], ["Zed"] * 3, 0)["runner_up"] is None
+
+
+def _districts_data():
+    def party(name, centre, a, b):
+        return {"name": name, "ideology_center": centre, "primary_voters_pct": 0.3,
+                "primary_candidates": [{"name": a, "ideology_position": centre - 0.1},
+                                       {"name": b, "ideology_position": centre + 0.1}]}
+    return {"parties": [party("Left", -0.7, "L1", "L2"), party("Centre", 0.0, "C1", "C2"),
+                        party("Right", 0.7, "R1", "R2")],
+            "general_num_voters": 301, "seed": SEED, "general_method": "plurality"}
+
+
+def test_the_general_runner_up_is_drawn_by_the_lot_with_the_requests_seed(lowest_by_lot):
+    """Wired like the tallies above: the real lot elects the runner-up (the second most first
+    preferences); a stand-in that elects the LOWEST one must change the reported runner-up, and
+    be asked with the request's seed. A site that still sorts by share keeps the real one."""
+    top = _primary_worker(_districts_data())[0]["general_runner_up"]
+    calls = lowest_by_lot()
+    drawn = _primary_worker(_districts_data())[0]["general_runner_up"]
+    assert SEED in {seed for _, _, seed in calls}
+    assert drawn in {pick for _, pick, seed in calls if seed == SEED}
+    assert drawn != top

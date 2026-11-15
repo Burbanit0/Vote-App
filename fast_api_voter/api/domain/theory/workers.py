@@ -1816,6 +1816,18 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 import statistics as _stats_ep  # noqa: E402
 
+def _tally_winner_index(tally: List[float], names: List[str], seed: object) -> int:
+    """The index of the candidate with the most votes. A tie for it is drawn by the seeded lot
+    over the candidates' names (`tie_lot.best`), where `tally.index(max(tally))` gave it to
+    whoever was listed first. Two candidates may share a name: the name's best tally counts, and
+    the index is that of its highest."""
+    top: Dict[str, float] = {}
+    for name, votes in zip(names, tally):
+        top[name] = max(votes, top.get(name, votes))
+    drawn = tie_lot.best(list(top), top.__getitem__, seed)
+    return max((i for i, name in enumerate(names) if name == drawn), key=lambda i: tally[i])
+
+
 def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /epistocracy — extracted for FastAPI v2."""
     candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
@@ -1889,6 +1901,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     best_cand_idx = min(range(n_cands),
                         key=lambda i: abs(candidates_raw[i].get("x", 0.0)))
     best_cand_name = candidates_raw[best_cand_idx]["name"]
+    cand_names = [c["name"] for c in candidates_raw]
 
     # ── Simulate multiple elections per scheme across many trials ─────────────
     n_trials = 40   # Monte Carlo over voter preference noise
@@ -1943,7 +1956,9 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                         weight = 1.0
                     tally[vote] += weight
 
-                winner_idx = tally.index(max(tally))
+                # Drawn with the trial's own seed (derived from the request's), so a tie that
+                # recurs is not settled the same way in all 40 trials, whatever the lot says.
+                winner_idx = _tally_winner_index(tally, cand_names, trial_seed)
 
             # Regret: 0 if best, 1/n_cands baseline for random
             if winner_idx == best_cand_idx:
@@ -2192,6 +2207,32 @@ def _identity_pedagogical_note(
     return note
 
 
+def _nearest_candidate(candidates: List[Dict[str, Any]], centre: float, seed: object) -> str:
+    """The candidate whose x is nearest `centre` (the axis the voters judge candidates on); an
+    exact tie is drawn by the request's seeded lot over the names. (A voter's own tie is drawn
+    per voter; this is one choice for a whole group.) Candidates sharing a name count once."""
+    distance = {c["name"]: abs(float(c.get("x", 0.0)) - centre) for c in candidates}
+    return str(tie_lot.best(list(distance), lambda name: -distance[name], seed))
+
+
+# (name, share of the electorate, ideology centre, loyalty) of the three default groups.
+_DEFAULT_IDENTITY_GROUPS = (
+    ("Groupe A", 0.40, -0.3, 0.75),
+    ("Groupe B", 0.35, 0.1, 0.60),
+    ("Groupe C", 0.25, 0.4, 0.80),
+)
+
+
+def _default_identity_groups(candidates: List[Dict[str, Any]], seed: object) -> List[Dict[str, Any]]:
+    """The default groups, each backing the candidate nearest its centre: not the first, second
+    and third listed, which made the pairing follow the order the candidates came in."""
+    return [
+        {"name": name, "pct": pct, "ideology_center": centre, "loyalty": loyalty,
+         "candidate_affiliation": _nearest_candidate(candidates, centre, seed)}
+        for name, pct, centre, loyalty in _DEFAULT_IDENTITY_GROUPS
+    ]
+
+
 def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /identity-voting — extracted for FastAPI v2.
 
@@ -2210,15 +2251,9 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
     cross_pressure:  bool  = bool(data.get("cross_pressure", True))
 
-    default_groups = [
-        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
-         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
-        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
-         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
-        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
-         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
-    ]
-    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
+    groups_raw: List[Dict[str, Any]] = (
+        data.get("identity_groups") or _default_identity_groups(candidates_raw, seed)
+    )
 
     rng = _rnd.Random(seed)
     cand_names = [c["name"] for c in candidates_raw]

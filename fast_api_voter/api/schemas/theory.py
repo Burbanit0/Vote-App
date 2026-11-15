@@ -531,10 +531,12 @@ class IdentityVotingRequest(BaseModel):
             IDCandidate(name="Bob",   x= 0.0),  # pyright: ignore[reportCallIssue]
             IDCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
-        # min_length=3, not 2: the worker's default identity groups (Groupe
-        # A/B/C) each pin to one of candidates[0..2] unconditionally — found
-        # by Schemathesis (Lot 3) sending exactly 2 candidates and crashing
-        # the worker with IndexError on candidates_raw[2].
+        # min_length=3, not 2: the worker's default identity groups (Groupe A/B/C) used to
+        # pin to candidates[0..2] unconditionally — found by Schemathesis (Lot 3) sending
+        # exactly 2 candidates and crashing the worker with IndexError on candidates_raw[2].
+        # They now back the candidate nearest their centre, which any number of candidates
+        # allows, so the floor could come down; kept as it is, since lowering it regenerates
+        # the OpenAPI contract and the frontend's types.
         min_length=3, max_length=8,
     )
     num_voters:       int   = Field(200, ge=20, le=2000)
