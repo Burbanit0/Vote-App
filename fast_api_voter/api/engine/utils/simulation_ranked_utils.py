@@ -1033,8 +1033,9 @@ def get_ranked_pairs_winner(
             majorities.append((ab - ba, ab, a, b))
         elif ba > ab:
             majorities.append((ba - ab, ba, b, a))
-    # Equal margin and support: the seeded lot orders them (the names only if two keys collide).
-    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3]), m[2], m[3]))
+    # Equal margin and support: the seeded lot orders them. (Two colliding 32-bit keys keep
+    # their insertion order, which is the names'; the client's is the indices'.)
+    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3])))
 
     locked: dict[str, set[str]] = {c: set() for c in candidates}
 
@@ -1098,8 +1099,9 @@ def get_river_winner(
             majorities.append((ab - ba, ab, a, b))
         elif ba > ab:
             majorities.append((ba - ab, ba, b, a))
-    # Equal margin and support: the seeded lot orders them (the names only if two keys collide).
-    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3]), m[2], m[3]))
+    # Equal margin and support: the seeded lot orders them. (Two colliding 32-bit keys keep
+    # their insertion order, which is the names'; the client's is the indices'.)
+    majorities.sort(key=lambda m: (-m[0], -m[1], edge_key(seed, m[2], m[3])))
 
     locked: dict[str, set[str]] = {c: set() for c in candidates}
     has_parent: dict[str, bool] = {c: False for c in candidates}

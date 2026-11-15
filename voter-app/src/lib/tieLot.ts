@@ -24,7 +24,7 @@ function fmix32(h: number): number {
 }
 
 /** Code-point order, as Python's `sorted` on str (UTF-16 order differs past U+FFFF). */
-export function byCodePoint(a: string, b: string): number {
+function byCodePoint(a: string, b: string): number {
   const x = Array.from(a, (c) => c.codePointAt(0)!);
   const y = Array.from(b, (c) => c.codePointAt(0)!);
   for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];

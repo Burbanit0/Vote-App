@@ -6,7 +6,7 @@
 // Voter utility for a candidate is -distance (closer = better). Everything derives
 // from that: rankings for ordinal rules, per-voter min-max scores for cardinal ones.
 
-import { bestIndex, byCodePoint, drawIndex, edgeKey } from './tieLot';
+import { bestIndex, drawIndex, edgeKey } from './tieLot';
 
 // Points carry an optional 3rd axis. 1-D uses x (y=z=0); 2-D uses x,y (z=0);
 // 3-D uses all three. z is optional so every existing 2-D caller is unchanged.
@@ -455,19 +455,16 @@ function winBaldwin(ranks: number[][], m: number, names: readonly string[]): num
 
 /**
  * The order ranked pairs and River lock the majorities in: margin desc, then winner support
- * desc, then the seeded lot (`edgeKey`, the names only if two keys collide), never the index.
- * The key is hashed only for two majorities equal on both counts.
+ * desc, then the seeded lot (`edgeKey`), never the index. The key is hashed only for two
+ * majorities equal on both counts. (Two colliding 32-bit keys keep their insertion order, the
+ * indices' here and the names' on the backend: a 1-in-4-billion divergence.)
  */
 function byLockOrder(names: readonly string[]) {
   type Majority = { margin: number; support: number; w: number; l: number };
   return (a: Majority, b: Majority): number =>
     b.margin - a.margin ||
     b.support - a.support ||
-    edgeKey(names[a.w], names[a.l]) - edgeKey(names[b.w], names[b.l]) ||
-    byCodePoint(names[a.w], names[b.w]) ||
-    byCodePoint(names[a.l], names[b.l]) ||
-    a.w - b.w ||
-    a.l - b.l;
+    edgeKey(names[a.w], names[a.l]) - edgeKey(names[b.w], names[b.l]);
 }
 
 /**
