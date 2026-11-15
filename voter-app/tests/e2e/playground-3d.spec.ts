@@ -109,9 +109,9 @@ test.describe('Playground — 3D scene', () => {
     await page.mouse.move(from.x + 60, from.y - 40, { steps: 6 });
     await page.mouse.up();
 
-    // Each pointer move re-renders the whole playground (`moveYou` is a plain setState), and React
-    // slices that work, so the last frames can land after mouse.up() returns: one WebKit CI run read
-    // +20 px of +60. Poll the marker (a retrying assertion) instead of reading it once.
+    // Each pointer move is a plain setState in the playground (`moveYou`), and the render can lag
+    // behind the mouse: one WebKit CI run read the marker at +20 px of +60 after mouse.up() (the
+    // lag is the likely cause, not shown). Poll the marker (a retrying assertion), don't read it once.
     // It followed the pointer…
     await expect.poll(async () => (await where()).x - from.x).toBeGreaterThan(40);
     await expect.poll(async () => from.y - (await where()).y).toBeGreaterThan(25);
