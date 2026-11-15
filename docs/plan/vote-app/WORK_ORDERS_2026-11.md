@@ -20,6 +20,8 @@
    git ls-remote --heads origin '<branch of the work order>'
    gh pr list --state all --head '<branch of the work order>'
    ```
+   For a work order done in several PRs (P5-1's batches), ask for the prefix:
+   `git ls-remote --heads origin 'refactor/use-simulation-*'`.
    If either answers, someone has it, or it is done and the status table is late: fix the
    table in your own PR and take the next one. Push your branch early (an empty first commit
    is fine) so the next session sees your claim.
@@ -179,7 +181,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | todo |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | todo |
-| P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | depends | blocked: D3 |
+| P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | blocked: D3 |
 | P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | todo |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
@@ -195,7 +197,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P5-4 | Split `AVousDeJouerPage` and `LeaderCanvas` | no | todo |
 | P6-1 | Observer workflows into one daily job; "CI health check" advisory | yes (workflows) | blocked: D7 |
 | P6-2 | Narrow the human-review hold list | yes (`.mergify.yml`) | blocked: D7 |
-| P6-3 | Group Dependabot's updates | check | todo |
+| P6-3 | Group Dependabot's updates | no (`dependabot.yml` is not on the list) | todo |
 | P6-4 | The ratchet lowers its own baseline and runs locally | yes (`scripts/check_*`) | todo |
 | P6-5 | Polity's own CI job and requirements file | yes (workflows) | blocked: D8 |
 | P6-6 | A scheduled advisory check of the Playwright image digest | yes (workflows) | todo |
@@ -257,14 +259,15 @@ winners moved (`scripts/oracle_diff_report.py`).
 - Request: `From LISTING_ORDER_TIES.md's Open list: the lock order of ranked pairs and River on equal margins and supports follows the names on the backend and the indices on the client. Order equal locks by the seeded lot on both engines, and keep the two engines identical.`
 - Branch: `fix/ranked-pairs-river-lock-order`.
 - Start at: `get_ranked_pairs_winner` and `get_river_winner` in
-  `simulation_ranked_utils.py`; their twins in `playgroundVoting.ts`.
+  `simulation_ranked_utils.py`; their twins `winRankedPairs` and `winRiver` in
+  `playgroundVoting.ts`.
 - Done when: a reversed-candidates test passes for both rules on both engines, on an
   electorate with two equal majorities; parity regenerated and green with `KNOWN_DIVERGENT`
   still empty; the tied-electorate snapshot of `test_compare_all_methods_snapshot.py`
   regenerated if it moved; the Open list's first bullet keeps its Kemeny half (P3-2) and
   loses the ranked pairs and River half; the Fixed table gains a row.
-- Trap: the lot's draw must use the same names in the same order on both sides, or the
-  parity test fails on the draw itself (that was #1066).
+- Trap: the two engines must hand the lot the same names, or they draw differently on the
+  same tie and the parity test fails on the draw itself.
 
 **P3-2. Kemeny-Young: equal rankings by lot.**
 - Request: `From LISTING_ORDER_TIES.md's Open list: on the exact path (up to the exact cap), Kemeny-Young's choice among equally good rankings is the name-smallest on the backend and the index-smallest on the client. Draw it by the seeded lot on both engines, and keep the two engines identical on that path.`
@@ -274,8 +277,9 @@ winners moved (`scripts/oracle_diff_report.py`).
   records Kemeny as the one ordinal rule that does not draw: change that sentence.
 - Out of this work order: above the cap the two engines differ on purpose (the client falls
   back to Borda, the backend runs `_kwik_sort`), and neither computes equally good rankings
-  there. `_kwik_sort` picks its pivot by sorted name: do not change it here, add it to the
-  Open list as its own entry.
+  there. `_kwik_sort` takes the middle of the candidate list as its pivot, and its caller
+  sorts that list by name, so its answer follows the names: do not change it here, add it to
+  the Open list as its own entry.
 - Done when: a reversed-candidates test on both engines for an electorate with two equally
   good rankings, below the cap; parity regenerated and green; the Open list's first bullet
   is gone and the Fixed table gains a row.
@@ -340,7 +344,8 @@ change.
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 3: the three one-string UI keys in localStorage (theme, plain language, language) are still cast as read. Check each against its allowed values and fall back to the default.`
 - Branch: `fix/ui-keys-validated`.
 - Start at: `votelab_theme` and `votelab_plain` in `voter-app/src/stores/useUIStore.ts`;
-  `LANG_KEY` in `voter-app/src/i18n/index.ts`; `oneOf` in `lib/persistedState.ts`.
+  `LANG_KEY` in `voter-app/src/i18n/index.ts`; `oneOf` in `lib/persistedState.ts` (exported
+  by PR #1080; before that merges it is a local `const`, so wait for it or export it).
 - Done when: a junk value in each key gives the default, by test; the plan's Phase 3 bullet
   is struck.
 
@@ -386,7 +391,9 @@ change.
   --offline`, the hooks' unit tests).
 - Start at: `gh issue view 692`; every `pip install` and `image:` in `.github/workflows/`
   and the Dockerfiles.
-- Done when: the issue's list is exhausted or the PR says what stays and why.
+- Done when: every `image:` carries a digest and every `pip install` in a workflow or a
+  Dockerfile installs from a hashed lockfile (`--require-hashes`), or the PR lists each one
+  left with its reason; "Workflow lint" passes. Then ask the owner to close #692.
 
 ### Phase 5: engineering leverage
 
@@ -432,20 +439,34 @@ change.
 
 **P6-1. Observers into one daily job.** Blocked on D7.
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 6: make "CI health check" advisory and fold the observer workflows into one daily job.`
+- Branch: `ci/observers-daily-job`.
 - Start at: `ci-health.yml`, `ci-dashboard.yml`, `branch-red-alert.yml`, `red-on-base.yml`,
   `flaky-check-backend.yml`. Use the `voter-ci` skill. Scheduled workflows run `develop`'s
   copy, so a fix is live only after a sync.
+- Done when: the workflows the owner named under D7 run as one scheduled job; what each one
+  reported is still reported (list them in the PR, one line each: where it shows now); no
+  required status disappears without the owner having changed branch protection first;
+  "Workflow lint" passes. The PR gives the count of observer runs over the last 30 days,
+  before, and what the new schedule makes it.
 
 **P6-2. Narrow the hold list.** Blocked on D7.
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 6: narrow the human-review hold list.`
+- Branch: `ci/narrow-review-hold-list`.
 - Start at: the `files` conditions in `.mergify.yml`; `branch-policy.yml` checks each
   pattern still matches a file. A session proposes the list with the reason for each path;
   the owner chooses.
+- Done when: `.mergify.yml` holds exactly the paths the owner kept; `CLAUDE.md`'s paragraph
+  on high-risk paths and this page's Held definition say the same thing; the "Review-hold
+  path patterns still match files" check passes.
 
 **P6-3. Group Dependabot's updates.**
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 6: group Dependabot's updates.`
 - Branch: `ci/dependabot-groups`. Start at `.github/dependabot.yml`; some groups exist
   already (`patch-and-minor`). The `dep-triage` agent knows the history.
+- Done when: the PR shows, from the Dependabot PRs of the last 30 days
+  (`gh pr list --state all --author 'app/dependabot'`), how many there were and how many the
+  new groups would have made; majors stay one PR each; the file validates (Dependabot
+  reports a bad config on the PR itself).
 
 **P6-4. The ratchet lowers its own baseline.**
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 6: let the quality ratchet lower its own baseline and run locally.`
@@ -454,12 +475,17 @@ change.
 - Done when: a PR that removes debt needs no hand edit of the baseline, and one command
   measures the counts locally. Then delete the ratchet paragraph from "Local traps" above.
 
-**P6-5. Polity's own CI job and requirements file.** Blocked on D8.
+**P6-5. Polity's own CI job and requirements file.** Blocked on D8. Branch:
+`ci/polity-own-job`. No Request yet: the owner's answer to D8 is the request.
 
 **P6-6. A scheduled check of the Playwright image digest.**
 - Request: `From PLAN_GLOBAL_2026-11.md, Phase 1's note: the image version sync only asks the registry when a PR changes the pin, so a re-pushed tag shows on a release sync and not before. Add a scheduled advisory run that catches it early.`
 - Branch: `ci/playwright-digest-watch`. Start at the "Playwright/Docker image version sync"
   job in `e2e.yml`.
+- Done when: a scheduled run compares the pinned digest with the one the registry serves
+  and says so when they differ, without failing any PR; the comparison is exercised once
+  with a wrong digest (a dry run whose output is in the PR); "Workflow lint" passes. It runs
+  from `develop`'s copy, so it is live only after a sync: say that in the PR.
 
 ### Phase 7: new features
 
@@ -467,9 +493,14 @@ Blocked on D9. For each, the first PR is a design note of one page in `docs/plan
 (what the visitor does, what is stored, what is out of scope), which the owner agrees to
 before any code. `W3.5` in `docs/plan/PLAN_BEYOND_CI.md` is the existing note for class mode.
 
-- **P7-1.** Bring your own ballots (paste, CSV, PrefLib) and export.
-- **P7-2.** Predict-then-reveal and challenges.
-- **P7-3.** Class mode.
+- **P7-1.** Bring your own ballots (paste, CSV, PrefLib) and export. Note:
+  `docs/bring-your-own-ballots`.
+- **P7-2.** Predict-then-reveal and challenges. Note: `docs/predict-then-reveal`.
+- **P7-3.** Class mode. Note: `docs/class-mode`.
+
+The note's PR is the claim. Its Request is the plan's line for that feature, and it is done
+when the owner has agreed to it; the note then lists the feature's own work orders, added to
+the status table above.
 
 ### R-1. Release 0.4.0
 
