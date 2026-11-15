@@ -104,24 +104,39 @@ test.describe('Playground — 3D scene', () => {
     expect(from.y).toBeLessThan(viewport.height - 80); // on screen, with room to drag
     expect(from.y).toBeGreaterThan(80);
 
+    // The marker is redrawn under the pointer, so a 60/-40 drag ends exactly 60 px right and 40 px
+    // up of where it started (measured: dx 60.00, dy 40.00 on chromium and firefox).
+    const drag = { dx: 60, dy: -40 };
+    const target = { x: from.x + drag.dx, y: from.y + drag.dy };
+    const distanceToTarget = async () => {
+      const at = await where();
+      return Math.hypot(at.x - target.x, at.y - target.y);
+    };
+    const afterFrames = () =>
+      page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done()))
+          )
+      );
+
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
-    await page.mouse.move(from.x + 60, from.y - 40, { steps: 6 });
+    await page.mouse.move(target.x, target.y, { steps: 6 });
     await page.mouse.up();
 
     // Each pointer move is a plain setState in the playground (`moveYou`), and the render can lag
     // behind the mouse: one WebKit CI run read the marker at +20 px of +60 after mouse.up() (the
-    // lag is the likely cause, not shown). Poll the marker (a retrying assertion), don't read it once.
-    // It followed the pointer…
-    await expect.poll(async () => (await where()).x - from.x).toBeGreaterThan(40);
-    await expect.poll(async () => from.y - (await where()).y).toBeGreaterThan(25);
-    // …and the camera did not orbit (yaw or pitch): read it once the last frames have landed.
-    await page.evaluate(
-      () =>
-        new Promise<void>((done) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => done()))
-        )
-    );
+    // lag is the likely cause, not shown). Poll the marker (a retrying assertion), don't read it
+    // once, and wait for it to reach the pointer, not just to pass a threshold on the way.
+    await expect.poll(distanceToTarget).toBeLessThan(1.5);
+
+    // The drag ends on release: a later pointer move must not drag the marker along.
+    await page.mouse.move(target.x + 120, target.y + 80, { steps: 4 });
+    await afterFrames();
+    expect(await distanceToTarget()).toBeLessThan(1.5);
+
+    // And the camera did not orbit (yaw or pitch): read it once the last frames have landed.
     expect(await cand()).toEqual(candBefore);
     expect(crashes).toEqual([]);
   });
