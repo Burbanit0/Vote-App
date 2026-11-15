@@ -109,12 +109,20 @@ test.describe('Playground — 3D scene', () => {
     await page.mouse.move(from.x + 60, from.y - 40, { steps: 6 });
     await page.mouse.up();
 
-    // Each pointer move goes through the whole playground state before the marker is redrawn, so
-    // the last frames can land after mouse.up() returns: one WebKit CI run read +20 px of +60.
-    // Poll the marker (a retrying assertion) instead of reading it once.
-    await expect.poll(async () => (await where()).x - from.x).toBeGreaterThan(40); // it followed the pointer…
+    // Each pointer move re-renders the whole playground (`moveYou` is a plain setState), and React
+    // slices that work, so the last frames can land after mouse.up() returns: one WebKit CI run read
+    // +20 px of +60. Poll the marker (a retrying assertion) instead of reading it once.
+    // It followed the pointer…
+    await expect.poll(async () => (await where()).x - from.x).toBeGreaterThan(40);
     await expect.poll(async () => from.y - (await where()).y).toBeGreaterThan(25);
-    expect(await cand()).toEqual(candBefore); // …and the camera did not orbit (yaw or pitch).
+    // …and the camera did not orbit (yaw or pitch): read it once the last frames have landed.
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done()))
+        )
+    );
+    expect(await cand()).toEqual(candBefore);
     expect(crashes).toEqual([]);
   });
 });
