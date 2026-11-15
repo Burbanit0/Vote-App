@@ -15,6 +15,7 @@ from api.engine.utils.simulation_ranked_utils import (
     _pairwise_wins, _kwik_sort, _kemeny_exact_winner, _KY_EXACT_CAP,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
+from api.engine.utils.tie_lot import draw
 
 
 def test_kemeny_young_elects_the_condorcet_winner_when_one_exists():
@@ -140,9 +141,11 @@ def test_the_documented_hash_order_regression_now_gets_the_exact_answer():
 
 
 def test_exact_kemeny_agrees_with_brute_force_across_the_whole_cap_range():
-    """The DP replaced `max(permutations(...))`, so it has to return what the
-    enumeration returned -- including the tie-break, which callers depend on:
-    the lexicographically smallest optimal ranking.
+    """The DP replaced `max(permutations(...))`, so it has to elect what the
+    enumeration found optimal. Where several candidates head an optimal ranking
+    the DP draws among them by lot (it used to take the lexicographically
+    smallest optimal ranking), so the check is that its winner is one of them,
+    and exactly the one when there is only one.
 
     7 and 8 are the interesting widths: both are inside every request schema's
     limit and both used to be answered by KwikSort, so that is the band where
@@ -177,8 +180,16 @@ def test_exact_kemeny_agrees_with_brute_force_across_the_whole_cap_range():
                     for i, j in itertools.combinations(range(len(ranking)), 2)
                 )
 
-            brute = max(itertools.permutations(candidates), key=score)
-            assert get_kemeny_young_winner(votes) == brute[0]
+            best, leaders = -1, set()
+            for ranking in itertools.permutations(candidates):
+                s = score(ranking)
+                if s > best:
+                    best, leaders = s, {ranking[0]}
+                elif s == best:
+                    leaders.add(ranking[0])
+            assert get_kemeny_young_winner(votes) in leaders
+            if len(leaders) == 1:
+                assert get_kemeny_young_winner(votes) == next(iter(leaders))
 
 
 def test_a_ballot_ranking_neither_candidate_does_not_vote_in_their_duel():
@@ -233,3 +244,40 @@ def test_the_winner_never_depends_on_candidate_discovery_order():
             # Same candidate set either way, so the answer must not move when the
             # ballots arrive in a different order.
             assert winner == get_kemeny_young_winner(list(reversed(votes)))
+
+
+# Three equally good rankings: each pair is a 2-1 majority around a cycle, so A>B>C, B>C>A and
+# C>A>B all score 5 and every candidate heads one. The lot draws among all three, over their
+# names, never the name-smallest (A) or the first listed.
+CYCLE = [["A", "B", "C"], ["B", "C", "A"], ["C", "A", "B"]]
+
+
+def test_equally_good_rankings_are_drawn_by_lot_among_every_candidate_that_heads_one():
+    drawn = [get_kemeny_young_winner(CYCLE, seed=s) for s in range(32)]
+    assert drawn == [draw(["A", "B", "C"], s) for s in range(32)]
+    assert set(drawn) == {"A", "B", "C"}  # not always A, the name-smallest
+    assert drawn[0] == "C"  # seed 0, as a literal: the client's test pins the same winner
+
+
+def test_only_the_candidates_that_head_an_optimal_ranking_are_drawn_among():
+    """Ann and Cat tie for first and Zed trails: two leaders out of three. The lot is over
+    those two names, not over all three, so Zed can never win, and the draw is the same as for
+    any other two-way tie of Ann and Cat."""
+    votes = [["Ann", "Cat", "Zed"]] * 3 + [["Cat", "Ann", "Zed"]] * 3
+    drawn = [get_kemeny_young_winner(votes, seed=s) for s in range(32)]
+    assert drawn == [draw(["Ann", "Cat"], s) for s in range(32)]
+    assert set(drawn) == {"Ann", "Cat"}
+    assert get_kemeny_young_winner(votes) == "Cat"  # seed 0
+
+
+def test_the_draw_does_not_follow_the_order_the_ballots_arrive_in():
+    for seed in range(8):
+        expected = get_kemeny_young_winner(CYCLE, seed=seed)
+        assert get_kemeny_young_winner(list(reversed(CYCLE)), seed=seed) == expected
+        assert get_kemeny_young_winner(CYCLE[1:] + CYCLE[:1], seed=seed) == expected
+
+
+def test_a_unique_optimum_is_not_drawn():
+    """One optimal ranking, one head: the seed cannot move it."""
+    votes = [["A", "B", "C"]] * 3 + [["B", "A", "C"]]
+    assert {get_kemeny_young_winner(votes, seed=s) for s in range(16)} == {"A"}

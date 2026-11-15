@@ -1048,9 +1048,9 @@ describe('listing order — a score-rule tie is drawn over names, not positions 
  * ties included.
  */
 describe('kemeny exact DP', () => {
-  /** Brute-force Kemeny over all m! orderings, returning the first element of
-   *  the index-lexicographically smallest optimal ordering. */
-  function bruteKemeny(ranks: number[][], m: number): number {
+  /** Brute-force Kemeny over all m! orderings, returning every candidate that heads
+   *  an optimal ordering: the winner is the lot's pick among them. */
+  function bruteKemeny(ranks: number[][], m: number): Set<number> {
     const b: number[][] = Array.from({ length: m }, () => new Array(m).fill(0));
     for (const r of ranks) {
       const pos = new Array(m).fill(0);
@@ -1061,18 +1061,16 @@ describe('kemeny exact DP', () => {
           else b[j][i] += 1;
         }
     }
-    let best: number[] | null = null;
+    let leaders = new Set<number>();
     let bestScore = -1;
     const permute = (chosen: number[], left: number[]): void => {
       if (left.length === 0) {
         let s = 0;
         for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) s += b[chosen[i]][chosen[j]];
-        // `>` only, and `left` is walked in ascending order, so the first
-        // maximum found is the index-lexicographically smallest optimum.
         if (s > bestScore) {
           bestScore = s;
-          best = chosen.slice();
-        }
+          leaders = new Set([chosen[0]]);
+        } else if (s === bestScore) leaders.add(chosen[0]);
         return;
       }
       for (const c of left)
@@ -1085,7 +1083,15 @@ describe('kemeny exact DP', () => {
       [],
       Array.from({ length: m }, (_, i) => i)
     );
-    return best![0];
+    return leaders;
+  }
+
+  /** The winner is one of the candidates that head an optimal ordering, and the one when alone. */
+  function expectAnOptimalLeader(ranks: number[][], m: number): void {
+    const leaders = bruteKemeny(ranks, m);
+    const winner = ruleWinnerFromRanks(ranks, m, 'kemeny');
+    expect(leaders.has(winner)).toBe(true);
+    if (leaders.size === 1) expect(winner).toBe([...leaders][0]);
   }
 
   // A mulberry32 PRNG: seeded so a failure is reproducible, unlike Math.random.
@@ -1114,15 +1120,55 @@ describe('kemeny exact DP', () => {
           }
           ranks.push(perm);
         }
-        // Mirroring every ballot ties every ordering, so the tie-break decides.
+        // Mirroring every ballot ties every ordering, so the lot decides.
         if (trial % 3 === 0) {
           tiedProfiles += 1;
           ranks.push(...ranks.map((r) => r.slice().reverse()));
         }
-        expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(bruteKemeny(ranks, m));
+        expectAnOptimalLeader(ranks, m);
       }
     }
     expect(tiedProfiles).toBeGreaterThan(0);
+  });
+
+  it('draws among equally good rankings by lot, whatever the listing', () => {
+    // A>B>C>A, each majority 2-1: A>B>C, B>C>A and C>A>B all score 5, so every candidate heads an
+    // optimal ranking. Seed 0 draws C (test_kemeny_young.py pins the same winner on the backend).
+    const ballots = [
+      ['A', 'B', 'C'],
+      ['B', 'C', 'A'],
+      ['C', 'A', 'B'],
+    ];
+    const listings = [
+      ['A', 'B', 'C'],
+      ['A', 'C', 'B'],
+      ['B', 'A', 'C'],
+      ['B', 'C', 'A'],
+      ['C', 'A', 'B'],
+      ['C', 'B', 'A'],
+    ];
+    for (const listing of listings) {
+      const ranks = ballots.map((b) => b.map((n) => listing.indexOf(n)));
+      expect(listing[ruleWinnerFromRanks(ranks, 3, 'kemeny', undefined, listing)]).toBe('C');
+    }
+  });
+
+  it('draws only among the candidates that head an optimal ranking', () => {
+    // Ann and Cat tie for first, Zed trails: two leaders out of three. Seed 0 draws Cat over those
+    // two names (the backend's test pins the same), and Zed never wins, in any listing.
+    const ballots = [
+      ...Array(3).fill(['Ann', 'Cat', 'Zed']),
+      ...Array(3).fill(['Cat', 'Ann', 'Zed']),
+    ];
+    const listings = [
+      ['Ann', 'Cat', 'Zed'],
+      ['Zed', 'Cat', 'Ann'],
+      ['Cat', 'Zed', 'Ann'],
+    ];
+    for (const listing of listings) {
+      const ranks = ballots.map((b) => b.map((n: string) => listing.indexOf(n)));
+      expect(listing[ruleWinnerFromRanks(ranks, 3, 'kemeny', undefined, listing)]).toBe('Cat');
+    }
   });
 
   it('elects the Condorcet winner when one exists, at every width up to the cap', () => {

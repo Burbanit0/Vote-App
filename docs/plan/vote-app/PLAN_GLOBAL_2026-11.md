@@ -89,8 +89,7 @@ A box is ticked when the change is on `polity`.
 
 - #926, in three PRs instead of one: the lot's finaliser, which fixes its seed parity (#1066);
   the ranked rules on both engines, parity fixture regenerated (#1074); the workers' aggregate
-  tallies (#1076). What is left is the Open list of `LISTING_ORDER_TIES.md`: Kemeny's choice
-  among equal rankings, two tallies in the theory and
+  tallies (#1076). What is left is the Open list of `LISTING_ORDER_TIES.md`: two tallies in the theory and
   multiwinner code, the runners-up, the apportionment comparison, and Hotelling and identity
   voting's default groups (an owner decision).
 - One stated convention for truncated ballots per rule, one shared pairwise-defeat definition,

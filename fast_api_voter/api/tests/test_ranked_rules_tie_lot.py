@@ -17,13 +17,14 @@ TIED = ["Ann", "Cat"]
 # Mirror twins: every ballot of one kind has its mirror, so the rule cannot tell Ann from Cat.
 BALLOTS = [["Ann", "Cat", "Zed"]] * 3 + [["Cat", "Ann", "Zed"]] * 3
 
-# Kemeny-Young picks the optimal RANKING, and among equally good rankings the name-smallest
-# (an ordering tie, not an aggregate one): not drawn yet, a #926 follow-up.
-DRAWN = sorted(set(RANKED_RULES) - {"kemeny_young"})
+# Kemeny-Young picks the optimal RANKING, so its tie is among equally good rankings (an ordering
+# tie, not an aggregate one): the candidates that head one are drawn too, on the exact path
+# (every profile here is far below the cap).
+DRAWN = sorted(RANKED_RULES)
 
 
-def test_the_drawn_rules_are_every_ranked_rule_but_kemeny():
-    assert len(DRAWN) == len(RANKED_RULES) - 1 == 21
+def test_the_drawn_rules_are_every_ranked_rule():
+    assert len(DRAWN) == len(RANKED_RULES) == 22
 
 
 @pytest.mark.parametrize("rule", DRAWN)
