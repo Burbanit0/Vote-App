@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { drawName, bestIndex, drawIndex, isTied } from './tieLot';
+import { drawName, bestIndex, drawIndex, edgeKey, isTied } from './tieLot';
 
 // fast_api_voter/api/tests/test_tie_lot.py pins the same values: the two engines must
 // draw the same candidate from the same tie.
@@ -77,6 +77,30 @@ describe('the tie lot', () => {
       expect(drawName(names, seed)).toBe(drawn);
     }
   );
+
+  it.each([
+    ['A', 'B', 0, 3805211593],
+    ['B', 'A', 0, 3868525687], // the direction of the majority is part of the key
+    ['A', 'B', 7, 1980306585],
+    ['Zoé', 'Émile', 0, 279264445],
+    ['\ud800', 'A', 0, 2871415190], // a lone surrogate hashes as U+FFFD
+    ['Ann', 'Cat', 20260628, 4167520836],
+  ] as const)(
+    'edgeKey pins the values tie_lot.py pins (%s over %s, seed %i)',
+    (w, l, seed, key) => {
+      expect(edgeKey(w, l, seed)).toBe(key);
+    }
+  );
+
+  it('edgeKey is the same when asked again, and after the cache has been emptied', () => {
+    const pinned = (): number => edgeKey('A', 'B', 0);
+    expect(pinned()).toBe(3805211593);
+    expect(pinned()).toBe(3805211593); // from the cache
+    // More distinct names than the cache holds: it empties itself, and the answer is unchanged.
+    for (let i = 0; i < 5000; i++) edgeKey(`n${i}`, 'B', 0);
+    expect(pinned()).toBe(3805211593);
+    expect(edgeKey('n4999', 'B', 0)).toBe(edgeKey('n4999', 'B', 0));
+  });
 
   it('bestIndex falls back to the first index when no value ranks (NaN)', () => {
     expect(bestIndex([NaN, NaN], ['A', 'B'])).toBe(0);

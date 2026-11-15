@@ -623,21 +623,22 @@ def test_clone_independence_ranked_pairs_can_be_violated():
     Tideman's ranked-pairs method doesn't cover, since that proof assumes
     generic (non-tied) margins. With a three-way tie, which edge gets locked
     in first is a tie-breaking convention, and cloning a candidate disturbs
-    that tie-break: original winner B, cloning non-winner C flips it to A."""
-    rankings = [["A", "C", "B", "D"], ["B", "A", "C", "D"], ["C", "B", "A", "D"]]
+    that tie-break: the seeded lot orders the equal majorities, and the clone's new majorities
+    reshuffle that order (seed 0: original winner B, cloning non-winner A flips it to C)."""
+    rankings = [["A", "B", "C", "D"], ["B", "C", "A", "D"], ["C", "A", "B", "D"]]
     assert get_ranked_pairs_winner(rankings) == "B"
-    cloned = _clone_after(rankings, "C", "A*")
-    assert get_ranked_pairs_winner(cloned) == "A"
+    cloned = _clone_after(rankings, "A", "A*")
+    assert get_ranked_pairs_winner(cloned) == "C"
 
 
 def test_clone_independence_river_can_be_violated():
     """River is a ranked-pairs variant and shares its tie-breaking
     convention, so it fails on the exact same degenerate tied-cycle profile
     as test_clone_independence_ranked_pairs_can_be_violated above."""
-    rankings = [["A", "C", "B", "D"], ["B", "A", "C", "D"], ["C", "B", "A", "D"]]
+    rankings = [["A", "B", "C", "D"], ["B", "C", "A", "D"], ["C", "A", "B", "D"]]
     assert get_river_winner(rankings) == "B"
-    cloned = _clone_after(rankings, "C", "A*")
-    assert get_river_winner(cloned) == "A"
+    cloned = _clone_after(rankings, "A", "A*")
+    assert get_river_winner(cloned) == "C"
 
 
 def test_clone_independence_baldwin_can_be_violated():

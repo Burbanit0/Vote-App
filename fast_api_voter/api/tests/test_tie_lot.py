@@ -13,7 +13,7 @@ from api.engine.utils.simulation_score_utils import (
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter, vote_ranked
-from api.engine.utils.tie_lot import _fnv1a, best, draw, ranking, tied
+from api.engine.utils.tie_lot import _fnv1a, best, draw, edge_key, ranking, tied
 from api.engine.utils.method_registry import SCORE_RULES, rule_winner, winner_from_utilities
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -41,6 +41,21 @@ def test_the_hash_is_fnv1a_32():
 def test_draw_pins_the_values_the_client_pins(names, seed, drawn):
     assert draw(names, seed) == drawn
     assert draw(list(reversed(names)), seed) == drawn  # listing order does not matter
+
+
+@pytest.mark.parametrize(
+    "winner, loser, seed, key",
+    [
+        ("A", "B", 0, 3805211593),
+        ("B", "A", 0, 3868525687),  # the direction of the majority is part of the key
+        ("A", "B", 7, 1980306585),
+        ("Zoé", "Émile", 0, 279264445),
+        ("\ud800", "A", 0, 2871415190),  # a lone surrogate hashes as U+FFFD
+        ("Ann", "Cat", 20260628, 4167520836),
+    ],
+)
+def test_edge_key_pins_the_values_the_client_pins(winner, loser, seed, key):
+    assert edge_key(seed, winner, loser) == key
 
 
 def test_a_two_way_draw_does_not_follow_the_parity_of_the_seed():

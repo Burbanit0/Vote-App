@@ -9,6 +9,10 @@ fmix32; the index is that hash modulo the number of tied names (finalised, becau
 raw hash's low bit is only a parity: two tied names would alternate with the seed's).
 test_tie_lot.py pins values the client test pins too.
 
+`edge_key` orders two equal pairwise majorities when ranked pairs and River lock them: FNV-1a of
+the seed, the literal "edge", the winner and the loser (in that order), finalised the same way;
+`edgeKey` in tieLot.ts is its twin, and the two test files pin the same values.
+
 `ranking` and `nearest` (a voter's own ranking and nearest option, backend only) order a
 tie differently: by one finalised hash per name (`_voter_lot`), of the seed and that name,
 so a tie falls like a fair coin from one voter to the next.
@@ -63,6 +67,14 @@ def draw(tied: Iterable[T], seed: object = 0) -> T:
     """One of `tied`, drawn by the seeded lot over their names in code-point order."""
     names = sorted(tied, key=str)
     return names[_fmix32(_hash(seed, *names)) % len(names)]
+
+
+def edge_key(seed: object, winner: object, loser: object) -> int:
+    """The lot's place for one pairwise majority `winner` over `loser`: the key that orders
+    equal majorities (same margin, same support) when ranked pairs and River lock them, so
+    the lock order never follows the names or the listing. A hash of the seed and the two
+    names, finalised (see `_fmix32`); the twin of `edgeKey` in tieLot.ts."""
+    return _fmix32(_hash(seed, "edge", winner, loser))
 
 
 def ranking(names: Iterable[T], value: Callable[[T], float], seed: object = 0) -> List[T]:
