@@ -24,7 +24,6 @@ _configs = st.builds(
         decay=decay,
         recall_floor=recall_floor,
         recall_floor_indexed_on_l0=False,
-        recall_cooldown_ticks=4,
         passive_erosion_weight=passive_erosion_weight,
     ),
     decay=_fraction,

@@ -485,11 +485,18 @@ presidential tally, the campaign poll and the simulated referendum and stakes ba
 model's vote prompt, in salience, in the indifference-abstention rule and in the legislative vote. The
 comment in `polity_config.yaml` lists them.)
 
-Worth knowing before tuning them: `assembly_term_limit`, `assembly_mode`, `coalition_initiator`,
-`max_candidates_hard_cap`, `memory_window_terms`, `journal.snapshot_every_ticks` (the code keys off `ticks_per_year`),
-`metrics.compute_every_ticks`, `sortition_chamber.veto_power` / `veto_delay_ticks`,
-`llm.cache_backend` / `cache_url` / `personas_count`, `parties.birth_enabled` / `death_enabled`,
+Worth knowing before tuning them: `assembly_mode`, `coalition_initiator`,
+`max_candidates_hard_cap`, `memory_window_terms`, `sortition_chamber.veto_power` / `veto_delay_ticks`,
+`parties.birth_enabled` / `death_enabled`,
 and the 4 score-based `presidential_method` values (accepted by config, refused at run start).
+
+Nine keys that used to sit in this list were removed on 2026-11-15 because no code read them
+(`llm.cache_backend`, `cache_url`, `personas_count`, `parallel.runs_in_parallel`,
+`metrics.compute_every_ticks`, `journal.snapshot_every_ticks`, `journal.log_non_events`,
+`legitimacy.recall_cooldown_ticks`, `institutions.assembly_term_limit`). Two facts they hid: the
+snapshot cadence is fixed by `run.ticks_per_year` (one census per simulated year), and there is no
+response cache, no persona layer and no recall cooldown. A config that still carries them loads, and
+they are ignored.
 
 ---
 

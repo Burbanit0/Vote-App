@@ -129,7 +129,9 @@ EXP-026 for vLLM 0.33.0; a journal entry.
 
 Small PRs, each with the golden byte-identical.
 
-- Remove the config keys nothing reads, in `polity_config.yaml` and `config.py`. Nine have no reader
+- **Done (PR "drop nine config keys nothing reads", no behaviour change: 150 of 150 rule-only catalogue
+  points identical to the base, and the fixture's journal byte-identical).** Remove the config keys
+  nothing reads, in `polity_config.yaml` and `config.py`. Nine have no reader
   outside the loader (checked 2026-11-15): `llm.cache_backend`, `llm.cache_url`,
   `llm.personas_count`, `parallel.runs_in_parallel`, `metrics.compute_every_ticks`,
   `journal.snapshot_every_ticks`, `journal.log_non_events`, `legitimacy.recall_cooldown_ticks` and
