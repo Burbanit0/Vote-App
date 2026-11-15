@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_shipped_wiring.py
+scripts/archive/check_pressure_shipped_wiring.py
 
 Live sanity check of Phase E's actual shipped wiring (polity-decision-
 contracts.md / plan-llm-protocol-and-theory-program.md): decide_
@@ -19,7 +19,7 @@ self_gap spans clearly-satisfied to clearly-discontented) and checks:
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_pressure_shipped_wiring.py
+    python fast_api_voter/scripts/archive/check_pressure_shipped_wiring.py
 """
 from __future__ import annotations
 

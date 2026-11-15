@@ -1,5 +1,5 @@
 """
-scripts/check_reaction_to_event_collapse_signature.py
+scripts/archive/check_reaction_to_event_collapse_signature.py
 
 Fourth and last decision-type check requested before writing a new, separately-scoped document on
 the adversarial/target-relative framing pattern found so far for pressure_action,
@@ -30,7 +30,7 @@ Same isolation discipline: size=1, think=False (production path), real productio
 unmodified.
 
 Usage:
-    python fast_api_voter/scripts/check_reaction_to_event_collapse_signature.py
+    python fast_api_voter/scripts/archive/check_reaction_to_event_collapse_signature.py
 """
 from __future__ import annotations
 

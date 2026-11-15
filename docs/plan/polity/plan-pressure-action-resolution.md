@@ -407,7 +407,7 @@ avant `act`/`cid`/`motif`). Les deux autres options restent hors de
 portée : elles exigeraient de modifier `sort_keys` lui-même, ce que ce
 document interdit explicitement pour cette seule remédiation.
 
-**Test live exécuté** (`scripts/check_pressure_action_reasoning_field_first.py`,
+**Test live exécuté** (`scripts/archive/check_pressure_action_reasoning_field_first.py`,
 résultats complets dans `check_pressure_action_reasoning_field_first_results.md`) :
 mécanisme confirmé en direct (70/70 réponses brutes avec `a_reasoning` avant
 `act`), raisonnement non content-blind (70 chaînes distinctes) — mais le

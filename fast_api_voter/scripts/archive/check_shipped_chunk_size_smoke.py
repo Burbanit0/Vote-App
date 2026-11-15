@@ -1,5 +1,5 @@
 """
-scripts/check_shipped_chunk_size_smoke.py
+scripts/archive/check_shipped_chunk_size_smoke.py
 
 A live smoke test of the SHIPPED production code path (cast_votes /
 decide_chamber_deliberation, imported directly from llm_behavior_engine.py --
@@ -12,7 +12,7 @@ tokens probe call) end to end before committing.
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_shipped_chunk_size_smoke.py
+    python fast_api_voter/scripts/archive/check_shipped_chunk_size_smoke.py
 """
 from __future__ import annotations
 

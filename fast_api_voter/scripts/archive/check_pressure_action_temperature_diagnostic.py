@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_temperature_diagnostic.py
+scripts/archive/check_pressure_action_temperature_diagnostic.py
 
 Step 0.1 of plan-pressure-action-remediation.md -- a cheap diagnostic run BEFORE committing to any
 of the three redesign paths (§3), to see whether they're even the right thing to prioritize.
@@ -22,7 +22,7 @@ Pre-registered criterion:
   paths (§3), not a decoding tweak.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_temperature_diagnostic.py
+    python fast_api_voter/scripts/archive/check_pressure_action_temperature_diagnostic.py
 """
 from __future__ import annotations
 

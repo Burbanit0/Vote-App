@@ -1,5 +1,5 @@
 """
-scripts/check_representative_response_collapse_signature.py
+scripts/archive/check_representative_response_collapse_signature.py
 
 Follow-up to plan-pressure-action-remediation.md §3bis's reframed question: does the collapse
 found for pressure_action generalize to representative_response, the OTHER decision type framed
@@ -39,7 +39,7 @@ Same isolation discipline throughout: size=1 (one holder per call), think=False 
 path), real production prompt/schema, config.mandate bounds respected in the prompt as shipped.
 
 Usage:
-    python fast_api_voter/scripts/check_representative_response_collapse_signature.py
+    python fast_api_voter/scripts/archive/check_representative_response_collapse_signature.py
 """
 from __future__ import annotations
 

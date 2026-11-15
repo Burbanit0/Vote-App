@@ -78,6 +78,16 @@ def _hotelling_score(
 HOTELLING_METHODS = ("plurality", "borda", "approval")
 
 
+def _move_order(names: List[str], seed: object) -> List[int]:
+    """The order candidates best-respond in this round: every index once, by the seeded lot over
+    the candidates' NAMES (the lot's own order, `tie_lot.ranking`), never the listing order.
+    Two candidates sharing a name keep their listing order between themselves."""
+    by_name: Dict[str, List[int]] = {}
+    for i, name in enumerate(names):
+        by_name.setdefault(name, []).append(i)
+    return [i for name in tie_lot.ranking(list(by_name), lambda n: 0.0, seed) for i in by_name[name]]
+
+
 def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """/hotelling — Hotelling-Downs iterative best-response Nash equilibrium."""
     num_voters     = max(50,  min(500, int(data.get("num_voters",   200))))
@@ -147,7 +157,10 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "converged_candidates": sorted(converged_set),
         })
 
-        for j in range(C):
+        # Each candidate best-responds to where the ones before it in the round already moved, so
+        # the order matters. It is drawn by lot, a new order each round (seeded with the request's
+        # seed and the round), not the order the candidates were listed in.
+        for j in _move_order(cand_names, f"{seed}:{step}"):
             if cand_names[j] in converged_set:
                 continue
 

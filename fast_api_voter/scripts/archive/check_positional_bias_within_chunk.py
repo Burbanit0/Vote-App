@@ -1,5 +1,5 @@
 """
-scripts/check_positional_bias_within_chunk.py
+scripts/archive/check_positional_bias_within_chunk.py
 
 §5.D of `plan-llm-protocol-and-theory-program.md`: "lost in the middle" (Liu et
 al., 2023) says models attend unevenly across a context. This project batches
@@ -31,7 +31,7 @@ separately, since a positional gradient in FAILURE rate would itself be a
 finding.
 
 Usage:
-    python fast_api_voter/scripts/check_positional_bias_within_chunk.py \\
+    python fast_api_voter/scripts/archive/check_positional_bias_within_chunk.py \\
         --run-dir fast_api_voter/scripts/flagship_runs/parity-8y-p100-chunked-v1
 """
 from __future__ import annotations

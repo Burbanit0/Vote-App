@@ -1,5 +1,5 @@
 """
-scripts/check_party_nomination_position_logprobs.py
+scripts/archive/check_party_nomination_position_logprobs.py
 
 Track C1 step E (lets-build-a-solid-spicy-otter.md, ~1 min GPU, ~80 throwaway lines):
 Stage 3 (`scaleprobe-8y-p500-v2-postfix`) fell back on `party_nomination_choice` 10/15
@@ -30,7 +30,7 @@ schema are all identical to what actually ran.
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_party_nomination_position_logprobs.py
+    python fast_api_voter/scripts/archive/check_party_nomination_position_logprobs.py
 """
 from __future__ import annotations
 

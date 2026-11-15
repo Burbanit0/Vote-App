@@ -1,5 +1,5 @@
 """
-scripts/check_candidacy_forced_reasoning_comparison.py
+scripts/archive/check_candidacy_forced_reasoning_comparison.py
 
 Cheap comparative test, per direct instruction: pressure_action already showed that forcing
 think=True in a single-citizen-batch configuration (never used in production for this decision
@@ -32,7 +32,7 @@ Two readings, written before any call:
   single-citizen-batch think=True artifact -- strengthens the connection between the two findings.
 
 Usage:
-    python fast_api_voter/scripts/check_candidacy_forced_reasoning_comparison.py
+    python fast_api_voter/scripts/archive/check_candidacy_forced_reasoning_comparison.py
 """
 from __future__ import annotations
 

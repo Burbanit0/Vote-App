@@ -31,8 +31,8 @@ Phase 4, which W6 was the last build item of; what remains of it waits on you (b
 
 1. **Correctness** ([Phase 3](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-3-correctness)),
    what is left: one stated convention for truncated ballots per rule and one shared
-   pairwise-defeat definition; one electorate for both engines; #926's leftovers (the apportionment comparison; Hotelling and
-   identity voting need an owner decision, all in `LISTING_ORDER_TIES.md`). The first two are high-risk paths.
+   pairwise-defeat definition; one electorate for both engines; #926's leftovers (what `LISTING_ORDER_TIES.md`'s
+   Open list still holds; the apportionment comparison is by design). The first two are high-risk paths.
 2. **Process diet** ([Phase 6](plan/vote-app/PLAN_GLOBAL_2026-11.md#phase-6-process-diet)),
    starting with a scheduled check of the Playwright image digest (it cost the first sync
    its red run) and #692. Closing `PLAN_BEYOND_CI`: W3.5 (class mode) waits for the teacher
