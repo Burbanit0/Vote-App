@@ -109,9 +109,11 @@ test.describe('Playground — 3D scene', () => {
     await page.mouse.move(from.x + 60, from.y - 40, { steps: 6 });
     await page.mouse.up();
 
-    const to = await where();
-    expect(to.x).toBeGreaterThan(from.x + 40); // it followed the pointer…
-    expect(to.y).toBeLessThan(from.y - 25);
+    // Each pointer move goes through the whole playground state before the marker is redrawn, so
+    // the last frames can land after mouse.up() returns: one WebKit CI run read +20 px of +60.
+    // Poll the marker (a retrying assertion) instead of reading it once.
+    await expect.poll(async () => (await where()).x - from.x).toBeGreaterThan(40); // it followed the pointer…
+    await expect.poll(async () => from.y - (await where()).y).toBeGreaterThan(25);
     expect(await cand()).toEqual(candBefore); // …and the camera did not orbit (yaw or pitch).
     expect(crashes).toEqual([]);
   });
