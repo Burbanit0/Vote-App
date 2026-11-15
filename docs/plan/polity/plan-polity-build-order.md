@@ -1,6 +1,6 @@
 # Polity build order — execution plan
 
-> **status:** live — several steps have no closing commit yet. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** superseded — by [`plan-scenarios-v1.md`](plan-scenarios-v1.md) and [`polity-state-2026-11.md`](polity-state-2026-11.md). A record of the 2026-09-13 execution steps; the steps whose "closed by" cell is empty were not closed here and are not being closed. (Set 2026-11-15; `docs/README.md` lists every plan.)
 
 **What this is.** The executable form of the 2026-09-13 research synthesis ("Polity Build
 Order": five tracks — simulation model, inference speed, model evaluation, research

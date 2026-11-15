@@ -55,8 +55,8 @@ Every plan's first lines say its status: **live** (being executed or maintained)
 | Live | Reference |
 |---|---|
 | [`PLAN_BEYOND_CI.md`](plan/PLAN_BEYOND_CI.md), the current plan | [`polity/polity-simulation-design-v2.md`](plan/polity/polity-simulation-design-v2.md), the authority on intent |
-| [`polity/plan-polity-agency-roadmap.md`](plan/polity/plan-polity-agency-roadmap.md) | [`polity/polity-llm-reference.md`](plan/polity/polity-llm-reference.md), what the simulator does today |
-| [`polity/plan-polity-build-order.md`](plan/polity/plan-polity-build-order.md) | [`polity/polity-decision-contracts.md`](plan/polity/polity-decision-contracts.md) |
+| [`polity/polity-state-2026-11.md`](plan/polity/polity-state-2026-11.md), **where Polity stands** and the plan to February 2027: read it first | [`polity/polity-llm-reference.md`](plan/polity/polity-llm-reference.md), what the simulator does today |
+| | [`polity/polity-decision-contracts.md`](plan/polity/polity-decision-contracts.md) |
 | [`vote-app/PLAN_SOLIDITE_TECHNIQUE.md`](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) | [`polity/observations.md`](plan/polity/observations.md), the OBS log |
 | [`vote-app/PLAN_SURFACE_EXTERIEURE.md`](plan/vote-app/PLAN_SURFACE_EXTERIEURE.md) | [`polity/fit-for-inference.md`](plan/polity/fit-for-inference.md) |
 | [`vote-app/LISTING_ORDER_TIES.md`](plan/vote-app/LISTING_ORDER_TIES.md) | [`polity/polity-run-explorer.md`](plan/polity/polity-run-explorer.md), [`polity/tech-radar.md`](plan/polity/tech-radar.md) |
@@ -70,7 +70,9 @@ Every plan's first lines say its status: **live** (being executed or maintained)
   plan-calibration-ambition, plan-coalition-negotiation-v7,
   plan-distribution-positions-seeds, plan-full-run, plan-llm-decision-audit-sampling,
   plan-rupture-candidacy-threshold, plan-vllm-switch-readiness.
-- **Superseded (1):** `polity/plan-flagship-30y-run.md` (by plan-full-run).
+- **Superseded (3):** `polity/plan-flagship-30y-run.md` (by plan-full-run);
+  `polity/plan-polity-agency-roadmap.md` and `polity/plan-polity-build-order.md` (by
+  plan-scenarios-v1 and polity-state-2026-11).
 - **History (10):** `vote-app/` CODE_AUDIT, RETROSPECTIVE, cihardeningplanv2;
   `polity/` audit-precision-plan, plan-adversarial-framing-collapse,
   plan-decision-quality-validation, plan-llm-protocol-and-theory-program,
