@@ -1816,6 +1816,18 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 import statistics as _stats_ep  # noqa: E402
 
+def _tally_winner_index(tally: List[float], names: List[str], seed: object) -> int:
+    """The index of the candidate with the most votes. A tie for it is drawn by the seeded lot
+    over the candidates' names (`tie_lot.best`), where `tally.index(max(tally))` gave it to
+    whoever was listed first. Two candidates may share a name: the name's best tally counts, and
+    the index is that of its highest."""
+    top: Dict[str, float] = {}
+    for name, votes in zip(names, tally):
+        top[name] = max(votes, top.get(name, votes))
+    drawn = tie_lot.best(list(top), top.__getitem__, seed)
+    return max((i for i, name in enumerate(names) if name == drawn), key=lambda i: tally[i])
+
+
 def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /epistocracy — extracted for FastAPI v2."""
     candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
@@ -1889,6 +1901,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     best_cand_idx = min(range(n_cands),
                         key=lambda i: abs(candidates_raw[i].get("x", 0.0)))
     best_cand_name = candidates_raw[best_cand_idx]["name"]
+    cand_names = [c["name"] for c in candidates_raw]
 
     # ── Simulate multiple elections per scheme across many trials ─────────────
     n_trials = 40   # Monte Carlo over voter preference noise
@@ -1943,7 +1956,9 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                         weight = 1.0
                     tally[vote] += weight
 
-                winner_idx = tally.index(max(tally))
+                # Drawn with the trial's own seed (derived from the request's), so a tie that
+                # recurs is not settled the same way in all 40 trials, whatever the lot says.
+                winner_idx = _tally_winner_index(tally, cand_names, trial_seed)
 
             # Regret: 0 if best, 1/n_cands baseline for random
             if winner_idx == best_cand_idx:

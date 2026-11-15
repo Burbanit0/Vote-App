@@ -12,6 +12,8 @@ from collections import defaultdict
 from itertools import combinations, chain
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
+from . import tie_lot
+
 
 # ── Internal helpers ───────────────────────────────────────────────────────
 
@@ -243,6 +245,18 @@ def get_sainte_lague_winners(
     return _highest_averages(party_votes, num_seats, lambda s: 2 * s + 1, rng)
 
 
+def _pick_k(
+    scores: Mapping[str, float], k: int, pick: Callable[[Mapping[str, float]], str],
+) -> List[str]:
+    """`k` picks, best first: each is `pick(pool)`, then leaves the pool."""
+    pool = dict(scores)
+    chosen: List[str] = []
+    for _ in range(min(k, len(pool))):
+        chosen.append(pick(pool))
+        del pool[chosen[-1]]
+    return chosen
+
+
 def top_k(
     scores: Mapping[str, float], k: int, rng: Optional[random.Random],
 ) -> List[str]:
@@ -253,12 +267,7 @@ def top_k(
     the same thing it does for every other allocator here."""
     if rng is None:
         return sorted(scores, key=lambda p: scores[p], reverse=True)[:k]
-    pool = dict(scores)
-    chosen: List[str] = []
-    for _ in range(min(k, len(pool))):
-        chosen.append(break_tie(pool, rng))
-        del pool[chosen[-1]]
-    return chosen
+    return _pick_k(scores, k, lambda pool: break_tie(pool, rng))
 
 
 def get_largest_remainder_winners(
@@ -522,11 +531,18 @@ def _mes_rho(budgets_sorted: List[float]) -> float:
     return (1.0 - prefix) / max(n, 1)  # fallback (shouldn't be reached when affordable)
 
 
+def _top_k_by_lot(scores: Mapping[str, float], k: int, seed: object) -> List[str]:
+    """The `k` highest scores, best first, a tie for a place drawn by the seeded lot over the
+    names (`tie_lot.best`), not by name or by listing order."""
+    return _pick_k(scores, k, lambda pool: tie_lot.best(list(pool), pool.__getitem__, seed))
+
+
 def get_equal_shares_result(
     approval_ballots: List[List[str]],
     num_seats:        int,
     *,
     rng: Optional[random.Random] = None,
+    seed:             object = 0,
 ) -> Dict[str, Any]:
     """
     Method of Equal Shares / Rule X (Peters & Skowron, 2020) for an equal-size
@@ -538,7 +554,8 @@ def get_equal_shares_result(
     rho (the most "equally cheap"), and its supporters pay min(budget_i, rho).
     When no candidate is affordable, the committee is completed by approval score
     (a stated completion rule; a tie there is drawn by `top_k` when `rng` is
-    given, else goes by name). Satisfies Extended Justified Representation (EJR).
+    given, else by the seeded lot with `seed`, never by name). Satisfies Extended Justified
+    Representation (EJR).
 
     Returns
     -------
@@ -592,7 +609,7 @@ def get_equal_shares_result(
     if len(elected) < k:
         appro = {c: len(supporters[c]) for c in remaining}
         fill = top_k(appro, k - len(elected), rng) if rng else \
-            sorted(remaining, key=lambda x: (-appro[x], x))[: k - len(elected)]
+            _top_k_by_lot(appro, k - len(elected), seed)
         for c in fill:
             elected.append(c)
             rounds.append({"round": len(elected) - 1, "winner": c, "rho": None})
