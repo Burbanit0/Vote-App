@@ -1038,7 +1038,7 @@
   "code": 126,
   "test-flaky": 15
  },
- "generated_at": "2026-11-15T18:58:04Z",
+ "generated_at": "2026-11-15T19:02:28Z",
  "grid": {
   "Backend CI": {
    "2026-10-17": {
@@ -1297,7 +1297,7 @@
     "success": 27
    },
    "2026-11-15": {
-    "success": 21
+    "success": 22
    }
   },
   "CI Health Watchdog": {
@@ -2263,7 +2263,7 @@
    },
    "2026-11-15": {
     "cancelled": 1,
-    "skipped": 69,
+    "skipped": 71,
     "success": 36
    }
   },
@@ -2321,9 +2321,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-15T18:53:50Z",
+   "created_at": "2026-11-15T18:56:37Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43749319917"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43749577655"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2418,10 +2418,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-15T19:00:44Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-15T19:04:06Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43749958882"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43750293829"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2431,7 +2431,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 7884,
+ "runs": 7889,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2462,12 +2462,12 @@
     "2026-11-12": 11.0,
     "2026-11-13": 335.5,
     "2026-11-14": 15,
-    "2026-11-15": 331
+    "2026-11-15": 332.5
    },
-   "p50_s": 369,
-   "p95_s": 622,
+   "p50_s": 370,
+   "p95_s": 621,
    "queue_p50_s": 0,
-   "runs": 331
+   "runs": 332
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2574,12 +2574,12 @@
     "2026-11-12": 263.0,
     "2026-11-13": 274.0,
     "2026-11-14": 257,
-    "2026-11-15": 250
+    "2026-11-15": 257.0
    },
    "p50_s": 344,
    "p95_s": 539,
    "queue_p50_s": 0,
-   "runs": 578
+   "runs": 579
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2796,12 +2796,12 @@
     "2026-11-12": 483,
     "2026-11-13": 508.0,
     "2026-11-14": 468.5,
-    "2026-11-15": 425.0
+    "2026-11-15": 429
    },
    "p50_s": 524,
    "p95_s": 815,
    "queue_p50_s": 0,
-   "runs": 318
+   "runs": 319
   },
   "Frontend CI": {
    "daily_p50_s": {
