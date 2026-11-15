@@ -103,6 +103,8 @@ test.describe('Laboratoire — rail, catalogue, bench', () => {
     await expect(page.locator('[data-testid="lab-elec-note"]')).toBeVisible();
     // ...and it does not wear the electorate's label: that would suggest the mix shapes it.
     const ignoresLabel = await page.locator('[data-testid="lab-elec-label-primary"]').textContent();
+    expect(readsLabel?.trim()).toBeTruthy();
+    expect(ignoresLabel?.trim()).toBeTruthy();
     expect(ignoresLabel).not.toBe(readsLabel);
   });
 

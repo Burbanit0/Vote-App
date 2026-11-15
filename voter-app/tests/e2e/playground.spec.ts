@@ -125,9 +125,12 @@ test.describe('Playground — the instrument', () => {
     await page.locator('[data-testid="moment-method"]').click();
     await page.locator('[data-testid="rule-select"]').selectOption('condorcet');
     await expect(why).not.toHaveText(plurality);
-    // ...and another winner here: the sentence names the new one.
+    // ...and another winner here (as the known-winner table of playground-method.spec.ts has
+    // it): the sentence names the new one.
+    await expect(page.locator('[data-testid="winner-strip-current"] strong')).not.toHaveText(
+      pluralityWinner
+    );
     const condorcetWinner = await winner();
-    expect(condorcetWinner).not.toBe(pluralityWinner);
     await expect(why).toContainText(condorcetWinner);
     // No flip is announced for a first reading, or for a change of method.
     await expect(page.locator('[data-testid="winner-flip"]')).toHaveCount(0);
