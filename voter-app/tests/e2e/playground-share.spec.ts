@@ -8,20 +8,28 @@ import { test, expect, type Page } from './coverageFixtures';
 
 const NOTICE = '[data-testid="shared-scenario-notice"]';
 
-async function shareFromStrategy(page: Page): Promise<string> {
+async function blockClipboard(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: () => Promise.reject(new Error('denied')) },
       configurable: true,
     });
   });
-  await page.goto('/playground');
-  await page.locator('[data-testid="moment-strategy"]').click();
-  await expect(page.locator('[data-testid="moment-strategy-panel"]')).toBeVisible();
+}
+
+async function readShareLink(page: Page): Promise<string> {
   await page.locator('[data-testid="share-scenario"]').click();
   const link = await page.locator('[data-testid="share-scenario-manual"]').inputValue();
   expect(link).toContain('#s=');
   return link;
+}
+
+async function shareFromStrategy(page: Page): Promise<string> {
+  await blockClipboard(page);
+  await page.goto('/playground');
+  await page.locator('[data-testid="moment-strategy"]').click();
+  await expect(page.locator('[data-testid="moment-strategy-panel"]')).toBeVisible();
+  return readShareLink(page);
 }
 
 test.describe('Playground — scenario link', () => {
@@ -43,6 +51,36 @@ test.describe('Playground — scenario link', () => {
       await other.locator('[data-testid="shared-scenario-restore"]').click();
       await expect(other.locator(NOTICE)).toBeHidden();
       await expect(other.locator('[data-testid="moment-electorate-panel"]')).toBeVisible();
+    } finally {
+      await stranger.close();
+    }
+  });
+
+  test('a link carries the rule and the candidates, not only the moment', async ({
+    page,
+    browser,
+  }) => {
+    await blockClipboard(page);
+    await page.goto('/playground');
+    // A renamed candidate (Électorat), and a rule other than the default one (Méthode).
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    const name = page.locator('[data-testid="candidate-name-0"]');
+    await name.fill('Zoé');
+    await name.press('Enter');
+    await page.locator('[data-testid="moment-method"]').click();
+    await page.locator('[data-testid="rule-select"]').selectOption('condorcet');
+    const link = await readShareLink(page);
+
+    const stranger = await browser.newContext();
+    try {
+      const other = await stranger.newPage();
+      await other.goto(link);
+      await expect(other.locator('[data-testid="moment-method-panel"]')).toBeVisible();
+      await expect(other.locator(NOTICE)).toBeVisible();
+      await expect(other.locator('[data-testid="rule-select"]')).toHaveValue('condorcet');
+      await other.locator('[data-testid="moment-electorate"]').click();
+      await other.locator('[data-testid="module-candidates-toggle"]').click();
+      await expect(other.locator('[data-testid="candidate-name-0"]')).toHaveValue('Zoé');
     } finally {
       await stranger.close();
     }
