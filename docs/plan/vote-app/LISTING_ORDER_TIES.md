@@ -1,6 +1,6 @@
 # Listing-order ties
 
-> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5), and so are the lot's finaliser (#1066), the ranked rules (#1074), the workers' tallies (#1076) and the lock order of ranked pairs and River (#1083) and Kemeny-Young's equal rankings (#1088) (#926); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** live — #662–#667 are fixed (PLAN_BEYOND_CI W5), and so are the lot's finaliser (#1066), the ranked rules (#1074), the workers' tallies (#1076), the lock order of ranked pairs and River (#1083), Kemeny-Young's equal rankings (#1088) and the last two orders (Hotelling's moves, identity voting's default groups) (#926); what remains of the 2026-10-09 decision is below. (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **Invariant.** Reordering the candidates (or parties, or proposals) in a request
 must not change the result. Where a rule reaches an exact tie, the tie is broken
@@ -81,6 +81,7 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 | #1076 | The workers' aggregate tallies draw an exact tie by the request's seed instead of by name: the cascade, shy-voter (real and polled), NOTA (a tie goes to a candidate, drawn among those tied), liquid democracy, approval in the behavioral-biases and choice-overload workers, abstention and gerrymander (first choices), the compulsory-voting run, vote-steps approval, the Polis election, identity plurality, evaluative voting, quadratic voting (the winner, and a voter's odd leftover vote, now a per-voter lot), and random ballot's most probable winner in `compare_all_methods` |
 | #1083 | The lock order of ranked pairs and River on equal margins and supports follows the seeded lot, not the names (backend) or the indices (client): `tie_lot.edge_key` and its twin `edgeKey` hash the seed and the majority's two names, and the equal majorities are locked in that order. The client sorts with the same key (hashed only for two majorities equal on both counts), at seed 0 like its other lots, so the engines agree at the backend's default seed. The parity fixture is regenerated |
 | #1088 | Kemeny-Young's choice among equally good rankings, on the exact path (up to 10 candidates), is a draw by the seeded lot on both engines: several candidates can head an optimal ranking, every one that can is collected from the full set of the subset DP, and `tie_lot.draw` (`bestOf` on the client) picks one over their names with the request's seed, not the name-smallest (backend) or index-smallest (client). The client draws at seed 0 like its other lots. The parity fixture is regenerated |
+| P3-4 | Two orders that followed the listing but were not ties (owner decision D3). Hotelling's candidates best-respond one after another, each to the moves before it: the order is now drawn by the seeded lot over their names, a new one each round (seeded with the request's seed and the round); reversing the listing changed the final positions in 12 of 12 seeds, and now in none. Identity voting's three default groups were bound to the first, second and third listed candidates: each now backs the candidate nearest its centre (the axis the voters judge candidates on), an exact tie drawn by the lot, in the worker and in the Lab's panel (which always sent its own groups, bound to `candidates[i % n]`); the worker no longer raises with fewer than three candidates (the endpoint's schema still asks for three) |
 | #662 | A voter's own tie (an indifferent voter, a truncated ballot's tail, twin candidates) is ordered by a lot seeded with the voter's id, so it falls differently from voter to voter and never by listing order: `tie_lot.ranking`, used by `project_ballot`, `rankings_from_utilities`, `compare_all_methods` (blank-vote path and Monte-Carlo twin included), `vote_ranked`, and the 19 worker sites that built a voter's ranking with the same stable sort |
 
 ## Open
@@ -101,12 +102,27 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
   multiwinner completion's rng-less fallback (`sorted(..., key=(-approval, name))`, by name);
 - the runners-up the workers report (`runner_up` in `/primary` and the districts worker): the
   second place of a tie follows the listing order;
-- the theory workers' apportionment comparison (`_hamilton` and the four divisor methods in
-  `theory/workers.py`), which break a quotient tie by name on purpose, to show the methods side
-  by side;
-- two orders that are not ties: Hotelling moves its candidates one after another in list
-  order, and identity voting's default groups are bound to the first and second listed
-  candidates.
+- Hotelling's Borda objective ranks each voter's candidates with `argsort`, which breaks equal
+  utilities by column index: with two candidates on exactly the same point, reversing the listing
+  changes where they end up (plurality draws that tie per voter and approval has none). Found
+  while doing P3-4; a per-voter lot in a numpy hot path is a design choice, so its own work order;
+- Hotelling keeps only the first six candidates listed (`cand_specs[:6]`), though its schema
+  accepts eight: the seventh and eighth are dropped by their position in the list. Found while
+  doing P3-4; a cap that should choose its six by something other than the listing, or be raised;
+- Hotelling's best-response loop reads each candidate's current score from the utilities taken at
+  the start of the round, but tries its moves against the positions earlier candidates already
+  moved to, and a candidate that finds no improving move is frozen for good (`converged_set`,
+  never re-evaluated). Neither follows the listing now that the order is a lot, but both make the
+  result depend on that order's draw. Found while doing P3-4; not a tie, not changed.
+
+## By design
+
+Not every tie broken by name is a bug. The theory page's apportionment comparison (`_hamilton` and
+the four divisor methods in `theory/workers.py`) breaks an exact quotient tie by name, the first
+party in sorted order, on purpose (owner decision D3, 2026-11-15): it shows the methods side by
+side on one input, the endpoint has no seed field, and the paradox detectors re-run a method on a
+perturbed input and compare, which a lot would make noisy. The order a request lists its parties
+in never decides a seat: `test_apportionment_ties.py` pins that, listed both ways.
 
 **Found while writing #666's test (2026-10-09).**
 - The backend's ranked rules already break an aggregate tie by name

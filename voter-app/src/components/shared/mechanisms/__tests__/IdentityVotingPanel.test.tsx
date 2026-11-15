@@ -100,10 +100,10 @@ const LAB = {
   seed: 42,
 };
 
-function renderPanel() {
+function renderPanel(candidates = LAB.candidates) {
   return render(
     <QueryClientProvider client={makeTestQueryClient()}>
-      <IdentityVotingPanel {...LAB} />
+      <IdentityVotingPanel {...LAB} candidates={candidates} />
     </QueryClientProvider>
   );
 }
@@ -163,7 +163,7 @@ describe('IdentityVotingPanel', () => {
     expect(payload.candidates).toEqual(LAB.candidates);
     expect(payload.num_voters).toBe(LAB.numVoters);
     expect(payload.seed).toBe(LAB.seed);
-    // Each group's affiliation follows the Lab's candidates, in order.
+    // Each group backs the Lab's candidate nearest its centre (here: left, middle, right).
     expect(
       (payload.identity_groups as Array<{ candidate_affiliation: string }>).map(
         (g) => g.candidate_affiliation
@@ -171,6 +171,21 @@ describe('IdentityVotingPanel', () => {
     ).toEqual(['Alice', 'Bob', 'Carol']);
     expect(payload).toHaveProperty('identity_weight');
     expect(payload).toHaveProperty('cross_pressure');
+  });
+
+  it('pairs the groups with the same candidates whatever order the Lab lists them in', async () => {
+    apiClient.POST.mockResolvedValue(ok(MOCK_DATA_NO_CHANGE));
+    renderPanel([...LAB.candidates].reverse());
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const [, init] = apiClient.POST.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(
+      (init.body.identity_groups as Array<{ candidate_affiliation: string }>).map(
+        (g) => g.candidate_affiliation
+      )
+    ).toEqual(['Alice', 'Bob', 'Carol']);
   });
 
   // ── Results ─────────────────────────────────────────────────────────────────
