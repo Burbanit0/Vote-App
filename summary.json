@@ -1033,7 +1033,7 @@
   "code": 125,
   "test-flaky": 15
  },
- "generated_at": "2026-11-15T17:24:56Z",
+ "generated_at": "2026-11-15T17:29:08Z",
  "grid": {
   "Backend CI": {
    "2026-10-17": {
@@ -1292,7 +1292,7 @@
     "success": 27
    },
    "2026-11-15": {
-    "success": 18
+    "success": 19
    }
   },
   "CI Health Watchdog": {
@@ -2258,7 +2258,7 @@
    },
    "2026-11-15": {
     "cancelled": 1,
-    "skipped": 38,
+    "skipped": 39,
     "success": 29
    }
   },
@@ -2316,9 +2316,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-15T17:20:01Z",
+   "created_at": "2026-11-15T17:21:10Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43740505435"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43740621269"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2414,9 +2414,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-15T17:27:51Z",
+   "created_at": "2026-11-15T17:30:24Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43741238027"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43741469629"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2426,7 +2426,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 7761,
+ "runs": 7764,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2569,12 +2569,12 @@
     "2026-11-12": 263.0,
     "2026-11-13": 274.0,
     "2026-11-14": 257,
-    "2026-11-15": 249.5
+    "2026-11-15": 250
    },
    "p50_s": 344,
    "p95_s": 539,
    "queue_p50_s": 0,
-   "runs": 575
+   "runs": 576
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3030,12 +3030,12 @@
     "2026-11-12": 165,
     "2026-11-13": 172,
     "2026-11-14": 157.5,
-    "2026-11-15": 173
+    "2026-11-15": 168.5
    },
    "p50_s": 167,
    "p95_s": 328,
    "queue_p50_s": 0,
-   "runs": 328
+   "runs": 329
   },
   "Workflow Lint": {
    "daily_p50_s": {
