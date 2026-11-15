@@ -18,6 +18,7 @@ from api.domain.polity.config import ARTICLES, PolityConfigError, load_config, v
 from api.domain.polity.legislation import Legislature
 from api.domain.polity.llm_behavior_engine import ResponseContext
 from api.domain.polity.llm_schemas import AMENDING_LEADER_TURN_JSON_SCHEMA, AmendingLeaderTurn
+from api.domain.polity import profiles
 
 PRESIDENT = Citizen(citizen_id=1, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5,
                     ambition_score=0.5, party_affiliation=2)
@@ -107,9 +108,9 @@ def test_the_briefing_carries_the_stakes_into_the_presidents_prompt() -> None:
     assert "Counted under" not in president_user_prompt(dataclasses.replace(briefing, stakes=None), "")
 
 
-def test_the_switch_is_off_by_default_on_in_exploration_and_needs_amendments(flagship: Any, tmp_path: Any) -> None:
+def test_the_switch_is_off_by_default_on_in_exploration_and_needs_amendments(tmp_path: Any) -> None:
     assert load_config().agents.amendment_stakes is False
-    explored = flagship._flagship_config(
+    explored = profiles.flagship_config(
         engine="llm", years=2, population=100, seats=15, seed=1, output_dir=tmp_path, max_batch_replays=2,
         provider="vllm", workers=1, profile="exploration",
     )

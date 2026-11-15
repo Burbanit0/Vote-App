@@ -17,6 +17,7 @@ from api.domain.polity.leaders import EXPLORER_PROBES, nearest, reposition, shar
 from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.tests.test_polity_run_simulation import _SimulatedCrash
+from api.domain.polity import profiles
 
 
 def _citizen(i: int, position: tuple[float, float]) -> Citizen:
@@ -143,8 +144,8 @@ def test_a_hunters_state_survives_the_checkpoint_and_other_parties_write_none() 
 
 # ── in a run ──────────────────────────────────────────────────────────────
 
-def _twin(flagship: Any, output_dir: Path, rule: str, years: int = 3) -> PolityConfig:
-    config = flagship._flagship_config(
+def _twin(output_dir: Path, rule: str, years: int = 3) -> PolityConfig:
+    config = profiles.flagship_config(
         engine="deterministic", years=years, population=60, seats=9, seed=2, output_dir=output_dir,
         max_batch_replays=0, provider=None, workers=1, profile="scenario",
     )
@@ -155,8 +156,8 @@ def _lines(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def test_a_run_moves_every_party_once_a_year_and_checkpoints_the_hunters(flagship: Any, tmp_path: Path) -> None:
-    config = _twin(flagship, tmp_path, "hunter")
+def test_a_run_moves_every_party_once_a_year_and_checkpoints_the_hunters(tmp_path: Path) -> None:
+    config = _twin(tmp_path, "hunter")
     journal = run_simulation(config, run_id="run")
     moves = [e for e in _lines(journal) if e["event_type"] == "party_repositioned"]
     parties = config.parties.initial_count
@@ -168,8 +169,8 @@ def test_a_run_moves_every_party_once_a_year_and_checkpoints_the_hunters(flagshi
     assert stored["leaders_rng_state"] and all("heading" in p for p in stored["parties"])
 
 
-def test_a_run_of_stickers_writes_none_of_it(flagship: Any, tmp_path: Path) -> None:
-    journal = run_simulation(_twin(flagship, tmp_path, "sticker"), run_id="run")
+def test_a_run_of_stickers_writes_none_of_it(tmp_path: Path) -> None:
+    journal = run_simulation(_twin(tmp_path, "sticker"), run_id="run")
     assert not [e for e in _lines(journal) if e["event_type"] == "party_repositioned"]
     stored = json.loads((journal.parent / "checkpoint.json").read_text())
     assert "leaders_rng_state" not in stored and not any("heading" in p for p in stored["parties"])
@@ -177,11 +178,11 @@ def test_a_run_of_stickers_writes_none_of_it(flagship: Any, tmp_path: Path) -> N
 
 @pytest.mark.parametrize("rule", ["hunter", "explorer"])
 def test_a_run_whose_leaders_move_resumed_after_a_crash_matches_an_uninterrupted_one(
-    flagship: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rule: str,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rule: str,
 ) -> None:
     import api.domain.polity.run_polity_simulation as engine
 
-    uninterrupted = run_simulation(_twin(flagship, tmp_path / "a", rule), run_id="run")
+    uninterrupted = run_simulation(_twin(tmp_path / "a", rule), run_id="run")
     real_phase = engine._run_accountability_phase
 
     def crash_at_tick_6(citizens: Any, config: Any, journal: Any, tick: int, llm_client: Any = None, **kwargs: Any) -> Any:
@@ -191,8 +192,8 @@ def test_a_run_whose_leaders_move_resumed_after_a_crash_matches_an_uninterrupted
 
     monkeypatch.setattr(engine, "_run_accountability_phase", crash_at_tick_6)
     with pytest.raises(_SimulatedCrash):
-        run_simulation(_twin(flagship, tmp_path / "b", rule), run_id="run")
+        run_simulation(_twin(tmp_path / "b", rule), run_id="run")
     monkeypatch.undo()
-    resumed = run_simulation(_twin(flagship, tmp_path / "b", rule), run_id="run", resume=True)
+    resumed = run_simulation(_twin(tmp_path / "b", rule), run_id="run", resume=True)
     assert resumed.read_bytes() == uninterrupted.read_bytes()
     assert (resumed.parent / "checkpoint.json").read_bytes() == (uninterrupted.parent / "checkpoint.json").read_bytes()

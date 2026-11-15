@@ -81,7 +81,7 @@ from api.domain.polity.sweep_statistics import (  # noqa: E402
     sweep_run_plan,
 )
 from llm_test_harness import registration, report, trial  # noqa: E402
-from run_polity_flagship import PROFILES  # noqa: E402
+from api.domain.polity.profiles import PROFILES  # noqa: E402
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _FAST_API_VOTER_DIR = _SCRIPTS_DIR.parent

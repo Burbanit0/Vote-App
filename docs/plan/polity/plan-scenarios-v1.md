@@ -25,7 +25,7 @@ speakers per tick.
 | Research question | How do electoral system, electorate, candidate strategy, pressure levers and constitutional rules interact to produce stability or instability over decades? | `polity-simulation-design-v2.md` §0 |
 | "Scenario" | Never defined. | this plan, §4 |
 | Institutional variety run | None: all 151 run configs on record use two-round, D'Hondt, a 5% threshold and a 0.2 floor. 13 ranked methods and 3 seat rules are usable; score methods are refused; term length is not an article; no districts. | investigation of 2026-10-21, Q8 |
-| Exogenous shocks | On in the flagship and exploration profiles (scandal 0.05 per tick, AR(1) economy), but they move attention (`event_salience`) and anxiety only: never a position, never a welfare outcome. | `run_polity_flagship.py` (`_flagship_config`), `shock.py` |
+| Exogenous shocks | On in the flagship and exploration profiles (scandal 0.05 per tick, AR(1) economy), but they move attention (`event_salience`) and anxiety only: never a position, never a welfare outcome. | `api/domain/polity/profiles.py` (`flagship_config`), `shock.py` |
 | What the world produces | Nothing a citizen feels: bills move a policy vector; `policy_retrospection` has nothing to be retrospective about. | ADR-009, ADR-011 |
 | Electorate | Immortal (`birth_enabled`/`death_enabled` parsed, not built), 20 issues fixed at t=0, a static graph (`evolving` refused), personas templated from numbers. | roadmap §1.2, `social_graph.py` |
 | Accountability | Since ADR-025: 0 recalls in 48 runs, 0 lost confidence votes, approval never below 0.57 and moving about 0.06 per term. | ADR-031 (proposed) |

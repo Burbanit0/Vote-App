@@ -35,7 +35,7 @@ from api.domain.polity.catalogue import apply_point, sample  # noqa: E402
 from api.domain.polity.run_digest import build_digest  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.trajectory import PLAUSIBILITY_BAND, _votes, pedersen_volatility  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 ARMS: dict[str, dict[str, dict[str, float]]] = {
     "profile": {}, "economic_voting=0": {"vote": {"economic_voting": 0.0}}, "approval=0": {"vote": {"approval": 0.0}},
@@ -48,7 +48,7 @@ WEIGHTS = (0.0, 0.1, 0.2, 0.3, 0.5, 0.75, 1.0)
 def run_one(job: tuple[int, dict[str, Any], str, dict[str, dict[str, float]], str]) -> dict[str, Any]:
     """One point under one arm's overrides: its legislative volatilities, re-elections, terms and turnouts."""
     index, point, arm, overrides, out = job
-    config = _flagship_config(
+    config = flagship_config(
         engine="deterministic", years=15, population=100, seats=14, seed=100_000 + index, output_dir=Path(out) / arm / str(index),
         max_batch_replays=0, provider=None, workers=1, profile="scenario",
     )

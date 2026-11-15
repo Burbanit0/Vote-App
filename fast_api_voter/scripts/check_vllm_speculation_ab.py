@@ -22,12 +22,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity.config import validate_config  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 
 def main(label: str, years: int, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    config = _flagship_config(
+    config = flagship_config(
         engine="llm", years=years, population=100, seats=30, seed=1, output_dir=out,
         max_batch_replays=2, provider=None, workers=12, reproducibility="relaxed",
     )

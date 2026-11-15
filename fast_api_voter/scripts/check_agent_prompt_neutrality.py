@@ -125,9 +125,9 @@ def _load_citizens(path: Path) -> tuple[list[Citizen], list[Party]]:
 def _config() -> PolityConfig:
     """The exploration profile's own config, with every agent mechanism on."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import run_polity_flagship as flagship
+    from api.domain.polity import profiles
 
-    config = flagship._flagship_config(
+    config = profiles.flagship_config(
         engine="llm", years=8, population=100, seats=15, seed=1, output_dir=Path("/tmp/prompt-neutrality"),
         max_batch_replays=2, provider="vllm", workers=1, profile="exploration",
     )

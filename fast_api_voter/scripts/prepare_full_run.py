@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api.domain.polity import llm_call_log  # noqa: E402
 from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 CONTAINER = "vllm-polity"
 DEFAULT_OUTPUT = Path.home() / "Documents" / "Dev" / "polity-runs" / "full"
@@ -94,7 +94,7 @@ def check_git(allow_unpushed: bool) -> None:
 
 def check_config(args: argparse.Namespace) -> PolityConfig | None:
     try:
-        config = _flagship_config(
+        config = flagship_config(
             engine="llm",
             years=args.years,
             population=500,

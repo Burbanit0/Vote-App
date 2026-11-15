@@ -303,7 +303,7 @@ def render(reports: list[ScaleReport], results_path: Path | None) -> None:
     log("zero rupture declarations and a flat 5-candidate field at both scales. That was not")
     log("a finding, it was a config bug in the flagship runner: `candidacy.rupture_path_enabled`")
     log("is shipped `false` and \"full richness\" had not turned it on. Same for")
-    log("`institutions.blank_vote_competitive`. Both are now set in `_flagship_config`, and")
+    log("`institutions.blank_vote_competitive`. Both are now set in `flagship_config`, and")
     log("the numbers above are from runs with them on.\n")
     if results_path is not None:
         results_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

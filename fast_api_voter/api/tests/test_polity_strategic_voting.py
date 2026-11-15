@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 from hypothesis import given, settings
@@ -26,6 +25,7 @@ from api.domain.polity.simple_rules import (
     viable_parties,
     weighted_distance,
 )
+from api.domain.polity import profiles
 
 A, B = Party(0, (0.5,)), Party(1, (0.2,))
 
@@ -123,10 +123,10 @@ def test_a_deserter_lands_within_the_margin_on_a_party_above_the_threshold(voter
         assert weighted_distance(citizen, by_id[moved].platform) <= citizen.blank_threshold + 1e-12
 
 
-def test_the_exploration_profile_votes_strategically_and_the_flagship_sincerely(flagship: Any) -> None:
+def test_the_exploration_profile_votes_strategically_and_the_flagship_sincerely() -> None:
     config = load_config()
     assert config.vote.strategic_margin == 0.0
-    assert flagship._exploration_config(config).vote.strategic_margin == 0.07
+    assert profiles.exploration_config(config).vote.strategic_margin == 0.07
 
 
 def test_the_digest_reports_the_deserters_per_legislative_election() -> None:

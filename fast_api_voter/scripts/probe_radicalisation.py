@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from api.domain.polity.run_digest import build_digest, read_journal_tolerant  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 from api.domain.polity.trajectory import divergence_by_year, divergence_verdict, diversity, pairwise_distances  # noqa: E402
-from run_polity_flagship import _flagship_config  # noqa: E402
+from api.domain.polity.profiles import flagship_config  # noqa: E402
 
 ADR_ARMS = ((0.02, 0.0, 0.0), (0.20, 0.0, 0.0), (0.02, 1.0, 0.5), (0.15, 1.0, 0.5), (0.15, 2.0, 0.5),
             (0.15, 0.5, 0.5), (0.15, 0.5, 0.0), (0.18, 0.5, 0.3))
@@ -48,7 +48,7 @@ def spread_kept(snapshots: list[dict[str, Any]]) -> float | None:
 def run_arm(drift: float, push: float, narrowing: float, output_dir: Path) -> dict[str, Any]:
     series, labels, in_band, shifts, stability, spreads, pushed = {}, {}, 0, [], [], [], []
     for seed in SEEDS:
-        config = _flagship_config(
+        config = flagship_config(
             engine="deterministic", years=8, population=100, seats=15, seed=seed, output_dir=output_dir / f"{drift}-{push}-{narrowing}" / str(seed),
             max_batch_replays=0, provider=None, workers=1, profile="scenario",
         )
