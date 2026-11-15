@@ -22,6 +22,9 @@
 #
 # Everything lands in <out-dir> (default ~/Documents/Dev/polity-runs/vllm-<tag>): chain.log, bank/, ab/, ...
 # Run it detached, it outlives a terminal:  setsid nohup scripts/vllm_bump_protocol.sh v0.34.0 > /dev/null 2>&1 &
+# To stop it early signal the whole group (bash runs its trap only when the current step ends, so a bare kill of the
+# script waits for it):  kill -TERM -<pid>   then   docker compose -f docker-compose.llm.bump-new.yml down
+# A SIGKILL or a reboot cannot be trapped: check \`docker ps\` afterwards.
 #
 # DRY=1 only runs the preflight and writes the two compose files, so the setup can be checked with the GPU idle.
 set -u -o pipefail
@@ -53,7 +56,7 @@ die() { echo "STOP: $*"; exit 1; }
 
 healthy() {
   local t0=$SECONDS
-  for _ in $(seq 1 240); do
+  for _ in $(seq 1 "${HEALTH_TRIES:-240}"); do
     [ -n "$(docker ps --filter name='^vllm-polity$' --format '{{.Names}}')" ] \
       && curl -sf localhost:8000/health >/dev/null && { echo "healthy after $((SECONDS - t0)) s"; return 0; }
     sleep 2
@@ -64,7 +67,7 @@ serverinfo() {
   docker inspect vllm-polity --format '{{.Config.Image}} {{.Image}}'
   docker logs vllm-polity 2>&1 | grep -E "Initializing a V1 LLM engine|speculative_config=|KV cache|Maximum concurrency|will be removed|deprecat|Traceback|ERROR" | cut -c1-400 | tail -14
 }
-serve() { docker compose -f "$1" up -d --force-recreate 2>&1 | tail -1; healthy && serverinfo; }
+serve() { docker compose -f "$1" up -d --force-recreate 2>&1 | tail -1; healthy && { serverinfo || true; }; }  # info only: a grep with no match must not fail the serve
 # a server that does not come up ends the chain (the trap stops it): an hour of steps against nothing is worse
 must_serve() { serve "$1" || die "the server did not come up ($1)"; }
 restart_vllm() { docker compose -f "$1" restart vllm 2>&1 | tail -1; healthy || die "no healthy server after the restart"; }
@@ -117,12 +120,16 @@ exec > >(tee -a "$OUT/chain.log") 2>&1
 
 # Whatever ends the run (a failed step, Ctrl-C, a kill), the GPU is handed back: the server was stopped at start.
 # The tracked results files two steps rewrite are saved to $OUT and restored, so the worktree stays clean.
+CLEAN_AT_START=""
+for f in scripts/check_thinking_token_budget_results.md scripts/check_schema_order_results.md; do
+  git diff --quiet -- "$f" 2>/dev/null && CLEAN_AT_START="$CLEAN_AT_START $f"
+done
 cleanup() {
   trap - EXIT
   docker compose -f "$NEW" down >/dev/null 2>&1; docker compose -f "$CTRL" down >/dev/null 2>&1
   docker compose -f "$HERE/docker-compose.llm.bump-arm.yml" down >/dev/null 2>&1
   docker rmi "vllm-probe:$NEW_TAG-sep" >/dev/null 2>&1
-  for f in scripts/check_thinking_token_budget_results.md scripts/check_schema_order_results.md; do
+  for f in $CLEAN_AT_START; do   # only the files that were clean before the run: never discard someone's edits
     if ! git diff --quiet -- "$f" 2>/dev/null; then cp "$f" "$OUT/$(basename "$f" .md).new-run.md"; git checkout -- "$f"; fi
   done
   echo "cleanup done $(date -u +%FT%TZ)"
