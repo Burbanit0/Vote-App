@@ -113,10 +113,22 @@ test.describe('Playground — the instrument', () => {
     await expect(why).toBeVisible();
     const plurality = (await why.textContent()) ?? '';
     expect(plurality).not.toBe('');
+    // The sentence is about the winner the strip names, not another candidate.
+    const winner = async () =>
+      (
+        (await page.locator('[data-testid="winner-strip-current"] strong').textContent()) ?? ''
+      ).trim();
+    const pluralityWinner = await winner();
+    expect(pluralityWinner).not.toBe('');
+    expect(plurality).toContain(pluralityWinner);
     // Another method, another reason: the sentence follows the rule the map is under.
     await page.locator('[data-testid="moment-method"]').click();
     await page.locator('[data-testid="rule-select"]').selectOption('condorcet');
     await expect(why).not.toHaveText(plurality);
+    // ...and another winner here: the sentence names the new one.
+    const condorcetWinner = await winner();
+    expect(condorcetWinner).not.toBe(pluralityWinner);
+    await expect(why).toContainText(condorcetWinner);
     // No flip is announced for a first reading, or for a change of method.
     await expect(page.locator('[data-testid="winner-flip"]')).toHaveCount(0);
   });

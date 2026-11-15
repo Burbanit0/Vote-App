@@ -193,6 +193,33 @@ test.describe('Playground — Électorat', () => {
     expect(crashes).toEqual([]);
   });
 
+  test('a double-click on an empty spot of the map adds an entrant there; on a candidate it does not', async ({
+    page,
+  }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    await page.locator('[data-testid="module-candidates-toggle"]').click();
+    await expect(page.locator('[data-testid="candidate-row-2"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toHaveCount(0);
+
+    // A spot inside the map, off the three candidates.
+    const box = (await page.locator('[data-testid="leader-map"]').boundingBox())!;
+    const spot = { x: box.x + box.width * 0.72, y: box.y + box.height * 0.2 };
+    await page.mouse.dblclick(spot.x, spot.y);
+
+    // A fourth row, and a fourth handle on the map. (Not asserted: that it lands exactly under the
+    // pointer. It does not when the map is letterboxed, i.e. below ~885 px of viewport height:
+    // svgToDomain ignores the margin. See the pull request.)
+    await expect(page.locator('[data-testid="candidate-row-3"]')).toBeVisible();
+    await expect(page.locator('[data-testid="candidate-3"]')).toBeVisible();
+
+    // A double-click on a candidate is the candidate's, not the ground's: no fifth entrant.
+    await page.locator('[data-testid="candidate-0"]').dblclick();
+    await expect(page.locator('[data-testid="candidate-row-4"]')).toHaveCount(0);
+    expect(crashes).toEqual([]);
+  });
+
   test('a name typed and left with a click elsewhere is kept (no Enter needed)', async ({
     page,
   }) => {

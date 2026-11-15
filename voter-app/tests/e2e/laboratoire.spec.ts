@@ -95,11 +95,15 @@ test.describe('Laboratoire — rail, catalogue, bench', () => {
     // The matrix (the default fiche) reads it: the button is there.
     await expect(page.locator('[data-testid="lab-compare"]')).toBeVisible();
     await expect(page.locator('[data-testid="lab-elec-note"]')).toHaveCount(0);
+    const readsLabel = await page.locator('[data-testid="lab-elec-label-primary"]').textContent();
     // Sen's paradox does not: no button, and the label says the electorate's mix is not what shapes it.
     await page.goto('/laboratoire?exp=thy-sen');
     await expect(page.locator('[data-testid="lab-bench"]')).toBeVisible();
     await expect(page.locator('[data-testid="lab-compare"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="lab-elec-note"]')).toBeVisible();
+    // ...and it does not wear the electorate's label: that would suggest the mix shapes it.
+    const ignoresLabel = await page.locator('[data-testid="lab-elec-label-primary"]').textContent();
+    expect(ignoresLabel).not.toBe(readsLabel);
   });
 
   test('Comparer opens a second bench on another electorate', async ({ page }) => {
