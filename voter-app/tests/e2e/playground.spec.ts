@@ -120,7 +120,9 @@ test.describe('Playground — the instrument', () => {
       ).trim();
     const pluralityWinner = await winner();
     expect(pluralityWinner).not.toBe('');
-    expect(plurality).toContain(pluralityWinner);
+    // It opens on the winner (the runner-up is named later in it, so a mere "contains" would pass
+    // a sentence that swapped the two).
+    expect(plurality.trim().startsWith(pluralityWinner)).toBe(true);
     // Another method, another reason: the sentence follows the rule the map is under.
     await page.locator('[data-testid="moment-method"]').click();
     await page.locator('[data-testid="rule-select"]').selectOption('condorcet');
@@ -132,6 +134,7 @@ test.describe('Playground — the instrument', () => {
     );
     const condorcetWinner = await winner();
     await expect(why).toContainText(condorcetWinner);
+    expect(((await why.textContent()) ?? '').trim().startsWith(condorcetWinner)).toBe(true);
     // No flip is announced for a first reading, or for a change of method.
     await expect(page.locator('[data-testid="winner-flip"]')).toHaveCount(0);
   });

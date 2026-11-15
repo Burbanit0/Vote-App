@@ -193,7 +193,7 @@ test.describe('Playground — Électorat', () => {
     expect(crashes).toEqual([]);
   });
 
-  test('a double-click on an empty spot of the map adds an entrant there; on a candidate it does not', async ({
+  test('a double-click on an empty spot of the map adds an entrant; on a candidate it does not', async ({
     page,
   }) => {
     const crashes: string[] = [];
