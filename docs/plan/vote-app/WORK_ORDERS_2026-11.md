@@ -188,7 +188,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | done: PR #1083 (merged); the lock order's first PR had a perf regression on tie-heavy profiles, see its description |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | done: PR #1088 (merged) |
-| P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | open: `fix/ties-theory-multiwinner-runner-up` |
+| P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | open: `fix/ties-theory-multiwinner-runner-up`, PR #1090 |
 | P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | blocked: D3 |
 | P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | todo |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
