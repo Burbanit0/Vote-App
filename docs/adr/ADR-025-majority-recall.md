@@ -76,7 +76,7 @@ seeds 1-10, each switch alone):
 - **No vote is held while legitimacy merely approaches the floor.** A president sitting just above it
   is safe whatever approval says.
 - **Every tick under the floor calls a new vote.** Nothing spaces them out (`recall_cooldown_ticks`
-  gates repeat recalls, not votes). A won vote restores legitimacy, so with both switches that is rare
+  gates repeat recalls, not votes [note, 2026-11-15: that key was parsed and read by no code, and has been removed]). A won vote restores legitimacy, so with both switches that is rare
   (one floor vote in ten twin runs), but with the vote alone it was 108.
 - **Two changes in one arm.** Their effects can't be told apart in an LLM run with both on; the twin
   separates them (above).

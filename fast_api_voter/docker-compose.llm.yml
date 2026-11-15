@@ -57,9 +57,8 @@
 # concurrent requests itself (llm_client.py's module docstring) — it's a
 # property of the fleet if multiple runs share a GPU, not of a single run.
 #
-# No redis service here: §4.2's response cache is not implemented (see
-# polity_config.yaml's llm.cache_backend comment) and this lot does not
-# build it.
+# No redis service here: §4.2's response cache is not implemented (it has no
+# key in polity_config.yaml) and this lot does not build it.
 
 name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
                     # -- see docker-compose.ollama.yml's own comment on this;

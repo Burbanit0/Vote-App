@@ -561,9 +561,9 @@ def run_simulation(
     president_term_limit ships at 2 (D6, 2026-09-13; null means illimité) and is
     enforced when set (v4 Lot 2, §6bis.1): a citizen with
     mandates_served >= term_limit cannot be nominated again, on either
-    engine (the LLM path since 2026-09-13) (assembly_term_limit stays unread —
-    legislative elections are party-list, no per-citizen candidacy check
-    exists to gate).
+    engine (the LLM path since 2026-09-13). No assembly term limit was ever implemented:
+    in the default party-list mode legislative elections have no per-citizen
+    candidacy check to gate.
 
     `llm_client` is additive (default None) so every pre-v2 caller and test
     is unaffected. When `config.llm.enabled` is true and no client was
@@ -3286,11 +3286,10 @@ def _run_accountability_phase(
     dropped on the exact ticks where citizen pressure is most intense. The
     priority is therefore about ATTRIBUTION (which trigger the recalled
     event names), not about which mechanism physically fires -- the office
-    is vacated exactly once either way. recall_cooldown_ticks stays
-    unconsumed this lot: after vacate_office, current_office_holders
-    returns nothing for that office, so a repeat recall isn't representable
-    until a new president exists at the next scheduled election -- far
-    longer than the cooldown, so it cannot bind here regardless.
+    is vacated exactly once either way. There is no recall cooldown: after
+    vacate_office, current_office_holders returns nothing for that office, so a
+    repeat recall isn't representable until a new president exists at the next
+    scheduled election.
 
     `graph`/`mobilized_last_tick` are v6 Lot 3 additions (§5/§7bis.9c),
     both additive with None-safe defaults so every pre-v6-Lot-3 direct call

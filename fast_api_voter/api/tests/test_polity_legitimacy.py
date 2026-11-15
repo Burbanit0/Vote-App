@@ -23,7 +23,6 @@ _CONFIG = LegitimacyConfig(
     decay=0.9,
     recall_floor=0.2,
     recall_floor_indexed_on_l0=False,
-    recall_cooldown_ticks=4,
     passive_erosion_weight=0.0,
 )
 
