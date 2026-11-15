@@ -1,6 +1,6 @@
 # Polity agency roadmap: from classified citizens to a polity that rewrites itself
 
-> **status:** live — Phase 4 exit not met at ten seeds (2026-10-05); Phase 5 acts still to do. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** superseded — by [`plan-scenarios-v1.md`](plan-scenarios-v1.md) for what to build next, and by [`polity-state-2026-11.md`](polity-state-2026-11.md) for where Polity stands. A record of why the agents, the constitution, the forum and the parties exist. Phase 0 exit met; the exits of Phases 1 to 3 were never assessed; Phase 4 exit met under D11's restated criterion (phase11, OBS-044); Phase 5: 5.1 and 5.2 built, the other acts not built. (Set 2026-11-15; `docs/README.md` lists every plan.)
 
 **What this is.** The plan for polity's next era, set on 2026-09-27. It has two parts: a state of the art of the code as it stands at `7c2adf37`, and a phased roadmap toward citizens and leaders who act, talk, organise and change the rules.
 

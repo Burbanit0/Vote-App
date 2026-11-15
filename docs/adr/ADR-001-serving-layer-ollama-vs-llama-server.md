@@ -1,6 +1,6 @@
 # ADR-001: LLM serving layer — stay on Ollama, do not switch to native llama-server (yet)
 
-**Status**: Accepted
+**Status**: Accepted, then superseded in practice: the shipped provider moved to vLLM on 2026-09-10 (#350) with no ADR of its own; the record of that move is [`plan-vllm-switch-readiness.md`](../plan/polity/plan-vllm-switch-readiness.md). (Status note added 2026-11-15.)
 **Date**: 2026-08-19
 **Context**: Polity v6b acceptance-run reliability investigation
 (`fast_api_voter/scripts/llm_batching_determinism_results_gpu.md`)
