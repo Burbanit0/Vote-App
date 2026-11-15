@@ -176,8 +176,8 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 
 | ID | Work order | Held | Status |
 |---|---|---|---|
-| P2-1 | Shareable scenario link | yes (visual baseline) | open: `feat/shareable-scenario-link`, PR #1080, D1 |
-| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | todo, after P2-1 merges |
+| P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged 2026-11-15); D1's follow-up questions stay open |
+| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | todo |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | todo |
