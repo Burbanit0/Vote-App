@@ -2,8 +2,8 @@
 
 > **status:** live. Written 2026-11-11 from a four-part audit of `polity` at `aa2670fb`
 > (product and UX, frontend engineering, backend, process) and the ten open issues.
-> Phases 0, 1 and 2 are done (but for Phase 2's shareable link) and Phase 3 is under way
-> (updated 2026-11-14); the rest waits for the owner's order. Polity is out of scope here: it
+> Phases 0, 1 and 2 are done and Phase 3 is under way (updated 2026-11-14); the rest waits
+> for the owner's order. Polity is out of scope here: it
 > has its own plans. (`docs/README.md` lists every plan.) What is left is cut into work orders
 > a session can pick up one at a time: [`WORK_ORDERS_2026-11.md`](WORK_ORDERS_2026-11.md).
 
@@ -78,7 +78,7 @@ A box is ticked when the change is on `polity`.
 | Item | Size | Builds on |
 |---|---|---|
 | ~~Candidate editor: add, remove, rename, click the map to add an entrant~~ Done: the editor (#1060); a double-click on an empty spot of the map adds an entrant, in the Électorat moment (#1078) | small–medium | the entrant-zone overlay; `setConfig({ candidates })` |
-| Shareable scenario link (config, playground, rule, moment, lens in the URL) | medium | the story `Snapshot` shape |
+| ~~Shareable scenario link (config, playground, rule, moment, lens in the URL)~~ Done (#1080): a "Partager ce scénario" button copies `/playground#s=<token>` | medium | the story `Snapshot` shape |
 | ~~The sincerity result inside the Stratégie moment, so the "Vous" marker has an effect~~ Done (#1057; the marker is draggable in the 3D scene, #1058) | small | `SincerityModule`, now mounted only in the Lab |
 | ~~A "why" sentence under the winner strip, and a flip sentence after a drag~~ Done (#1061) | small | `explainWinner`, used only in Bilan today |
 | ~~Lab search; a "reads your electorate" flag per fiche; hide Compare where it does nothing~~ Done (#1063) | small | the Lexique search pattern |

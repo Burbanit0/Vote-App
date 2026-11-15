@@ -154,7 +154,7 @@ A session asks these; it does not settle them. Each is tied to the work order it
 
 | # | Question | Blocks |
 |---|---|---|
-| D1 | PR #1080 holds a regenerated visual baseline: review of head `ac51c001`. And: should the visitor's previous scenario survive a reload after a link replaced it (today it is kept in memory only, and the notice says so)? Are the two analytics events wanted? | P2-1 |
+| D1 | PR #1080 holds a regenerated visual baseline: review of head `ac51c001`. And: should the visitor's previous scenario survive a reload after a link replaced it (today it is kept in memory only, and the notice says so)? Are the two analytics events wanted? | nothing: a follow-up to P2-1 (#1080 is merged) |
 | D2 | Adding an entrant on the map (#1078) is a double-click, in the Électorat moment only, with no touch equivalent. Keep, or an armed single-click mode, other moments, touch? | nothing; a follow-up if changed |
 | D3 | Hotelling moves its candidates in list order, and identity voting binds its default groups to the first and second listed candidates. Neither is a tie. Change them, or record them as by design? | P3-4 |
 | D4 | Where the two engines, or two rules, treat a truncated ballot differently (P3-5 produces the table): which reading wins, rule by rule? | P3-6 |
@@ -176,8 +176,8 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 
 | ID | Work order | Held | Status |
 |---|---|---|---|
-| P2-1 | Shareable scenario link | yes (visual baseline) | open: `feat/shareable-scenario-link`, PR #1080, D1 |
-| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | todo, after P2-1 merges |
+| P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged); D1's follow-up questions stay open |
+| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | todo |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | todo, after P3-1 |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | todo |
@@ -236,9 +236,9 @@ than line numbers, which move.
 
 ### Phase 2
 
-**P2-1. Shareable scenario link.** Open as PR #1080 (`feat/shareable-scenario-link`). A
-session's only job here: once the owner has reviewed, check the head is green, and act on
-D1's answers in a follow-up PR if they ask for a change.
+**P2-1. Shareable scenario link.** Done: PR #1080 (`feat/shareable-scenario-link`) is merged.
+A session's only job here: act on D1's answers in a follow-up PR if the owner asks for a
+change.
 
 **P2-2. Strike Phase 2.**
 - Request: `Mark Phase 2 of PLAN_GLOBAL_2026-11.md done: strike the shareable-link row with its PR number, and bring docs/STATUS.md's header and next steps up to date.`
