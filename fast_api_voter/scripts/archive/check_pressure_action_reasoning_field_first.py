@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_reasoning_field_first.py
+scripts/archive/check_pressure_action_reasoning_field_first.py
 
 Tests plan-pressure-action-remediation.md's §3.4 -- a reasoning field placed FIRST in the JSON
 schema, before act/motif, under the SAME grammar-constrained decoding production uses. NOT
@@ -50,7 +50,7 @@ unambiguous cases. Three distinct readings, not collapsed into a single pass/fai
     at a translation-from-reasoning-to-decision problem, not a content-blindness problem.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_reasoning_field_first.py
+    python fast_api_voter/scripts/archive/check_pressure_action_reasoning_field_first.py
 """
 from __future__ import annotations
 

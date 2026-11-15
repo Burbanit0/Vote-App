@@ -1,5 +1,5 @@
 """
-scripts/check_precision_and_logprobs_live.py
+scripts/archive/check_precision_and_logprobs_live.py
 
 Live verification of the two remaining offline-only changes from
 plan-llm-protocol-and-theory-program.md §5.B/§5.C, now that the shared
@@ -14,7 +14,7 @@ server is free (Phase 7's scale-probe run completed):
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_precision_and_logprobs_live.py
+    python fast_api_voter/scripts/archive/check_precision_and_logprobs_live.py
 """
 from __future__ import annotations
 

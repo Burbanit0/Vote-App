@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_binary_lever_redesign.py
+scripts/archive/check_pressure_action_binary_lever_redesign.py
 
 Tests §3.1 (binaire-puis-levier) of plan-pressure-action-remediation.md -- the redesign path
 prioritized in §2bis since both Etape 0 diagnostics (temperature, menu order) came back null and
@@ -37,7 +37,7 @@ since a remediation candidate only needs to clearly exit the current degenerate 
 codes; 38.1% overall accuracy), not already match the reliability bar of an accepted method.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_binary_lever_redesign.py
+    python fast_api_voter/scripts/archive/check_pressure_action_binary_lever_redesign.py
 """
 from __future__ import annotations
 

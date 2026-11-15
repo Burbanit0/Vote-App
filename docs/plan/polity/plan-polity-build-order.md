@@ -143,7 +143,7 @@ recorded here, with the date.
   S0.7); 95% prediction interval for one new seed 0.81–1.05 (past the ceiling);
   "alert on 2 of 10 seeds" 2.5–55.6% (Clopper–Pearson); 8 of 10 seeds within ±0.05.
 - Remove the unused `sorted_candidates` import (ruff F401) in
-  `scripts/check_party_nomination_position_logprobs.py`.
+  `scripts/archive/check_party_nomination_position_logprobs.py`.
 - SessionStart hook (`.claude/hooks/notify_run_digest.py`): look in every `*_runs`
   directory, not only `flagship_runs`.
 

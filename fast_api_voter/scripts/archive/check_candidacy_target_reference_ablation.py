@@ -1,5 +1,5 @@
 """
-scripts/check_candidacy_target_reference_ablation.py
+scripts/archive/check_candidacy_target_reference_ablation.py
 
 Causal test for plan-adversarial-framing-collapse.md's open question: does the collapse pattern
 require ADVERSARIAL framing specifically ("contre", "pression"), or does the mere PRESENCE of a
@@ -29,7 +29,7 @@ ISOLATION: local prompt copy only, build_candidacy_system_prompt/build_candidacy
 llm_behavior_engine.py are never touched.
 
 Usage:
-    python fast_api_voter/scripts/check_candidacy_target_reference_ablation.py
+    python fast_api_voter/scripts/archive/check_candidacy_target_reference_ablation.py
 """
 from __future__ import annotations
 

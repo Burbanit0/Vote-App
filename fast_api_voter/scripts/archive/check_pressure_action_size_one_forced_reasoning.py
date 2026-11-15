@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_size_one_forced_reasoning.py
+scripts/archive/check_pressure_action_size_one_forced_reasoning.py
 
 Sixth follow-up to the chunk-collapse finding (reasoning_budget_and_decision_quality_findings.md).
 size=1 (check_pressure_action_size_one.py) eliminated batching as a cause: 0/63 acting codes even
@@ -39,7 +39,7 @@ neighbors_acting=None. Generous token budget (_FORCED_THINK_TOKEN_ALLOWANCE), si
 shape is uncalibrated (never run in production).
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_size_one_forced_reasoning.py
+    python fast_api_voter/scripts/archive/check_pressure_action_size_one_forced_reasoning.py
 """
 from __future__ import annotations
 

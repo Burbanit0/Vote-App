@@ -5,8 +5,8 @@ Opt-in only, never runs in CI. Written when no GPU/vLLM server had ever been
 available in this project's environment; a GPU host with `vllm-polity`
 (docker-compose.llm.yml) running qwen3:8b has existed since, and every claim
 below has since been exercised live against it (see e.g.
-check_pressure_shipped_wiring_results.md and the other scripts/check_*.py
-files this session used the same way) -- set POLITY_VLLM_LIVE=1 to run this
+check_pressure_shipped_wiring_results.md and the other check_*.py
+scripts, now in scripts/archive/, that this session used the same way) -- set POLITY_VLLM_LIVE=1 to run this
 file itself against it. Everything else about VllmJsonClient (request/
 response shape via httpx.MockTransport) is unit-tested offline in
 test_polity_llm_client.py -- this file is what actually confirms or refutes

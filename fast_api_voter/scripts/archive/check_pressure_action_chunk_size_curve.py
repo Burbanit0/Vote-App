@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_chunk_size_curve.py
+scripts/archive/check_pressure_action_chunk_size_curve.py
 
 Fourth follow-up to the chunk-collapse finding (reasoning_budget_and_decision_quality_findings.md).
 Two degenerate modes are now confirmed for pressure_action's batched think=False path on the same
@@ -22,7 +22,7 @@ through tick=1 in this run, available=(0,1,2,3,4), neighbors_acting=None), same 
 citizen_id order per chunk (order was already tested separately), think=False (production path).
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_chunk_size_curve.py
+    python fast_api_voter/scripts/archive/check_pressure_action_chunk_size_curve.py
 """
 from __future__ import annotations
 
