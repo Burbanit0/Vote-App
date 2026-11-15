@@ -92,6 +92,16 @@ describe('the tie lot', () => {
     }
   );
 
+  it('edgeKey is the same when asked again, and after the cache has been emptied', () => {
+    const pinned = (): number => edgeKey('A', 'B', 0);
+    expect(pinned()).toBe(3805211593);
+    expect(pinned()).toBe(3805211593); // from the cache
+    // More distinct names than the cache holds: it empties itself, and the answer is unchanged.
+    for (let i = 0; i < 5000; i++) edgeKey(`n${i}`, 'B', 0);
+    expect(pinned()).toBe(3805211593);
+    expect(edgeKey('n4999', 'B', 0)).toBe(edgeKey('n4999', 'B', 0));
+  });
+
   it('bestIndex falls back to the first index when no value ranks (NaN)', () => {
     expect(bestIndex([NaN, NaN], ['A', 'B'])).toBe(0);
   });
