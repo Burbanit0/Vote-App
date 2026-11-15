@@ -1,9 +1,9 @@
 """The run profiles: how a flagship config is built, and what each --profile does to it.
 
-Moved out of scripts/run_polity_flagship.py, where 21 scripts and ten tests imported them from a launcher.
+Moved out of scripts/run_polity_flagship.py, where scripts and tests imported them from a launcher.
 `flagship_config` is the one place a run's config is assembled from polity_config.yaml and a run's
 parameters; `PROFILES` maps --profile to what it does on top (flagship, exploration, scenario). No behaviour
-changed in the move: the explorer fixture and the golden are byte-identical.
+changed in the move: the block is verbatim apart from the underscore dropped from four names.
 """
 
 from __future__ import annotations

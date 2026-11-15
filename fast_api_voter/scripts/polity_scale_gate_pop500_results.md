@@ -79,6 +79,6 @@ same disposition ADR-003 gave the inert ballot-access filter.
 zero rupture declarations and a flat 5-candidate field at both scales. That was not
 a finding, it was a config bug in the flagship runner: `candidacy.rupture_path_enabled`
 is shipped `false` and "full richness" had not turned it on. Same for
-`institutions.blank_vote_competitive`. Both are now set in `_flagship_config`, and
+`institutions.blank_vote_competitive`. Both are now set in `flagship_config`, and
 the numbers above are from runs with them on.
 

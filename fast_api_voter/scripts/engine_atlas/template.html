@@ -388,7 +388,7 @@ function openMech(id, jump = true) {
     <h3 style="margin:18px 0 6px">Knobs</h3>
     <div class="tablebox"><table><thead><tr><th>Setting</th><th>Default</th><th>Flagship</th><th>Exploration</th></tr></thead>
       <tbody>${m.knobs.map(k => `<tr><td>${k[0]}</td><td>${k[1]}</td><td>${k[2] || "<span class='note'>same</span>"}</td><td>${k[3] || "<span class='note'>same</span>"}</td></tr>`).join("")}</tbody></table></div>
-    <p class="note" style="margin-top:8px">Defaults from <code>polity_config.yaml</code>; profiles from <code>scripts/run_polity_flagship.py</code> (${ref(A.misc_refs.flagship.file, A.misc_refs.flagship.line, "flagship")}, ${ref(A.misc_refs.exploration.file, A.misc_refs.exploration.line, "exploration")}). "same" means the profile keeps the default.</p>`;
+    <p class="note" style="margin-top:8px">Defaults from <code>polity_config.yaml</code>; profiles from <code>api/domain/polity/profiles.py</code> (${ref(A.misc_refs.flagship.file, A.misc_refs.flagship.line, "flagship")}, ${ref(A.misc_refs.exploration.file, A.misc_refs.exploration.line, "exploration")}). "same" means the profile keeps the default.</p>`;
   if (jump) { show("mechanics"); document.getElementById("mdetail").scrollTop = 0 }
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (b) { openMech(b.dataset.m); if (window.innerWidth < 860) document.getElementById("mdetail").scrollIntoView({ behavior: "smooth", block: "start" }) } });
