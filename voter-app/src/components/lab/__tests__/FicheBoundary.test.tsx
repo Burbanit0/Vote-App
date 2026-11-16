@@ -7,13 +7,15 @@ const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 afterAll(() => errorSpy.mockRestore());
 
 let broken = true;
+let failure = new Error('boom');
 const Boom: React.FC = () => {
-  if (broken) throw new Error('boom');
+  if (broken) throw failure;
   return <span data-testid="fiche-ok">ok</span>;
 };
 
 beforeEach(() => {
   broken = true;
+  failure = new Error('boom');
 });
 
 describe('FicheBoundary', () => {
@@ -55,6 +57,50 @@ describe('FicheBoundary', () => {
     fireEvent.click(screen.getByTestId('fiche-error-retry'));
     expect(screen.getByTestId('fiche-ok')).toBeInTheDocument();
     expect(screen.queryByTestId('fiche-error')).not.toBeInTheDocument();
+  });
+
+  it('says what failed, so it can be reported', () => {
+    render(
+      <FicheBoundary>
+        <Boom />
+      </FicheBoundary>
+    );
+    expect(screen.getByTestId('fiche-error-detail')).toHaveTextContent('Error: boom');
+  });
+
+  it('a chunk that failed to load reloads the page on Retry: a remount would re-throw the cached rejection', () => {
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload });
+    try {
+      failure = new TypeError('Failed to fetch dynamically imported module: /assets/x.js');
+      render(
+        <FicheBoundary>
+          <Boom />
+        </FicheBoundary>
+      );
+      fireEvent.click(screen.getByTestId('fiche-error-retry'));
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('any other error retries in place, without a reload', () => {
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload });
+    try {
+      render(
+        <FicheBoundary>
+          <Boom />
+        </FicheBoundary>
+      );
+      broken = false;
+      fireEvent.click(screen.getByTestId('fiche-error-retry'));
+      expect(reload).not.toHaveBeenCalled();
+      expect(screen.getByTestId('fiche-ok')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('speaks French when the page does, with the same keys as English', async () => {
