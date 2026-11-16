@@ -65,9 +65,14 @@ i18n.on('languageChanged', (lng) => {
 
 const LANG_KEY = 'votelab_lang';
 
+/** A saved choice is kept only if it names a language the app has: fr, en (or a regional en-GB
+ *  the browser's list gave) and the pseudo-locale. Anything else is as good as nothing saved. */
+const KNOWN_LANGUAGE = /^(?:fr|en|pseudo)(?:-[A-Za-z0-9-]+)?$/;
+
 function savedLanguage(): string | null {
   try {
-    return localStorage.getItem(LANG_KEY);
+    const saved = localStorage.getItem(LANG_KEY);
+    return saved !== null && KNOWN_LANGUAGE.test(saved) ? saved : null;
   } catch {
     return null; // storage disabled
   }

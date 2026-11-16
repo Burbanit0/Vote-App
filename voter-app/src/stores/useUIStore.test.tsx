@@ -51,6 +51,24 @@ describe('useUIStore — theme', () => {
   });
 });
 
+describe('useUIStore — a stored value that is not one of the allowed ones', () => {
+  it.each(['blue', '', 'DARK', '{"theme":"dark"}', 'null'])(
+    'theme %j gives light, on the store and on <html>',
+    (junk) => {
+      localStorage.setItem('votelab_theme', junk);
+      useUIStore.getState().hydrate();
+      expect(useUIStore.getState().theme).toBe('light');
+      expect(document.documentElement.getAttribute('data-bs-theme')).toBe('light');
+    }
+  );
+
+  it.each(['yes', 'TRUE', '1', '', '{}'])('plain language %j gives off', (junk) => {
+    localStorage.setItem('votelab_plain', junk);
+    useUIStore.getState().hydrate();
+    expect(useUIStore.getState().plainLanguage).toBe(false);
+  });
+});
+
 describe('useUIStore — plain language', () => {
   it('defaults off, enables/disables, persists', () => {
     render(<PlainConsumer />);
