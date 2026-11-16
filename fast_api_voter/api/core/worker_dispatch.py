@@ -1,14 +1,15 @@
 """
-Shared semaphore + timeout wrapper around `asyncio.to_thread` for CPU-heavy
-domain workers (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Timeouts & backpressure").
+Shared semaphore + timeout + cancellation around CPU-heavy domain workers (Lot 3,
+PLAN_SOLIDITE_TECHNIQUE.md — "Timeouts & backpressure"; P4-3).
 
-Every `routes/*.py` module hands its domain function straight to
-`asyncio.to_thread` today, with unlimited concurrency and no timeout, all
+Every `routes/*.py` module used to hand its domain function straight to
+`asyncio.to_thread`, with unlimited concurrency and no timeout, all
 sharing the same default executor (`min(32, cpu_count + 4)` threads) as
 every other route — including cheap ones like `/health`. A burst of heavy
 requests (Monte Carlo, coalition, ...) can starve that pool for everyone
 else, and a genuinely stuck worker (deadlock, unbounded loop) holds its
 thread forever with no way to recover short of restarting the process.
+Each worker now runs on a thread of its own, started here and stopped here (below).
 
 Four pieces:
 
@@ -66,11 +67,14 @@ result (measured: a busy loop's counter kept climbing at full speed after the 50
 now runs on a thread of its own (api/core/cancellation.py), and a timeout, or the client leaving,
 cancels it: a flag the worker may poll, and `WorkCancelled` raised into the thread, which stops
 pure-Python work at its next bytecode. A long C call finishes first, and a pool the worker started
-itself (the Monte Carlo's) is stopped by its tasks polling the flag. The semaphore slot is released
-only once the request is over, as before.
+itself (the Monte Carlo's) is stopped by its tasks polling the flag. The hard stop is an
+asynchronous exception, with the trade-off set out in api/core/cancellation.py
+(`RAISE_INTO_THREAD`). The semaphore slot is held until the worker's thread has actually ended, so
+a worker that cannot be stopped (a long C call) keeps its slot and later requests wait for it, then
+get the 503, instead of piling more threads on top.
 
 **A work budget** (api/core/work_budget.py): a request whose size fields multiply past
-`MAX_WORK_UNITS` is refused with a 422 before a thread is started.
+`MAX_WORK_UNITS` is refused (400, like any other domain-level refusal) before a thread is started.
 """
 from __future__ import annotations
 
@@ -100,62 +104,82 @@ WORKER_TIMEOUT_SECONDS = 180.0
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT_WORKERS)
 
 
-def _thread_main(
+def _to_loop(loop: asyncio.AbstractEventLoop, call: Callable[..., Any], *args: Any) -> None:
+    try:
+        loop.call_soon_threadsafe(call, *args)
+    except RuntimeError:  # the loop is closed: nobody is waiting
+        pass
+
+
+def _run_worker(
     job: cancellation.Job, fut: asyncio.Future[Any], loop: asyncio.AbstractEventLoop,
     fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any],
 ) -> None:
-    """The worker's thread: run `fn`, hand the outcome to the event loop unless the request
-    gave up on it. Everything is inside the `except WorkCancelled`, so a cancellation that lands
-    anywhere in here ends the thread quietly."""
-    def deliver(setter: Callable[[Any], None], value: Any) -> None:
-        def apply() -> None:
-            if not fut.done():
-                setter(value)
-
-        try:
-            loop.call_soon_threadsafe(apply)
-        except RuntimeError:  # the loop is closed: nobody is waiting
-            pass
+    def settle(setter: Callable[[Any], None], value: Any) -> None:
+        if not fut.done():  # the request gave up first
+            setter(value)
 
     try:
         job.attach()
         cancellation.bind(job)
-        try:
-            result = fn(*args, **kwargs)
-        except Exception as exc:  # noqa: BLE001 — handed to the caller, as to_thread does
-            job.detach()
-            deliver(fut.set_exception, exc)
-        else:
-            job.detach()
-            deliver(fut.set_result, result)
+        result = fn(*args, **kwargs)
+    except cancellation.WorkCancelled:
+        raise
+    except BaseException as exc:  # noqa: BLE001 — handed to the caller, as to_thread does
+        job.detach()
+        _to_loop(loop, settle, fut.set_exception, exc)
+    else:
+        job.detach()
+        _to_loop(loop, settle, fut.set_result, result)
+
+
+def _thread_main(
+    job: cancellation.Job, fut: asyncio.Future[Any], loop: asyncio.AbstractEventLoop,
+    sem: asyncio.Semaphore, fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any],
+) -> None:
+    """The worker's thread. A cancellation raised into it can land anywhere, so it is caught here
+    and the slot is given back whatever happened; at most one is ever posted, so the second
+    `detach` is the only other place it can arrive."""
+    try:
+        _run_worker(job, fut, loop, fn, args, kwargs)
+    except cancellation.WorkCancelled:
+        pass
+    try:
+        job.detach()
     except cancellation.WorkCancelled:
         job.detach()
+    _to_loop(loop, sem.release)
 
 
 async def run_bounded(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
     """Run any sync callable off the event loop, bounded by the shared
-    concurrency limit and timeout. Raises `asyncio.TimeoutError` on timeout —
-    see `run_worker_bounded` for the `(body, status)` convenience wrapper. On a timeout, or if
-    the caller is cancelled (the client left), the worker is told to stop (see the module
+    concurrency limit and timeout. Raises `asyncio.TimeoutError` on timeout (waiting for a slot
+    counts) — see `run_worker_bounded` for the `(body, status)` convenience wrapper. On a timeout,
+    or if the caller is cancelled (the client left), the worker is told to stop (see the module
     docstring)."""
     if not runtime.THREADS:
         # Pyodide, in one visitor's browser: no threads to run on, and nobody to share
         # the machine with, so the worker runs inline, with no bound or timeout.
         return fn(*args, **kwargs)
-    async with _semaphore:
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future[_T] = loop.create_future()
-        job = cancellation.Job()
-        context = contextvars.copy_context()
+    sem = _semaphore
+    await asyncio.wait_for(sem.acquire(), timeout=WORKER_TIMEOUT_SECONDS)
+    loop = asyncio.get_running_loop()
+    fut: asyncio.Future[_T] = loop.create_future()
+    job = cancellation.Job()
+    try:
         threading.Thread(
-            target=context.run, args=(_thread_main, job, fut, loop, fn, args, kwargs),
+            target=contextvars.copy_context().run,
+            args=(_thread_main, job, fut, loop, sem, fn, args, kwargs),
             name="worker-dispatch", daemon=True,
         ).start()
-        try:
-            return await asyncio.wait_for(fut, timeout=WORKER_TIMEOUT_SECONDS)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            job.cancel()
-            raise
+    except BaseException:
+        sem.release()
+        raise
+    try:
+        return await asyncio.wait_for(fut, timeout=WORKER_TIMEOUT_SECONDS)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        job.cancel()
+        raise
 
 
 async def run_worker_bounded(domain_fn: WorkerFn, payload: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
@@ -164,7 +188,7 @@ async def run_worker_bounded(domain_fn: WorkerFn, payload: Dict[str, Any]) -> Tu
     over = work_budget.over_budget(payload)
     if over is not None:
         log.warning("worker_dispatch.over_budget", worker=getattr(domain_fn, "__name__", "?"), **over)
-        return {"error": work_budget.refusal(over)}, 422
+        return {"error": work_budget.refusal(over)}, 400
     try:
         return await run_bounded(domain_fn, payload)
     except asyncio.TimeoutError:

@@ -33,8 +33,12 @@ class Counter:
         return self.n - before
 
 
+_BEFORE = {t.ident for t in threading.enumerate()}
+
+
 def _worker_threads() -> list[threading.Thread]:
-    return [t for t in threading.enumerate() if t.name == "worker-dispatch"]
+    """The dispatcher's threads started since this module was imported (not another test's)."""
+    return [t for t in threading.enumerate() if t.name == "worker-dispatch" and t.ident not in _BEFORE]
 
 
 async def _until(predicate, tries: int = 100) -> None:
@@ -96,6 +100,106 @@ async def test_the_semaphore_slot_is_free_after_a_timeout(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_a_worker_that_cannot_be_interrupted_keeps_its_slot_until_it_ends(monkeypatch):
+    """A long C call (here a sleep) does not see the cancellation until it returns. Its slot stays
+    taken until then, so the next request waits for it and gets its own timeout, instead of another
+    thread starting on top."""
+    monkeypatch.setattr(wd, "WORKER_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(wd, "_semaphore", asyncio.Semaphore(1))
+    with pytest.raises(asyncio.TimeoutError):
+        await wd.run_bounded(time.sleep, 0.6)  # times out, the thread still asleep
+    started = time.monotonic()
+    with pytest.raises(asyncio.TimeoutError):
+        await wd.run_bounded(lambda: "never started")  # waits for the slot, then times out
+    assert time.monotonic() - started >= 0.09 and len(_worker_threads()) == 1
+    await _until(lambda: not _worker_threads(), tries=100)  # the sleeper wakes, is stopped, ends
+    monkeypatch.setattr(wd, "WORKER_TIMEOUT_SECONDS", 5.0)
+    assert await wd.run_bounded(lambda: "free again") == "free again"
+
+
+@pytest.mark.asyncio
+async def test_a_job_cancelled_before_its_thread_starts_never_runs(monkeypatch):
+    ran: list[bool] = []
+    job = cancellation.Job()
+    job.cancel()  # cancelled before attach
+    loop = asyncio.get_running_loop()
+    fut = loop.create_future()
+    sem = asyncio.Semaphore(0)
+    thread = threading.Thread(target=wd._thread_main, args=(job, fut, loop, sem, lambda: ran.append(True), (), {}))
+    thread.start()
+    thread.join()
+    await asyncio.sleep(0.05)
+    assert not ran and not fut.done()
+    assert not sem.locked(), "the slot was not given back"
+
+
+@pytest.mark.asyncio
+async def test_a_base_exception_from_the_worker_reaches_the_caller_and_frees_the_slot(monkeypatch):
+    monkeypatch.setattr(wd, "_semaphore", asyncio.Semaphore(1))
+
+    def exits():
+        raise SystemExit(3)
+
+    with pytest.raises(SystemExit):
+        await wd.run_bounded(exits)
+    assert await wd.run_bounded(lambda: "slot free") == "slot free"
+
+
+@pytest.mark.asyncio
+async def test_without_the_hard_stop_a_worker_that_polls_still_stops(monkeypatch):
+    monkeypatch.setattr(cancellation, "RAISE_INTO_THREAD", False)
+    monkeypatch.setattr(wd, "WORKER_TIMEOUT_SECONDS", 0.2)
+    counter = Counter()
+
+    def polite(_payload):
+        check = cancellation.cancel_check()
+        while True:
+            check()
+            counter.n += 1
+
+    with pytest.raises(asyncio.TimeoutError):
+        await wd.run_bounded(polite, {})
+    assert await counter.settled() < 1000
+    await _until(lambda: not _worker_threads())
+
+
+@pytest.mark.asyncio
+async def test_a_thread_that_cannot_start_gives_the_slot_back(monkeypatch):
+    sem = asyncio.Semaphore(1)
+    monkeypatch.setattr(wd, "_semaphore", sem)
+
+    def refuse(self):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", refuse)
+    with pytest.raises(RuntimeError, match="can't start"):
+        await wd.run_bounded(lambda: 1)
+    assert not sem.locked()
+
+
+@pytest.mark.asyncio
+async def test_a_cancellation_arriving_while_the_job_detaches_still_frees_the_slot():
+    """The stop is posted at most once, but it can arrive in the middle of the final `detach`."""
+    class LateJob(cancellation.Job):
+        arrived = False
+
+        def detach(self):
+            if not LateJob.arrived and self._ident is None:
+                LateJob.arrived = True
+                raise cancellation.WorkCancelled
+            super().detach()
+
+    loop = asyncio.get_running_loop()
+    sem = asyncio.Semaphore(0)
+    fut = loop.create_future()
+    thread = threading.Thread(target=wd._thread_main, args=(LateJob(), fut, loop, sem, lambda: 1, (), {}))
+    thread.start()
+    thread.join()
+    await asyncio.sleep(0.05)
+    assert not sem.locked(), "the slot was not given back"
+
+
+@pytest.mark.asyncio
 async def test_a_worker_exception_reaches_the_caller():
     def boom():
         raise ValueError("bad")
@@ -121,7 +225,7 @@ async def test_a_result_arriving_after_the_loop_closed_is_dropped_quietly():
     fut = loop.create_future()
     loop.close()
     job = cancellation.Job()
-    wd._thread_main(job, fut, loop, lambda: 1, (), {})  # no exception escapes
+    wd._thread_main(job, fut, loop, asyncio.Semaphore(1), lambda: 1, (), {})  # no exception escapes
 
 
 @pytest.mark.asyncio
@@ -129,7 +233,7 @@ async def test_a_result_for_a_request_that_already_gave_up_is_ignored():
     loop = asyncio.get_running_loop()
     fut = loop.create_future()
     fut.cancel()
-    thread = threading.Thread(target=wd._thread_main, args=(cancellation.Job(), fut, loop, lambda: 1, (), {}))
+    thread = threading.Thread(target=wd._thread_main, args=(cancellation.Job(), fut, loop, asyncio.Semaphore(1), lambda: 1, (), {}))
     thread.start()
     thread.join()
     await asyncio.sleep(0.05)  # the loop runs what the thread scheduled
@@ -245,7 +349,7 @@ async def test_a_request_over_budget_is_refused_before_a_thread_starts():
     body, status = await wd.run_worker_bounded(
         worker, {"num_voters": MAX_NUM_VOTERS, "num_runs": MAX_NUM_RUNS + 1}
     )
-    assert status == 422 and "Request too large" in body["error"]
+    assert status == 400 and "Request too large" in body["error"]
     assert not ran and not _worker_threads()
 
     body, status = await wd.run_worker_bounded(

@@ -21,6 +21,14 @@ import threading
 from typing import Callable
 
 
+#: Raise `WorkCancelled` into a cancelled worker's thread (the hard stop). False: only the flag
+#: is set, and a worker stops only where it polls `cancel_check()`. The hard stop is an
+#: asynchronous exception: it can land between any two bytecodes, so in principle inside library
+#: code that holds a lock (logging, a cache) at that instant. It is raised only into a worker whose
+#: request already timed out or went away; turn it off if that trade is not wanted.
+RAISE_INTO_THREAD = True
+
+
 class WorkCancelled(BaseException):
     """Raised inside a worker whose request no longer wants its result."""
 
@@ -34,8 +42,11 @@ class Job:
         self.cancelled = threading.Event()
 
     def attach(self) -> None:
-        """Called on the worker's own thread, as it starts."""
+        """Called on the worker's own thread, as it starts. A job cancelled before its thread got
+        here never starts: WorkCancelled."""
         with self._lock:
+            if self.cancelled.is_set():
+                raise WorkCancelled
             self._ident = threading.get_ident()
 
     def detach(self) -> None:
@@ -47,7 +58,7 @@ class Job:
     def cancel(self) -> None:
         self.cancelled.set()
         with self._lock:
-            if self._ident is not None:
+            if RAISE_INTO_THREAD and self._ident is not None:
                 ctypes.pythonapi.PyThreadState_SetAsyncExc(
                     ctypes.c_ulong(self._ident), ctypes.py_object(WorkCancelled)
                 )
