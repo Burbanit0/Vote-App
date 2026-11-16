@@ -145,7 +145,7 @@ satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont
   ne le lit jamais — seul le chemin déterministe et son fallback le consultent).
 
 **Essayé et NÉGATIF, 2026-09-11** (Track B3, `lets-build-a-solid-spicy-otter.md`,
-`scripts/check_candidacy_calibration_results.md`) : `build_candidacy_system_prompt_toon_calibrated`
+`scripts/check_candidacy_calibration_results.md`) : `build_candidacy_system_prompt_toon_calibrated` (archivé : `scripts/archive/polity_archived_builders.py`)
 énonce la MOYENNE d'`ambition_score` dans la population, calculée une fois par l'appelant comme
 `support`. Vérifié en direct sur une vraie population p500 (`generate_population`, config shippée,
 non filtrée, même découpage/schéma/think=False que la production) : le taux déclaré **augmente**
@@ -183,7 +183,7 @@ historique électoral et sur-déclare quand même.
 
 - Libre : tout l'arbitrage — c'est le type où le §3.3 est le plus explicitement invoqué.
 - **Essayé et NÉGATIF, 2026-09-11** (Track B2, `lets-build-a-solid-spicy-otter.md`,
-  `scripts/check_coalition_calibration_results.md`) : `build_coalition_system_prompt_calibrated`
+  `scripts/check_coalition_calibration_results.md`) : `build_coalition_system_prompt_calibrated` (archivé : `scripts/archive/polity_archived_builders.py`)
   énonce exactement la référence proposée ci-dessus (distance moyenne entre partis sièges,
   formateur compris). Résultat sur la même sonde à 5 points : **aucune amélioration** —
   différence pôle-à-pôle -0,0004 (référence : -0,0026, donc plus petite, pas plus grande),

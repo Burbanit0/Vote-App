@@ -1,6 +1,6 @@
 """Tests of the prompt builders archived in polity_archived_builders.py.
 
-Moved verbatim out of api/tests/test_polity_llm_behavior_engine.py: not collected by CI
+Moved out of api/tests/test_polity_llm_behavior_engine.py, unchanged but for imports: not collected by CI
 (testpaths is api/tests). Run on demand: pytest scripts/archive/test_archived_prompt_builders.py -o addopts="".
 """
 
@@ -34,11 +34,8 @@ from polity_archived_builders import (  # noqa: E402
 
 # ── build_candidacy_system_prompt_toon_calibrated (Track B3, 2026-09-11) ────
 
-
 def test_calibrated_candidacy_prompt_states_the_population_mean_ambition():
-    prompt = build_candidacy_system_prompt_toon_calibrated(
-        _population(3), mean_ambition=0.2013
-    )
+    prompt = build_candidacy_system_prompt_toon_calibrated(_population(3), mean_ambition=0.2013)
     assert "0.2013" in prompt
 
 
@@ -56,11 +53,7 @@ def test_calibrated_candidacy_prompt_is_additive_not_a_replacement():
 def test_calibrated_candidacy_prompt_differs_from_uncalibrated_only_in_the_added_sentence():
     citizens = _population(3)
     uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
-    calibrated_lines = set(
-        build_candidacy_system_prompt_toon_calibrated(
-            citizens, mean_ambition=0.2
-        ).splitlines()
-    )
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
     assert uncalibrated_lines <= calibrated_lines
     added = calibrated_lines - uncalibrated_lines
     assert len(added) == 1
@@ -76,26 +69,14 @@ def test_calibrated_candidacy_prompt_states_no_prescribed_action():
     # code, not a prescribed rule this fix introduces.
     citizens = _population(1)
     uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
-    calibrated_lines = set(
-        build_candidacy_system_prompt_toon_calibrated(
-            citizens, mean_ambition=0.2
-        ).splitlines()
-    )
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
     added_sentence = next(iter(calibrated_lines - uncalibrated_lines)).lower()
-    forbidden = [
-        "seuil",
-        "threshold",
-        "si superieur",
-        "si le score",
-        "declare seulement",
-        "ne te presente que",
-    ]
+    forbidden = ["seuil", "threshold", "si superieur", "si le score", "declare seulement", "ne te presente que"]
     for term in forbidden:
         assert term not in added_sentence
 
 
 # ── build_coalition_system_prompt_calibrated (Track B2, 2026-09-11) ─────
-
 
 def test_calibrated_coalition_prompt_states_the_mean_inter_party_distance():
     # 3 seated parties (initiator + 2 responders) on a single dimension:
@@ -103,11 +84,7 @@ def test_calibrated_coalition_prompt_states_the_mean_inter_party_distance():
     # |0.3-0.9|=0.6 -- mean = (0.3+0.9+0.6)/3 = 0.6.
     platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
     prompt = build_coalition_system_prompt_calibrated(
-        [1, 2],
-        initiator=0,
-        initiator_seats=30,
-        total_seats=100,
-        majority_seats_threshold=50.0,
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
         party_platforms=platforms,
     )
     assert "0.6000" in prompt
@@ -123,11 +100,7 @@ def test_calibrated_coalition_prompt_includes_the_initiator_in_the_mean():
     # Correct (initiator included): pairs (0,1)=1.0, (0,2)=1.0, (1,2)=0.0 -> mean=0.6667
     # Wrong (initiator excluded): only pair (1,2)=0.0 -> mean=0.0
     prompt = build_coalition_system_prompt_calibrated(
-        [1, 2],
-        initiator=0,
-        initiator_seats=30,
-        total_seats=100,
-        majority_seats_threshold=50.0,
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
         party_platforms=platforms,
     )
     assert "0.6667" in prompt
@@ -137,11 +110,7 @@ def test_calibrated_coalition_prompt_includes_the_initiator_in_the_mean():
 def test_calibrated_coalition_prompt_is_additive_not_a_replacement():
     platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
     prompt = build_coalition_system_prompt_calibrated(
-        [1, 2],
-        initiator=0,
-        initiator_seats=30,
-        total_seats=100,
-        majority_seats_threshold=50.0,
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
         party_platforms=platforms,
     )
     assert "[1,2]" in prompt and "EXACTEMENT ces 2 party_id" in prompt
@@ -153,22 +122,10 @@ def test_calibrated_coalition_prompt_is_additive_not_a_replacement():
 def test_calibrated_coalition_prompt_contains_no_coalition_theory_framing():
     platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
     prompt = build_coalition_system_prompt_calibrated(
-        [1, 2],
-        initiator=0,
-        initiator_seats=30,
-        total_seats=100,
-        majority_seats_threshold=50.0,
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
         party_platforms=platforms,
     )
-    forbidden = [
-        "minimal",
-        "minimale",
-        "stable",
-        "small coalition",
-        "petite coalition",
-        "prefer",
-        "privilegie",
-    ]
+    forbidden = ["minimal", "minimale", "stable", "small coalition", "petite coalition", "prefer", "privilegie"]
     lowered = prompt.lower()
     for term in forbidden:
         assert term not in lowered
@@ -177,13 +134,13 @@ def test_calibrated_coalition_prompt_contains_no_coalition_theory_framing():
 def test_calibrated_coalition_prompt_round_one_is_byte_identical_to_omitting_round_number():
     platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
     args = ([1, 2], 0, 30, 100, 50.0, platforms)
-    assert build_coalition_system_prompt_calibrated(
-        *args, round_number=1
-    ) == build_coalition_system_prompt_calibrated(*args)
+    assert (
+        build_coalition_system_prompt_calibrated(*args, round_number=1)
+        == build_coalition_system_prompt_calibrated(*args)
+    )
 
 
 # ── build_pressure_*_prompt_toon (§5.E, diagnostic-only) ─────────────────
-
 
 def _toon_pressure_context(cid, **overrides):
     return _pressure_context(cid, available=(0, 4), **overrides)
@@ -192,12 +149,8 @@ def _toon_pressure_context(cid, **overrides):
 def test_pressure_user_prompt_toon_hoists_shared_facts_into_one_call_row():
     citizens = [_pressure_citizen(0), _pressure_citizen(1)]
     contexts = {
-        0: _toon_pressure_context(
-            0, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=0.08
-        ),
-        1: _toon_pressure_context(
-            1, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=1.42
-        ),
+        0: _toon_pressure_context(0, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=0.08),
+        1: _toon_pressure_context(1, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=1.42),
     }
     toon = build_pressure_user_prompt_toon(citizens, contexts)
     lines = toon.splitlines()
@@ -212,9 +165,7 @@ def test_pressure_user_prompt_toon_rejects_a_heterogeneous_target():
     citizens = [_pressure_citizen(0), _pressure_citizen(1)]
     contexts = {
         0: _toon_pressure_context(0, target=7),
-        1: _toon_pressure_context(
-            1, target=8
-        ),  # different target -- not a call-level constant here
+        1: _toon_pressure_context(1, target=8),  # different target -- not a call-level constant here
     }
     with pytest.raises(ValueError, match="call-level constants"):
         build_pressure_user_prompt_toon(citizens, contexts)
@@ -222,9 +173,7 @@ def test_pressure_user_prompt_toon_rejects_a_heterogeneous_target():
 
 def test_pressure_user_prompt_toon_rejects_an_open_menu():
     citizen = _pressure_citizen(0)
-    context = _pressure_context(
-        0, available=(0, 1, 2, 3, 4)
-    )  # not the shipped closed menu
+    context = _pressure_context(0, available=(0, 1, 2, 3, 4))  # not the shipped closed menu
     with pytest.raises(ValueError, match="closed menu"):
         build_pressure_user_prompt_toon([citizen], {0: context})
 
@@ -252,9 +201,7 @@ def test_pressure_system_prompt_toon_still_enumerates_every_expected_cid():
 
 
 def test_pressure_system_prompt_toon_explains_the_two_section_format():
-    prompt = build_pressure_system_prompt_toon(
-        [_pressure_citizen(0)], _config_with_llm_enabled()
-    )
+    prompt = build_pressure_system_prompt_toon([_pressure_citizen(0)], _config_with_llm_enabled())
     assert "call[1]{target,mandate_dev,ticks_to_election}:" in prompt
     assert "pressure[N]{cid,self_gap}:" in prompt
     assert "7,0.15,12" in prompt  # the worked example

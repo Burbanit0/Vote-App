@@ -28,9 +28,7 @@ from api.domain.polity.llm_behavior_engine import (
 from api.domain.polity.llm_toon_encoding import encode_toon_array
 
 
-def build_candidacy_system_prompt_toon_calibrated(
-    citizens: Sequence[Citizen], mean_ambition: float
-) -> str:
+def build_candidacy_system_prompt_toon_calibrated(citizens: Sequence[Citizen], mean_ambition: float) -> str:
     """Track B3 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 for
     dt=2. `candidacy_considered` is not a content-blind collapse like B1/B2
     -- 202/500 (40.4%) declared against a pre-registered bar of <5%, real
@@ -105,9 +103,7 @@ def build_candidacy_system_prompt_toon_calibrated(
     )
 
 
-def build_pressure_system_prompt_toon(
-    consulted: Sequence[Citizen], config: PolityConfig
-) -> str:
+def build_pressure_system_prompt_toon(consulted: Sequence[Citizen], config: PolityConfig) -> str:
     """plan-llm-protocol-and-theory-program.md §5.E: NOT shipped, NOT wired
     into decide_pressure_actions -- diagnostic-only, same "not wired into
     any decide_* entry point" framing as every §5.C/§5.E primitive this
@@ -134,9 +130,7 @@ def build_pressure_system_prompt_toon(
     cid_list = ",".join(str(c.citizen_id) for c in consulted)
     legal = menu_acts(config.pressure_menu)
     legal_table = "\n".join(
-        line
-        for line in PRESSURE_ACT_PROMPT_TABLE.splitlines()
-        if int(line.split(" = ")[0]) in legal
+        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
     )
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
@@ -181,9 +175,7 @@ def build_pressure_system_prompt_toon(
     )
 
 
-def build_pressure_user_prompt_toon(
-    consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]
-) -> str:
+def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
     """The TOON-encoded twin of build_pressure_user_prompt -- hoists the
     fields that are call-level constants under this project's SHIPPED
     architecture (single consulted officeholder per tick, config-derived
@@ -205,13 +197,11 @@ def build_pressure_user_prompt_toon(
     for ctx in ctxs:
         _check_toon_pressure_context(ctx)
     call_block = encode_toon_array(
-        "call",
-        ("target", "mandate_dev", "ticks_to_election"),
+        "call", ("target", "mandate_dev", "ticks_to_election"),
         [(target, round(ctxs[0].mandate_dev, 4), ticks_to_election)],
     )
     pressure_block = encode_toon_array(
-        "pressure",
-        ("cid", "self_gap"),
+        "pressure", ("cid", "self_gap"),
         [(c.citizen_id, round(contexts[c.citizen_id].self_gap, 4)) for c in consulted],
     )
     return f"{call_block}\n{pressure_block}"
@@ -230,29 +220,17 @@ def _toon_pressure_call_constants(ctxs: Sequence[PressureContext]) -> tuple[int,
         )
     ticks_to_election = ticks.pop()
     if ticks_to_election is None:
-        raise ValueError(
-            "build_pressure_user_prompt_toon does not support a null ticks_to_election"
-        )
+        raise ValueError("build_pressure_user_prompt_toon does not support a null ticks_to_election")
     return targets.pop(), ticks_to_election
 
 
 def _check_toon_pressure_context(ctx: PressureContext) -> None:
     if ctx.available != (0, 4):
-        raise ValueError(
-            f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}"
-        )
-    if (
-        ctx.petition_open
-        or ctx.already_signed
-        or ctx.petition_expires_at_tick is not None
-    ):
-        raise ValueError(
-            "build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)"
-        )
+        raise ValueError(f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}")
+    if ctx.petition_open or ctx.already_signed or ctx.petition_expires_at_tick is not None:
+        raise ValueError("build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)")
     if ctx.neighbors_acting is not None:
-        raise ValueError(
-            "build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)"
-        )
+        raise ValueError("build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)")
 
 
 def build_coalition_system_prompt_calibrated(
@@ -300,11 +278,9 @@ def build_coalition_system_prompt_calibrated(
     pairwise_distances = [
         math.dist(party_platforms[a], party_platforms[b])
         for i, a in enumerate(seated_ids)
-        for b in seated_ids[i + 1 :]
+        for b in seated_ids[i + 1:]
     ]
-    mean_distance = (
-        sum(pairwise_distances) / len(pairwise_distances) if pairwise_distances else 0.0
-    )
+    mean_distance = sum(pairwise_distances) / len(pairwise_distances) if pairwise_distances else 0.0
     party_id_list = ",".join(str(pid) for pid in responder_party_ids)
     round_sentence = (
         ""
