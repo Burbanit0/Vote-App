@@ -195,7 +195,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
 | P3-8 | Validate the three one-string UI keys | no | PR #1097 open |
 | P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | todo (D6 for the order) |
-| P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | PR open: `fix/ratelimit-client-address` |
+| P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | PR #1100 open |
 | P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |
 | P4-4 | A per-fiche error boundary | no | todo |
 | P4-5 | Finish #692: pin images and pip installs by hash | yes (workflows) | todo |
