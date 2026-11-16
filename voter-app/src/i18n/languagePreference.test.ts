@@ -22,6 +22,47 @@ describe('language preference', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
+  // i18next is one instance across vi.resetModules(): the listener the setup file's import left
+  // on it would write init's own "fr" into storage before the fresh module reads it. So storage is
+  // stubbed: it holds `saved` for the key, and a write goes nowhere.
+  async function startWithSaved(saved: string) {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((k) =>
+      k === 'votelab_lang' ? saved : null
+    );
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {});
+    vi.resetModules();
+    const fresh = await import('./index');
+    await fresh.i18nReady;
+    return fresh.default;
+  }
+
+  it.each([
+    'klingon',
+    '',
+    'EN',
+    'english',
+    '{"lng":"en"}',
+    'fr_FR',
+    'en--',
+    'fr-zzz',
+    'pseudo-x',
+    'en-GB-x',
+  ])(
+    'ignores a saved language that is not one the app has (%j): the browser language decides',
+    async (junk) => {
+      // jsdom's navigator.languages is ['en-US', 'en'].
+      expect((await startWithSaved(junk)).resolvedLanguage).toBe('en');
+    }
+  );
+
+  it.each([
+    ['fr', 'fr'],
+    ['en-GB', 'en'],
+    ['pseudo', 'pseudo'],
+  ])('keeps a saved language the app has (%j, resolved to %j)', async (saved, resolved) => {
+    expect((await startWithSaved(saved)).resolvedLanguage).toBe(resolved);
+  });
+
   it('starts from the browser language when storage is unavailable', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('storage disabled');

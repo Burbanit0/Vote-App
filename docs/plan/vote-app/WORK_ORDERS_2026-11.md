@@ -185,7 +185,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | ID | Work order | Held | Status |
 |---|---|---|---|
 | P2-1 | Shareable scenario link | yes (visual baseline) | done: PR #1080 (merged); D1's follow-up questions stay open |
-| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | open: `docs/phase-2-done` |
+| P2-2 | Strike Phase 2 in the plan and `STATUS.md` | no | done: PR #1082 (merged) |
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | done: PR #1083 (merged); the lock order's first PR had a perf regression on tie-heavy profiles, see its description |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | done: PR #1088 (merged) |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | done: PR #1090 (merged) |
@@ -193,7 +193,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | PR #1095 open (held for the owner's review) |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
-| P3-8 | Validate the three one-string UI keys | no | todo |
+| P3-8 | Validate the three one-string UI keys | no | PR #1097 open |
 | P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | todo (D6 for the order) |
 | P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | todo |
 | P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |

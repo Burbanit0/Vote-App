@@ -6,10 +6,12 @@
  *   - plainLanguage    (persisted as votelab_plain)
  */
 import { create } from 'zustand';
+import { oneOf } from '../lib/persistedState';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type Theme = 'light' | 'dark';
+const THEMES: readonly Theme[] = ['light', 'dark'];
 
 interface UIState {
   /** Re-read theme/plain-language from localStorage (mount). */
@@ -27,7 +29,7 @@ interface UIState {
 
 function initialTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
-  return (localStorage.getItem('votelab_theme') as Theme) ?? 'light';
+  return oneOf(localStorage.getItem('votelab_theme'), THEMES, 'light');
 }
 
 function initialPlain(): boolean {
