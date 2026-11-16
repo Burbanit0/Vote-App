@@ -71,17 +71,63 @@ def test_no_trusted_proxy_means_the_app_is_returned_untouched():
     assert trust_proxies(_echo, " , ") is _echo
 
 
-@pytest.mark.parametrize("trusted", ["*", "10.0.0.5, *"])
-def test_a_wildcard_is_refused(trusted):
+@pytest.mark.parametrize("trusted", [
+    "*", "10.0.0.5, *",  # a wildcard
+    "0.0.0.0/0", "::/0", "10.0.0.5, 0.0.0.0/0",  # a range that is every address
+    "nginx", "proxy.internal", "10.0.0.5:80", "10.0.0.0/33", "10.0.0.5,,garbage",  # not addresses
+])
+def test_a_wildcard_a_trust_all_range_or_a_non_address_is_refused(trusted):
     with pytest.raises(ValueError, match="TRUSTED_PROXIES"):
         trust_proxies(_echo, trusted)
+
+
+@pytest.mark.parametrize("trusted", ["10.0.0.5", "10.0.0.0/8", "::1", "2001:db8::/32", "10.0.0.5, 172.16.0.0/12"])
+def test_addresses_and_ranges_are_accepted(trusted):
+    assert trust_proxies(_echo, trusted) is not _echo
+
+
+@pytest.mark.asyncio
+async def test_the_scheme_is_taken_from_a_trusted_proxy_only():
+    seen: list[Any] = []
+
+    async def app(scope, receive, send):
+        seen.append(scope.get("scheme"))
+
+    wrapped = trust_proxies(app, PROXY)
+    for peer in (PROXY, "198.51.100.9"):
+        scope = {"type": "http", "scheme": "http", "client": (peer, 1),
+                 "headers": [(b"x-forwarded-proto", b"https"), (b"x-forwarded-for", b"203.0.113.7")]}
+        await wrapped(scope, None, None)
+    assert seen == ["https", "http"]
+
+
+def test_the_app_honours_trusted_proxies_from_the_environment():
+    """api.main wraps its outermost app with what TRUSTED_PROXIES says (read at import, so a fresh
+    interpreter), and refuses to start on a bad value."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    backend = Path(__file__).resolve().parents[2]
+    probe = "import api.main as m; print(type(m.app).__name__)"
+
+    def run(trusted: str) -> subprocess.CompletedProcess[str]:
+        env = {**os.environ, "TRUSTED_PROXIES": trusted, "REDIS_URL": ""}
+        return subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True,
+                              env=env, cwd=backend)
+
+    assert run("10.0.0.5").stdout.strip() == "ProxyHeadersMiddleware"
+    assert run("").stdout.strip() == "ASGIApp"
+    refused = run("0.0.0.0/0")
+    assert refused.returncode != 0 and "TRUSTED_PROXIES" in refused.stderr
 
 
 # ── through the limiter itself ──────────────────────────────────────────────
 
 def _limited_app(path: str, trusted: str) -> Any:
     """A route behind the real v2 limiter (120/minute per client), wrapped as main.py wraps."""
-    from api.core.ratelimit import limiter  # noqa: F401  (the shared, module-level limiter)
+    from api.core.ratelimit import limiter  # the shared, module-level limiter
 
     api = FastAPI()
     api.state.limiter = limiter
@@ -120,7 +166,7 @@ async def test_one_client_behind_a_trusted_proxy_is_limited_whatever_the_proxy_i
     path = "/p42/one-client"
     app = _limited_app(path, PROXY)
     codes = await _statuses(app, path, PROXY, ["203.0.113.7"], 122)
-    assert 429 in codes and set(codes) <= {200, 429}
+    assert codes.index(429) == 120 and set(codes) <= {200, 429}, "the 121st request is the first refused"
 
 
 @pytest.mark.asyncio
@@ -128,7 +174,7 @@ async def test_a_spoofed_header_from_an_untrusted_peer_buys_no_fresh_bucket():
     path = "/p42/spoofer"
     app = _limited_app(path, PROXY)  # only 10.0.0.5 is trusted; the spoofer is 198.51.100.9
     codes = await _statuses(app, path, "198.51.100.9", [f"203.0.113.{i}" for i in range(1, 123)], 122)
-    assert 429 in codes, "a new X-Forwarded-For per request must not reset the limit"
+    assert codes.index(429) == 120, "a new X-Forwarded-For per request must not reset the limit"
 
 
 @pytest.mark.asyncio
@@ -136,4 +182,4 @@ async def test_without_trusted_proxies_the_header_is_never_read():
     path = "/p42/no-proxies"
     app = _limited_app(path, "")
     codes = await _statuses(app, path, PROXY, [f"203.0.113.{i}" for i in range(1, 123)], 122)
-    assert 429 in codes
+    assert codes.index(429) == 120
