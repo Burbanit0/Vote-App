@@ -13,8 +13,8 @@ Streaming protocol (same as Flask):
            → 'monte_carlo_stopped' / 'monte_carlo_error'
     Client → 'stop_monte_carlo'  {}
 
-What a client may ask for is what POST /simulations/monte-carlo allows (num_iterations 1-500,
-num_voters 10-1000, api/schemas/simulations.py): outside that the run is refused with a
+What a client may ask for is what POST /simulations/monte-carlo allows (1-500 runs,
+10-1000 voters, api/schemas/simulations.py; `num_runs` there, `num_iterations` here): outside that the run is refused with a
 `monte_carlo_error`, not clamped. A connection has one live run at a time, and an address may start
 ten a minute (api/sockets/limits.py).
 

@@ -635,3 +635,25 @@ async def test_one_address_cannot_have_more_runs_going_than_the_limit(live_serve
         await _until(lambda: errors)
 
     assert "still going" in errors[0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_the_payload_the_monte_carlo_page_sends_is_accepted(live_server):
+    """What voter-app's MonteCarloResults hands useMonteCarloStream.start (the sliders' smallest
+    values: 20 runs, 50 voters; candidates as the page's {name} objects; an ideology). The hook's
+    own test mocks socket.io, so this is the one that shows the server takes what the page sends."""
+    complete: list[Any] = []
+    errors: list[Any] = []
+    async with _connected(live_server) as client:
+        client.on("monte_carlo_complete", lambda data: complete.append(data))
+        client.on("monte_carlo_error", lambda data: errors.append(data))
+        await client.emit("start_monte_carlo", {
+            "num_iterations": 20,
+            "num_voters":     50,
+            "candidates":     [{"name": "Alice"}, {"name": "Bob"}, {"name": "Carol"}],
+            "ideology":       "random",
+        })
+        await _until(lambda: complete or errors)
+
+    assert not errors, errors
+    assert complete[0]["num_iterations"] == 20 and complete[0]["num_voters"] == 50
