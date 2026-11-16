@@ -2,15 +2,24 @@
 from the backend's own rules. A change to a rule, or to the per-voter lot, that moves one of its
 answers must regenerate it, and be read as a change in what docs/spec/truncated-ballots.md says.
 
-A file of its own: it runs the generator in a subprocess, which does not belong in mutmut's
-selection (test_truncated_ballots_as_is.py, which pins the readings, is there).
+A file of its own: it runs the generator in a subprocess and reads the client's fixture directory,
+neither of which belongs in mutmut's selection (test_truncated_ballots_as_is.py, whose ballots are
+all literals, is there). The client's side of every measurement is in
+voter-app/src/lib/truncatedBallots.test.ts.
 """
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 BACKEND = Path(__file__).resolve().parents[2]
+FIXTURE = json.loads(
+    (BACKEND.parent / "voter-app" / "src" / "lib" / "__fixtures__" / "truncatedBallots.json").read_text()
+)
+ORDINAL = sorted(FIXTURE["truncated"]["backend"])
 
 
 def test_the_fixture_is_the_backends_current_answer() -> None:
@@ -20,3 +29,53 @@ def test_the_fixture_is_the_backends_current_answer() -> None:
         capture_output=True, text=True, env=env, cwd=BACKEND,
     )
     assert out.returncode == 0, out.stdout + out.stderr
+
+
+@pytest.mark.parametrize("rule", ORDINAL)
+def test_a_short_ballot_profile_elects_someone_a_ballot_ranks(rule):
+    for profile, winner in zip(FIXTURE["truncated"]["profiles"], FIXTURE["truncated"]["backend"][rule]):
+        assert winner in {c for ballot in profile for c in ballot}, (rule, profile, winner)
+
+
+@pytest.mark.parametrize("rule", ORDINAL)
+def test_equal_ranks_do_not_follow_the_listing_order(rule):
+    """Voters exactly as near to two candidates as to each other: the backend orders each voter's
+    own tie by a lot seeded with the voter (#662), so listing the candidates the other way round
+    moves nothing."""
+    backend = FIXTURE["equalRanks"]["backend"]
+    assert backend["listed"][rule] == backend["reversed"][rule]
+
+
+def test_the_duel_probe_is_read_one_way_by_every_rule():
+    """No rule on the duel probe is decided by a lot (the generator refuses a seed-dependent one).
+    The positional rules and anti-plurality elect B, where the rest elect A."""
+    backend = FIXTURE["probes"]["duel"]["backend"]
+    assert {rule for rule, w in backend.items() if w == "B"} == {
+        "borda", "nanson", "baldwin", "anti_plurality",
+    }
+    assert {w for w in backend.values()} == {"A", "B"}
+
+
+def test_the_field_probe_never_elects_a_candidate_nobody_ranks():
+    for rule, winners in FIXTURE["probes"]["field"]["backend"].items():
+        assert "A" not in winners, rule
+
+
+def test_the_score_rules_elect_the_same_under_every_seed_on_the_truncated_matrix():
+    assert FIXTURE["scores"]["backend"] == {
+        "score": "C", "star": "C", "cumulative": "C", "maximin": "B", "nash": "B",
+    }
+
+
+def test_majority_judgment_and_approval_read_a_cut_ballot_alike_on_the_shared_ballots():
+    cases = {c["places"]: c["backend"] for c in FIXTURE["shared"]["cases"]}
+    assert cases == {
+        4: {"majority_judgment": "C", "approval": "C"},
+        1: {"majority_judgment": "D", "approval": "D"},
+        2: {"majority_judgment": "B", "approval": "B"},
+    }
+
+
+def test_a_tie_in_scores_is_drawn_the_same_way_whichever_way_the_candidates_are_listed():
+    ties = FIXTURE["scoreTies"]["backend"]
+    assert ties["listed"] == ties["reversed"]
