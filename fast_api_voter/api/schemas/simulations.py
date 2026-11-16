@@ -20,8 +20,13 @@ from .common import UniqueLooseCandidates
 # Shared request bounds. Ranges mirror api/schemas/election.py and
 # api/schemas/perturbers.py (num_voters: ge=10, le=1000); NumRuns matches the
 # cap previously enforced only inside _monte_carlo_worker (min(..., 500)).
-NumVoters = Annotated[int, Field(ge=10, le=1000)]
-NumRuns = Annotated[int, Field(ge=1, le=500)]
+#
+# The Socket.IO Monte Carlo (api/sockets) reads the same numbers from here, so a run costs the
+# same to ask for whichever way it is asked.
+MIN_NUM_VOTERS, MAX_NUM_VOTERS = 10, 1000
+MAX_NUM_RUNS = 500
+NumVoters = Annotated[int, Field(ge=MIN_NUM_VOTERS, le=MAX_NUM_VOTERS)]
+NumRuns = Annotated[int, Field(ge=1, le=MAX_NUM_RUNS)]
 
 # ── simulation_compare (Phase 4.5.a.7) ──────────────────────────────────────
 # Responses stay Dict (passthrough). `candidates` is a union of name strings and
