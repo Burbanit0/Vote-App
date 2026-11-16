@@ -69,7 +69,7 @@ vi.mock('../../services/profileApi', () => ({
 
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import LaboratoirePage from '../LaboratoirePage';
-import { LAB_FAMILIES } from '../../components/lab/labCatalog';
+import { LAB_FAMILIES, locateExperiment } from '../../components/lab/labCatalog';
 import {
   useElectionStore,
   DEFAULT_PLAYGROUND,
@@ -433,4 +433,38 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.queryByTestId('lijphart-dial')).not.toBeInTheDocument();
     expect(screen.getByTestId('weight-proportionality')).toBeInTheDocument();
   }, 20000);
+});
+
+describe('LaboratoirePage — one broken fiche', () => {
+  it('shows its own error and retry; the rail, catalogue and other fiches stay usable', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { experiment } = locateExperiment('thy-sen')!;
+    const original = experiment.Body;
+    let broken = true;
+    experiment.Body = (() => {
+      if (broken) throw new Error('boom');
+      return <span data-testid="sen-ok">sen</span>;
+    }) as unknown as typeof original;
+    try {
+      renderLab('/laboratoire?exp=thy-sen');
+      expect(screen.getByTestId('fiche-error')).toBeInTheDocument();
+      // The page around it did not go: no app-wide error screen, rail and bench header intact.
+      expect(screen.queryByTestId('error-boundary')).not.toBeInTheDocument();
+      expect(screen.getByTestId('lab-family-rail')).toBeInTheDocument();
+      expect(screen.getByTestId('lab-bench')).toHaveTextContent(/Sen/);
+
+      // Another fiche opens normally, and coming back to the broken one starts afresh.
+      fireEvent.click(screen.getByTestId('chip-thy-arrow'));
+      expect(screen.queryByTestId('fiche-error')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('chip-thy-sen'));
+      expect(screen.getByTestId('fiche-error')).toBeInTheDocument();
+      broken = false;
+      fireEvent.click(screen.getByTestId('fiche-error-retry'));
+      expect(screen.getByTestId('sen-ok')).toBeInTheDocument();
+    } finally {
+      experiment.Body = original;
+      errorSpy.mockRestore();
+    }
+  });
 });
