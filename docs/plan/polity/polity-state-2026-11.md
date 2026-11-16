@@ -155,6 +155,8 @@ Small PRs, each with the golden byte-identical.
 - **2a. Timing probe.** `--profile scenario` with the model playing the agents, 8 years, 100
   citizens, one seed, alone on the GPU: wall clock, calls, fallbacks and budget binding per agent
   decision. It settles the condition of 2026-10-21.
+  **Done 2026-11-16 (EXP-027):** 35.8 min, 609 decisions, 0 fallbacks on one seed; the speed half of the
+  condition holds, variety is 2b's question.
 - **2b. Ten seeds on one commit.** The divergence test read on the model path, and each run placed
   on the rule catalogue's archetype map: does the model reach regions the 1,000 rule runs do not?
 - **2c. On the same runs:** step 7's classification of the LLM president against the four leader
