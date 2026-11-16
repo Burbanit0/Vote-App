@@ -98,7 +98,7 @@ A box is ticked when the change is on `polity`.
   turnout, scores and scorecard axes with a second golden fixture.
 - ~~Versioned, validated localStorage (`loadConfig` casts whatever it finds).~~ Done for the election
   config and the playground slice (#1077), and for the three one-string UI keys (theme, plain
-  language, language), each checked against its allowed values when read (PR_NUMBER).
+  language, language), each checked against its allowed values when read (#1097).
 
 ## Phase 4: robustness, needed before the API is hosted
 
