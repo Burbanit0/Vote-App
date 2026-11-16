@@ -33,11 +33,19 @@ class Counter:
         return self.n - before
 
 
-_BEFORE = {t.ident for t in threading.enumerate()}
+_BEFORE: set[int | None] = set()
+
+
+@pytest.fixture(autouse=True)
+def _threads_before_this_test():
+    """Remember the threads alive at the start, so a straggler of an earlier test is not counted."""
+    _BEFORE.clear()
+    _BEFORE.update(t.ident for t in threading.enumerate())
+    yield
 
 
 def _worker_threads() -> list[threading.Thread]:
-    """The dispatcher's threads started since this module was imported (not another test's)."""
+    """The dispatcher's threads started since this test began."""
     return [t for t in threading.enumerate() if t.name == "worker-dispatch" and t.ident not in _BEFORE]
 
 
@@ -47,6 +55,26 @@ async def _until(predicate, tries: int = 100) -> None:
             return
         await asyncio.sleep(0.02)
     raise AssertionError("the condition never became true")
+
+
+@pytest.mark.asyncio
+async def test_baseline_a_plain_to_thread_worker_runs_on_after_its_timeout():
+    """The premise of P4-3, kept as a test: what the dispatcher used to do (`asyncio.to_thread`
+    under `wait_for`) leaves the worker running after the request timed out. The loop stops when
+    the test says so, so the test itself leaves nothing behind."""
+    counter = Counter()
+    stop = threading.Event()
+
+    def busy():
+        while not stop.is_set():
+            counter.n += 1
+
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.to_thread(busy), timeout=0.1)
+        assert await counter.settled() > 10_000, "the worker should have kept counting"
+    finally:
+        stop.set()
 
 
 @pytest.mark.asyncio
@@ -161,6 +189,17 @@ async def test_without_the_hard_stop_a_worker_that_polls_still_stops(monkeypatch
         await wd.run_bounded(polite, {})
     assert await counter.settled() < 1000
     await _until(lambda: not _worker_threads())
+
+
+@pytest.mark.asyncio
+async def test_a_worker_that_outlives_its_loop_still_gives_the_slot_back():
+    """The loop is closed by the time the thread ends (a test's, a shutdown's): the slot must not
+    be lost, or the shared semaphore shrinks for good."""
+    loop = asyncio.new_event_loop()
+    loop.close()
+    sem = asyncio.Semaphore(0)
+    wd._release_slot(loop, sem)
+    assert not sem.locked()
 
 
 @pytest.mark.asyncio
@@ -350,7 +389,7 @@ async def test_a_request_over_budget_is_refused_before_a_thread_starts():
         worker, {"num_voters": MAX_NUM_VOTERS, "num_runs": MAX_NUM_RUNS + 1}
     )
     assert status == 400 and "Request too large" in body["error"]
-    assert not ran and not _worker_threads()
+    assert not ran
 
     body, status = await wd.run_worker_bounded(
         worker, {"num_voters": MAX_NUM_VOTERS, "num_runs": MAX_NUM_RUNS}

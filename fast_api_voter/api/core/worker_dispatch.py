@@ -111,6 +111,16 @@ def _to_loop(loop: asyncio.AbstractEventLoop, call: Callable[..., Any], *args: A
         pass
 
 
+def _release_slot(loop: asyncio.AbstractEventLoop, sem: asyncio.Semaphore) -> None:
+    """Give the slot back from the worker's thread. Through the loop, which owns the semaphore's
+    waiters; but a worker that outlives its loop (a test's, or a shutdown's) must still free it,
+    or the shared semaphore loses a slot for good. A closed loop has no waiter to wake."""
+    try:
+        loop.call_soon_threadsafe(sem.release)
+    except RuntimeError:
+        sem.release()
+
+
 def _run_worker(
     job: cancellation.Job, fut: asyncio.Future[Any], loop: asyncio.AbstractEventLoop,
     fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any],
@@ -148,7 +158,7 @@ def _thread_main(
         job.detach()
     except cancellation.WorkCancelled:
         job.detach()
-    _to_loop(loop, sem.release)
+    _release_slot(loop, sem)
 
 
 async def run_bounded(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
