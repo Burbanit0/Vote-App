@@ -60,7 +60,7 @@ There are three run profiles, set by `--profile` of `scripts/run_polity_flagship
 `api/domain/polity/profiles.py` (`PROFILES`): `flagship` (the column above), `exploration` (adds the agent tier,
 mutable parties, the forum, amendments, the referendum, legislation, emotions, opinion dynamics and the regime layer) and `scenario` (the exploration
 profile with `llm.crowd` off so rules decide for the crowd, a forum of 10 speakers, views that drift, radicalisation, economic
-voting, and 3% of the citizens replaced each year). The table below
+voting, and 3% of the citizens replaced each year). The table above
 is the flagship.
 
 That last row is easy to miss and changes which findings apply. Verified in a real flagship run's
@@ -231,7 +231,9 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
   in the first person, one turn at a time: the president (replaces `representative_response`), each nominee
   (replaces `campaign_positioning`), the coalition leaders (replace `coalition_decision`), forum posts and the
   chamber's amendment votes. `agent_turn`, `forum_post` and `amendment_vote` are LLM decisions in the events
-  registry, so the generated table in §8 lists twelve. All flags are off in the shipped config.
+  registry, so the generated table in §8 lists twelve. The switches that turn a turn on (`president`, `nominees`, `amendments`,
+  `amendment_stakes`, `forum`, `party_moves`, `coalition`) are off in the shipped config; `forward_stakes` and
+  `ambition_goal` (ADR-027, ADR-028) default to true.
 - **`llm.crowd`** (default true). False, as the `scenario` profile sets it, means the rules decide for the crowd and
   the nine batch decisions below do not run.
 - **The counted ballot is not `vote_cast`.** `vote.mode: utility` is the shipped default (ADR-011): the kernel's
@@ -696,7 +698,8 @@ Ordered by how much they would change things.
    - **Fallbacks are silent degradation unless someone reads `llm_fallback`.** *Partly closed.* The digest
      reports a fallback rate per decision type and flags any above 10% (`run_digest.llm_fallback_alerts`), and the
      sweep summary raises a red flag at the same rate (`sweep_statistics.FALLBACK_ALERT_RATE`). Still open: nothing
-     stops a run, and `progress.json` shows only the raw `fallback_count` while it runs.
+     stops a run, and while it runs `progress.json` shows only the counts (`fallback_count`, `fallback_by_type`), not a
+     rate or an alert.
 3. **`candidacy_considered` fails the C3 contract** — `ambition_score` is sent with no population
    reference, exactly the defect that caused `pressure_action`'s collapse. A real run shows **~40% of
    citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle in
