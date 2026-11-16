@@ -143,8 +143,9 @@ _UNKNOWN_ADDRESS = "unknown"
 
 def _client_address(sid: str) -> str:
     """The address the connection came from, off the ASGI scope. (Not the environ's REMOTE_ADDR:
-    python-engineio's ASGI driver writes 127.0.0.1 there for everyone.) Behind a reverse proxy this
-    is the proxy's address, until the limiter is keyed on a trusted forwarded one (P4-2)."""
+    python-engineio's ASGI driver writes 127.0.0.1 there for everyone.) Behind a reverse proxy named
+    in TRUSTED_PROXIES the scope's client is already the visitor (api/core/proxy.py wraps this
+    app); behind one that is not named, it is the proxy's."""
     try:
         environ = sio.get_environ(sid) or {}
     except KeyError:
