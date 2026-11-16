@@ -60,24 +60,30 @@ Numbers, and why:
   is still a small fraction of backend-ci-cd-pipeline.yml's own 20-minute
   job timeout for the ~1800-test suite as a whole.
 
-**Known limitation, not a bug**: Python cannot forcibly kill a running OS
-thread. When `asyncio.wait_for` times out, the semaphore slot is released
-immediately (so a new request can be dispatched right away) and the client
-gets a clean response instead of hanging — but the orphaned thread itself
-keeps running in the background until it finishes on its own, discarding
-its result. This is the same tradeoff every `asyncio.to_thread`-based
-timeout in Python has; the alternative (killable compute) needs separate
-worker processes, a materially bigger change out of scope here.
+**Stopping a timed-out worker** (P4-3). Python cannot kill an OS thread, and a worker started with
+`asyncio.to_thread` used to keep running to the end after its request timed out, discarding its
+result (measured: a busy loop's counter kept climbing at full speed after the 503). So each worker
+now runs on a thread of its own (api/core/cancellation.py), and a timeout, or the client leaving,
+cancels it: a flag the worker may poll, and `WorkCancelled` raised into the thread, which stops
+pure-Python work at its next bytecode. A long C call finishes first, and a pool the worker started
+itself (the Monte Carlo's) is stopped by its tasks polling the flag. The semaphore slot is released
+only once the request is over, as before.
+
+**A work budget** (api/core/work_budget.py): a request whose size fields multiply past
+`MAX_WORK_UNITS` is refused with a 422 before a thread is started.
 """
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import threading
 from collections.abc import Mapping
 from typing import Any, Callable, Dict, Tuple, TypeVar
 
 from fastapi import HTTPException, status as http_status
 from pydantic import BaseModel
 
+from api.core import cancellation, work_budget
 from api.engine.utils import runtime
 from api.engine.utils.logger import get_logger
 
@@ -94,23 +100,71 @@ WORKER_TIMEOUT_SECONDS = 180.0
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT_WORKERS)
 
 
+def _thread_main(
+    job: cancellation.Job, fut: asyncio.Future[Any], loop: asyncio.AbstractEventLoop,
+    fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any],
+) -> None:
+    """The worker's thread: run `fn`, hand the outcome to the event loop unless the request
+    gave up on it. Everything is inside the `except WorkCancelled`, so a cancellation that lands
+    anywhere in here ends the thread quietly."""
+    def deliver(setter: Callable[[Any], None], value: Any) -> None:
+        def apply() -> None:
+            if not fut.done():
+                setter(value)
+
+        try:
+            loop.call_soon_threadsafe(apply)
+        except RuntimeError:  # the loop is closed: nobody is waiting
+            pass
+
+    try:
+        job.attach()
+        cancellation.bind(job)
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 — handed to the caller, as to_thread does
+            job.detach()
+            deliver(fut.set_exception, exc)
+        else:
+            job.detach()
+            deliver(fut.set_result, result)
+    except cancellation.WorkCancelled:
+        job.detach()
+
+
 async def run_bounded(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
     """Run any sync callable off the event loop, bounded by the shared
     concurrency limit and timeout. Raises `asyncio.TimeoutError` on timeout —
-    see `run_worker_bounded` for the `(body, status)` convenience wrapper."""
+    see `run_worker_bounded` for the `(body, status)` convenience wrapper. On a timeout, or if
+    the caller is cancelled (the client left), the worker is told to stop (see the module
+    docstring)."""
     if not runtime.THREADS:
         # Pyodide, in one visitor's browser: no threads to run on, and nobody to share
         # the machine with, so the worker runs inline, with no bound or timeout.
         return fn(*args, **kwargs)
     async with _semaphore:
-        return await asyncio.wait_for(
-            asyncio.to_thread(fn, *args, **kwargs), timeout=WORKER_TIMEOUT_SECONDS
-        )
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[_T] = loop.create_future()
+        job = cancellation.Job()
+        context = contextvars.copy_context()
+        threading.Thread(
+            target=context.run, args=(_thread_main, job, fut, loop, fn, args, kwargs),
+            name="worker-dispatch", daemon=True,
+        ).start()
+        try:
+            return await asyncio.wait_for(fut, timeout=WORKER_TIMEOUT_SECONDS)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            job.cancel()
+            raise
 
 
 async def run_worker_bounded(domain_fn: WorkerFn, payload: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """`(payload) -> (body, status)` worker contract, as used by every
     `routes/*.py` route, through `run_passthrough`/`run_typed` below."""
+    over = work_budget.over_budget(payload)
+    if over is not None:
+        log.warning("worker_dispatch.over_budget", worker=getattr(domain_fn, "__name__", "?"), **over)
+        return {"error": work_budget.refusal(over)}, 422
     try:
         return await run_bounded(domain_fn, payload)
     except asyncio.TimeoutError:

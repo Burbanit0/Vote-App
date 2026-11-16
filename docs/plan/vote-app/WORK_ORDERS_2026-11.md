@@ -196,7 +196,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-8 | Validate the three one-string UI keys | no | done: PR #1097 (merged) |
 | P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | PR #1098 open (D6 answered: Phase 4 first) |
 | P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | todo |
-| P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |
+| P4-3 | A per-request work budget, and timeouts that stop the work | no | PR open: `fix/work-budget-timeouts` |
 | P4-4 | A per-fiche error boundary | no | todo |
 | P4-5 | Finish #692: pin images and pip installs by hash | yes (workflows) | todo |
 | P5-1 | One `useSimulation` hook, then the panels in batches | yes once jscpd falls (baseline) | todo |
