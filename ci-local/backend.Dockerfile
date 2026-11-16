@@ -70,6 +70,8 @@ COPY docs/spec/ docs/spec/
 # test_method_criteria_registry.py reads the criteria registry and the bibliography.
 COPY voter-app/src/data/method_criteria.json voter-app/src/data/
 COPY docs/research/bibliography.bib docs/research/
+# test_truncated_ballots_fixture.py reads the fixture the client's test shares, and runs the generator.
+COPY voter-app/src/lib/__fixtures__/truncatedBallots.json voter-app/src/lib/__fixtures__/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # Lockfile freshness, ruff (replaces flake8, Lot 1), bandit and pip-audit (on

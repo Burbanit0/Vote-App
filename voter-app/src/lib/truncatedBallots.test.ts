@@ -39,6 +39,8 @@ interface Fixture {
 const fixture = fixtureJson as unknown as Fixture;
 const NAMES = fixture.candidates;
 const ORDINAL = Object.keys(fixture.truncated.backend);
+const GRADED = ['approval', 'majority_judgment'];
+const PLACES = [4, 1, 2];
 const SEVEN = ['score', 'star', 'cumulative', 'maximin', 'nash', 'approval', 'majority_judgment'];
 
 /** Per rule: on how many of the 60 short-ballot profiles the two engines elect different people. */
@@ -80,6 +82,8 @@ const PAIRWISE = [
   'smith_irv',
   'split_cycle',
 ];
+/** The one rule, off the shared-count and positional families, whose client winner is not A. */
+const CLIENT_DUEL_SINGLE: Record<string, string> = { anti_plurality: 'D' };
 const POSITIONAL = ['borda', 'nanson', 'baldwin'];
 
 /** The client's winner when ranks list only the named candidates, the field listed as `order`. */
@@ -169,10 +173,8 @@ describe('the "duel" probe: no rule is decided by a lot on the backend', () => {
   const { ballots, backend } = fixture.probes.duel;
 
   it.each(ORDINAL)('%s: the winners over every listing of the field', (rule) => {
-    const expected = { anti_plurality: 'D' }[rule as 'anti_plurality'] ?? 'A';
-    expect(winnersOverListings(ballots, rule).join('')).toBe(
-      PAIRWISE.includes(rule) ? 'ABCD' : expected
-    );
+    const expected = PAIRWISE.includes(rule) ? 'ABCD' : (CLIENT_DUEL_SINGLE[rule] ?? 'A');
+    expect(winnersOverListings(ballots, rule).join('')).toBe(expected);
   });
 
   it('the pairwise rules: the backend elects A, the client counts a left-out candidate as top', () => {
@@ -236,8 +238,12 @@ describe('a truncated score ballot: the five score rules count the zeros the sam
   });
 });
 
+it('the shared ballots are the whole ballot, then cut to 1 and to 2 places', () => {
+  expect(fixture.shared.cases.map((c) => c.places)).toEqual(PLACES);
+});
+
 describe('a ballot cut to its top places, handed to approval and majority judgment as 0/1 and grades', () => {
-  it.each(SEVEN.slice(5))('%s: both engines read it alike', (rule) => {
+  it.each(GRADED)('%s: both engines read it alike', (rule) => {
     for (const { grades, backend } of fixture.shared.cases) {
       const ballot = rule === 'approval' ? approvals(grades) : grades;
       expect(clientScoreWinner(rule, ballot)).toBe(backend[rule]);
@@ -246,10 +252,11 @@ describe('a ballot cut to its top places, handed to approval and majority judgme
 });
 
 describe('equal scores: a tie between A and B is drawn alike, whichever way the field is listed', () => {
+  const tied = { listed: clientTieWinners('listed'), reversed: clientTieWinners('reversed') };
   it.each(SEVEN)('%s', (rule) => {
     const { backend } = fixture.scoreTies;
-    expect(clientTieWinners('listed')[rule]).toBe(backend.listed[rule]);
-    expect(clientTieWinners('reversed')[rule]).toBe(backend.reversed[rule]);
+    expect(tied.listed[rule]).toBe(backend.listed[rule]);
+    expect(tied.reversed[rule]).toBe(backend.reversed[rule]);
     expect(backend.listed[rule]).toBe(backend.reversed[rule]);
   });
 });
@@ -272,81 +279,88 @@ describe('docs/spec/truncated-ballots.md says what ran', () => {
   const clientReversed = clientTieWinners('reversed');
   const list = (xs: string[]) => xs.join(', ');
 
-  it('the ordinal table has a row per rule, and every cell is what the tests above measured', () => {
-    const table = rows(
-      /^\| `(\w+)` \| [^|]+ \| ([A-D]) \| ([A-D](?:, [A-D])*) \| (yes|no) \| (\d+)\/60 \| (yes|no) \| (yes|no) \| (yes|no) \|$/
-    );
-    expect(table.map((r) => r[0]).sort()).toEqual([...ORDINAL].sort());
-    for (const [rule, backendDuel, clientDuel, sameDuel, disagree, ...equal] of table) {
+  const ordinalTable = rows(
+    /^\| `(\w+)` \| [^|]+ \| ([A-D]) \| ([A-D](?:, [A-D])*) \| (yes|no) \| (\d+)\/60 \| (yes|no) \| (yes|no) \| (yes|no) \|$/
+  );
+  const fieldTable = rows(
+    /^\| `(anti_plurality|coombs)` \| ([A-D](?:, [A-D])*) \| ([A-D]) \| (yes|no) \|$/
+  );
+  const scoreTable = rows(
+    /^\| `(score|star|cumulative|maximin|nash)` \| ([A-D]) \| ([A-D]) \| (yes|no) \|$/
+  );
+  const gradedTable = rows(
+    /^\| `(approval|majority_judgment)` \| ([A-D]) \| ([A-D]) \| ([A-D]) \| (yes|no) \|$/
+  );
+  const tieTable = rows(/^\| `(\w+)` \| ([A-D]), ([A-D]) \| ([A-D]), ([A-D]) \| (yes|no) \|$/);
+  const ruleNames = (table: string[][]) => table.map((r) => r[0]).sort();
+
+  it('the tables have a row for every rule', () => {
+    expect(ruleNames(ordinalTable)).toEqual([...ORDINAL].sort());
+    expect(ruleNames(fieldTable)).toEqual(['anti_plurality', 'coombs']);
+    expect(ruleNames(scoreTable)).toEqual(Object.keys(fixture.scores.backend).sort());
+    expect(ruleNames(gradedTable)).toEqual([...GRADED].sort());
+    expect(ruleNames(tieTable)).toEqual([...SEVEN].sort());
+  });
+
+  it.each(ordinalTable)(
+    'ordinal row %s: every cell is what the tests above measured',
+    (rule, backendDuel, clientDuel, sameDuel, disagree, ...equal) => {
       const { duel } = fixture.probes;
       const measuredClient = winnersOverListings(duel.ballots, rule);
       const backend = fixture.equalRanks.backend;
-      expect(backendDuel, rule).toBe(duel.backend[rule]);
-      expect(clientDuel, rule).toBe(list(measuredClient));
-      expect(sameDuel, rule).toBe(
-        yes(measuredClient.length === 1 && measuredClient[0] === backendDuel)
-      );
-      expect(disagree, rule).toBe(String(shortBallotDisagreements(rule)));
-      expect(equal, rule).toEqual([
+      expect(backendDuel).toBe(duel.backend[rule]);
+      expect(clientDuel).toBe(list(measuredClient));
+      expect(sameDuel).toBe(yes(measuredClient.length === 1 && measuredClient[0] === backendDuel));
+      expect(disagree).toBe(String(shortBallotDisagreements(rule)));
+      expect(equal).toEqual([
         yes(backend.listed[rule] !== backend.reversed[rule]),
         yes(listed[rule] !== reversed[rule]),
         yes(backend.listed[rule] === listed[rule] && backend.reversed[rule] === reversed[rule]),
       ]);
     }
-  });
+  );
 
-  it('the field rows give what the backend never elects and the client does', () => {
-    const table = rows(
-      /^\| `(anti_plurality|coombs)` \| ([A-D](?:, [A-D])*) \| ([A-D]) \| (yes|no) \|$/
-    );
-    expect(table.map((r) => r[0]).sort()).toEqual(['anti_plurality', 'coombs']);
-    for (const [rule, backend, client, same] of table) {
-      const { ballots } = fixture.probes.field;
-      expect(backend, rule).toBe(list(fixture.probes.field.backend[rule] as string[]));
-      expect(client, rule).toBe(clientWinner(ballots, rule));
-      expect(same, rule).toBe('no');
+  it.each(fieldTable)(
+    'field row %s: what the backend never elects and the client does',
+    (rule, backend, client, same) => {
+      expect(backend).toBe(list(fixture.probes.field.backend[rule] as string[]));
+      expect(client).toBe(clientWinner(fixture.probes.field.ballots, rule));
+      expect(same).toBe('no');
     }
-  });
+  );
 
-  it('the score rows give the winners both engines elect on the cut ballot', () => {
-    const table = rows(
-      /^\| `(score|star|cumulative|maximin|nash)` \| ([A-D]) \| ([A-D]) \| (yes|no) \|$/
-    );
-    expect(table.map((r) => r[0]).sort()).toEqual(Object.keys(fixture.scores.backend).sort());
-    for (const [rule, backend, client, same] of table) {
-      expect(backend, rule).toBe(fixture.scores.backend[rule]);
-      expect(client, rule).toBe(clientScoreWinner(rule, fixture.scores.ballots));
-      expect(same, rule).toBe(yes(backend === client));
+  it.each(scoreTable)(
+    'score row %s: the winner both engines elect on the cut ballot',
+    (rule, backend, client, same) => {
+      expect(backend).toBe(fixture.scores.backend[rule]);
+      expect(client).toBe(clientScoreWinner(rule, fixture.scores.ballots));
+      expect(same).toBe(yes(backend === client));
     }
-  });
+  );
 
-  it('the approval and majority-judgment rows give the winner for the whole ballot, cut to 1 and to 2', () => {
-    const table = rows(
-      /^\| `(approval|majority_judgment)` \| ([A-D]) \| ([A-D]) \| ([A-D]) \| (yes|no) \|$/
-    );
-    expect(table.map((r) => r[0]).sort()).toEqual(['approval', 'majority_judgment']);
-    for (const [rule, ...cells] of table) {
+  it.each(gradedTable)(
+    'graded row %s: the winner for the whole ballot, cut to 1 and to 2',
+    (rule, whole, top1, top2, same) => {
       const byPlaces = Object.fromEntries(fixture.shared.cases.map((c) => [c.places, c]));
-      const backend = [4, 1, 2].map((p) => byPlaces[p].backend[rule]);
-      const client = [4, 1, 2].map((p) =>
+      const backend = PLACES.map((p) => byPlaces[p].backend[rule]);
+      const client = PLACES.map((p) =>
         clientScoreWinner(
           rule,
           rule === 'approval' ? approvals(byPlaces[p].grades) : byPlaces[p].grades
         )
       );
-      expect(cells.slice(0, 3), rule).toEqual(backend);
-      expect(cells[3], rule).toBe(yes(backend.join() === client.join()));
+      expect([whole, top1, top2]).toEqual(backend);
+      expect(same).toBe(yes(backend.join() === client.join()));
     }
-  });
+  );
 
-  it('the equal-scores rows give the winner of the tie, listed and reversed, on both engines', () => {
-    const table = rows(/^\| `(\w+)` \| ([A-D]), ([A-D]) \| ([A-D]), ([A-D]) \| (yes|no) \|$/);
-    expect(table.map((r) => r[0]).sort()).toEqual([...SEVEN].sort());
-    for (const [rule, bl, br, cl, cr, same] of table) {
+  it.each(tieTable)(
+    'equal-scores row %s: the tie, listed and reversed, on both engines',
+    (rule, bl, br, cl, cr, same) => {
       const { backend } = fixture.scoreTies;
-      expect([bl, br], rule).toEqual([backend.listed[rule], backend.reversed[rule]]);
-      expect([cl, cr], rule).toEqual([clientListed[rule], clientReversed[rule]]);
-      expect(same, rule).toBe(yes(bl === cl && br === cr));
+      expect([bl, br]).toEqual([backend.listed[rule], backend.reversed[rule]]);
+      expect([cl, cr]).toEqual([clientListed[rule], clientReversed[rule]]);
+      expect(same).toBe(yes(bl === cl && br === cr));
     }
-  });
+  );
 });

@@ -4,8 +4,9 @@ truncated ballot and with equal ranks, so the client's tests can set the two sid
 (docs/spec/truncated-ballots.md; PLAN_GLOBAL_2026-11.md, Phase 3).
 
 This records what each engine does TODAY. It is not a convention and it changes no behaviour: the
-client's own answers are pinned in voter-app/src/lib/truncatedBallots.test.ts, and the backend's
-in api/tests/test_truncated_ballots_as_is.py, which also checks this file is in step.
+client's own answers are pinned in voter-app/src/lib/truncatedBallots.test.ts, the backend's
+readings in api/tests/test_truncated_ballots_as_is.py, and api/tests/test_truncated_ballots_fixture.py
+checks this file is in step.
 
 Six experiments:
   truncated    60 fixed profiles of 5-9 ballots over A-D, each ballot ranking 1 to 4 of them
@@ -179,8 +180,8 @@ def _row(ballot: Dict[str, float], order: List[str]) -> List[float]:
 def _stable(label: str, winner_at: Any) -> str:
     """The winner a rule gives under every seed in SEEDS; exit if a lot decides it."""
     winners = {winner_at(seed) for seed in SEEDS}
-    if len(winners) != 1:
-        sys.exit(f"{label}: the winner depends on the seed ({sorted(map(str, winners))}).")
+    if len(winners) != 1 or None in winners:
+        sys.exit(f"{label}: no one winner under every seed ({sorted(map(str, winners))}).")
     return str(winners.pop())
 
 

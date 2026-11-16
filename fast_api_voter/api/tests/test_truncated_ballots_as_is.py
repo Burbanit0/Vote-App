@@ -16,11 +16,13 @@ from api.engine.utils.profile_engine import project_ballot
 from api.engine.utils.simulation_ranked_utils import _pairwise_wins
 
 #: The 21 ordinal rules the engines share, by the registry's key.
-ORDINAL = (
-    "plurality", "two_round", "borda", "irv", "coombs", "copeland", "minimax", "schulze", "bucklin",
-    "nanson", "baldwin", "ranked_pairs", "kemeny_young", "black", "anti_plurality", "dowdall",
-    "raynaud", "benham", "river", "smith_irv", "split_cycle",
-)
+ORDINAL = tuple(sorted(set(RANKED_RULES) - {"approval"}))
+
+def test_there_are_21_ordinal_rules():
+    """A rule added to the registry is a rule the tables must say something about."""
+    assert len(ORDINAL) == 21
+
+
 SHORT = [["A"], ["B", "C"], ["C", "A", "B"], ["B"], ["A", "C"]]
 
 
@@ -32,9 +34,10 @@ def test_every_ordinal_rule_elects_a_ranked_candidate_from_short_ballots(rule, s
 
 
 def test_in_a_duel_an_unranked_candidate_is_below_every_ranked_one_and_two_unranked_do_not_duel():
-    """The shared pairwise count (copeland, minimax, schulze, ranked pairs, river, Kemeny, Black,
-    Raynaud, Benham, Smith-IRV and split cycle all read it). Ballot 1 ranks A then B and leaves C
-    out; ballot 2 ranks only C."""
+    """The shared pairwise count `_pairwise_wins` (Copeland, Kemeny-Young, Raynaud, ranked pairs,
+    river, Smith-IRV and split cycle read it; minimax and Schulze count duels themselves, Black
+    and Benham go through `get_condorcet_winner`). Ballot 1 ranks A then B and leaves C out;
+    ballot 2 ranks only C."""
     pw = _pairwise_wins([["A", "B"], ["C"]])
     assert pw == {
         "A": {"A": 0, "B": 1, "C": 1},  # A over B (ballot 1) and over the unranked C (ballot 1)
