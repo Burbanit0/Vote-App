@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # Comma-separated allowed origins, matches the Flask CORS_ORIGINS var.
     cors_origins: str = Field(default="http://localhost:3000")
 
+    # Comma-separated addresses or CIDR ranges of the reverse proxies in front of the API (e.g.
+    # "10.0.0.5,172.18.0.0/16"). Only a request that comes FROM one of them has its
+    # X-Forwarded-For read, and the client is then the first address in it that is not itself a
+    # proxy; from anyone else the header is ignored, so it cannot be used to pick a rate-limit
+    # bucket. Empty (the default): no proxy is trusted and the connecting address is the client.
+    # "*" is refused. See api/core/proxy.py.
+    trusted_proxies: str = Field(default="")
+
     # ── Cache ───────────────────────────────────────────────────────────────
     # The app is stateless (no SQL DB, no auth); Redis is only a compute cache
     # for the voting engine and degrades gracefully to no-cache if unavailable.
