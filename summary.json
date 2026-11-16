@@ -1069,7 +1069,7 @@
   "code": 126,
   "test-flaky": 17
  },
- "generated_at": "2026-11-16T16:27:57Z",
+ "generated_at": "2026-11-16T18:22:35Z",
  "grid": {
   "Backend CI": {
    "2026-10-18": {
@@ -1330,7 +1330,7 @@
    },
    "2026-11-16": {
     "failure": 1,
-    "success": 19
+    "success": 20
    }
   },
   "CI Health Watchdog": {
@@ -1420,6 +1420,9 @@
     "success": 1
    },
    "2026-11-15": {
+    "success": 1
+   },
+   "2026-11-16": {
     "success": 1
    }
   },
@@ -1622,7 +1625,7 @@
     "success": 33
    },
    "2026-11-16": {
-    "success": 13
+    "success": 15
    }
   },
   "E2E Tests": {
@@ -1914,7 +1917,7 @@
     "success": 8
    },
    "2026-11-16": {
-    "skipped": 16,
+    "skipped": 19,
     "success": 2
    }
   },
@@ -2312,7 +2315,7 @@
    },
    "2026-11-16": {
     "cancelled": 9,
-    "skipped": 69,
+    "skipped": 87,
     "success": 34
    }
   },
@@ -2367,16 +2370,16 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-16T15:17:42Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43894777496"
+   "created_at": "2026-11-16T16:27:49Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43907759631"
   },
   "CI Health Watchdog": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-15T15:35:39Z",
+   "created_at": "2026-11-16T18:21:58Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43730752952"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43928041719"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "polity",
@@ -2395,9 +2398,9 @@
   "Diff Mutation comment": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-16T14:29:25Z",
+   "created_at": "2026-11-16T16:53:05Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43886252993"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43912381820"
   },
   "E2E Tests": {
    "branch": "polity",
@@ -2423,9 +2426,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-16T14:05:35Z",
+   "created_at": "2026-11-16T18:23:07Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43882159438"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43928236771"
   },
   "Mutation Testing": {
    "branch": "polity",
@@ -2464,10 +2467,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-16T15:17:42Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-16T18:24:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43894778221"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43928517624"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2477,7 +2480,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 8426,
+ "runs": 8486,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2509,12 +2512,12 @@
     "2026-11-13": 335.5,
     "2026-11-14": 15,
     "2026-11-15": 426.5,
-    "2026-11-16": 355.0
+    "2026-11-16": 351.5
    },
    "p50_s": 372,
-   "p95_s": 622,
+   "p95_s": 621,
    "queue_p50_s": 0,
-   "runs": 350
+   "runs": 352
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2583,12 +2586,12 @@
     "2026-11-13": 11,
     "2026-11-14": 10,
     "2026-11-15": 10.0,
-    "2026-11-16": 11
+    "2026-11-16": 10.5
    },
    "p50_s": 11,
    "p95_s": 71,
    "queue_p50_s": 0,
-   "runs": 287
+   "runs": 290
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -2622,12 +2625,12 @@
     "2026-11-13": 274.0,
     "2026-11-14": 257,
     "2026-11-15": 276,
-    "2026-11-16": 334
+    "2026-11-16": 329.0
    },
    "p50_s": 342,
    "p95_s": 534,
    "queue_p50_s": 0,
-   "runs": 600
+   "runs": 601
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2663,7 +2666,7 @@
    "p50_s": 12,
    "p95_s": 71,
    "queue_p50_s": 0,
-   "runs": 288
+   "runs": 292
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2759,7 +2762,7 @@
    "p50_s": 11,
    "p95_s": 77,
    "queue_p50_s": 0,
-   "runs": 275
+   "runs": 277
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -2783,12 +2786,12 @@
     "2026-11-13": 26,
     "2026-11-14": 267,
     "2026-11-15": 10.0,
-    "2026-11-16": 10
+    "2026-11-16": 10.0
    },
    "p50_s": 11,
    "p95_s": 345,
    "queue_p50_s": 0,
-   "runs": 242
+   "runs": 243
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
@@ -2817,7 +2820,7 @@
    "p50_s": 12,
    "p95_s": 184,
    "queue_p50_s": 0,
-   "runs": 256
+   "runs": 258
   },
   "E2E Tests": {
    "daily_p50_s": {
@@ -2851,10 +2854,10 @@
     "2026-11-15": 449.5,
     "2026-11-16": 442
    },
-   "p50_s": 510,
+   "p50_s": 511,
    "p95_s": 809,
    "queue_p50_s": 0,
-   "runs": 334
+   "runs": 336
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -2891,7 +2894,7 @@
    "p50_s": 74,
    "p95_s": 393,
    "queue_p50_s": 0,
-   "runs": 367
+   "runs": 369
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -2923,12 +2926,12 @@
     "2026-11-13": 85,
     "2026-11-14": 12.5,
     "2026-11-15": 86.5,
-    "2026-11-16": 96
+    "2026-11-16": 91.5
    },
    "p50_s": 88,
    "p95_s": 153,
    "queue_p50_s": 0,
-   "runs": 366
+   "runs": 369
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -2960,12 +2963,12 @@
     "2026-11-13": 21,
     "2026-11-14": 22.5,
     "2026-11-15": 23.0,
-    "2026-11-16": 29
+    "2026-11-16": 27.0
    },
    "p50_s": 21,
    "p95_s": 110,
    "queue_p50_s": 0,
-   "runs": 386
+   "runs": 387
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3033,10 +3036,10 @@
     "2026-11-15": 41,
     "2026-11-16": 43
    },
-   "p50_s": 52,
+   "p50_s": 51,
    "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 264
+   "runs": 266
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -3095,12 +3098,12 @@
     "2026-11-13": 172,
     "2026-11-14": 157.5,
     "2026-11-15": 162,
-    "2026-11-16": 173.0
+    "2026-11-16": 169.5
    },
    "p50_s": 167,
    "p95_s": 323,
    "queue_p50_s": 0,
-   "runs": 352
+   "runs": 354
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -3132,12 +3135,12 @@
     "2026-11-13": 11.0,
     "2026-11-14": 11.0,
     "2026-11-15": 12,
-    "2026-11-16": 11.5
+    "2026-11-16": 11.0
    },
-   "p50_s": 12,
+   "p50_s": 11,
    "p95_s": 84,
    "queue_p50_s": 0,
-   "runs": 384
+   "runs": 386
   },
   "polity red alert": {
    "daily_p50_s": {
