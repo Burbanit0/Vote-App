@@ -194,7 +194,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
 | P3-8 | Validate the three one-string UI keys | no | todo |
-| P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | PR open: `fix/socket-monte-carlo-limits` (D6 answered: Phase 4 first) |
+| P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | PR #1098 open (D6 answered: Phase 4 first) |
 | P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | todo |
 | P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |
 | P4-4 | A per-fiche error boundary | no | todo |
