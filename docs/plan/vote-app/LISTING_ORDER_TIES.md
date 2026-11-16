@@ -109,6 +109,11 @@ the tied-electorate snapshot (the tied electorates in them are where a draw show
 - Hotelling keeps only the first six candidates listed (`cand_specs[:6]`), though its schema
   accepts eight: the seventh and eighth are dropped by their position in the list. Found while
   doing P3-4; a cap that should choose its six by something other than the listing, or be raised;
+- The client's own ranking of a voter's tie: `computeRanks` sorts by utility and leaves equal ones
+  in candidate-index order, where the backend orders them by a lot seeded with the voter (#662).
+  With voters exactly as near to two candidates as to each other, reversing the listing changes the
+  client's winner in 21 of 21 ordinal rules and the backend's in none. Measured while doing P3-5
+  (`docs/spec/truncated-ballots.md`, question D4.4); it needs a client twin of `tie_lot.ranking`;
 - Hotelling's best-response loop reads each candidate's current score from the utilities taken at
   the start of the round, but tries its moves against the positions earlier candidates already
   moved to, and a candidate that finds no improving move is frozen for good (`converged_set`,

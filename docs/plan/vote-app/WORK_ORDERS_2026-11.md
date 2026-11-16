@@ -165,7 +165,7 @@ A session asks these; it does not settle them. Each is tied to the work order it
 | D1 | PR #1080 holds a regenerated visual baseline: review of head `ac51c001`. And: should the visitor's previous scenario survive a reload after a link replaced it (today it is kept in memory only, and the notice says so)? Are the two analytics events wanted? **Answered 2026-11-15: keep it in memory only; keep both events.** | nothing: a follow-up to P2-1 (#1080 is merged), closed |
 | D2 | Adding an entrant on the map (#1078) is a double-click, in the Électorat moment only, with no touch equivalent. Keep, or an armed single-click mode, other moments, touch? | nothing; a follow-up if changed |
 | D3 | Hotelling moves its candidates in list order, and identity voting binds its default groups to the first and second listed candidates. Neither is a tie. Change them, or record them as by design? **Answered 2026-11-15: Hotelling's order is drawn by lot; identity voting's default groups back the candidate nearest their centre (the owner chose over drawing the pairing by lot, which would make the default arbitrary against ideology); the apportionment comparison is by design.** | P3-4, decided |
-| D4 | Where the two engines, or two rules, treat a truncated ballot differently (P3-5 produces the table): which reading wins, rule by rule? | P3-6 |
+| D4 | Where the two engines, or two rules, treat a truncated ballot differently (P3-5 produced the table, `docs/spec/truncated-ballots.md`, whose last section lists the questions): which reading wins, rule by rule? | P3-6 |
 | D5 | One electorate for both engines: send the client's voters to the backend, or lock the sampler, turnout, scores and scorecard axes with a second golden fixture? | P3-7 |
 | D6 | Phase 4 is "not urgent while only the static site is public". Is it still part of what 0.4.0 waits for? | the order of Phase 4 |
 | D7 | Which paths leave the human-review hold list? And "CI health check" is a required status: making it advisory means changing branch protection, which only the owner can do. | P6-1, P6-2 |
@@ -189,8 +189,8 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-1 | Ranked pairs and River: equal locks by lot | yes (engine) | done: PR #1083 (merged); the lock order's first PR had a perf regression on tie-heavy profiles, see its description |
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | done: PR #1088 (merged) |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | done: PR #1090 (merged) |
-| P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | open: `fix/ties-last-entries`, PR #1092 |
-| P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | todo |
+| P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | done: PR #1092 (merged) |
+| P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | PR #1095 open (held for the owner's review) |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
 | P3-8 | Validate the three one-string UI keys | no | todo |

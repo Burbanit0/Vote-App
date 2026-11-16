@@ -299,6 +299,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_tally_ties_by_name.py",
     "api/tests/test_theory_pure.py",
     "api/tests/test_tie_lot.py",
+    "api/tests/test_truncated_ballots_as_is.py",
     "api/tests/test_two_round.py",
     "api/tests/test_workers_behavioral.py",
 ]
