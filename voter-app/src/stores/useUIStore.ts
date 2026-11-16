@@ -34,7 +34,7 @@ function initialTheme(): Theme {
 
 function initialPlain(): boolean {
   if (typeof window === 'undefined') return false;
-  return oneOf(localStorage.getItem('votelab_plain'), ['true', 'false'], 'false') === 'true';
+  return localStorage.getItem('votelab_plain') === 'true';
 }
 
 function applyTheme(theme: Theme) {

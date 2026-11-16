@@ -64,15 +64,21 @@ i18n.on('languageChanged', (lng) => {
 });
 
 const LANG_KEY = 'votelab_lang';
+const SUPPORTED = ['fr', 'en', 'pseudo'];
 
-/** A saved choice is kept only if it names a language the app has: fr, en (or a regional en-GB
- *  the browser's list gave) and the pseudo-locale. Anything else is as good as nothing saved. */
-const KNOWN_LANGUAGE = /^(?:fr|en|pseudo)(?:-[A-Za-z0-9-]+)?$/;
+/** A saved choice is kept only if it names a language the app has, or such a language with a
+ *  two-letter region (en-GB: the browser's list gave one). Anything else is as good as nothing
+ *  saved. The pseudo-locale takes no region. */
+function isKnownLanguage(saved: string): boolean {
+  const [base, region, ...rest] = saved.split('-');
+  const regionOk = region === undefined || (base !== 'pseudo' && /^[A-Za-z]{2}$/.test(region));
+  return SUPPORTED.includes(base) && rest.length === 0 && regionOk;
+}
 
 function savedLanguage(): string | null {
   try {
     const saved = localStorage.getItem(LANG_KEY);
-    return saved !== null && KNOWN_LANGUAGE.test(saved) ? saved : null;
+    return saved !== null && isKnownLanguage(saved) ? saved : null;
   } catch {
     return null; // storage disabled
   }
@@ -83,7 +89,7 @@ const initPromise = i18n.use(initReactI18next).init({
     fr: { translation: fr, playground: pgFr, polity: polityFr },
   },
   fallbackLng: 'fr',
-  supportedLngs: ['fr', 'en', 'pseudo'],
+  supportedLngs: SUPPORTED,
   // Allows registering a language's bundle AFTER init (via addResourceBundle).
   partialBundledLanguages: true,
   interpolation: { escapeValue: true },

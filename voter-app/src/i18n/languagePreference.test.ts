@@ -36,7 +36,18 @@ describe('language preference', () => {
     return fresh.default;
   }
 
-  it.each(['klingon', '', 'EN', 'english', '{"lng":"en"}', 'fr_FR'])(
+  it.each([
+    'klingon',
+    '',
+    'EN',
+    'english',
+    '{"lng":"en"}',
+    'fr_FR',
+    'en--',
+    'fr-zzz',
+    'pseudo-x',
+    'en-GB-x',
+  ])(
     'ignores a saved language that is not one the app has (%j): the browser language decides',
     async (junk) => {
       // jsdom's navigator.languages is ['en-US', 'en'].

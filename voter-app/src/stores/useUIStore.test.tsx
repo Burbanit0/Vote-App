@@ -62,6 +62,7 @@ describe('useUIStore — a stored value that is not one of the allowed ones', ()
     }
   );
 
+  // `=== 'true'` already read anything else as off; pinned here so it stays so.
   it.each(['yes', 'TRUE', '1', '', '{}'])('plain language %j gives off', (junk) => {
     localStorage.setItem('votelab_plain', junk);
     useUIStore.getState().hydrate();
