@@ -13,6 +13,11 @@ Streaming protocol (same as Flask):
            → 'monte_carlo_stopped' / 'monte_carlo_error'
     Client → 'stop_monte_carlo'  {}
 
+What a client may ask for is what POST /simulations/monte-carlo allows (1-500 runs,
+10-1000 voters, api/schemas/simulations.py; `num_runs` there, `num_iterations` here): outside that the run is refused with a
+`monte_carlo_error`, not clamped. A connection has one live run at a time, and an address may start
+ten a minute (api/sockets/limits.py).
+
 Mount URL: /api/v2/socket.io  (matches the convention of every other
 v2 endpoint). The FastAPI app under api.main wraps itself with
 `ASGIApp` so the two share a single uvicorn process.
@@ -32,6 +37,8 @@ from api.core.config import get_settings
 from api.core.worker_dispatch import run_bounded
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.logger import get_logger
+from api.schemas.simulations import MAX_NUM_RUNS, MAX_NUM_VOTERS, MIN_NUM_VOTERS
+from api.sockets.limits import StartLimiter
 from api.engine.utils.simulation_metrics      import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
 
@@ -48,7 +55,12 @@ sio = socketio.AsyncServer(
 
 
 # ── Per-session stop flags ─────────────────────────────────────────────────
+# A sid is present while its run is live: False running, True asked to stop. The run pops it
+# on the way out, so a sid with no entry has no run.
 _stop_flags: dict[str, bool] = {}
+
+#: How often one client address may start a run (api/sockets/limits.py).
+start_limiter = StartLimiter()
 
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
@@ -103,14 +115,43 @@ async def disconnect(sid: str) -> None:
     nowhere left to send its events (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md —
     "Timeouts & backpressure", the Socket.IO orphaned-run case). Setting it
     True instead makes the loop's own check catch it on the next iteration
-    and exit; the loop pops its own entry once it does."""
-    _stop_flags[sid] = True
+    and exit; start_monte_carlo's `finally` pops the entry once it does."""
+    if sid in _stop_flags:
+        _stop_flags[sid] = True
 
 
 @sio.on("stop_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
 async def stop_monte_carlo(sid: str, _data: Any = None) -> None:
-    """Request the running iteration loop to abort at the next checkpoint."""
-    _stop_flags[sid] = True
+    """Request the running iteration loop to abort at the next checkpoint (no run, nothing to stop)."""
+    if sid in _stop_flags:
+        _stop_flags[sid] = True
+
+
+def _bounded(name: str, value: Any, low: int, high: int) -> int:
+    """`value` as an int (a number or numeric text that is whole), or ValueError naming the range."""
+    if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+        raise ValueError(f"{name} must be a whole number")
+    number = int(value)
+    if not low <= number <= high:
+        raise ValueError(f"{name} must be between {low} and {high}")
+    return number
+
+
+#: What stands in for an address the server cannot read: one shared bucket, not one per session.
+_UNKNOWN_ADDRESS = "unknown"
+
+
+def _client_address(sid: str) -> str:
+    """The address the connection came from, off the ASGI scope. (Not the environ's REMOTE_ADDR:
+    python-engineio's ASGI driver writes 127.0.0.1 there for everyone.) Behind a reverse proxy named
+    in TRUSTED_PROXIES the scope's client is already the visitor (api/core/proxy.py wraps this
+    app); behind one that is not named, it is the proxy's."""
+    try:
+        environ = sio.get_environ(sid) or {}
+    except KeyError:
+        return _UNKNOWN_ADDRESS
+    client = environ.get("asgi.scope", {}).get("client")
+    return str(client[0]) if client else _UNKNOWN_ADDRESS
 
 
 def _monte_carlo_parse_input(
@@ -118,8 +159,11 @@ def _monte_carlo_parse_input(
 ) -> tuple[int, int, int, str, list[dict[str, Any]]]:
     """Parse + validate /start_monte_carlo input. Raises TypeError/ValueError
     on bad input — the caller catches and emits monte_carlo_error."""
-    num_iterations = max(1, min(10_000, int(data.get("num_iterations", 1_000))))
-    num_voters     = max(10, min(2_000, int(data.get("num_voters",     150))))
+    # The HTTP bounds (api/schemas/simulations.py), refused rather than clamped: a run the client
+    # sized by hand and got a different one back would be reading numbers it did not ask for.
+    num_iterations = _bounded("num_iterations", data.get("num_iterations", 100), 1, MAX_NUM_RUNS)
+    num_voters     = _bounded("num_voters", data.get("num_voters", 150),
+                              MIN_NUM_VOTERS, MAX_NUM_VOTERS)
     num_candidates = max(2, min(8,      int(data.get("num_candidates", 4))))
     ideology       = str(data.get("ideology")
                          or data.get("ideology_distribution")
@@ -286,8 +330,6 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
     Input parsing, per-run aggregation and payload building are now private
     `_monte_carlo_*` helpers — same names, same computation, same order as
     before (CODE_AUDIT.md §5/§8 complexity decomposition)."""
-    _stop_flags[sid] = False
-
     try:
         num_iterations, num_voters, num_candidates, ideology, candidate_configs = (
             _monte_carlo_parse_input(data)
@@ -297,13 +339,40 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
                        {"message": f"Invalid parameters: {exc}"}, to=sid)
         return
 
+    # One live run per session, and a bounded number of starts per client address.
+    if sid in _stop_flags:  # live, or asked to stop and not yet out of its loop
+        await sio.emit("monte_carlo_error",
+                       {"message": "A run is already in progress on this connection"}, to=sid)
+        return
+    address = _client_address(sid)
+    if not start_limiter.allow(address):
+        log.warning("sockets.monte_carlo_rate_limited", sid=sid)
+        await sio.emit(
+            "monte_carlo_error",
+            {"message": "Too many runs started or still going from this address; wait and retry"},
+            to=sid,
+        )
+        return
+
+    _stop_flags[sid] = False
+    try:
+        await _monte_carlo_stream(sid, num_iterations, num_voters, ideology, candidate_configs)
+    finally:
+        _stop_flags.pop(sid, None)
+        start_limiter.finish(address)
+
+
+async def _monte_carlo_stream(
+    sid: str, num_iterations: int, num_voters: int, ideology: str,
+    candidate_configs: list[dict[str, Any]],
+) -> None:
+    """The streaming loop of one accepted run."""
     stats = _monte_carlo_new_stats()
 
     # ── Streaming loop ────────────────────────────────────────────────────
     for i in range(num_iterations):
         if _stop_flags.get(sid):
             await sio.emit("monte_carlo_stopped", {}, to=sid)
-            _stop_flags.pop(sid, None)
             return
 
         try:
@@ -340,7 +409,6 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
         _monte_carlo_final_payload(stats, num_iterations, num_voters),
         to=sid,
     )
-    _stop_flags.pop(sid, None)
 
 
 # ── ASGI app wrapper for FastAPI mounting ──────────────────────────────────
