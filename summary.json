@@ -1068,7 +1068,7 @@
   "code": 125,
   "test-flaky": 17
  },
- "generated_at": "2026-11-16T13:27:01Z",
+ "generated_at": "2026-11-16T13:33:24Z",
  "grid": {
   "Backend CI": {
    "2026-10-17": {
@@ -1237,7 +1237,7 @@
    },
    "2026-11-16": {
     "startup_failure": 1,
-    "success": 1
+    "success": 2
    }
   },
   "CI Dashboard": {
@@ -1336,7 +1336,7 @@
    },
    "2026-11-16": {
     "failure": 1,
-    "success": 11
+    "success": 12
    }
   },
   "CI Health Watchdog": {
@@ -1932,8 +1932,8 @@
     "success": 8
    },
    "2026-11-16": {
-    "skipped": 12,
-    "success": 1
+    "skipped": 14,
+    "success": 2
    }
   },
   "Mutation Testing": {
@@ -2198,7 +2198,7 @@
     "success": 15
    },
    "2026-11-16": {
-    "success": 3
+    "success": 4
    }
   },
   "polity red alert": {
@@ -2342,7 +2342,7 @@
    "2026-11-16": {
     "cancelled": 8,
     "skipped": 52,
-    "success": 21
+    "success": 23
    }
   },
   "zizmor online": {
@@ -2387,18 +2387,18 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874004034"
   },
   "Backend Flaky Test Hunt": {
-   "branch": "develop",
+   "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-16T11:01:28Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43854031174"
+   "created_at": "2026-11-16T13:15:15Z",
+   "event": "push",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874004077"
   },
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-16T13:16:55Z",
+   "created_at": "2026-11-16T13:22:55Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874267566"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43875206682"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2452,9 +2452,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-16T13:27:50Z",
+   "created_at": "2026-11-16T13:35:48Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43875987014"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43877284659"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2487,16 +2487,16 @@
   "Workflow Lint": {
    "branch": "polity",
    "conclusion": "success",
-   "created_at": "2026-11-16T13:15:15Z",
+   "created_at": "2026-11-16T13:35:58Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874003984"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43877311878"
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-16T13:29:15Z",
+   "conclusion": "success",
+   "created_at": "2026-11-16T13:36:35Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43876213191"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43877411732"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2506,7 +2506,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 8393,
+ "runs": 8402,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2577,12 +2577,12 @@
     "2026-11-13": 980,
     "2026-11-14": 883.0,
     "2026-11-15": 987.5,
-    "2026-11-16": 1002
+    "2026-11-16": 1039.5
    },
-   "p50_s": 1114,
+   "p50_s": 1112,
    "p95_s": 1490,
    "queue_p50_s": 0,
-   "runs": 72
+   "runs": 73
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -2652,12 +2652,12 @@
     "2026-11-13": 274.0,
     "2026-11-14": 257,
     "2026-11-15": 276,
-    "2026-11-16": 316
+    "2026-11-16": 317.5
    },
    "p50_s": 341,
    "p95_s": 534,
    "queue_p50_s": 0,
-   "runs": 599
+   "runs": 600
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2991,12 +2991,12 @@
     "2026-11-13": 21,
     "2026-11-14": 22.5,
     "2026-11-15": 23.0,
-    "2026-11-16": 31.5
+    "2026-11-16": 28.0
    },
    "p50_s": 21,
    "p95_s": 110,
    "queue_p50_s": 0,
-   "runs": 382
+   "runs": 384
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -3164,12 +3164,12 @@
     "2026-11-13": 11.0,
     "2026-11-14": 11.0,
     "2026-11-15": 12,
-    "2026-11-16": 10
+    "2026-11-16": 11.0
    },
    "p50_s": 11,
    "p95_s": 84,
    "queue_p50_s": 0,
-   "runs": 384
+   "runs": 385
   },
   "polity red alert": {
    "daily_p50_s": {
@@ -3203,12 +3203,12 @@
     "2026-11-13": 27.0,
     "2026-11-14": 25.0,
     "2026-11-15": 26,
-    "2026-11-16": 35
+    "2026-11-16": 34
    },
    "p50_s": 27,
    "p95_s": 58,
    "queue_p50_s": 0,
-   "runs": 908
+   "runs": 910
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3364,7 +3364,7 @@
    }
   },
   "polity": {
-   "sha": "1456fef542fd72216e0a03216f698b675c9d73c8",
+   "sha": "e0d4d34105906024ccc7ef1e29ddacf8b14f9e99",
    "workflows": {
     "Backend CI": {
      "conclusion": "success",
@@ -3373,10 +3373,10 @@
      "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874004034"
     },
     "Backend Flaky Test Hunt": {
-     "conclusion": "startup_failure",
-     "created_at": "2026-11-16T03:45:11Z",
-     "sha": "7b1feedb5aa5c32028b5027e278551843de1b04a",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43800012923"
+     "conclusion": "success",
+     "created_at": "2026-11-16T13:15:15Z",
+     "sha": "1456fef542fd72216e0a03216f698b675c9d73c8",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874004077"
     },
     "Coverage-Guided Fuzzing (atheris)": {
      "conclusion": "success",
@@ -3428,9 +3428,9 @@
     },
     "Workflow Lint": {
      "conclusion": "success",
-     "created_at": "2026-11-16T13:15:15Z",
-     "sha": "1456fef542fd72216e0a03216f698b675c9d73c8",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43874003984"
+     "created_at": "2026-11-16T13:35:58Z",
+     "sha": "e0d4d34105906024ccc7ef1e29ddacf8b14f9e99",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43877311878"
     },
     "zizmor online": {
      "conclusion": "success",
