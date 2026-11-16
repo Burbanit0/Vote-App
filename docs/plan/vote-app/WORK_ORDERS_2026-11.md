@@ -197,7 +197,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P4-1 | Throttle the Socket.IO Monte-Carlo | yes if it edits `ratelimit.py` | done: PR #1098 (merged) |
 | P4-2 | Key the rate limiter on the real client address | yes (`ratelimit.py`) | PR #1100 open |
 | P4-3 | A per-request work budget, and timeouts that stop the work | no | todo |
-| P4-4 | A per-fiche error boundary | no | todo |
+| P4-4 | A per-fiche error boundary | no | PR #1104 open |
 | P4-5 | Finish #692: pin images and pip installs by hash | yes (workflows) | todo |
 | P5-1 | One `useSimulation` hook, then the panels in batches | yes once jscpd falls (baseline) | todo |
 | P5-2 | Monte-Carlo and grid libraries in a Web Worker | no | todo |
