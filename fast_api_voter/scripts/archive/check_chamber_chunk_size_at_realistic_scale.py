@@ -1,5 +1,5 @@
 """
-scripts/check_chamber_chunk_size_at_realistic_scale.py
+scripts/archive/check_chamber_chunk_size_at_realistic_scale.py
 
 Phase 7's smoke run came back 1.88x SLOWER than the pre-chunk-size baseline
 (4257.6s vs 2266.8s). check_dynamic_budget_latency_regression.py already
@@ -12,7 +12,7 @@ end to end (retry/fallback wiring included), same 75 members both times.
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_chamber_chunk_size_at_realistic_scale.py
+    python fast_api_voter/scripts/archive/check_chamber_chunk_size_at_realistic_scale.py
 """
 from __future__ import annotations
 

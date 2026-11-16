@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_prompt_ablation.py
+scripts/archive/check_pressure_action_prompt_ablation.py
 
 Seventh follow-up to the chunk-collapse finding (reasoning_budget_and_decision_quality_findings.md).
 Pre-registration for this test is written in the findings doc BEFORE this script was run --
@@ -20,7 +20,7 @@ parallel, in-memory prompt string passed directly to the client -- no file used 
 or in-progress run is touched.
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_prompt_ablation.py
+    python fast_api_voter/scripts/archive/check_pressure_action_prompt_ablation.py
 """
 from __future__ import annotations
 

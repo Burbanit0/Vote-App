@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_action_primary_language_redesign.py
+scripts/archive/check_pressure_action_primary_language_redesign.py
 
 Tests §3.2 (langage primaire + traduction algorithmique) of plan-pressure-action-remediation.md,
 priority raised after §3.1 (binary-then-lever) failed decisively (17/70, 24.3%) and reproduced the
@@ -32,7 +32,7 @@ deterministic proxy's act-vs-no-act prediction on unambiguous cases (same thresh
 §3.1, for direct comparability).
 
 Usage:
-    python fast_api_voter/scripts/check_pressure_action_primary_language_redesign.py
+    python fast_api_voter/scripts/archive/check_pressure_action_primary_language_redesign.py
 """
 from __future__ import annotations
 

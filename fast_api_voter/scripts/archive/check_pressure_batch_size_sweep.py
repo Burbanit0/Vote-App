@@ -1,5 +1,5 @@
 """
-scripts/check_pressure_batch_size_sweep.py
+scripts/archive/check_pressure_batch_size_sweep.py
 
 Locates the batch size at which pressure_action stops reading per-citizen
 data, using a task the model is PROVEN able to do at size 1.
@@ -34,7 +34,7 @@ any failure is then purely a function of how many citizens share the call.
 
 Usage:
     docker compose -f fast_api_voter/docker-compose.llm.yml up -d
-    python fast_api_voter/scripts/check_pressure_batch_size_sweep.py
+    python fast_api_voter/scripts/archive/check_pressure_batch_size_sweep.py
 """
 from __future__ import annotations
 

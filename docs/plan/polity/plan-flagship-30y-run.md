@@ -361,7 +361,7 @@ shipped mitigation's own validation reflects that thinness: one clean confirmato
 case (cid=7) and one inconclusive one, both on Ollama, never exercising the
 regime this measurement did.
 
-**Reproduction**: `scripts/check_vllm_vote_cast_retry_is_inert.py` /
+**Reproduction**: `scripts/archive/check_vllm_vote_cast_retry_is_inert.py` /
 `scripts/check_vllm_vote_cast_retry_is_inert_results.md`, driving the real
 production path (`build_system_prompt`/`build_user_prompt`,
 `VOTE_CAST_JSON_SCHEMA`, `decode_vote_batch`, the shipped budget and chunk-size-1
@@ -733,7 +733,7 @@ called in this config); `_dynamic_max_tokens` replaces the flat formula at
 both call sites, gated on `config.llm.provider == "vllm"`. 285+205 polity
 tests pass, `mypy api/` clean, `flake8` clean. Verified against the REAL
 shipped code path (not just fakes) on the live vLLM server:
-`scripts/check_shipped_chunk_size_smoke.py` — 10/10 vote_cast ballots correct
+`scripts/archive/check_shipped_chunk_size_smoke.py` — 10/10 vote_cast ballots correct
 against `simple_rules.build_ranking` ground truth, 0 fallbacks, 0 retries;
 chamber_deliberation 12/12 clean. Full diff detail:
 `scripts/check_vllm_chunk_size_throughput_results.md`.
