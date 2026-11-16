@@ -100,6 +100,7 @@ async def _until(predicate, tries: int = 100) -> None:
         if predicate():
             return
         await asyncio.sleep(0.05)
+    raise AssertionError("the condition never became true")
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
@@ -441,6 +442,10 @@ def test_the_socket_takes_the_http_bounds():
 
 
 @pytest.mark.parametrize("payload,word", [
+    ({"num_iterations": 100.5}, "num_iterations"),
+    ({"num_iterations": True}, "num_iterations"),
+    ({"num_voters": float("inf")}, "num_voters"),
+    ({"num_voters": float("nan")}, "num_voters"),
     ({"num_iterations": 501}, "num_iterations"),
     ({"num_iterations": 0}, "num_iterations"),
     ({"num_iterations": 10_000}, "num_iterations"),
@@ -560,14 +565,73 @@ async def test_stop_and_disconnect_without_a_run_leave_nothing_behind(live_serve
     assert not sockets_module._stop_flags
 
 
-def test_client_address_is_the_remote_address_else_the_session_id(monkeypatch):
-    monkeypatch.setattr(sockets_module.sio, "get_environ", lambda sid: {"REMOTE_ADDR": "203.0.113.7"})
-    assert sockets_module._client_address("abc") == "203.0.113.7"
-    monkeypatch.setattr(sockets_module.sio, "get_environ", lambda sid: {})
-    assert sockets_module._client_address("abc") == "abc"
+def test_client_address_is_the_scope_client_else_one_shared_unknown(monkeypatch):
+    def environ(env):
+        monkeypatch.setattr(sockets_module.sio, "get_environ", lambda sid: env)
+        return sockets_module._client_address("abc")
+
+    # python-engineio's ASGI driver writes 127.0.0.1 into REMOTE_ADDR for everyone: not read.
+    assert environ({"REMOTE_ADDR": "127.0.0.1", "asgi.scope": {"client": ("203.0.113.7", 5000)}}) == "203.0.113.7"
+    assert environ({"asgi.scope": {"client": None}}) == "unknown"
+    assert environ({"asgi.scope": {}}) == "unknown"
+    assert environ({}) == "unknown"
 
     def _unknown(sid):
         raise KeyError(sid)
 
     monkeypatch.setattr(sockets_module.sio, "get_environ", _unknown)
-    assert sockets_module._client_address("abc") == "abc"
+    assert sockets_module._client_address("abc") == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_a_live_connection_has_the_address_it_connected_from(live_server):
+    """Through the real server: the scope's client, not the 127.0.0.1 the driver writes for all."""
+    seen: list[str] = []
+
+    @sockets_module.sio.on("probe_address")
+    async def _probe(sid, _data=None):
+        seen.append(sockets_module._client_address(sid))
+
+    async with _connected(live_server) as client:
+        await client.emit("probe_address", {})
+        await _until(lambda: seen)
+
+    assert seen == ["127.0.0.1"]  # the test client's real address (loopback), via the scope
+
+
+@pytest.mark.asyncio
+async def test_a_start_right_after_stop_is_refused_until_the_old_run_is_gone(
+    live_server, monkeypatch
+):
+    _slow_runs(monkeypatch, 0.1)
+    events: list[tuple[str, Any]] = []
+    async with _connected(live_server) as client:
+        for name in ("monte_carlo_error", "monte_carlo_stopped"):
+            client.on(name, lambda data, name=name: events.append((name, data)))
+
+        payload = {"num_iterations": 500, "num_voters": 10, "num_candidates": 2}
+        await client.emit("start_monte_carlo", payload)
+        await asyncio.sleep(0.3)
+        await client.emit("stop_monte_carlo", {})
+        await client.emit("start_monte_carlo", payload)
+        await _until(lambda: {n for n, _ in events} >= {"monte_carlo_error", "monte_carlo_stopped"})
+
+    errors = [d for n, d in events if n == "monte_carlo_error"]
+    assert "already in progress" in errors[0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_one_address_cannot_have_more_runs_going_than_the_limit(live_server, monkeypatch):
+    _slow_runs(monkeypatch)
+    errors: list[Any] = []
+    payload = {"num_iterations": 500, "num_voters": 10, "num_candidates": 2}
+    async with contextlib.AsyncExitStack() as stack:
+        clients = [await stack.enter_async_context(_connected(live_server)) for _ in range(3)]
+        clients[2].on("monte_carlo_error", lambda data: errors.append(data))
+        for client in clients[:2]:
+            await client.emit("start_monte_carlo", payload)
+        await asyncio.sleep(0.3)
+        await clients[2].emit("start_monte_carlo", payload)
+        await _until(lambda: errors)
+
+    assert "still going" in errors[0]["message"]

@@ -115,7 +115,7 @@ async def disconnect(sid: str) -> None:
     nowhere left to send its events (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md —
     "Timeouts & backpressure", the Socket.IO orphaned-run case). Setting it
     True instead makes the loop's own check catch it on the next iteration
-    and exit; the loop pops its own entry once it does."""
+    and exit; start_monte_carlo's `finally` pops the entry once it does."""
     if sid in _stop_flags:
         _stop_flags[sid] = True
 
@@ -128,20 +128,29 @@ async def stop_monte_carlo(sid: str, _data: Any = None) -> None:
 
 
 def _bounded(name: str, value: Any, low: int, high: int) -> int:
-    """`value` as an int, or ValueError naming the allowed range."""
+    """`value` as an int (a number or numeric text that is whole), or ValueError naming the range."""
+    if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+        raise ValueError(f"{name} must be a whole number")
     number = int(value)
     if not low <= number <= high:
         raise ValueError(f"{name} must be between {low} and {high}")
     return number
 
 
+#: What stands in for an address the server cannot read: one shared bucket, not one per session.
+_UNKNOWN_ADDRESS = "unknown"
+
+
 def _client_address(sid: str) -> str:
-    """The address a session connected from (the session id when the server cannot say)."""
+    """The address the connection came from, off the ASGI scope. (Not the environ's REMOTE_ADDR:
+    python-engineio's ASGI driver writes 127.0.0.1 there for everyone.) Behind a reverse proxy this
+    is the proxy's address, until the limiter is keyed on a trusted forwarded one (P4-2)."""
     try:
         environ = sio.get_environ(sid) or {}
     except KeyError:
-        environ = {}
-    return str(environ.get("REMOTE_ADDR") or sid)
+        return _UNKNOWN_ADDRESS
+    client = environ.get("asgi.scope", {}).get("client")
+    return str(client[0]) if client else _UNKNOWN_ADDRESS
 
 
 def _monte_carlo_parse_input(
@@ -330,14 +339,18 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
         return
 
     # One live run per session, and a bounded number of starts per client address.
-    if _stop_flags.get(sid) is False:
+    if sid in _stop_flags:  # live, or asked to stop and not yet out of its loop
         await sio.emit("monte_carlo_error",
                        {"message": "A run is already in progress on this connection"}, to=sid)
         return
-    if not start_limiter.allow(_client_address(sid)):
+    address = _client_address(sid)
+    if not start_limiter.allow(address):
         log.warning("sockets.monte_carlo_rate_limited", sid=sid)
-        await sio.emit("monte_carlo_error",
-                       {"message": "Too many runs started; wait a minute and try again"}, to=sid)
+        await sio.emit(
+            "monte_carlo_error",
+            {"message": "Too many runs started or still going from this address; wait and retry"},
+            to=sid,
+        )
         return
 
     _stop_flags[sid] = False
@@ -345,6 +358,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
         await _monte_carlo_stream(sid, num_iterations, num_voters, ideology, candidate_configs)
     finally:
         _stop_flags.pop(sid, None)
+        start_limiter.finish(address)
 
 
 async def _monte_carlo_stream(
