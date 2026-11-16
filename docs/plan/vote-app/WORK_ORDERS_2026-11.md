@@ -190,7 +190,7 @@ promise: read the "Decide whether the PR is held for review" job on your own PR.
 | P3-2 | Kemeny-Young: equal rankings by lot | yes (engine) | done: PR #1088 (merged) |
 | P3-3 | Theory tally, multiwinner fallback, runners-up by lot | yes (engine file) | done: PR #1090 (merged) |
 | P3-4 | Hotelling, identity voting, apportionment comparison; close #926 | no, unless D3 changes an engine file | done: PR #1092 (merged) |
-| P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | open: `test/truncated-ballots-as-is` |
+| P3-5 | Truncated ballots: write down and pin what each rule does today | yes (`docs/spec/`) | PR #1095 open (held for the owner's review) |
 | P3-6 | Truncated ballots: one convention, one pairwise-defeat definition, Hypothesis strategies | yes (engine) | blocked: D4, after P3-5 |
 | P3-7 | One electorate for both engines | yes | blocked: D5 |
 | P3-8 | Validate the three one-string UI keys | no | todo |
