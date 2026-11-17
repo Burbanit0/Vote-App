@@ -131,9 +131,6 @@ extend_exclude = [
 DEP002 = [
     "python-dotenv",  # never `import dotenv` directly; used internally by
                        # pydantic-settings' `SettingsConfigDict(env_file=...)`.
-    "uvicorn",         # not `import`ed by api/ or api/tests/ (also excluded
-                       # above) — invoked as a CLI process (Dockerfile CMD /
-                       # workflow `run:` steps), never as a library.
 ]
 DEP003 = [
     "starlette",  # imported directly in api/main.py, but deliberately left as

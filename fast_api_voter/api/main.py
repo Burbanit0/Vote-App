@@ -34,6 +34,7 @@ from slowapi.errors import RateLimitExceeded
 from api.engine.utils.logger import configure_logging, get_logger
 from api.core.config import Settings, get_settings
 from api.core.errors import unhandled_exception_handler
+from api.core.proxy import trust_proxies
 from api.core.ratelimit import check_v2_rate_limit, limiter
 from api.core.tracing import configure_tracing, instrument_app
 from api.domain.polity.explorer_workers import explorer_roots
@@ -281,4 +282,7 @@ if _frontend_dir and Path(_frontend_dir).is_dir():
 fastapi_app = app
 
 import socketio as _socketio_lib  # noqa: E402
-app = _socketio_lib.ASGIApp(sio, fastapi_app, socketio_path="/api/v2/socket.io")
+app = trust_proxies(
+    _socketio_lib.ASGIApp(sio, fastapi_app, socketio_path="/api/v2/socket.io"),
+    get_settings().trusted_proxies,
+)

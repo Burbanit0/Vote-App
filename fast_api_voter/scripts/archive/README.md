@@ -22,6 +22,11 @@ What is here:
   the vote-cast cache checks). No code, workflow or script referenced them; their results are in their
   `_results.md` and the plan docs. `check_vllm_speculation_ab` was meant to go with them and was kept: it is
   the measuring step of the vLLM bump protocol (the 0.29-0.31 bump notes and EXP-019 all run it).
+- **Four prompt builders and their tests, archived 2026-11-16** (`polity_archived_builders.py`,
+  `test_archived_prompt_builders.py`): `build_candidacy_system_prompt_toon_calibrated`,
+  `build_coalition_system_prompt_calibrated` and the TOON pressure pair, moved out of
+  `llm_behavior_engine.py` because no live code calls them. Only the three experiment scripts above
+  import them. The 18 tests are not collected by CI: `pytest scripts/archive/test_archived_prompt_builders.py -o addopts=""`.
 
 Other files still mention these scripts. Where a path was written out (`scripts/<name>.py`),
 it now reads `scripts/archive/<name>.py`. Where only the file name is given (in docstrings,
@@ -30,7 +35,7 @@ keeps its dated paths.
 
 They are not maintained:
 
-- Nothing imports them.
+- Nothing outside the archive imports them.
 - The import smoke test (`api/tests/test_scripts_import.py`) and the `mypy_scripts` ratchet only
   cover `scripts/*.py`.
 - They are not type-checked.

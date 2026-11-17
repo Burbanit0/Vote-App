@@ -79,6 +79,6 @@ percentage.
 token savings do not offset a quality picture that is unclear at best and slightly worse at
 worst, on the project's own only available (weak) proxy, for a decision type that already has
 zero validated reliability. Diagnostic-only functions (`build_pressure_system_prompt_toon`/
-`build_pressure_user_prompt_toon`) are kept in the codebase as instrumentation for any future
+`build_pressure_user_prompt_toon`) were kept as instrumentation (now in `archive/polity_archived_builders.py`) for any future
 investigation (e.g., pairing this with §2's base-vs-instruct comparison, to see whether the
 format-flip is itself an alignment-prior artifact), not as a candidate for production use.
