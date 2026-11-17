@@ -43,10 +43,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.config import load_config  # noqa: E402
 from api.domain.polity.llm_behavior_engine import (  # noqa: E402
-    build_coalition_system_prompt_calibrated,
     build_coalition_user_prompt,
     compute_max_tokens,
 )
+from polity_archived_builders import build_coalition_system_prompt_calibrated  # noqa: E402  (archived out of the engine)
 from api.domain.polity.llm_client import VllmJsonClient  # noqa: E402
 from api.domain.polity.llm_logprob_instrumentation import (  # noqa: E402
     LogprobAlignmentError,
