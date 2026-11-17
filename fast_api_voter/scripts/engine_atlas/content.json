@@ -1172,7 +1172,7 @@
     },
     {
      "file": "llm_behavior_engine.py",
-     "line": 2018,
+     "line": 1943,
      "label": "decide_candidacies",
      "expect": "def decide_candidacies("
     },
@@ -1511,7 +1511,7 @@
     },
     {
      "file": "llm_behavior_engine.py",
-     "line": 5209,
+     "line": 4918,
      "label": "decide_coalition",
      "expect": "def decide_coalition("
     },
@@ -1590,7 +1590,7 @@
     },
     {
      "file": "llm_behavior_engine.py",
-     "line": 4715,
+     "line": 4510,
      "label": "decide_chamber_deliberation",
      "expect": "def decide_chamber_deliberation("
     }
@@ -1790,7 +1790,7 @@
     },
     {
      "file": "llm_behavior_engine.py",
-     "line": 4356,
+     "line": 4151,
      "label": "decide_reaction_to_event",
      "expect": "def decide_reaction_to_event("
     },
@@ -2044,7 +2044,7 @@
    "refs": [
     {
      "file": "llm_behavior_engine.py",
-     "line": 3978,
+     "line": 3773,
      "label": "decide_pressure_actions",
      "expect": "def decide_pressure_actions("
     },

@@ -46,12 +46,11 @@ from api.domain.polity.config import load_config  # noqa: E402
 from api.domain.polity.llm_behavior_engine import (  # noqa: E402
     PressureContext,
     build_pressure_system_prompt,
-    build_pressure_system_prompt_toon,
     build_pressure_user_prompt,
-    build_pressure_user_prompt_toon,
     compute_max_tokens,
     menu_acts,
 )
+from polity_archived_builders import build_pressure_system_prompt_toon, build_pressure_user_prompt_toon  # noqa: E402  (archived out of the engine)
 from api.domain.polity.llm_client import VllmJsonClient, decode_pressure_batch  # noqa: E402
 from api.domain.polity.llm_logprob_instrumentation import (  # noqa: E402
     LogprobAlignmentError,

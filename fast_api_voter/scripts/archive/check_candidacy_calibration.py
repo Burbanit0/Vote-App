@@ -42,11 +42,11 @@ from api.domain.polity.citizen import Citizen, generate_population  # noqa: E402
 from api.domain.polity.config import load_config  # noqa: E402
 from api.domain.polity.llm_behavior_engine import (  # noqa: E402
     build_candidacy_system_prompt_toon,
-    build_candidacy_system_prompt_toon_calibrated,
     build_candidacy_user_prompt_toon,
     chunk_voters,
     compute_max_tokens,
 )
+from polity_archived_builders import build_candidacy_system_prompt_toon_calibrated  # noqa: E402  (archived out of the engine)
 from api.domain.polity.llm_client import VllmJsonClient, decode_candidacy_batch  # noqa: E402
 from api.domain.polity.llm_schemas import CANDIDACY_JSON_SCHEMA  # noqa: E402
 from api.domain.polity.simple_rules import decide_candidacy, sympathizer_ratio  # noqa: E402
