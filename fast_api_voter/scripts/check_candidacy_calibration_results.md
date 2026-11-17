@@ -18,7 +18,7 @@ already established `config.ambition_threshold` is not valid ground truth for th
 
 ## What was added
 
-`build_candidacy_system_prompt_toon_calibrated` (`llm_behavior_engine.py`) -- one new sentence
+`build_candidacy_system_prompt_toon_calibrated` (since archived: `archive/polity_archived_builders.py`) -- one new sentence
 stating the population's own MEAN `ambition_score`, computed once by the caller over the same
 `population` `support` is computed over (never per-chunk, matching `decide_candidacies`'s own
 "never recomputed per-chunk" discipline for `support`). `perceived_support` is already self-scaling

@@ -16,7 +16,7 @@ l'assemblée."
 
 ## What was added
 
-`build_coalition_system_prompt_calibrated` (`llm_behavior_engine.py`) — one new sentence stating
+`build_coalition_system_prompt_calibrated` (since archived: `archive/polity_archived_builders.py`) — one new sentence stating
 the mean pairwise distance among every **seated** party in the assembly (initiator included),
 computed from `party_platforms` already available at the call site. Deliberately not the
 geometric maximum (`sqrt(issue_count)`, ≈4.47 at the shipped 20 dimensions): two real
