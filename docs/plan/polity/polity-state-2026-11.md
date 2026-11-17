@@ -164,6 +164,9 @@ Small PRs, each with the golden byte-identical.
   same seeds, and every run above the catalogue's range of effective parties, but the runs' spread over time is only about
   8% larger than the twin's, 9 of 10 fail the plausibility band (twin: 3), and the difference sits in the 45 to 54 parties
   founded per run (twin: none).
+  **2c done 2026-11-17 (EXP-029):** the model's nominees head for the electorate's centroid (98% of shifted dimensions)
+  like an aggregator, its presidents only weakly (62%), neither keeps a hunter's heading (51%), and both move far more than
+  any rule's step; read from their own shifts, since no rule moves anything in these runs. Gate G2 is open.
   2c and gate G2 are open.
 - **2c. On the same runs:** step 7's classification of the LLM president against the four leader
   rules. ADR-031 option B is **not** part of this stage: it is not built, and its pre-registered
