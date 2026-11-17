@@ -164,14 +164,14 @@ Small PRs, each with the golden byte-identical.
   same seeds, and every run above the catalogue's range of effective parties, but the runs' spread over time is only about
   8% larger than the twin's, 9 of 10 fail the plausibility band (twin: 3), and the difference sits in the 45 to 54 parties
   founded per run (twin: none).
-  **2c done 2026-11-17 (EXP-029):** the model's nominees head for the electorate's centroid (98% of shifted dimensions)
-  like an aggregator, its presidents only weakly (62%), neither keeps a hunter's heading (51%), and both move far more than
-  any rule's step; read from their own shifts, since no rule moves anything in these runs. Gate G2 is open.
-  2c and gate G2 are open.
 - **2c. On the same runs:** step 7's classification of the LLM president against the four leader
   rules. ADR-031 option B is **not** part of this stage: it is not built, and its pre-registered
   test is a control against a candidate on ten paired seeds of the exploration profile, which is
   both a new mechanism and a control arm. Whether to build it and how to test it is 4c's decision.
+  **Done 2026-11-17 (EXP-029):** none of the four rules fits the model's leaders: they move toward the public median the
+  prompt shows (99% of the nominees' shifted dimensions, 76% of the presidents'), with no pull toward their party, presidents reverse
+  their previous move more often than they repeat it, and the steps are several times a rule's; read from their own shifts, since no
+  rule moves anything in these runs.
 - **Gate G2, the owner's call on the numbers.** If model leaders add variety at an acceptable cost,
   Stages 3 and 4 run as written. If they do not, the instrument is the rule engine and its
   catalogue, the model becomes an optional narrator and limit-tester, Stage 3 shrinks to 3d, and
