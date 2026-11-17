@@ -46,3 +46,5 @@ git switch --detach "$moved^"   # the script is back at fast_api_voter/scripts/<
 
 Any rerun command still quoted in a `_results.md` (for example
 `ollama_structured_output_results.md`) works only from that commit.
+- **`place_model_runs_on_catalogue.py`** (EXP-028, Stage 2b): places the ten model-led scenario runs on the rule catalogue's
+  per-feature envelope. It imports `run_polity_catalogue` from `scripts/`, so it runs from `fast_api_voter/` as its docstring says.

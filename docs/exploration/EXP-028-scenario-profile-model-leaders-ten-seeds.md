@@ -1,0 +1,54 @@
+# EXP-028 — The scenario profile with the model playing the leaders: ten seeds, read against the rule twin and the catalogue
+
+- **Date**: 2026-11-16 UTC (runs 16:50Z to 22:04Z), analysed 2026-11-17 · **Status**: measured; the divergence test is read, the placement on the catalogue is read, and gate G2 is not decided here · **Real cost**: 5 h 14 min of local GPU for the ten runs, about 3 min for the server to load; under 20 min of CPU for the twin and the catalogue; no rented compute
+- **Verdict in one sentence**: ten seeds of the model-led scenario run gave five archetypes against the rule twin's two on the same seeds, and put every run above the catalogue's whole range of effective parties (6.6 to 10.5 against at most 4.96 in 1,000 rule runs); but that spread comes from one decision, party founding in the forum (45 to 54 parties founded per run, where the twin founds none), and 9 of the 10 runs fail the plausibility band (the twin: 3 of 10), so on the numbers the model buys a different kind of variety, not obviously a better one.
+
+## Starting hypothesis
+
+Stage 2b of `polity-state-2026-11.md`: with the model playing the president, nominees, coalition leaders, forum and chamber votes, does the scenario profile give more varied runs than its rule-only twin, and does it reach regions the 1,000-run rule catalogue does not? The divergence test of `plan-scenarios-v1.md` step 2 (the runs drift apart, the archetypes are varied, no archetype covers more than half the runs, enough runs stay inside the plausibility band) is the pre-registered reading; gate G2 is the owner's call on it. Stage 2a (EXP-027, one seed, 35.8 min) had already shown one model-led run failing three band checks.
+
+## Protocol
+
+- **Model arm**: `polity-runs/stage2b/chain.sh`, seeds 1 to 10 one after the other on the `polity` tip `1456fef5` (a detached worktree), vLLM `v0.31.0`, Qwen3-8B-AWQ, thinking budget 2,048. Same flags as 2a: `--engine llm --profile scenario --years 8 --population 100 --seats 15 --workers 24 --reproducibility relaxed --max-batch-replays 2`. The sweep summary (provenance section) confirms all ten share one git sha, prompt source, vLLM image and model revision, with no dirty paths. Seed 42, the 2a run, is not in the set. The GPU was idle before the start (read in the session).
+- **Twin arm**: the same ten seeds, same commit, `run_polity_seed_sweep.py --engine deterministic --profile scenario --population 100 --seats 15 --years 8`: the rule crowd and rule leaders, no model.
+- **Catalogue**: `run_polity_catalogue.py run --runs 1000 --seed 1 --years 8 --population 100` on the same commit: the twin over the Latin hypercube of `catalogue.DIMENSIONS`, one run per point. **This is not the committed sweep 5**, which ran 15 years; at 8 years the label shares differ (below). Its seat count is `max(5, population // 7)` = 14, the model arm's 15.
+- **Reading**: the sweep summary's "Diversity and the divergence test" for both arms (`_write_sweep_summary`; the model arm's run ids are not the sweep's, so the summary was written by calling it with the id function replaced), and `scripts/archive/place_model_runs_on_catalogue.py` for the placement. Every number below is read from those outputs or from each run's `events.jsonl`.
+
+## What it found
+
+- **All ten runs completed**: 32 ticks each, 0 fallbacks over 7,842 decisions in the sweep summary's fallback table (pooled: forum_post 3,300; reaction_to_event 1,700; amendment_vote 885; agent_turn 642; coalition_decision 504; party_founded 492; party_dissolved 319). No type was above the 10% alert. Wall clock 27.5 to 35.8 min a run (mean 31.4), 5 h 14 min for the ten, one seed at a time.
+- **The divergence test**:
+
+| | model arm | twin, same seeds |
+|---|---|---|
+| archetypes | fragmentation 3, alternation 2, churn 2, stasis 2, collapse 1 | alternation 5, stasis 5 |
+| entropy (bar: at least 1.0 bit) | 2.25 bits | 1.00 bits (on the bar) |
+| largest archetype share (bar: at most 50%) | 30% | 50% (on the bar) |
+| mean pairwise distance over the whole run | 3.19 | 3.05 |
+| the runs drift apart over the years | yes | yes |
+| runs with no failed band check (bar: two thirds) | 1 of 10 | 7 of 10 |
+| **verdict** | grows yes, varied yes, no dominant story yes, **plausible no** | all four yes |
+
+  The model arm passes three of the four and fails the plausibility one; the twin passes all four, two of them exactly on their bar. The distance by year is nearly the same in both arms (1.95 to 4.59 against 1.83 to 4.32), so the runs drift apart at the same rate whether or not a model plays the leaders. What differs is the labels.
+- **The band checks**: of the model arm's 10 runs, 5 failed `enp_seats` (the band is 1.5 to 8.0 by seats), 4 failed `turnout` (0.5 to 0.85) and 9 failed `volatility` (0.05 to 0.30); only seed 2 failed none. The twin's three failures are 2 on turnout and 1 on volatility. The model arm's mean turnout is 0.80 to 0.92 and the twin's 0.78 to 0.91, so turnout is not what separates them; volatility (the runs' largest value: model 0.27 to 0.70, twin 0.05 to 0.25) and effective parties are.
+- **Placement on the catalogue** (1,000 rule runs, 8 years): its labels are stasis 57.8%, alternation 34.0%, churn 4.7%, realignment 3.5%. **Fragmentation and collapse occur in none of the 1,000.** The catalogue's effective parties by seats (mean over the run's elections) run from 2.63 to 4.96, p99 4.89; the model arm's run from 6.62 to 10.45, so **all ten sit above the catalogue's 99th percentile** (4.89); the twin's ten (4.17 to 4.96) are in the catalogue's range, one of them (seed 10, 4.96) just above that percentile. On the other eight features the placement reads (panel stability, office holders, alternations, recalls, turnout, dispersion, bimodality, maximum volatility), the model runs are inside the catalogue's p1 to p99 range except for dispersion (seeds 1 and 2), bimodality (seed 1) and maximum volatility (seeds 1, 4, 5, 10). The nearest catalogue run to each model run, over those eight features, is at 0.5 to 2.5 catalogue standard deviations (the catalogue's own runs have a nearest neighbour at a median 0.69); with effective parties added the distance is 5.0 to 15.1 (median within the catalogue: 0.91), because that feature has a small spread there (sd 0.39). So the model's runs leave the map on the party system and nearly nowhere else.
+- **Where the party system comes from**: the model arm founded 45 to 54 parties a run (mean 49) and dissolved 24 to 40; the twin founded and dissolved none. The counts are close to one another across seeds, where the seeds' archetypes are not. Seed 4, the one model-arm run with no constitutional amendment, has an effective-party count of 8.2, so the change of rules is not what drives it. Founding is the forum's `found` move: the decision OBS-045 found not to respond to the stated threshold (59 of 60 able founders founded at 3% and at 7%), and `fit-for-inference.md` marks "unverified; sensitive to its state; one dead option". The config's `founding_lock_years` is 1.0 (the code default; the runs' own config files were not read); 319 dissolutions over ten runs show parties still being made and unmade, and this note did not measure how many are re-founded by the same citizens. OBS-052's 8B baseline, before the lock, recorded 47 founded and 30 dissolved on one seed, inside this range.
+- **Constitutions**: 9 of the 10 model runs amended their constitution (1 to 6 amendments; the twin: none, in all ten), through the constitution's amendment process. Seed 10 is the one `collapse`: its t24 legislative election seated no party, after the threshold went to 0.15 at t23 with 22 parties standing; that fits a high threshold meeting a split field, but this note did not trace the election to confirm it.
+- **Calls**: the audit table of the sweep summary gives, per run, the share of thinking calls that ended at the 2,048 budget: 66 to 85% for the president, 65 to 93% for nominees, 33 to 57% for coalition leaders, 9 to 20% for the forum and 0 to 7% for amendment votes; the 2a single seed had 58, 84, 52, 13 and 3%. The summary's vote audit table has no rows (the crowd is decided by rules in this profile), so OBS-054's check on ballots has no data here.
+
+## What it cost
+
+5 h 14 min of the local GPU (16:50Z to 22:04Z) and the server's 3 min start; the twin took 43 s and the catalogue under 20 min on 14 workers. No rented compute. My own time was the chain script, the analysis and this note.
+
+## Verdict and why
+
+On the registered reading the model arm **does not pass G2's variety half cleanly**. It beats the twin on every count of difference (five labels against two, entropy 2.25 against 1.00 bits, no run on the bar) and it reaches regions the catalogue does not. But the distance by year, the plain measure of runs drifting apart, is the same as the twin's, and the difference is concentrated in one place: the party system, built by a decision whose responsiveness to its inputs was measured as absent (OBS-045) and whose count is nearly the same in every seed. And 9 of 10 runs fail the plausibility band the catalogue is read against (the twin: 3), so by the test's own fourth condition the model arm is not a set of plausible societies. Whether the 45 to 54 foundings are the model playing a role or an artefact of a prompt is not settled by ten seeds.
+
+What this note does **not** show: that the party system is an artefact (that needs the re-founding count by citizen, or a run with the founding decision replaced by its rule); that the leaders' own decisions (president, coalition) add variety on their own (the arms differ in the crowd's founding, in the amendments, and in the leaders at once; the twin's leaders are rules); anything about a second model, a larger budget or a different seed set (one commit, one model at one budget, each seed once, so the same-seed noise floor is not measured: the sweep's own third red flag reads "not evaluable"); that 8 years and 100 citizens hold at other sizes; and step 7's classification of the model's presidents against the four leader rules (2c), which was not done.
+
+## What I take from it (portable)
+
+- Read a diversity verdict next to the distance that does not depend on labels: five labels against two looked like a strong result and the pairwise distance by year was the same.
+- Before crediting "the model" with a difference, count what each arm does that the other does not: the twin founds no party at all, so any measure of the party system differs by construction.
+- A catalogue of one profile has a range, and a model run can leave it on a single feature (here effective parties) while staying inside it on the others: placing a run needs the per-feature envelope and not only the nearest neighbour.
+- A catalogue rerun at another shape (8 years) is a different catalogue: say so before comparing it with the committed one (stasis 58% here, alternation 59% at 15 years).
