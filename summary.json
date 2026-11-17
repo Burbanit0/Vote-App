@@ -334,6 +334,34 @@
   },
   {
    "branches": [
+    "feat/lab-search-compare",
+    "feat/playground-candidate-editor",
+    "feat/playground-why-line",
+    "feat/shareable-scenario-link",
+    "polity"
+   ],
+   "category": "code",
+   "count": 5,
+   "example": {
+    "job": "Visual regression (screenshots)",
+    "lines": [
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "    Error: expect(page).toHaveScreenshot(expected) failed",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "cd0a2fcdeee44bd08c07a25e5b97c21e2f18917a",
+    "step": "Run visual regression tests",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994037941"
+   },
+   "last_seen": "2026-11-17T01:14:29Z",
+   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
+   "workflows": [
+    "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
     "develop"
    ],
    "category": "test-flaky",
@@ -354,35 +382,6 @@
    "workflows": [
     "CI Dashboard",
     "polity red alert"
-   ]
-  },
-  {
-   "branches": [
-    "feat/lab-search-compare",
-    "feat/playground-candidate-editor",
-    "feat/playground-why-line",
-    "feat/shareable-scenario-link"
-   ],
-   "category": "code",
-   "count": 4,
-   "example": {
-    "job": "Visual regression (screenshots)",
-    "lines": [
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "    Error: expect(page).toHaveScreenshot(expected) failed",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     1080
-    ],
-    "sha": "d14d8947b342b4f9acf2c00f8d5d1f6755b77875",
-    "step": "Run visual regression tests",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43649471263"
-   },
-   "last_seen": "2026-11-14T22:42:16Z",
-   "signature": "code: Error: expect(page).toHaveScreenshot(expected) failed",
-   "workflows": [
-    "E2E Tests"
    ]
   },
   {
@@ -1063,10 +1062,10 @@
  ],
  "failures_by_category": {
   "advisory": 3,
-  "code": 127,
+  "code": 128,
   "test-flaky": 17
  },
- "generated_at": "2026-11-17T01:19:28Z",
+ "generated_at": "2026-11-17T01:23:03Z",
  "grid": {
   "Backend CI": {
    "2026-10-18": {
@@ -1332,7 +1331,7 @@
     "success": 22
    },
    "2026-11-17": {
-    "success": 10
+    "success": 11
    }
   },
   "CI Health Watchdog": {
@@ -1706,6 +1705,7 @@
     "success": 2
    },
    "2026-11-17": {
+    "failure": 1,
     "success": 3
    }
   },
@@ -2345,7 +2345,7 @@
    "2026-11-17": {
     "cancelled": 4,
     "skipped": 30,
-    "success": 23
+    "success": 25
    }
   },
   "zizmor online": {
@@ -2399,9 +2399,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-17T01:15:11Z",
+   "created_at": "2026-11-17T01:18:53Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994129958"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994615188"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2433,10 +2433,10 @@
   },
   "E2E Tests": {
    "branch": "polity",
-   "conclusion": "success",
-   "created_at": "2026-11-17T00:35:10Z",
+   "conclusion": "failure",
+   "created_at": "2026-11-17T01:14:29Z",
    "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43988807978"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994037941"
   },
   "Frontend CI": {
    "branch": "polity",
@@ -2497,9 +2497,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-17T01:18:53Z",
+   "created_at": "2026-11-17T01:22:24Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994615347"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43995070039"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2509,7 +2509,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43427534743"
   }
  },
- "runs": 8542,
+ "runs": 8546,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2655,12 +2655,12 @@
     "2026-11-14": 257,
     "2026-11-15": 276,
     "2026-11-16": 323.0,
-    "2026-11-17": 257.0
+    "2026-11-17": 252
    },
-   "p50_s": 341,
+   "p50_s": 340,
    "p95_s": 534,
    "queue_p50_s": 0,
-   "runs": 605
+   "runs": 606
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3212,7 +3212,7 @@
    "p50_s": 27,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 920
+   "runs": 922
   },
   "zizmor online": {
    "daily_p50_s": {
@@ -3395,10 +3395,10 @@
      "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994037829"
     },
     "E2E Tests": {
-     "conclusion": "success",
-     "created_at": "2026-11-17T00:35:10Z",
-     "sha": "18d9f81757405f5732c07b46250c6ea2d3fb2328",
-     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43988807978"
+     "conclusion": "failure",
+     "created_at": "2026-11-17T01:14:29Z",
+     "sha": "cd0a2fcdeee44bd08c07a25e5b97c21e2f18917a",
+     "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43994037941"
     },
     "Frontend CI": {
      "conclusion": "success",
