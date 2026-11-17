@@ -110,7 +110,8 @@ async def test_a_worker_that_swallows_exceptions_still_stops(monkeypatch):
             try:
                 counter.n += 1
             except Exception:  # noqa: BLE001
-                pass
+                # Never reached (the increment cannot raise); it is the swallower under test.
+                wd.log.error("stubborn_worker_swallowed", exc_info=True)
 
     with pytest.raises(asyncio.TimeoutError):
         await wd.run_bounded(stubborn, {})
