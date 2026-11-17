@@ -15,7 +15,10 @@ import pytest
 
 import api.core.worker_dispatch as wd
 from api.core import cancellation, work_budget
+from api.engine.utils.logger import get_logger
 from api.schemas.simulations import MAX_NUM_RUNS, MAX_NUM_VOTERS
+
+log = get_logger(__name__)
 
 
 class Counter:
@@ -111,7 +114,7 @@ async def test_a_worker_that_swallows_exceptions_still_stops(monkeypatch):
                 counter.n += 1
             except Exception:  # noqa: BLE001
                 # Never reached (the increment cannot raise); it is the swallower under test.
-                wd.log.error("stubborn_worker_swallowed", exc_info=True)
+                log.error("stubborn_worker_swallowed", exc_info=True)
 
     with pytest.raises(asyncio.TimeoutError):
         await wd.run_bounded(stubborn, {})
