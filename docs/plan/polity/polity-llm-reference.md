@@ -1,6 +1,7 @@
 # Polity LLM — reference
 
-> **status:** reference — what the simulator actually does today. (Set 2026-10-08; `docs/README.md` lists every plan.)
+> **status:** reference — what the simulator does, as of its 2026-09-11 snapshot, with the changes listed under
+> "Refreshed 2026-11-16" below. (Set 2026-10-08; `docs/README.md` lists every plan.)
 
 **What this is.** A precise account of what the polity simulator actually does today: the
 vocabulary, the mechanisms, the nine LLM decisions, every knob, and — stated plainly — which parts
@@ -16,6 +17,14 @@ not a contract: it will drift, and `polity-simulation-design-v2.md` (the design 
 *intent*. This document is the authority on *what is built* — but check `polity-decision-
 contracts.md`'s own §2/§3 for anything dated after this snapshot before trusting a per-type verdict
 here.
+
+**Refreshed 2026-11-16 (partial).** A drift check against the code found this document two months behind (219
+commits touch `api/domain/polity/` since the snapshot). Corrected, each from the code: the agent tier and the
+profiles (§0, §3, §4.0), the counted ballot (§4.0, §5.1), the config sections and the dead-knob list (§6, §6.3),
+the fallback alert and the journaled dt=10 context (§10), the file tree (§11). **Not rewritten:** §2 and §5.2 still
+describe the default `flagship` profile (static population, frozen parties, one legitimacy rule); the `exploration`
+and `scenario` profiles differ (see §0), and so does §7's "temperature 0" for agent turns. For the state of the
+project, read `polity-state-2026-11.md`; for what each decision type may support, `fit-for-inference.md`.
 
 **Language.** English, matching `plan-flagship-30y-run.md` and the `scripts/*_results.md` lineage
 this belongs to. The design docs are French, so §1 bridges the two vocabularies.
@@ -46,6 +55,13 @@ gate means nobody is ever consulted.
 | exogenous events / social graph | off | on |
 | sortition chamber | off | on |
 | pressure menu | `electoral_only` — only acts 0 and 4 legal | **open**: petitions *and* mobilisation, all 5 acts legal |
+
+There are three run profiles, set by `--profile` of `scripts/run_polity_flagship.py` and built in
+`api/domain/polity/profiles.py` (`PROFILES`): `flagship` (the column above), `exploration` (adds the agent tier,
+mutable parties, the forum, amendments, the referendum, legislation, emotions, opinion dynamics and the regime layer) and `scenario` (the exploration
+profile with `llm.crowd` off so rules decide for the crowd, a forum of 10 speakers, views that drift, radicalisation, economic
+voting, and 3% of the citizens replaced each year). The table above
+is the flagship.
 
 That last row is easy to miss and changes which findings apply. Verified in a real flagship run's
 own journal: its citizens chose `SIGN_PETITION`, an act that does not exist under the shipped
@@ -199,7 +215,8 @@ accountability; opinion dynamics last.
 - **off** → `simple_rules.py`, the deterministic baseline. Elections still happen; candidates run on
   their sincere positions; nothing ever diverges `revealed_position` from `pledged_platform`, so
   mandate deviation is **zero by construction**.
-- **on** → `llm_behavior_engine.py`, nine LLM decisions replacing (not supplementing) those rules.
+- **on** → `llm_behavior_engine.py`, nine batch LLM decisions replacing (not supplementing) those rules; with
+  `llm.crowd: false` the rules keep deciding for the crowd and only the agent tier below plays the model (§4.0).
 
 The baseline is not a fallback stub — it is the permanent §11.4 comparison arm. Every LLM decision
 has, or deliberately lacks, a deterministic counterpart, and that choice is documented per type.
@@ -207,6 +224,22 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
 ---
 
 ## 4. The nine LLM decisions
+
+### 4.0 What changed since the snapshot
+
+- **The agent tier** (`agents.py`, the `agents.*` flags in `polity_config.yaml`, ADR-014). A citizen the model plays
+  in the first person, one turn at a time: the president (replaces `representative_response`), each nominee
+  (replaces `campaign_positioning`), the coalition leaders (replace `coalition_decision`), forum posts and the
+  chamber's amendment votes. `agent_turn`, `forum_post` and `amendment_vote` are LLM decisions in the events
+  registry, so the generated table in §8 lists twelve. The switches that turn a turn on (`president`, `nominees`, `amendments`,
+  `amendment_stakes`, `forum`, `party_moves`, `coalition`) are off in the shipped config; `forward_stakes` and
+  `ambition_goal` (ADR-027, ADR-028) default to true.
+- **`llm.crowd`** (default true). False, as the `scenario` profile sets it, means the rules decide for the crowd and
+  the nine batch decisions below do not run.
+- **The counted ballot is not `vote_cast`.** `vote.mode: utility` is the shipped default (ADR-011): the kernel's
+  `utility_ballot` fills every counted ballot, and `vote_cast` runs on a 10% audit sample (`vote.audit_fraction`),
+  journaled and never counted. `--vote-mode llm` restores the old behaviour. The rows below describe the decision
+  itself, not who is counted.
 
 ### 4.1 Summary
 
@@ -380,7 +413,7 @@ is the run-level version, and a run with a high one should be investigated, not 
 ### 5.1 Elections
 
 **Presidential.** Incumbent vacated → candidacies (party nominees by ambition; plus the rare rupture
-path) → campaign positioning → every citizen ranks candidates with Blank spliced in at their
+path) → campaign positioning → every citizen ranks candidates (the kernel's utility ballot; §4.0) with Blank spliced in at their
 tolerance → `two_round` runoff.
 
 **Blank is a real competitor.** It is an ordinary option in the field, so it can win the runoff, in
@@ -449,7 +482,7 @@ Both feed `event_salience`, which decays 0.85/tick. The social graph (Watts-Stro
 
 ## 6. Parameters
 
-19 config sections. Rather than repeat every default (they are in `polity_config.yaml` with good
+26 config sections. Rather than repeat every default (they are in `polity_config.yaml` with good
 French comments), here is what actually matters when advising.
 
 ### 6.1 The knobs that change results most
@@ -485,10 +518,11 @@ presidential tally, the campaign poll and the simulated referendum and stakes ba
 model's vote prompt, in salience, in the indifference-abstention rule and in the legislative vote. The
 comment in `polity_config.yaml` lists them.)
 
-Worth knowing before tuning them: `assembly_mode`, `coalition_initiator`,
-`max_candidates_hard_cap`, `memory_window_terms`, `sortition_chamber.veto_power` / `veto_delay_ticks`,
-`parties.birth_enabled` / `death_enabled`,
-and the 4 score-based `presidential_method` values (accepted by config, refused at run start).
+Worth knowing before tuning them: `assembly_mode`, `coalition_initiator`, `max_candidates_hard_cap` and
+`memory_window_terms` (the config parses them; no run reads them), and the 4 score-based
+`presidential_method` values (accepted by config, refused at run start). `sortition_chamber.veto_power` /
+`veto_delay_ticks` (ADR-009) and `parties.birth_enabled` / `death_enabled` (ADR-018) used to be on this list:
+they are read now.
 
 Nine keys that used to sit in this list were removed on 2026-11-15 because no code read them
 (`llm.cache_backend`, `cache_url`, `personas_count`, `parallel.runs_in_parallel`,
@@ -592,7 +626,11 @@ The honest part. Stated per decision, from measurements in the code's own docstr
 
 **Measured against real ground truth:**
 
-- `vote_cast` — 23/24 and 29/30 correct at chunk 3/5 on vLLM. The most trustworthy decision.
+- `vote_cast` — 23/24 and 29/30 correct at chunk 3/5 on vLLM, in September: the most trustworthy decision then.
+  Since: on the live prompts of the 8B, scored against the prompt's own rule, the first choice is wrong for 60% of
+  voters at the 2,048-token thinking budget and 12% at 8,192 (OBS-054, verdict unresolved); the budget binds on 72-86%
+  of vote calls at p500 (OBS-054, OBS-023). The ballot that counts is the kernel's, so this limits the audit, not who wins
+  (§4.0). `fit-for-inference.md` keeps the current verdicts.
 - `candidacy_considered` — 16/25 (64%) against the deterministic proxy, identical across JSON and
   TOON. Below the project's own ≥80% bar; single run.
 
@@ -657,14 +695,16 @@ Ordered by how much they would change things.
      with no government. That inherits v7 Lot 2's already-shipped round-≥2 semantics rather than
      inventing a second rule, but it *is* a modelling choice, and the alternative (give both rounds a
      `form_coalition` fallback) is a live option.
-   - **Fallbacks are silent degradation unless someone reads `llm_fallback`.** Nothing yet
-     *aggregates* it per run beyond `progress.json`'s raw `fallback_count` — no threshold, no
-     warning, no gate. A run that fell back on half its decisions and a run that fell back on none
-     both finish and both look finished.
+   - **Fallbacks are silent degradation unless someone reads `llm_fallback`.** *Partly closed.* The digest
+     reports a fallback rate per decision type and flags any above 10% (`run_digest.llm_fallback_alerts`), and the
+     sweep summary raises a red flag at the same rate (`sweep_statistics.FALLBACK_ALERT_RATE`). Still open: nothing
+     stops a run, and while it runs `progress.json` shows only the counts (`fallback_count`, `fallback_by_type`), not a
+     rate or an alert.
 3. **`candidacy_considered` fails the C3 contract** — `ambition_score` is sent with no population
    reference, exactly the defect that caused `pressure_action`'s collapse. A real run shows **~40% of
-   citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle is
-   already written down in `polity-decision-contracts.md` and unbuilt.
+   citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle in
+   `polity-decision-contracts.md` was built (`build_candidacy_system_prompt_toon_calibrated`), tried (negative), and
+   never wired into a run.
 4. **`coalition_decision` still collapses; its calibration vehicle was built and tried, not just
    written.** Track B2 (`polity-decision-contracts.md` §3) implemented the same kind of scale
    reference C3 asks for (mean inter-party distance) and measured **no improvement** on a 5-point
@@ -677,9 +717,9 @@ Ordered by how much they would change things.
    any other dimension reads as exactly 0.0. Live-verified: a term drifted three dimensions to the
    clamp ceiling while the metric read 0.0 throughout. `unified_mandate_deviation` exists as the
    honest measurement but deliberately feeds nothing.
-6. **A ctx/journal divergence introduced by the dt=10 calibration fix**: the prompt now sends
-   `blank_threshold` inside ctx, but the journal writes the older four-key payload. The invariant
-   "the ctx an analyst reads is the ctx the model saw" no longer holds exactly for dt=10.
+6. ~~**A ctx/journal divergence introduced by the dt=10 calibration fix.**~~ **Closed** (Track C3 fix,
+   2026-09-11): the journaled ctx merges `pressure_shipped_signal_values(citizen)`, the same function the prompt
+   uses, so `blank_threshold` is journaled (`run_polity_simulation.py`, the `pressure_ctx` line).
 7. ~~**Only 3 of 9 types vary sampling on retry.**~~ **Closed 2026-09-11** — all nine do; see §4.4.
 8. **Published results predate two calibration changes** (`position_dist`, `ambition_threshold`) and
    were never re-baselined.
@@ -691,7 +731,15 @@ Ordered by how much they would change things.
 ```
 api/domain/polity/
   run_polity_simulation.py   the tick loop; the ONLY place that journals
-  llm_behavior_engine.py     the 9 decisions: prompts, chunking, retries, fallbacks
+  llm_behavior_engine.py     the 9 batch decisions: prompts, chunking, retries, fallbacks
+  agents.py                  the agent tier: personas, memory, one turn per citizen (ADR-014)
+  profiles.py                the run profiles: flagship, exploration, scenario (`PROFILES`)
+  model_profiles.py          per-model settings (chunking, thinking budget)
+  events.py                  the event registry the generated table in §8 reads
+  institutional_clock.py     the amendable election and sortition clock (ADR-015)
+  checkpoint.py / tick_state.py   resume state
+  run_provenance.py          the stamp of what ran (commit, prompt hash, image)
+  llm_call_log.py            every model call, logged
   llm_schemas.py             wire schemas + cross-field validators
   llm_client.py              vLLM/Ollama transports, decode_*_batch
   codebook.py                motif enums, CODEBOOK_VERSION
@@ -701,7 +749,7 @@ api/domain/polity/
   indexer.py                 RunMetrics, terms
   run_digest.py              the per-ending digest
   config.py / polity_config.yaml
-scripts/run_polity_flagship.py   the runner (turns everything on)
+scripts/run_polity_flagship.py   the launcher: `--profile` picks a preset from `profiles.py` (default `flagship`)
 ```
 
 Docs: `polity-simulation-design-v2.md` (intent, FR) · `polity-decision-contracts.md` (prompt

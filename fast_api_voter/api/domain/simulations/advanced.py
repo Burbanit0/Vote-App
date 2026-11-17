@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 
+from api.core.cancellation import cancel_check
 from api.domain.election._helpers import modal_keys
 from api.engine.utils import runtime
 from api.engine.utils.demographic_data import unseeded_rng_pair
@@ -58,7 +59,12 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     if len(candidate_configs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
+    # Taken here, on the worker's own thread: the pool's threads below have no job of their own,
+    # and a timed-out request must not leave its queued runs to be worked through.
+    check_cancelled = cancel_check()
+
     def _single_run(_: Any) -> Dict[str, Any]:
+        check_cancelled()
         # Fresh, unseeded, per-call local RNG pair — this Monte Carlo run has
         # no reproducibility contract, but each call executes in its own
         # ThreadPoolExecutor worker thread, so drawing from the shared
