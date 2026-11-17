@@ -22,6 +22,8 @@ What is here:
   the vote-cast cache checks). No code, workflow or script referenced them; their results are in their
   `_results.md` and the plan docs. `check_vllm_speculation_ab` was meant to go with them and was kept: it is
   the measuring step of the vLLM bump protocol (the 0.29-0.31 bump notes and EXP-019 all run it).
+- **`place_model_runs_on_catalogue.py`** (EXP-028, Stage 2b): places the ten model-led scenario runs on the rule catalogue's
+  per-feature envelope. It imports `run_polity_catalogue` from `scripts/`, so it runs from `fast_api_voter/` as its docstring says.
 
 Other files still mention these scripts. Where a path was written out (`scripts/<name>.py`),
 it now reads `scripts/archive/<name>.py`. Where only the file name is given (in docstrings,
@@ -46,5 +48,3 @@ git switch --detach "$moved^"   # the script is back at fast_api_voter/scripts/<
 
 Any rerun command still quoted in a `_results.md` (for example
 `ollama_structured_output_results.md`) works only from that commit.
-- **`place_model_runs_on_catalogue.py`** (EXP-028, Stage 2b): places the ten model-led scenario runs on the rule catalogue's
-  per-feature envelope. It imports `run_polity_catalogue` from `scripts/`, so it runs from `fast_api_voter/` as its docstring says.

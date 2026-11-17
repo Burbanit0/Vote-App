@@ -160,9 +160,10 @@ Small PRs, each with the golden byte-identical.
   `volatility`, archetype `fragmentation`). Variety is 2b's question.
 - **2b. Ten seeds on one commit.** The divergence test read on the model path, and each run placed
   on the rule catalogue's archetype map: does the model reach regions the 1,000 rule runs do not?
-  **Done 2026-11-16 (EXP-028):** ten seeds, 0 fallbacks, 5 h 14 min of GPU. Five archetypes against the rule twin's two on the
-  same seeds, and every run above the catalogue's range of effective parties, but the runs drift apart at the twin's rate,
-  9 of 10 fail the plausibility band (twin: 3), and the difference is the 45 to 54 parties founded per run (twin: none).
+  **Done 2026-11-17 (EXP-028):** ten seeds, 0 fallbacks, 5 h 14 min of GPU. Five archetypes against the rule twin's two on the
+  same seeds, and every run above the catalogue's range of effective parties, but the runs' spread over time is only about
+  8% larger than the twin's, 9 of 10 fail the plausibility band (twin: 3), and the difference sits in the 45 to 54 parties
+  founded per run (twin: none).
   2c and gate G2 are open.
 - **2c. On the same runs:** step 7's classification of the LLM president against the four leader
   rules. ADR-031 option B is **not** part of this stage: it is not built, and its pre-registered

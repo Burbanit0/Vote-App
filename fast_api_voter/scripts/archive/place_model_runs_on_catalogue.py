@@ -8,8 +8,9 @@ Run from fast_api_voter/ at the commit of the runs (1456fef5), with the backend'
 
 <model-runs-dir> holds stage2b-scenario-8y-p100-seed{1..10}/run/<id>/digest.json; <twin-runs-dir> holds the rule-only
 twin's sweep-8y-p100-seed{1..10} (run_polity_seed_sweep.py --engine deterministic --profile scenario --seats 15).
-Prints the archetypes, the band checks, the per-feature ranges, the model runs outside the catalogue's p1-p99
-envelope, and each model run's nearest catalogue run in standardised feature space.
+Prints the archetypes, the band checks, the per-feature ranges, the model and twin runs outside the catalogue's p1-p99
+envelope, each model run's nearest catalogue run in standardised feature space (with and without effective parties),
+and the mean pairwise distance within each arm and between them with both arms standardised together.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(SCRIPTS), str(SCRIPTS.parent)]
 import run_polity_catalogue as catalogue  # noqa: E402
+from api.domain.polity.trajectory import distance_matrix  # noqa: E402
 
 KEYS = [
     "panel_stability",
@@ -48,6 +50,7 @@ def rows(base: Path, template: str) -> list[dict]:
         )
         row = catalogue.read_trajectory(digest["trajectory"])
         row["seed"] = seed
+        row["yearly"] = digest["trajectory"]["yearly"]
         out.append(row)
     return out
 
@@ -76,50 +79,116 @@ def main(model_dir: Path, twin_dir: Path, catalogue_dir: Path) -> None:
     show("model", model)
     show("twin", twin)
     show("catalogue", cat)
-    print("\nmodel runs outside the catalogue's p1-p99 envelope:")
-    for k in KEYS:
-        cv = [r[k] for r in cat if r.get(k) is not None]
-        lo, hi = quantile(cv, 0.01), quantile(cv, 0.99)
-        out = [
-            (r["seed"], round(r[k], 3))
-            for r in model
-            if r.get(k) is not None and not lo <= r[k] <= hi
-        ]
-        print(f" {k:15s} [{lo:.3f},{hi:.3f}] model outside: {out}")
+    for arm, rs in (("model", model), ("twin", twin)):
+        print(f"\n{arm} runs outside the catalogue's p1-p99 envelope:")
+        for k in KEYS:
+            cv = [r[k] for r in cat if r.get(k) is not None]
+            lo, hi = quantile(cv, 0.01), quantile(cv, 0.99)
+            out = [
+                (r["seed"], round(r[k], 3))
+                for r in rs
+                if r.get(k) is not None and not lo <= r[k] <= hi
+            ]
+            print(f" {k:15s} [{lo:.3f},{hi:.3f}] outside: {out}")
     sd = {
         k: statistics.pstdev([r[k] for r in cat if r.get(k) is not None]) or 1
         for k in KEYS
     }
 
-    def dist(a: dict, b: dict) -> float:
-        return math.sqrt(
-            sum(
-                ((a[k] - b[k]) / sd[k]) ** 2
-                for k in KEYS
-                if a.get(k) is not None and b.get(k) is not None
+    def make_dist(keys: list[str]):
+        def dist(a: dict, b: dict) -> float:
+            return math.sqrt(
+                sum(
+                    ((a[k] - b[k]) / sd[k]) ** 2
+                    for k in keys
+                    if a.get(k) is not None and b.get(k) is not None
+                )
             )
-        )
 
-    print(
-        "\nnearest catalogue run (own archetype, nearest's archetype, distance in catalogue standard deviations)"
-    )
-    for r in model:
-        n = min(cat, key=lambda b: dist(r, b))
-        print(
-            f" seed {r['seed']:2d} {r['archetype']:13s} -> {n['archetype']:13s} d={dist(r, n):.2f}"
-        )
+        return dist
+
     random.seed(0)
-    nn = [min(dist(a, b) for b in cat if b is not a) for a in random.sample(cat, 100)]
+    sample = random.sample(cat, 100)
+    for label, keys in (
+        ("all nine features", KEYS),
+        ("without effective parties", [k for k in KEYS if k != "enp"]),
+    ):
+        dist = make_dist(keys)
+        print(
+            f"\nnearest catalogue run, {label} (own archetype, nearest's archetype, distance in catalogue standard deviations)"
+        )
+        for r in model:
+            n = min(cat, key=lambda b: dist(r, b))
+            print(
+                f" seed {r['seed']:2d} {r['archetype']:13s} -> {n['archetype']:13s} d={dist(r, n):.2f}"
+            )
+        nn = [min(dist(a, b) for b in cat if b is not a) for a in sample]
+        print(
+            f" catalogue to catalogue, 100 runs: median {statistics.median(nn):.2f}, p90 {quantile(nn, 0.9):.2f}"
+        )
     print(
-        f" catalogue to catalogue, 100 runs: median {statistics.median(nn):.2f}, p90 {quantile(nn, 0.9):.2f}"
-    )
-    print(
-        " archetype shares in the catalogue:",
+        "\narchetype shares in the catalogue:",
         {
             a: round(sum(r["archetype"] == a for r in cat) / len(cat), 3)
             for a in sorted({r["archetype"] for r in cat})
         },
     )
+    # Both arms standardised together: the sweep summary standardises each arm on its own, so its distances do not compare across arms.
+    series = {f"m{r['seed']}": r["yearly"] for r in model} | {
+        f"t{r['seed']}": r["yearly"] for r in twin
+    }
+    pairs, matrix = distance_matrix(series)
+    print("\nmean pairwise distance, both arms standardised together (20 runs):")
+    for name, keep in (
+        ("within model", lambda a, c: a[0] == c[0] == "m"),
+        ("within twin", lambda a, c: a[0] == c[0] == "t"),
+        ("between", lambda a, c: a[0] != c[0]),
+    ):
+        idx = [i for i, (a, c) in enumerate(pairs) if keep(a, c)]
+        print(
+            f" {name:13s} {matrix[idx].mean():.2f} over {len(idx)} pairs; by year {[round(float(x), 2) for x in matrix[idx].mean(axis=0)]}"
+        )
+    founders = []
+    for arm in (model_dir,):
+        for seed in range(1, 11):
+            run_id = f"stage2b-scenario-8y-p100-seed{seed}"
+            events = [
+                json.loads(line)
+                for line in (arm / run_id / "run" / run_id / "events.jsonl")
+                .read_text()
+                .splitlines()
+                if line.strip()
+            ]
+            who = Counter(
+                e["citizen_id"] for e in events if e["event_type"] == "party_founded"
+            )
+            born = {
+                e["payload"]["party_id"]: e["tick"]
+                for e in events
+                if e["event_type"] == "party_founded"
+            }
+            dissolved = [
+                e
+                for e in events
+                if e["event_type"] == "party_dissolved"
+                and e["payload"]["party_id"] in born
+            ]
+            founders.append(
+                (
+                    sum(who.values()),
+                    len(who),
+                    max(who.values()),
+                    len(dissolved),
+                    sum(
+                        e["tick"] - born[e["payload"]["party_id"]] < 4
+                        for e in dissolved
+                    ),
+                )
+            )
+    print(
+        "\nmodel arm per seed: (founded, distinct founders, most by one citizen, dissolved founded parties, of them inside the first year):"
+    )
+    print(founders)
 
 
 if __name__ == "__main__":
