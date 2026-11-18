@@ -5,6 +5,8 @@ ci-local
 voter-app
 # ...except the criteria registry, which a backend test reads (test_method_criteria_registry.py).
 !voter-app/src/data/method_criteria.json
+# ...and the truncated-ballots fixture, which test_truncated_ballots_fixture.py reads and regenerates.
+!voter-app/src/lib/__fixtures__/truncatedBallots.json
 **/node_modules
 **/__pycache__
 **/*.pyc
