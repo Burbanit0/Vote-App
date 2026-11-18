@@ -48,7 +48,7 @@ gates it — see "Why no top-level `paths:` filter" below). In order:
 | Step | Tool | Gate | Config |
 |---|---|---|---|
 | Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | blocking | see the script's own header |
-| Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
+| Install | `uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
 | Ruff | `ruff check fast_api_voter` | blocking, `F` + `NPY002` (test-integrity rules on tests only) | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |

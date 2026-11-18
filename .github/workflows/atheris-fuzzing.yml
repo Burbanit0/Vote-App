@@ -86,7 +86,7 @@ jobs:
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+          uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
 
       # A fuzzer's value compounds across runs if its discovered corpus
       # persists -- a handful of small seed files are committed under

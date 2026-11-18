@@ -230,7 +230,7 @@ jobs:
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+        run: uv pip install --system --require-hashes -r fast_api_voter/requirements.lock.txt
 
       # The backend is a fixture here (Assemblée mode and two Laboratoire fiches
       # call /api/v2/*); it is stateless — no DB, no JWT since auth was removed.
@@ -428,7 +428,7 @@ jobs:
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+        run: uv pip install --system --require-hashes -r fast_api_voter/requirements.lock.txt
 
       - name: Start FastAPI backend (testing mode)
         run: |

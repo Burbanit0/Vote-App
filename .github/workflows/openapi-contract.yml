@@ -119,7 +119,9 @@ jobs:
           cache-dependency-glob: "fast_api_voter/requirements*.txt"
 
       - name: Install backend dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+        # The dev lock (a superset of the prod one, same versions) also carries cogapp, which the
+        # generated-docs step below needs: one hashed install, nothing resolved live.
+        run: uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: env.FULL_CHECK == 'true'
@@ -145,6 +147,4 @@ jobs:
 
       - name: Generated doc blocks in sync
         if: always()
-        run: |
-          uv pip install --system "$(grep -E '^cogapp==' fast_api_voter/requirements-dev.txt | cut -d' ' -f1)"
-          ./scripts/check_generated_docs.sh
+        run: ./scripts/check_generated_docs.sh

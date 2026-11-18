@@ -19,11 +19,11 @@
 #    server (reuseExistingServer is off under CI).
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
-FROM python:3.14-slim-bookworm
+FROM python:3.14-slim-bookworm@sha256:3fe1a0b6c2d6b2ebb572906cdabeca75aeb558c0c17db5ffefbcf8094871c32b
 
 # uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — matches e2e.yml, which uses
 # astral-sh/setup-uv instead of pip.
-COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.11@sha256:79c6f4776b851471cc73b7d21d0cc834bb94383c292e83640d27eff512864df7 /uv /usr/local/bin/uv
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -41,7 +41,7 @@ WORKDIR /app
 
 # Backend deps — cached unless the lock changes. The compiled lock, like e2e.yml.
 COPY fast_api_voter/requirements.lock.txt fast_api_voter/
-RUN uv pip install --system -r fast_api_voter/requirements.lock.txt
+RUN uv pip install --system --require-hashes -r fast_api_voter/requirements.lock.txt
 
 # Frontend deps — cached unless the lockfile changes.
 WORKDIR /app/voter-app
