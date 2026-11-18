@@ -176,7 +176,10 @@ Small PRs, each with the golden byte-identical.
   its prompt says founding is allowed, 10% below the bar and 0.4% when the party is locked; the kernel accepts 492 of 832. The 45 to 54
   foundings follow the prompt's stated rule on a bar of 5 citizens at p100 and the mechanism being on in the model arm only; that suggests they
   are not evidence that the model's judgement adds a party system, but a clear response is neither "no response" nor "inconclusive", and a rule
-  "found at about 0.8 when allowed" was not built or run: whether to test it is open.
+  "found at about 0.8 when allowed" was not built or run at that point.
+  **Rule run 2026-11-17 (EXP-031, CPU, 50 s):** that rule reproduces the model arm's party system (45 to 56 founded, effective parties median 7.7
+  against 8.1, no run inside the band) but not its label spread (churn 6 of 10, entropy 1.30 against 2.25); the leaders and amendments are not
+  separated from the rest. The G2 question narrows to whether the model's leaders and amendments add variety a rule does not.
 - **Gate G2, the owner's call on the numbers.** If model leaders add variety at an acceptable cost,
   Stages 3 and 4 run as written. If they do not, the instrument is the rule engine and its
   catalogue, the model becomes an optional narrator and limit-tester, Stage 3 shrinks to 3d, and
