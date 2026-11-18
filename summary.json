@@ -983,33 +983,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 1,
-   "example": {
-    "job": "Secret Scan",
-    "lines": [
-     "[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader",
-     "[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"",
-     "Removing includeIf entries pointing to credentials config files",
-     "[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:",
-     "[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url",
-     "Cleaning up orphan processes"
-    ],
-    "pr": [],
-    "sha": "1c597682f51bb0a9c237afaa9fb9798ff7d01857",
-    "step": "Run gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/39253338136"
-   },
-   "last_seen": "2026-10-19T12:36:08Z",
-   "signature": "test-flaky: Cleaning up orphan processes",
-   "workflows": [
-    "Security Audit"
-   ]
-  },
-  {
-   "branches": [
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-d4d236b823"
    ],
    "category": "test-flaky",
@@ -1173,9 +1146,9 @@
  "failures_by_category": {
   "advisory": 4,
   "code": 129,
-  "test-flaky": 17
+  "test-flaky": 16
  },
- "generated_at": "2026-11-18T11:49:04Z",
+ "generated_at": "2026-11-18T13:55:43Z",
  "grid": {
   "Backend CI": {
    "2026-10-20": {
@@ -1346,7 +1319,7 @@
   },
   "CI Dashboard": {
    "2026-10-19": {
-    "success": 6
+    "success": 4
    },
    "2026-10-20": {
     "failure": 1,
@@ -1440,7 +1413,7 @@
     "success": 25
    },
    "2026-11-18": {
-    "success": 21
+    "success": 22
    }
   },
   "CI Health Watchdog": {
@@ -2177,9 +2150,6 @@
    }
   },
   "Security Audit": {
-   "2026-10-19": {
-    "failure": 1
-   },
    "2026-10-20": {
     "success": 6
    },
@@ -2313,7 +2283,7 @@
   "polity red alert": {
    "2026-10-19": {
     "skipped": 6,
-    "success": 2
+    "success": 1
    },
    "2026-10-20": {
     "cancelled": 7,
@@ -2511,9 +2481,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-18T10:44:02Z",
+   "created_at": "2026-11-18T11:48:57Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44288164848"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44298083811"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2621,7 +2591,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210568841"
   }
  },
- "runs": 8917,
+ "runs": 8914,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2736,7 +2706,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-19": 359.5,
+    "2026-10-19": 354.0,
     "2026-10-20": 367.0,
     "2026-10-21": 401,
     "2026-10-22": 388.5,
@@ -2766,12 +2736,12 @@
     "2026-11-15": 276,
     "2026-11-16": 323.0,
     "2026-11-17": 245,
-    "2026-11-18": 269
+    "2026-11-18": 268.5
    },
    "p50_s": 336,
    "p95_s": 528,
    "queue_p50_s": 0,
-   "runs": 622
+   "runs": 621
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3288,7 +3258,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-19": 305.5,
+    "2026-10-19": 586,
     "2026-10-20": 30,
     "2026-10-21": 32,
     "2026-10-22": 30.0,
@@ -3323,7 +3293,7 @@
    "p50_s": 27,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 960
+   "runs": 959
   },
   "zizmor online": {
    "daily_p50_s": {
