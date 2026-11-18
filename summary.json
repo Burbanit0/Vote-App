@@ -413,31 +413,6 @@
   },
   {
    "branches": [
-    "develop",
-    "polity"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Frontend mutation score (Stryker, floor 80%)",
-    "lines": [
-     "10:09:05 (2238) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-     "10:09:05 (2238) ERROR Stryker There were failed tests in the initial test run.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0b4cc9c7a407b068331fb2f149b9c7704af1a9af",
-    "step": "Run Stryker (fails under thresholds.break)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
-   },
-   "last_seen": "2026-10-26T10:08:05Z",
-   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-   "workflows": [
-    "Mutation Testing"
-   ]
-  },
-  {
-   "branches": [
     "fix/work-budget-timeouts"
    ],
    "category": "code",
@@ -542,6 +517,31 @@
    "signature": "code: ##[error]The pinned digest is not the one mcr.microsoft.com/playwright:v#.#-noble serves, so Docker would run another browser than the tag s",
    "workflows": [
     "E2E Tests"
+   ]
+  },
+  {
+   "branches": [
+    "develop",
+    "polity"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Frontend mutation score (Stryker, floor 80%)",
+    "lines": [
+     "10:09:05 (2238) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+     "10:09:05 (2238) ERROR Stryker There were failed tests in the initial test run.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "0b4cc9c7a407b068331fb2f149b9c7704af1a9af",
+    "step": "Run Stryker (fails under thresholds.break)",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
+   },
+   "last_seen": "2026-10-26T10:08:05Z",
+   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
+   "workflows": [
+    "Mutation Testing"
    ]
   },
   {
@@ -1172,10 +1172,10 @@
  ],
  "failures_by_category": {
   "advisory": 4,
-  "code": 130,
+  "code": 129,
   "test-flaky": 17
  },
- "generated_at": "2026-11-18T04:17:41Z",
+ "generated_at": "2026-11-18T10:44:11Z",
  "grid": {
   "Backend CI": {
    "2026-10-20": {
@@ -1245,9 +1245,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-19": {
-    "success": 1
-   },
    "2026-10-20": {
     "cancelled": 1,
     "success": 6
@@ -1348,7 +1345,7 @@
   },
   "CI Dashboard": {
    "2026-10-19": {
-    "success": 11
+    "success": 7
    },
    "2026-10-20": {
     "failure": 1,
@@ -1442,7 +1439,7 @@
     "success": 25
    },
    "2026-11-18": {
-    "success": 19
+    "success": 20
    }
   },
   "CI Health Watchdog": {
@@ -1586,9 +1583,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-19": {
-    "success": 1
-   },
    "2026-10-20": {
     "success": 7
    },
@@ -1678,7 +1672,7 @@
     "success": 3
    },
    "2026-11-18": {
-    "success": 4
+    "success": 5
    }
   },
   "Diff Mutation comment": {
@@ -2051,9 +2045,6 @@
    }
   },
   "Mutation Testing": {
-   "2026-10-19": {
-    "failure": 1
-   },
    "2026-10-25": {
     "failure": 1
    },
@@ -2324,7 +2315,7 @@
   "polity red alert": {
    "2026-10-19": {
     "skipped": 6,
-    "success": 6
+    "success": 3
    },
    "2026-10-20": {
     "cancelled": 7,
@@ -2462,7 +2453,7 @@
    "2026-11-18": {
     "cancelled": 5,
     "skipped": 47,
-    "success": 37
+    "success": 38
    }
   },
   "zizmor online": {
@@ -2522,9 +2513,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-18T01:58:56Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44219852831"
+   "created_at": "2026-11-18T04:17:27Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44236292361"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2541,11 +2532,11 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210569015"
   },
   "DAST \u2014 ZAP Baseline": {
-   "branch": "polity",
+   "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-18T01:51:08Z",
-   "event": "push",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44218927883"
+   "created_at": "2026-11-18T10:40:33Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44287632955"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -2619,10 +2610,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-18T02:51:20Z",
+   "conclusion": "success",
+   "created_at": "2026-11-18T10:44:02Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44226261050"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44288164692"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2632,7 +2623,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210568841"
   }
  },
- "runs": 8924,
+ "runs": 8917,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2673,7 +2664,6 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-19": 1010,
     "2026-10-20": 1170.0,
     "2026-10-21": 847,
     "2026-10-22": 1302,
@@ -2704,10 +2694,10 @@
     "2026-11-16": 1002,
     "2026-11-17": 962
    },
-   "p50_s": 1094,
+   "p50_s": 1102,
    "p95_s": 1490,
    "queue_p50_s": 0,
-   "runs": 73
+   "runs": 72
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -2747,7 +2737,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-19": 348,
+    "2026-10-19": 359,
     "2026-10-20": 367.0,
     "2026-10-21": 401,
     "2026-10-22": 388.5,
@@ -2777,12 +2767,12 @@
     "2026-11-15": 276,
     "2026-11-16": 323.0,
     "2026-11-17": 245,
-    "2026-11-18": 270
+    "2026-11-18": 269.0
    },
    "p50_s": 337,
    "p95_s": 528,
    "queue_p50_s": 0,
-   "runs": 625
+   "runs": 622
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2844,7 +2834,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-19": 169,
     "2026-10-20": 175,
     "2026-10-21": 167,
     "2026-10-22": 310.5,
@@ -2874,7 +2863,7 @@
     "2026-11-15": 204.5,
     "2026-11-16": 192.5,
     "2026-11-17": 203,
-    "2026-11-18": 207.0
+    "2026-11-18": 205
    },
    "p50_s": 188,
    "p95_s": 225,
@@ -3301,7 +3290,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-19": 29.0,
+    "2026-10-19": 27,
     "2026-10-20": 30,
     "2026-10-21": 32,
     "2026-10-22": 30.0,
@@ -3331,12 +3320,12 @@
     "2026-11-15": 26,
     "2026-11-16": 31,
     "2026-11-17": 27.0,
-    "2026-11-18": 25
+    "2026-11-18": 25.0
    },
    "p50_s": 27,
    "p95_s": 57,
    "queue_p50_s": 0,
-   "runs": 962
+   "runs": 960
   },
   "zizmor online": {
    "daily_p50_s": {
