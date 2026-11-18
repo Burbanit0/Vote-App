@@ -13,9 +13,13 @@
 #
 # What actually needs catching is narrower: a direct pin in requirements.txt
 # or requirements-dev.txt changed (bumped, added, removed) and nobody
-# regenerated the lockfile to match. This script checks exactly that — every
+# regenerated the lockfile to match. This script checks that — every
 # `pkg==X.Y.Z` line in the source files must appear with the identical
-# version in the corresponding lockfile. It says nothing about whether the
+# version in the corresponding lockfile — and, since issue #692, that the lockfiles are
+# hash-pinned: every pin has `--hash` lines, and every `install -r <lockfile>` in a workflow
+# or Dockerfile passes `--require-hashes`. (It does not check that a hash belongs to its
+# version: a bumped direct pin already fails the version check above, and only a network
+# recompile could check the rest.) It says nothing about whether the
 # lockfile's *transitive* pins are current; that's a separate, deliberately
 # unaddressed question (see the plan doc).
 #
@@ -32,6 +36,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT/fast_api_voter"
 
 python3 - <<'PY'
+import os
 import re
 import sys
 
@@ -83,14 +88,62 @@ for src, lock in CHECKS:
                 f"{lock_version or 'no matching entry'}"
             )
 
+# Hash pinning (issue #692): every lockfile pin carries --hash lines, and every install from a
+# lockfile passes --require-hashes, so a swapped or re-uploaded release is refused, not installed.
+def unhashed(path):
+    bad, name, hashed = [], None, False
+    with open(path) as f:
+        for line in list(f) + ['end==0']:
+            m = PIN_RE.match(line.strip())
+            if m:
+                if name and not hashed:
+                    bad.append(name)
+                name, hashed = m.group(1), False
+            elif '--hash=' in line:
+                hashed = True
+    return bad
+
+
+for lock in ('requirements.lock.txt', 'requirements-dev.lock.txt'):
+    for name in unhashed(lock):
+        problems.append(f"{name}: {lock} has no --hash for it (compile with --generate-hashes)")
+
+INSTALL_RE = re.compile(r'install\b.*-r\s+\S*requirements(-dev)?\.lock\.txt')
+
+
+def scan_targets():
+    """Workflows, the ci-local Dockerfiles, and the Dockerfiles in the repo root and here.
+
+    Bounded on purpose: no walk of the whole tree (node_modules, .git). Where the checkout is
+    not whole (the ci-local container only COPYs what its tests read), a missing directory is
+    skipped, so this half of the check only runs in a real checkout.
+    """
+    for top in ('../.github', '../ci-local'):
+        for dirpath, _, names in os.walk(top):
+            for fname in names:
+                yield os.path.join(dirpath, fname)
+    for top in ('..', '.'):
+        for fname in os.listdir(top):
+            yield os.path.join(top, fname)
+
+
+for path in scan_targets():
+    if not path.endswith(('.yml', '.yaml', '.Dockerfile')) and os.path.basename(path) != 'Dockerfile':
+        continue
+    if not os.path.isfile(path):
+        continue
+    for n, line in enumerate(open(path, errors='replace'), 1):
+        if INSTALL_RE.search(line) and not line.lstrip().startswith('#') and '--require-hashes' not in line:
+            problems.append(f"{path}:{n} installs from a lockfile without --require-hashes")
+
 if problems:
     print("Python lockfiles are stale:", file=sys.stderr)
     for p in problems:
         print(f"  {p}", file=sys.stderr)
     print("", file=sys.stderr)
     print("Regenerate with (from fast_api_voter/):", file=sys.stderr)
-    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt -o requirements.lock.txt", file=sys.stderr)
-    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt requirements-dev.txt -c requirements.lock.txt -o requirements-dev.lock.txt", file=sys.stderr)
+    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt --generate-hashes -o requirements.lock.txt", file=sys.stderr)
+    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt requirements-dev.txt -c requirements.lock.txt --generate-hashes -o requirements-dev.lock.txt", file=sys.stderr)
     sys.exit(1)
 
 print("Python lockfiles match the direct pins in requirements.txt/requirements-dev.txt.")

@@ -36,7 +36,7 @@ WORKDIR /app
 COPY fast_api_voter/requirements.lock.txt .
 # pip itself is removed afterwards: it bundles its own copies of urllib3,
 # msgpack and setuptools that Trivy flags, and nothing needs pip at runtime.
-RUN pip install --no-cache-dir --only-binary=:all: -r requirements.lock.txt \
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements.lock.txt \
     && pip uninstall -y pip
 
 # Backend code, then the built frontend.

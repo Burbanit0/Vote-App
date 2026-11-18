@@ -4,7 +4,7 @@ FROM python:3.15-slim-bookworm@sha256:96599df822d0e1c6bb700014a05c7f3c8cabc6e0f7
 # uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): faster, reproducible installs than
 # pip. Binary copied from Astral's distroless image rather than `pip install
 # uv`, so the bootstrap doesn't need pip at all.
-COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.11@sha256:79c6f4776b851471cc73b7d21d0cc834bb94383c292e83640d27eff512864df7 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # compiled together), like CI and the production image: the audited versions,
 # not whatever is newest on the day the image is built.
 COPY requirements-dev.lock.txt ./
-RUN uv pip install --system --no-cache -r requirements-dev.lock.txt
+RUN uv pip install --system --no-cache --require-hashes -r requirements-dev.lock.txt
 
 # Copy the application code.
 COPY . .

@@ -69,7 +69,7 @@ jobs:
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+          uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
 
       # -o addopts="" drops pyproject.toml's default addopts (coverage gate +
       # the --ignore that keeps this file out of the normal fast test run) —

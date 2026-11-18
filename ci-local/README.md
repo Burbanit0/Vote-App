@@ -72,6 +72,15 @@ the run. The repo was triaged to strict-clean first; triaged false positives liv
 `.gitleaksignore` + `.trivyignore.yaml` (path-scoped), so only NEW problems break it.
 First build is slower (it installs the three scanners); cached afterwards.
 
+## Pinned bases
+
+The `FROM` and `COPY --from=` lines carry an image digest, and the gitleaks and trivy tarballs a
+SHA-256 (`audit.Dockerfile`), so a re-pushed tag or release cannot change what the mirror runs.
+Dependabot's docker ecosystem only reads files named `Dockerfile`, so **these pins are bumped by
+hand**: resolve the new digest with `docker buildx imagetools inspect <image>:<tag>`, and a tarball's
+hash from the release's `checksums.txt`. Python installs use `--require-hashes` against the
+backend lockfiles.
+
 ## Performance
 
 First build downloads the base images and runs `npm ci` / `pip install` (a few
