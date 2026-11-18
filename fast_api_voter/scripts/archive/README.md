@@ -26,6 +26,10 @@ What is here:
   per-feature envelope. It imports `run_polity_catalogue` from `scripts/`, so it runs from `fast_api_voter/` as its docstring says.
 - **`classify_model_leaders_against_rules.py`** (EXP-029, Stage 2c): reads the model's presidents' and nominees' moves in the EXP-028 runs
   against ADR-040's four leader rules, from their journals and snapshots; CPU only.
+- **`read_founding_against_the_gate.py`** (EXP-030): reads each forum turn's `found` against the co-founder count its prompt showed,
+  from the EXP-028 runs' logged prompts; CPU only.
+- **`run_rule_forum_founding.py`, `compare_rule_forum_arm.py`** (EXP-031): the scenario profile with the forum answered by a rule client
+  (no model, no engine change), ten seeds in about a minute, and its comparison with the model arm and the rule twin.
 - **Four prompt builders and their tests, archived 2026-11-16** (`polity_archived_builders.py`,
   `test_archived_prompt_builders.py`): `build_candidacy_system_prompt_toon_calibrated`,
   `build_coalition_system_prompt_calibrated` and the TOON pressure pair, moved out of
