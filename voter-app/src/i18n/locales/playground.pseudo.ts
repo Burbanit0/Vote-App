@@ -1682,6 +1682,11 @@ const pgPseudo: PlaygroundKeys = {
     searchResults_one: '⟦{{count}} fíçhé~~ çórréspóñd~~~~⟧',
     searchResults_other: '⟦{{count}} fíçhés~~~ çórréspóñdéñt~~~~~⟧',
     searchEmpty: '⟦Áúçúñé~~~ fíçhé~~ ñé~ çórréspóñd~~~~ à~ «~ {{q}} ».~⟧',
+    ficheError: {
+      title: '⟦Cétté~~ fíçhé~~ á~ réñçóñtré~~~~ úñé~~ érréúr~~~⟧',
+      body: '⟦Lé~ résté~~ dú~ Lábórátóíré~~~~ fóñçtíóññé~~~~ :~ çhóísísséz~~~~ úñé~~ áútré~~ fíçhé,~~~ óú~ rééssáyéz~~~~ çéllé-çí.~~~~⟧',
+      retry: '⟦Rééssáyér~~~~⟧',
+    },
     matrix: {
       title: '⟦Cómpáráísóñ~~~~ dés~~ méthódés~~~⟧',
       colMethod: '⟦Méthódé~~~⟧',
