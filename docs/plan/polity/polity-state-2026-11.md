@@ -172,9 +172,10 @@ Small PRs, each with the golden byte-identical.
   prompt shows (99% of the nominees' shifted dimensions, 76% of the presidents'), with no pull toward their party, presidents reverse
   their previous move more often than they repeat it, and the steps are several times a rule's; read from their own shifts, since no
   rule moves anything in these runs.
-  **Founding read 2026-11-18 (EXP-030, CPU on the logged prompts):** the 45 to 54 foundings follow the prompt's own number (3 of 1,620
-  turns found below the bar, 489 of 1,680 at or above it, 20% at the bar and 42 to 50% well above); they come from the mechanism being on,
-  a bar of 5 citizens at p100 and a 29% rate once eligible, and the twin has the option off. Not an artefact; whether 29% is right is open.
+  **Founding read 2026-11-18 (EXP-030, CPU on the call log and the logged prompts):** the model answers `found` on 80% of the turns where
+  its prompt says founding is allowed, 10% below the bar and 0.4% when the party is locked; the kernel accepts 492 of 832. The 45 to 54
+  foundings follow the prompt's stated rule on a bar of 5 citizens at p100 and the mechanism being on in the model arm only, so they are not
+  evidence that the model's judgement adds a party system. A rule "found at about 0.8 when allowed" was not built or run.
 - **Gate G2, the owner's call on the numbers.** If model leaders add variety at an acceptable cost,
   Stages 3 and 4 run as written. If they do not, the instrument is the rule engine and its
   catalogue, the model becomes an optional narrator and limit-tester, Stage 3 shrinks to 3d, and
