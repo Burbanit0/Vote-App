@@ -85,7 +85,7 @@ jobs:
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+          uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
 
       # Scope (which files get mutated, which tests run) lives entirely in
       # fast_api_voter/pyproject.toml's [tool.mutmut] — this step just runs it.

@@ -90,7 +90,7 @@ jobs:
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: uv pip install --system -r fast_api_voter/requirements.lock.txt
+        run: uv pip install --system --require-hashes -r fast_api_voter/requirements.lock.txt
 
       - name: Start FastAPI backend (testing mode)
         run: |

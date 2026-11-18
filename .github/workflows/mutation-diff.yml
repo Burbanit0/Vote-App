@@ -153,7 +153,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
       - name: Install production + dev dependencies (from the lockfile)
-        run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+        run: uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
       - name: Changed functions
         id: plan
         env:

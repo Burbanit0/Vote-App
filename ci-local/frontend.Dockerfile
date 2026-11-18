@@ -10,7 +10,7 @@
 #
 # Build = environment + install (cached). The CI checks run as CMD, so `docker run`
 # exits non-zero exactly when the PR would fail.
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
 
 ENV DEBIAN_FRONTEND=noninteractive CI=true
 RUN apt-get update \

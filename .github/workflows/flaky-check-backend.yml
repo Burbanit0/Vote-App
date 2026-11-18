@@ -72,7 +72,7 @@ jobs:
 
       - name: Install production + dev dependencies
         run: |
-          uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+          uv pip install --system --require-hashes -r fast_api_voter/requirements-dev.lock.txt
 
       - name: Run the suite 3x and diff outcomes
         run: python scripts/check_flaky_backend.py --runs 3

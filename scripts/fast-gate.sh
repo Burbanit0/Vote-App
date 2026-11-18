@@ -92,7 +92,7 @@ for py in python3 python; do
   if ! "$py" -c "import sys; sys.exit(sys.version_info[:2] < tuple(map(int, '${NEED_PY:-0.0}'.split('.'))))" 2>/dev/null; then
     BACKEND_WHY="$py is $("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo missing), the backend needs ${NEED_PY} (put a ${NEED_PY} venv first on PATH)"
   elif ! "$py" -c 'import fastapi, pydantic' 2>/dev/null; then
-    BACKEND_WHY="backend deps not installed for $py (pip install -r fast_api_voter/requirements-dev.lock.txt)"
+    BACKEND_WHY="backend deps not installed for $py (pip install --require-hashes -r fast_api_voter/requirements-dev.lock.txt)"
   fi
   [ -n "$BACKEND_WHY" ] && break
 done
