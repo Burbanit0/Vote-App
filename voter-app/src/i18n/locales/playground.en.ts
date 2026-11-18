@@ -1502,6 +1502,11 @@ const pgEn: PlaygroundKeys = {
     searchResults_one: '{{count}} fiche matches',
     searchResults_other: '{{count}} fiches match',
     searchEmpty: 'No fiche matches “{{q}}”.',
+    ficheError: {
+      title: 'This fiche hit an error',
+      body: 'The rest of the Laboratoire still works: pick another fiche, or try this one again.',
+      retry: 'Try again',
+    },
     matrix: {
       title: 'Method comparison',
       colMethod: 'Method',

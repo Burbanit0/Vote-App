@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import ReportContentError from '../components/shared/ui/ReportContentError';
+import FicheBoundary from '../components/lab/FicheBoundary';
 import { Link, useSearchParams } from 'react-router';
 import {
   Columns2,
@@ -199,9 +200,12 @@ const BenchFiche: React.FC<{
           </p>
         )}
         <div className="p-5 sm:p-6">
-          <React.Suspense fallback={<AnchorFallback />}>
-            <Body />
-          </React.Suspense>
+          {/* Outside the Suspense: a chunk that fails to load is this fiche's error too. */}
+          <FicheBoundary>
+            <React.Suspense fallback={<AnchorFallback />}>
+              <Body />
+            </React.Suspense>
+          </FicheBoundary>
         </div>
       </div>
       <footer className="border-t border-border px-5 py-2 text-right sm:px-6">

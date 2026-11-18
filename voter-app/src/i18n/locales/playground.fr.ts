@@ -1525,6 +1525,11 @@ const pgFr = {
     searchResults_one: '{{count}} fiche correspond',
     searchResults_other: '{{count}} fiches correspondent',
     searchEmpty: 'Aucune fiche ne correspond à « {{q}} ».',
+    ficheError: {
+      title: 'Cette fiche a rencontré une erreur',
+      body: 'Le reste du Laboratoire fonctionne : choisissez une autre fiche, ou réessayez celle-ci.',
+      retry: 'Réessayer',
+    },
     matrix: {
       title: 'Comparaison des méthodes',
       colMethod: 'Méthode',
