@@ -89,7 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--arm", choices=sorted(ARMS), default=None,
                         help="an A/B arm on the same cases: another schema (vote_grammar, S1.2) or request fields "
                              "(thinking_budget_4096/2048, S1.3; thinking_sampling, S1.4)")
+    parser.add_argument("--structured-output", choices=("schema", "grammar"), default=None,
+                        help="vllm only: send each schema as response_format, or as the EBNF grammar that fixes the "
+                             "JSON spacing (llm_client.wire_grammar). Default: the client's own")
     args = parser.parse_args(argv)
+    if args.structured_output is not None and (args.provider != "vllm" or args.replay_calls_from is not None):
+        parser.error("--structured-output changes only the bytes a live vllm client sends")
     if args.arm is not None and ARMS[args.arm].wire_order is not None and args.provider != "vllm":
         parser.error(f"--arm {args.arm} sets the order the schema is sent in, which only the vllm client honours")
     if args.arm is not None and ARMS[args.arm].wire_order is not None and args.replay_calls_from is not None:
@@ -101,6 +106,10 @@ def main(argv: list[str] | None = None) -> int:
     metadata = session_metadata(args, config)
     replaying = args.replay_calls_from is not None
     client: Any = ReplayClient(read_calls(_call_log(args.replay_calls_from))) if replaying else build_json_client(config.llm, seed=config.run.seed)
+    if args.structured_output is not None:
+        client.structured_output = args.structured_output
+    # what this session's client sends, not the flag: sessions from before and after ADR-041 must stay tellable apart
+    metadata["structured_output"] = getattr(client, "structured_output", None)
     try:
         session_dir = run_session(
             bank, client, config, args.out / args.label, metadata=metadata, families=args.families,

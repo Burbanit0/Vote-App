@@ -11,7 +11,8 @@ import pytest
 from api.domain.polity import model_profiles
 from api.domain.polity.config import PolityConfigError, load_config, validate_config
 from api.domain.polity.llm_behavior_engine import _chamber_chunk_size, _dynamic_max_tokens, _vote_cast_chunk_size, compute_max_tokens
-from api.domain.polity.llm_client import VllmJsonClient
+from api.domain.polity.llm_client import WIRE_ORDER, VllmJsonClient, wire_grammar
+from api.domain.polity.llm_schemas import CANDIDACY_JSON_SCHEMA
 from api.domain.polity.model_profiles import (
     QWEN3_8B_AWQ_VLLM,
     QWEN3_8B_OLLAMA,
@@ -133,11 +134,13 @@ def test_the_qwen_request_body_is_pinned_byte_for_byte() -> None:
 
     client = VllmJsonClient.from_config(_llm_config().llm, seed=42)
     client._client = httpx.Client(transport=httpx.MockTransport(handler))
-    client.complete_json(system_prompt="s", user_prompt="u", json_schema={"type": "object"}, max_tokens=64, think=True)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=CANDIDACY_JSON_SCHEMA, max_tokens=64, think=True)
+    # Since the wire grammar (EXP-032) a configured client sends the schema as its grammar, not as response_format.
+    grammar = json.dumps(wire_grammar(CANDIDACY_JSON_SCHEMA, WIRE_ORDER))
     assert payloads == [
         '{"chat_template_kwargs":{"enable_thinking":true},"max_tokens":64,"messages":[{"content":"s","role":"system"},'
-        '{"content":"u","role":"user"}],"model":"qwen3:8b","response_format":{"json_schema":{"name":"polity_decision_batch",'
-        '"schema":{"type":"object"},"strict":true},"type":"json_schema"},"seed":42,"stream":false,"temperature":0.0}'
+        '{"content":"u","role":"user"}],"model":"qwen3:8b","seed":42,"stream":false,'
+        '"structured_outputs":{"grammar":' + grammar + '},"temperature":0.0}'
     ]
 
 

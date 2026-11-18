@@ -351,7 +351,7 @@
      "calls": [],
      "ref": {
       "file": "llm_client.py",
-      "line": 222,
+      "line": 225,
       "label": null,
       "expect": "WIRE_ORDER: Mapping[str, tuple[str, ...]] = {"
      }
