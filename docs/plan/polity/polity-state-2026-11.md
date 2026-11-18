@@ -177,7 +177,8 @@ Small PRs, each with the golden byte-identical.
   foundings follow the prompt's stated rule on a bar of 5 citizens at p100 and the mechanism being on in the model arm only; that suggests they
   are not evidence that the model's judgement adds a party system, but a clear response is neither "no response" nor "inconclusive", and a rule
   "found at about 0.8 when allowed" was not built or run at that point.
-  **Rule run 2026-11-17 (EXP-031, CPU, about 50 s per ten seeds):** a rule that founds when the prompt's bar is met gives the model arm's party
+  **Rule run 2026-11-17 (EXP-031, CPU, 20 to 50 s per ten seeds; a rule client injected into the llm path, not the engine rule path the owner
+  described, and the arm is the model arm's config with the founding answered by a rule, not the twin):** a rule that founds when the prompt's bar is met gives the model arm's party
   system (45 to 56 founded, effective parties median 7.7 against 8.1, 0 of 10 runs inside the band against 1 of 10), and the same arm with founding
   off gives the twin's; the extra parties and the plausibility failure come from the mechanism, not from the model. The model arm's label spread is
   not shown to differ at ten seeds. The G2 question narrows to whether the model's leaders and amendments add variety a rule does not.

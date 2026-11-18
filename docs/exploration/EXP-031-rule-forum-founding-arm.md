@@ -1,13 +1,15 @@
 # EXP-031 — The model arm's party system, reproduced with a rule instead of the model
 
-- **Date**: 2026-11-17 · **Status**: measured, CPU only, ten seeds per arm; it separates the party system from the model, not the leaders from the amendments · **Real cost**: about 50 s of CPU per ten runs (the model arm took 5 h 14 min of GPU); no GPU, no rented compute
-- **Verdict in one sentence**: a rule that answers the forum with `found` on 80% of the turns where the prompt's own condition allows it, and nothing otherwise, gave on ten seeds the model arm's party system (45 to 56 parties founded a run against 45 to 54, effective parties median 7.7 against 8.1, 0 of 10 runs inside the plausibility band against 1 of 10), and the same rule at rate 0 gave the twin's (no party founded, effective parties 4.4, 10 of 10 inside the band); so the extra parties and the plausibility failure come from the founding mechanism being on, not from the model, and not from the president or mechanisms this arm switches off; the model arm's wider spread of labels is **not** shown to differ from this arm's (ten seeds each cannot tell them apart).
+- **Date**: 2026-11-17 · **Status**: measured, CPU only, ten seeds per arm; it separates the party system from the model, not the leaders from the amendments · **Real cost**: 20 to 50 s of CPU per ten runs (the model arm took 5 h 14 min of GPU); no GPU, no rented compute
+- **Verdict in one sentence**: a rule that answers the forum with `found` on 80% of the turns where the prompt's own condition allows it, and nothing otherwise, gave on ten seeds the model arm's party system (45 to 56 parties founded a run against 45 to 54, effective parties median 7.7 against 8.1, 0 of 10 runs inside the plausibility band against 1 of 10), and the same arm at rate 0 gave a twin-like result (no party founded, effective parties 4.4, 10 of 10 inside the band; the twin itself has 7 of 10, and differs in turnout cost); so the extra parties and the plausibility failure come from the founding mechanism being on, not from the model, and not from the president or mechanisms this arm switches off; the model arm's wider spread of labels is **not** shown to differ from this arm's (ten seeds each cannot tell them apart).
 
 ## Starting hypothesis
 
 EXP-030 found that the model founds a party on 80% of the turns its prompt says founding is allowed and almost never otherwise, consistent with the prompt telling it when to found; it did not test that a rule would do the same. The owner chose (2026-11-17) "a rule run, no GPU". If a rule that follows the prompt's condition gives the model arm's party system, that system does not depend on the model; if not, the model's founding does something the condition does not explain.
 
 ## Protocol
+
+**How this differs from what the owner chose.** The option read "add a rule ... in the rule twin with party_moves on ... a rule path for party moves in the deterministic engine", an engine change. This run makes none: it injects a rule client into the llm path, so the arm is the model arm's configuration with the founding (and the president's turn) answered by a rule, not the twin plus party moves. It keeps every setting except the answering agent the same as the model arm's, which is why it was used; it costs the property that the arm is a twin. The engine path stays unbuilt and is the owner's call.
 
 `fast_api_voter/scripts/archive/run_rule_forum_founding.py` (8 years, 100 citizens, 15 seats, the `polity` tree at `56cb898b`; ten seeds 1 to 10 per arm) and `compare_rule_forum_arm.py` against EXP-028's model arm and rule twin. No engine change: the scenario profile is built as the model arm ran it, with a **rule client** injected in place of vLLM:
 
@@ -46,12 +48,12 @@ The mean pairwise distance (the 30 runs standardised together) is 3.01 within th
 - **Matching 45 to 54 founded is partly calibration**: 0.8 is the model's rate where allowed, so the founding counts agree by construction. The effective parties and the plausibility failure agree at rates from 0.2 to 1.0, which is why they, and not the counts, are the evidence that the mechanism and not the rate is the cause.
 - **The model arm's highest effective parties (10.5, 10.3, 9.5) lie above the rule arm's maximum (8.7)**; EXP-028 links those three runs to a threshold lowered by amendment, which the rule arm lacks. The medians (8.1 and 7.7) and the band failures agree; the tails do not.
 - **Labels**: at 0.8 the rule arm reads churn on 6 of 10 runs against 2 of 10 in the model arm (Fisher exact p 0.17) and fails the divergence test's dominant-story condition by one run; at 0.2 it has four labels and no dominant story, at 1.0 churn 5. The label spread of the two arms is **not shown to differ** with ten seeds each.
-- **Acceptance**: 754 `found` answers over the ten runs, 503 accepted (67%); the model's 832 and 492 (59%, EXP-030). The rule never answers `found` below the bar or under a lock, which the model did on 62 turns, so its refusals have a different mix.
+- **Acceptance**: 754 `found` answers over the ten runs, 503 accepted (67%); the model's 832 and 492 (59%, EXP-030). The rule never answers `found` below the bar or under a lock, which the model did on 62 turns, so its refusals have a different mix. Why a third of even the rule's answers are refused was not traced (a recount after the same tick's other foundings would fit, as in EXP-030).
 - **Pairing**: at rate 0 the effective parties equal the twin's seed for seed on several seeds (the engine draws agree until a founding changes the stream), so a paired reading against the twin was available and was not made.
 
 ## What it cost
 
-About 50 s of CPU for each ten seeds (3 to 5 s a run), five times (the rates); the model arm took 5 h 14 min of the local GPU. No rented compute.
+20 to 50 s of CPU for each ten seeds (2 to 5 s a run, measured at two times of day), five times (the rates); the model arm took 5 h 14 min of the local GPU. No rented compute.
 
 ## Verdict and why
 
