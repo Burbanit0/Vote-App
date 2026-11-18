@@ -22,6 +22,10 @@ What is here:
   the vote-cast cache checks). No code, workflow or script referenced them; their results are in their
   `_results.md` and the plan docs. `check_vllm_speculation_ab` was meant to go with them and was kept: it is
   the measuring step of the vLLM bump protocol (the 0.29-0.31 bump notes and EXP-019 all run it).
+- **`place_model_runs_on_catalogue.py`** (EXP-028, Stage 2b): places the ten model-led scenario runs on the rule catalogue's
+  per-feature envelope. It imports `run_polity_catalogue` from `scripts/`, so it runs from `fast_api_voter/` as its docstring says.
+- **`classify_model_leaders_against_rules.py`** (EXP-029, Stage 2c): reads the model's presidents' and nominees' moves in the EXP-028 runs
+  against ADR-040's four leader rules, from their journals and snapshots; CPU only.
 - **Four prompt builders and their tests, archived 2026-11-16** (`polity_archived_builders.py`,
   `test_archived_prompt_builders.py`): `build_candidacy_system_prompt_toon_calibrated`,
   `build_coalition_system_prompt_calibrated` and the TOON pressure pair, moved out of

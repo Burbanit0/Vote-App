@@ -44,5 +44,5 @@ The catalogue of scenarios with two new dimensions, `leader_rule` (the four rule
 - **The run explorer draws a party where it started**: per-year party markers need an API and page change; the
   platforms are in the journal (`party_repositioned` carries the new one), and `check_observations.py` skips its
   nomination ranks for a run whose parties moved.
-- **The second half of step 7**, classifying the LLM president against these rules, needs the model and has not run.
+- **The second half of step 7**, classifying the LLM president against these rules, needs the model and has not run when this ADR was written. Read 2026-11-17 on ten model-led runs ([EXP-029](../exploration/EXP-029-model-leaders-against-the-four-leader-rules.md)): none of the four rules fits the model's leaders, who move toward the public median the prompt shows, by steps several times these rules'.
 - **A checkpoint written before these fields cannot resume after them**: the two keys change `config_hash` for every configuration (loud, at resume time).
