@@ -177,9 +177,10 @@ Small PRs, each with the golden byte-identical.
   foundings follow the prompt's stated rule on a bar of 5 citizens at p100 and the mechanism being on in the model arm only; that suggests they
   are not evidence that the model's judgement adds a party system, but a clear response is neither "no response" nor "inconclusive", and a rule
   "found at about 0.8 when allowed" was not built or run at that point.
-  **Rule run 2026-11-17 (EXP-031, CPU, 50 s):** that rule reproduces the model arm's party system (45 to 56 founded, effective parties median 7.7
-  against 8.1, no run inside the band) but not its label spread (churn 6 of 10, entropy 1.30 against 2.25); the leaders and amendments are not
-  separated from the rest. The G2 question narrows to whether the model's leaders and amendments add variety a rule does not.
+  **Rule run 2026-11-17 (EXP-031, CPU, about 50 s per ten seeds):** a rule that founds when the prompt's bar is met gives the model arm's party
+  system (45 to 56 founded, effective parties median 7.7 against 8.1, 0 of 10 runs inside the band against 1 of 10), and the same arm with founding
+  off gives the twin's; the extra parties and the plausibility failure come from the mechanism, not from the model. The model arm's label spread is
+  not shown to differ at ten seeds. The G2 question narrows to whether the model's leaders and amendments add variety a rule does not.
 - **Gate G2, the owner's call on the numbers.** If model leaders add variety at an acceptable cost,
   Stages 3 and 4 run as written. If they do not, the instrument is the rule engine and its
   catalogue, the model becomes an optional narrator and limit-tester, Stage 3 shrinks to 3d, and

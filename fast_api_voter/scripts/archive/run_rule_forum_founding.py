@@ -78,7 +78,13 @@ class RuleForumClient:
                 f"the rule client answers forum and president turns only, got {title!r}"
             )
         m = STAND.search(user_prompt)
-        allowed = m is not None and int(m[1]) >= int(m[3]) and LOCK not in user_prompt
+        if (
+            m is None
+        ):  # the stand line is absent only if its wording changed: an arm that never founds would look valid
+            raise RuntimeError(
+                "no stand line in a forum prompt: the rule cannot read the founding condition"
+            )
+        allowed = int(m[1]) >= int(m[3]) and LOCK not in user_prompt
         draw = random.Random(
             hashlib.sha256(f"{self.seed}|{user_prompt}".encode()).hexdigest()
         ).random()
