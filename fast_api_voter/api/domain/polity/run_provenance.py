@@ -39,7 +39,7 @@ _BACKEND_DIR = _POLITY_DIR.parents[2]
 # so registering an event changes the prompts -- as registering party_founded/party_dissolved did.
 PROMPT_SOURCE_FILES = (
     "llm_behavior_engine.py", "agents.py", "amendments.py", "codebook.py", "events.py", "llm_schemas.py",
-    "llm_toon_encoding.py", "llm_client.py",
+    "llm_toon_encoding.py", "llm_client.py", "wire_grammars.json",
 )
 
 _PROBE_TIMEOUT_SECONDS = 5.0

@@ -49,6 +49,7 @@ Area: **app** (Vote Lab), **polity** (the simulator's model), **LLM** (serving a
 | [038](ADR-038-economic-voting-calibrated-on-volatility.md) | Economic voting at 0.3 in the scenario profile: at ADR-034's 1.0 it swung whole blocs between elections (volatility 0.36) | polity | 2026-10-24 | Accepted |
 | [039](ADR-039-turnout-cost.md) | A voter whose best candidate is within 0.02 of the blank ballot stays home (scenario profile): at 0 turnout sat above the band in 42% of runs | polity | 2026-10-24 | Accepted |
 | [040](ADR-040-party-leaders-move-their-platform.md) | Party leaders move their platform by Laver and Sergenti's rules (sticker, aggregator, hunter, explorer), off by default; hunters make churn | polity | 2026-10-25 | Accepted (off) |
+| [041](ADR-041-json-spacing-is-part-of-the-prompt.md) | The JSON spacing of an answer is part of the prompt: the vLLM client sends each schema as its EBNF grammar (a generated artifact), so the server's separators default no longer decides it | polity | 2026-11-17 | Proposed (built) |
 
 Also in this folder, not ADRs:
 

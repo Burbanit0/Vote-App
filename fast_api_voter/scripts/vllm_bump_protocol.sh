@@ -6,9 +6,11 @@
 # What it does, in this order (each step logs its exit code; only the PROBE can stop the chain):
 #   PRE   preflight: nothing else on the GPU, the new image is local (PULL=1 pulls it), disk space.
 #   B0-B1 serve the NEW tag, then the two-minute PROBE (representative_response, 45 cases, 50 answers).
-#         Below PROBE_MIN valid answers the chain STOPS and prints the diagnosis arms (EXP-026): vLLM 0.32
-#         and 0.33 both failed here (compact JSON separators, vLLM PR #58067). Nothing else is worth
-#         running on a server that fails it. Set FORCE=1 to continue anyway.
+#         Below PROBE_MIN valid answers the chain STOPS and says where to look. vLLM 0.32 to 0.34 failed here
+#         while the client sent schemas (compact JSON separators, vLLM PR #58067, EXP-026); it now sends each
+#         schema as its grammar, spacing included (ADR-041, EXP-032), so a failure is something else. Nothing
+#         else is worth running on a server that fails it. Set FORCE=1 to continue anyway; PROBE_ONLY=1 stops
+#         after the probe either way (about 5 minutes of GPU).
 #   B2-B10 thinking budget, determinism within and across a restart, three restarts, the live suite,
 #         warm-up + two 2-year A/B runs, the full bank.
 #   O     the ADR-030 field-order check on the new tag (check_schema_order.py).
@@ -113,6 +115,9 @@ if ! docker image inspect "vllm/vllm-openai:$NEW_TAG" >/dev/null 2>&1; then
 fi
 docker image inspect "vllm/vllm-openai:$OLD_TAG" >/dev/null 2>&1 || die "the control image $OLD_TAG is not local"
 "$PY" -c "import api.domain.polity.config" || die "PY=$PY cannot import the backend (use the polity worktree's .venv)"
+# the grammars the client sends (ADR-041): are they what the new image's xgrammar builds, and does it parse them?
+# Information, not a stop: the artifact is the reference, and the probe is what judges the server.
+"$PY" scripts/gen_wire_grammars.py --check --image "vllm/vllm-openai:$NEW_TAG" 2>&1 | tail -4
 echo "preflight ok: GPU ${used} MiB used, ${free_gb} GB free, images present"
 [ "${DRY:-0}" = 1 ] && { echo "DRY=1: stopping here"; exit 0; }
 
@@ -127,8 +132,6 @@ done
 cleanup() {
   trap - EXIT
   docker compose -f "$NEW" down >/dev/null 2>&1; docker compose -f "$CTRL" down >/dev/null 2>&1
-  docker compose -f "$HERE/docker-compose.llm.bump-arm.yml" down >/dev/null 2>&1
-  docker rmi "vllm-probe:$NEW_TAG-sep" >/dev/null 2>&1
   for f in $CLEAN_AT_START; do   # only the files that were clean before the run: never discard someone's edits
     if ! git diff --quiet -- "$f" 2>/dev/null; then cp "$f" "$OUT/$(basename "$f" .md).new-run.md"; git checkout -- "$f"; fi
   done
@@ -141,43 +144,17 @@ step B0 serve "$NEW_TAG"; must_serve "$NEW"
 step B1 PROBE response_sweep on "$NEW_TAG"; bank probe-new --families response_sweep
 ok="$(probe_valid probe-new)"; echo "PROBE: $ok valid (stop below $PROBE_MIN of 50)"
 probe_failed() { case "$1" in [0-9]*/[0-9]*) [ "${1%%/*}" -lt "$PROBE_MIN" ];; *) true;; esac; }  # no result counts as a fail
+[ "${PROBE_ONLY:-0}" = 1 ] && { echo "PROBE_ONLY=1: stopping after the probe"; exit 0; }
 if probe_failed "$ok" && [ "${FORCE:-0}" != 1 ]; then
-  # The one-variable arm that explained 0.33 (EXP-026): the same image with the compact-JSON line undone.
-  # ARM=0 skips it. If it passes, the cause is the same line and only the pin decision is left.
-  if [ "${ARM:-1}" = 1 ]; then
-    step B1b ARM separators restored on "$NEW_TAG" "(build, serve, probe: about 6 minutes)"
-    ARM_DIR="$OUT/arm-separators"; mkdir -p "$ARM_DIR"
-    cat > "$ARM_DIR/Dockerfile" <<DOCKER
-FROM vllm/vllm-openai:$NEW_TAG
-RUN f=\$(python3 -c "import vllm,os;print(os.path.join(os.path.dirname(vllm.__file__),'v1/structured_output/backend_xgrammar.py'))") \\
- && python3 - "\$f" <<'PYEOF'
-import sys
-p = sys.argv[1]; s = open(p).read()
-old = 'separators = (",", ":") if self.disable_any_whitespace else None'
-assert s.count(old) == 1, "the separators line is not where it was: read the new backend_xgrammar.py"
-open(p, "w").write(s.replace(old, "separators = None  # probe: 0.31 behaviour"))
-PYEOF
-DOCKER
-    if docker build -q -t "vllm-probe:$NEW_TAG-sep" "$ARM_DIR" > "$ARM_DIR/build.log" 2>&1; then
-      sed "s#vllm/vllm-openai:$NEW_TAG#vllm-probe:$NEW_TAG-sep#" "$NEW" > "$HERE/docker-compose.llm.bump-arm.yml"
-      serve "$HERE/docker-compose.llm.bump-arm.yml" || echo "ARM server did not come up"
-      bank probe-arm-sep --families response_sweep
-      echo "ARM separators restored: $(probe_valid probe-arm-sep) valid  (stock $NEW_TAG: $ok, $OLD_TAG: see EXP-026, 48/50)"
-      docker compose -f "$HERE/docker-compose.llm.bump-arm.yml" down 2>&1 | tail -1
-      docker rmi "vllm-probe:$NEW_TAG-sep" >/dev/null 2>&1
-    else
-      echo "ARM not built (see $ARM_DIR/build.log): $(tail -3 "$ARM_DIR/build.log")"
-    fi
-  fi
   cat <<EOF
 
-PROBE FAILED on $NEW_TAG ($ok). This is the 0.32 / 0.33 failure unless the raw outputs say otherwise:
-  1. Look at the answers: \`grep -c '"shifts": \[\]' $OUT/bank/probe-new/results.jsonl\`-style. Every answer
-     "stance":1 or 2 with "shifts":[] is the compact-JSON collapse (docs/exploration/EXP-026).
-  2. Check upstream first: does StructuredOutputsConfig now have a separators setting, or is PR #58067
-     reverted? \`docker run --rm vllm/vllm-openai:$NEW_TAG python3 -c "import vllm.config as c; print(c.StructuredOutputsConfig.__dataclass_fields__.keys())"\`
-  3. One-variable arms, 2 minutes each, as in EXP-026: no EAGLE-3 (drop --speculative-config), and the
-     separators line restored (backend_xgrammar.py: separators = None). docs/exploration/EXP-026 has both Dockerfiles.
+PROBE FAILED on $NEW_TAG ($ok). The client sends each schema as its grammar (ADR-041), so this is NOT the
+compact-JSON collapse of 0.32 to 0.34 (EXP-026): the separators line cannot touch a grammar request.
+  1. Look at the answers: $OUT/bank/probe-new/results.jsonl and llm_calls.jsonl (raw content, finish reasons).
+  2. Did the server take the grammars? \`docker logs vllm-polity 2>&1 | grep -iE "grammar|400|Traceback"\`, and
+     \`$PY scripts/gen_wire_grammars.py --check --image vllm/vllm-openai:$NEW_TAG\` (the preflight printed it).
+  3. The same probe with the schema instead: \`$PY scripts/run_bakeoff.py --label probe-new-schema --out $OUT/bank
+     --families response_sweep --structured-output schema\` (compact JSON on these versions: expect about 0 of 50).
   4. The pin stays on $OLD_TAG (owner's call). Re-run with FORCE=1 to run the rest anyway.
 EOF
   echo "CHAIN_STOPPED_AT_PROBE $(date -u +%FT%TZ)"; exit 2

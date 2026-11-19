@@ -60,12 +60,15 @@ The Ollama client sorts everything.
 from __future__ import annotations
 
 import copy
+import functools
+import hashlib
 import json
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from types import TracebackType
-from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Literal, Mapping, Protocol, Sequence, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -249,6 +252,37 @@ def _canonical(node: Any, order: Mapping[str, Sequence[str]]) -> Any:
     if isinstance(node, (list, tuple)):
         return [_canonical(item, order) for item in node]
     return node
+
+
+_WIRE_GRAMMARS_PATH = Path(__file__).with_name("wire_grammars.json")
+
+
+def wire_schema(json_schema: dict[str, Any], order: Mapping[str, Sequence[str]]) -> str:
+    """`json_schema` as the vLLM client puts it on the wire: refs inlined, fields in `order`, compact."""
+    return json.dumps(_canonical(_inline_refs(json_schema), order), separators=(",", ":"))
+
+
+@functools.cache
+def _wire_grammars() -> dict[str, str]:
+    grammars: dict[str, str] = json.loads(_WIRE_GRAMMARS_PATH.read_text(encoding="utf-8"))["grammars"]
+    return grammars
+
+
+def wire_grammar(json_schema: dict[str, Any], order: Mapping[str, Sequence[str]]) -> str:
+    """The EBNF grammar of `json_schema` under `order`, with ", " and ": " between tokens: what xgrammar builds
+    from that schema on vLLM 0.31 run with `disable_any_whitespace`. From vLLM 0.32 the same flag gives compact
+    JSON, on which the model answers differently (EXP-025, EXP-026), so the spacing is sent with the request
+    instead of left to the server's default. The grammars are generated (scripts/gen_wire_grammars.py runs
+    xgrammar inside the pinned image). A schema or order with no entry is an error, never a silent return to the
+    server's spacing."""
+    key = hashlib.sha256(wire_schema(json_schema, order).encode("utf-8")).hexdigest()
+    grammar = _wire_grammars().get(key)
+    if grammar is None:
+        raise LookupError(
+            f"no wire grammar for schema {json_schema.get('title', '?')!r} under this field order ({key[:12]}): "
+            "regenerate with `python scripts/gen_wire_grammars.py` (from fast_api_voter/; needs Docker and the pinned image)"
+        )
+    return grammar
 
 
 def _post_with_transport_retry(client: httpx.Client, url: str, payload: str) -> httpx.Response:
@@ -662,7 +696,12 @@ class VllmJsonClient:
     OllamaJsonClient, but at temperature=0 sampling is already argmax; it
     does nothing about §15bis.4c's batch-composition nondeterminism, which
     is a kernel floating-point reduction order property, not a sampling
-    one -- see check_vllm_batching_determinism.py, never yet run."""
+    one -- see check_vllm_batching_determinism.py, never yet run.
+
+    Since ADR-041 a client built by `from_config` sends the schema as its EBNF
+    grammar (`structured_output`, `wire_grammar`), not as `response_format`: what
+    the paragraphs above say of `response_format` holds for the constraint in
+    either form."""
 
     def __init__(
         self,
@@ -687,11 +726,17 @@ class VllmJsonClient:
     def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 600.0) -> VllmJsonClient:
         """Same 600s default as OllamaJsonClient.from_config -- no live
         vLLM measurement exists yet to justify a different one; re-measure
-        once a GPU host is available (see the vLLM switch plan)."""
-        return cls(
+        once a GPU host is available (see the vLLM switch plan).
+
+        A client built here sends each schema as its grammar (`structured_output`), so a run's JSON
+        spacing does not depend on the server's version."""
+        client = cls(
             llm.base_url, llm.model, llm.temperature, seed, timeout,
             thinking=model_profile(llm.provider, llm.model).thinking,
         )
+        _wire_grammars()  # a missing or unreadable artifact stops the run here, not at its first decision
+        client.structured_output = "grammar"
+        return client
 
     def complete_json(
         self,
@@ -838,12 +883,12 @@ class VllmJsonClient:
         """plan-llm-protocol-and-theory-program.md §5.C's "real hard
         problem": complete_with_logprobs's own docstring names it and
         deliberately does not attack it -- a real production decision is
-        xgrammar-constrained (`response_format`) and, for every decide_*
+        xgrammar-constrained (`response_format`, or the schema's grammar) and, for every decide_*
         caller that matters here, generated under `think=True`, neither of
         which that method's own trivial forced-choice probe exercises.
         This is that call shape instead: complete_json's own body
-        (`response_format` with `_inline_refs(json_schema)`, same
-        `strict: True` schema envelope) plus `logprobs`/`top_logprobs`,
+        (the same schema constraint, in the client's `structured_output`
+        mode) plus `logprobs`/`top_logprobs`,
         so the SAME completion a decide_* function would have decoded is
         also returned with its own per-token log-probabilities attached.
 
@@ -889,7 +934,7 @@ class VllmJsonClient:
         """The request body every call on this client sends: a total function of the
         call's arguments, with temperature/seed falling back to the client's own
         configured values, the model profile's thinking switch, and -- when asked --
-        a strict JSON-schema response format and token logprobs. `extra_body` (S1.3's
+        the schema, as a strict `response_format` or as its grammar (`structured_output`), and token logprobs. `extra_body` (S1.3's
         request arms: `thinking_token_budget`, sampling fields) is merged in last, so it
         may set any field vLLM accepts."""
         body: dict[str, Any] = {
@@ -904,7 +949,9 @@ class VllmJsonClient:
             "stream": False,
             **self._thinking.request_fields(think),
         }
-        if json_schema is not None:
+        if json_schema is not None and self.structured_output == "grammar":
+            body["structured_outputs"] = {"grammar": wire_grammar(json_schema, self.wire_order)}
+        elif json_schema is not None:
             body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
@@ -918,6 +965,12 @@ class VllmJsonClient:
 
     wire_order: Mapping[str, Sequence[str]] = WIRE_ORDER
     """`WIRE_ORDER`, or a bake-off arm's own table (an empty one sends every object alphabetically)."""
+
+    structured_output: Literal["schema", "grammar"] = "schema"
+    """How the schema constrains the answer. "schema": as `response_format`, the JSON spacing being the
+    server's choice. "grammar": as the EBNF grammar `wire_grammar` holds for it, spacing included; what
+    `from_config` sets, so what every run sends. On vLLM 0.31 the two give the same bytes (191 bank rows of 191,
+    EXP-032); from 0.32 only the grammar keeps them."""
 
     def _post_chat(self, body: dict[str, Any]) -> httpx.Response:
         payload = json.dumps(_canonical(body, self.wire_order), separators=(",", ":"))

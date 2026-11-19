@@ -12,11 +12,12 @@ check_llm_batching_determinism.py already confirmed for Ollama
 inference, llama.cpp) -- it is specifically about vLLM's continuous-batching
 SCHEDULER causing a different kernel reduction path depending on what else
 is in-flight in the same server-side batch. That risk only exists on the
-REAL structured-output code path (response_format + guided decoding), so
+REAL structured-output code path (guided decoding), so
 unlike the Ollama script -- which used a standalone free-text /api/generate
 probe -- this one sends the actual production request shape: real
-VOTE_CAST_JSON_SCHEMA (dereferenced via _inline_refs, exactly as
-VllmJsonClient does), real prompt builders, real system/user prompts.
+VOTE_CAST_JSON_SCHEMA (as its wire grammar, exactly as a configured
+VllmJsonClient sends it since ADR-041; as `response_format` before), real
+prompt builders, real system/user prompts.
 
 QUARANTINE WARNING (repeated from llm_client.py's own module docstring,
 verbatim in spirit): this script is deliberately async and deliberately
@@ -62,7 +63,7 @@ from api.domain.polity.llm_behavior_engine import (  # noqa: E402
     build_user_prompt,
     compute_max_tokens,
 )
-from api.domain.polity.llm_client import _inline_refs  # noqa: E402
+from api.domain.polity.llm_client import WIRE_ORDER, wire_grammar  # noqa: E402
 from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA  # noqa: E402
 from api.domain.polity.simple_rules import declare_candidacy  # noqa: E402
 
@@ -108,12 +109,8 @@ def _request_body(max_tokens: int) -> dict[str, Any]:
         "max_tokens": max_tokens,
         "stream": False,
         "chat_template_kwargs": {"enable_thinking": False},
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "polity_decision_batch", "strict": True, "schema": _inline_refs(VOTE_CAST_JSON_SCHEMA),
-            },
-        },
+        # the schema as its grammar, in production's field order: what a configured client sends (ADR-041)
+        "structured_outputs": {"grammar": wire_grammar(VOTE_CAST_JSON_SCHEMA, WIRE_ORDER)},
     }
 
 
