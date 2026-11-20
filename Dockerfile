@@ -11,7 +11,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: frontend build (Vite → /voter-app/build) ───────────────────────
-FROM node:26-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS frontend
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS frontend
 WORKDIR /voter-app
 # Install exactly what the committed lockfile pins (same as CI's `npm ci`);
 # .npmrc carries engine-strict.
