@@ -236,10 +236,11 @@
     "feat/not-found-bureau-de-vote",
     "feat/playground-bureau-de-vote",
     "feat/polity-bureau-de-vote",
+    "feat/polity-cohorts",
     "fix/lab-fiches"
    ],
    "category": "code",
-   "count": 17,
+   "count": 18,
    "example": {
     "job": "CI health check",
     "lines": [
@@ -956,10 +957,10 @@
  ],
  "failures_by_category": {
   "advisory": 2,
-  "code": 121,
+  "code": 122,
   "test-flaky": 11
  },
- "generated_at": "2026-11-21T16:05:49Z",
+ "generated_at": "2026-11-21T17:29:02Z",
  "grid": {
   "Backend CI": {
    "2026-10-23": {
@@ -1212,7 +1213,7 @@
     "success": 6
    },
    "2026-11-21": {
-    "success": 4
+    "success": 5
    }
   },
   "CI Health Watchdog": {
@@ -2158,7 +2159,7 @@
    },
    "2026-11-21": {
     "skipped": 6,
-    "success": 2
+    "success": 3
    }
   },
   "zizmor online": {
@@ -2215,9 +2216,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-21T11:11:12Z",
+   "created_at": "2026-11-21T16:05:40Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44897889621"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44922653668"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2312,10 +2313,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-21T16:07:51Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44922854118"
+   "conclusion": "success",
+   "created_at": "2026-11-21T16:50:38Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44926769555"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2325,7 +2326,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210568841"
   }
  },
- "runs": 7944,
+ "runs": 7947,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2469,12 +2470,12 @@
     "2026-11-18": 257,
     "2026-11-19": 256.0,
     "2026-11-20": 249.5,
-    "2026-11-21": 201.0
+    "2026-11-21": 200
    },
    "p50_s": 318,
    "p95_s": 499,
    "queue_p50_s": 0,
-   "runs": 563
+   "runs": 564
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -3004,12 +3005,12 @@
     "2026-11-18": 25.5,
     "2026-11-19": 26,
     "2026-11-20": 22,
-    "2026-11-21": 26.5
+    "2026-11-21": 23
    },
    "p50_s": 27,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 827
+   "runs": 828
   },
   "zizmor online": {
    "daily_p50_s": {
