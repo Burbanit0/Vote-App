@@ -144,7 +144,6 @@
     "dependabot/pip/fast_api_voter/polity/opentelemetry-semantic-conventions-0.66b2",
     "dependabot/pip/fast_api_voter/polity/opentelemetry-util-http-0.66b2",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-0294fd5d16",
-    "dependabot/pip/fast_api_voter/polity/patch-and-minor-0777fd06be",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-38e9f2eda6",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-526851fcd7",
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-710a15cb29",
@@ -152,7 +151,7 @@
     "dependabot/pip/fast_api_voter/polity/patch-and-minor-ea78317385"
    ],
    "category": "code",
-   "count": 38,
+   "count": 35,
    "example": {
     "job": "Backend: Tests + Coverage + Security",
     "lines": [
@@ -382,33 +381,6 @@
   },
   {
    "branches": [
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-1ec1805c3f",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-5c97fc9a24",
-    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
-   ],
-   "category": "code",
-   "count": 3,
-   "example": {
-    "job": "Playwright/Docker image version sync",
-    "lines": [
-     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.65.0, but this workflow pins mcr.microsoft.com/playwright:v1.64.1-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.65.0-noble with that tag's digest.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [
-     1118
-    ],
-    "sha": "d1ff9f4b78cb80edbf54a138d60675facb90b9ac",
-    "step": "Assert @playwright/test matches the Playwright image pin",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44691428879"
-   },
-   "last_seen": "2026-11-20T06:57:19Z",
-   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
-   "workflows": [
-    "E2E Tests"
-   ]
-  },
-  {
-   "branches": [
     "fix/work-budget-timeouts"
    ],
    "category": "code",
@@ -490,6 +462,32 @@
    "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-5c97fc9a24",
+    "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
+   ],
+   "category": "code",
+   "count": 2,
+   "example": {
+    "job": "Playwright/Docker image version sync",
+    "lines": [
+     "##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@1.65.0, but this workflow pins mcr.microsoft.com/playwright:v1.64.1-noble. These must match exactly -- the e2e shards and visual-regression use the image's browsers (see docs/exploration/EXP-004). Update the `&playwright-image` line in the e2e job to v1.65.0-noble with that tag's digest.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [
+     1118
+    ],
+    "sha": "d1ff9f4b78cb80edbf54a138d60675facb90b9ac",
+    "step": "Assert @playwright/test matches the Playwright image pin",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44691428879"
+   },
+   "last_seen": "2026-11-20T06:57:19Z",
+   "signature": "code: ##[error]Playwright version mismatch: voter-app/package-lock.json installs @playwright/test@#.#, but this workflow pins mcr.microsoft.com/pl",
+   "workflows": [
+    "E2E Tests"
    ]
   },
   {
@@ -956,10 +954,10 @@
  ],
  "failures_by_category": {
   "advisory": 2,
-  "code": 121,
+  "code": 117,
   "test-flaky": 11
  },
- "generated_at": "2026-11-22T03:10:04Z",
+ "generated_at": "2026-11-22T10:17:37Z",
  "grid": {
   "Backend CI": {
    "2026-10-24": {
@@ -1018,9 +1016,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-23": {
-    "success": 1
-   },
    "2026-10-24": {
     "success": 5
    },
@@ -1116,7 +1111,7 @@
   },
   "CI Dashboard": {
    "2026-10-23": {
-    "success": 7
+    "success": 4
    },
    "2026-10-24": {
     "failure": 1,
@@ -1207,6 +1202,9 @@
    },
    "2026-11-21": {
     "success": 7
+   },
+   "2026-11-22": {
+    "success": 1
    }
   },
   "CI Health Watchdog": {
@@ -1347,9 +1345,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-23": {
-    "success": 1
-   },
    "2026-10-24": {
     "success": 7
    },
@@ -1437,12 +1432,12 @@
    },
    "2026-11-21": {
     "success": 1
+   },
+   "2026-11-22": {
+    "success": 1
    }
   },
   "Diff Mutation comment": {
-   "2026-10-23": {
-    "success": 3
-   },
    "2026-10-24": {
     "success": 21
    },
@@ -1671,9 +1666,6 @@
    }
   },
   "Human review attestation": {
-   "2026-10-23": {
-    "skipped": 1
-   },
    "2026-10-24": {
     "skipped": 27,
     "success": 6
@@ -1998,8 +1990,7 @@
   },
   "polity red alert": {
    "2026-10-23": {
-    "skipped": 18,
-    "success": 3
+    "success": 1
    },
    "2026-10-24": {
     "cancelled": 8,
@@ -2130,6 +2121,9 @@
    "2026-11-21": {
     "skipped": 6,
     "success": 3
+   },
+   "2026-11-22": {
+    "success": 1
    }
   },
   "zizmor online": {
@@ -2186,9 +2180,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-21T23:13:06Z",
+   "created_at": "2026-11-22T03:09:51Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44960695576"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44979357746"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2207,9 +2201,9 @@
   "DAST \u2014 ZAP Baseline": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-21T10:09:35Z",
+   "created_at": "2026-11-22T10:14:34Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44892983636"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45011469590"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -2284,9 +2278,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-21T16:50:38Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44926769555"
+   "created_at": "2026-11-22T10:17:30Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45011712463"
   },
   "zizmor online": {
    "branch": "polity",
@@ -2296,11 +2290,10 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210568841"
   }
  },
- "runs": 7830,
+ "runs": 7768,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
-    "2026-10-23": 8.0,
     "2026-10-24": 565.5,
     "2026-10-25": 595.5,
     "2026-10-26": 11,
@@ -2329,14 +2322,13 @@
     "2026-11-20": 17,
     "2026-11-21": 14
    },
-   "p50_s": 345,
+   "p50_s": 347,
    "p95_s": 621,
    "queue_p50_s": 0,
-   "runs": 326
+   "runs": 324
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-23": 932,
     "2026-10-24": 1425,
     "2026-10-25": 1445.5,
     "2026-10-26": 1408,
@@ -2370,11 +2362,10 @@
    "p50_s": 1077,
    "p95_s": 1490,
    "queue_p50_s": 0,
-   "runs": 62
+   "runs": 61
   },
   "Branch Policy": {
    "daily_p50_s": {
-    "2026-10-23": 9,
     "2026-10-24": 10.0,
     "2026-10-25": 11,
     "2026-10-26": 9,
@@ -2406,11 +2397,11 @@
    "p50_s": 11,
    "p95_s": 80,
    "queue_p50_s": 0,
-   "runs": 270
+   "runs": 267
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-23": 365,
+    "2026-10-23": 407.5,
     "2026-10-24": 372.0,
     "2026-10-25": 379.0,
     "2026-10-26": 398.0,
@@ -2439,16 +2430,17 @@
     "2026-11-18": 257,
     "2026-11-19": 256.0,
     "2026-11-20": 249.5,
-    "2026-11-21": 200
+    "2026-11-21": 200,
+    "2026-11-22": 213
    },
-   "p50_s": 315,
+   "p50_s": 314,
    "p95_s": 496,
    "queue_p50_s": 0,
-   "runs": 555
+   "runs": 553
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-23": 9.5,
+    "2026-10-23": 22,
     "2026-10-24": 11.5,
     "2026-10-25": 11.0,
     "2026-10-26": 20.0,
@@ -2480,7 +2472,7 @@
    "p50_s": 12,
    "p95_s": 77,
    "queue_p50_s": 0,
-   "runs": 285
+   "runs": 282
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2505,7 +2497,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-23": 147,
     "2026-10-24": 151,
     "2026-10-25": 163,
     "2026-10-26": 162,
@@ -2534,7 +2525,8 @@
     "2026-11-18": 205,
     "2026-11-19": 212.5,
     "2026-11-20": 207,
-    "2026-11-21": 211
+    "2026-11-21": 211,
+    "2026-11-22": 171
    },
    "p50_s": 198,
    "p95_s": 222,
@@ -2543,7 +2535,6 @@
   },
   "Dependency Review": {
    "daily_p50_s": {
-    "2026-10-23": 11,
     "2026-10-24": 10,
     "2026-10-25": 12,
     "2026-10-26": 11,
@@ -2575,11 +2566,10 @@
    "p50_s": 12,
    "p95_s": 77,
    "queue_p50_s": 0,
-   "runs": 257
+   "runs": 254
   },
   "Diff Mutation": {
    "daily_p50_s": {
-    "2026-10-23": 10,
     "2026-10-24": 9,
     "2026-10-25": 10,
     "2026-10-27": 8.5,
@@ -2599,14 +2589,13 @@
     "2026-11-18": 11.0,
     "2026-11-20": 20
    },
-   "p50_s": 12,
+   "p50_s": 13,
    "p95_s": 345,
    "queue_p50_s": 0,
-   "runs": 223
+   "runs": 220
   },
   "Diff Mutation comment": {
    "daily_p50_s": {
-    "2026-10-23": 12,
     "2026-10-24": 11,
     "2026-10-25": 12,
     "2026-10-27": 11.0,
@@ -2629,11 +2618,10 @@
    "p50_s": 12,
    "p95_s": 184,
    "queue_p50_s": 0,
-   "runs": 239
+   "runs": 236
   },
   "E2E Tests": {
    "daily_p50_s": {
-    "2026-10-23": 10,
     "2026-10-24": 620.5,
     "2026-10-25": 641.0,
     "2026-10-26": 10,
@@ -2662,14 +2650,13 @@
     "2026-11-20": 265.5,
     "2026-11-21": 12
    },
-   "p50_s": 501,
+   "p50_s": 502,
    "p95_s": 809,
    "queue_p50_s": 0,
-   "runs": 305
+   "runs": 304
   },
   "Frontend CI": {
    "daily_p50_s": {
-    "2026-10-23": 11,
     "2026-10-24": 13,
     "2026-10-25": 93,
     "2026-10-26": 12,
@@ -2698,14 +2685,13 @@
     "2026-11-20": 35.5,
     "2026-11-21": 10
    },
-   "p50_s": 225,
-   "p95_s": 398,
+   "p50_s": 226,
+   "p95_s": 407,
    "queue_p50_s": 0,
-   "runs": 334
+   "runs": 331
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
-    "2026-10-23": 70.5,
     "2026-10-24": 98.5,
     "2026-10-25": 106,
     "2026-10-26": 12,
@@ -2737,11 +2723,10 @@
    "p50_s": 83,
    "p95_s": 150,
    "queue_p50_s": 0,
-   "runs": 337
+   "runs": 335
   },
   "Human review attestation": {
    "daily_p50_s": {
-    "2026-10-23": 16,
     "2026-10-24": 19,
     "2026-10-25": 20,
     "2026-10-26": 18,
@@ -2773,7 +2758,7 @@
    "p50_s": 22,
    "p95_s": 110,
    "queue_p50_s": 0,
-   "runs": 369
+   "runs": 366
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2811,7 +2796,6 @@
   },
   "Red on base": {
    "daily_p50_s": {
-    "2026-10-23": 23,
     "2026-10-24": 42,
     "2026-10-25": 45,
     "2026-10-26": 24,
@@ -2840,10 +2824,10 @@
     "2026-11-20": 42.5,
     "2026-11-21": 23
    },
-   "p50_s": 54,
+   "p50_s": 58,
    "p95_s": 203,
    "queue_p50_s": 0,
-   "runs": 246
+   "runs": 243
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -2871,7 +2855,6 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-10-23": 152,
     "2026-10-24": 159,
     "2026-10-25": 178,
     "2026-10-26": 154.5,
@@ -2903,11 +2886,10 @@
    "p50_s": 166,
    "p95_s": 275,
    "queue_p50_s": 0,
-   "runs": 325
+   "runs": 322
   },
   "Workflow Lint": {
    "daily_p50_s": {
-    "2026-10-23": 11,
     "2026-10-24": 18.5,
     "2026-10-25": 31,
     "2026-10-26": 9,
@@ -2939,11 +2921,11 @@
    "p50_s": 13,
    "p95_s": 85,
    "queue_p50_s": 0,
-   "runs": 354
+   "runs": 351
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-23": 28,
+    "2026-10-23": 29,
     "2026-10-24": 26,
     "2026-10-25": 27.0,
     "2026-10-26": 28.5,
@@ -2972,12 +2954,13 @@
     "2026-11-18": 25.5,
     "2026-11-19": 26,
     "2026-11-20": 22,
-    "2026-11-21": 23
+    "2026-11-21": 23,
+    "2026-11-22": 25
    },
    "p50_s": 27,
    "p95_s": 52,
    "queue_p50_s": 0,
-   "runs": 810
+   "runs": 809
   },
   "zizmor online": {
    "daily_p50_s": {
