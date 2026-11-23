@@ -957,7 +957,7 @@
   "code": 117,
   "test-flaky": 11
  },
- "generated_at": "2026-11-22T19:35:34Z",
+ "generated_at": "2026-11-23T00:49:45Z",
  "grid": {
   "Backend CI": {
    "2026-10-24": {
@@ -1113,12 +1113,9 @@
    }
   },
   "CI Dashboard": {
-   "2026-10-23": {
-    "success": 1
-   },
    "2026-10-24": {
     "failure": 1,
-    "success": 32
+    "success": 31
    },
    "2026-10-25": {
     "success": 28
@@ -1207,7 +1204,7 @@
     "success": 7
    },
    "2026-11-22": {
-    "success": 5
+    "success": 6
    }
   },
   "CI Health Watchdog": {
@@ -2184,9 +2181,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-22T16:11:48Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45042455983"
+   "created_at": "2026-11-22T19:35:25Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45061618959"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2294,7 +2291,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44210568841"
   }
  },
- "runs": 7789,
+ "runs": 7788,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2408,8 +2405,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-23": 362,
-    "2026-10-24": 372.0,
+    "2026-10-24": 374,
     "2026-10-25": 379.0,
     "2026-10-26": 398.0,
     "2026-10-27": 396.5,
@@ -2438,12 +2434,12 @@
     "2026-11-19": 256.0,
     "2026-11-20": 249.5,
     "2026-11-21": 200,
-    "2026-11-22": 213
+    "2026-11-22": 211.0
    },
    "p50_s": 311,
    "p95_s": 490,
    "queue_p50_s": 0,
-   "runs": 554
+   "runs": 553
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
