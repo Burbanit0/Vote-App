@@ -572,30 +572,6 @@
   },
   {
    "branches": [
-    "develop"
-   ],
-   "category": "code",
-   "count": 1,
-   "example": {
-    "job": "Frontend mutation score (Stryker, floor 80%)",
-    "lines": [
-     "10:09:05 (2238) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-     "10:09:05 (2238) ERROR Stryker There were failed tests in the initial test run.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "0b4cc9c7a407b068331fb2f149b9c7704af1a9af",
-    "step": "Run Stryker (fails under thresholds.break)",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/40304996939"
-   },
-   "last_seen": "2026-10-26T10:08:05Z",
-   "signature": "code: #:#:# (#) ERROR DryRunExecutor One or more tests failed in the initial test run:",
-   "workflows": [
-    "Mutation Testing"
-   ]
-  },
-  {
-   "branches": [
     "polity"
    ],
    "category": "code",
@@ -921,10 +897,10 @@
  ],
  "failures_by_category": {
   "advisory": 1,
-  "code": 113,
+  "code": 112,
   "test-flaky": 10
  },
- "generated_at": "2026-11-25T02:24:22Z",
+ "generated_at": "2026-11-25T11:44:43Z",
  "grid": {
   "Backend CI": {
    "2026-10-27": {
@@ -977,9 +953,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-26": {
-    "success": 1
-   },
    "2026-10-27": {
     "success": 1
    },
@@ -1075,7 +1048,7 @@
   },
   "CI Dashboard": {
    "2026-10-26": {
-    "success": 11
+    "success": 6
    },
    "2026-10-27": {
     "success": 12
@@ -1165,6 +1138,9 @@
    },
    "2026-11-24": {
     "success": 5
+   },
+   "2026-11-25": {
+    "success": 1
    }
   },
   "CI Health Watchdog": {
@@ -1302,9 +1278,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-26": {
-    "success": 1
-   },
    "2026-10-27": {
     "success": 2
    },
@@ -1391,6 +1364,9 @@
     "success": 1
    },
    "2026-11-24": {
+    "success": 1
+   },
+   "2026-11-25": {
     "success": 1
    }
   },
@@ -1697,9 +1673,6 @@
    }
   },
   "Mutation Testing": {
-   "2026-10-26": {
-    "failure": 1
-   },
    "2026-11-01": {
     "success": 2
    },
@@ -1765,9 +1738,6 @@
    }
   },
   "Schemathesis Contract Fuzzing": {
-   "2026-10-26": {
-    "success": 1
-   },
    "2026-11-01": {
     "success": 3
    },
@@ -1916,7 +1886,7 @@
   "polity red alert": {
    "2026-10-26": {
     "skipped": 6,
-    "success": 6
+    "success": 2
    },
    "2026-10-27": {
     "cancelled": 4,
@@ -2045,6 +2015,9 @@
    "2026-11-24": {
     "skipped": 6,
     "success": 4
+   },
+   "2026-11-25": {
+    "success": 1
    }
   },
   "zizmor online": {
@@ -2098,9 +2071,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-24T19:28:24Z",
-   "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45470561909"
+   "created_at": "2026-11-25T02:24:10Z",
+   "event": "schedule",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45532675475"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2119,9 +2092,9 @@
   "DAST \u2014 ZAP Baseline": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-24T12:54:33Z",
+   "created_at": "2026-11-25T11:40:58Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45398065498"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45606694596"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -2196,9 +2169,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-24T20:13:53Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45478596994"
+   "created_at": "2026-11-25T11:44:36Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45607247748"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2208,7 +2181,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45435969879"
   }
  },
- "runs": 6988,
+ "runs": 6978,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2248,7 +2221,6 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-26": 1408,
     "2026-10-27": 1533,
     "2026-10-28": 1620,
     "2026-10-29": 1490,
@@ -2279,10 +2251,10 @@
     "2026-11-23": 1111,
     "2026-11-24": 1094
    },
-   "p50_s": 1052,
+   "p50_s": 1050,
    "p95_s": 1490,
    "queue_p50_s": 0,
-   "runs": 55
+   "runs": 54
   },
   "Branch Policy": {
    "daily_p50_s": {
@@ -2322,7 +2294,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-26": 404,
+    "2026-10-26": 423.0,
     "2026-10-27": 396.5,
     "2026-10-28": 387.0,
     "2026-10-29": 374.5,
@@ -2351,12 +2323,13 @@
     "2026-11-21": 200,
     "2026-11-22": 211.0,
     "2026-11-23": 232.5,
-    "2026-11-24": 236
+    "2026-11-24": 236,
+    "2026-11-25": 190
    },
-   "p50_s": 288,
+   "p50_s": 286,
    "p95_s": 467,
    "queue_p50_s": 0,
-   "runs": 508
+   "runs": 504
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2416,7 +2389,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-26": 162,
     "2026-10-27": 169.0,
     "2026-10-28": 187,
     "2026-10-29": 177,
@@ -2445,7 +2417,8 @@
     "2026-11-21": 211,
     "2026-11-22": 171,
     "2026-11-23": 202,
-    "2026-11-24": 213
+    "2026-11-24": 213,
+    "2026-11-25": 213
    },
    "p50_s": 202,
    "p95_s": 222,
@@ -2754,7 +2727,6 @@
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
-    "2026-10-26": 81,
     "2026-11-01": 75,
     "2026-11-02": 64,
     "2026-11-08": 78,
@@ -2770,10 +2742,10 @@
     "2026-11-19": 62,
     "2026-11-23": 62
    },
-   "p50_s": 64,
+   "p50_s": 63,
    "p95_s": 79,
    "queue_p50_s": 0,
-   "runs": 35
+   "runs": 34
   },
   "Security Audit": {
    "daily_p50_s": {
@@ -2849,7 +2821,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-26": 28.5,
+    "2026-10-26": 29.0,
     "2026-10-27": 27,
     "2026-10-28": 31,
     "2026-10-29": 30.5,
@@ -2878,12 +2850,13 @@
     "2026-11-21": 23,
     "2026-11-22": 24,
     "2026-11-23": 29.0,
-    "2026-11-24": 29.5
+    "2026-11-24": 29.5,
+    "2026-11-25": 32
    },
    "p50_s": 27,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 707
+   "runs": 704
   },
   "zizmor online": {
    "daily_p50_s": {
