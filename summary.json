@@ -900,7 +900,7 @@
   "code": 112,
   "test-flaky": 10
  },
- "generated_at": "2026-11-25T11:44:43Z",
+ "generated_at": "2026-11-25T12:49:57Z",
  "grid": {
   "Backend CI": {
    "2026-10-27": {
@@ -1048,7 +1048,7 @@
   },
   "CI Dashboard": {
    "2026-10-26": {
-    "success": 6
+    "success": 5
    },
    "2026-10-27": {
     "success": 12
@@ -1140,7 +1140,7 @@
     "success": 5
    },
    "2026-11-25": {
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
@@ -1783,9 +1783,6 @@
    }
   },
   "Security Audit": {
-   "2026-10-26": {
-    "success": 1
-   },
    "2026-10-27": {
     "success": 2
    },
@@ -1886,7 +1883,7 @@
   "polity red alert": {
    "2026-10-26": {
     "skipped": 6,
-    "success": 2
+    "success": 1
    },
    "2026-10-27": {
     "cancelled": 4,
@@ -2071,9 +2068,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-25T02:24:10Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45532675475"
+   "created_at": "2026-11-25T11:44:36Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45607247790"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2181,7 +2178,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45435969879"
   }
  },
- "runs": 6978,
+ "runs": 6976,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2294,7 +2291,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-26": 423.0,
+    "2026-10-26": 422,
     "2026-10-27": 396.5,
     "2026-10-28": 387.0,
     "2026-10-29": 374.5,
@@ -2324,7 +2321,7 @@
     "2026-11-22": 211.0,
     "2026-11-23": 232.5,
     "2026-11-24": 236,
-    "2026-11-25": 190
+    "2026-11-25": 211.5
    },
    "p50_s": 286,
    "p95_s": 467,
@@ -2749,7 +2746,7 @@
   },
   "Security Audit": {
    "daily_p50_s": {
-    "2026-10-26": 154.5,
+    "2026-10-26": 104,
     "2026-10-27": 161.0,
     "2026-10-30": 156,
     "2026-10-31": 176,
@@ -2781,7 +2778,7 @@
    "p50_s": 167,
    "p95_s": 288,
    "queue_p50_s": 0,
-   "runs": 288
+   "runs": 287
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -2821,7 +2818,7 @@
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-26": 29.0,
+    "2026-10-26": 29,
     "2026-10-27": 27,
     "2026-10-28": 31,
     "2026-10-29": 30.5,
@@ -2856,7 +2853,7 @@
    "p50_s": 27,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 704
+   "runs": 703
   },
   "zizmor online": {
    "daily_p50_s": {
