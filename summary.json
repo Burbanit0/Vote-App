@@ -900,7 +900,7 @@
   "code": 112,
   "test-flaky": 10
  },
- "generated_at": "2026-11-26T12:35:46Z",
+ "generated_at": "2026-11-26T15:00:09Z",
  "grid": {
   "Backend CI": {
    "2026-10-30": {
@@ -1048,7 +1048,7 @@
   },
   "CI Dashboard": {
    "2026-10-27": {
-    "success": 3
+    "success": 2
    },
    "2026-10-28": {
     "success": 8
@@ -1140,13 +1140,10 @@
     "success": 6
    },
    "2026-11-26": {
-    "success": 2
+    "success": 3
    }
   },
   "CI Health Watchdog": {
-   "2026-10-27": {
-    "success": 1
-   },
    "2026-10-28": {
     "success": 1
    },
@@ -1275,6 +1272,9 @@
    },
    "2026-11-19": {
     "success": 2
+   },
+   "2026-11-26": {
+    "success": 1
    }
   },
   "DAST \u2014 ZAP Baseline": {
@@ -1693,9 +1693,6 @@
    }
   },
   "OpenSSF Scorecard": {
-   "2026-10-27": {
-    "success": 1
-   },
    "2026-11-01": {
     "success": 1
    },
@@ -1990,7 +1987,7 @@
     "success": 3
    },
    "2026-11-26": {
-    "success": 2
+    "success": 3
    }
   },
   "zizmor online": {
@@ -2041,9 +2038,9 @@
   "CI Dashboard": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-26T11:31:12Z",
+   "created_at": "2026-11-26T12:35:39Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45811320398"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45821101029"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2055,9 +2052,9 @@
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-19T13:55:08Z",
+   "created_at": "2026-11-26T14:29:14Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/44538248483"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45839488754"
   },
   "DAST \u2014 ZAP Baseline": {
    "branch": "develop",
@@ -2139,9 +2136,9 @@
   "polity red alert": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-26T12:35:39Z",
+   "created_at": "2026-11-26T15:00:02Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45821101107"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45844602733"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2263,7 +2260,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-27": 421,
+    "2026-10-27": 410.0,
     "2026-10-28": 387.0,
     "2026-10-29": 374.5,
     "2026-10-30": 368.0,
@@ -2293,16 +2290,15 @@
     "2026-11-23": 232.5,
     "2026-11-24": 236,
     "2026-11-25": 205.0,
-    "2026-11-26": 203.0
+    "2026-11-26": 205
    },
-   "p50_s": 284,
-   "p95_s": 450,
+   "p50_s": 283,
+   "p95_s": 449,
    "queue_p50_s": 0,
    "runs": 496
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-27": 27,
     "2026-10-28": 25,
     "2026-10-29": 25,
     "2026-11-01": 21,
@@ -2334,7 +2330,7 @@
    "p50_s": 12,
    "p95_s": 79,
    "queue_p50_s": 0,
-   "runs": 254
+   "runs": 253
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "daily_p50_s": {
@@ -2349,12 +2345,13 @@
     "2026-11-14": 1847,
     "2026-11-15": 1840.5,
     "2026-11-18": 1843,
-    "2026-11-19": 1841.0
+    "2026-11-19": 1841.0,
+    "2026-11-26": 1844
    },
    "p50_s": 1844,
    "p95_s": 1856,
    "queue_p50_s": 0,
-   "runs": 15
+   "runs": 16
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
@@ -2636,7 +2633,6 @@
   },
   "OpenSSF Scorecard": {
    "daily_p50_s": {
-    "2026-10-27": 51,
     "2026-11-01": 44,
     "2026-11-03": 61,
     "2026-11-08": 129,
@@ -2646,10 +2642,10 @@
     "2026-11-17": 46,
     "2026-11-24": 53
    },
-   "p50_s": 51,
+   "p50_s": 46,
    "p95_s": 61,
    "queue_p50_s": 0,
-   "runs": 15
+   "runs": 14
   },
   "Red on base": {
    "daily_p50_s": {
@@ -2810,12 +2806,12 @@
     "2026-11-23": 29.0,
     "2026-11-24": 29.5,
     "2026-11-25": 30,
-    "2026-11-26": 33.0
+    "2026-11-26": 35
    },
    "p50_s": 27,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 694
+   "runs": 695
   },
   "zizmor online": {
    "daily_p50_s": {
