@@ -358,6 +358,30 @@
   },
   {
    "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 4,
+   "example": {
+    "job": "Collect run history",
+    "lines": [
+     "Traceback (most recent call last):",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "2c4821b4f1da1051e786a33cf66523f50e356461",
+    "step": "Collect",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45990520902"
+   },
+   "last_seen": "2026-11-27T11:26:39Z",
+   "signature": "test-flaky: Traceback (most recent call last):",
+   "workflows": [
+    "CI Dashboard",
+    "polity red alert"
+   ]
+  },
+  {
+   "branches": [
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-4fe945949a",
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-5c97fc9a24",
     "dependabot/npm_and_yarn/voter-app/polity/patch-and-minor-cafa615b59"
@@ -466,30 +490,6 @@
    "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
    "workflows": [
     "CI Health Watchdog"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 3,
-   "example": {
-    "job": "Collect run history",
-    "lines": [
-     "Traceback (most recent call last):",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "f7956414517e60cf9b2a481a54437a453ef3018b",
-    "step": "Collect",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/43871494404"
-   },
-   "last_seen": "2026-11-16T12:59:04Z",
-   "signature": "test-flaky: Traceback (most recent call last):",
-   "workflows": [
-    "CI Dashboard",
-    "polity red alert"
    ]
   },
   {
@@ -931,9 +931,9 @@
  "failures_by_category": {
   "advisory": 1,
   "code": 120,
-  "test-flaky": 10
+  "test-flaky": 11
  },
- "generated_at": "2026-11-27T08:25:42Z",
+ "generated_at": "2026-11-27T12:21:53Z",
  "grid": {
   "Backend CI": {
    "2026-10-30": {
@@ -983,9 +983,6 @@
    }
   },
   "Backend Flaky Test Hunt": {
-   "2026-10-28": {
-    "success": 1
-   },
    "2026-10-29": {
     "success": 1
    },
@@ -1077,11 +1074,14 @@
    },
    "2026-11-26": {
     "success": 1
+   },
+   "2026-11-27": {
+    "success": 1
    }
   },
   "CI Dashboard": {
    "2026-10-28": {
-    "success": 6
+    "success": 4
    },
    "2026-10-29": {
     "success": 8
@@ -1171,6 +1171,10 @@
    },
    "2026-11-26": {
     "success": 7
+   },
+   "2026-11-27": {
+    "failure": 1,
+    "success": 1
    }
   },
   "CI Health Watchdog": {
@@ -1311,9 +1315,6 @@
    }
   },
   "DAST \u2014 ZAP Baseline": {
-   "2026-10-28": {
-    "success": 1
-   },
    "2026-10-29": {
     "success": 1
    },
@@ -1400,6 +1401,9 @@
     "success": 1
    },
    "2026-11-26": {
+    "success": 1
+   },
+   "2026-11-27": {
     "success": 1
    }
   },
@@ -1899,7 +1903,7 @@
   },
   "polity red alert": {
    "2026-10-28": {
-    "success": 3
+    "success": 1
    },
    "2026-10-29": {
     "success": 4
@@ -2030,7 +2034,8 @@
     "success": 4
    },
    "2026-11-27": {
-    "skipped": 18
+    "skipped": 18,
+    "success": 2
    }
   },
   "zizmor online": {
@@ -2074,16 +2079,16 @@
   "Backend Flaky Test Hunt": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-26T12:16:27Z",
+   "created_at": "2026-11-27T12:03:52Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45818117361"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45995514676"
   },
   "CI Dashboard": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-26T23:49:51Z",
-   "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45913209505"
+   "conclusion": "failure",
+   "created_at": "2026-11-27T11:26:39Z",
+   "event": "workflow_run",
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45990520902"
   },
   "CI Health Watchdog": {
    "branch": "develop",
@@ -2102,9 +2107,9 @@
   "DAST \u2014 ZAP Baseline": {
    "branch": "develop",
    "conclusion": "success",
-   "created_at": "2026-11-26T11:27:27Z",
+   "created_at": "2026-11-27T11:22:50Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45810752113"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45989989547"
   },
   "Diff Mutation comment": {
    "branch": "develop",
@@ -2178,10 +2183,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "skipped",
-   "created_at": "2026-11-27T07:06:55Z",
+   "conclusion": "success",
+   "created_at": "2026-11-27T12:21:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45956242358"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45997991295"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2232,7 +2237,6 @@
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
-    "2026-10-28": 1620,
     "2026-10-29": 1490,
     "2026-10-30": 1495,
     "2026-10-31": 1370,
@@ -2261,10 +2265,11 @@
     "2026-11-23": 1111,
     "2026-11-24": 1094,
     "2026-11-25": 1167,
-    "2026-11-26": 1148
+    "2026-11-26": 1148,
+    "2026-11-27": 1068
    },
    "p50_s": 1052,
-   "p95_s": 1370,
+   "p95_s": 1185,
    "queue_p50_s": 0,
    "runs": 55
   },
@@ -2307,7 +2312,7 @@
   },
   "CI Dashboard": {
    "daily_p50_s": {
-    "2026-10-28": 389.0,
+    "2026-10-28": 391.0,
     "2026-10-29": 374.5,
     "2026-10-30": 368.0,
     "2026-10-31": 326.5,
@@ -2336,12 +2341,13 @@
     "2026-11-23": 232.5,
     "2026-11-24": 236,
     "2026-11-25": 205.0,
-    "2026-11-26": 201
+    "2026-11-26": 201,
+    "2026-11-27": 219
    },
    "p50_s": 280,
    "p95_s": 449,
    "queue_p50_s": 0,
-   "runs": 496
+   "runs": 495
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
@@ -2402,7 +2408,6 @@
   },
   "DAST \u2014 ZAP Baseline": {
    "daily_p50_s": {
-    "2026-10-28": 187,
     "2026-10-29": 177,
     "2026-10-30": 167.0,
     "2026-10-31": 205,
@@ -2431,10 +2436,11 @@
     "2026-11-23": 202,
     "2026-11-24": 213,
     "2026-11-25": 213,
-    "2026-11-26": 221
+    "2026-11-26": 221,
+    "2026-11-27": 225
    },
    "p50_s": 202,
-   "p95_s": 222,
+   "p95_s": 225,
    "queue_p50_s": 0,
    "runs": 94
   },
@@ -2870,7 +2876,8 @@
     "2026-11-23": 29.0,
     "2026-11-24": 29.5,
     "2026-11-25": 30,
-    "2026-11-26": 33.0
+    "2026-11-26": 33.0,
+    "2026-11-27": 26.0
    },
    "p50_s": 27,
    "p95_s": 53,
