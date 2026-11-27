@@ -363,6 +363,33 @@
    "category": "test-flaky",
    "count": 4,
    "example": {
+    "job": "CI health check",
+    "lines": [
+     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib",
+     "ci-health snapshot generated_at=2026-11-17T17:33:36Z (240.5h ago)",
+     "\ud83d\udd34 CI health check failed:",
+     "  - the ci-health snapshot itself is 240.5h old (a healthy one is refreshed every 7-8 days; the limit is 228.0h) -- the watchdog's scheduled audit has gone quiet, or its refresh PR is unmerged, which is exactly the failure mode it exists to catch. A snooze cannot silence this: merge the open chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch (which replaces that PR with a fresh one)",
+     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
+     "##[error]Process completed with exit code 1."
+    ],
+    "pr": [],
+    "sha": "2c4821b4f1da1051e786a33cf66523f50e356461",
+    "step": "Verify",
+    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/46046791349"
+   },
+   "last_seen": "2026-11-27T18:05:19Z",
+   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
+   "workflows": [
+    "CI Health Watchdog"
+   ]
+  },
+  {
+   "branches": [
+    "develop"
+   ],
+   "category": "test-flaky",
+   "count": 4,
+   "example": {
     "job": "Collect run history",
     "lines": [
      "Traceback (most recent call last):",
@@ -463,33 +490,6 @@
     "E2E Tests",
     "Frontend CI",
     "Generated Artifacts Contract"
-   ]
-  },
-  {
-   "branches": [
-    "develop"
-   ],
-   "category": "test-flaky",
-   "count": 3,
-   "example": {
-    "job": "CI health check",
-    "lines": [
-     "  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.9/x64/lib",
-     "ci-health snapshot generated_at=2026-10-26T15:06:46Z (143.9h ago)",
-     "\ud83d\udd34 CI health check failed:",
-     "  - Mutation Testing (mutation-testing.yml): unhealthy -- last 5 completed runs all failed [snooze for this expired on 2026-10-29 -- no longer honored]",
-     "If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` date -- never an open-ended one.",
-     "##[error]Process completed with exit code 1."
-    ],
-    "pr": [],
-    "sha": "83b4a1298052c551e0eb1d6cd8272305bf6d1142",
-    "step": "Verify",
-    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/41318802732"
-   },
-   "last_seen": "2026-11-01T14:58:15Z",
-   "signature": "test-flaky: If this is real: fix it, or if a fix genuinely needs time, add a dated entry to .github/ci-health-snoozes.json with a reason and an `until` ",
-   "workflows": [
-    "CI Health Watchdog"
    ]
   },
   {
@@ -931,9 +931,9 @@
  "failures_by_category": {
   "advisory": 1,
   "code": 120,
-  "test-flaky": 11
+  "test-flaky": 12
  },
- "generated_at": "2026-11-27T12:21:53Z",
+ "generated_at": "2026-11-27T18:05:51Z",
  "grid": {
   "Backend CI": {
    "2026-10-30": {
@@ -1081,7 +1081,7 @@
   },
   "CI Dashboard": {
    "2026-10-28": {
-    "success": 4
+    "success": 2
    },
    "2026-10-29": {
     "success": 8
@@ -1174,13 +1174,10 @@
    },
    "2026-11-27": {
     "failure": 1,
-    "success": 1
+    "success": 2
    }
   },
   "CI Health Watchdog": {
-   "2026-10-28": {
-    "success": 1
-   },
    "2026-10-29": {
     "success": 1
    },
@@ -1268,6 +1265,9 @@
    },
    "2026-11-26": {
     "success": 1
+   },
+   "2026-11-27": {
+    "failure": 1
    }
   },
   "Coverage-Guided Fuzzing (atheris)": {
@@ -1699,7 +1699,7 @@
     "skipped": 1
    },
    "2026-11-27": {
-    "skipped": 9
+    "skipped": 10
    }
   },
   "Mutation Testing": {
@@ -1902,9 +1902,6 @@
    }
   },
   "polity red alert": {
-   "2026-10-28": {
-    "success": 1
-   },
    "2026-10-29": {
     "success": 4
    },
@@ -2034,7 +2031,7 @@
     "success": 4
    },
    "2026-11-27": {
-    "skipped": 18,
+    "skipped": 24,
     "success": 2
    }
   },
@@ -2085,17 +2082,17 @@
   },
   "CI Dashboard": {
    "branch": "develop",
-   "conclusion": "failure",
-   "created_at": "2026-11-27T11:26:39Z",
+   "conclusion": "success",
+   "created_at": "2026-11-27T12:21:44Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45990520902"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45997991112"
   },
   "CI Health Watchdog": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-26T18:21:07Z",
+   "conclusion": "failure",
+   "created_at": "2026-11-27T18:05:19Z",
    "event": "schedule",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45875215388"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/46046791349"
   },
   "Coverage-Guided Fuzzing (atheris)": {
    "branch": "develop",
@@ -2142,9 +2139,9 @@
   "Human review attestation": {
    "branch": "develop",
    "conclusion": "skipped",
-   "created_at": "2026-11-27T07:07:11Z",
+   "created_at": "2026-11-27T18:06:19Z",
    "event": "issue_comment",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45956272788"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/46046919547"
   },
   "Mutation Testing": {
    "branch": "develop",
@@ -2183,10 +2180,10 @@
   },
   "polity red alert": {
    "branch": "develop",
-   "conclusion": "success",
-   "created_at": "2026-11-27T12:21:44Z",
+   "conclusion": "skipped",
+   "created_at": "2026-11-27T18:07:53Z",
    "event": "workflow_run",
-   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45997991295"
+   "url": "https://github.com/Burbanit0/Vote-App/actions/runs/46047116898"
   },
   "zizmor online": {
    "branch": "develop",
@@ -2196,7 +2193,7 @@
    "url": "https://github.com/Burbanit0/Vote-App/actions/runs/45435969879"
   }
  },
- "runs": 6994,
+ "runs": 7010,
  "speed": {
   "Backend CI": {
    "daily_p50_s": {
@@ -2228,12 +2225,12 @@
     "2026-11-24": 9,
     "2026-11-25": 9,
     "2026-11-26": 11,
-    "2026-11-27": 276.5
+    "2026-11-27": 16
    },
    "p50_s": 119,
    "p95_s": 586,
    "queue_p50_s": 0,
-   "runs": 286
+   "runs": 287
   },
   "Backend Flaky Test Hunt": {
    "daily_p50_s": {
@@ -2303,12 +2300,12 @@
     "2026-11-24": 17,
     "2026-11-25": 8,
     "2026-11-26": 10,
-    "2026-11-27": 12
+    "2026-11-27": 11.5
    },
    "p50_s": 11,
    "p95_s": 83,
    "queue_p50_s": 0,
-   "runs": 250
+   "runs": 251
   },
   "CI Dashboard": {
    "daily_p50_s": {
@@ -2342,16 +2339,15 @@
     "2026-11-24": 236,
     "2026-11-25": 205.0,
     "2026-11-26": 201,
-    "2026-11-27": 219
+    "2026-11-27": 211.0
    },
-   "p50_s": 280,
+   "p50_s": 279,
    "p95_s": 449,
    "queue_p50_s": 0,
-   "runs": 495
+   "runs": 494
   },
   "CI Health Watchdog": {
    "daily_p50_s": {
-    "2026-10-28": 25,
     "2026-10-29": 25,
     "2026-11-01": 21,
     "2026-11-02": 130.5,
@@ -2378,7 +2374,8 @@
     "2026-11-23": 20.0,
     "2026-11-24": 18.0,
     "2026-11-25": 18.0,
-    "2026-11-26": 21.5
+    "2026-11-26": 21.5,
+    "2026-11-27": 10
    },
    "p50_s": 12,
    "p95_s": 79,
@@ -2474,12 +2471,12 @@
     "2026-11-24": 10,
     "2026-11-25": 8,
     "2026-11-26": 9,
-    "2026-11-27": 12
+    "2026-11-27": 12.0
    },
    "p50_s": 12,
    "p95_s": 88,
    "queue_p50_s": 0,
-   "runs": 231
+   "runs": 232
   },
   "Diff Mutation": {
    "daily_p50_s": {
@@ -2559,12 +2556,12 @@
     "2026-11-24": 9,
     "2026-11-25": 11,
     "2026-11-26": 11,
-    "2026-11-27": 474
+    "2026-11-27": 242.5
    },
    "p50_s": 494,
    "p95_s": 824,
    "queue_p50_s": 0,
-   "runs": 265
+   "runs": 266
   },
   "Frontend CI": {
    "daily_p50_s": {
@@ -2596,12 +2593,12 @@
     "2026-11-24": 10,
     "2026-11-25": 9,
     "2026-11-26": 8,
-    "2026-11-27": 10
+    "2026-11-27": 9.5
    },
    "p50_s": 229,
    "p95_s": 416,
    "queue_p50_s": 0,
-   "runs": 294
+   "runs": 295
   },
   "Generated Artifacts Contract": {
    "daily_p50_s": {
@@ -2633,12 +2630,12 @@
     "2026-11-24": 9,
     "2026-11-25": 9,
     "2026-11-26": 8,
-    "2026-11-27": 91.5
+    "2026-11-27": 66
    },
-   "p50_s": 75,
+   "p50_s": 74,
    "p95_s": 153,
    "queue_p50_s": 0,
-   "runs": 296
+   "runs": 297
   },
   "Human review attestation": {
    "daily_p50_s": {
@@ -2670,12 +2667,12 @@
     "2026-11-24": 20,
     "2026-11-25": 17,
     "2026-11-26": 16,
-    "2026-11-27": 23
+    "2026-11-27": 23.0
    },
    "p50_s": 23,
    "p95_s": 116,
    "queue_p50_s": 0,
-   "runs": 341
+   "runs": 342
   },
   "Mutation Testing": {
    "daily_p50_s": {
@@ -2742,12 +2739,12 @@
     "2026-11-24": 27,
     "2026-11-25": 27,
     "2026-11-26": 25,
-    "2026-11-27": 34
+    "2026-11-27": 31.5
    },
    "p50_s": 67,
    "p95_s": 204,
    "queue_p50_s": 0,
-   "runs": 220
+   "runs": 221
   },
   "Schemathesis Contract Fuzzing": {
    "daily_p50_s": {
@@ -2801,12 +2798,12 @@
     "2026-11-24": 129,
     "2026-11-25": 161,
     "2026-11-26": 155,
-    "2026-11-27": 157.5
+    "2026-11-27": 129
    },
    "p50_s": 167,
    "p95_s": 288,
    "queue_p50_s": 0,
-   "runs": 286
+   "runs": 287
   },
   "Workflow Lint": {
    "daily_p50_s": {
@@ -2838,16 +2835,15 @@
     "2026-11-24": 11,
     "2026-11-25": 9,
     "2026-11-26": 9,
-    "2026-11-27": 22
+    "2026-11-27": 16.5
    },
    "p50_s": 12,
    "p95_s": 93,
    "queue_p50_s": 0,
-   "runs": 313
+   "runs": 314
   },
   "polity red alert": {
    "daily_p50_s": {
-    "2026-10-28": 31,
     "2026-10-29": 30.5,
     "2026-10-30": 29.0,
     "2026-10-31": 22,
@@ -2882,7 +2878,7 @@
    "p50_s": 27,
    "p95_s": 53,
    "queue_p50_s": 0,
-   "runs": 695
+   "runs": 694
   },
   "zizmor online": {
    "daily_p50_s": {
